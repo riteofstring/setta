@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 15:08 EDT
+Last updated: 2026-04-06 15:23 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,66 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `220` moves shared-node size authority up to the canary section model/controller boundary, so the scene runtime no longer owns a second local node-internals fallback merge.
+  - Why this slice was needed:
+    - item `219` proved that shared node internals could seed missing canary geometry, but the seed still lived inside `useSettingsGraphSubstrateCanarySceneRuntime(...)`, which kept the live size authority entangled with canary-local measurement timing
+    - the next real geometry-authority step was to make the section list itself carry shared-node size authority before the runtime resolves scene geometry, while still letting fresh measured DOM size override that seed for non-layout sections
+    - this keeps product work on the active geometry lane instead of reopening the finished shell-ownership lane or doing another harness-only pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - added `resolveSettingsGraphSubstrateCanarySections(...)` so the canary section list resolves `layout` vs `sharedNode` vs `none` size authority before the scene runtime runs
+      - shared node internals now populate section `width` / `height` when persisted `layout.w/h` is absent
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - now composes canary sections from `selectSettingsGraphSubstrateCanaryLayoutSections(...)` plus `useNodeInternals(...)` instead of passing raw layout sections straight through
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+      - layout-backed sections stop observing measured size entirely
+      - shared-node-backed sections keep observing measured size so a fresher live DOM measurement can still override the seed
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - removed the runtime-local shared-node fallback merge; the runtime now consumes the pre-resolved section authority plus measured overrides only
+    - updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - widened `getAuthoritativeTopLevelSectionNodeSize(...)` to accept the narrower width/height shape that the new model resolver passes
+  - What this slice established:
+    - canary sections now enter the scene runtime with explicit size authority instead of relying on a second node-internals subscription inside the runtime
+    - layout-backed sections still ignore measured-size churn entirely
+    - shared-node-backed sections still accept a newer live measurement, but when local measurement disappears the controller can now rehydrate the section from shared node state instead of the runtime owning that carry-forward logic itself
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`3 files`, `22 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionInfos\\.ts|settingsGraphSubstrateCanary(Model|Controller|SectionGeometry|SceneRuntime)(\\.test)?(\\.tsx?|\\.ts)?|settings-view-modes\\.spec\\.ts" || true`
+      - result: not a useful gate here because `sectionInfos.ts` still emits broad pre-existing strict-type failures outside this slice; the one new helper-signature mismatch was fixed before closing the pass
+    - targeted live-runtime Playwright reruns:
+      - first attempt on the original `3076/8076` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-002 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally' --reporter=line --timeout=30000`
+        - result: blocked before the test body by the same headless `ensureAppReady(...)` failure (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+      - allowed worktree recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: worktree restarted cleanly on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log, so `lsof` was used to confirm `3075`
+      - retry on the recovered `3075/8075` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally' --reporter=line --timeout=30000`
+        - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure is still harness-health noise rather than slice-specific behavior
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, used the live frontend URL `http://127.0.0.1:3075/settings` because the fresh bootstrap URL rejected its token, and visually spot-checked `rotaryParamCodeObjDefault`
+      - note: the canary surface mounted and the target section was visibly present and attached on the recovered runtime
+  - Lane status:
+    - this closes one more real geometry-authority seam by moving shared-node size resolution out of the scene runtime and into the canary section boundary
+    - the headless Playwright harness is still unhealthy on this worktree (`ensureAppReady(...)` dies before the test body even after the allowed restart), so do not spend the next iteration on the same recovery pattern alone
+  - Next frontier:
+    - continue the geometry-authority lane at the shared read-side hydration boundary in `frontend/src/state/actions/sectionInfos.ts`, where top-level node hydration still falls back through persisted `layout.w/h`
+    - if that reader seam is not the next slice, choose another remaining raw `layout.w/h` / canary-local measurement timing dependency, not another shell-affordance move
 
 - Ralph item `219` seeds missing canary section geometry from shared node internals before the local measured-size registry arrives, so the live scene can keep authoritative section bounds without waiting on another canary-local DOM measurement cycle.
   - Why this slice was needed:

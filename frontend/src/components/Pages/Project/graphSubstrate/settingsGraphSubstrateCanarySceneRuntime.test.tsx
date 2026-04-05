@@ -125,29 +125,19 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("seeds missing layout geometry from shared node internals until live measured size becomes available", async () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            id: "section-a",
-            position: { x: 120, y: 80 },
-            width: 260,
-            height: 180,
-            zIndex: 2,
-            tempZIndex: 2,
-          },
-        ],
-      ]),
-    });
-
+  it("keeps a shared-node size seed until a fresher measured size arrives", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
           draggingSectionId={null}
           override={null}
-          sections={[createSection()]}
+          sections={[
+            createSection({
+              height: 180,
+              sizeAuthority: "sharedNode",
+              width: 260,
+            }),
+          ]}
         />,
       );
     });
@@ -162,14 +152,14 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         },
         sections: [
           {
-            height: null,
+            height: 180,
             position: { x: 120, y: 80 },
             positionAndSizeLocked: false,
             renderedPosition: { x: 120, y: 80 },
             resolvedSize: { width: 260, height: 180 },
             sectionId: "section-a",
             tempZIndex: 2,
-            width: null,
+            width: 260,
             zIndex: 2,
           },
         ],
@@ -195,14 +185,14 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         },
         sections: [
           {
-            height: null,
+            height: 180,
             position: { x: 120, y: 80 },
             positionAndSizeLocked: false,
             renderedPosition: { x: 120, y: 80 },
             resolvedSize: { width: 420, height: 315 },
             sectionId: "section-a",
             tempZIndex: 2,
-            width: null,
+            width: 260,
             zIndex: 2,
           },
         ],
@@ -443,7 +433,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("keeps the last shared section size when local measurement disappears from a still-mounted canary section", async () => {
+  it("keeps the last shared section size after the controller refreshes the section from shared node state", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -473,6 +463,22 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
       });
     });
 
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 190,
+              sizeAuthority: "sharedNode",
+              width: 280,
+            }),
+          ]}
+        />,
+      );
+    });
+
     act(() => {
       useSectionElementSizeRegistry.getState().reset();
     });
@@ -487,14 +493,14 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         },
         sections: [
           {
-            height: null,
+            height: 190,
             position: { x: 120, y: 80 },
             positionAndSizeLocked: false,
             renderedPosition: { x: 120, y: 80 },
             resolvedSize: { width: 280, height: 190 },
             sectionId: "section-a",
             tempZIndex: 2,
-            width: null,
+            width: 280,
             zIndex: 2,
           },
         ],

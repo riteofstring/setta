@@ -41,6 +41,39 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     ).toBe(false);
   });
 
+  it("keeps observing measured size when a section is seeded from shared node authority", () => {
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
+        width: 240,
+        height: 160,
+        positionAndSizeLocked: false,
+        sizeAuthority: "sharedNode",
+      }),
+    ).toBe(true);
+
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionGeometry(
+        {
+          sectionId: "shared-seeded-section",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+          sizeAuthority: "sharedNode",
+        },
+        {
+          "shared-seeded-section": { width: 360, height: 210 },
+        },
+        null,
+      ),
+    ).toEqual({
+      renderedPosition: { x: 120, y: 80 },
+      resolvedSize: { width: 360, height: 210 },
+    });
+  });
+
   it("keeps layout size authoritative for unlocked sections even when the measured registry disagrees", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(

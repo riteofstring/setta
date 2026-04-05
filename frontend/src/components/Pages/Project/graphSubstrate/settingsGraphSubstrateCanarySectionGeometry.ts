@@ -1,7 +1,10 @@
 import type { SectionElementSize } from "state/definitions";
 import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
 import type { Position } from "utils/generatedTypes";
-import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
+import {
+  getSettingsGraphSubstrateCanarySectionSizeAuthority,
+  type GraphSubstrateCanarySection,
+} from "./settingsGraphSubstrateCanaryModel";
 
 export type SettingsGraphSubstrateCanarySectionPositionOverride = {
   sectionId: string;
@@ -30,10 +33,12 @@ export function resolveSettingsGraphSubstrateCanarySectionGeometry(
 export function shouldObserveSettingsGraphSubstrateCanarySectionElementSize(
   section: Pick<
     GraphSubstrateCanarySection,
-    "height" | "positionAndSizeLocked" | "width"
+    "height" | "positionAndSizeLocked" | "sizeAuthority" | "width"
   >,
 ) {
-  return getLayoutSectionSize(section) === null;
+  return (
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section) !== "layout"
+  );
 }
 
 function getRenderedSectionPosition(
@@ -50,9 +55,12 @@ function getResolvedSectionSize(
   section: GraphSubstrateCanarySection,
   sectionElementSizes: SectionElementSizes,
 ) {
-  const layoutSize = getLayoutSectionSize(section);
-  if (layoutSize) {
-    return layoutSize;
+  const sectionSize = getStoredSectionSize(section);
+  const sizeAuthority =
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
+
+  if (sizeAuthority === "layout") {
+    return sectionSize;
   }
 
   const observedSize = sectionElementSizes[section.sectionId];
@@ -65,10 +73,10 @@ function getResolvedSectionSize(
     return observedSize;
   }
 
-  return getLayoutSectionSize(section);
+  return sectionSize;
 }
 
-function getLayoutSectionSize(
+function getStoredSectionSize(
   section: Pick<GraphSubstrateCanarySection, "width" | "height">,
 ) {
   const width = section.width ?? 0;

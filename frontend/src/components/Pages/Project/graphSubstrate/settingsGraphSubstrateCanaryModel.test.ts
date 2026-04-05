@@ -15,6 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   resolveActiveViewModeName,
+  resolveSettingsGraphSubstrateCanarySections,
   selectSettingsGraphSubstrateCanaryLayoutSections,
   selectSettingsGraphSubstrateCanarySections,
   shouldUseSettingsGraphSubstrateCanary,
@@ -172,6 +173,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-a",
         sectionTypeName: SectionTypeEnum.Code,
         position: { x: 500, y: 200 },
+        sizeAuthority: "layout",
         zIndex: 2,
         styleColor: null,
         tempZIndex: 2,
@@ -186,6 +188,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-b",
         sectionTypeName: SectionTypeEnum.Code,
         position: { x: 120, y: 100 },
+        sizeAuthority: "layout",
         zIndex: 1,
         styleColor: null,
         tempZIndex: 1,
@@ -216,6 +219,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-a",
         sectionTypeName: SectionTypeEnum.Code,
         position: { x: 760, y: 420 },
+        sizeAuthority: "layout",
         zIndex: 8,
         styleColor: null,
         tempZIndex: 8,
@@ -230,6 +234,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-b",
         sectionTypeName: SectionTypeEnum.Code,
         position: { x: 120, y: 100 },
+        sizeAuthority: "layout",
         zIndex: 1,
         styleColor: null,
         tempZIndex: 1,
@@ -237,6 +242,50 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         width: 320,
         height: 240,
         positionAndSizeLocked: true,
+      },
+    ]);
+  });
+
+  it("promotes shared node-internals size into the canary sections when layout size is missing", () => {
+    const sections = resolveSettingsGraphSubstrateCanarySections(
+      [
+        {
+          height: null,
+          position: { x: 120, y: 100 },
+          positionAndSizeLocked: false,
+          sectionId: "section-a",
+          sectionTypeName: SectionTypeEnum.Code,
+          styleColor: null,
+          tempZIndex: 1,
+          textBlockMetaControlStyle: false,
+          width: null,
+          zIndex: 1,
+        },
+      ],
+      new Map([
+        [
+          "section-a",
+          {
+            width: 280,
+            height: 190,
+          },
+        ],
+      ]),
+    );
+
+    expect(sections).toEqual([
+      {
+        height: 190,
+        position: { x: 120, y: 100 },
+        positionAndSizeLocked: false,
+        sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
+        sizeAuthority: "sharedNode",
+        styleColor: null,
+        tempZIndex: 1,
+        textBlockMetaControlStyle: false,
+        width: 280,
+        zIndex: 1,
       },
     ]);
   });

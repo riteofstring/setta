@@ -1335,7 +1335,7 @@ export function createNodesMapFromProjectConfigChildren(
 
 export function getAuthoritativeTopLevelSectionNodeSize(
   layout: { h: number | null; w: number | null },
-  currentNode: Node | undefined,
+  currentNode: Pick<Node, "height" | "width"> | undefined,
 ) {
   if (
     typeof layout.w === "number" &&

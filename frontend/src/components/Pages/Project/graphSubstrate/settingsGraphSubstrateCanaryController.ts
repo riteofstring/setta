@@ -11,11 +11,15 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import {
   useLocalStorage,
   useMisc,
+  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
-import { selectSettingsGraphSubstrateCanarySections } from "./settingsGraphSubstrateCanaryModel";
+import {
+  resolveSettingsGraphSubstrateCanarySections,
+  selectSettingsGraphSubstrateCanaryLayoutSections,
+} from "./settingsGraphSubstrateCanaryModel";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -46,10 +50,13 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     rootRef,
     behavior: "canvas",
   });
-  const sections = useProjectState(
-    selectSettingsGraphSubstrateCanarySections,
+  const layoutSections = useProjectState(
+    selectSettingsGraphSubstrateCanaryLayoutSections,
     _.isEqual,
   );
+  const sections = useNodeInternals((state) => {
+    return resolveSettingsGraphSubstrateCanarySections(layoutSections, state.x);
+  }, _.isEqual);
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {

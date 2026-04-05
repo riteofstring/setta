@@ -1550,9 +1550,9 @@ test("settings graph substrate canary keeps shared node-internals size authorita
     await expect
       .poll(async () => await getCanarySceneSectionSize(page, targetSectionId))
       .toEqual({
-        height: null,
+        height: baselineSectionSize.resolvedSize?.height ?? null,
         resolvedSize: baselineSectionSize.resolvedSize,
-        width: null,
+        width: baselineSectionSize.resolvedSize?.width ?? null,
       });
     await expect
       .poll(async () => JSON.stringify(await getCanarySceneBounds(page)))

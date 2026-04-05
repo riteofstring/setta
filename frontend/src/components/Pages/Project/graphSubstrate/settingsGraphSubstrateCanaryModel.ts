@@ -1,5 +1,7 @@
+import type { Node } from "forks/xyflow/core/types";
 import {
   getActiveViewModeTopLevelSections,
+  getAuthoritativeTopLevelSectionNodeSize,
   getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewModeVisibility,
@@ -26,6 +28,11 @@ export type GraphSubstrateCanaryLayoutSection = {
   styleColor?: string | null;
   textBlockMetaControlStyle?: boolean;
 };
+
+export type SettingsGraphSubstrateCanarySectionSizeAuthority =
+  | "layout"
+  | "sharedNode"
+  | "none";
 
 export function resolveActiveViewModeName(
   projectState: Pick<ZustandProjectState, "projectConfig">,
@@ -108,16 +115,105 @@ export type GraphSubstrateCanarySection = {
   sectionTypeName?: SectionType;
   styleColor?: string | null;
   textBlockMetaControlStyle?: boolean;
+  sizeAuthority?: SettingsGraphSubstrateCanarySectionSizeAuthority;
 };
 
 export function selectSettingsGraphSubstrateCanarySections(
   projectState: ZustandProjectState,
 ): Array<GraphSubstrateCanarySection> {
-  return selectSettingsGraphSubstrateCanaryLayoutSections(projectState).map(
-    (layoutSection) => {
-      return {
-        ...layoutSection,
-      };
+  return resolveSettingsGraphSubstrateCanarySections(
+    selectSettingsGraphSubstrateCanaryLayoutSections(projectState),
+  );
+}
+
+export function resolveSettingsGraphSubstrateCanarySections(
+  layoutSections: Array<GraphSubstrateCanaryLayoutSection>,
+  nodeInternals: ReadonlyMap<
+    string,
+    Pick<Node, "height" | "width"> | undefined
+  > = new Map(),
+): Array<GraphSubstrateCanarySection> {
+  return layoutSections.map((layoutSection) => {
+    const { height, sizeAuthority, width } =
+      resolveSettingsGraphSubstrateCanarySectionSize(
+        layoutSection,
+        nodeInternals.get(layoutSection.sectionId),
+      );
+
+    return {
+      ...layoutSection,
+      height,
+      sizeAuthority,
+      width,
+    };
+  });
+}
+
+export function getSettingsGraphSubstrateCanarySectionSizeAuthority(
+  section: Pick<
+    GraphSubstrateCanarySection,
+    "height" | "sizeAuthority" | "width"
+  >,
+): SettingsGraphSubstrateCanarySectionSizeAuthority {
+  if (section.sizeAuthority) {
+    return section.sizeAuthority;
+  }
+
+  if (hasPositiveSectionSize(section.width, section.height)) {
+    return "layout";
+  }
+
+  return "none";
+}
+
+function resolveSettingsGraphSubstrateCanarySectionSize(
+  layoutSection: Pick<GraphSubstrateCanaryLayoutSection, "height" | "width">,
+  currentNode: Pick<Node, "height" | "width"> | undefined,
+): {
+  height: number | null;
+  sizeAuthority: SettingsGraphSubstrateCanarySectionSizeAuthority;
+  width: number | null;
+} {
+  if (hasPositiveSectionSize(layoutSection.width, layoutSection.height)) {
+    return {
+      height: layoutSection.height,
+      sizeAuthority: "layout",
+      width: layoutSection.width,
+    };
+  }
+
+  const authoritativeSize = getAuthoritativeTopLevelSectionNodeSize(
+    {
+      w: layoutSection.width,
+      h: layoutSection.height,
     },
+    currentNode,
+  );
+  if (
+    hasPositiveSectionSize(authoritativeSize.width, authoritativeSize.height)
+  ) {
+    return {
+      height: authoritativeSize.height,
+      sizeAuthority: "sharedNode",
+      width: authoritativeSize.width,
+    };
+  }
+
+  return {
+    height: null,
+    sizeAuthority: "none",
+    width: null,
+  };
+}
+
+function hasPositiveSectionSize(
+  width: number | null | undefined,
+  height: number | null | undefined,
+) {
+  return (
+    typeof width === "number" &&
+    width > 0 &&
+    typeof height === "number" &&
+    height > 0
   );
 }
