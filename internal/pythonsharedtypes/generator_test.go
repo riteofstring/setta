@@ -13,12 +13,12 @@ import (
 	"setta/internal/sharedtypes"
 )
 
-func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
+func TestBuildModelFieldLineUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	t.Helper()
 
 	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 	field := fieldByNameForTest(t, ownerType, "Name")
-	resolvedField, imports, err := buildModelFieldSpec(
+	renderedLine, imports, err := buildModelFieldLine(
 		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
@@ -26,13 +26,10 @@ func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 		nil,
 	)
 	if err != nil {
-		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
+		t.Fatalf("buildModelFieldLine(...) error = %v", err)
 	}
-	if resolvedField.TypeExpr != "str" {
-		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "str")
-	}
-	if resolvedField.DefaultExpr != "Field(default_factory=generate_memorable_string)" {
-		t.Fatalf("field.DefaultExpr = %q", resolvedField.DefaultExpr)
+	if renderedLine != "    name: str = Field(default_factory=generate_memorable_string)" {
+		t.Fatalf("renderedLine = %q", renderedLine)
 	}
 	importLine := "from setta.utils.generate_memorable_string import generate_memorable_string"
 	if _, ok := imports[importLine]; !ok {
@@ -40,12 +37,12 @@ func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	}
 }
 
-func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
+func TestBuildModelFieldLineUsesExplicitPyTypeOverride(t *testing.T) {
 	t.Helper()
 
 	ownerType := reflect.TypeOf(scriptablechat.SystemChatMessage{})
 	field := fieldByNameForTest(t, ownerType, "ID")
-	resolvedField, imports, err := buildModelFieldSpec(
+	renderedLine, imports, err := buildModelFieldLine(
 		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
@@ -53,10 +50,10 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 		nil,
 	)
 	if err != nil {
-		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
+		t.Fatalf("buildModelFieldLine(...) error = %v", err)
 	}
-	if resolvedField.TypeExpr != "ID" {
-		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "ID")
+	if !strings.Contains(renderedLine, "id: ID") {
+		t.Fatalf("renderedLine = %q, want ID override", renderedLine)
 	}
 	importLine := "from setta.types.id import ID, create_new_id"
 	if _, ok := imports[importLine]; !ok {
@@ -64,12 +61,12 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 	}
 }
 
-func TestBuildModelFieldSpecRewritesSchemaGeneratedTypeAdapterDefaults(t *testing.T) {
+func TestBuildModelFieldLineRewritesSchemaGeneratedTypeAdapterDefaults(t *testing.T) {
 	t.Helper()
 
 	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 	field := fieldByNameForTest(t, ownerType, "CodegenTargets")
-	resolvedField, _, err := buildModelFieldSpec(
+	renderedLine, imports, err := buildModelFieldLine(
 		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
@@ -77,19 +74,25 @@ func TestBuildModelFieldSpecRewritesSchemaGeneratedTypeAdapterDefaults(t *testin
 		defaultSourcesForTest(t),
 	)
 	if err != nil {
-		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
-	}
-	if resolvedField.TypeExpr != "list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" {
-		t.Fatalf("field.TypeExpr = %q", resolvedField.TypeExpr)
+		t.Fatalf("buildModelFieldLine(...) error = %v", err)
 	}
 	if !strings.Contains(
-		resolvedField.DefaultExpr,
+		renderedLine,
+		"codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]",
+	) {
+		t.Fatalf("renderedLine = %q", renderedLine)
+	}
+	if !strings.Contains(
+		renderedLine,
 		`TypeAdapter(list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]).validate_json("`,
 	) {
-		t.Fatalf("field.DefaultExpr = %q", resolvedField.DefaultExpr)
+		t.Fatalf("renderedLine = %q", renderedLine)
 	}
-	if strings.Contains(resolvedField.DefaultExpr, "ProjectCodegenTarget") {
-		t.Fatalf("field.DefaultExpr still references unpatched type: %q", resolvedField.DefaultExpr)
+	if strings.Contains(renderedLine, "ProjectCodegenTarget") {
+		t.Fatalf("renderedLine still references unpatched type: %q", renderedLine)
+	}
+	if _, ok := imports["from pydantic import TypeAdapter"]; !ok {
+		t.Fatalf("expected TypeAdapter import, got %#v", imports)
 	}
 }
 

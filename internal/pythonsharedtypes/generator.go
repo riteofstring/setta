@@ -17,12 +17,6 @@ type GeneratedTypes struct {
 
 const generatedPythonSharedTypesImportPrefix = "from setta.types.generated.go_shared_types import "
 
-type fieldSpec struct {
-	Name        string
-	TypeExpr    string
-	DefaultExpr string
-}
-
 func Build() (GeneratedTypes, error) {
 	sidecar, err := sharedtypes.BuildSemanticSidecar()
 	if err != nil {
@@ -78,59 +72,79 @@ func renderGeneratedTypesModule(
 	return builder.String()
 }
 
-func buildModelFieldSpec(
+func buildModelFieldLine(
 	contractName string,
 	ownerType reflect.Type,
 	field reflect.StructField,
 	currentTypeExpr string,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (fieldSpec, map[string]struct{}, error) {
+) (string, map[string]struct{}, error) {
 	jsonName, err := fieldJSONName(field)
 	if err != nil {
-		return fieldSpec{}, nil, fmt.Errorf(
+		return "", nil, fmt.Errorf(
 			"python shared types: %s.%s: %w",
 			contractName,
 			field.Name,
 			err,
 		)
 	}
-	typeExpr, fieldImports, err := pythonPatchedFieldTypeExpr(
-		field,
-		currentTypeExpr,
-	)
-	if err != nil {
-		return fieldSpec{}, nil, fmt.Errorf(
-			"python shared types: %s.%s: %w",
-			contractName,
-			field.Name,
-			err,
-		)
+	imports := map[string]struct{}{}
+	if importTag := strings.TrimSpace(field.Tag.Get("py_import")); importTag != "" {
+		for _, line := range strings.Split(importTag, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
+				continue
+			}
+			imports[trimmed] = struct{}{}
+		}
 	}
 
-	defaultExpr, defaultImports, err := pythonPatchedFieldDefaultExpr(
-		ownerType,
-		field,
-		typeExpr,
-		defaultSourcesByType,
-	)
-	if err != nil {
-		return fieldSpec{}, nil, fmt.Errorf(
-			"python shared types: %s.%s: %w",
-			contractName,
-			field.Name,
-			err,
-		)
+	typeExpr := strings.TrimSpace(field.Tag.Get("py_type"))
+	if typeExpr == "" {
+		typeExpr = strings.TrimSpace(currentTypeExpr)
+		if typeExpr == "" {
+			return "", nil, fmt.Errorf(
+				"python shared types: %s.%s: missing datamodel type expression",
+				contractName,
+				field.Name,
+			)
+		}
 	}
-	mergeImportSet(fieldImports, defaultImports)
+
+	defaultExpr := ""
+	switch defaultTag := strings.TrimSpace(field.Tag.Get("py_default")); defaultTag {
+	case "":
+		if field.Type.Kind() == reflect.Pointer || strings.HasSuffix(typeExpr, " | None") {
+			defaultExpr = "None"
+		}
+	case "go_value":
+		var defaultImports map[string]struct{}
+		defaultExpr, defaultImports, err = pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
+		if err != nil {
+			return "", nil, fmt.Errorf(
+				"python shared types: %s.%s: %w",
+				contractName,
+				field.Name,
+				err,
+			)
+		}
+		mergeImportSet(imports, defaultImports)
+	case "factory:list":
+		defaultExpr = "Field(default_factory=list)"
+	case "factory:dict":
+		defaultExpr = "Field(default_factory=dict)"
+	default:
+		defaultExpr = defaultTag
+	}
 	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
 		typeExpr += " | None"
 	}
 
-	return fieldSpec{
-		Name:        jsonName,
-		TypeExpr:    typeExpr,
-		DefaultExpr: defaultExpr,
-	}, fieldImports, nil
+	line := "    " + jsonName + ": " + typeExpr
+	if defaultExpr != "" {
+		line += " = " + defaultExpr
+	}
+	return line, imports, nil
 }
 
 func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
@@ -156,56 +170,6 @@ func fieldJSONName(field reflect.StructField) (string, error) {
 		return "", fmt.Errorf("missing json field name")
 	}
 	return name, nil
-}
-
-func pythonPatchedFieldTypeExpr(
-	field reflect.StructField,
-	currentTypeExpr string,
-) (string, map[string]struct{}, error) {
-	imports := map[string]struct{}{}
-	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
-	if importTag != "" {
-		for _, line := range strings.Split(importTag, "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
-				continue
-			}
-			imports[trimmed] = struct{}{}
-		}
-	}
-	override := strings.TrimSpace(field.Tag.Get("py_type"))
-	if override != "" {
-		return override, imports, nil
-	}
-	currentTypeExpr = strings.TrimSpace(currentTypeExpr)
-	if currentTypeExpr == "" {
-		return "", nil, fmt.Errorf("missing datamodel type expression")
-	}
-	return currentTypeExpr, imports, nil
-}
-
-func pythonPatchedFieldDefaultExpr(
-	ownerType reflect.Type,
-	field reflect.StructField,
-	typeExpr string,
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, map[string]struct{}, error) {
-	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
-	switch defaultTag {
-	case "":
-		if field.Type.Kind() == reflect.Pointer || strings.HasSuffix(typeExpr, " | None") {
-			return "None", nil, nil
-		}
-		return "", nil, nil
-	case "go_value":
-		return pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
-	case "factory:list":
-		return "Field(default_factory=list)", nil, nil
-	case "factory:dict":
-		return "Field(default_factory=dict)", nil, nil
-	default:
-		return defaultTag, nil, nil
-	}
 }
 
 func pythonGoValueDefaultExpr(
@@ -301,14 +265,6 @@ func pythonFloatLiteral(value float64, bitSize int) string {
 		return literal
 	}
 	return literal + ".0"
-}
-
-func renderFieldLine(field fieldSpec) string {
-	line := "    " + field.Name + ": " + field.TypeExpr
-	if field.DefaultExpr == "" {
-		return line + "\n"
-	}
-	return line + " = " + field.DefaultExpr + "\n"
 }
 
 func sortedImportNames(imports map[string]struct{}) []string {

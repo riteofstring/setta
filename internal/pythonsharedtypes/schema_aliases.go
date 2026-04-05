@@ -213,7 +213,7 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 			index = end
 			continue
 		}
-		renderedField, fieldImports, err := buildModelFieldSpec(
+		renderedLine, fieldImports, err := buildModelFieldLine(
 			contractName,
 			ownerType,
 			field,
@@ -225,7 +225,6 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 		}
 		mergeImportSet(imports, fieldImports)
 
-		renderedLine := strings.TrimSuffix(renderFieldLine(renderedField), "\n")
 		if strings.Join(lines[index:end], "\n") == renderedLine {
 			index = end
 			continue
