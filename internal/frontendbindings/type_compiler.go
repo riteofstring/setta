@@ -729,6 +729,27 @@ func mergeBaseAndConcreteObjectProperties(
 	return mergedBaseProperties, concreteByType
 }
 
+func (c *typeConverter) mergedConcreteStructProperties(
+	baseType reflect.Type,
+	concreteTypes []reflect.Type,
+	typeExprOverridesByType map[reflect.Type]map[string]string,
+) ([]TypeProperty, map[reflect.Type][]TypeProperty, error) {
+	baseProperties, err := c.structProperties(baseType, nil, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	concreteByType := make(map[reflect.Type][]TypeProperty, len(concreteTypes))
+	for _, concreteType := range concreteTypes {
+		properties, err := c.structProperties(concreteType, typeExprOverridesByType[concreteType], nil, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		concreteByType[concreteType] = properties
+	}
+	mergedBaseProperties, mergedConcreteByType := mergeBaseAndConcreteObjectProperties(baseProperties, concreteTypes, concreteByType)
+	return mergedBaseProperties, mergedConcreteByType, nil
+}
+
 func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 	if tsIdentifierPattern.MatchString(propertyName) {
 		return baseExpr + "." + propertyName

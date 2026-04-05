@@ -31,7 +31,19 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 	if err != nil {
 		return nil, false, err
 	}
-	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
+	memberTypes := make([]reflect.Type, 0, len(members))
+	typeExprOverridesByType := make(map[reflect.Type]map[string]string, len(members))
+	for _, member := range members {
+		memberTypes = append(memberTypes, member.Type)
+		typeExprOverridesByType[member.Type] = map[string]string{
+			family.DiscriminatorField: "typeof " + member.EnumExpr,
+		}
+	}
+	baseProperties, concreteByType, err := converter.mergedConcreteStructProperties(
+		family.BaseType,
+		memberTypes,
+		typeExprOverridesByType,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -77,36 +89,6 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 	return append(declarations,
 		createDeclaration,
 	), true, nil
-}
-
-func discriminatedObjectFamilyDeclarationPropertiesForMembers(
-	converter *typeConverter,
-	family frontendbindingmeta.DiscriminatedObjectFamily,
-	members []discriminatedObjectFamilyMember,
-) ([]TypeProperty, map[reflect.Type][]TypeProperty, error) {
-	coreProperties, err := converter.structProperties(family.BaseType, nil, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	memberTypes := make([]reflect.Type, 0, len(members))
-	concreteByType := make(map[reflect.Type][]TypeProperty, len(members))
-	for _, member := range members {
-		concreteProperties, err := converter.structProperties(
-			member.Type,
-			map[string]string{
-				family.DiscriminatorField: "typeof " + member.EnumExpr,
-			},
-			nil,
-			nil,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		memberTypes = append(memberTypes, member.Type)
-		concreteByType[member.Type] = concreteProperties
-	}
-	baseProperties, concreteByType := mergeBaseAndConcreteObjectProperties(coreProperties, memberTypes, concreteByType)
-	return baseProperties, concreteByType, nil
 }
 
 func discriminatedObjectFamilyTraitDeclarations(
@@ -182,12 +164,7 @@ func discriminatedObjectFamilyMembers(
 	if !ok {
 		return nil, fmt.Errorf("%s does not expose frontend enum values", family.EnumType.String())
 	}
-	enumExprsByValue := make(map[string]string, len(enumValues))
 	enumTypeName := frontendBindingTypeName(family.EnumType)
-	for _, enumValue := range enumValues {
-		enumExprsByValue[enumValue.Value] = enumTypeName + "Enum." + enumValue.Name
-	}
-
 	members := make([]discriminatedObjectFamilyMember, 0, len(enumValues))
 	for _, enumValue := range enumValues {
 		candidate, ok := frontendBindingNamedTypeByPackageAndName(
@@ -216,7 +193,7 @@ func discriminatedObjectFamilyMembers(
 		}
 		members = append(members, discriminatedObjectFamilyMember{
 			Type:     candidate,
-			EnumExpr: enumExprsByValue[enumValue.Value],
+			EnumExpr: enumTypeName + "Enum." + enumValue.Name,
 		})
 	}
 	return members, nil
