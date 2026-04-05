@@ -6,6 +6,7 @@ import React, {
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { SettingsGraphSubstrateCanarySectionBorder } from "./settingsGraphSubstrateCanarySectionBorder";
 import { SettingsGraphSubstrateCanarySectionOutline } from "./settingsGraphSubstrateCanarySectionOutline";
+import { SettingsGraphSubstrateCanarySectionTopDragHandle } from "./settingsGraphSubstrateCanarySectionTopDragHandle";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
   children: ReactNode;
@@ -39,7 +40,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
 
   return (
     <div
-      className="react-flow__node"
+      className="react-flow__node group/canary-section"
       style={{
         cursor: sectionCursor,
         touchAction: "none",
@@ -61,6 +62,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
     >
       <SettingsGraphSubstrateCanarySectionBorder section={section} />
       <SettingsGraphSubstrateCanarySectionOutline section={section} />
+      <SettingsGraphSubstrateCanarySectionTopDragHandle section={section} />
       {children}
     </div>
   );

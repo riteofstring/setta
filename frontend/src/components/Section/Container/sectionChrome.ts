@@ -201,6 +201,22 @@ export function getSectionChromeStaticShellBorderClassName({
     : "border-white dark:border-setta-700";
 }
 
+export function getSectionChromeStaticTopDragHandleClassName({
+  resizeHandleTone,
+  hasSectionStyleTheme,
+}: {
+  resizeHandleTone: SectionChromeResizeHandleTone;
+  hasSectionStyleTheme: boolean;
+}) {
+  if (hasSectionStyleTheme) {
+    return "bg-[color:var(--setta-section-style-border)] opacity-70";
+  }
+
+  return resizeHandleTone === "minimal"
+    ? "bg-setta-300/70 dark:bg-setta-600/70"
+    : "bg-setta-400/80 dark:bg-setta-500/80";
+}
+
 function getSectionChromeScopeHighlightClassName(
   scopeHighlight: SectionChromeScopeHighlight,
 ) {

@@ -61,6 +61,7 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  forceHideTopDragHandle?: boolean;
 };
 
 function _SectionContainerCoreResizable({
@@ -71,6 +72,7 @@ function _SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  forceHideTopDragHandle = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -120,8 +122,12 @@ function _SectionContainerCoreResizable({
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
     >
-      {surfaceDecorations.showTopDragHandle && (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
+      {surfaceDecorations.showTopDragHandle && !forceHideTopDragHandle && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100"
+          data-testid="section-top-drag-handle"
+        >
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
         </div>
       )}

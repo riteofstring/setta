@@ -12,6 +12,7 @@ function _SettingsGraphSubstrateCanaryDomSectionBody({
       isTopLevel={true}
       forceHideOutline={true}
       forceTransparentBorder={true}
+      forceHideTopDragHandle={true}
     />
   );
 }

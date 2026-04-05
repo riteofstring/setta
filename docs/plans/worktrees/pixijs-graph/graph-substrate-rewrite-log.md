@@ -8531,3 +8531,67 @@ LOOP_TERMINAL_MARKER: none
     - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
     - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `218` | 2026-04-06 01:48 EDT
+  - Subtask: move the canary's top drag handle onto `SettingsGraphSubstrateCanarySectionShell` and suppress the duplicate DOM handle in the section body.
+  - Why:
+    - item `217` already moved the visible shell border/frame tone to the shell boundary, and the top drag handle was the next smallest shell-only chrome affordance still owned only by the DOM body
+    - the DOM body already exposed the shared `showTopDragHandle` decision, so a shell-owned handle plus one explicit DOM suppression prop could move ownership without touching the DOM-backed editing/content path
+    - this is still real product work on the shell-ownership lane even though the final visible hover reveal remains a tool-limited gate in the current headless runtime
+  - Canonical target section:
+    - `metaControlSectionDefault` (`Meta Control Style`) for the live top-handle ownership spot-check
+    - keep `rotaryParamCodeObjDefault` as the broader `All Settings` shell-ownership compare target for non-hover graph-surface checks
+  - Production:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx`
+      - renders the shell-owned top drag handle from the shared chrome appearance/surface-decoration contracts
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now renders the shell-owned top drag handle and marks the shell wrapper as `group/canary-section` for hover ownership
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - passes `forceHideTopDragHandle={true}` so the DOM body no longer renders the duplicate handle
+    - updated `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - threads `forceHideTopDragHandle` through the top-level path and the joined terminal-group path
+      - fixes the memo boundary so the new prop is not ignored
+    - updated `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - threads `forceHideTopDragHandle` into the shared core/resizable path and tightens the memo comparator
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - suppresses the DOM top drag handle when `forceHideTopDragHandle` is set while leaving the shared `showTopDragHandle` contract intact
+      - adds stable `data-testid="section-top-drag-handle"` for ownership assertions
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `getSectionChromeStaticTopDragHandleClassName(...)` for renderer-neutral shell-owned handle tone mapping
+  - Tests:
+    - updated `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - added coverage for the static shell-owned top drag handle tone mapping helper
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - now checks the stable DOM handle test id and proves `forceHideTopDragHandle` suppresses the duplicate DOM handle while keeping the shared top-handle contract
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - proves the shell renders the top drag handle while the mocked DOM body receives `forceHideTopDragHandle: true`
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle`
+      - the new spec creates a temporary `MetaControl` section, fits it into view, hovers it, and asserts shell-handle ownership without the duplicate DOM handle
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`3 files`, `26 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SectionContainer(Core|CoreResizabe)?\\.tsx|sectionChrome(\\.test)?\\.ts|settingsGraphSubstrateCanary(SectionShell|SectionTopDragHandle|DomSectionBody|SectionsLayer)(\\.test)?\\.tsx|settings-view-modes\\.spec\\.ts" || true` -> no matches
+  - Runtime verification:
+    - the recovered run-003 worktree session stayed on backend `8075` with debug port `9297`, but `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log; `curl` confirmed the actual live frontend on `3075`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<run-003 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle' --reporter=list --timeout=30000`
+      - result: blocked before the test body by the existing headless `ensureAppReady(...)` timeout (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+    - control live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<run-003 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'filter sections and minimap' --reporter=list --timeout=30000`
+      - result: hit the same `ensureAppReady(...)` timeout on the same recovered runtime, so the failure was not isolated to the new top-handle spec
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - mounted `/settings` on worktree `3075`
+      - targeted `metaControlSectionDefault` (`Meta Control Style`)
+    - CDP visual gate:
+      - result: deferred
+      - the live canary DOM contained `graph-substrate-canary-section-top-drag-handle` and no descendant `section-top-drag-handle` inside that same section
+      - headless `chrome-devtools-mcp` could not hold a true `:hover` state on the target section, so the shell-owned handle stayed hidden (`opacity: 0`) and the visible hover reveal could not be trusted yet
+  - Result:
+    - the canary shell boundary now owns the top drag handle markup and tone contract
+    - the DOM body suppresses the duplicate handle while keeping the rest of the DOM-backed content/editing path unchanged
+    - the hover-reveal visual gate remains deferred to a trustworthy hover-capable verification path
+  - Next:
+    - keep product work on the shell-ownership lane only if the next affordance can be verified without another hover-only proof path, or return to the first scene-owned static layer once dependency approval arrives
+    - do not spend a third pass re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
+LOOP_TERMINAL_MARKER: none

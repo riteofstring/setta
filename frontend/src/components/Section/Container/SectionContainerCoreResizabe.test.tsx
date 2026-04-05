@@ -279,7 +279,30 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-surface-layout="single-cell"');
     expect(markup).toContain('data-resize-handle-tone="minimal"');
     expect(markup).toContain('data-show-top-drag-handle="true"');
-    expect(markup).toContain("cursor-move");
+    expect(markup).toContain('data-testid="section-top-drag-handle"');
+  });
+
+  it("suppresses the DOM top drag handle when the shell owns it", () => {
+    mockEffectiveSectionImpl = {
+      type: SectionTypeEnum.MetaControl,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.MetaControl}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+        forceHideTopDragHandle={true}
+      />,
+    );
+
+    expect(markup).toContain('data-show-top-drag-handle="true"');
+    expect(markup).not.toContain('data-testid="section-top-drag-handle"');
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {

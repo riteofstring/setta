@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getSectionChromeStaticOutlineClassName,
   getSectionChromeStaticShellBorderClassName,
+  getSectionChromeStaticTopDragHandleClassName,
   getSectionChromeSurfaceDomAdapter,
   getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
@@ -198,6 +199,21 @@ describe("sectionChrome", () => {
         hasSectionStyleTheme: true,
       }),
     ).toBe("border-[color:var(--setta-section-style-border)]");
+  });
+
+  it("maps shell-owned top drag handle tones to renderer-neutral classes", () => {
+    expect(
+      getSectionChromeStaticTopDragHandleClassName({
+        resizeHandleTone: "minimal",
+        hasSectionStyleTheme: false,
+      }),
+    ).toBe("bg-setta-300/70 dark:bg-setta-600/70");
+    expect(
+      getSectionChromeStaticTopDragHandleClassName({
+        resizeHandleTone: "default",
+        hasSectionStyleTheme: true,
+      }),
+    ).toBe("bg-[color:var(--setta-section-style-border)] opacity-70");
   });
 
   it("maps surface decorations to the DOM adapter props without re-deriving section state", () => {

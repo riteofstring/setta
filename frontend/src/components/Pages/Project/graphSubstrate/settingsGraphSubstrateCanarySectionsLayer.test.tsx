@@ -14,16 +14,21 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       sectionId,
       forceHideOutline,
       forceTransparentBorder,
+      forceHideTopDragHandle,
     }: {
       sectionId: string;
       isTopLevel: boolean;
       forceHideOutline?: boolean;
       forceTransparentBorder?: boolean;
+      forceHideTopDragHandle?: boolean;
     }) => (
       <div
         data-force-hide-outline={forceHideOutline ? "true" : "false"}
         data-force-transparent-border={
           forceTransparentBorder ? "true" : "false"
+        }
+        data-force-hide-top-drag-handle={
+          forceHideTopDragHandle ? "true" : "false"
         }
         data-testid={`section-content-${sectionId}`}
       >
@@ -229,6 +234,31 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(border?.className).toContain("border-white");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceTransparentBorder: true,
+      sectionId: "section-a",
+    });
+  });
+
+  it("renders the shell-owned top drag handle while suppressing the duplicate DOM handle", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              sectionTypeName: SectionTypeEnum.MetaControl,
+            }),
+          ]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    const topDragHandle = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section-top-drag-handle"]',
+    );
+    expect(topDragHandle?.dataset.resizeHandleTone).toBe("minimal");
+    expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      forceHideTopDragHandle: true,
       sectionId: "section-a",
     });
   });

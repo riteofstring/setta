@@ -161,6 +161,7 @@ test("settings graph substrate canary zoom in control respects the normalized Al
   const initialAllSettingsViewport =
     initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
       ?.viewport ?? null;
+  let createdSectionId: string | null = null;
   const allTab = page.getByRole("button", {
     name: "All Settings",
     exact: true,
@@ -1573,6 +1574,126 @@ test("settings graph substrate canary renders the shell-owned border without a d
       domShellStyle.borderTopColor,
     );
   } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+    await setLocalPaneState(page, initialPaneState);
+  }
+});
+
+test("settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialPaneState = await getLocalPaneState(page);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  let createdSectionId: string | null = null;
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+
+    const created = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "MetaControl",
+      },
+    );
+    if (!created?.sectionId) {
+      throw new Error("Missing sectionId when creating meta-control section.");
+    }
+    createdSectionId = created.sectionId;
+
+    const createdState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, createdState);
+
+    await expect
+      .poll(() => fitGraphViewportToSection(page, createdSectionId))
+      .toBe(true);
+
+    const canarySection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${createdSectionId}"]`,
+    );
+    await expect(canarySection).toBeVisible();
+    await canarySection.hover();
+
+    const shellHandle = canarySection.getByTestId(
+      "graph-substrate-canary-section-top-drag-handle",
+    );
+    await expect(shellHandle).toHaveAttribute(
+      "data-resize-handle-tone",
+      "minimal",
+    );
+    await expect
+      .poll(async () => {
+        return shellHandle.evaluate((node) => {
+          return window.getComputedStyle(node as HTMLElement).opacity;
+        });
+      })
+      .not.toBe("0");
+
+    const shellHandleStyle = await shellHandle.evaluate((node) => {
+      const indicator = node.firstElementChild as HTMLElement | null;
+      const computedStyle = window.getComputedStyle(indicator ?? node);
+      return {
+        backgroundColor: computedStyle.backgroundColor,
+      };
+    });
+    expect(shellHandleStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(shellHandleStyle.backgroundColor).not.toBe("transparent");
+
+    await expect(
+      canarySection.getByTestId("section-top-drag-handle"),
+    ).toHaveCount(0);
+  } finally {
+    if (createdSectionId) {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [createdSectionId],
+      });
+      const stateWithoutCreatedSection = await getLatestProjectState(
+        page,
+        projectConfigId,
+      );
+      await applyProjectStateUpdate(page, stateWithoutCreatedSection);
+    }
     await postBackend(page, "/setViewport", {
       projectConfigId,
       viewport: initialAllSettingsViewport,
