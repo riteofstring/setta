@@ -10384,3 +10384,31 @@ LOOP_TERMINAL_MARKER: none
     - continue the measured-geometry authority cleanup under the runtime/store layer now that the shared scene shape no longer labels local fallback as resolved authority
     - when the live `Settings` route becomes CDP-capturable again, rerun a bounded canary-health visual gate before treating this lane as visually closed
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 13:55 EDT, Ralph item `270`
+  - Summary: moved the canary shared-node seed cache off the shared scene snapshot render fallback path, so seed bootstrap now reads raw sections plus measured size input instead of feeding local `renderSize` back out of `sceneSnapshot`.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-004/worktree-ai.log` -> frontend `3075`, backend `8075`, session `db1c5c`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 44856`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `18 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> the disposable E2E session exercised the canary path and teardown requests, but it never produced a final reporter line and sat on backend MCP keepalives, so it is not trustworthy product evidence for this slice
+    - fresh-context CDP sub-agent -> bootstrap worked and `/settings` mounted, but the bounded wait never cleared the loading spinner; the last confirmed snapshot still showed only `RootWebArea "Settings"`, `main`, and a single `link url="http://127.0.0.1:3075/home"`, so the live visual gate is `deferred_visual_gate`
+  - Result:
+    - the shared-node seed cache no longer depends on reading local measured render fallback back out of the shared scene snapshot, which removes another authority loop from the runtime/store layer
+    - the live worktree DevTools path is reachable, but the current `Settings` route still does not settle into a trustable canary surface in the bounded CDP check
+    - the code slice is complete and safe to commit, but the visual gate remains deferred rather than passed
+  - Next:
+    - continue the runtime/store authority cleanup by auditing the remaining global consumers of shared `sceneSnapshot.sections` render fallback, starting with the canary/minimap store reader path
+    - rerun a bounded canary-health CDP check once the live `Settings` route settles beyond the loading spinner so this lane can pick up a trustable post-mount visual state
+  - LOOP_TERMINAL_MARKER: none

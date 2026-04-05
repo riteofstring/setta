@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 13:34 EDT
+Last updated: 2026-04-07 13:55 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `270` moved the canary shared-node seed cache off the shared scene snapshot render fallback path, so seed bootstrap now reads raw sections plus the current measured-size map instead of feeding local `renderSize` back out of `sceneSnapshot`.
+
+  - Why this pass completed:
+    - item `269` removed the authority-sounding `resolvedSize` name, but the runtime/store loop still derived `sectionSeedNodes` by reading `renderSize` back out of the shared scene snapshot
+    - that meant local measured fallback still had a global feedback path into the next controller pass, even though the shared scene shape no longer labeled it authoritative
+    - the smallest real product seam was the seed-cache resolver plus the runtime/store update path; this pass stayed there and did not widen into a new parity lane or another pure seam-lift hop
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts) so the canary seed resolver now derives shared-node bootstrap size from raw section authority plus `useSectionElementSizes(...)` input instead of reading `renderSize` back out of `sceneSnapshot`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts) and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts) so the runtime computes the next seed cache explicitly before publishing the snapshot/store update
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts) and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx) to lock both the pure seed-cache path and the runtime integration path where shared-node bootstrap still uses measured local size without promoting it into node internals
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-004/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `db1c5c`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 44856`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `18 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: the disposable E2E session exercised the canary path and cleanup requests, but the harness never produced a final reporter line and sat on backend MCP keepalives, so this run is not trustworthy product evidence for the slice
+    - CDP visual gate:
+      - fresh-context CDP sub-agent bootstrapped the live worktree successfully and reached `http://127.0.0.1:3075/settings`
+      - the route mounted, but the spinner never cleared within the bounded wait; the last confirmed snapshot still showed only `RootWebArea "Settings"`, `main`, and a single `link url="http://127.0.0.1:3075/home"`
+      - final classification: `deferred_visual_gate`
+  - Lane status:
+    - the shared-node seed cache no longer depends on reading local render fallback back out of the shared scene snapshot, which closes another measured-geometry authority loop under the runtime/store layer
+    - the live worktree DevTools path is reachable, but the current `Settings` route still does not settle into a trustable canary surface in the bounded CDP check, so the visual gate remains deferred rather than passed
+  - Next frontier:
+    - continue the runtime/store authority cleanup by auditing the remaining global consumers of shared `sceneSnapshot.sections` render fallback, starting with the canary/minimap store reader path rather than opening a new parity lane
+    - rerun a bounded canary-health CDP check once the live `Settings` route settles beyond the loading spinner so this lane can pick up a trustable post-mount visual state
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `269` renamed the shared scene-snapshot size field from mixed `resolvedSize` semantics to explicit render-only `renderSize`, so local measured fallback is no longer framed as authoritative geometry inside the shared canary scene shape.
 

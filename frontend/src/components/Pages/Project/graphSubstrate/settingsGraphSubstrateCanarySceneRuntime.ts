@@ -11,8 +11,10 @@ import {
 import {
   resetSettingsGraphSubstrateCanarySceneSnapshot,
   updateSettingsGraphSubstrateCanarySceneSnapshot,
+  useSettingsGraphSubstrateCanarySceneStore,
 } from "./settingsGraphSubstrateCanarySceneStore";
 import { shouldObserveSettingsGraphSubstrateCanarySectionElementSize } from "./settingsGraphSubstrateCanarySectionGeometry";
+import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 type SettingsGraphSubstrateCanarySceneRuntimeArgs = {
   draggingSectionId: string | null;
@@ -51,8 +53,19 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   ]);
 
   useLayoutEffect(() => {
-    updateSettingsGraphSubstrateCanarySceneSnapshot(sceneSnapshot);
-  }, [sceneSnapshot]);
+    const currentSectionSeedNodes =
+      useSettingsGraphSubstrateCanarySceneStore.getState().sectionSeedNodes;
+    const nextSectionSeedNodes =
+      resolveSettingsGraphSubstrateCanarySectionSeedNodes(
+        currentSectionSeedNodes,
+        sections,
+        measuredSectionElementSizes,
+      );
+    updateSettingsGraphSubstrateCanarySceneSnapshot(
+      sceneSnapshot,
+      nextSectionSeedNodes,
+    );
+  }, [measuredSectionElementSizes, sceneSnapshot, sections]);
 
   useEffect(() => {
     const currentNodeInternals = useNodeInternals.getState().x;

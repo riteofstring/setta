@@ -4,10 +4,7 @@ import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
-import {
-  resolveSettingsGraphSubstrateCanarySectionSeedNodes,
-  type SettingsGraphSubstrateCanarySectionSeedNodes,
-} from "./settingsGraphSubstrateCanarySectionSeedNodes";
+import { type SettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 type ZustandSettingsGraphSubstrateCanarySceneStore = {
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
@@ -25,13 +22,11 @@ export const useSettingsGraphSubstrateCanarySceneStore = withProjectState(
 
 export function updateSettingsGraphSubstrateCanarySceneSnapshot(
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot,
+  sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
 ) {
-  useSettingsGraphSubstrateCanarySceneStore.setState((state) => ({
+  useSettingsGraphSubstrateCanarySceneStore.setState(() => ({
     sceneSnapshot,
-    sectionSeedNodes: resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-      state.sectionSeedNodes,
-      sceneSnapshot,
-    ),
+    sectionSeedNodes,
   }));
 }
 

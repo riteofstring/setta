@@ -1,4 +1,9 @@
-import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type { Node } from "forks/xyflow/core/types";
+import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
+import {
+  getSettingsGraphSubstrateCanarySectionSizeAuthority,
+  type GraphSubstrateCanarySection,
+} from "./settingsGraphSubstrateCanaryModel";
 
 export type SettingsGraphSubstrateCanarySectionSeedNode = Pick<
   Node,
@@ -12,15 +17,24 @@ export type SettingsGraphSubstrateCanarySectionSeedNodes = ReadonlyMap<
 
 export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
   seedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
-  sceneSnapshot: Pick<SettingsGraphSubstrateCanarySceneSnapshot, "sections">,
+  sections: Array<
+    Pick<
+      GraphSubstrateCanarySection,
+      "height" | "sectionId" | "sizeAuthority" | "width"
+    >
+  >,
+  measuredSectionElementSizes: SectionElementSizes,
 ): SettingsGraphSubstrateCanarySectionSeedNodes {
   let nextSeedNodes: Map<
     string,
     SettingsGraphSubstrateCanarySectionSeedNode | undefined
   > | null = null;
 
-  for (const section of sceneSnapshot.sections) {
-    if (section.sizeAuthority !== "sharedNode") {
+  for (const section of sections) {
+    if (
+      getSettingsGraphSubstrateCanarySectionSizeAuthority(section) !==
+      "sharedNode"
+    ) {
       if (!seedNodes.has(section.sectionId)) {
         continue;
       }
@@ -32,7 +46,10 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       continue;
     }
 
-    const localSeed = getSharedNodeLocalSeed(section);
+    const localSeed = getSharedNodeLocalSeed(
+      section,
+      measuredSectionElementSizes,
+    );
     if (!localSeed) {
       continue;
     }
@@ -56,7 +73,8 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
 }
 
 function getSharedNodeLocalSeed(
-  section: SettingsGraphSubstrateCanarySceneSnapshot["sections"][number],
+  section: Pick<GraphSubstrateCanarySection, "height" | "sectionId" | "width">,
+  measuredSectionElementSizes: SectionElementSizes,
 ): SettingsGraphSubstrateCanarySectionSeedNode | null {
   const sectionWidth = section.width ?? null;
   const sectionHeight = section.height ?? null;
@@ -68,8 +86,9 @@ function getSharedNodeLocalSeed(
     };
   }
 
-  const renderWidth = section.renderSize?.width ?? null;
-  const renderHeight = section.renderSize?.height ?? null;
+  const measuredSectionSize = measuredSectionElementSizes[section.sectionId];
+  const renderWidth = measuredSectionSize?.width ?? null;
+  const renderHeight = measuredSectionSize?.height ?? null;
   if (hasPositiveSeedSize(renderWidth, renderHeight)) {
     return {
       width: renderWidth,

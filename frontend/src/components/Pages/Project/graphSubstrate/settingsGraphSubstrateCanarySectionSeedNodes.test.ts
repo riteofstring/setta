@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
-  it("keeps existing shared-node width and height authoritative over local resolved-size fallback", () => {
+  it("keeps existing shared-node width and height authoritative over local measured-size fallback", () => {
     const seedNodes = new Map<
       string,
       | {
@@ -24,23 +24,8 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
 
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       seedNodes,
-      {
-        sections: [
-          {
-            sectionId: "section-a",
-            position: { x: 120, y: 80 },
-            renderedPosition: { x: 120, y: 80 },
-            width: 260,
-            height: 180,
-            renderSize: { width: 420, height: 315 },
-            sceneBoundsSize: { width: 260, height: 180 },
-            sizeAuthority: "sharedNode",
-            zIndex: 2,
-            tempZIndex: 2,
-            positionAndSizeLocked: false,
-          },
-        ],
-      },
+      [createSection({ height: 180, sizeAuthority: "sharedNode", width: 260 })],
+      { "section-a": { width: 420, height: 315 } },
     );
 
     expect(nextSeedNodes).toBe(seedNodes);
@@ -51,26 +36,11 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     });
   });
 
-  it("uses the local resolved size to bootstrap a shared-node seed only while width and height are still unresolved", () => {
+  it("uses the local measured size to bootstrap a shared-node seed only while width and height are still unresolved", () => {
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       new Map(),
-      {
-        sections: [
-          {
-            sectionId: "section-a",
-            position: { x: 120, y: 80 },
-            renderedPosition: { x: 120, y: 80 },
-            width: null,
-            height: null,
-            renderSize: { width: 420, height: 315 },
-            sceneBoundsSize: null,
-            sizeAuthority: "sharedNode",
-            zIndex: 2,
-            tempZIndex: 2,
-            positionAndSizeLocked: false,
-          },
-        ],
-      },
+      [createSection({ sizeAuthority: "sharedNode" })],
+      { "section-a": { width: 420, height: 315 } },
     );
 
     expect(nextSeedNodes.get("section-a")).toEqual({
@@ -102,23 +72,8 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
 
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       seedNodes,
-      {
-        sections: [
-          {
-            sectionId: "section-a",
-            position: { x: 120, y: 80 },
-            renderedPosition: { x: 120, y: 80 },
-            width: 550,
-            height: 78,
-            renderSize: { width: 550, height: 78 },
-            sceneBoundsSize: { width: 550, height: 78 },
-            sizeAuthority: "layout",
-            zIndex: 2,
-            tempZIndex: 2,
-            positionAndSizeLocked: false,
-          },
-        ],
-      },
+      [createSection({ height: 78, sizeAuthority: "layout", width: 550 })],
+      {},
     );
 
     expect(nextSeedNodes).not.toBe(seedNodes);
@@ -155,23 +110,14 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
 
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       seedNodes,
-      {
-        sections: [
-          {
-            sectionId: "section-a",
-            position: { x: 120, y: 80 },
-            renderedPosition: { x: 120, y: 80 },
-            width: 550,
-            height: 78,
-            renderSize: { width: 550, height: 78 },
-            sceneBoundsSize: { width: 550, height: 78 },
-            sizeAuthority: "sectionModel",
-            zIndex: 2,
-            tempZIndex: 2,
-            positionAndSizeLocked: false,
-          },
-        ],
-      },
+      [
+        createSection({
+          height: 78,
+          sizeAuthority: "sectionModel",
+          width: 550,
+        }),
+      ],
+      {},
     );
 
     expect(nextSeedNodes).not.toBe(seedNodes);
@@ -183,3 +129,18 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     });
   });
 });
+
+function createSection(
+  overrides: {
+    height?: number | null;
+    sizeAuthority?: "layout" | "none" | "sectionModel" | "sharedNode";
+    width?: number | null;
+  } = {},
+) {
+  return {
+    sectionId: "section-a",
+    width: null,
+    height: null,
+    ...overrides,
+  };
+}
