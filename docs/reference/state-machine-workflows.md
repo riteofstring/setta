@@ -222,12 +222,11 @@ Workflow editing is structural and remains IDE-only:
 
 - edge CRUD routes deny deployment-mode structural writes
 - control-node settings use the layout share-policy guard
-- start/stop/reset runtime-control routes remain IDE-only
 
-Deployment runtime reads remain share-session aware:
+Runtime control is share-session aware:
 
 - workflow runs in deployment mode are scoped by `shareSessionId`
-- `getStateMachineRun` only returns runs belonging to the current share session
+- start/stop/reset/get only see runs belonging to the current share session
 
 ## Related docs
 
