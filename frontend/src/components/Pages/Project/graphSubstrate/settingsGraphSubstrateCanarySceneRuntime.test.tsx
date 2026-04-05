@@ -27,17 +27,27 @@ function SceneRuntimeProbe({
   sections: Array<GraphSubstrateCanarySection>;
 }) {
   const renderCountRef = useRef(0);
+  const sceneSnapshotReferenceCountRef = useRef(0);
+  const previousSceneSnapshotRef =
+    useRef<SettingsGraphSubstrateCanarySceneSnapshot | null>(null);
   renderCountRef.current += 1;
   const sceneSnapshot = useSettingsGraphSubstrateCanarySceneRuntime({
     draggingSectionId,
     sectionPositionOverride: override,
     sections,
   });
+  if (previousSceneSnapshotRef.current !== sceneSnapshot) {
+    sceneSnapshotReferenceCountRef.current += 1;
+    previousSceneSnapshotRef.current = sceneSnapshot;
+  }
 
   return (
     <div
       data-testid="scene-runtime-probe"
       data-render-count={String(renderCountRef.current)}
+      data-scene-reference-count={String(
+        sceneSnapshotReferenceCountRef.current,
+      )}
       data-scene={JSON.stringify(serializeSceneSnapshot(sceneSnapshot))}
     />
   );
@@ -740,6 +750,62 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("reuses the shared scene snapshot and skips no-op sync fan-out for semantically identical rerenders", async () => {
+    const sceneStoreSetStateSpy = vi.spyOn(
+      useSettingsGraphSubstrateCanarySceneStore,
+      "setState",
+    );
+    const nodeInternalsSetStateSpy = vi.spyOn(useNodeInternals, "setState");
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshotReferenceCount(host)).toBe(1);
+      expect(sceneStoreSetStateSpy).toHaveBeenCalledTimes(1);
+      expect(nodeInternalsSetStateSpy).toHaveBeenCalledTimes(1);
+    });
+
+    const initialSceneSnapshot =
+      useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot;
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+    await act(async () => {});
+
+    expect(readSceneRenderCount(host)).toBe(2);
+    expect(readSceneSnapshotReferenceCount(host)).toBe(1);
+    expect(
+      useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
+    ).toBe(initialSceneSnapshot);
+    expect(sceneStoreSetStateSpy).toHaveBeenCalledTimes(1);
+    expect(nodeInternalsSetStateSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps unresolved measured size local across controller refreshes", async () => {
     await act(async () => {
       root.render(
@@ -1127,4 +1193,20 @@ function readSceneRenderCount(hostElement: HTMLDivElement) {
   }
 
   return Number(renderCount);
+}
+
+function readSceneSnapshotReferenceCount(hostElement: HTMLDivElement) {
+  const probe = hostElement.querySelector(
+    '[data-testid="scene-runtime-probe"]',
+  );
+  if (!(probe instanceof HTMLDivElement)) {
+    throw new Error("Expected scene runtime probe.");
+  }
+
+  const sceneReferenceCount = probe.getAttribute("data-scene-reference-count");
+  if (!sceneReferenceCount) {
+    throw new Error("Expected scene snapshot reference count attribute.");
+  }
+
+  return Number(sceneReferenceCount);
 }

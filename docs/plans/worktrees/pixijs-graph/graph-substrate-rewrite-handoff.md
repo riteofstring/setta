@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 17:01 EDT
+Last updated: 2026-04-07 17:22 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -61,6 +61,10 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
+- Current live verification blocker:
+  - item `281` landed the next sync-fan-out reduction slice in code, but the fresh live worktree runtime is currently `worktree_unhealthy`
+  - after one bounded `aireset` recovery, direct live Playwright on `http://127.0.0.1:3075/settings` timed out waiting for `[data-testid="graph-substrate-canary"]`, and two fresh-context CDP checks could not confirm a populated `rotaryParamCodeObjDefault` body
+  - do not continue default product slices until the live `All Settings` canary mounts again on the restarted worktree runtime
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -75,32 +79,36 @@ This section overrides older "next frontier" notes below when choosing the next 
   - targeted fit-view snapshot on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `4`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
   - after normalized blank-pane pan on the same target: mounted section bodies `1`
   - after one toolbar zoom-in on the same target: mounted section bodies `1` at zoom `1.428099173553719`
+- New sync-fan-out evidence from item `281` in the seeded probe:
+  - auto-fit snapshot: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `0.1`
+  - targeted fit-view snapshot on `rotaryParamCodeObjDefault`: mounted section bodies `1`, scene syncs `2`
+  - after normalized blank-pane pan on the same target: mounted section bodies `1`, scene syncs `2`
+  - after one toolbar zoom-in on the same target: mounted section bodies `1`, scene syncs `2`
 - Working hypothesis:
   - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
   - the normalized baseline no longer points at seed-fallback churn on the visible canary path
   - the combined viewport-visible plus screen-space mount gate proves the canary can eliminate wide-view DOM body ownership without blanking the focused section body or reopening the motion lane
   - the normalized motion lane on `rotaryParamCodeObjDefault` is now clean enough to treat as regression coverage rather than as an open blocker
-  - the next real product slice should target whole-scene sync / full drawable redraw cost before reopening more body-gate tuning by default
+  - item `281` confirms semantically identical rerenders were still paying extra scene-sync fan-out in the seeded probe
+  - the immediate next iteration should resolve why the fresh live worktree no longer mounts the canary before trusting additional product measurements from that runtime
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- reduce whole-scene scene/pixi sync work without regressing the now-clean zero-body auto-fit lane or the focused `rotaryParamCodeObjDefault` motion lane
+- recover or narrow the restarted live worktree runtime until the `All Settings` canary mounts again on `http://127.0.0.1:3075/settings`, then rerun the existing canonical `rotaryParamCodeObjDefault` verification lane
 
 Recommended product target:
 
-- keep Pixi shells/chrome visible across the whole `All Settings` canary
-- use the zero-body wide auto-fit lane from item `280` as the new baseline, not as an experiment to rerun from scratch
-- keep the focused `rotaryParamCodeObjDefault` body lane and the existing motion assertions as regression coverage
-- choose one production slice that narrows whole-scene sync fan-out or full Pixi redraw invalidation on the same canary path
+- first classify the live runtime as a real renderer regression versus a post-`aireset` session/bootstrap health issue
+- reuse the same canonical target and existing normalized probe; do not open a new section-specific lane
+- once the live canary is healthy again, keep item `281` as the landed sync-fan-out slice and only then continue with the next redraw-invalidations frontier
 
 Recommended deliverables for the next iteration:
 
-- one production slice that reduces unnecessary scene sync or drawable redraw work on `All Settings`
-- focused automated coverage or instrumentation evidence for the chosen sync/redraw path
-- keep the targeted Playwright probe on the same canonical target as regression coverage instead of opening a brand-new oracle lane
-- one bounded CDP visual check on the live worktree after the lane action
+- one explicit health classification for the fresh worktree runtime (`worktree_unhealthy` versus recovered)
+- one successful rerun of the existing live canonical probe, or a narrowed diagnosis of why `graph-substrate-canary` never mounts after `aireset`
+- one bounded CDP follow-up only after the live canary is mounted again
 
 Recommended canonical target:
 
@@ -114,10 +122,53 @@ Do not use the next iteration for:
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless a live regression now contradicts item `280`
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
 - another shell-only visual contract slice
-- another standalone lifecycle recovery pass unless the runtime is actually unhealthy
+- another sync/redraw product slice before the restarted live runtime is healthy again
 - another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
 
 ## Current status
+
+- Ralph item `281` stabilized the canary scene snapshot and skipped no-op scene-store writes for semantically identical rerenders, which dropped the seeded normalized `All Settings` lane from `4` scene syncs to `2` without changing mounted bodies or Pixi drawable counts.
+
+  - Why this pass completed:
+    - item `280` explicitly handed the next pass to whole-scene sync / redraw reduction instead of another body-gate lane
+    - the chosen seam was a production invalidation reduction in the canary scene runtime, not another oracle-only or forwarding-layer pass
+    - the seeded normalized probe showed the intended payoff on the same canonical lane: scene syncs fell from `4` to `2` while the wide auto-fit lane stayed at `0` mounted bodies and the focused `rotaryParamCodeObjDefault` lane stayed at `1`
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass measured the whole normalized `All Settings` canary plus the focused target on the same lane; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts) with semantic scene-snapshot equality so the runtime can reuse the last stable snapshot when controller rerenders do not change world geometry
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts) with semantic seed-cache equality for no-op store writes
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts) so the canary reuses semantically identical scene snapshots and skips scene-store syncs when both snapshot and seed cache are unchanged
+    - expanded [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx) to prove semantically identical rerenders keep the same scene snapshot reference and do not fan out another store/node sync
+    - recorded the append-only report in [`perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-stable-scene-snapshot-noop-syncs.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-stable-scene-snapshot-noop-syncs.md)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`1 file`, `15 tests`)
+    - targeted seeded Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"`
+      - result: passed (`1 passed`, `32.3s`)
+      - captured snapshots:
+        - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+        - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+        - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+        - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - live gate follow-up:
+      - fresh-context CDP sub-agents both read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - pre-restart CDP found active `All Settings` and the mounted canary surface, but could not conclusively verify a populated `rotaryParamCodeObjDefault` body
+      - direct live Playwright against `http://127.0.0.1:3075/settings` first failed with stale bootstrap token `401`
+      - one bounded recovery was attempted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - after recovery, refreshed runtime info minted a fresh token, but the rerun still failed because `[data-testid="graph-substrate-canary"]` never became visible on the restarted live worktree runtime
+      - final classification for this iteration: `worktree_unhealthy`
+  - Lane status:
+    - the code slice is landed and the seeded probe shows the intended scene-sync reduction on the existing canonical lane
+    - live worktree verification is currently blocked on canary health after the bounded restart, so do not treat the restarted runtime as a trustworthy visual oracle yet
+    - the next iteration should recover or narrow the live `All Settings` canary mount failure before continuing with more redraw-invalidation work
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `280` tightened the canary body-mount rule so inactive sections now need useful visible screen-space, which dropped normalized `All Settings` auto-fit DOM bodies from `42` to `0` while keeping the focused `rotaryParamCodeObjDefault` lane at `1` mounted body through pan and zoom.
 

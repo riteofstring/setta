@@ -10708,3 +10708,39 @@ LOOP_TERMINAL_MARKER: none
     - land one bounded production slice that reduces unnecessary whole-scene sync or full drawable redraw work on the `All Settings` canary without regressing the zero-body wide lane or the focused `rotaryParamCodeObjDefault` lane
     - keep the current normalized Playwright probe on `rotaryParamCodeObjDefault` as regression coverage instead of reopening a new motion-only or body-viability lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 17:22 EDT, Ralph item `281`
+  - Summary: stabilized the canary scene snapshot and skipped no-op scene-store writes for semantically identical rerenders, which dropped the seeded normalized `All Settings` lane from `4` scene syncs to `2`, but the fresh live worktree runtime became `worktree_unhealthy` after the bounded `aireset` recovery because `graph-substrate-canary` no longer mounted there.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-stable-scene-snapshot-noop-syncs.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass kept the same normalized `All Settings` lane and did not open a new section-specific parity lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`1 file`, `15 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"` -> passed (`1 passed`, `32.3s`)
+    - Seeded Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - fresh-context CDP sub-agent 1 -> read `docs/guides/browser-mcp-quickstart.md`, loaded the live worktree via bootstrap, confirmed active `All Settings`, and saw the mounted canary shell/list state but could not conclusively isolate a populated `rotaryParamCodeObjDefault` body
+    - fresh-context CDP sub-agent 2 -> read `docs/guides/browser-mcp-quickstart.md`, confirmed active `All Settings` plus mounted canary surface, but still reported the `rotaryParamCodeObjDefault` body/text as visually blank after normalization and one toolbar zoom-in
+    - direct live Playwright against `http://127.0.0.1:3075/settings` first failed because the original bootstrap token had expired with `401`
+    - bounded self-recovery attempted: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime info after recovery minted a fresh bootstrap token, but the rerun still failed: `graph-substrate-canary` never became visible on the restarted live worktree runtime and the direct probe timed out on `[data-testid="graph-substrate-canary"]`
+  - Result:
+    - the product slice is landed in code and the seeded canary evidence shows the intended sync-fan-out reduction on the canonical lane
+    - the live worktree runtime is not currently a trustworthy visual oracle after `aireset`, because the canary either renders blank at the body level or never mounts at all on the restarted session
+    - this iteration therefore ends in `worktree_unhealthy` rather than another product slice
+  - Next:
+    - recover or narrow why the restarted live worktree no longer mounts `graph-substrate-canary` on `All Settings`
+    - rerun the existing live canonical probe on `rotaryParamCodeObjDefault` before continuing with more redraw-invalidation work
+  - LOOP_TERMINAL_MARKER: none

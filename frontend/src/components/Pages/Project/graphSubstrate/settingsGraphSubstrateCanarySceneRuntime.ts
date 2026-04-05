@@ -5,6 +5,7 @@ import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./set
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
+  areSettingsGraphSubstrateCanarySceneSnapshotsEqual,
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
@@ -15,6 +16,7 @@ import {
   useSettingsGraphSubstrateCanarySceneStore,
 } from "./settingsGraphSubstrateCanarySceneStore";
 import {
+  areSettingsGraphSubstrateCanarySectionSeedNodesEqual,
   resolveSettingsGraphSubstrateCanarySectionSeedNodes,
   shouldObserveSettingsGraphSubstrateCanarySectionSeedSize,
 } from "./settingsGraphSubstrateCanarySectionSeedNodes";
@@ -31,6 +33,8 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   sections,
 }: SettingsGraphSubstrateCanarySceneRuntimeArgs): SettingsGraphSubstrateCanarySceneSnapshot {
   const sceneSyncCountRef = useRef(0);
+  const stableSceneSnapshotRef =
+    useRef<SettingsGraphSubstrateCanarySceneSnapshot | null>(null);
   const measuredSectionIds = useMemo(
     () =>
       sections
@@ -43,27 +47,47 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   const measuredSectionElementSizes =
     useSectionElementSizes(measuredSectionIds);
   const sceneSnapshot = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySceneSnapshot(
+    const nextSceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       sections,
       sectionPositionOverride,
       draggingSectionId,
     );
+    const currentSceneSnapshot = stableSceneSnapshotRef.current;
+    if (
+      currentSceneSnapshot &&
+      areSettingsGraphSubstrateCanarySceneSnapshotsEqual(
+        currentSceneSnapshot,
+        nextSceneSnapshot,
+      )
+    ) {
+      return currentSceneSnapshot;
+    }
+    return nextSceneSnapshot;
   }, [draggingSectionId, sectionPositionOverride, sections]);
+  stableSceneSnapshotRef.current = sceneSnapshot;
 
   useLayoutEffect(() => {
-    const currentSectionSeedNodes =
-      useSettingsGraphSubstrateCanarySceneStore.getState().sectionSeedNodes;
+    const currentSceneState =
+      useSettingsGraphSubstrateCanarySceneStore.getState();
     const nextSectionSeedNodes =
       resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-        currentSectionSeedNodes,
+        currentSceneState.sectionSeedNodes,
         sections,
         measuredSectionElementSizes,
       );
-    updateSettingsGraphSubstrateCanarySceneSnapshot(
-      sceneSnapshot,
-      nextSectionSeedNodes,
-    );
-    sceneSyncCountRef.current += 1;
+    if (
+      currentSceneState.sceneSnapshot !== sceneSnapshot ||
+      !areSettingsGraphSubstrateCanarySectionSeedNodesEqual(
+        currentSceneState.sectionSeedNodes,
+        nextSectionSeedNodes,
+      )
+    ) {
+      updateSettingsGraphSubstrateCanarySceneSnapshot(
+        sceneSnapshot,
+        nextSectionSeedNodes,
+      );
+      sceneSyncCountRef.current += 1;
+    }
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
       mountedSceneSectionCount: sceneSnapshot.sections.length,
       sceneSyncCount: sceneSyncCountRef.current,

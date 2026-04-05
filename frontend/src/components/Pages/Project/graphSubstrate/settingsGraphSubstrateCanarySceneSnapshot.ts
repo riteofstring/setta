@@ -57,6 +57,35 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   };
 }
 
+export function areSettingsGraphSubstrateCanarySceneSnapshotsEqual(
+  left: SettingsGraphSubstrateCanarySceneSnapshot,
+  right: SettingsGraphSubstrateCanarySceneSnapshot,
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (
+    !areGraphRectsEqual(left.sceneBounds, right.sceneBounds) ||
+    left.sections.length !== right.sections.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < left.sections.length; index += 1) {
+    const leftSection = left.sections[index];
+    const rightSection = right.sections[index];
+    if (!leftSection || !rightSection) {
+      return false;
+    }
+    if (!areSceneSectionsEqual(leftSection, rightSection)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function getRenderedSectionTempZIndex(
   section: GraphSubstrateCanarySection,
   draggingSectionId: string | null,
@@ -103,4 +132,62 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
     width: maxX - minX,
     height: maxY - minY,
   };
+}
+
+function areSceneSectionsEqual(
+  left: SettingsGraphSubstrateCanarySceneSection,
+  right: SettingsGraphSubstrateCanarySceneSection,
+) {
+  return (
+    left.sectionId === right.sectionId &&
+    left.zIndex === right.zIndex &&
+    left.tempZIndex === right.tempZIndex &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.isActiveSection === right.isActiveSection &&
+    left.isInOtherProjectConfigs === right.isInOtherProjectConfigs &&
+    left.positionAndSizeLocked === right.positionAndSizeLocked &&
+    left.sectionTypeName === right.sectionTypeName &&
+    left.styleColor === right.styleColor &&
+    left.textBlockMetaControlStyle === right.textBlockMetaControlStyle &&
+    left.sizeAuthority === right.sizeAuthority &&
+    arePositionsEqual(left.position, right.position) &&
+    arePositionsEqual(left.renderedPosition, right.renderedPosition) &&
+    areSectionElementSizesEqual(left.sceneBoundsSize, right.sceneBoundsSize)
+  );
+}
+
+function areGraphRectsEqual(left: GraphRect | null, right: GraphRect | null) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
+}
+
+function arePositionsEqual(
+  left: GraphSubstrateCanarySection["position"],
+  right: GraphSubstrateCanarySection["position"],
+) {
+  return left.x === right.x && left.y === right.y;
+}
+
+function areSectionElementSizesEqual(
+  left: SectionElementSize | null,
+  right: SectionElementSize | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.width === right.width && left.height === right.height;
 }

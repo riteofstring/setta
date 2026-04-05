@@ -84,6 +84,31 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
   return nextSeedNodes ?? seedNodes;
 }
 
+export function areSettingsGraphSubstrateCanarySectionSeedNodesEqual(
+  left: SettingsGraphSubstrateCanarySectionSeedNodes,
+  right: SettingsGraphSubstrateCanarySectionSeedNodes,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const [sectionId, leftSeedNode] of left) {
+    const rightSeedNode = right.get(sectionId);
+    if (
+      leftSeedNode?.sizeAuthority !== rightSeedNode?.sizeAuthority ||
+      leftSeedNode?.width !== rightSeedNode?.width ||
+      leftSeedNode?.height !== rightSeedNode?.height
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function getSharedNodeLocalSeed(
   section: Pick<GraphSubstrateCanarySection, "height" | "sectionId" | "width">,
   measuredSectionElementSizes: SectionElementSizes,
