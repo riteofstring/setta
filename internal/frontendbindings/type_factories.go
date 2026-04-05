@@ -90,40 +90,42 @@ func buildGenericCreateFieldExprTS(
 		}
 		return fmt.Sprintf("%s ?? %s", optionsExpr, explicitDefaultExpr), true, nil
 	}
-	if target, ok := frontendObjectCreateTarget(fieldType); ok {
-		if target.Nullable {
+	if targetTypeName, nullable, ok := frontendObjectCreateTarget(fieldType); ok {
+		targetFuncName := "create" + targetTypeName
+		if nullable {
 			if hasDefault {
 				mergedExpr := fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
 				return fmt.Sprintf(
 					"%s === null ? null : %s(%s as Partial<%s>)",
 					mergedExpr,
-					target.FuncName,
+					targetFuncName,
 					mergedExpr,
-					target.TypeName,
+					targetTypeName,
 				), true, nil
 			}
 			return fmt.Sprintf(
 				"%s === undefined || %s === null ? null : %s(%s)",
 				optionsExpr,
 				optionsExpr,
-				target.FuncName,
+				targetFuncName,
 				optionsExpr,
 			), true, nil
 		}
 		if hasDefault {
-			return fmt.Sprintf("%s(%s ?? %s)", target.FuncName, optionsExpr, defaultExpr), true, nil
+			return fmt.Sprintf("%s(%s ?? %s)", targetFuncName, optionsExpr, defaultExpr), true, nil
 		}
-		return fmt.Sprintf("%s(%s ?? {})", target.FuncName, optionsExpr), true, nil
+		return fmt.Sprintf("%s(%s ?? {})", targetFuncName, optionsExpr), true, nil
 	}
 	if tsMetadata.CreateMapValues {
 		fieldType, nullable := unwrapNullableFieldType(fieldType)
 		if fieldType == nil || fieldType.Kind() != reflect.Map {
 			return "", false, fmt.Errorf("%s ts_create_map_values requires a map field", fieldContext)
 		}
-		target, ok := frontendObjectCreateTarget(fieldType.Elem())
+		targetTypeName, _, ok := frontendObjectCreateTarget(fieldType.Elem())
 		if !ok {
 			return "", false, fmt.Errorf("%s ts_create_map_values requires map values with generated create support", fieldContext)
 		}
+		targetFuncName := "create" + targetTypeName
 		defaultSource := "{}"
 		if hasDefault {
 			defaultSource = defaultExpr + " ?? {}"
@@ -146,9 +148,9 @@ func buildGenericCreateFieldExprTS(
 		builder.WriteString("      }).map(([key, value]) => [\n")
 		builder.WriteString("        key,\n")
 		builder.WriteString("        ")
-		builder.WriteString(target.FuncName)
+		builder.WriteString(targetFuncName)
 		builder.WriteString("(value as Partial<")
-		builder.WriteString(target.TypeName)
+		builder.WriteString(targetTypeName)
 		builder.WriteString(">),\n")
 		builder.WriteString("      ]),\n")
 		builder.WriteString("    ) as ")
@@ -158,30 +160,19 @@ func buildGenericCreateFieldExprTS(
 	return "", false, nil
 }
 
-type frontendObjectCreateTargetSpec struct {
-	FuncName string
-	TypeName string
-	Nullable bool
-}
-
-func frontendObjectCreateTarget(fieldType reflect.Type) (frontendObjectCreateTargetSpec, bool) {
+func frontendObjectCreateTarget(fieldType reflect.Type) (string, bool, bool) {
 	fieldType, nullable := unwrapNullableFieldType(fieldType)
 	fieldType = canonicalFrontendBindingType(fieldType)
 	if fieldType == timeType {
-		return frontendObjectCreateTargetSpec{}, false
+		return "", false, false
 	}
 	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
-		return frontendObjectCreateTargetSpec{}, false
+		return "", false, false
 	}
 	if fieldType.Kind() != reflect.Struct {
-		return frontendObjectCreateTargetSpec{}, false
+		return "", false, false
 	}
-	typeName := frontendBindingTypeName(fieldType)
-	return frontendObjectCreateTargetSpec{
-		FuncName: "create" + typeName,
-		TypeName: typeName,
-		Nullable: nullable,
-	}, true
+	return frontendBindingTypeName(fieldType), nullable, true
 }
 
 func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
