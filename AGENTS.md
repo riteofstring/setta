@@ -1,41 +1,24 @@
 # Repository Guidelines
 
-## Priority
-
-- Follow instructions in this order: active developer request, this file, referenced docs.
-- Read strength words literally: `must` and `do not` are requirements. `prefer` is the default unless the developer says otherwise.
-- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package surface, and `frontend/` as the React/Vite UI.
-- Do not commit `setta_files/`. It is local runtime state, not fixture data.
-
 ## Source Of Truth
 
-- This section defines ownership boundaries for behavior and logic.
+- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface rather than a second backend runtime with `backend/setta/api/` kept thin, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
 - Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
 - When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
-- `cmd/` contains active Go entrypoints. `internal/` contains runtime code, transports, services, project state, generators, and related tests.
-- Treat `backend/setta/` as the Python package and SDK surface, not a second backend runtime. Keep `backend/setta/api/` thin.
-- Treat `frontend/` as the UI. Keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
-- Go tests belong with packages under `cmd/*` and `internal/*`. Python/package pytest coverage belongs under `tests/`.
-- Treat generated Python contracts and models as Go-owned types.
-- Call Python behavior Go-backed only when it delegates to the running backend or `setta sdk-local-core`.
-- Not enough to justify a local Go subprocess call: generated models or backend-authored DTO parsing alone.
-- Allowed in Python when they sit on top of authoritative contracts: transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders.
+- Go tests belong with packages under `cmd/*` and `internal/*`. Frontend unit and integration tests belong alongside frontend code under `frontend/src/*` where appropriate, and frontend E2E coverage belongs under `frontend/tests/`. Python/package pytest coverage belongs under `tests/`.
+- Python SDK/runtime ownership boundaries are defined in `docs/reference/go-backed-python.md`.
 
 ## Generation & Contracts
 
-- This section defines how Go-owned contracts should be exposed to Python and TypeScript.
 - When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
 - Prefer generic generation driven by authoritative Go-side structure such as discovery, typed registration metadata, schema metadata, or owner-provided descriptors over hand-maintained allowlists or brittle special cases.
-- Do not rely on hand-maintained allowlists of type or endpoint names when generators can discover or read the relevant structures from Go packages, metadata, or typed registration points.
 - Do not over-engineer discovery just to avoid generating some unused outputs. Broad correct discovery plus pruning is usually better than brittle hyper-selective discovery.
 - Keep hardcoded generator special cases to the absolute minimum and require a concrete reason when they cannot be removed.
 - Do not treat helper-wrapped field lists or per-type create builders as generic generation. A generator that enumerates downstream Python or TypeScript fields or defaults one by one is still a handwritten mirror even if it uses helpers like `tsObjectField(...)`, `pyObjectField(...)`, small templates, or builder functions.
-- Replacing one large embedded source blob with many small hardcoded fragments is not an improvement by itself. Moving duplicated downstream structure into helper calls, template parameters, or per-type render functions still counts as duplicated logic unless the output is derived from Go type information or explicit authoritative metadata.
 - Prefer generators that interpret Go-owned schema, zero values, tags, enum metadata, typed registration metadata, or other authoritative Go-side descriptors. If a downstream default or TS-specific shape cannot be derived generically, attach the exception to Go-owned metadata or typed owner defaults with a concrete reason instead of restating the object shape inside the generator.
 - Do not embed substantial Python or TypeScript source as raw strings inside generation scripts.
-- Generation code should describe structure and mapping rules rather than acting as a second handwritten implementation.
 - For HTTP, frontend callers must use the standard OpenAPI-generated client/types rather than bespoke generated endpoint wrappers. For non-HTTP route/constants surfaces, use the current Go-owned generated or value-exported frontend surface rather than hand-maintained mirrors.
 - If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate before finishing the task.
 - If you need new generated outputs, generate them before cleanup.
@@ -61,11 +44,9 @@
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must use temporary directories instead of `setta_files`, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
-- Tests should reflect production behavior. Do not add mocks, fakes, dummy classes, cast tricks, tautological tests, or production-only code paths added solely to ease tests.
 
 ## Dependency Audits
 
-- Follow `docs/guides/dependency-audits.md` for the full auditing and remediation policy.
 - Start with `./audit_supply_chain.sh`.
 - Default to fixing critical and high findings only unless the developer explicitly asks for broader cleanup.
 - Every kept dependency upgrade must satisfy the repo minimum release-age policy.
