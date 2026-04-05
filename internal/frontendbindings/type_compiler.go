@@ -294,9 +294,6 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
 	}
-	if override, ok := discoveredTypeOverrides[t]; ok {
-		return override
-	}
 	if t.PkgPath() == "setta/internal/pythonsdkcontracts" {
 		if ownerType, ok := frontendSDKMirrorOwnerTypesByName[t.Name()]; ok {
 			return ownerType

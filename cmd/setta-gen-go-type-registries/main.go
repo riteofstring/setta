@@ -27,12 +27,11 @@ type registrySource struct {
 }
 
 type registryTarget struct {
-	OutputPath       string
-	Package          string
-	FuncName         string
-	TypeOverrideFunc string
-	Sources          []registrySource
-	Comment          string
+	OutputPath string
+	Package    string
+	FuncName   string
+	Sources    []registrySource
+	Comment    string
 }
 
 type registryEntry struct {
@@ -93,10 +92,9 @@ func main() {
 
 	targets := []registryTarget{
 		{
-			OutputPath:       "internal/frontendbindings/discovered_type_roots_gen.go",
-			Package:          "frontendbindings",
-			FuncName:         "DiscoveredConvertibleTypes",
-			TypeOverrideFunc: "DiscoveredTypeOverrides",
+			OutputPath: "internal/frontendbindings/discovered_type_roots_gen.go",
+			Package:    "frontendbindings",
+			FuncName:   "DiscoveredConvertibleTypes",
 			Sources: []registrySource{
 				frontendConvertibleRegistrySource("setta/internal/plugins"),
 				frontendConvertibleRegistrySource("setta/internal/agentprofiles"),
@@ -300,23 +298,6 @@ func renderRegistry(target registryTarget, entries []registryEntry) string {
 	}
 	builder.WriteString("\t}\n")
 	builder.WriteString("}\n")
-	if target.TypeOverrideFunc != "" {
-		overrideEntries := buildTypeOverrideEntries(target, entries)
-		builder.WriteString("\n")
-		builder.WriteString("func ")
-		builder.WriteString(target.TypeOverrideFunc)
-		builder.WriteString("() map[reflect.Type]reflect.Type {\n")
-		builder.WriteString("\treturn map[reflect.Type]reflect.Type{\n")
-		for _, entry := range overrideEntries {
-			builder.WriteString("\t\t")
-			builder.WriteString(renderReflectExpr(entry, importAliases))
-			builder.WriteString(": ")
-			builder.WriteString(renderTargetReflectExpr(entry, importAliases))
-			builder.WriteString(",\n")
-		}
-		builder.WriteString("\t}\n")
-		builder.WriteString("}\n")
-	}
 	return builder.String()
 }
 
@@ -800,14 +781,6 @@ func renderReflectExpr(entry registryEntry, importAliases map[string]string) str
 	return ""
 }
 
-func renderTargetReflectExpr(entry registryEntry, importAliases map[string]string) string {
-	qualifiedName := entry.Type.TargetTypeName
-	if qualifier := importAliases[entry.Type.TargetPackagePath]; qualifier != "" {
-		qualifiedName = qualifier + "." + entry.Type.TargetTypeName
-	}
-	return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
-}
-
 func buildImportAliases(target registryTarget, entries []registryEntry) map[string]string {
 	aliases := map[string]string{}
 	used := map[string]struct{}{
@@ -850,18 +823,6 @@ func externalImportPaths(target registryTarget, entries []registryEntry) []strin
 		}
 		seen[entry.PkgPath] = struct{}{}
 		imports = append(imports, entry.PkgPath)
-	}
-	if target.TypeOverrideFunc != "" {
-		for _, entry := range buildTypeOverrideEntries(target, entries) {
-			if entry.Type.TargetPackagePath == targetPkgPath {
-				continue
-			}
-			if _, ok := seen[entry.Type.TargetPackagePath]; ok {
-				continue
-			}
-			seen[entry.Type.TargetPackagePath] = struct{}{}
-			imports = append(imports, entry.Type.TargetPackagePath)
-		}
 	}
 	sort.Strings(imports)
 	return imports
@@ -924,28 +885,6 @@ func generatorRepoRoot() (string, error) {
 		return "", fmt.Errorf("resolve caller path")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..")), nil
-}
-
-func targetKey(discoveredType gotypediscovery.DiscoveredType) string {
-	if strings.TrimSpace(discoveredType.TargetPackagePath) == "" ||
-		strings.TrimSpace(discoveredType.TargetTypeName) == "" {
-		return ""
-	}
-	return discoveredType.TargetPackagePath + "::" + discoveredType.TargetTypeName
-}
-
-func buildTypeOverrideEntries(target registryTarget, entries []registryEntry) []registryEntry {
-	targetPkgPath := packagePathForPackageName(target.Package)
-	overrideEntries := make([]registryEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.PkgPath != targetPkgPath ||
-			strings.TrimSpace(entry.Type.TargetPackagePath) == "" ||
-			strings.TrimSpace(entry.Type.TargetTypeName) == "" {
-			continue
-		}
-		overrideEntries = append(overrideEntries, entry)
-	}
-	return overrideEntries
 }
 
 func packagePathForPackageName(packageName string) string {

@@ -15,7 +15,6 @@ import (
 
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
-var discoveredTypeOverrides = DiscoveredTypeOverrides()
 
 type tsRawExpr struct {
 	Expr string

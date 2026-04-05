@@ -515,7 +515,3 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectshell.AllProjectMetadata{}),
 	}
 }
-
-func DiscoveredTypeOverrides() map[reflect.Type]reflect.Type {
-	return map[reflect.Type]reflect.Type{}
-}
