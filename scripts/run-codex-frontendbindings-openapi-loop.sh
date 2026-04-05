@@ -200,6 +200,8 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Update frontend callers to the OpenAPI-generated client without compatibility shims.
 - [ ] Keep HTTP route definition and HTTP contract metadata declared once at the route registration site; do not grow a separate doc-only metadata layer.
 - [ ] Drive the number of live frontend imports of `utils/generatedEndpoints` down every few iterations until HTTP callers are off that path.
+- [ ] Track the remaining frontend-generated HTTP route families explicitly and remove at least one family from the legacy path each iteration.
+- [ ] Treat `internal/httpapi/openapi_document_builder.go` growth as suspicious by default; do not grow doc-only fake-service scaffolding without same-commit legacy deletion.
 - [ ] Keep the repo clean: regenerate, test, run `./gcf.sh`, run `./check_quality.sh`, and commit every non-stop iteration.
 EOF
 fi
@@ -254,6 +256,11 @@ Non-negotiable rules:
   declarations.
 - Fake service implementations used only for doc generation are temporary at
   best. Do not let them accumulate as a steady-state architecture.
+- Treat any increase in \`internal/httpapi/openapi_document_builder.go\` lines
+  or doc-only fake-service scaffolding as suspicious by default.
+- Do not grow the doc builder unless the same commit removes at least one
+  corresponding route family from the old \`internal/frontendbindings\` HTTP
+  path or from live \`generatedEndpoints.ts\` exports/imports.
 - Do not preserve existing generated TypeScript or Python names for
   compatibility.
 - Update callers instead of shimming.
@@ -266,11 +273,17 @@ Execution workflow for every iteration:
 - Start with a fresh audit against the checklist.
 - Update the checklist to reflect the current repo state before you choose the
   next task.
+- List the remaining frontend-generated HTTP route families explicitly in the
+  audit section.
 - Pick the highest-leverage remaining violation on the HTTP/OpenAPI path.
 - Prefer deleting old HTTP generator code over adapting it.
 - When a route family migrates to OpenAPI, remove that family from the old
   \`internal/frontendbindings\` HTTP path in the same batch or the very next
   iteration.
+- Every non-stop iteration must remove at least one named route family from the
+  legacy path: from OpenAPI-missing families, from legacy
+  \`generatedEndpoints.ts\` wrappers, or from
+  \`internal/frontendbindings/endpoint_discovery.go\`-backed frontend usage.
 - When the change touches generation or generated outputs, regenerate before
   finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
@@ -298,6 +311,14 @@ Practical guidance:
 - Measure real caller migration. Track the live count of frontend imports of
   \`utils/generatedEndpoints\` and include the before/after count in every final
   iteration message.
+- Include route-family progress in every final iteration message:
+  - which families remain
+  - which family was removed this iteration
+  - whether \`openapi_document_builder.go\` grew or shrank
+- Do not keep choosing only smaller side families forever. Once the easy
+  secondary families are migrated, the next required target is \`project\`
+  unless another family demonstrably removes more live non-test
+  \`utils/generatedEndpoints\` imports in that same iteration.
 
 If a fresh audit finds no remaining actionable violations of these rules and the
 checklist is complete, make no repo changes, leave the worktree clean, and end
