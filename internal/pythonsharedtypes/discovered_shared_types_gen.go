@@ -26,8 +26,6 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
 		reflect.TypeOf(projectstate.BrowserSavedSearch{}),
 		reflect.TypeOf(projectstate.SignatureHelpStatus("")),
-		reflect.TypeOf(projectstate.SetCallableChildCodeObj{}),
-		reflect.TypeOf(projectstate.SetCallableResponse{}),
 		reflect.TypeOf(projectstate.LineChartSettings{}),
 		reflect.TypeOf(projectstate.ScatterChartSettings{}),
 		reflect.TypeOf(projectstate.ChartType("")),

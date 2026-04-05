@@ -6,7 +6,6 @@ import (
 	"reflect"
 	agentruns "setta/internal/agentruns"
 	artifacts "setta/internal/artifacts"
-	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	realtime "setta/internal/realtime"
@@ -154,9 +153,6 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(projectview.ProjectRunCapabilities{}): func() any {
 			return projectview.FrontendDefaultProjectRunCapabilities()
-		},
-		reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}): func() any {
-			return httpapi.FrontendDefaultProjectStateSingleConfigWithCompletedOpIDs()
 		},
 		reflect.TypeOf(agentruns.Run{}): func() any {
 			return agentruns.FrontendDefaultRun()

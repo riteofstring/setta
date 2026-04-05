@@ -48,16 +48,19 @@ type CallableSignatureStatusRecorder interface {
 	RecordCallableSignatureStatus(callableName string, status SignatureHelpStatus)
 }
 
-type SetCallableChildCodeObj struct {
-	CodeObjID string `json:"codeObjId"`
-	Name      string `json:"name"`
-}
+// setta-go-type-discovery: skip
+type (
+	SetCallableChildCodeObj struct {
+		CodeObjID string `json:"codeObjId"`
+		Name      string `json:"name"`
+	}
 
-type SetCallableResponse struct {
-	CallableID    *string                   `json:"callableId,omitempty"`
-	ChildCodeObjs []SetCallableChildCodeObj `json:"childCodeObjs"`
-	LSPStatus     SignatureHelpStatus       `json:"lspStatus"`
-}
+	SetCallableResponse struct {
+		CallableID    *string                   `json:"callableId,omitempty"`
+		ChildCodeObjs []SetCallableChildCodeObj `json:"childCodeObjs"`
+		LSPStatus     SignatureHelpStatus       `json:"lspStatus"`
+	}
+)
 
 func (d *Document) SetCallable(
 	ctx context.Context,

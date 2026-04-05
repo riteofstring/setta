@@ -7,6 +7,7 @@ import {
   useServerMode,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import type { ProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import {
   createCodeSectionImpl,
   createCore,
@@ -14,7 +15,6 @@ import {
   createProjectConfig,
   createSingletonSections,
   createVariant,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
   type SingleConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -125,9 +125,11 @@ describe("activeSections", () => {
     expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(endpointSpy).toHaveBeenCalledOnce();
     expect(endpointSpy).toHaveBeenCalledWith({
-      activeIds: ["section-a"],
-      frontendOpId: expect.any(String),
-      projectConfigId: "project-a",
+      body: {
+        activeIds: ["section-a"],
+        frontendOpId: expect.any(String),
+        projectConfigId: "project-a",
+      },
     });
   });
   it("keeps marquee-style UI-only active-id updates out of the durable project/backend path until forced to sync", () => {
@@ -155,9 +157,11 @@ describe("activeSections", () => {
     expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(endpointSpy).toHaveBeenCalledOnce();
     expect(endpointSpy).toHaveBeenCalledWith({
-      activeIds: ["section-a"],
-      frontendOpId: expect.any(String),
-      projectConfigId: "project-a",
+      body: {
+        activeIds: ["section-a"],
+        frontendOpId: expect.any(String),
+        projectConfigId: "project-a",
+      },
     });
   });
   it("cancels a queued durable sync when a same-id ui-only update arrives", () => {
@@ -223,9 +227,11 @@ describe("activeSections", () => {
     });
     scheduledFrame?.(16);
     expect(endpointSpy).not.toHaveBeenCalledWith({
-      activeIds: ["section-a"],
-      frontendOpId: expect.any(String),
-      projectConfigId: "project-b",
+      body: {
+        activeIds: ["section-a"],
+        frontendOpId: expect.any(String),
+        projectConfigId: "project-b",
+      },
     });
     expect(endpointSpy).not.toHaveBeenCalled();
   });
@@ -402,7 +408,7 @@ describe("activeSections", () => {
         }),
     );
     setActiveSectionIds(["section-a"], { syncMode: "immediate" });
-    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].body?.frontendOpId;
     if (typeof staleOpId !== "string") {
       throw new Error("Expected a frontend op id for the durable selection.");
     }
@@ -434,8 +440,8 @@ describe("activeSections", () => {
       syncMode: "immediate",
       forceDurableSync: true,
     });
-    const firstOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
-    const secondOpId = endpointSpy.mock.calls[1]?.[0].frontendOpId;
+    const firstOpId = endpointSpy.mock.calls[0]?.[0].body?.frontendOpId;
+    const secondOpId = endpointSpy.mock.calls[1]?.[0].body?.frontendOpId;
     if (typeof firstOpId !== "string" || typeof secondOpId !== "string") {
       throw new Error(
         "Expected two durable frontend op ids for the selection.",
@@ -489,7 +495,7 @@ describe("activeSections", () => {
         }),
     );
     setActiveSectionIds(["section-a"], { syncMode: "immediate" });
-    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].body?.frontendOpId;
     if (typeof staleOpId !== "string") {
       throw new Error("Expected a frontend op id for the durable selection.");
     }
@@ -592,7 +598,7 @@ function buildProjectState(
   projectConfigId: string,
   activeIds: Array<string>,
   sectionIds: Array<string> = [],
-): ProjectStateSingleConfigWithCompletedOpIDs {
+): ProjectStateBackendUpdate {
   return {
     projectState: buildProjectStateData(projectConfigId, activeIds, sectionIds),
     completedOpIds: [],

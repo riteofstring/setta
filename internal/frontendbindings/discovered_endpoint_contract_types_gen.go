@@ -205,7 +205,6 @@ func DiscoveredEndpointContractTypes() []reflect.Type {
 		reflect.TypeOf((*httpapi.ProjectCodeUpdateService)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.ProjectRenameRefactorService)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.ChatSectionChatIDService)(nil)).Elem(),
-		reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}),
 		reflect.TypeOf(httpapi.GetPasswordParamValueRequest{}),
 		reflect.TypeOf(httpapi.GetPasswordParamValueResponse{}),
 		reflect.TypeOf(httpapi.DeleteSectionVariantOrAskRequest{}),

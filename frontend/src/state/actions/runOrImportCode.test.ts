@@ -1,5 +1,6 @@
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { createProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import {
   CodeLanguageEnum,
   createCodeSectionImpl,
@@ -7,7 +8,6 @@ import {
   createProjectCodegenPythonTarget,
   createProjectConfig,
   createProjectRunCapabilities,
-  createProjectStateSingleConfigWithCompletedOpIDs,
   createSectionCapabilities,
   createSingleConfig,
   createSingletonSections,
@@ -177,13 +177,11 @@ describe("runCodeBlock", () => {
   });
   it("rehydrates project state after a successful run when the backend creates the attached terminal", async () => {
     useProjectState.setState(buildProjectState({ attachedTerminalId: null }));
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
-      {
-        projectState: buildProjectState({
-          attachedTerminalId: terminalSectionId,
-        }),
-      },
-    );
+    const latestProjectState = createProjectStateBackendUpdate({
+      projectState: buildProjectState({
+        attachedTerminalId: terminalSectionId,
+      }),
+    });
     routeGetLatestProjectStateMock.mockResolvedValue({
       status: 200,
       data: latestProjectState,
@@ -232,14 +230,12 @@ describe("runCodeBlock", () => {
         pythonCodegenEnabled: true,
       }),
     );
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
-      {
-        projectState: buildProjectState({
-          attachedTerminalId: null,
-          pythonCodegenEnabled: true,
-        }),
-      },
-    );
+    const latestProjectState = createProjectStateBackendUpdate({
+      projectState: buildProjectState({
+        attachedTerminalId: null,
+        pythonCodegenEnabled: true,
+      }),
+    });
     routeGetLatestProjectStateMock.mockResolvedValue({
       status: 200,
       data: latestProjectState,
@@ -274,14 +270,12 @@ describe("runCodeBlock", () => {
     useProjectState.setState((state) => {
       state.projectConfig.entryCodeBlockId = codeSectionId;
     });
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
-      {
-        projectState: buildProjectState({
-          attachedTerminalId: terminalSectionId,
-          pythonCodegenEnabled: true,
-        }),
-      },
-    );
+    const latestProjectState = createProjectStateBackendUpdate({
+      projectState: buildProjectState({
+        attachedTerminalId: terminalSectionId,
+        pythonCodegenEnabled: true,
+      }),
+    });
     routeGetLatestProjectStateMock.mockResolvedValue({
       status: 200,
       data: latestProjectState,

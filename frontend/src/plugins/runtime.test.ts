@@ -30,13 +30,16 @@ import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
+  createProjectStateBackendUpdate,
+  type ProjectStateBackendUpdate,
+} from "testUtils/projectStateBackendUpdate";
+import {
   createCore,
   createDictSectionImpl,
   createPluginListEntry,
   createPluginStatusEntry,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfigWithCompletedOpIDs,
   createSingletonSections,
   createVariant,
   DependencyKeyTypeEnum,
@@ -49,7 +52,6 @@ import {
   type PluginRuntimeResponse,
   type PluginStatusEntry,
   type PluginStatusResponse,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
@@ -386,9 +388,9 @@ class RuntimeTestWebSocket extends EventTarget {
 }
 function buildPluginRuntimeProjectStateUpdate(
   activeIds: string[],
-): ProjectStateSingleConfigWithCompletedOpIDs {
+): ProjectStateBackendUpdate {
   const state = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIDs({
+  return createProjectStateBackendUpdate({
     projectState: {
       projectConfig: {
         ...state.projectConfig,

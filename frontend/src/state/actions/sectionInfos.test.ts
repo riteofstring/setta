@@ -28,6 +28,7 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
+import type { ProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import {
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -46,8 +47,8 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
   type BaseChildlessCodeObjImplUnion,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
   type ShownParamIDs,
+  type SingleConfig,
   type ViewMode,
 } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
@@ -1249,7 +1250,7 @@ describe("createTopLevelSectionLayoutDict", () => {
     const sections = {
       [sectionVisible]: { id: sectionVisible },
       [sectionHidden]: { id: sectionHidden },
-    } as ProjectStateSingleConfigWithCompletedOpIDs["projectState"]["sections"];
+    } as SingleConfig["sections"];
     const nodeInternals = new Map([
       [
         sectionVisible,
@@ -1343,7 +1344,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       viewportInitialized: true,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+    const update: ProjectStateBackendUpdate = {
       projectState: createSingleConfig({
         projectConfig: nextConfig,
         sections: {},
@@ -1429,7 +1430,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       fitViewOnInitOptions: undefined,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+    const update: ProjectStateBackendUpdate = {
       projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,
@@ -1541,7 +1542,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       fitViewOnInitOptions: undefined,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+    const update: ProjectStateBackendUpdate = {
       projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,
@@ -1761,7 +1762,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       requestUpdateNodeDimensions: false,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+    const update: ProjectStateBackendUpdate = {
       projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,

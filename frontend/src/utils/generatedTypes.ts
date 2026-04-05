@@ -1204,89 +1204,6 @@ const PluginScopeEnum = {
 } as const;
 type PluginScope = ObjectValues<typeof PluginScopeEnum>;
 
-export type ProjectStateSingleConfigWithCompletedOpIDs = {
-  projectState: SingleConfig;
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
-};
-export function createProjectStateSingleConfigWithCompletedOpIDs(
-  options: Partial<ProjectStateSingleConfigWithCompletedOpIDs> = {},
-): ProjectStateSingleConfigWithCompletedOpIDs {
-  const defaults: ProjectStateSingleConfigWithCompletedOpIDs = {
-    projectState: {
-      artifactGroups: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      codeObjs: {},
-      genCodeBinding: null,
-      parentSectionMap: {},
-      projectChatWindowing: {
-        instancesById: {},
-        nextInstanceNumber: 1,
-        order: [],
-      },
-      projectConfig: {
-        activeIds: [],
-        activeViewModeId: null,
-        agenticEdges: [],
-        allowJsonSourceKeyEdits: false,
-        codegenTargets: [],
-        edges: [],
-        entryCodeBlockId: null,
-        hasPythonCodegenTarget: false,
-        id: "",
-        isEditingViewMode: false,
-        name: "",
-        previewImgColor: "",
-        runCapabilities: {
-          canRunFromMain: false,
-          effectiveEntrySectionId: null,
-          mainRunDisabledReason: null,
-        },
-        sectionIdsByPathSlug: {},
-        sectionPathSlugsById: {},
-        sectionVariantMap: {},
-        showParamDisplayNames: false,
-        stateMachineEdges: [],
-        topLevelSections: {},
-        viewModes: {},
-        viewport: null,
-        viewportInitialized: false,
-        watchCodeBaselineByPath: {},
-        watchCodeEnabled: false,
-        watchCodeFiles: [],
-        watchCodeFolders: [],
-        watchCodeRegistry: {},
-        windowSpaceIdsBySlug: {},
-        windowSpaceSlugsById: {},
-        windowSpaces: {},
-      },
-      requiredDecodedImages: [],
-      sectionCapabilities: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      sections: {},
-      shownParamIds: {},
-      singletonSections: {
-        GenPythonCode: null,
-        GenPythonMetadata: null,
-        GlobalVariables: null,
-      },
-    },
-    completedOpIds: [],
-    pendingOpIds: [],
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
-      defaults,
-      options,
-    ),
-    projectState: createSingleConfig(
-      options.projectState ?? defaults.projectState,
-    ),
-  };
-}
-
 export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -1934,24 +1851,6 @@ export type BrowserSavedSearchTypeFilters = {
   audio: boolean;
   text: boolean;
   data: boolean;
-};
-
-const SignatureHelpStatusEnum = {
-  matched: "matched",
-  no_match: "no_match",
-  skipped: "skipped",
-} as const;
-type SignatureHelpStatus = ObjectValues<typeof SignatureHelpStatusEnum>;
-
-type SetCallableChildCodeObj = {
-  codeObjId: string;
-  name: string;
-};
-
-export type SetCallableResponse = {
-  callableId?: string | null;
-  childCodeObjs: Array<SetCallableChildCodeObj>;
-  lspStatus: SignatureHelpStatus;
 };
 
 export type LineChartSettings = {

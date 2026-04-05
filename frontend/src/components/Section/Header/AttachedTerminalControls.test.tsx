@@ -4,11 +4,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { createProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import "testUtils/reactRefreshPreamble";
 import {
   createCodeSectionImpl,
   createProjectConfig,
-  createProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
   type Core,
   type Variant,
@@ -40,7 +40,7 @@ vi.mock("openapi/http", async () => {
       status: 200,
     })),
     getLatestProjectState: vi.fn(async () => ({
-      data: createProjectStateSingleConfigWithCompletedOpIDs(),
+      data: createProjectStateBackendUpdate(),
       response: new Response("{}", {
         status: 200,
       }),
@@ -51,7 +51,7 @@ vi.mock("openapi/http", async () => {
 const mockedRouteCreateChildSections = vi.mocked(createChildSections);
 const mockedRouteGetLatestProjectState = vi.mocked(getLatestProjectState);
 function latestProjectStateFixture() {
-  return createProjectStateSingleConfigWithCompletedOpIDs({
+  return createProjectStateBackendUpdate({
     projectState: {
       projectConfig: createProjectConfig({
         id: "project-1",

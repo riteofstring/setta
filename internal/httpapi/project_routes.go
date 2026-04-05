@@ -195,6 +195,7 @@ type ChatSectionChatIDService interface {
 	GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error)
 }
 
+// setta-go-type-discovery: skip
 type ProjectStateSingleConfigWithCompletedOpIDs struct {
 	ProjectState   projectview.SingleConfig `json:"projectState"`
 	CompletedOpIDs []string                 `json:"completedOpIds"`

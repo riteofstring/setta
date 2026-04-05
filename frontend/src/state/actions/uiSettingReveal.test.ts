@@ -6,6 +6,7 @@ import {
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { createProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import type {
   SectionType,
   UISettingRevealContent,
@@ -14,7 +15,6 @@ import type {
 import {
   createCodeSectionImpl,
   createCore,
-  createProjectStateSingleConfigWithCompletedOpIDs,
   createSingleConfig,
   createVariant,
   SectionTypeEnum,
@@ -184,7 +184,7 @@ function buildBackendProjectStateUpdate({
   completedOpIds?: Array<string>;
 }) {
   const currentState = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIDs({
+  return createProjectStateBackendUpdate({
     projectState: createSingleConfig({
       projectConfig: {
         ...currentState.projectConfig,
