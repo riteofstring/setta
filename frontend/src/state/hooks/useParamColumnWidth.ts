@@ -1,5 +1,3 @@
-import { setSectionColumnWidth } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -19,20 +17,25 @@ import {
   getDefaultColumnWidth,
 } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
+import { route_set_section_column_width } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+
 const CENTER_OFFSET = 18;
 const MIN_PARAM_VALUE_COLUMN_WIDTH = 100;
+
 type UseParamColumnWidthArgs = {
   sectionId: string;
   outerRef: RefObject<HTMLDivElement>;
   maxNestedDepth: number;
 };
+
 export function useParamColumnWidth({
   sectionId,
   outerRef,
   maxNestedDepth,
 }: UseParamColumnWidthArgs): MouseEventHandler<HTMLDivElement> {
   const maxNestedDepthRef = useRef(maxNestedDepth);
+
   const applyWidth = useCallback(
     (rawWidth: number) => {
       if (!outerRef.current) {
@@ -46,6 +49,7 @@ export function useParamColumnWidth({
     },
     [outerRef],
   );
+
   const persistWidth = useCallback(
     (rawWidth: number) => {
       const columnWidth = rawWidth - CENTER_OFFSET;
@@ -58,20 +62,17 @@ export function useParamColumnWidth({
           );
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setSectionColumnWidth({
-              body: {
-                projectConfigId: getCurrProjectConfigId(),
-                sectionId,
-                columnWidth,
-                frontendOpId,
-              },
-            } as Parameters<typeof setSectionColumnWidth>[0]),
-          ),
+          route_set_section_column_width({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            columnWidth,
+            frontendOpId,
+          }),
       });
     },
     [sectionId],
   );
+
   const getBoundedWidth = useCallback(
     (rawWidth: number, containerWidth: number) =>
       calculateBoundedWidthWithMinRemainingWidth(
@@ -82,6 +83,7 @@ export function useParamColumnWidth({
       ),
     [maxNestedDepthRef],
   );
+
   const { handleResizeStart, setNewWidth, widthRef } = useColumnWidthDrag({
     outerRef,
     maxNestedDepthRef,
@@ -89,6 +91,7 @@ export function useParamColumnWidth({
     persistWidth,
     getBoundedWidth,
   });
+
   useEffect(() => {
     maxNestedDepthRef.current = maxNestedDepth;
     if (!outerRef.current || widthRef.current.currentWidth === 0) {
@@ -100,6 +103,7 @@ export function useParamColumnWidth({
     }
     setNewWidth(containerWidth, widthRef.current.currentWidth);
   }, [maxNestedDepth, outerRef, setNewWidth]);
+
   useEffect(() => {
     return useProjectState.subscribe(
       (state) => {
@@ -130,5 +134,6 @@ export function useParamColumnWidth({
       { fireImmediately: true },
     );
   }, [outerRef, sectionId, setNewWidth]);
+
   return handleResizeStart;
 }
