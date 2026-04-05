@@ -9812,3 +9812,31 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
     - narrow the next geometry-authority slice to the cold-start `sharedNode` seed boundary and decide whether first-mount fallback can avoid global node internals entirely or needs a dedicated canary-local seed store
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 04:36 EDT, Ralph item `252`
+  - Summary: added a canary-local shared-node seed cache so in-app remounts can reseed shared-node sections from the canary's own last measured size before falling back to global node internals.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded canary health plus one in-app remount check
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts` -> passed (`3 files`, `20 tests`)
+    - fresh-context CDP sub-agent -> done; bootstrapped through `http://127.0.0.1:8076/__setta__/bootstrap#token=SETTA_HISTORY_REDACTED`, opened the authenticated `http://127.0.0.1:3076/settings` surface, confirmed `All Settings`, and reported a populated graph surface with no blank shell or detached section body
+    - fresh-context CDP sub-agent remount note -> switched to `Core` and back to `All Settings` without a full reload; the graph surface remained populated after the in-app remount
+  - Result:
+    - the canary now stores shared-node seed sizes in its own project-scoped scene store instead of depending on the previous scene snapshot alone
+    - runtime unmount cleanup now clears only the current scene snapshot while preserving the canary-local shared-node cache for the next in-app remount
+    - controller recomputes now prefer that canary-local cache before consulting global `nodeInternals`, which narrows the remaining authority leak to the true bootstrap fallback only
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority slice to the last-resort bootstrap fallback and decide whether the first project-session mount can avoid global `nodeInternals` entirely or needs a more authoritative non-DOM seed source
+  - LOOP_TERMINAL_MARKER: none

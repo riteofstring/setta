@@ -110,6 +110,10 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
       ),
     ).toEqual(readSceneSnapshot(host));
+    expect(
+      useSettingsGraphSubstrateCanarySceneStore.getState().sectionSeedNodes
+        .size,
+    ).toBe(0);
 
     await vi.waitFor(() => {
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
@@ -208,6 +212,15 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         type: undefined,
         width: 260,
         zIndex: 2,
+      });
+      expect(
+        useSettingsGraphSubstrateCanarySceneStore
+          .getState()
+          .sectionSeedNodes.get("section-a"),
+      ).toEqual({
+        width: 420,
+        height: 315,
+        sizeAuthority: "sharedNode",
       });
     });
   });
@@ -906,7 +919,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("resets the shared scene snapshot when the runtime unmounts", async () => {
+  it("resets the shared scene snapshot but keeps the canary-local shared-node seed cache when the runtime unmounts", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -915,6 +928,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
           sections={[
             createSection({
               height: 160,
+              sizeAuthority: "sharedNode",
               width: 240,
             }),
           ]}
@@ -923,22 +937,30 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
 
     await vi.waitFor(() => {
-      expect(
-        useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot
-          .sections,
-      ).toHaveLength(1);
+      const state = useSettingsGraphSubstrateCanarySceneStore.getState();
+      expect(state.sceneSnapshot.sections).toHaveLength(1);
+      expect(state.sectionSeedNodes.get("section-a")).toEqual({
+        width: 240,
+        height: 160,
+        sizeAuthority: "sharedNode",
+      });
     });
 
     await act(async () => {
       root.unmount();
     });
 
-    expect(
-      useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
-    ).toEqual({
+    const stateAfterUnmount =
+      useSettingsGraphSubstrateCanarySceneStore.getState();
+    expect(stateAfterUnmount.sceneSnapshot).toEqual({
       sceneBounds: null,
       sections: [],
       sectionsById: new Map(),
+    });
+    expect(stateAfterUnmount.sectionSeedNodes.get("section-a")).toEqual({
+      width: 240,
+      height: 160,
+      sizeAuthority: "sharedNode",
     });
 
     root = createRoot(host);

@@ -4,27 +4,40 @@ import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  resolveSettingsGraphSubstrateCanarySectionSeedNodes,
+  type SettingsGraphSubstrateCanarySectionSeedNodes,
+} from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 type ZustandSettingsGraphSubstrateCanarySceneStore = {
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
+  sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes;
 };
 
 export const useSettingsGraphSubstrateCanarySceneStore = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandSettingsGraphSubstrateCanarySceneStore>(() => ({
       sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
+      sectionSeedNodes: new Map(),
     })),
   ),
 );
 
-export function setSettingsGraphSubstrateCanarySceneSnapshot(
+export function updateSettingsGraphSubstrateCanarySceneSnapshot(
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot,
 ) {
-  useSettingsGraphSubstrateCanarySceneStore.setState({ sceneSnapshot });
+  useSettingsGraphSubstrateCanarySceneStore.setState((state) => ({
+    sceneSnapshot,
+    sectionSeedNodes: resolveSettingsGraphSubstrateCanarySectionSeedNodes(
+      state.sectionSeedNodes,
+      sceneSnapshot,
+    ),
+  }));
 }
 
 export function resetSettingsGraphSubstrateCanarySceneSnapshot() {
-  useSettingsGraphSubstrateCanarySceneStore.setState({
+  useSettingsGraphSubstrateCanarySceneStore.setState((state) => ({
     sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
-  });
+    sectionSeedNodes: state.sectionSeedNodes,
+  }));
 }

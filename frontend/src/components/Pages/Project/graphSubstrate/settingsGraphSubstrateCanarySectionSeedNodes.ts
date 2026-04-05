@@ -1,18 +1,18 @@
 import type { Node } from "forks/xyflow/core/types";
 import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
-type SettingsGraphSubstrateCanarySectionSeedNode = Pick<
+export type SettingsGraphSubstrateCanarySectionSeedNode = Pick<
   Node,
   "height" | "sizeAuthority" | "width"
 >;
 
-type SettingsGraphSubstrateCanarySectionSeedNodes = ReadonlyMap<
+export type SettingsGraphSubstrateCanarySectionSeedNodes = ReadonlyMap<
   string,
   SettingsGraphSubstrateCanarySectionSeedNode | undefined
 >;
 
 export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-  nodeInternals: SettingsGraphSubstrateCanarySectionSeedNodes,
+  seedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
   sceneSnapshot: Pick<SettingsGraphSubstrateCanarySceneSnapshot, "sections">,
 ): SettingsGraphSubstrateCanarySectionSeedNodes {
   let nextSeedNodes: Map<
@@ -30,7 +30,7 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
       continue;
     }
 
-    const currentSeed = nodeInternals.get(section.sectionId);
+    const currentSeed = seedNodes.get(section.sectionId);
     if (
       currentSeed?.sizeAuthority === "sharedNode" &&
       currentSeed.width === localSeed.width &&
@@ -40,12 +40,12 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
     }
 
     if (!nextSeedNodes) {
-      nextSeedNodes = new Map(nodeInternals);
+      nextSeedNodes = new Map(seedNodes);
     }
     nextSeedNodes.set(section.sectionId, localSeed);
   }
 
-  return nextSeedNodes ?? nodeInternals;
+  return nextSeedNodes ?? seedNodes;
 }
 
 function getSharedNodeLocalSeed(

@@ -22,7 +22,6 @@ import {
   selectSettingsGraphSubstrateCanaryLayoutSections,
 } from "./settingsGraphSubstrateCanaryModel";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
-import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -58,8 +57,8 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     _.isEqual,
   );
   const nodeInternals = useNodeInternals((state) => state.x, _.isEqual);
-  const previousSceneSnapshot = useSettingsGraphSubstrateCanarySceneStore(
-    (state) => state.sceneSnapshot,
+  const canarySectionSeedNodes = useSettingsGraphSubstrateCanarySceneStore(
+    (state) => state.sectionSeedNodes,
     _.isEqual,
   );
   const sharedProjectViewport = useProjectState((state) => {
@@ -106,11 +105,11 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     _.isEqual,
   );
   const sectionSeedNodes = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-      nodeInternals,
-      previousSceneSnapshot,
-    );
-  }, [nodeInternals, previousSceneSnapshot]);
+    if (canarySectionSeedNodes.size > 0) {
+      return canarySectionSeedNodes;
+    }
+    return nodeInternals;
+  }, [canarySectionSeedNodes, nodeInternals]);
   const sections = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySections(
       layoutSections,

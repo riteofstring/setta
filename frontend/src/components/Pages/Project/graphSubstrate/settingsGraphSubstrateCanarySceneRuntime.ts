@@ -10,7 +10,7 @@ import {
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   resetSettingsGraphSubstrateCanarySceneSnapshot,
-  setSettingsGraphSubstrateCanarySceneSnapshot,
+  updateSettingsGraphSubstrateCanarySceneSnapshot,
 } from "./settingsGraphSubstrateCanarySceneStore";
 import { shouldObserveSettingsGraphSubstrateCanarySectionElementSize } from "./settingsGraphSubstrateCanarySectionGeometry";
 
@@ -51,7 +51,7 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   ]);
 
   useLayoutEffect(() => {
-    setSettingsGraphSubstrateCanarySceneSnapshot(sceneSnapshot);
+    updateSettingsGraphSubstrateCanarySceneSnapshot(sceneSnapshot);
   }, [sceneSnapshot]);
 
   useEffect(() => {
