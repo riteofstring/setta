@@ -31,8 +31,7 @@ def main() -> int:
     if args.days < 0:
         raise SystemExit("days must be a non-negative integer")
 
-    lockfile = args.lockfile
-    data = tomllib.loads(lockfile.read_text(encoding="utf-8"))
+    data = tomllib.loads(args.lockfile.read_text(encoding="utf-8"))
     cutoff = datetime.now(UTC) - timedelta(days=args.days)
     failures: list[tuple[str, str, datetime]] = []
     checked_packages = 0

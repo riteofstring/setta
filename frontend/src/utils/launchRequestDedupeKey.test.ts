@@ -1,10 +1,10 @@
-import type { LaunchRequest } from "utils/generatedTypes";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { buildLaunchRequestDedupeKey } from "./launchRequestDedupeKey";
 
 describe("buildLaunchRequestDedupeKey", () => {
   it("produces the same key for equivalent requests with different field order", () => {
-    const first: LaunchRequest = {
+    const first: LaunchRequestInput = {
       workspaceRoot: "/tmp/workspace",
       settaFilesLocation: "auto",
       sshTarget: "user@host",
@@ -14,7 +14,7 @@ describe("buildLaunchRequestDedupeKey", () => {
       settaFilesRoot: "/tmp/state",
       runtimeRoot: "/tmp/runtime",
     };
-    const second: LaunchRequest = {
+    const second: LaunchRequestInput = {
       runtimeRoot: "/tmp/runtime",
       settaFilesRoot: "/tmp/state",
       settaHome: "/tmp/setta-home",
@@ -31,7 +31,7 @@ describe("buildLaunchRequestDedupeKey", () => {
   });
 
   it("changes the key when only profile and root-routing fields differ", () => {
-    const base: LaunchRequest = {
+    const base: LaunchRequestInput = {
       workspaceRoot: "/tmp/workspace",
       settaFilesLocation: "auto",
       sshTarget: null,
@@ -43,7 +43,7 @@ describe("buildLaunchRequestDedupeKey", () => {
       settaFilesRoot: "/tmp/state-a",
       runtimeRoot: "/tmp/runtime-a",
     };
-    const differentProfileAndRoots: LaunchRequest = {
+    const differentProfileAndRoots: LaunchRequestInput = {
       ...base,
       profile: "dev-b",
       settaHome: "/tmp/setta-home-b",
@@ -57,10 +57,10 @@ describe("buildLaunchRequestDedupeKey", () => {
   });
 
   it("treats omitted optional launch fields the same as explicit nulls", () => {
-    const omittedOptionalFields: LaunchRequest = {
+    const omittedOptionalFields: LaunchRequestInput = {
       workspaceRoot: "/tmp/workspace",
     };
-    const explicitNullOptionalFields: LaunchRequest = {
+    const explicitNullOptionalFields: LaunchRequestInput = {
       workspaceRoot: "/tmp/workspace",
       profile: null,
       settaHome: null,
@@ -81,11 +81,11 @@ describe("buildLaunchRequestDedupeKey", () => {
   it("includes unknown future request fields in the dedupe key", () => {
     const baseRequest = {
       workspaceRoot: "/tmp/workspace",
-    } as LaunchRequest;
+    } as LaunchRequestInput;
     const futureFieldRequest = {
       workspaceRoot: "/tmp/workspace",
       futureLaunchMode: "isolate",
-    } as LaunchRequest;
+    } as LaunchRequestInput;
 
     expect(buildLaunchRequestDedupeKey(baseRequest)).not.toBe(
       buildLaunchRequestDedupeKey(futureFieldRequest),
@@ -102,7 +102,7 @@ describe("buildLaunchRequestDedupeKey", () => {
         },
         labels: ["alpha", { left: "L", right: "R" }],
       },
-    } as LaunchRequest;
+    } as LaunchRequestInput;
     const secondRequest = {
       workspaceRoot: "/tmp/workspace",
       futureLaunchConfig: {
@@ -112,7 +112,7 @@ describe("buildLaunchRequestDedupeKey", () => {
           mode: "isolated",
         },
       },
-    } as LaunchRequest;
+    } as LaunchRequestInput;
 
     expect(buildLaunchRequestDedupeKey(firstRequest)).toBe(
       buildLaunchRequestDedupeKey(secondRequest),

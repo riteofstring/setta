@@ -475,7 +475,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     }
   });
 
-  it("does not locally arbitrate duplicate standalone section bindings", () => {
+  it("renders only one standalone section host when saved data duplicates a section binding", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
         canUseManagedChat={true}
@@ -520,8 +520,7 @@ describe("StandaloneWindowSpaceSurface", () => {
 
     expect(
       markup.match(/data-testid="mock-section-window-surface"/g),
-    ).toHaveLength(2);
-    expect(markup).toContain('data-chat-mode-override="section_mode"');
+    ).toHaveLength(1);
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
   });

@@ -97,6 +97,7 @@ function hydrateWindowSpaceWindows(
   sectionNamesById: Record<string, string>,
 ): Record<string, StandaloneWindowSpaceWindow> {
   const hydratedWindowsById: Record<string, StandaloneWindowSpaceWindow> = {};
+  const winningInstanceIdBySectionId = new Map<string, string>();
   const orderedInstanceIds = [
     ...windowSpace.order,
     ...Object.keys(windowSpace.windowsById),
@@ -139,6 +140,27 @@ function hydrateWindowSpaceWindows(
         EMPTY_FLOATING_WINDOW_INSETS,
       ),
     };
+    const sectionId = hydratedWindow.sectionIdOrNull;
+    if (sectionId) {
+      const currentBestInstanceId =
+        winningInstanceIdBySectionId.get(sectionId) ?? null;
+      const currentBestWindow =
+        currentBestInstanceId === null
+          ? null
+          : hydratedWindowsById[currentBestInstanceId] ?? null;
+      if (
+        currentBestWindow &&
+        (currentBestWindow.zIndex > hydratedWindow.zIndex ||
+          (currentBestWindow.zIndex === hydratedWindow.zIndex &&
+            currentBestInstanceId.localeCompare(instanceId) >= 0))
+      ) {
+        continue;
+      }
+      if (currentBestInstanceId !== null) {
+        delete hydratedWindowsById[currentBestInstanceId];
+      }
+      winningInstanceIdBySectionId.set(sectionId, instanceId);
+    }
     hydratedWindowsById[instanceId] = hydratedWindow;
   }
   return hydratedWindowsById;
