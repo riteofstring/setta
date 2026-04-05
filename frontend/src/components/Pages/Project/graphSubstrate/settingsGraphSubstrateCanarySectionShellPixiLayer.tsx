@@ -11,6 +11,7 @@ import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 import {
   resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables,
   type SettingsGraphSubstrateCanarySectionShellPixiDrawable,
@@ -41,6 +42,10 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     (state) => state.activeIds,
     _.isEqual,
   );
+  const sectionSeedNodes = useSettingsGraphSubstrateCanarySceneStore(
+    (state) => state.sectionSeedNodes,
+    _.isEqual,
+  );
   const previewStyleColors = useTemporaryMiscState((state) => {
     const next: Record<string, string | null | undefined> = {};
     for (const section of sceneSections) {
@@ -58,6 +63,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       hoveredSectionId,
       previewStyleColors,
       sceneSections,
+      sectionSeedNodes,
       viewport,
     });
   }, [
@@ -67,6 +73,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     hoveredSectionId,
     previewStyleColors,
     sceneSections,
+    sectionSeedNodes,
     viewport,
   ]);
 

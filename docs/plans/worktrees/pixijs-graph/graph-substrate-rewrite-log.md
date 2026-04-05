@@ -10437,3 +10437,29 @@ LOOP_TERMINAL_MARKER: none
     - continue the measured-geometry authority cleanup at the shared scene/store layer now that the minimap no longer depends on shared `renderSize`; the next slice should decide whether the published canary scene store still needs to expose render-only size outside the surface runtime at all
     - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the existing first-render Playwright probe plus bounded CDP canary-health checks instead of opening a new minimap-only visual lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 14:18 EDT, Ralph item `272`
+  - Summary: cut the Pixi shell layer off the shared `sceneSnapshot.renderSize` fallback, so unresolved shared-node shells now size from `sectionSeedNodes` instead of from the published scene-section render-only field.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-006/worktree-ai.log` -> frontend `3075`, backend `8075`, session `1bd468`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 78659`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts` -> passed (`1 file`, `6 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> passed (`1 passed`, `23.3s`)
+    - fresh-context CDP sub-agent -> pass; bootstrap restored auth, `/settings` mounted cleanly, `All Settings` was visible, the left-side settings/tag list was populated (`genPythonCodeSectionDefault`, `backend`, `shortcuts`, etc.), and the graph/canvas substrate was visibly populated rather than blank
+  - Result:
+    - the Pixi shell no longer turns `sceneSection.renderSize` into visible shell geometry; it now uses authoritative width/height first and falls back only to the already-bounded shared-node seed cache
+    - with the minimap already moved in item `271`, there are no longer live shell/minimap readers that need `sceneSection.renderSize` outside the surface runtime
+    - the live worktree canary stayed healthy on the standard first-render probe and bounded CDP check for this pass
+  - Next:
+    - continue the measured-geometry authority cleanup by removing `renderSize` from the published canary scene-section/store contract entirely, keeping any remaining render-only fallback local to the surface runtime
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of opening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none

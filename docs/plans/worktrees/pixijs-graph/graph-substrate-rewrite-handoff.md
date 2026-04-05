@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 14:08 EDT
+Last updated: 2026-04-07 14:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `272` cut the Pixi shell layer off the shared `sceneSnapshot.renderSize` fallback, so unresolved shared-node shells now size from the bounded `sectionSeedNodes` cache instead of from the published scene-section render-only field.
+
+  - Why this pass completed:
+    - item `271` explicitly left the shell/store contract as the next bounded seam after the minimap stopped reading `renderSize`
+    - `settingsGraphSubstrateCanarySectionShellPixiModel.ts` was the remaining live shell consumer still turning `sceneSection.renderSize` into visible geometry outside the surface runtime
+    - the smallest real product slice was to move that fallback to the existing shared-node seed cache without widening into a broader scene-shape deletion pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx) so the shell layer reads [`sectionSeedNodes`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts) directly from the canary scene store when resolving drawables
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts) so shell drawable size now comes from authoritative `section.width` / `section.height` first and only falls back to the shared-node seed cache, not to `sceneSection.renderSize`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts) to lock the new contract where unresolved shared-node shells use seed-cache size even if the scene section still carries a different render-only fallback
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-006/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `1bd468`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 78659`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      - result: passed (`1 file`, `6 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `23.3s`)
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), restored auth via the bootstrap URL, and reached mounted `/settings`
+      - observed `settings`, the `All Settings` tab, a populated left-side settings/tag list (`genPythonCodeSectionDefault`, `backend`, `shortcuts`, etc.), and a visible graph/canvas substrate instead of a blank shell or spinner-only route
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - the Pixi shell no longer consumes the shared scene snapshot's render-only size fallback for visible geometry; unresolved shared-node shells now use the already-bounded seed cache instead
+    - with the minimap already moved in item `271`, there are no longer live shell/minimap readers that need `sceneSection.renderSize` to draw visible geometry outside the surface runtime
+    - the live worktree canary remained healthy on the standard first-render probe plus bounded CDP health check for this pass
+  - Next frontier:
+    - continue the measured-geometry authority cleanup by removing `renderSize` from the published canary scene-section/store contract entirely, keeping any remaining render-only fallback local to the surface runtime rather than on the shared scene snapshot shape
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `271` cut the minimap projection off from shared `sceneSnapshot.renderSize` fallback, so the canary minimap now uses authoritative scene width/height and only falls back to the shared-node seed cache while size is still unresolved.
 

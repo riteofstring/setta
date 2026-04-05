@@ -5,6 +5,10 @@ import {
 import type { CSSProperties } from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type {
+  SettingsGraphSubstrateCanarySectionSeedNode,
+  SettingsGraphSubstrateCanarySectionSeedNodes,
+} from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import {
   resolveSettingsGraphSubstrateCanarySectionShellAppearance,
   type SettingsGraphSubstrateCanarySectionShellAppearance,
@@ -82,6 +86,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   hoveredSectionId,
   previewStyleColors,
   sceneSections,
+  sectionSeedNodes,
   viewport,
 }: {
   activeSectionIds: ReadonlyArray<string>;
@@ -90,6 +95,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   hoveredSectionId: string | null;
   previewStyleColors: Record<string, string | null | undefined>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes;
   viewport: GraphViewport | null;
 }): Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable> {
   if (!viewport || viewport.zoom <= 0) {
@@ -104,6 +110,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
     const isHoveredSection =
       section.sectionId === hoveredSectionId ||
       section.sectionId === draggingSectionId;
+    const sectionSeedNode = sectionSeedNodes.get(section.sectionId);
     const drawable =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
         darkMode,
@@ -114,6 +121,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         isTopDragHandleVisible: isHoveredSection,
         previewStyleColor: previewStyleColors[section.sectionId],
         section,
+        sectionSeedNode,
         viewport,
       });
     if (drawable) {
@@ -131,6 +139,7 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   isTopDragHandleVisible,
   previewStyleColor,
   section,
+  sectionSeedNode,
   viewport,
 }: {
   darkMode: boolean;
@@ -139,9 +148,10 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   isTopDragHandleVisible: boolean;
   previewStyleColor: string | null | undefined;
   section: SettingsGraphSubstrateCanarySceneSection;
+  sectionSeedNode: SettingsGraphSubstrateCanarySectionSeedNode | undefined;
   viewport: GraphViewport;
 }): SettingsGraphSubstrateCanarySectionShellPixiDrawable | null {
-  const sectionSize = getPositiveSceneSectionSize(section);
+  const sectionSize = getPositiveSceneSectionSize(section, sectionSeedNode);
   if (!sectionSize) {
     return null;
   }
@@ -473,13 +483,11 @@ function isVisibleActiveOutlineTone(
 }
 
 function getPositiveSceneSectionSize(
-  section: Pick<
-    SettingsGraphSubstrateCanarySceneSection,
-    "height" | "renderSize" | "width"
-  >,
+  section: Pick<SettingsGraphSubstrateCanarySceneSection, "height" | "width">,
+  sectionSeedNode: SettingsGraphSubstrateCanarySectionSeedNode | undefined,
 ) {
-  const width = section.renderSize?.width ?? section.width ?? 0;
-  const height = section.renderSize?.height ?? section.height ?? 0;
+  const width = section.width ?? sectionSeedNode?.width ?? 0;
+  const height = section.height ?? sectionSeedNode?.height ?? 0;
 
   if (width <= 0 || height <= 0) {
     return null;

@@ -2,6 +2,7 @@ import { resolveSectionChromeAppearance } from "components/Section/Container/sec
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type { SettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import { resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables } from "./settingsGraphSubstrateCanarySectionShellPixiModel";
 
 describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
@@ -25,6 +26,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
           "section-a": previewStyleColor,
         },
         sceneSections: [createSceneSection({ isActiveSection: true })],
+        sectionSeedNodes: new Map(),
         viewport: { x: 50, y: -20, zoom: 0.5 },
       });
 
@@ -74,6 +76,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
             textBlockMetaControlStyle: false,
           }),
         ],
+        sectionSeedNodes: new Map(),
         viewport: { x: 0, y: 0, zoom: 1 },
       });
 
@@ -96,6 +99,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
             textBlockMetaControlStyle: false,
           }),
         ],
+        sectionSeedNodes: new Map(),
         viewport: { x: 0, y: 0, zoom: 1 },
       });
 
@@ -129,6 +133,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         hoveredSectionId: null,
         previewStyleColors: {},
         sceneSections: [createSceneSection({ isActiveSection: false })],
+        sectionSeedNodes: new Map(),
         viewport: { x: 0, y: 0, zoom: 1 },
       });
 
@@ -167,6 +172,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
             textBlockMetaControlStyle: false,
           }),
         ],
+        sectionSeedNodes: new Map(),
         viewport: { x: 0, y: 0, zoom: 1 },
       });
 
@@ -185,6 +191,42 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         topDragHandle: null,
       }),
     ]);
+  });
+
+  it("uses shared-node seed size instead of render-only scene fallback for unresolved shell geometry", () => {
+    const drawables =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({
+            height: null,
+            renderSize: { width: 360, height: 210 },
+            sizeAuthority: "sharedNode",
+            width: null,
+          }),
+        ],
+        sectionSeedNodes: createSectionSeedNodes([
+          [
+            "section-a",
+            {
+              width: 280,
+              height: 190,
+              sizeAuthority: "sharedNode",
+            },
+          ],
+        ]),
+        viewport: { x: 0, y: 0, zoom: 1 },
+      });
+
+    expect(drawables).toHaveLength(1);
+    expect(drawables[0]).toMatchObject({
+      screenHeight: 190,
+      screenWidth: 280,
+    });
   });
 });
 
@@ -230,4 +272,19 @@ function createSceneSection(
     ...(sizeAuthority ? { sizeAuthority } : {}),
     ...overrides,
   };
+}
+
+function createSectionSeedNodes(
+  entries: Array<
+    readonly [
+      string,
+      {
+        height: number;
+        sizeAuthority: "sharedNode";
+        width: number;
+      },
+    ]
+  >,
+): SettingsGraphSubstrateCanarySectionSeedNodes {
+  return new Map(entries);
 }
