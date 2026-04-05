@@ -1195,11 +1195,11 @@ export type BaseSectionImplUnion =
   | SpreadsheetSectionImpl;
 
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.ListRoot,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.Code,
-  SectionTypeEnum.GenPythonCode,
-  SectionTypeEnum.GenPythonMetadata,
+  "ListRoot",
+  "Group",
+  "Code",
+  "GenPythonCode",
+  "GenPythonMetadata",
 ]);
 
 export function isBaseParentSectionImpl(
@@ -1214,9 +1214,9 @@ export function isBaseParentSectionImpl(
 }
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
+  "Callable",
+  "Dict",
+  "GlobalVariables",
 ]);
 
 export function isBaseSectionWithParamsImpl(
@@ -1226,7 +1226,7 @@ export function isBaseSectionWithParamsImpl(
 }
 
 export type ChatSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Chat;
+  type: "Chat";
   managed: boolean;
   thinking: boolean;
   permissionMode: ChatPermissionMode;
@@ -1283,7 +1283,7 @@ export function createChatSectionImpl(
 }
 
 type BrowserSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Browser;
+  type: "Browser";
   folder: string;
   hideColumn: boolean;
   viewMode: BrowserAreaViewMode;
@@ -1291,7 +1291,7 @@ type BrowserSectionImpl = BaseSectionImpl & {
 };
 
 type ListRootSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.ListRoot;
+  type: "ListRoot";
   children: Array<string>;
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
@@ -1329,7 +1329,7 @@ export function createListRootSectionImpl(
 }
 
 type GroupSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Group;
+  type: "Group";
   children: Array<string>;
   isHorizontalOrientation: boolean;
   overflowMode: boolean;
@@ -1369,7 +1369,7 @@ export function createGroupSectionImpl(
 }
 
 type StateMachineStartSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.StateMachineStart;
+  type: "StateMachineStart";
   machineGroupId: string;
   label: string;
 };
@@ -1406,7 +1406,7 @@ export function createStateMachineStartSectionImpl(
 }
 
 type StateMachineGateSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.StateMachineGate;
+  type: "StateMachineGate";
   machineGroupId: string;
   gateType: StateMachineGateType;
   label: string;
@@ -1414,13 +1414,13 @@ type StateMachineGateSectionImpl = BaseSectionImpl & {
 };
 
 type StateMachineEndSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.StateMachineEnd;
+  type: "StateMachineEnd";
   machineGroupId: string;
   label: string;
 };
 
 type TextBlockSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.TextBlock;
+  type: "TextBlock";
   format: TextBlockFormat;
   masterFontSizePx: number;
   headingAsSectionName: boolean;
@@ -1464,7 +1464,7 @@ export function createTextBlockSectionImpl(
 }
 
 export type PromptSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Prompt;
+  type: "Prompt";
   template: string;
   format: Format;
   inputs: Record<string, string>;
@@ -1508,7 +1508,7 @@ export function createPromptSectionImpl(
 }
 
 type CodeSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Code;
+  type: "Code";
   children: Array<string>;
   code: string;
   codeLanguage: string;
@@ -1567,7 +1567,7 @@ export function createCodeSectionImpl(
 }
 
 type TerminalSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Terminal;
+  type: "Terminal";
 };
 
 export function createTerminalSectionImpl(
@@ -1599,7 +1599,7 @@ export function createTerminalSectionImpl(
 }
 
 type CallableSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Callable;
+  type: "Callable";
   codeObjVariantMap: Record<string, string>;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -1660,7 +1660,7 @@ export function createCallableSectionImpl(
 }
 
 type DictSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict;
+  type: "Dict";
   codeObjVariantMap: Record<string, string>;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -1726,7 +1726,7 @@ export function createDictSectionImpl(
 }
 
 type TaskBoardSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.TaskBoard;
+  type: "TaskBoard";
   viewMode: TaskBoardViewMode;
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
@@ -1764,7 +1764,7 @@ export function createTaskBoardSectionImpl(
 }
 
 type ChartSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Chart;
+  type: "Chart";
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 };
@@ -1806,7 +1806,7 @@ export function createChartSectionImpl(
 }
 
 type SpreadsheetSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Spreadsheet;
+  type: "Spreadsheet";
   filePath: string;
   readOnly: boolean;
   showRowNumbers: boolean;
@@ -1925,18 +1925,18 @@ export type BaseChildlessCodeObjImplUnion =
   | DropzoneParamCodeObjImpl;
 
 const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
+  "CodeParam",
+  "TextParam",
+  "DateParam",
+  "TimeParam",
+  "SliderParam",
+  "RotaryParam",
+  "SwitchParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "PasswordParam",
+  "TextAreaParam",
+  "DropzoneParam",
 ]);
 
 export function isBaseChildlessCodeObjImpl(
@@ -1946,20 +1946,20 @@ export function isBaseChildlessCodeObjImpl(
 }
 
 const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
+  "CodeParam",
+  "TextParam",
+  "DateParam",
+  "TimeParam",
+  "ButtonParam",
+  "SliderParam",
+  "RotaryParam",
+  "SwitchParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "PasswordParam",
+  "TextAreaParam",
+  "DropzoneParam",
+  "NestedParam",
 ]);
 
 export function isBaseParamCodeObjImpl(
@@ -1984,8 +1984,8 @@ export function isBaseParamCodeObjImpl(
 }
 
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeCallable,
-  CodeObjTypeEnum.NestedParam,
+  "CodeCallable",
+  "NestedParam",
 ]);
 
 export function isBaseParentCodeObjImpl(
@@ -1995,7 +1995,7 @@ export function isBaseParentCodeObjImpl(
 }
 
 type CodeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeParam;
+  type: "CodeParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2026,12 +2026,12 @@ export function createCodeParamCodeObjImpl(
 }
 
 type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeCallable;
+  type: "CodeCallable";
   children: Array<string>;
 };
 
 type NestedParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.NestedParam;
+  type: "NestedParam";
   children: Array<string>;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
@@ -2040,7 +2040,7 @@ type NestedParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 type TextParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TextParam;
+  type: "TextParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2051,7 +2051,7 @@ type TextParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type DateParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DateParam;
+  type: "DateParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2066,7 +2066,7 @@ export type DateParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TimeParam;
+  type: "TimeParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2081,7 +2081,7 @@ export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.ButtonParam;
+  type: "ButtonParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2096,7 +2096,7 @@ export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.SliderParam;
+  type: "SliderParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2109,7 +2109,7 @@ export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.RotaryParam;
+  type: "RotaryParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2122,7 +2122,7 @@ export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.SwitchParam;
+  type: "SwitchParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2132,7 +2132,7 @@ type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.ColorPickerParam;
+  type: "ColorPickerParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2143,7 +2143,7 @@ export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DropdownParam;
+  type: "DropdownParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2154,7 +2154,7 @@ export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.PasswordParam;
+  type: "PasswordParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2165,7 +2165,7 @@ type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.TextAreaParam;
+  type: "TextAreaParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2175,7 +2175,7 @@ type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.DropzoneParam;
+  type: "DropzoneParam";
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2937,7 +2937,7 @@ function createSectionSizingPolicy(
 }
 
 type GlobalVariablesSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GlobalVariables;
+  type: "GlobalVariables";
   codeObjVariantMap: Record<string, string>;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -2955,7 +2955,7 @@ type GlobalVariablesSectionImpl = BaseSectionImpl & {
 };
 
 type GenPythonCodeSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GenPythonCode;
+  type: "GenPythonCode";
   children: Array<string>;
   code: string;
   codeLanguage: string;
@@ -2963,7 +2963,7 @@ type GenPythonCodeSectionImpl = BaseSectionImpl & {
 };
 
 type GenPythonMetadataSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GenPythonMetadata;
+  type: "GenPythonMetadata";
   children: Array<string>;
   code: string;
   codeLanguage: string;
