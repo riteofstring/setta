@@ -106,6 +106,115 @@ func TestNormalizeBackendProbeResponseNormalizesAndRestrictsRouteMethods(t *test
 	}
 }
 
+func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T) {
+	// Probe normalization should trim, resolve, and sort each registration slice deterministically.
+	pluginRoot := t.TempDir()
+	relativeCommand := filepath.Join(pluginRoot, "backend", "fixture-language-server.sh")
+	if err := os.MkdirAll(filepath.Dir(relativeCommand), 0o755); err != nil {
+		t.Fatalf("mkdir language server command dir: %v", err)
+	}
+	if err := os.WriteFile(relativeCommand, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write language server command: %v", err)
+	}
+	for _, dir := range []string{
+		filepath.Join(pluginRoot, "backend", "static-a"),
+		filepath.Join(pluginRoot, "backend", "static-b"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir static dir %q: %v", dir, err)
+		}
+	}
+
+	normalized, err := normalizeBackendProbeResponse(pluginRoot, "setta-fixture-backend", backendProbeResponse{
+		CodegenTargets: []PluginRegisteredCodegenTarget{
+			{TargetID: " typescript-target ", Language: "typescript", Name: "TypeScript target", DefaultFileName: "ts.txt"},
+			{TargetID: " go-target ", Language: "go", Name: "Go target", DefaultFileName: "go.txt"},
+		},
+		LanguageServers: []PluginRegisteredLanguageServer{
+			{Name: "TypeScript LS", Language: " typescript ", Command: "node", Args: []string{"--stdio"}},
+			{Name: "Go LS", Language: "go", Command: "./backend/fixture-language-server.sh", Args: []string{" --stdio "}},
+		},
+		UISettingsRaw: []map[string]any{
+			{
+				"id":             "z-setting",
+				"title":          "Z setting",
+				"description":    "Z description",
+				"paneId":         "pane-z",
+				"revealKey":      "reveal-z",
+				"synonyms":       []any{"zeta"},
+				"mutability":     "writable",
+				"valueSchema":    map[string]any{"type": "string"},
+				"readHandlerId":  "read-z",
+				"writeHandlerId": "write-z",
+			},
+			{
+				"id":            "a-setting",
+				"title":         "A setting",
+				"description":   "A description",
+				"paneId":        "pane-a",
+				"revealKey":     "reveal-a",
+				"synonyms":      []any{"alpha"},
+				"mutability":    "readOnly",
+				"valueSchema":   map[string]any{"type": "string"},
+				"readHandlerId": "read-a",
+			},
+		},
+		Routes: []PluginRegisteredBackendRoute{
+			{Path: "/z-items", Methods: []string{"post", " GET "}},
+			{Path: "/a-items", Methods: []string{"get"}},
+		},
+		StaticDirs: []PluginRegisteredStaticDir{
+			{RoutePrefix: "/z-static", Dir: "backend/static-b"},
+			{RoutePrefix: "/a-static", Dir: "backend/static-a"},
+		},
+		ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+			{Name: "z-endpoint"},
+			{Name: "a-endpoint"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize backend probe response: %v", err)
+	}
+
+	if got := []string{normalized.CodegenTargets[0].Language, normalized.CodegenTargets[1].Language}; !slices.Equal(got, []string{"go", "typescript"}) {
+		t.Fatalf("expected codegen targets sorted by language, got %#v", got)
+	}
+	if normalized.CodegenTargets[0].PluginID != "setta-fixture-backend" || normalized.CodegenTargets[0].TargetID != "go-target" {
+		t.Fatalf("expected trimmed codegen target values, got %#v", normalized.CodegenTargets[0])
+	}
+
+	if got := []string{normalized.LanguageServers[0].Language, normalized.LanguageServers[1].Language}; !slices.Equal(got, []string{"go", "typescript"}) {
+		t.Fatalf("expected language servers sorted by language, got %#v", got)
+	}
+	if normalized.LanguageServers[0].Command != relativeCommand {
+		t.Fatalf("expected relative language server command to resolve to %q, got %q", relativeCommand, normalized.LanguageServers[0].Command)
+	}
+	if !slices.Equal(normalized.LanguageServers[0].Args, []string{"--stdio"}) {
+		t.Fatalf("expected language server args to be trimmed, got %#v", normalized.LanguageServers[0].Args)
+	}
+
+	if got := []string{normalized.UISettings[0].LocalSettingID, normalized.UISettings[1].LocalSettingID}; !slices.Equal(got, []string{"a-setting", "z-setting"}) {
+		t.Fatalf("expected ui settings sorted by id, got %#v", got)
+	}
+	if normalized.UISettings[0].WriteHandlerID != nil {
+		t.Fatalf("expected readOnly setting to omit write handler, got %#v", normalized.UISettings[0].WriteHandlerID)
+	}
+
+	if got := []string{normalized.Routes[0].Path, normalized.Routes[1].Path}; !slices.Equal(got, []string{"/a-items", "/z-items"}) {
+		t.Fatalf("expected routes sorted by path, got %#v", got)
+	}
+	if !slices.Equal(normalized.Routes[1].Methods, []string{"GET", "POST"}) {
+		t.Fatalf("expected route methods to be normalized and sorted, got %#v", normalized.Routes[1].Methods)
+	}
+
+	if got := []string{normalized.StaticDirs[0].RoutePrefix, normalized.StaticDirs[1].RoutePrefix}; !slices.Equal(got, []string{"/a-static", "/z-static"}) {
+		t.Fatalf("expected static dirs sorted by prefix, got %#v", got)
+	}
+	if got := []string{normalized.ListenerEndpoints[0].Name, normalized.ListenerEndpoints[1].Name}; !slices.Equal(got, []string{"a-endpoint", "z-endpoint"}) {
+		t.Fatalf("expected listener endpoints sorted by name, got %#v", got)
+	}
+}
+
 func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand(t *testing.T) {
 	// Plugin language-server commands should resolve ./ paths against the plugin root.
 	pluginRoot := t.TempDir()

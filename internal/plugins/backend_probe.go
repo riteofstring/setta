@@ -149,175 +149,267 @@ func decodeBackendProbeResponse(output []byte) (backendProbeResponse, error) {
 }
 
 func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe backendProbeResponse) (backendProbeResponse, error) {
-	targetIDs := map[string]struct{}{}
-	targetLanguages := map[string]struct{}{}
-	for index, target := range probe.CodegenTargets {
-		normalized, err := normalizeBackendCodegenTargetRegistration(pluginID, target)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("codegen target %d: %w", index, err)
-		}
-		probe.CodegenTargets[index] = normalized
-		if _, exists := targetIDs[normalized.TargetID]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate codegen target id %s", normalized.TargetID)
-		}
-		targetIDs[normalized.TargetID] = struct{}{}
-		if _, exists := targetLanguages[normalized.Language]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate codegen target language %s", normalized.Language)
-		}
-		targetLanguages[normalized.Language] = struct{}{}
+	var err error
+	probe.CodegenTargets, err = normalizeBackendCodegenTargets(pluginID, probe.CodegenTargets)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(probe.CodegenTargets, func(left PluginRegisteredCodegenTarget, right PluginRegisteredCodegenTarget) int {
-		if left.Language < right.Language {
-			return -1
-		}
-		if left.Language > right.Language {
-			return 1
-		}
-		if left.TargetID < right.TargetID {
-			return -1
-		}
-		if left.TargetID > right.TargetID {
-			return 1
-		}
-		return 0
-	})
-
-	languageServers := map[string]struct{}{}
-	for index, registration := range probe.LanguageServers {
-		normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, pluginID, registration)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("language server %d: %w", index, err)
-		}
-		probe.LanguageServers[index] = normalized
-		if _, exists := languageServers[normalized.Language]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate language server language %s", normalized.Language)
-		}
-		languageServers[normalized.Language] = struct{}{}
+	probe.LanguageServers, err = normalizeBackendLanguageServers(pluginRoot, pluginID, probe.LanguageServers)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(probe.LanguageServers, func(left PluginRegisteredLanguageServer, right PluginRegisteredLanguageServer) int {
-		if left.Language < right.Language {
-			return -1
-		}
-		if left.Language > right.Language {
-			return 1
-		}
-		if left.Name < right.Name {
-			return -1
-		}
-		if left.Name > right.Name {
-			return 1
-		}
-		return 0
-	})
-
-	normalizedUISettings := make([]PluginRegisteredUISetting, 0, len(probe.UISettingsRaw))
-	seenUISettingIDs := map[string]struct{}{}
-	for index, raw := range probe.UISettingsRaw {
-		normalized, err := normalizeBackendUISettingRegistration(pluginID, raw)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("ui setting %d: %w", index, err)
-		}
-		if _, exists := seenUISettingIDs[normalized.LocalSettingID]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate ui setting id %s", normalized.LocalSettingID)
-		}
-		seenUISettingIDs[normalized.LocalSettingID] = struct{}{}
-		normalizedUISettings = append(normalizedUISettings, normalized)
+	probe.UISettings, err = normalizeBackendUISettings(pluginID, probe.UISettingsRaw)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(normalizedUISettings, func(left PluginRegisteredUISetting, right PluginRegisteredUISetting) int {
-		if left.LocalSettingID < right.LocalSettingID {
-			return -1
-		}
-		if left.LocalSettingID > right.LocalSettingID {
-			return 1
-		}
-		return 0
-	})
-	probe.UISettings = normalizedUISettings
-
-	routeKeys := map[string]struct{}{}
-	for index, route := range probe.Routes {
-		normalized, err := normalizeBackendRouteRegistration(route)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("route %d: %w", index, err)
-		}
-		probe.Routes[index] = normalized
-		for _, method := range normalized.Methods {
-			key := method + " " + normalized.Path
-			if _, exists := routeKeys[key]; exists {
-				return backendProbeResponse{}, fmt.Errorf("duplicate route registration %s", key)
-			}
-			routeKeys[key] = struct{}{}
-		}
+	probe.Routes, err = normalizeBackendRoutes(probe.Routes)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(probe.Routes, func(left PluginRegisteredBackendRoute, right PluginRegisteredBackendRoute) int {
-		if left.Path < right.Path {
-			return -1
-		}
-		if left.Path > right.Path {
-			return 1
-		}
-		leftMethods := strings.Join(left.Methods, "\x00")
-		rightMethods := strings.Join(right.Methods, "\x00")
-		if leftMethods < rightMethods {
-			return -1
-		}
-		if leftMethods > rightMethods {
-			return 1
-		}
-		return 0
-	})
-
-	staticPrefixes := map[string]struct{}{}
-	for index, staticDir := range probe.StaticDirs {
-		normalized, err := normalizeBackendStaticDirRegistration(pluginRoot, staticDir)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("static dir %d: %w", index, err)
-		}
-		probe.StaticDirs[index] = normalized
-		if _, exists := staticPrefixes[normalized.RoutePrefix]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate static dir route prefix %s", normalized.RoutePrefix)
-		}
-		staticPrefixes[normalized.RoutePrefix] = struct{}{}
+	probe.StaticDirs, err = normalizeBackendStaticDirs(pluginRoot, probe.StaticDirs)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(probe.StaticDirs, func(left PluginRegisteredStaticDir, right PluginRegisteredStaticDir) int {
-		if left.RoutePrefix < right.RoutePrefix {
-			return -1
-		}
-		if left.RoutePrefix > right.RoutePrefix {
-			return 1
-		}
-		if left.Dir < right.Dir {
-			return -1
-		}
-		if left.Dir > right.Dir {
-			return 1
-		}
-		return 0
-	})
-
-	listenerNames := map[string]struct{}{}
-	for index, endpoint := range probe.ListenerEndpoints {
-		normalized, err := normalizeBackendListenerEndpointRegistration(endpoint)
-		if err != nil {
-			return backendProbeResponse{}, fmt.Errorf("listener endpoint %d: %w", index, err)
-		}
-		probe.ListenerEndpoints[index] = normalized
-		if _, exists := listenerNames[normalized.Name]; exists {
-			return backendProbeResponse{}, fmt.Errorf("duplicate listener endpoint %s", normalized.Name)
-		}
-		listenerNames[normalized.Name] = struct{}{}
+	probe.ListenerEndpoints, err = normalizeBackendListenerEndpoints(probe.ListenerEndpoints)
+	if err != nil {
+		return backendProbeResponse{}, err
 	}
-	slices.SortFunc(probe.ListenerEndpoints, func(left PluginRegisteredListenerEndpoint, right PluginRegisteredListenerEndpoint) int {
-		if left.Name < right.Name {
-			return -1
-		}
-		if left.Name > right.Name {
-			return 1
-		}
-		return 0
-	})
 
 	return probe, nil
+}
+
+func normalizeBackendCodegenTargets(pluginID string, targets []PluginRegisteredCodegenTarget) ([]PluginRegisteredCodegenTarget, error) {
+	normalized, err := normalizeBackendProbeRegistrations(targets, "codegen target", func(target PluginRegisteredCodegenTarget) (PluginRegisteredCodegenTarget, error) {
+		return normalizeBackendCodegenTargetRegistration(pluginID, target)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(target PluginRegisteredCodegenTarget) []string {
+		return []string{target.TargetID}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate codegen target id %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(target PluginRegisteredCodegenTarget) []string {
+		return []string{target.Language}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate codegen target language %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendCodegenTargets)
+	return normalized, nil
+}
+
+func normalizeBackendLanguageServers(pluginRoot string, pluginID string, registrations []PluginRegisteredLanguageServer) ([]PluginRegisteredLanguageServer, error) {
+	normalized, err := normalizeBackendProbeRegistrations(registrations, "language server", func(registration PluginRegisteredLanguageServer) (PluginRegisteredLanguageServer, error) {
+		return normalizeBackendLanguageServerRegistration(pluginRoot, pluginID, registration)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(registration PluginRegisteredLanguageServer) []string {
+		return []string{registration.Language}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate language server language %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendLanguageServers)
+	return normalized, nil
+}
+
+func normalizeBackendUISettings(pluginID string, rawSettings []map[string]any) ([]PluginRegisteredUISetting, error) {
+	normalized, err := normalizeBackendProbeRegistrations(rawSettings, "ui setting", func(raw map[string]any) (PluginRegisteredUISetting, error) {
+		return normalizeBackendUISettingRegistration(pluginID, raw)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(setting PluginRegisteredUISetting) []string {
+		return []string{setting.LocalSettingID}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate ui setting id %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendUISettings)
+	return normalized, nil
+}
+
+func normalizeBackendRoutes(routes []PluginRegisteredBackendRoute) ([]PluginRegisteredBackendRoute, error) {
+	normalized, err := normalizeBackendProbeRegistrations(routes, "route", normalizeBackendRouteRegistration)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(route PluginRegisteredBackendRoute) []string {
+		keys := make([]string, 0, len(route.Methods))
+		for _, method := range route.Methods {
+			keys = append(keys, method+" "+route.Path)
+		}
+		return keys
+	}, func(key string) error {
+		return fmt.Errorf("duplicate route registration %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendRoutes)
+	return normalized, nil
+}
+
+func normalizeBackendStaticDirs(pluginRoot string, registrations []PluginRegisteredStaticDir) ([]PluginRegisteredStaticDir, error) {
+	normalized, err := normalizeBackendProbeRegistrations(registrations, "static dir", func(registration PluginRegisteredStaticDir) (PluginRegisteredStaticDir, error) {
+		return normalizeBackendStaticDirRegistration(pluginRoot, registration)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(registration PluginRegisteredStaticDir) []string {
+		return []string{registration.RoutePrefix}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate static dir route prefix %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendStaticDirs)
+	return normalized, nil
+}
+
+func normalizeBackendListenerEndpoints(endpoints []PluginRegisteredListenerEndpoint) ([]PluginRegisteredListenerEndpoint, error) {
+	normalized, err := normalizeBackendProbeRegistrations(endpoints, "listener endpoint", normalizeBackendListenerEndpointRegistration)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureUniqueBackendProbeRegistrationKeys(normalized, func(endpoint PluginRegisteredListenerEndpoint) []string {
+		return []string{endpoint.Name}
+	}, func(key string) error {
+		return fmt.Errorf("duplicate listener endpoint %s", key)
+	}); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(normalized, compareBackendListenerEndpoints)
+	return normalized, nil
+}
+
+func normalizeBackendProbeRegistrations[Input any, Output any](
+	items []Input,
+	label string,
+	normalize func(Input) (Output, error),
+) ([]Output, error) {
+	normalized := make([]Output, 0, len(items))
+	for index, item := range items {
+		value, err := normalize(item)
+		if err != nil {
+			return nil, fmt.Errorf("%s %d: %w", label, index, err)
+		}
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
+func ensureUniqueBackendProbeRegistrationKeys[T any](
+	items []T,
+	keys func(T) []string,
+	duplicateError func(string) error,
+) error {
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		for _, key := range keys(item) {
+			if _, exists := seen[key]; exists {
+				return duplicateError(key)
+			}
+			seen[key] = struct{}{}
+		}
+	}
+	return nil
+}
+
+func compareBackendCodegenTargets(left PluginRegisteredCodegenTarget, right PluginRegisteredCodegenTarget) int {
+	if left.Language < right.Language {
+		return -1
+	}
+	if left.Language > right.Language {
+		return 1
+	}
+	if left.TargetID < right.TargetID {
+		return -1
+	}
+	if left.TargetID > right.TargetID {
+		return 1
+	}
+	return 0
+}
+
+func compareBackendLanguageServers(left PluginRegisteredLanguageServer, right PluginRegisteredLanguageServer) int {
+	if left.Language < right.Language {
+		return -1
+	}
+	if left.Language > right.Language {
+		return 1
+	}
+	if left.Name < right.Name {
+		return -1
+	}
+	if left.Name > right.Name {
+		return 1
+	}
+	return 0
+}
+
+func compareBackendUISettings(left PluginRegisteredUISetting, right PluginRegisteredUISetting) int {
+	if left.LocalSettingID < right.LocalSettingID {
+		return -1
+	}
+	if left.LocalSettingID > right.LocalSettingID {
+		return 1
+	}
+	return 0
+}
+
+func compareBackendRoutes(left PluginRegisteredBackendRoute, right PluginRegisteredBackendRoute) int {
+	if left.Path < right.Path {
+		return -1
+	}
+	if left.Path > right.Path {
+		return 1
+	}
+	leftMethods := strings.Join(left.Methods, "\x00")
+	rightMethods := strings.Join(right.Methods, "\x00")
+	if leftMethods < rightMethods {
+		return -1
+	}
+	if leftMethods > rightMethods {
+		return 1
+	}
+	return 0
+}
+
+func compareBackendStaticDirs(left PluginRegisteredStaticDir, right PluginRegisteredStaticDir) int {
+	if left.RoutePrefix < right.RoutePrefix {
+		return -1
+	}
+	if left.RoutePrefix > right.RoutePrefix {
+		return 1
+	}
+	if left.Dir < right.Dir {
+		return -1
+	}
+	if left.Dir > right.Dir {
+		return 1
+	}
+	return 0
+}
+
+func compareBackendListenerEndpoints(left PluginRegisteredListenerEndpoint, right PluginRegisteredListenerEndpoint) int {
+	if left.Name < right.Name {
+		return -1
+	}
+	if left.Name > right.Name {
+		return 1
+	}
+	return 0
 }
 
 func normalizeBackendCodegenTargetRegistration(pluginID string, target PluginRegisteredCodegenTarget) (PluginRegisteredCodegenTarget, error) {
