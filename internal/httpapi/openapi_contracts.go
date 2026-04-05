@@ -298,6 +298,16 @@ func openAPICollectorFromRouter(router chi.Router) *openAPICollector {
 	return nil
 }
 
+func routerWithoutOpenAPI(router chi.Router) chi.Router {
+	if router == nil {
+		return nil
+	}
+	if wrapped, ok := router.(*contractRouter); ok {
+		return wrapped.Router
+	}
+	return router
+}
+
 func (c *openAPICollector) AddOperation(operation openAPIOperation) {
 	if strings.TrimSpace(operation.OperationID) == "" {
 		panic("openapi operation id is required")

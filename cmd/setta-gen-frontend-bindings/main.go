@@ -27,12 +27,10 @@ func writeOutput(path string, content string) error {
 func main() {
 	routesOutputPath := flag.String("routes-out", "", "path to the generated TS route output file")
 	typesOutputPath := flag.String("types-out", "", "path to the generated TS type output file")
-	endpointsOutputPath := flag.String("endpoints-out", "", "path to the generated TS endpoint output file")
 	flag.Parse()
 
 	if strings.TrimSpace(*routesOutputPath) == "" &&
-		strings.TrimSpace(*typesOutputPath) == "" &&
-		strings.TrimSpace(*endpointsOutputPath) == "" {
+		strings.TrimSpace(*typesOutputPath) == "" {
 		fmt.Fprintln(os.Stderr, "setta-gen-frontend-bindings: at least one output flag is required")
 		os.Exit(2)
 	}
@@ -48,10 +46,6 @@ func main() {
 		os.Exit(1)
 	}
 	if err := writeOutput(*typesOutputPath, bindings.TypesTS); err != nil {
-		fmt.Fprintf(os.Stderr, "setta-gen-frontend-bindings: %v\n", err)
-		os.Exit(1)
-	}
-	if err := writeOutput(*endpointsOutputPath, bindings.EndpointsTS); err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-frontend-bindings: %v\n", err)
 		os.Exit(1)
 	}

@@ -1014,6 +1014,41 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 }
 
+func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
+	document, err := BuildFrontendHTTPOpenAPIDocument()
+	if err != nil {
+		t.Fatalf("build frontend http openapi document: %v", err)
+	}
+
+	getLatestProjectState := document.Paths[RouteGetLatestProjectState].Post
+	if getLatestProjectState == nil {
+		t.Fatalf("expected %s post operation", RouteGetLatestProjectState)
+	}
+	if getLatestProjectState.OperationID != "getLatestProjectState" {
+		t.Fatalf("latest project state operation id = %q, want %q", getLatestProjectState.OperationID, "getLatestProjectState")
+	}
+
+	setProjectConfigCodegenTargets := document.Paths[RouteSetProjectConfigCodegenTargets].Post
+	if setProjectConfigCodegenTargets == nil {
+		t.Fatalf("expected %s post operation", RouteSetProjectConfigCodegenTargets)
+	}
+	if setProjectConfigCodegenTargets.OperationID != "setProjectConfigCodegenTargets" {
+		t.Fatalf(
+			"set project config codegen targets operation id = %q, want %q",
+			setProjectConfigCodegenTargets.OperationID,
+			"setProjectConfigCodegenTargets",
+		)
+	}
+
+	createWindowSpace := document.Paths[RouteCreateWindowSpace].Post
+	if createWindowSpace == nil {
+		t.Fatalf("expected %s post operation", RouteCreateWindowSpace)
+	}
+	if createWindowSpace.OperationID != "createWindowSpace" {
+		t.Fatalf("create window space operation id = %q, want %q", createWindowSpace.OperationID, "createWindowSpace")
+	}
+}
+
 func assertOpenAPIOperationID(
 	t *testing.T,
 	paths map[string]any,

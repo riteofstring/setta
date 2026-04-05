@@ -1,8 +1,6 @@
 package frontendbindings
 
-import (
-	"reflect"
-)
+import "reflect"
 
 // setta-go-type-discovery: skip
 type NamedRoute struct {
@@ -17,18 +15,6 @@ type RouteGroup struct {
 	HelperConstName      string
 	HelperOnlyPathParams bool
 	Routes               []NamedRoute
-}
-
-// setta-go-type-discovery: skip
-type EndpointSpec struct {
-	FunctionName    string
-	Method          string
-	RouteCollection string
-	RouteName       string
-	RequestType     reflect.Type
-	PathParamsType  reflect.Type
-	ResponseType    reflect.Type
-	BinaryResponse  bool
 }
 
 func CurrentRouteGroups() []RouteGroup {

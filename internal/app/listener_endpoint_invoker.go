@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"setta/internal/auth"
+	"setta/internal/deployments"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
 )
@@ -22,11 +23,18 @@ type listenerEndpointInvoker struct {
 }
 
 func newListenerEndpointInvoker(
-	authService *auth.Service,
 	scriptableChat *scriptablechat.Service,
+	projectRuntime *projectstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+	chatSectionChatIDs listenerChatSectionChatIDService,
 	pluginRuntime pluginListenerEndpointService,
 ) (*listenerEndpointInvoker, error) {
-	builtIn, err := newListenerBuiltInEndpointInvoker(authService, scriptableChat)
+	builtIn, err := newListenerBuiltInEndpointInvoker(
+		scriptableChat,
+		projectRuntime,
+		deploymentRuntime,
+		chatSectionChatIDs,
+	)
 	if err != nil {
 		return nil, err
 	}

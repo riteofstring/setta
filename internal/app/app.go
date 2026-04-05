@@ -2596,8 +2596,10 @@ func initializeAppHandlerAndWatchServices(
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
 	listenerBuiltInInvoker, err := newListenerEndpointInvoker(
-		base.authService,
 		runtimeServices.ideAgents.scriptableChatService,
+		projectServices.projectRuntime,
+		projectServices.deploymentRuntime,
+		runtimeServices.ideAgents.chatSectionChatIDs,
 		platformServices.pluginRouteService,
 	)
 	if err != nil {

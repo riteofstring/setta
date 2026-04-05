@@ -16,6 +16,7 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
+	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
@@ -54,6 +55,9 @@ type frontendHTTPOpenAPILSPAdminService struct{}
 type frontendHTTPOpenAPIGitService struct{}
 type frontendHTTPOpenAPIArtifactService struct{}
 type frontendHTTPOpenAPIShareArtifactService struct{}
+type frontendHTTPOpenAPIProjectChatSectionChatIDService struct{}
+type frontendHTTPOpenAPIProjectCodeUpdateService struct{}
+type frontendHTTPOpenAPIProjectRenameRefactorService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -159,6 +163,30 @@ func (frontendHTTPOpenAPIArtifactService) Update(context.Context, artifacts.Upda
 
 func (frontendHTTPOpenAPIArtifactService) Delete(context.Context, artifacts.DeleteRequest) ([]string, error) {
 	return nil, nil
+}
+
+func (frontendHTTPOpenAPIProjectChatSectionChatIDService) GetChatID(context.Context, string, string) (*string, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIProjectCodeUpdateService) SetCode(context.Context, string, string, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectCodeUpdateService) FormatCode(context.Context, string, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectRenameRefactorService) SetSectionName(context.Context, string, string, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectRenameRefactorService) AcceptRenameRefactor(context.Context, string, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
+	return nil
 }
 
 func (frontendHTTPOpenAPIShareArtifactService) LoadCachedImages(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error) {
@@ -497,6 +525,19 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		ShareArtifacts: frontendHTTPOpenAPIShareArtifactService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register artifact routes: %w", err)
+	}
+	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
+		ModePolicy:                     modes.NewPolicy(config.ModeIDE),
+		WorkspaceRoot:                  "/workspace",
+		ProjectState:                   &projectstate.Runtime{},
+		SettingsState:                  &settingsstate.Runtime{},
+		ChatSectionChatIDs:             frontendHTTPOpenAPIProjectChatSectionChatIDService{},
+		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
+		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error { return nil }),
+		CodeUpdates:                    frontendHTTPOpenAPIProjectCodeUpdateService{},
+		RenameRefactors:                frontendHTTPOpenAPIProjectRenameRefactorService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register project routes: %w", err)
 	}
 	if err := RegisterGitRoutes(router, GitRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),

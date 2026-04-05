@@ -8,21 +8,36 @@ import {
 } from "./client";
 import { client as _heyApiClient } from "./client.gen";
 import type {
+  AcceptRenameRefactorData,
+  AcceptRenameRefactorErrors,
+  AcceptRenameRefactorResponses,
+  AddKwargData,
+  AddKwargErrors,
+  AddKwargResponses,
   AddLauncherRecentWorkspaceData,
   AddLauncherRecentWorkspaceErrors,
   AddLauncherRecentWorkspaceResponses,
+  AppendDrawAreaLayerItemData,
+  AppendDrawAreaLayerItemErrors,
+  AppendDrawAreaLayerItemResponses,
   AppendTranscriptionAudioData,
   AppendTranscriptionAudioErrors,
   AppendTranscriptionAudioResponses,
   ApplyPluginLockfileData,
   ApplyPluginLockfileErrors,
   ApplyPluginLockfileResponses,
+  AutoLayoutTopLevelSectionsData,
+  AutoLayoutTopLevelSectionsErrors,
+  AutoLayoutTopLevelSectionsResponses,
   CancelRunData,
   CancelRunErrors,
   CancelRunResponses,
   CancelTranscriptionSessionData,
   CancelTranscriptionSessionErrors,
   CancelTranscriptionSessionResponses,
+  ChangeParamImplData,
+  ChangeParamImplErrors,
+  ChangeParamImplResponses,
   CheckIfFileExistsData,
   CheckIfFileExistsErrors,
   CheckIfFileExistsResponses,
@@ -38,6 +53,18 @@ import type {
   CreateAgentProfileData,
   CreateAgentProfileErrors,
   CreateAgentProfileResponses,
+  CreateAgenticEdgeData,
+  CreateAgenticEdgeErrors,
+  CreateAgenticEdgeResponses,
+  CreateChildSectionsData,
+  CreateChildSectionsErrors,
+  CreateChildSectionsResponses,
+  CreateChildSectionsViaIncrementerData,
+  CreateChildSectionsViaIncrementerErrors,
+  CreateChildSectionsViaIncrementerResponses,
+  CreateEdgeData,
+  CreateEdgeErrors,
+  CreateEdgeResponses,
   CreateEngineConfigData,
   CreateEngineConfigErrors,
   CreateEngineConfigResponses,
@@ -47,30 +74,63 @@ import type {
   CreateFileData,
   CreateFileErrors,
   CreateFileResponses,
+  CreateNewSectionVariantData,
+  CreateNewSectionVariantErrors,
+  CreateNewSectionVariantResponses,
   CreateProjectConfigData,
   CreateProjectConfigErrors,
   CreateProjectConfigResponses,
   CreatePromptTemplateData,
   CreatePromptTemplateErrors,
   CreatePromptTemplateResponses,
+  CreateStateMachineEdgeData,
+  CreateStateMachineEdgeErrors,
+  CreateStateMachineEdgeResponses,
+  CreateTopLevelSectionData,
+  CreateTopLevelSectionErrors,
+  CreateTopLevelSectionResponses,
   CreateTranscriptionProfileData,
   CreateTranscriptionProfileErrors,
   CreateTranscriptionProfileResponses,
+  CreateViewModeData,
+  CreateViewModeErrors,
+  CreateViewModeResponses,
+  CreateWindowSpaceData,
+  CreateWindowSpaceErrors,
+  CreateWindowSpaceResponses,
   CreateWorkspaceLaunchIntentData,
   CreateWorkspaceLaunchIntentErrors,
   CreateWorkspaceLaunchIntentResponses,
+  DeclineRenameRefactorData,
+  DeclineRenameRefactorErrors,
+  DeclineRenameRefactorResponses,
   DeleteAgentProfileData,
   DeleteAgentProfileErrors,
   DeleteAgentProfileResponses,
+  DeleteAgenticEdgesData,
+  DeleteAgenticEdgesErrors,
+  DeleteAgenticEdgesResponses,
   DeleteArtifactsData,
   DeleteArtifactsErrors,
   DeleteArtifactsResponses,
+  DeleteChildSectionsViaDecrementerData,
+  DeleteChildSectionsViaDecrementerErrors,
+  DeleteChildSectionsViaDecrementerResponses,
+  DeleteEdgesData,
+  DeleteEdgesErrors,
+  DeleteEdgesResponses,
   DeleteEngineConfigData,
   DeleteEngineConfigErrors,
   DeleteEngineConfigResponses,
   DeleteExternalAgentConfigData,
   DeleteExternalAgentConfigErrors,
   DeleteExternalAgentConfigResponses,
+  DeleteJsonSourceFileAndVariantData,
+  DeleteJsonSourceFileAndVariantErrors,
+  DeleteJsonSourceFileAndVariantResponses,
+  DeleteKwargData,
+  DeleteKwargErrors,
+  DeleteKwargResponses,
   DeleteNotificationData,
   DeleteNotificationErrors,
   DeleteNotificationResponses,
@@ -80,12 +140,30 @@ import type {
   DeletePromptTemplateData,
   DeletePromptTemplateErrors,
   DeletePromptTemplateResponses,
+  DeleteSectionVariantOrAskData,
+  DeleteSectionVariantOrAskErrors,
+  DeleteSectionVariantOrAskResponses,
+  DeleteSectionsData,
+  DeleteSectionsErrors,
+  DeleteSectionsResponses,
+  DeleteSelectedParamsData,
+  DeleteSelectedParamsErrors,
+  DeleteSelectedParamsResponses,
+  DeleteStateMachineEdgesData,
+  DeleteStateMachineEdgesErrors,
+  DeleteStateMachineEdgesResponses,
   DeleteTerminalsData,
   DeleteTerminalsErrors,
   DeleteTerminalsResponses,
   DeleteTranscriptionProfileData,
   DeleteTranscriptionProfileErrors,
   DeleteTranscriptionProfileResponses,
+  DeleteViewModeData,
+  DeleteViewModeErrors,
+  DeleteViewModeResponses,
+  DeleteWindowSpaceData,
+  DeleteWindowSpaceErrors,
+  DeleteWindowSpaceResponses,
   DisablePluginData,
   DisablePluginErrors,
   DisablePluginResponses,
@@ -107,6 +185,9 @@ import type {
   ForceRefreshListenerData,
   ForceRefreshListenerErrors,
   ForceRefreshListenerResponses,
+  FormatCodeData,
+  FormatCodeErrors,
+  FormatCodeResponses,
   GenCodePrefixCompletionData,
   GenCodePrefixCompletionErrors,
   GenCodePrefixCompletionResponses,
@@ -167,6 +248,9 @@ import type {
   GetBackendInitStatusData,
   GetBackendInitStatusErrors,
   GetBackendInitStatusResponses,
+  GetChatSectionChatIdData,
+  GetChatSectionChatIdErrors,
+  GetChatSectionChatIdResponses,
   GetEngineConfigData,
   GetEngineConfigErrors,
   GetEngineConfigResponses,
@@ -218,6 +302,9 @@ import type {
   GetLatestLspDiagnosticsData,
   GetLatestLspDiagnosticsErrors,
   GetLatestLspDiagnosticsResponses,
+  GetLatestProjectStateData,
+  GetLatestProjectStateErrors,
+  GetLatestProjectStateResponses,
   GetLauncherFilesystemRootsData,
   GetLauncherFilesystemRootsErrors,
   GetLauncherFilesystemRootsResponses,
@@ -248,6 +335,9 @@ import type {
   GetNotificationsData,
   GetNotificationsErrors,
   GetNotificationsResponses,
+  GetPasswordParamValueData,
+  GetPasswordParamValueErrors,
+  GetPasswordParamValueResponses,
   GetPluginsRuntimeData,
   GetPluginsRuntimeErrors,
   GetPluginsRuntimeResponses,
@@ -293,9 +383,15 @@ import type {
   GetWorkspacePythonSignalData,
   GetWorkspacePythonSignalErrors,
   GetWorkspacePythonSignalResponses,
+  GroupSectionsData,
+  GroupSectionsErrors,
+  GroupSectionsResponses,
   ImportFilesToArtifactsData,
   ImportFilesToArtifactsErrors,
   ImportFilesToArtifactsResponses,
+  IndentParamsData,
+  IndentParamsErrors,
+  IndentParamsResponses,
   InstallPluginData,
   InstallPluginErrors,
   InstallPluginResponses,
@@ -344,21 +440,42 @@ import type {
   LoadSettingsData,
   LoadSettingsErrors,
   LoadSettingsResponses,
+  MoveParamGroupsData,
+  MoveParamGroupsErrors,
+  MoveParamGroupsResponses,
+  MoveParamsData,
+  MoveParamsErrors,
+  MoveParamsResponses,
+  MoveSectionsData,
+  MoveSectionsErrors,
+  MoveSectionsResponses,
   OpenLauncherWorkspaceData,
   OpenLauncherWorkspaceErrors,
   OpenLauncherWorkspaceResponses,
   OutputAccessorCompletionData,
   OutputAccessorCompletionErrors,
   OutputAccessorCompletionResponses,
+  PasteSectionsData,
+  PasteSectionsErrors,
+  PasteSectionsResponses,
   PinLauncherRecentWorkspaceData,
   PinLauncherRecentWorkspaceErrors,
   PinLauncherRecentWorkspaceResponses,
+  PrepareSectionsForCopyData,
+  PrepareSectionsForCopyErrors,
+  PrepareSectionsForCopyResponses,
   PublishAppDeploymentData,
   PublishAppDeploymentErrors,
   PublishAppDeploymentResponses,
   PublishShareDeploymentData,
   PublishShareDeploymentErrors,
   PublishShareDeploymentResponses,
+  ReconnectEdgeData,
+  ReconnectEdgeErrors,
+  ReconnectEdgeResponses,
+  RedoData,
+  RedoErrors,
+  RedoResponses,
   RemoveLauncherData,
   RemoveLauncherErrors,
   RemoveLauncherRecentWorkspaceData,
@@ -410,27 +527,246 @@ import type {
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  SetActiveIdsData,
+  SetActiveIdsErrors,
+  SetActiveIdsResponses,
+  SetActiveViewModeData,
+  SetActiveViewModeErrors,
+  SetActiveViewModeResponses,
+  SetAgenticEdgesData,
+  SetAgenticEdgesErrors,
+  SetAgenticEdgesResponses,
   SetAppDefinitionData,
   SetAppDefinitionErrors,
   SetAppDefinitionResponses,
   SetAsDefaultProjectData,
   SetAsDefaultProjectErrors,
   SetAsDefaultProjectResponses,
+  SetBrowserAreaViewModeData,
+  SetBrowserAreaViewModeErrors,
+  SetBrowserAreaViewModeResponses,
+  SetBrowserColumnWidthsData,
+  SetBrowserColumnWidthsErrors,
+  SetBrowserColumnWidthsResponses,
+  SetBrowserHideColumnData,
+  SetBrowserHideColumnErrors,
+  SetBrowserHideColumnResponses,
+  SetBrowserSavedSearchesData,
+  SetBrowserSavedSearchesErrors,
+  SetBrowserSavedSearchesResponses,
+  SetCallableData,
+  SetCallableErrors,
+  SetCallableHideParamsData,
+  SetCallableHideParamsErrors,
+  SetCallableHideParamsResponses,
+  SetCallableResponses,
+  SetChartAreaDataPathData,
+  SetChartAreaDataPathErrors,
+  SetChartAreaDataPathResponses,
+  SetChartSettingsData,
+  SetChartSettingsErrors,
+  SetChartSettingsResponses,
+  SetChartTypeData,
+  SetChartTypeErrors,
+  SetChartTypeResponses,
+  SetChatSectionChatIdData,
+  SetChatSectionChatIdErrors,
+  SetChatSectionChatIdResponses,
+  SetChatSectionSettingsData,
+  SetChatSectionSettingsErrors,
+  SetChatSectionSettingsResponses,
+  SetChatSectionStateData,
+  SetChatSectionStateErrors,
+  SetChatSectionStateResponses,
+  SetCodeData,
+  SetCodeErrors,
+  SetCodeFileBindingData,
+  SetCodeFileBindingErrors,
+  SetCodeFileBindingResponses,
+  SetCodeObjDisplayNameData,
+  SetCodeObjDisplayNameErrors,
+  SetCodeObjDisplayNameResponses,
+  SetCodeObjNameData,
+  SetCodeObjNameErrors,
+  SetCodeObjNameResponses,
+  SetCodeResponses,
+  SetCodeSectionAttachedTerminalData,
+  SetCodeSectionAttachedTerminalErrors,
+  SetCodeSectionAttachedTerminalResponses,
   SetCodeSectionDiagnosticCodeSuppressionData,
   SetCodeSectionDiagnosticCodeSuppressionErrors,
   SetCodeSectionDiagnosticCodeSuppressionResponses,
   SetCodeSectionDiagnosticsMuteData,
   SetCodeSectionDiagnosticsMuteErrors,
   SetCodeSectionDiagnosticsMuteResponses,
+  SetDefaultSectionVariantData,
+  SetDefaultSectionVariantErrors,
+  SetDefaultSectionVariantResponses,
+  SetEdgesData,
+  SetEdgesErrors,
+  SetEdgesResponses,
+  SetGenCodePrefixData,
+  SetGenCodePrefixErrors,
+  SetGenCodePrefixResponses,
+  SetGenCodeSuffixData,
+  SetGenCodeSuffixErrors,
+  SetGenCodeSuffixResponses,
+  SetGroupOverflowModeData,
+  SetGroupOverflowModeErrors,
+  SetGroupOverflowModeResponses,
+  SetImageAreaImagePathData,
+  SetImageAreaImagePathErrors,
+  SetImageAreaImagePathResponses,
+  SetListRootViewModeData,
+  SetListRootViewModeErrors,
+  SetListRootViewModeResponses,
   SetLlmApiKeysData,
   SetLlmApiKeysErrors,
   SetLlmApiKeysResponses,
   SetLlmConfigData,
   SetLlmConfigErrors,
   SetLlmConfigResponses,
+  SetMetaControlShowSectionTitleData,
+  SetMetaControlShowSectionTitleErrors,
+  SetMetaControlShowSectionTitleResponses,
+  SetParamEnteredValueData,
+  SetParamEnteredValueErrors,
+  SetParamEnteredValueResponses,
+  SetParentDefaultChildSectionTypeData,
+  SetParentDefaultChildSectionTypeErrors,
+  SetParentDefaultChildSectionTypeResponses,
+  SetProjectChatWindowChatIdData,
+  SetProjectChatWindowChatIdErrors,
+  SetProjectChatWindowChatIdResponses,
+  SetProjectChatWindowingStateData,
+  SetProjectChatWindowingStateErrors,
+  SetProjectChatWindowingStateResponses,
+  SetProjectConfigCodegenTargetsData,
+  SetProjectConfigCodegenTargetsErrors,
+  SetProjectConfigCodegenTargetsResponses,
   SetProjectConfigNameData,
   SetProjectConfigNameErrors,
   SetProjectConfigNameResponses,
+  SetPromptFormatData,
+  SetPromptFormatErrors,
+  SetPromptFormatResponses,
+  SetPromptInputsData,
+  SetPromptInputsErrors,
+  SetPromptInputsResponses,
+  SetPromptTemplateData,
+  SetPromptTemplateErrors,
+  SetPromptTemplateLinkData,
+  SetPromptTemplateLinkErrors,
+  SetPromptTemplateLinkResponses,
+  SetPromptTemplateResponses,
+  SetSectionColumnWidthData,
+  SetSectionColumnWidthErrors,
+  SetSectionColumnWidthResponses,
+  SetSectionEdgeInputsData,
+  SetSectionEdgeInputsErrors,
+  SetSectionEdgeInputsResponses,
+  SetSectionEdgeOutputsData,
+  SetSectionEdgeOutputsErrors,
+  SetSectionEdgeOutputsResponses,
+  SetSectionHideUnpinnedParamsData,
+  SetSectionHideUnpinnedParamsErrors,
+  SetSectionHideUnpinnedParamsResponses,
+  SetSectionNameData,
+  SetSectionNameErrors,
+  SetSectionNameResponses,
+  SetSectionParamFilterData,
+  SetSectionParamFilterErrors,
+  SetSectionParamFilterResponses,
+  SetSectionPinnedParamsData,
+  SetSectionPinnedParamsErrors,
+  SetSectionPinnedParamsResponses,
+  SetSectionSizesData,
+  SetSectionSizesErrors,
+  SetSectionSizesResponses,
+  SetSectionStyleColorData,
+  SetSectionStyleColorErrors,
+  SetSectionStyleColorResponses,
+  SetSectionTagColorData,
+  SetSectionTagColorErrors,
+  SetSectionTagColorResponses,
+  SetSectionVariantData,
+  SetSectionVariantErrors,
+  SetSectionVariantNameData,
+  SetSectionVariantNameErrors,
+  SetSectionVariantNameResponses,
+  SetSectionVariantResponses,
+  SetSectionVariantSortOrderData,
+  SetSectionVariantSortOrderErrors,
+  SetSectionVariantSortOrderResponses,
+  SetShowParamDisplayNamesData,
+  SetShowParamDisplayNamesErrors,
+  SetShowParamDisplayNamesResponses,
+  SetSocialUrlData,
+  SetSocialUrlErrors,
+  SetSocialUrlResponses,
+  SetSpreadsheetFilePathData,
+  SetSpreadsheetFilePathErrors,
+  SetSpreadsheetFilePathResponses,
+  SetSpreadsheetSectionSettingsData,
+  SetSpreadsheetSectionSettingsErrors,
+  SetSpreadsheetSectionSettingsResponses,
+  SetStateMachineEdgesData,
+  SetStateMachineEdgesErrors,
+  SetStateMachineEdgesResponses,
+  SetStateMachineSectionSettingsData,
+  SetStateMachineSectionSettingsErrors,
+  SetStateMachineSectionSettingsResponses,
+  SetTaskBoardSectionStateData,
+  SetTaskBoardSectionStateErrors,
+  SetTaskBoardSectionStateResponses,
+  SetTextBlockDisplayModeData,
+  SetTextBlockDisplayModeErrors,
+  SetTextBlockDisplayModeResponses,
+  SetTextBlockFormatData,
+  SetTextBlockFormatErrors,
+  SetTextBlockFormatResponses,
+  SetTextBlockHeadingAsSectionNameData,
+  SetTextBlockHeadingAsSectionNameErrors,
+  SetTextBlockHeadingAsSectionNameResponses,
+  SetTextBlockMasterFontSizeData,
+  SetTextBlockMasterFontSizeErrors,
+  SetTextBlockMasterFontSizeResponses,
+  SetTextBlockMetaControlStyleData,
+  SetTextBlockMetaControlStyleErrors,
+  SetTextBlockMetaControlStyleResponses,
+  SetTextBlockTextData,
+  SetTextBlockTextErrors,
+  SetTextBlockTextResponses,
+  SetTopLevelSectionLayoutData,
+  SetTopLevelSectionLayoutErrors,
+  SetTopLevelSectionLayoutResponses,
+  SetTypeErrorIgnoreData,
+  SetTypeErrorIgnoreErrors,
+  SetTypeErrorIgnoreResponses,
+  SetVariantJsonSourceKeysData,
+  SetVariantJsonSourceKeysErrors,
+  SetVariantJsonSourceKeysResponses,
+  SetViewModeNameData,
+  SetViewModeNameErrors,
+  SetViewModeNameResponses,
+  SetViewModeSortOrderData,
+  SetViewModeSortOrderErrors,
+  SetViewModeSortOrderResponses,
+  SetViewportData,
+  SetViewportErrors,
+  SetViewportResponses,
+  SetWatchCodeEnabledData,
+  SetWatchCodeEnabledErrors,
+  SetWatchCodeEnabledResponses,
+  SetWatchCodeInputsData,
+  SetWatchCodeInputsErrors,
+  SetWatchCodeInputsResponses,
+  SetWindowSpaceNameData,
+  SetWindowSpaceNameErrors,
+  SetWindowSpaceNameResponses,
+  SetWindowSpaceSortOrderData,
+  SetWindowSpaceSortOrderErrors,
+  SetWindowSpaceSortOrderResponses,
   SetupLauncherData,
   SetupLauncherErrors,
   SetupLauncherResponses,
@@ -467,21 +803,69 @@ import type {
   TextFieldCompletionData,
   TextFieldCompletionErrors,
   TextFieldCompletionResponses,
+  ToggleGroupOrientationData,
+  ToggleGroupOrientationErrors,
+  ToggleGroupOrientationResponses,
+  ToggleIsEditingViewModeData,
+  ToggleIsEditingViewModeErrors,
+  ToggleIsEditingViewModeResponses,
+  ToggleMinimizedData,
+  ToggleMinimizedErrors,
+  ToggleMinimizedResponses,
+  ToggleParamSelectedData,
+  ToggleParamSelectedErrors,
+  ToggleParamSelectedResponses,
+  TogglePositionLocksData,
+  TogglePositionLocksErrors,
+  TogglePositionLocksResponses,
+  ToggleSectionVisibilityData,
+  ToggleSectionVisibilityErrors,
+  ToggleSectionVisibilityResponses,
+  ToggleVariantFrozenData,
+  ToggleVariantFrozenErrors,
+  ToggleVariantFrozenResponses,
+  ToggleVariantJsonSourceData,
+  ToggleVariantJsonSourceErrors,
+  ToggleVariantJsonSourceResponses,
+  ToggleViewModeTabData,
+  ToggleViewModeTabErrors,
+  ToggleViewModeTabResponses,
+  ToggleViewModeUserFacingData,
+  ToggleViewModeUserFacingErrors,
+  ToggleViewModeUserFacingResponses,
   TransferFileBrowserEntryData,
   TransferFileBrowserEntryErrors,
   TransferFileBrowserEntryResponses,
   TypeCheckData,
   TypeCheckErrors,
   TypeCheckResponses,
+  UndoData,
+  UndoErrors,
+  UndoResponses,
+  UngroupGroupsData,
+  UngroupGroupsErrors,
+  UngroupGroupsResponses,
+  UnindentParamsData,
+  UnindentParamsErrors,
+  UnindentParamsResponses,
   UninstallPluginData,
   UninstallPluginErrors,
   UninstallPluginResponses,
+  UnselectAllParamsData,
+  UnselectAllParamsErrors,
+  UnselectAllParamsResponses,
   UpdateAgentProfileData,
   UpdateAgentProfileErrors,
   UpdateAgentProfileResponses,
+  UpdateAgenticEdgeData,
+  UpdateAgenticEdgeErrors,
+  UpdateAgenticEdgeResponses,
   UpdateArtifactsData,
   UpdateArtifactsErrors,
   UpdateArtifactsResponses,
+  UpdateEdgeData,
+  UpdateEdgeErrors,
+  UpdateEdgeResponses,
   UpdateEngineConfigData,
   UpdateEngineConfigErrors,
   UpdateEngineConfigResponses,
@@ -491,12 +875,18 @@ import type {
   UpdateLauncherData,
   UpdateLauncherErrors,
   UpdateLauncherResponses,
+  UpdateParamImplConfigData,
+  UpdateParamImplConfigErrors,
+  UpdateParamImplConfigResponses,
   UpdatePluginData,
   UpdatePluginErrors,
   UpdatePluginResponses,
   UpdatePromptTemplateData,
   UpdatePromptTemplateErrors,
   UpdatePromptTemplateResponses,
+  UpdateStateMachineEdgeData,
+  UpdateStateMachineEdgeErrors,
+  UpdateStateMachineEdgeResponses,
   UpdateTranscriptionProfileData,
   UpdateTranscriptionProfileErrors,
   UpdateTranscriptionProfileResponses,
@@ -535,6 +925,40 @@ export type Options<
    * used to access values that aren't defined as part of the SDK function.
    */
   meta?: Record<string, unknown>;
+};
+
+export const acceptRenameRefactor = <ThrowOnError extends boolean = false>(
+  options: Options<AcceptRenameRefactorData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AcceptRenameRefactorResponses,
+    AcceptRenameRefactorErrors,
+    ThrowOnError
+  >({
+    url: "/acceptRenameRefactor",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const addKwarg = <ThrowOnError extends boolean = false>(
+  options: Options<AddKwargData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AddKwargResponses,
+    AddKwargErrors,
+    ThrowOnError
+  >({
+    url: "/addKwarg",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 };
 
 /**
@@ -683,6 +1107,23 @@ export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const appendDrawAreaLayerItem = <ThrowOnError extends boolean = false>(
+  options: Options<AppendDrawAreaLayerItemData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AppendDrawAreaLayerItemResponses,
+    AppendDrawAreaLayerItemErrors,
+    ThrowOnError
+  >({
+    url: "/appendDrawAreaLayerItem",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Append PCM16 audio to an active transcription session.
  */
@@ -732,6 +1173,25 @@ export const getAuthRefreshStatus = <ThrowOnError extends boolean = false>(
   >({
     url: "/authRefreshStatus",
     ...options,
+  });
+};
+
+export const autoLayoutTopLevelSections = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AutoLayoutTopLevelSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AutoLayoutTopLevelSectionsResponses,
+    AutoLayoutTopLevelSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/autoLayoutTopLevelSections",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -822,6 +1282,23 @@ export const cancelTranscriptionSession = <
     ThrowOnError
   >({
     url: "/cancelTranscriptionSession",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const changeParamImpl = <ThrowOnError extends boolean = false>(
+  options: Options<ChangeParamImplData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ChangeParamImplResponses,
+    ChangeParamImplErrors,
+    ThrowOnError
+  >({
+    url: "/changeParamImpl",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -930,6 +1407,76 @@ export const createAgentProfile = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const createAgenticEdge = <ThrowOnError extends boolean = false>(
+  options: Options<CreateAgenticEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateAgenticEdgeResponses,
+    CreateAgenticEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/createAgenticEdge",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createChildSections = <ThrowOnError extends boolean = false>(
+  options: Options<CreateChildSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateChildSectionsResponses,
+    CreateChildSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/createChildSections",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createChildSectionsViaIncrementer = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateChildSectionsViaIncrementerData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateChildSectionsViaIncrementerResponses,
+    CreateChildSectionsViaIncrementerErrors,
+    ThrowOnError
+  >({
+    url: "/createChildSectionsViaIncrementer",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createEdge = <ThrowOnError extends boolean = false>(
+  options: Options<CreateEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateEdgeResponses,
+    CreateEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/createEdge",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Create a new execution engine configuration.
  */
@@ -990,6 +1537,23 @@ export const createFile = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const createNewSectionVariant = <ThrowOnError extends boolean = false>(
+  options: Options<CreateNewSectionVariantData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateNewSectionVariantResponses,
+    CreateNewSectionVariantErrors,
+    ThrowOnError
+  >({
+    url: "/createNewSectionVariant",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Create a new empty project config.
  */
@@ -1030,6 +1594,40 @@ export const createPromptTemplate = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const createStateMachineEdge = <ThrowOnError extends boolean = false>(
+  options: Options<CreateStateMachineEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateStateMachineEdgeResponses,
+    CreateStateMachineEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/createStateMachineEdge",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createTopLevelSection = <ThrowOnError extends boolean = false>(
+  options: Options<CreateTopLevelSectionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateTopLevelSectionResponses,
+    CreateTopLevelSectionErrors,
+    ThrowOnError
+  >({
+    url: "/createTopLevelSection",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Create a transcription profile.
  */
@@ -1044,6 +1642,40 @@ export const createTranscriptionProfile = <
     ThrowOnError
   >({
     url: "/createTranscriptionProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<CreateViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateViewModeResponses,
+    CreateViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/createViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const createWindowSpace = <ThrowOnError extends boolean = false>(
+  options: Options<CreateWindowSpaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateWindowSpaceResponses,
+    CreateWindowSpaceErrors,
+    ThrowOnError
+  >({
+    url: "/createWindowSpace",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1074,6 +1706,23 @@ export const createWorkspaceLaunchIntent = <
   });
 };
 
+export const declineRenameRefactor = <ThrowOnError extends boolean = false>(
+  options: Options<DeclineRenameRefactorData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeclineRenameRefactorResponses,
+    DeclineRenameRefactorErrors,
+    ThrowOnError
+  >({
+    url: "/declineRenameRefactor",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Delete an agent profile.
  */
@@ -1094,6 +1743,23 @@ export const deleteAgentProfile = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const deleteAgenticEdges = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteAgenticEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteAgenticEdgesResponses,
+    DeleteAgenticEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/deleteAgenticEdges",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Delete artifact payloads.
  */
@@ -1106,6 +1772,42 @@ export const deleteArtifacts = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/deleteArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteChildSectionsViaDecrementer = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteChildSectionsViaDecrementerData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteChildSectionsViaDecrementerResponses,
+    DeleteChildSectionsViaDecrementerErrors,
+    ThrowOnError
+  >({
+    url: "/deleteChildSectionsViaDecrementer",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteEdges = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteEdgesResponses,
+    DeleteEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/deleteEdges",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1146,6 +1848,42 @@ export const deleteExternalAgentConfig = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/deleteExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteJsonSourceFileAndVariant = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteJsonSourceFileAndVariantData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteJsonSourceFileAndVariantResponses,
+    DeleteJsonSourceFileAndVariantErrors,
+    ThrowOnError
+  >({
+    url: "/deleteJsonSourceFileAndVariant",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteKwarg = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteKwargData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteKwargResponses,
+    DeleteKwargErrors,
+    ThrowOnError
+  >({
+    url: "/deleteKwarg",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1214,6 +1952,74 @@ export const deletePromptTemplate = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const deleteSectionVariantOrAsk = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteSectionVariantOrAskData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteSectionVariantOrAskResponses,
+    DeleteSectionVariantOrAskErrors,
+    ThrowOnError
+  >({
+    url: "/deleteSectionVariantOrAsk",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteSections = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteSectionsResponses,
+    DeleteSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/deleteSections",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteSelectedParams = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteSelectedParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteSelectedParamsResponses,
+    DeleteSelectedParamsErrors,
+    ThrowOnError
+  >({
+    url: "/deleteSelectedParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteStateMachineEdges = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteStateMachineEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteStateMachineEdgesResponses,
+    DeleteStateMachineEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/deleteStateMachineEdges",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Delete terminal sessions for the requested terminal sections.
  */
@@ -1248,6 +2054,40 @@ export const deleteTranscriptionProfile = <
     ThrowOnError
   >({
     url: "/deleteTranscriptionProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteViewModeResponses,
+    DeleteViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/deleteViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const deleteWindowSpace = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteWindowSpaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteWindowSpaceResponses,
+    DeleteWindowSpaceErrors,
+    ThrowOnError
+  >({
+    url: "/deleteWindowSpace",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1304,6 +2144,23 @@ export const forceRefreshListener = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/forceRefreshListener",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const formatCode = <ThrowOnError extends boolean = false>(
+  options: Options<FormatCodeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    FormatCodeResponses,
+    FormatCodeErrors,
+    ThrowOnError
+  >({
+    url: "/formatCode",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1578,6 +2435,23 @@ export const getAttachmentDownloadUrls = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const getChatSectionChatId = <ThrowOnError extends boolean = false>(
+  options: Options<GetChatSectionChatIdData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetChatSectionChatIdResponses,
+    GetChatSectionChatIdErrors,
+    ThrowOnError
+  >({
+    url: "/getChatSectionChatId",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Get a single execution engine configuration.
  */
@@ -1844,6 +2718,23 @@ export const getLatestLspDiagnostics = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const getLatestProjectState = <ThrowOnError extends boolean = false>(
+  options: Options<GetLatestProjectStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetLatestProjectStateResponses,
+    GetLatestProjectStateErrors,
+    ThrowOnError
+  >({
+    url: "/getLatestProjectState",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Get listener dependency coverage for a project.
  */
@@ -1876,6 +2767,23 @@ export const getNotifications = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/getNotifications",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const getPasswordParamValue = <ThrowOnError extends boolean = false>(
+  options: Options<GetPasswordParamValueData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetPasswordParamValueResponses,
+    GetPasswordParamValueErrors,
+    ThrowOnError
+  >({
+    url: "/getPasswordParamValue",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2112,6 +3020,23 @@ export const getGitStatus = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const groupSections = <ThrowOnError extends boolean = false>(
+  options: Options<GroupSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GroupSectionsResponses,
+    GroupSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/groupSections",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Import local files into the artifact store.
  */
@@ -2124,6 +3049,23 @@ export const importFilesToArtifacts = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/importFilesToArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const indentParams = <ThrowOnError extends boolean = false>(
+  options: Options<IndentParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    IndentParamsResponses,
+    IndentParamsErrors,
+    ThrowOnError
+  >({
+    url: "/indentParams",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2472,6 +3414,57 @@ export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const moveParamGroups = <ThrowOnError extends boolean = false>(
+  options: Options<MoveParamGroupsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    MoveParamGroupsResponses,
+    MoveParamGroupsErrors,
+    ThrowOnError
+  >({
+    url: "/moveParamGroups",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const moveParams = <ThrowOnError extends boolean = false>(
+  options: Options<MoveParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    MoveParamsResponses,
+    MoveParamsErrors,
+    ThrowOnError
+  >({
+    url: "/moveParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const moveSections = <ThrowOnError extends boolean = false>(
+  options: Options<MoveSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    MoveSectionsResponses,
+    MoveSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/moveSections",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Open or reconnect to a launcher-selected workspace.
  */
@@ -2504,6 +3497,23 @@ export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/outputAccessorCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const pasteSections = <ThrowOnError extends boolean = false>(
+  options: Options<PasteSectionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    PasteSectionsResponses,
+    PasteSectionsErrors,
+    ThrowOnError
+  >({
+    url: "/pasteSections",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2770,6 +3780,57 @@ export const updatePlugin = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/plugins/update",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const prepareSectionsForCopy = <ThrowOnError extends boolean = false>(
+  options: Options<PrepareSectionsForCopyData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    PrepareSectionsForCopyResponses,
+    PrepareSectionsForCopyErrors,
+    ThrowOnError
+  >({
+    url: "/prepareSectionsForCopy",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const reconnectEdge = <ThrowOnError extends boolean = false>(
+  options: Options<ReconnectEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ReconnectEdgeResponses,
+    ReconnectEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/reconnectEdge",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const redo = <ThrowOnError extends boolean = false>(
+  options: Options<RedoData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RedoResponses,
+    RedoErrors,
+    ThrowOnError
+  >({
+    url: "/redo",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -3090,6 +4151,57 @@ export const getServerMode = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const setActiveIds = <ThrowOnError extends boolean = false>(
+  options: Options<SetActiveIdsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetActiveIdsResponses,
+    SetActiveIdsErrors,
+    ThrowOnError
+  >({
+    url: "/setActiveIds",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setActiveViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<SetActiveViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetActiveViewModeResponses,
+    SetActiveViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/setActiveViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setAgenticEdges = <ThrowOnError extends boolean = false>(
+  options: Options<SetAgenticEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetAgenticEdgesResponses,
+    SetAgenticEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/setAgenticEdges",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Persist a standalone app definition.
  */
@@ -3122,6 +4234,297 @@ export const setAsDefaultProject = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/setAsDefaultProject",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setBrowserAreaViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<SetBrowserAreaViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetBrowserAreaViewModeResponses,
+    SetBrowserAreaViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/setBrowserAreaViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setBrowserColumnWidths = <ThrowOnError extends boolean = false>(
+  options: Options<SetBrowserColumnWidthsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetBrowserColumnWidthsResponses,
+    SetBrowserColumnWidthsErrors,
+    ThrowOnError
+  >({
+    url: "/setBrowserColumnWidths",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setBrowserHideColumn = <ThrowOnError extends boolean = false>(
+  options: Options<SetBrowserHideColumnData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetBrowserHideColumnResponses,
+    SetBrowserHideColumnErrors,
+    ThrowOnError
+  >({
+    url: "/setBrowserHideColumn",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setBrowserSavedSearches = <ThrowOnError extends boolean = false>(
+  options: Options<SetBrowserSavedSearchesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetBrowserSavedSearchesResponses,
+    SetBrowserSavedSearchesErrors,
+    ThrowOnError
+  >({
+    url: "/setBrowserSavedSearches",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCallable = <ThrowOnError extends boolean = false>(
+  options: Options<SetCallableData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCallableResponses,
+    SetCallableErrors,
+    ThrowOnError
+  >({
+    url: "/setCallable",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCallableHideParams = <ThrowOnError extends boolean = false>(
+  options: Options<SetCallableHideParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCallableHideParamsResponses,
+    SetCallableHideParamsErrors,
+    ThrowOnError
+  >({
+    url: "/setCallableHideParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChartAreaDataPath = <ThrowOnError extends boolean = false>(
+  options: Options<SetChartAreaDataPathData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChartAreaDataPathResponses,
+    SetChartAreaDataPathErrors,
+    ThrowOnError
+  >({
+    url: "/setChartAreaDataPath",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChartSettings = <ThrowOnError extends boolean = false>(
+  options: Options<SetChartSettingsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChartSettingsResponses,
+    SetChartSettingsErrors,
+    ThrowOnError
+  >({
+    url: "/setChartSettings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChartType = <ThrowOnError extends boolean = false>(
+  options: Options<SetChartTypeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChartTypeResponses,
+    SetChartTypeErrors,
+    ThrowOnError
+  >({
+    url: "/setChartType",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChatSectionChatId = <ThrowOnError extends boolean = false>(
+  options: Options<SetChatSectionChatIdData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChatSectionChatIdResponses,
+    SetChatSectionChatIdErrors,
+    ThrowOnError
+  >({
+    url: "/setChatSectionChatId",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChatSectionSettings = <ThrowOnError extends boolean = false>(
+  options: Options<SetChatSectionSettingsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChatSectionSettingsResponses,
+    SetChatSectionSettingsErrors,
+    ThrowOnError
+  >({
+    url: "/setChatSectionSettings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setChatSectionState = <ThrowOnError extends boolean = false>(
+  options: Options<SetChatSectionStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetChatSectionStateResponses,
+    SetChatSectionStateErrors,
+    ThrowOnError
+  >({
+    url: "/setChatSectionState",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCode = <ThrowOnError extends boolean = false>(
+  options: Options<SetCodeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeResponses,
+    SetCodeErrors,
+    ThrowOnError
+  >({
+    url: "/setCode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCodeFileBinding = <ThrowOnError extends boolean = false>(
+  options: Options<SetCodeFileBindingData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeFileBindingResponses,
+    SetCodeFileBindingErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeFileBinding",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCodeObjDisplayName = <ThrowOnError extends boolean = false>(
+  options: Options<SetCodeObjDisplayNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeObjDisplayNameResponses,
+    SetCodeObjDisplayNameErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeObjDisplayName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCodeObjName = <ThrowOnError extends boolean = false>(
+  options: Options<SetCodeObjNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeObjNameResponses,
+    SetCodeObjNameErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeObjName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setCodeSectionAttachedTerminal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetCodeSectionAttachedTerminalData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeSectionAttachedTerminalResponses,
+    SetCodeSectionAttachedTerminalErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeSectionAttachedTerminal",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -3174,6 +4577,237 @@ export const setCodeSectionDiagnosticsMute = <
   });
 };
 
+export const setDefaultSectionVariant = <ThrowOnError extends boolean = false>(
+  options: Options<SetDefaultSectionVariantData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetDefaultSectionVariantResponses,
+    SetDefaultSectionVariantErrors,
+    ThrowOnError
+  >({
+    url: "/setDefaultSectionVariant",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setEdges = <ThrowOnError extends boolean = false>(
+  options: Options<SetEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetEdgesResponses,
+    SetEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/setEdges",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setGenCodePrefix = <ThrowOnError extends boolean = false>(
+  options: Options<SetGenCodePrefixData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetGenCodePrefixResponses,
+    SetGenCodePrefixErrors,
+    ThrowOnError
+  >({
+    url: "/setGenCodePrefix",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setGenCodeSuffix = <ThrowOnError extends boolean = false>(
+  options: Options<SetGenCodeSuffixData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetGenCodeSuffixResponses,
+    SetGenCodeSuffixErrors,
+    ThrowOnError
+  >({
+    url: "/setGenCodeSuffix",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setGroupOverflowMode = <ThrowOnError extends boolean = false>(
+  options: Options<SetGroupOverflowModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetGroupOverflowModeResponses,
+    SetGroupOverflowModeErrors,
+    ThrowOnError
+  >({
+    url: "/setGroupOverflowMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setImageAreaImagePath = <ThrowOnError extends boolean = false>(
+  options: Options<SetImageAreaImagePathData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetImageAreaImagePathResponses,
+    SetImageAreaImagePathErrors,
+    ThrowOnError
+  >({
+    url: "/setImageAreaImagePath",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setListRootViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<SetListRootViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetListRootViewModeResponses,
+    SetListRootViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/setListRootViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setMetaControlShowSectionTitle = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetMetaControlShowSectionTitleData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetMetaControlShowSectionTitleResponses,
+    SetMetaControlShowSectionTitleErrors,
+    ThrowOnError
+  >({
+    url: "/setMetaControlShowSectionTitle",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setParamEnteredValue = <ThrowOnError extends boolean = false>(
+  options: Options<SetParamEnteredValueData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetParamEnteredValueResponses,
+    SetParamEnteredValueErrors,
+    ThrowOnError
+  >({
+    url: "/setParamEnteredValue",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setParentDefaultChildSectionType = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetParentDefaultChildSectionTypeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetParentDefaultChildSectionTypeResponses,
+    SetParentDefaultChildSectionTypeErrors,
+    ThrowOnError
+  >({
+    url: "/setParentDefaultChildSectionType",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setProjectChatWindowChatId = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetProjectChatWindowChatIdData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetProjectChatWindowChatIdResponses,
+    SetProjectChatWindowChatIdErrors,
+    ThrowOnError
+  >({
+    url: "/setProjectChatWindowChatId",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setProjectChatWindowingState = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetProjectChatWindowingStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetProjectChatWindowingStateResponses,
+    SetProjectChatWindowingStateErrors,
+    ThrowOnError
+  >({
+    url: "/setProjectChatWindowingState",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setProjectConfigCodegenTargets = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetProjectConfigCodegenTargetsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetProjectConfigCodegenTargetsResponses,
+    SetProjectConfigCodegenTargetsErrors,
+    ThrowOnError
+  >({
+    url: "/setProjectConfigCodegenTargets",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Rename a project config.
  */
@@ -3186,6 +4820,700 @@ export const setProjectConfigName = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/setProjectConfigName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setPromptFormat = <ThrowOnError extends boolean = false>(
+  options: Options<SetPromptFormatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetPromptFormatResponses,
+    SetPromptFormatErrors,
+    ThrowOnError
+  >({
+    url: "/setPromptFormat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setPromptInputs = <ThrowOnError extends boolean = false>(
+  options: Options<SetPromptInputsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetPromptInputsResponses,
+    SetPromptInputsErrors,
+    ThrowOnError
+  >({
+    url: "/setPromptInputs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setPromptTemplate = <ThrowOnError extends boolean = false>(
+  options: Options<SetPromptTemplateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetPromptTemplateResponses,
+    SetPromptTemplateErrors,
+    ThrowOnError
+  >({
+    url: "/setPromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setPromptTemplateLink = <ThrowOnError extends boolean = false>(
+  options: Options<SetPromptTemplateLinkData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetPromptTemplateLinkResponses,
+    SetPromptTemplateLinkErrors,
+    ThrowOnError
+  >({
+    url: "/setPromptTemplateLink",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionColumnWidth = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionColumnWidthData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionColumnWidthResponses,
+    SetSectionColumnWidthErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionColumnWidth",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionEdgeInputs = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionEdgeInputsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionEdgeInputsResponses,
+    SetSectionEdgeInputsErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionEdgeInputs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionEdgeOutputs = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionEdgeOutputsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionEdgeOutputsResponses,
+    SetSectionEdgeOutputsErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionEdgeOutputs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionHideUnpinnedParams = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSectionHideUnpinnedParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionHideUnpinnedParamsResponses,
+    SetSectionHideUnpinnedParamsErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionHideUnpinnedParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionName = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionNameResponses,
+    SetSectionNameErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionParamFilter = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionParamFilterData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionParamFilterResponses,
+    SetSectionParamFilterErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionParamFilter",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionPinnedParams = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionPinnedParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionPinnedParamsResponses,
+    SetSectionPinnedParamsErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionPinnedParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionSizes = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionSizesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionSizesResponses,
+    SetSectionSizesErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionSizes",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionStyleColor = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionStyleColorData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionStyleColorResponses,
+    SetSectionStyleColorErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionStyleColor",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionTagColor = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionTagColorData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionTagColorResponses,
+    SetSectionTagColorErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionTagColor",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionVariant = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionVariantData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionVariantResponses,
+    SetSectionVariantErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionVariant",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionVariantName = <ThrowOnError extends boolean = false>(
+  options: Options<SetSectionVariantNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionVariantNameResponses,
+    SetSectionVariantNameErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionVariantName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSectionVariantSortOrder = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSectionVariantSortOrderData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSectionVariantSortOrderResponses,
+    SetSectionVariantSortOrderErrors,
+    ThrowOnError
+  >({
+    url: "/setSectionVariantSortOrder",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setShowParamDisplayNames = <ThrowOnError extends boolean = false>(
+  options: Options<SetShowParamDisplayNamesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetShowParamDisplayNamesResponses,
+    SetShowParamDisplayNamesErrors,
+    ThrowOnError
+  >({
+    url: "/setShowParamDisplayNames",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSocialUrl = <ThrowOnError extends boolean = false>(
+  options: Options<SetSocialUrlData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSocialUrlResponses,
+    SetSocialUrlErrors,
+    ThrowOnError
+  >({
+    url: "/setSocialUrl",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSpreadsheetFilePath = <ThrowOnError extends boolean = false>(
+  options: Options<SetSpreadsheetFilePathData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSpreadsheetFilePathResponses,
+    SetSpreadsheetFilePathErrors,
+    ThrowOnError
+  >({
+    url: "/setSpreadsheetFilePath",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setSpreadsheetSectionSettings = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSpreadsheetSectionSettingsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetSpreadsheetSectionSettingsResponses,
+    SetSpreadsheetSectionSettingsErrors,
+    ThrowOnError
+  >({
+    url: "/setSpreadsheetSectionSettings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setStateMachineEdges = <ThrowOnError extends boolean = false>(
+  options: Options<SetStateMachineEdgesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetStateMachineEdgesResponses,
+    SetStateMachineEdgesErrors,
+    ThrowOnError
+  >({
+    url: "/setStateMachineEdges",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setStateMachineSectionSettings = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetStateMachineSectionSettingsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetStateMachineSectionSettingsResponses,
+    SetStateMachineSectionSettingsErrors,
+    ThrowOnError
+  >({
+    url: "/setStateMachineSectionSettings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTaskBoardSectionState = <ThrowOnError extends boolean = false>(
+  options: Options<SetTaskBoardSectionStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTaskBoardSectionStateResponses,
+    SetTaskBoardSectionStateErrors,
+    ThrowOnError
+  >({
+    url: "/setTaskBoardSectionState",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockDisplayMode = <ThrowOnError extends boolean = false>(
+  options: Options<SetTextBlockDisplayModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockDisplayModeResponses,
+    SetTextBlockDisplayModeErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockDisplayMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockFormat = <ThrowOnError extends boolean = false>(
+  options: Options<SetTextBlockFormatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockFormatResponses,
+    SetTextBlockFormatErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockFormat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockHeadingAsSectionName = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetTextBlockHeadingAsSectionNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockHeadingAsSectionNameResponses,
+    SetTextBlockHeadingAsSectionNameErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockHeadingAsSectionName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockMasterFontSize = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetTextBlockMasterFontSizeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockMasterFontSizeResponses,
+    SetTextBlockMasterFontSizeErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockMasterFontSize",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockMetaControlStyle = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetTextBlockMetaControlStyleData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockMetaControlStyleResponses,
+    SetTextBlockMetaControlStyleErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockMetaControlStyle",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTextBlockText = <ThrowOnError extends boolean = false>(
+  options: Options<SetTextBlockTextData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTextBlockTextResponses,
+    SetTextBlockTextErrors,
+    ThrowOnError
+  >({
+    url: "/setTextBlockText",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTopLevelSectionLayout = <ThrowOnError extends boolean = false>(
+  options: Options<SetTopLevelSectionLayoutData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTopLevelSectionLayoutResponses,
+    SetTopLevelSectionLayoutErrors,
+    ThrowOnError
+  >({
+    url: "/setTopLevelSectionLayout",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setTypeErrorIgnore = <ThrowOnError extends boolean = false>(
+  options: Options<SetTypeErrorIgnoreData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetTypeErrorIgnoreResponses,
+    SetTypeErrorIgnoreErrors,
+    ThrowOnError
+  >({
+    url: "/setTypeErrorIgnore",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setVariantJsonSourceKeys = <ThrowOnError extends boolean = false>(
+  options: Options<SetVariantJsonSourceKeysData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetVariantJsonSourceKeysResponses,
+    SetVariantJsonSourceKeysErrors,
+    ThrowOnError
+  >({
+    url: "/setVariantJsonSourceKeys",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setViewModeName = <ThrowOnError extends boolean = false>(
+  options: Options<SetViewModeNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetViewModeNameResponses,
+    SetViewModeNameErrors,
+    ThrowOnError
+  >({
+    url: "/setViewModeName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setViewModeSortOrder = <ThrowOnError extends boolean = false>(
+  options: Options<SetViewModeSortOrderData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetViewModeSortOrderResponses,
+    SetViewModeSortOrderErrors,
+    ThrowOnError
+  >({
+    url: "/setViewModeSortOrder",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setViewport = <ThrowOnError extends boolean = false>(
+  options: Options<SetViewportData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetViewportResponses,
+    SetViewportErrors,
+    ThrowOnError
+  >({
+    url: "/setViewport",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setWatchCodeEnabled = <ThrowOnError extends boolean = false>(
+  options: Options<SetWatchCodeEnabledData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetWatchCodeEnabledResponses,
+    SetWatchCodeEnabledErrors,
+    ThrowOnError
+  >({
+    url: "/setWatchCodeEnabled",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setWatchCodeInputs = <ThrowOnError extends boolean = false>(
+  options: Options<SetWatchCodeInputsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetWatchCodeInputsResponses,
+    SetWatchCodeInputsErrors,
+    ThrowOnError
+  >({
+    url: "/setWatchCodeInputs",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setWindowSpaceName = <ThrowOnError extends boolean = false>(
+  options: Options<SetWindowSpaceNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetWindowSpaceNameResponses,
+    SetWindowSpaceNameErrors,
+    ThrowOnError
+  >({
+    url: "/setWindowSpaceName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const setWindowSpaceSortOrder = <ThrowOnError extends boolean = false>(
+  options: Options<SetWindowSpaceSortOrderData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetWindowSpaceSortOrderResponses,
+    SetWindowSpaceSortOrderErrors,
+    ThrowOnError
+  >({
+    url: "/setWindowSpaceSortOrder",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -3576,6 +5904,176 @@ export const textFieldCompletion = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const toggleGroupOrientation = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleGroupOrientationData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleGroupOrientationResponses,
+    ToggleGroupOrientationErrors,
+    ThrowOnError
+  >({
+    url: "/toggleGroupOrientation",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleIsEditingViewMode = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleIsEditingViewModeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleIsEditingViewModeResponses,
+    ToggleIsEditingViewModeErrors,
+    ThrowOnError
+  >({
+    url: "/toggleIsEditingViewMode",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleMinimized = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleMinimizedData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleMinimizedResponses,
+    ToggleMinimizedErrors,
+    ThrowOnError
+  >({
+    url: "/toggleMinimized",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleParamSelected = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleParamSelectedData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleParamSelectedResponses,
+    ToggleParamSelectedErrors,
+    ThrowOnError
+  >({
+    url: "/toggleParamSelected",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const togglePositionLocks = <ThrowOnError extends boolean = false>(
+  options: Options<TogglePositionLocksData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    TogglePositionLocksResponses,
+    TogglePositionLocksErrors,
+    ThrowOnError
+  >({
+    url: "/togglePositionLocks",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleSectionVisibility = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleSectionVisibilityData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleSectionVisibilityResponses,
+    ToggleSectionVisibilityErrors,
+    ThrowOnError
+  >({
+    url: "/toggleSectionVisibility",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleVariantFrozen = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleVariantFrozenData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleVariantFrozenResponses,
+    ToggleVariantFrozenErrors,
+    ThrowOnError
+  >({
+    url: "/toggleVariantFrozen",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleVariantJsonSource = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleVariantJsonSourceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleVariantJsonSourceResponses,
+    ToggleVariantJsonSourceErrors,
+    ThrowOnError
+  >({
+    url: "/toggleVariantJsonSource",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleViewModeTab = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleViewModeTabData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleViewModeTabResponses,
+    ToggleViewModeTabErrors,
+    ThrowOnError
+  >({
+    url: "/toggleViewModeTab",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const toggleViewModeUserFacing = <ThrowOnError extends boolean = false>(
+  options: Options<ToggleViewModeUserFacingData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ToggleViewModeUserFacingResponses,
+    ToggleViewModeUserFacingErrors,
+    ThrowOnError
+  >({
+    url: "/toggleViewModeUserFacing",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Copy or move a file browser entry into another folder.
  */
@@ -3616,6 +6114,74 @@ export const typeCheck = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const undo = <ThrowOnError extends boolean = false>(
+  options: Options<UndoData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UndoResponses,
+    UndoErrors,
+    ThrowOnError
+  >({
+    url: "/undo",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const ungroupGroups = <ThrowOnError extends boolean = false>(
+  options: Options<UngroupGroupsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UngroupGroupsResponses,
+    UngroupGroupsErrors,
+    ThrowOnError
+  >({
+    url: "/ungroupGroups",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const unindentParams = <ThrowOnError extends boolean = false>(
+  options: Options<UnindentParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UnindentParamsResponses,
+    UnindentParamsErrors,
+    ThrowOnError
+  >({
+    url: "/unindentParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const unselectAllParams = <ThrowOnError extends boolean = false>(
+  options: Options<UnselectAllParamsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UnselectAllParamsResponses,
+    UnselectAllParamsErrors,
+    ThrowOnError
+  >({
+    url: "/unselectAllParams",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Update an agent profile.
  */
@@ -3636,6 +6202,23 @@ export const updateAgentProfile = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const updateAgenticEdge = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateAgenticEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateAgenticEdgeResponses,
+    UpdateAgenticEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/updateAgenticEdge",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Create or update artifact payloads.
  */
@@ -3648,6 +6231,23 @@ export const updateArtifacts = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/updateArtifacts",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const updateEdge = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateEdgeResponses,
+    UpdateEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/updateEdge",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -3716,6 +6316,23 @@ export const updateLauncher = <ThrowOnError extends boolean = false>(
   });
 };
 
+export const updateParamImplConfig = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateParamImplConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateParamImplConfigResponses,
+    UpdateParamImplConfigErrors,
+    ThrowOnError
+  >({
+    url: "/updateParamImplConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
 /**
  * Update a prompt template.
  */
@@ -3728,6 +6345,23 @@ export const updatePromptTemplate = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/updatePromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+export const updateStateMachineEdge = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateStateMachineEdgeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateStateMachineEdgeResponses,
+    UpdateStateMachineEdgeErrors,
+    ThrowOnError
+  >({
+    url: "/updateStateMachineEdge",
     ...options,
     headers: {
       "Content-Type": "application/json",

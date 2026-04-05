@@ -462,6 +462,16 @@ export type GitreadStatusResponse = {
   worktrees: Array<GitreadGitWorktreeEntry> | null;
 };
 
+export type HttpapiAcceptRenameRefactorRequest = {
+  frontendOpId: string;
+  projectConfigId: string;
+};
+
+export type HttpapiAddKwargRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiAgentProfilePayload = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
@@ -521,6 +531,14 @@ export type HttpapiAppDeploymentStateResponse = {
   projectState: ProjectviewSingleConfig;
 };
 
+export type HttpapiAppendDrawAreaLayerItemRequest = {
+  element: ProjectstateDrawAreaLayerItem;
+  frontendOpId?: string;
+  layerIdx: number;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiAppendTranscriptionAudioRequest = {
   audioPcm16Base64: string;
   channels: number;
@@ -536,6 +554,12 @@ export type HttpapiAttachmentDownloadUrlEntry = {
 
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
+};
+
+export type HttpapiAutoLayoutTopLevelSectionsRequest = {
+  frontendOpId?: string;
+  margin: number | null;
+  projectConfigId: string;
 };
 
 export type HttpapiBackendInitEvent = {
@@ -568,6 +592,14 @@ export type HttpapiCancelTranscriptionSessionResponse = {
   ok: boolean;
 };
 
+export type HttpapiChangeParamImplRequest = {
+  frontendOpId?: string;
+  paramInfoId: string;
+  projectConfigId: string;
+  sectionId: string;
+  selectedId: string;
+};
+
 export type HttpapiCheckIfFileExistsRequest = {
   filepath: string;
 };
@@ -590,6 +622,11 @@ export type HttpapiCodeAreaCompletionRequest = {
   sectionId: string;
 };
 
+export type HttpapiCodeFileBindingUpdate = {
+  access_mode: string;
+  canonical_path: string;
+};
+
 export type HttpapiCreateAgentProfileRequest = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
@@ -599,6 +636,54 @@ export type HttpapiCreateAgentProfileRequest = {
   name: string | null;
   systemPrompt: string | null;
   toolAllowlist: Array<string> | null;
+};
+
+export type HttpapiCreateAgenticEdgeRequest = {
+  contextMode: string | null;
+  frontendOpId?: string;
+  hidden: boolean;
+  id: string | null;
+  kind: string;
+  projectConfigId: string;
+  sourceSectionId: string;
+  style: unknown;
+  targetSectionId: string;
+  zIndex: number;
+};
+
+export type HttpapiCreateChildSectionsRequest = {
+  frontendOpId?: string;
+  implType: string;
+  numChildren: number;
+  parentId: string;
+  projectConfigId: string;
+  startIdx: number | null;
+};
+
+export type HttpapiCreateChildSectionsViaIncrementerRequest = {
+  calledBy: string;
+  frontendOpId?: string;
+  implType: string;
+  numChildren: number;
+  projectConfigId: string;
+};
+
+export type HttpapiCreateEdgeRequest = {
+  animated: boolean;
+  data: unknown;
+  frontendOpId?: string;
+  hidden: boolean;
+  label: string | null;
+  projectConfigId: string;
+  sourcePortId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  style: unknown;
+  targetPortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  type: string;
+  zIndex: number;
 };
 
 export type HttpapiCreateEngineConfigRequest = {
@@ -634,6 +719,12 @@ export type HttpapiCreateFileRequest = {
   filepath: string;
 };
 
+export type HttpapiCreateNewSectionVariantRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiCreateProjectConfigRequest = {
   previewImgColor: string;
 };
@@ -651,12 +742,58 @@ export type HttpapiCreatePromptTemplateRequest = {
   template: string | null;
 };
 
+export type HttpapiCreateStateMachineEdgeRequest = {
+  frontendOpId?: string;
+  hidden: boolean;
+  id: string | null;
+  machineGroupId: string;
+  projectConfigId: string;
+  selected: boolean;
+  sourceActivationCountCondition: ProjectstateStateMachineSourceActivationCountCondition;
+  sourceFilter: ProjectstateStateMachineSourceFilter;
+  sourcePortId: string;
+  sourceSectionId: string;
+  style: unknown;
+  targetAction: ProjectstateStateMachineTargetAction;
+  targetPortId: string;
+  targetSectionId: string;
+  zIndex: number;
+};
+
+export type HttpapiCreateTopLevelSectionRequest = {
+  controlCodeObjType: string | null;
+  frontendOpId?: string;
+  implOverrides: {
+    [key: string]: unknown;
+  };
+  implType: string;
+  name: string | null;
+  position: ProjectstatePosition;
+  projectConfigId: string;
+  topLevelSections: {
+    [key: string]: ProjectstateTopLevelSectionLayout;
+  };
+  viewportBounds: ProjectstateViewportBounds;
+};
+
 export type HttpapiCreateTranscriptionProfileRequest = {
   chunkMs: number | null;
   language: string | null;
   name: string | null;
   transcriptionLlmConfigId: string | null;
   transportMode: string | null;
+};
+
+export type HttpapiCreateViewModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiCreateWindowSpaceRequest = {
+  frontendOpId?: string;
+  name?: string;
+  projectConfigId: string;
+  state: ProjectstateWindowSpaceState;
 };
 
 export type HttpapiCreateWorkspaceLaunchIntentRequest = {
@@ -671,8 +808,32 @@ export type HttpapiCreateWorkspaceLaunchIntentResponse = {
   requestedAt: number | null;
 };
 
+export type HttpapiDeclineRenameRefactorRequest = {
+  frontendOpId: string;
+  projectConfigId: string;
+};
+
 export type HttpapiDeleteAgentProfileRequest = {
   profileId: string;
+};
+
+export type HttpapiDeleteAgenticEdgesRequest = {
+  edgeIds: Array<string> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiDeleteChildSectionsViaDecrementerRequest = {
+  calledBy: string;
+  frontendOpId?: string;
+  numChildren: number;
+  projectConfigId: string;
+};
+
+export type HttpapiDeleteEdgesRequest = {
+  edgeIds: Array<string> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
 };
 
 export type HttpapiDeleteEngineConfigRequest = {
@@ -681,6 +842,18 @@ export type HttpapiDeleteEngineConfigRequest = {
 
 export type HttpapiDeleteExternalAgentConfigRequest = {
   configId: string;
+};
+
+export type HttpapiDeleteJsonSourceFileAndVariantRequest = {
+  filepath: string;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiDeleteKwargRequest = {
+  projectConfigId: string;
+  sectionId: string;
 };
 
 export type HttpapiDeleteNotificationRequest = {
@@ -699,12 +872,49 @@ export type HttpapiDeletePromptTemplateRequest = {
   templateId: string;
 };
 
+export type HttpapiDeleteSectionVariantOrAskRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiDeleteSectionsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
+export type HttpapiDeleteSelectedParamsRequest = {
+  frontendOpId?: string;
+  paramInfoIds: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiDeleteStateMachineEdgesRequest = {
+  edgeIds: Array<string> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
 export type HttpapiDeleteTerminalsRequest = {
   sectionIds: Array<string> | null;
 };
 
 export type HttpapiDeleteTranscriptionProfileRequest = {
   profileId: string | null;
+};
+
+export type HttpapiDeleteViewModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type HttpapiDeleteWindowSpaceRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  windowSpaceId: string;
 };
 
 export type HttpapiDeploymentMetadataResponse = {
@@ -764,6 +974,12 @@ export type HttpapiForceRefreshProjectRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiFormatCodeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiGenCodePrefixCompletionRequest = {
   fullText: string;
   position: number;
@@ -814,6 +1030,11 @@ export type HttpapiGetAttachmentDownloadUrlResponse = {
 export type HttpapiGetAttachmentDownloadUrlsRequest = {
   artifactIds: Array<string> | null;
   projectConfigId: string | null;
+};
+
+export type HttpapiGetChatSectionChatIdRequest = {
+  projectConfigId: string;
+  sectionId: string;
 };
 
 export type HttpapiGetEngineConfigRequest = {
@@ -890,8 +1111,23 @@ export type HttpapiGetLatestLspDiagnosticsRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiGetLatestProjectStateRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
 export type HttpapiGetNotificationsRequest = {
   projectConfigId: string;
+};
+
+export type HttpapiGetPasswordParamValueRequest = {
+  paramInfoId: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiGetPasswordParamValueResponse = {
+  value: string;
 };
 
 export type HttpapiGetPromptTemplateRequest = {
@@ -913,6 +1149,19 @@ export type HttpapiGetStateMachineRunRequest = {
 
 export type HttpapiGetWorkspacePythonSignalRequest = {
   folderPath: string;
+};
+
+export type HttpapiGroupSectionsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
+export type HttpapiIndentParamsRequest = {
+  frontendOpId?: string;
+  paramIds: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
 };
 
 export type HttpapiInterruptTerminalProcessesRequest = {
@@ -1158,11 +1407,51 @@ export type HttpapiManualSaveRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiMoveParamGroupRequest = {
+  newIndex: number;
+  newParentId: string;
+  paramIds: Array<string> | null;
+};
+
+export type HttpapiMoveParamGroupsRequest = {
+  frontendOpId?: string;
+  moves: Array<HttpapiMoveParamGroupRequest> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiMoveParamsRequest = {
+  frontendOpId?: string;
+  newIndex: number;
+  newParentId: string;
+  paramIds: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiMoveSectionsRequest = {
+  frontendOpId?: string;
+  newIndex: number | null;
+  newParentId: string | null;
+  positionsById: {
+    [key: string]: ProjectstatePosition;
+  };
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
 export type HttpapiOutputAccessorCompletionRequest = {
   fullText: string;
   position: number;
   projectConfigId: string;
   sectionId: string;
+};
+
+export type HttpapiPasteSectionsRequest = {
+  asRef: boolean;
+  data: ProjectstateClipboardProjectStateCoreWithSectionVariantMap;
+  position: ProjectstatePosition;
+  projectConfigId: string;
 };
 
 export type HttpapiPinLauncherRecentWorkspaceRequest = {
@@ -1224,6 +1513,15 @@ export type HttpapiPluginsRescanResponse = {
   serverMode: string;
 };
 
+export type HttpapiPrepareSectionsForCopyRequest = {
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
+export type HttpapiProjectConfigMutationResponse = {
+  projectConfig: ProjectviewProjectConfig;
+};
+
 export type HttpapiProjectLoadRequest = {
   projectConfigName: string;
 };
@@ -1262,6 +1560,23 @@ export type HttpapiPublishShareDeploymentRequest = {
   listenerEntrypoint: string;
   projectConfigId: string;
   sharePolicyOverrides: DeploymentsSharePolicyOverrides;
+};
+
+export type HttpapiReconnectEdgeRequest = {
+  edgeId: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sourcePortId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  targetPortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+};
+
+export type HttpapiRedoRequest = {
+  projectConfigId: string;
+  steps: number;
 };
 
 export type HttpapiResetStateMachineRequest = {
@@ -1360,8 +1675,36 @@ export type HttpapiSaveSettingsRequest = {
   settings: unknown;
 };
 
+export type HttpapiSectionSizeRequest = {
+  height: HttpapiSectionSizeValueRequest;
+  width: HttpapiSectionSizeValueRequest;
+};
+
+export type HttpapiSectionSizeValueRequest = {
+  Auto: boolean;
+  Value: number;
+};
+
 export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
+};
+
+export type HttpapiSetActiveIdsRequest = {
+  activeIds: Array<string> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetActiveViewModeRequest = {
+  activeViewModeId: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetAgenticEdgesRequest = {
+  edges: Array<ProjectstateAgenticEdge> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
 };
 
 export type HttpapiSetAppDefinitionRequest = {
@@ -1383,6 +1726,135 @@ export type HttpapiSetAppDefinitionRequest = {
   };
 };
 
+export type HttpapiSetBrowserAreaViewModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: string;
+};
+
+export type HttpapiSetBrowserColumnWidthsRequest = {
+  columnWidth: number | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  typesColumnWidth: number | null;
+};
+
+export type HttpapiSetBrowserHideColumnRequest = {
+  frontendOpId?: string;
+  hideColumn: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetBrowserSavedSearchesRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  savedSearches: Array<ProjectstateBrowserSavedSearch> | null;
+  sectionId: string;
+};
+
+export type HttpapiSetCallableHideParamsRequest = {
+  frontendOpId?: string;
+  hideParams: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetCallableRequest = {
+  callableName: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  refetchParams: boolean;
+  sectionId: string;
+};
+
+export type HttpapiSetChartAreaDataPathRequest = {
+  dataPath: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetChartSettingsRequest = {
+  changedSettings: Array<string> | null;
+  chartSettings: ProjectstateChartSettingsUpdate;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetChartTypeRequest = {
+  chartType: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetChatSectionChatIdRequest = {
+  chatId: string | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetChatSectionSettingsRequest = {
+  agentProfileId: string | null;
+  dictationMode: string;
+  engineConfigId: string | null;
+  frontendOpId?: string;
+  managed: boolean;
+  permissionMode: string;
+  projectConfigId: string;
+  searchEnabled: boolean;
+  sectionId: string;
+  thinking: boolean;
+  transcriptionProfileId: string | null;
+};
+
+export type HttpapiSetChatSectionStateRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  state: ProjectstateChatSectionState;
+};
+
+export type HttpapiSetCodeFileBindingRequest = {
+  binding: HttpapiCodeFileBindingUpdate;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetCodeObjDisplayNameRequest = {
+  codeObjId: string;
+  displayName: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetCodeObjNameRequest = {
+  codeObjId: string;
+  frontendOpId?: string;
+  name: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetCodeRequest = {
+  code: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetCodeSectionAttachedTerminalRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  terminalSectionId: string | null;
+};
+
 export type HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest = {
   code: unknown;
   projectConfigId: string;
@@ -1400,6 +1872,45 @@ export type HttpapiSetDefaultProjectConfigRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiSetDefaultSectionVariantRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiSetEdgesRequest = {
+  edges: Array<ProjectstateEdge> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetGenCodePrefixRequest = {
+  frontendOpId?: string;
+  genCodePrefix: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetGenCodeSuffixRequest = {
+  frontendOpId?: string;
+  genCodeSuffix: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetGroupOverflowModeRequest = {
+  frontendOpId?: string;
+  overflowMode: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetImageAreaImagePathRequest = {
+  frontendOpId?: string;
+  imagePath: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiSetLlmapiKeysRequest = {
   apiKeys: {
     [key: string]: string;
@@ -1407,8 +1918,344 @@ export type HttpapiSetLlmapiKeysRequest = {
   expectedRevision: number;
 };
 
+export type HttpapiSetListRootViewModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: string;
+};
+
+export type HttpapiSetMetaControlShowSectionTitleRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  showSectionTitle: boolean;
+};
+
+export type HttpapiSetParamEnteredValueRequest = {
+  frontendOpId?: string;
+  paramInfoId: string;
+  projectConfigId: string;
+  sectionId: string;
+  sectionVariantId: string;
+  value: string;
+};
+
+export type HttpapiSetParentDefaultChildSectionTypeRequest = {
+  defaultChildSectionType: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetProjectChatWindowChatIdRequest = {
+  chatId: string | null;
+  frontendOpId?: string;
+  instanceId: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetProjectChatWindowingStateRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  state: ProjectstateProjectChatWindowingState;
+};
+
+export type HttpapiSetProjectConfigCodegenTargetsRequest = {
+  codegenTargets: Array<unknown> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
 export type HttpapiSetProjectConfigNameRequest = {
   newName: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetPromptFormatRequest = {
+  format: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetPromptInputsRequest = {
+  frontendOpId?: string;
+  inputs: {
+    [key: string]: string;
+  };
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetPromptTemplateLinkRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  promptTemplateId?: string;
+  sectionId: string;
+};
+
+export type HttpapiSetPromptTemplateRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  template: string;
+};
+
+export type HttpapiSetSectionColumnWidthRequest = {
+  columnWidth: number | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionEdgeInputsRequest = {
+  edgeInputParams: Array<string> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionEdgeOutputsRequest = {
+  edgeOutputPorts: Array<ProjectstateEdgePort> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionHideUnpinnedParamsRequest = {
+  frontendOpId?: string;
+  hideUnpinnedParams: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionNameRequest = {
+  frontendOpId?: string;
+  name: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionParamFilterRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+};
+
+export type HttpapiSetSectionPinnedParamsRequest = {
+  frontendOpId?: string;
+  pinnedParams: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSectionSizesRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionSizes: {
+    [key: string]: HttpapiSectionSizeRequest;
+  };
+};
+
+export type HttpapiSetSectionStyleColorRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  styleColor: string | null;
+};
+
+export type HttpapiSetSectionTagColorRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  tagColor: string | null;
+};
+
+export type HttpapiSetSectionVariantNameRequest = {
+  frontendOpId?: string;
+  name: string;
+  projectConfigId: string;
+  variantId: string;
+};
+
+export type HttpapiSetSectionVariantRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiSetSectionVariantSortOrderRequest = {
+  frontendOpId?: string;
+  orderedVariantIds: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetShowParamDisplayNamesRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  showParamDisplayNames: boolean;
+};
+
+export type HttpapiSetSocialUrlRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  url: string;
+};
+
+export type HttpapiSetSpreadsheetFilePathRequest = {
+  activeSheet: string | null;
+  filePath: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetSpreadsheetSectionSettingsRequest = {
+  autoReloadOnExternalChange: boolean;
+  density: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  readOnly: boolean;
+  sectionId: string;
+  showRowNumbers: boolean;
+};
+
+export type HttpapiSetStateMachineEdgesRequest = {
+  edges: Array<ProjectstateStateMachineEdge> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetStateMachineSectionSettingsRequest = {
+  frontendOpId?: string;
+  gateType?: string;
+  label: string;
+  machineGroupId: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetTaskBoardSectionStateRequest = {
+  columns: Array<ProjectstateTaskBoardColumn> | null;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  tasks: Array<ProjectstateTaskBoardTask> | null;
+  viewMode: string;
+};
+
+export type HttpapiSetTextBlockDisplayModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  textDisplayMode: string;
+};
+
+export type HttpapiSetTextBlockFormatRequest = {
+  format: string;
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetTextBlockHeadingAsSectionNameRequest = {
+  frontendOpId?: string;
+  headingAsSectionName: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetTextBlockMasterFontSizeRequest = {
+  frontendOpId?: string;
+  masterFontSizePx: number;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetTextBlockMetaControlStyleRequest = {
+  frontendOpId?: string;
+  metaControlStyle: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetTextBlockTextRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  text: string;
+};
+
+export type HttpapiSetTopLevelSectionLayoutRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  topLevelSections: {
+    [key: string]: ProjectstateTopLevelSectionLayout;
+  };
+};
+
+export type HttpapiSetTypeErrorIgnoreRequest = {
+  ignoreTypeErrors: boolean;
+  paramInfoId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiSetVariantJsonSourceKeysRequest = {
+  frontendOpId?: string;
+  jsonSourceKeys: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiSetViewModeNameRequest = {
+  frontendOpId?: string;
+  name: string;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type HttpapiSetViewModeSortOrderRequest = {
+  frontendOpId?: string;
+  orderedViewModeIds: Array<string> | null;
+  projectConfigId: string;
+};
+
+export type HttpapiSetViewportRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  viewport: ProjectstateViewport;
+};
+
+export type HttpapiSetWatchCodeEnabledRequest = {
+  enabled: boolean;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetWatchCodeInputsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
+};
+
+export type HttpapiSetWindowSpaceNameRequest = {
+  frontendOpId?: string;
+  name: string;
+  projectConfigId: string;
+  windowSpaceId: string;
+};
+
+export type HttpapiSetWindowSpaceSortOrderRequest = {
+  frontendOpId?: string;
+  orderedWindowSpaceIds: Array<string> | null;
   projectConfigId: string;
 };
 
@@ -1517,6 +2364,67 @@ export type HttpapiTextFieldCompletionRequest = {
   sectionId: string;
 };
 
+export type HttpapiToggleGroupOrientationRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiToggleIsEditingViewModeRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiToggleMinimizedRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiToggleParamSelectedRequest = {
+  frontendOpId?: string;
+  paramInfoId: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiTogglePositionLocksRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
+export type HttpapiToggleSectionVisibilityRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionIds: Array<string> | null;
+};
+
+export type HttpapiToggleVariantFrozenRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  variantId: string;
+};
+
+export type HttpapiToggleVariantJsonSourceRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type HttpapiToggleViewModeTabRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type HttpapiToggleViewModeUserFacingRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
 export type HttpapiTranscriptionProfilePayload = {
   chunkMs: number | null;
   id: string | null;
@@ -1537,14 +2445,49 @@ export type HttpapiTypeCheckRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiUndoRequest = {
+  projectConfigId: string;
+  steps: number;
+};
+
+export type HttpapiUngroupGroupsRequest = {
+  frontendOpId?: string;
+  groupIds: Array<string> | null;
+  projectConfigId: string;
+};
+
+export type HttpapiUnindentParamsRequest = {
+  frontendOpId?: string;
+  paramIds: Array<string> | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiUnselectAllParamsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
 export type HttpapiUpdateAgentProfileRequest = {
   profile: HttpapiAgentProfilePayload;
+};
+
+export type HttpapiUpdateAgenticEdgeRequest = {
+  edge: ProjectstateAgenticEdge;
+  frontendOpId?: string;
+  projectConfigId: string;
 };
 
 export type HttpapiUpdateArtifactsRequest = {
   artifacts: Array<ArtifactsRawArtifact> | null;
   conflictStrategy?: string;
   uploadScope: string;
+};
+
+export type HttpapiUpdateEdgeRequest = {
+  edge: ProjectstateEdge;
+  frontendOpId?: string;
+  projectConfigId: string;
 };
 
 export type HttpapiUpdateEngineConfigPayload = {
@@ -1570,8 +2513,24 @@ export type HttpapiUpdateLauncherRequest = {
   settaHome: string | null;
 };
 
+export type HttpapiUpdateParamImplConfigRequest = {
+  frontendOpId?: string;
+  newConfig: {
+    [key: string]: unknown;
+  };
+  paramInfoId: string;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiUpdatePromptTemplateRequest = {
   template: HttpapiPromptTemplatePayload;
+};
+
+export type HttpapiUpdateStateMachineEdgeRequest = {
+  edge: ProjectstateStateMachineEdge;
+  frontendOpId?: string;
+  projectConfigId: string;
 };
 
 export type HttpapiUpdateTranscriptionProfileRequest = {
@@ -1600,6 +2559,11 @@ export type HttpapiValidateAppDefinitionRequest = {
   theme?: {
     [key: string]: unknown;
   };
+};
+
+export type HttpapiWindowSpaceMutationResponse = {
+  projectConfig: ProjectviewProjectConfig;
+  windowSpaceId?: string;
 };
 
 export type HttpapiWorkspaceLaunchErrorPayload = {
@@ -1956,6 +2920,59 @@ export type ProjectstateAppRoute = {
   rootKey?: string;
 };
 
+export type ProjectstateBrowserSavedSearch = {
+  color: string;
+  id: string;
+  name: string;
+  query: string;
+  quickInfo: string;
+  searchScope: string;
+  typeFilters: ProjectstateBrowserSavedSearchTypeFilters;
+};
+
+export type ProjectstateBrowserSavedSearchTypeFilters = {
+  audio: boolean;
+  data: boolean;
+  image: boolean;
+  text: boolean;
+  video: boolean;
+};
+
+export type ProjectstateChartSettingsUpdate = {
+  categoryColumn: string | null;
+  secondYAxisColumns: Array<string> | null;
+  type: string;
+  xAxisColumn: string | null;
+  xAxisLog: boolean;
+  y1AxisLog: boolean;
+  y2AxisLog: boolean;
+  yAxisLog: boolean;
+};
+
+export type ProjectstateChatSectionBranch = {
+  branchFromMessageId: string | null;
+  createdAt: number;
+  messages: Array<{
+    [key: string]: unknown;
+  }> | null;
+  parentBranchId: string | null;
+};
+
+export type ProjectstateChatSectionState = {
+  activeBranchId: string | null;
+  branches: {
+    [key: string]: ProjectstateChatSectionBranch;
+  };
+  inputText: string;
+  messages: Array<{
+    [key: string]: unknown;
+  }> | null;
+  toolCallArguments: {
+    [key: string]: string;
+  };
+  waitingForResponse: boolean;
+};
+
 export type ProjectstateChatWindowBounds = {
   height: number;
   width: number;
@@ -1966,6 +2983,100 @@ export type ProjectstateChatWindowBounds = {
 export type ProjectstateChatWindowDockMetrics = {
   preferredWidthPx?: number;
   widthFraction?: number;
+};
+
+export type ProjectstateClipboardProjectStateCore = {
+  codeObjImpls?: {
+    [key: string]: ProjectstateCodeObjectImpl;
+  };
+  codeObjVariants?: {
+    [key: string]: ProjectstateCodeObjectVariant;
+  };
+  codeObjs?: {
+    [key: string]: ProjectstateCodeObject;
+  };
+  sectionImpls?: {
+    [key: string]: ProjectstateSectionImpl;
+  };
+  sectionVariants?: {
+    [key: string]: ProjectstateSectionVariant;
+  };
+  sections?: {
+    [key: string]: ProjectstateSection;
+  };
+};
+
+export type ProjectstateClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ProjectstateClipboardProjectStateCore;
+  sectionVariantMap?: {
+    [key: string]: string;
+  };
+};
+
+export type ProjectstateCodeFileBinding = {
+  accessMode?: string;
+  autoBinding?: boolean;
+  path: string;
+};
+
+export type ProjectstateCodeObject = {
+  defaultVariantId?: string;
+  displayName?: string;
+  id: string;
+  name: string;
+  sharedModifier?: unknown;
+  unsharedKeys?: Array<string> | null;
+  variantIds?: Array<string> | null;
+};
+
+export type ProjectstateCodeObjectImpl = {
+  id: string;
+  payload?: unknown;
+  type: string;
+};
+
+export type ProjectstateCodeObjectVariant = {
+  id: string;
+  implId: string;
+  isFrozen?: boolean;
+  modifier?: unknown;
+  name?: string;
+  nonPresetImplIds?: Array<string> | null;
+};
+
+export type ProjectstateCodeSectionImpl = {
+  attachedTerminalSectionId?: string;
+  binding?: ProjectstateCodeFileBinding;
+  children?: Array<string> | null;
+  language: string;
+};
+
+export type ProjectstateCreateChildSectionsResult = {
+  sectionIds: Array<string> | null;
+};
+
+export type ProjectstateCreateNewSectionVariantResult = {
+  variantId: string;
+};
+
+export type ProjectstateCreateTopLevelSectionResult = {
+  metaControlParamId?: string;
+  panTo?: ProjectstatePosition;
+  sectionId: string;
+};
+
+export type ProjectstateDeleteSectionsResult = {
+  sectionIds: Array<string> | null;
+};
+
+export type ProjectstateDrawAreaLayerItem = {
+  dataPath: string;
+  transformId: string;
+  type: string;
+};
+
+export type ProjectstateDrawSectionImpl = {
+  renderedImagePath?: string;
 };
 
 export type ProjectstateEdge = {
@@ -1984,6 +3095,11 @@ export type ProjectstateEdge = {
   targetVariantId: string;
   type?: string;
   zIndex?: number;
+};
+
+export type ProjectstateEdgePort = {
+  accessor: string;
+  id: string;
 };
 
 export type ProjectstateFrontendCodeFileBinding = {
@@ -2076,6 +3192,10 @@ export type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
   minWidth: number;
 };
 
+export type ProjectstateGeneratedSectionImpl = {
+  kind: string;
+};
+
 export type ProjectstateLspDiagnostic = {
   code: unknown;
   message: string;
@@ -2107,6 +3227,11 @@ export type ProjectstateLspDiagnosticsPayload = {
 export type ProjectstateNormalizedFloatingWindowBounds = {
   height: number;
   width: number;
+  x: number;
+  y: number;
+};
+
+export type ProjectstatePosition = {
   x: number;
   y: number;
 };
@@ -2149,11 +3274,57 @@ export type ProjectstateProjectConfigMetadata = {
   name: string;
 };
 
+export type ProjectstateSection = {
+  defaultVariantId?: string;
+  displayName?: string;
+  id: string;
+  name: string;
+  parentSectionId?: string;
+  sharedModifier?: unknown;
+  unsharedKeys?: Array<string> | null;
+  variantIds?: Array<string> | null;
+};
+
+export type ProjectstateSectionImpl = {
+  code?: ProjectstateCodeSectionImpl;
+  draw?: ProjectstateDrawSectionImpl;
+  generated?: ProjectstateGeneratedSectionImpl;
+  id: string;
+  kind: string;
+  payload?: unknown;
+  terminal?: ProjectstateTerminalSectionImpl;
+};
+
 export type ProjectstateSectionTypeErrors = {
   callable: Array<string> | null;
   params: {
     [key: string]: Array<string> | null;
   };
+};
+
+export type ProjectstateSectionVariant = {
+  id: string;
+  implId: string;
+  isFrozen?: boolean;
+  modifier?: unknown;
+  name?: string;
+  nonPresetImplIds?: Array<string> | null;
+};
+
+export type ProjectstateSectionsClipboardData = {
+  data: ProjectstateClipboardProjectStateCoreWithSectionVariantMap;
+  type: string;
+};
+
+export type ProjectstateSetCallableChildCodeObj = {
+  codeObjId: string;
+  name: string;
+};
+
+export type ProjectstateSetCallableResponse = {
+  callableId?: string;
+  childCodeObjs: Array<ProjectstateSetCallableChildCodeObj> | null;
+  lspStatus: string;
 };
 
 export type ProjectstateStateMachineEdge = {
@@ -2200,6 +3371,31 @@ export type ProjectstateStateMachineTargetAction = {
   type: string;
 };
 
+export type ProjectstateTaskBoardColumn = {
+  color: string;
+  id: string;
+  name: string;
+  sortIndex: number;
+};
+
+export type ProjectstateTaskBoardTask = {
+  columnId: string | null;
+  completed: boolean;
+  description: string;
+  dueDateIso: string;
+  id: string;
+  recurrence: string;
+  recurrenceDays: Array<string> | null;
+  recurrenceMonths: Array<string> | null;
+  recurrenceYears: Array<number> | null;
+  sortIndex: number;
+  title: string;
+};
+
+export type ProjectstateTerminalSectionImpl = {
+  sessionMode?: string;
+};
+
 export type ProjectstateTopLevelSectionLayout = {
   h?: number;
   w?: number;
@@ -2230,6 +3426,13 @@ export type ProjectstateViewport = {
   zoom: number;
 };
 
+export type ProjectstateViewportBounds = {
+  h: number;
+  w: number;
+  x: number;
+  y: number;
+};
+
 export type ProjectstateWatchCodeFolder = {
   path: string;
   recursive: boolean;
@@ -2250,6 +3453,13 @@ export type ProjectstateWindowSpaceConfig = {
   name?: string;
   order: Array<string> | null;
   sortIndex?: number;
+  windowsById: {
+    [key: string]: ProjectstateWindowSpaceWindow;
+  };
+};
+
+export type ProjectstateWindowSpaceState = {
+  order: Array<string> | null;
   windowsById: {
     [key: string]: ProjectstateWindowSpaceWindow;
   };
@@ -2633,6 +3843,58 @@ export type TranscriptionsessionsDelta = {
   isFinal: boolean;
 };
 
+export type AcceptRenameRefactorData = {
+  body: HttpapiAcceptRenameRefactorRequest;
+  path?: never;
+  query?: never;
+  url: "/acceptRenameRefactor";
+};
+
+export type AcceptRenameRefactorErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AcceptRenameRefactorError =
+  AcceptRenameRefactorErrors[keyof AcceptRenameRefactorErrors];
+
+export type AcceptRenameRefactorResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type AcceptRenameRefactorResponse =
+  AcceptRenameRefactorResponses[keyof AcceptRenameRefactorResponses];
+
+export type AddKwargData = {
+  body: HttpapiAddKwargRequest;
+  path?: never;
+  query?: never;
+  url: "/addKwarg";
+};
+
+export type AddKwargErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AddKwargError = AddKwargErrors[keyof AddKwargErrors];
+
+export type AddKwargResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type AddKwargResponse = AddKwargResponses[keyof AddKwargResponses];
+
 export type AddLauncherRecentWorkspaceData = {
   body: HttpapiLauncherRecentWorkspaceRequest;
   path?: never;
@@ -2859,6 +4121,33 @@ export type GetAppDeploymentStateResponses = {
 export type GetAppDeploymentStateResponse =
   GetAppDeploymentStateResponses[keyof GetAppDeploymentStateResponses];
 
+export type AppendDrawAreaLayerItemData = {
+  body: HttpapiAppendDrawAreaLayerItemRequest;
+  path?: never;
+  query?: never;
+  url: "/appendDrawAreaLayerItem";
+};
+
+export type AppendDrawAreaLayerItemErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AppendDrawAreaLayerItemError =
+  AppendDrawAreaLayerItemErrors[keyof AppendDrawAreaLayerItemErrors];
+
+export type AppendDrawAreaLayerItemResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type AppendDrawAreaLayerItemResponse =
+  AppendDrawAreaLayerItemResponses[keyof AppendDrawAreaLayerItemResponses];
+
 export type AppendTranscriptionAudioData = {
   body: HttpapiAppendTranscriptionAudioRequest;
   path?: never;
@@ -2941,6 +4230,33 @@ export type GetAuthRefreshStatusResponses = {
 
 export type GetAuthRefreshStatusResponse =
   GetAuthRefreshStatusResponses[keyof GetAuthRefreshStatusResponses];
+
+export type AutoLayoutTopLevelSectionsData = {
+  body: HttpapiAutoLayoutTopLevelSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/autoLayoutTopLevelSections";
+};
+
+export type AutoLayoutTopLevelSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AutoLayoutTopLevelSectionsError =
+  AutoLayoutTopLevelSectionsErrors[keyof AutoLayoutTopLevelSectionsErrors];
+
+export type AutoLayoutTopLevelSectionsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type AutoLayoutTopLevelSectionsResponse =
+  AutoLayoutTopLevelSectionsResponses[keyof AutoLayoutTopLevelSectionsResponses];
 
 export type GetBackendInitStatusData = {
   body?: never;
@@ -3075,6 +4391,33 @@ export type CancelTranscriptionSessionResponses = {
 
 export type CancelTranscriptionSessionResponse =
   CancelTranscriptionSessionResponses[keyof CancelTranscriptionSessionResponses];
+
+export type ChangeParamImplData = {
+  body: HttpapiChangeParamImplRequest;
+  path?: never;
+  query?: never;
+  url: "/changeParamImpl";
+};
+
+export type ChangeParamImplErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ChangeParamImplError =
+  ChangeParamImplErrors[keyof ChangeParamImplErrors];
+
+export type ChangeParamImplResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ChangeParamImplResponse =
+  ChangeParamImplResponses[keyof ChangeParamImplResponses];
 
 export type CheckIfFileExistsData = {
   body: HttpapiCheckIfFileExistsRequest;
@@ -3211,6 +4554,112 @@ export type CreateAgentProfileResponses = {
 export type CreateAgentProfileResponse =
   CreateAgentProfileResponses[keyof CreateAgentProfileResponses];
 
+export type CreateAgenticEdgeData = {
+  body: HttpapiCreateAgenticEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/createAgenticEdge";
+};
+
+export type CreateAgenticEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateAgenticEdgeError =
+  CreateAgenticEdgeErrors[keyof CreateAgenticEdgeErrors];
+
+export type CreateAgenticEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type CreateAgenticEdgeResponse =
+  CreateAgenticEdgeResponses[keyof CreateAgenticEdgeResponses];
+
+export type CreateChildSectionsData = {
+  body: HttpapiCreateChildSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/createChildSections";
+};
+
+export type CreateChildSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateChildSectionsError =
+  CreateChildSectionsErrors[keyof CreateChildSectionsErrors];
+
+export type CreateChildSectionsResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateCreateChildSectionsResult;
+};
+
+export type CreateChildSectionsResponse =
+  CreateChildSectionsResponses[keyof CreateChildSectionsResponses];
+
+export type CreateChildSectionsViaIncrementerData = {
+  body: HttpapiCreateChildSectionsViaIncrementerRequest;
+  path?: never;
+  query?: never;
+  url: "/createChildSectionsViaIncrementer";
+};
+
+export type CreateChildSectionsViaIncrementerErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateChildSectionsViaIncrementerError =
+  CreateChildSectionsViaIncrementerErrors[keyof CreateChildSectionsViaIncrementerErrors];
+
+export type CreateChildSectionsViaIncrementerResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateCreateChildSectionsResult;
+};
+
+export type CreateChildSectionsViaIncrementerResponse =
+  CreateChildSectionsViaIncrementerResponses[keyof CreateChildSectionsViaIncrementerResponses];
+
+export type CreateEdgeData = {
+  body: HttpapiCreateEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/createEdge";
+};
+
+export type CreateEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateEdgeError = CreateEdgeErrors[keyof CreateEdgeErrors];
+
+export type CreateEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type CreateEdgeResponse = CreateEdgeResponses[keyof CreateEdgeResponses];
+
 export type CreateEngineConfigData = {
   body: HttpapiCreateEngineConfigRequest;
   path?: never;
@@ -3290,6 +4739,33 @@ export type CreateFileResponses = {
 
 export type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
 
+export type CreateNewSectionVariantData = {
+  body: HttpapiCreateNewSectionVariantRequest;
+  path?: never;
+  query?: never;
+  url: "/createNewSectionVariant";
+};
+
+export type CreateNewSectionVariantErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateNewSectionVariantError =
+  CreateNewSectionVariantErrors[keyof CreateNewSectionVariantErrors];
+
+export type CreateNewSectionVariantResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateCreateNewSectionVariantResult;
+};
+
+export type CreateNewSectionVariantResponse =
+  CreateNewSectionVariantResponses[keyof CreateNewSectionVariantResponses];
+
 export type CreateProjectConfigData = {
   body: HttpapiCreateProjectConfigRequest;
   path?: never;
@@ -3344,6 +4820,60 @@ export type CreatePromptTemplateResponses = {
 export type CreatePromptTemplateResponse =
   CreatePromptTemplateResponses[keyof CreatePromptTemplateResponses];
 
+export type CreateStateMachineEdgeData = {
+  body: HttpapiCreateStateMachineEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/createStateMachineEdge";
+};
+
+export type CreateStateMachineEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateStateMachineEdgeError =
+  CreateStateMachineEdgeErrors[keyof CreateStateMachineEdgeErrors];
+
+export type CreateStateMachineEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type CreateStateMachineEdgeResponse =
+  CreateStateMachineEdgeResponses[keyof CreateStateMachineEdgeResponses];
+
+export type CreateTopLevelSectionData = {
+  body: HttpapiCreateTopLevelSectionRequest;
+  path?: never;
+  query?: never;
+  url: "/createTopLevelSection";
+};
+
+export type CreateTopLevelSectionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateTopLevelSectionError =
+  CreateTopLevelSectionErrors[keyof CreateTopLevelSectionErrors];
+
+export type CreateTopLevelSectionResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateCreateTopLevelSectionResult;
+};
+
+export type CreateTopLevelSectionResponse =
+  CreateTopLevelSectionResponses[keyof CreateTopLevelSectionResponses];
+
 export type CreateTranscriptionProfileData = {
   body: HttpapiCreateTranscriptionProfileRequest;
   path?: never;
@@ -3370,6 +4900,60 @@ export type CreateTranscriptionProfileResponses = {
 
 export type CreateTranscriptionProfileResponse =
   CreateTranscriptionProfileResponses[keyof CreateTranscriptionProfileResponses];
+
+export type CreateViewModeData = {
+  body: HttpapiCreateViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/createViewMode";
+};
+
+export type CreateViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateViewModeError =
+  CreateViewModeErrors[keyof CreateViewModeErrors];
+
+export type CreateViewModeResponses = {
+  /**
+   * OK
+   */
+  200: string;
+};
+
+export type CreateViewModeResponse =
+  CreateViewModeResponses[keyof CreateViewModeResponses];
+
+export type CreateWindowSpaceData = {
+  body: HttpapiCreateWindowSpaceRequest;
+  path?: never;
+  query?: never;
+  url: "/createWindowSpace";
+};
+
+export type CreateWindowSpaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateWindowSpaceError =
+  CreateWindowSpaceErrors[keyof CreateWindowSpaceErrors];
+
+export type CreateWindowSpaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiWindowSpaceMutationResponse;
+};
+
+export type CreateWindowSpaceResponse =
+  CreateWindowSpaceResponses[keyof CreateWindowSpaceResponses];
 
 export type CreateWorkspaceLaunchIntentData = {
   body: HttpapiCreateWorkspaceLaunchIntentRequest;
@@ -3398,6 +4982,33 @@ export type CreateWorkspaceLaunchIntentResponses = {
 export type CreateWorkspaceLaunchIntentResponse =
   CreateWorkspaceLaunchIntentResponses[keyof CreateWorkspaceLaunchIntentResponses];
 
+export type DeclineRenameRefactorData = {
+  body: HttpapiDeclineRenameRefactorRequest;
+  path?: never;
+  query?: never;
+  url: "/declineRenameRefactor";
+};
+
+export type DeclineRenameRefactorErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeclineRenameRefactorError =
+  DeclineRenameRefactorErrors[keyof DeclineRenameRefactorErrors];
+
+export type DeclineRenameRefactorResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeclineRenameRefactorResponse =
+  DeclineRenameRefactorResponses[keyof DeclineRenameRefactorResponses];
+
 export type DeleteAgentProfileData = {
   body: HttpapiDeleteAgentProfileRequest;
   path?: never;
@@ -3425,6 +5036,33 @@ export type DeleteAgentProfileResponses = {
 export type DeleteAgentProfileResponse =
   DeleteAgentProfileResponses[keyof DeleteAgentProfileResponses];
 
+export type DeleteAgenticEdgesData = {
+  body: HttpapiDeleteAgenticEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteAgenticEdges";
+};
+
+export type DeleteAgenticEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteAgenticEdgesError =
+  DeleteAgenticEdgesErrors[keyof DeleteAgenticEdgesErrors];
+
+export type DeleteAgenticEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteAgenticEdgesResponse =
+  DeleteAgenticEdgesResponses[keyof DeleteAgenticEdgesResponses];
+
 export type DeleteArtifactsData = {
   body: ArtifactsDeleteRequest;
   path?: never;
@@ -3451,6 +5089,59 @@ export type DeleteArtifactsResponses = {
 
 export type DeleteArtifactsResponse =
   DeleteArtifactsResponses[keyof DeleteArtifactsResponses];
+
+export type DeleteChildSectionsViaDecrementerData = {
+  body: HttpapiDeleteChildSectionsViaDecrementerRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteChildSectionsViaDecrementer";
+};
+
+export type DeleteChildSectionsViaDecrementerErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteChildSectionsViaDecrementerError =
+  DeleteChildSectionsViaDecrementerErrors[keyof DeleteChildSectionsViaDecrementerErrors];
+
+export type DeleteChildSectionsViaDecrementerResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateDeleteSectionsResult;
+};
+
+export type DeleteChildSectionsViaDecrementerResponse =
+  DeleteChildSectionsViaDecrementerResponses[keyof DeleteChildSectionsViaDecrementerResponses];
+
+export type DeleteEdgesData = {
+  body: HttpapiDeleteEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteEdges";
+};
+
+export type DeleteEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteEdgesError = DeleteEdgesErrors[keyof DeleteEdgesErrors];
+
+export type DeleteEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteEdgesResponse =
+  DeleteEdgesResponses[keyof DeleteEdgesResponses];
 
 export type DeleteEngineConfigData = {
   body: HttpapiDeleteEngineConfigRequest;
@@ -3505,6 +5196,59 @@ export type DeleteExternalAgentConfigResponses = {
 
 export type DeleteExternalAgentConfigResponse =
   DeleteExternalAgentConfigResponses[keyof DeleteExternalAgentConfigResponses];
+
+export type DeleteJsonSourceFileAndVariantData = {
+  body: HttpapiDeleteJsonSourceFileAndVariantRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteJsonSourceFileAndVariant";
+};
+
+export type DeleteJsonSourceFileAndVariantErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteJsonSourceFileAndVariantError =
+  DeleteJsonSourceFileAndVariantErrors[keyof DeleteJsonSourceFileAndVariantErrors];
+
+export type DeleteJsonSourceFileAndVariantResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteJsonSourceFileAndVariantResponse =
+  DeleteJsonSourceFileAndVariantResponses[keyof DeleteJsonSourceFileAndVariantResponses];
+
+export type DeleteKwargData = {
+  body: HttpapiDeleteKwargRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteKwarg";
+};
+
+export type DeleteKwargErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteKwargError = DeleteKwargErrors[keyof DeleteKwargErrors];
+
+export type DeleteKwargResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteKwargResponse =
+  DeleteKwargResponses[keyof DeleteKwargResponses];
 
 export type DeleteNotificationData = {
   body: HttpapiDeleteNotificationRequest;
@@ -3587,6 +5331,114 @@ export type DeletePromptTemplateResponses = {
 export type DeletePromptTemplateResponse =
   DeletePromptTemplateResponses[keyof DeletePromptTemplateResponses];
 
+export type DeleteSectionVariantOrAskData = {
+  body: HttpapiDeleteSectionVariantOrAskRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteSectionVariantOrAsk";
+};
+
+export type DeleteSectionVariantOrAskErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteSectionVariantOrAskError =
+  DeleteSectionVariantOrAskErrors[keyof DeleteSectionVariantOrAskErrors];
+
+export type DeleteSectionVariantOrAskResponses = {
+  /**
+   * OK
+   */
+  200: string | null;
+};
+
+export type DeleteSectionVariantOrAskResponse =
+  DeleteSectionVariantOrAskResponses[keyof DeleteSectionVariantOrAskResponses];
+
+export type DeleteSectionsData = {
+  body: HttpapiDeleteSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteSections";
+};
+
+export type DeleteSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteSectionsError =
+  DeleteSectionsErrors[keyof DeleteSectionsErrors];
+
+export type DeleteSectionsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteSectionsResponse =
+  DeleteSectionsResponses[keyof DeleteSectionsResponses];
+
+export type DeleteSelectedParamsData = {
+  body: HttpapiDeleteSelectedParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteSelectedParams";
+};
+
+export type DeleteSelectedParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteSelectedParamsError =
+  DeleteSelectedParamsErrors[keyof DeleteSelectedParamsErrors];
+
+export type DeleteSelectedParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteSelectedParamsResponse =
+  DeleteSelectedParamsResponses[keyof DeleteSelectedParamsResponses];
+
+export type DeleteStateMachineEdgesData = {
+  body: HttpapiDeleteStateMachineEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteStateMachineEdges";
+};
+
+export type DeleteStateMachineEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteStateMachineEdgesError =
+  DeleteStateMachineEdgesErrors[keyof DeleteStateMachineEdgesErrors];
+
+export type DeleteStateMachineEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteStateMachineEdgesResponse =
+  DeleteStateMachineEdgesResponses[keyof DeleteStateMachineEdgesResponses];
+
 export type DeleteTerminalsData = {
   body: HttpapiDeleteTerminalsRequest;
   path?: never;
@@ -3640,6 +5492,60 @@ export type DeleteTranscriptionProfileResponses = {
 
 export type DeleteTranscriptionProfileResponse =
   DeleteTranscriptionProfileResponses[keyof DeleteTranscriptionProfileResponses];
+
+export type DeleteViewModeData = {
+  body: HttpapiDeleteViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteViewMode";
+};
+
+export type DeleteViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteViewModeError =
+  DeleteViewModeErrors[keyof DeleteViewModeErrors];
+
+export type DeleteViewModeResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectConfigMutationResponse;
+};
+
+export type DeleteViewModeResponse =
+  DeleteViewModeResponses[keyof DeleteViewModeResponses];
+
+export type DeleteWindowSpaceData = {
+  body: HttpapiDeleteWindowSpaceRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteWindowSpace";
+};
+
+export type DeleteWindowSpaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteWindowSpaceError =
+  DeleteWindowSpaceErrors[keyof DeleteWindowSpaceErrors];
+
+export type DeleteWindowSpaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectConfigMutationResponse;
+};
+
+export type DeleteWindowSpaceResponse =
+  DeleteWindowSpaceResponses[keyof DeleteWindowSpaceResponses];
 
 export type DocstringToMarkdownData = {
   body: HttpapiDocstringToMarkdownRequest;
@@ -3723,6 +5629,31 @@ export type ForceRefreshListenerResponses = {
 
 export type ForceRefreshListenerResponse =
   ForceRefreshListenerResponses[keyof ForceRefreshListenerResponses];
+
+export type FormatCodeData = {
+  body: HttpapiFormatCodeRequest;
+  path?: never;
+  query?: never;
+  url: "/formatCode";
+};
+
+export type FormatCodeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type FormatCodeError = FormatCodeErrors[keyof FormatCodeErrors];
+
+export type FormatCodeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type FormatCodeResponse = FormatCodeResponses[keyof FormatCodeResponses];
 
 export type GenCodePrefixCompletionData = {
   body: HttpapiGenCodePrefixCompletionRequest;
@@ -4098,6 +6029,33 @@ export type GetAttachmentDownloadUrlsResponses = {
 
 export type GetAttachmentDownloadUrlsResponse =
   GetAttachmentDownloadUrlsResponses[keyof GetAttachmentDownloadUrlsResponses];
+
+export type GetChatSectionChatIdData = {
+  body: HttpapiGetChatSectionChatIdRequest;
+  path?: never;
+  query?: never;
+  url: "/getChatSectionChatId";
+};
+
+export type GetChatSectionChatIdErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetChatSectionChatIdError =
+  GetChatSectionChatIdErrors[keyof GetChatSectionChatIdErrors];
+
+export type GetChatSectionChatIdResponses = {
+  /**
+   * OK
+   */
+  200: string;
+};
+
+export type GetChatSectionChatIdResponse =
+  GetChatSectionChatIdResponses[keyof GetChatSectionChatIdResponses];
 
 export type GetEngineConfigData = {
   body: HttpapiGetEngineConfigRequest;
@@ -4475,6 +6433,33 @@ export type GetLatestLspDiagnosticsResponses = {
 export type GetLatestLspDiagnosticsResponse =
   GetLatestLspDiagnosticsResponses[keyof GetLatestLspDiagnosticsResponses];
 
+export type GetLatestProjectStateData = {
+  body: HttpapiGetLatestProjectStateRequest;
+  path?: never;
+  query?: never;
+  url: "/getLatestProjectState";
+};
+
+export type GetLatestProjectStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLatestProjectStateError =
+  GetLatestProjectStateErrors[keyof GetLatestProjectStateErrors];
+
+export type GetLatestProjectStateResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
+};
+
+export type GetLatestProjectStateResponse =
+  GetLatestProjectStateResponses[keyof GetLatestProjectStateResponses];
+
 export type GetListenerCoverageData = {
   body: HttpapiListenerCoverageRequest;
   path?: never;
@@ -4528,6 +6513,33 @@ export type GetNotificationsResponses = {
 
 export type GetNotificationsResponse =
   GetNotificationsResponses[keyof GetNotificationsResponses];
+
+export type GetPasswordParamValueData = {
+  body: HttpapiGetPasswordParamValueRequest;
+  path?: never;
+  query?: never;
+  url: "/getPasswordParamValue";
+};
+
+export type GetPasswordParamValueErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetPasswordParamValueError =
+  GetPasswordParamValueErrors[keyof GetPasswordParamValueErrors];
+
+export type GetPasswordParamValueResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiGetPasswordParamValueResponse;
+};
+
+export type GetPasswordParamValueResponse =
+  GetPasswordParamValueResponses[keyof GetPasswordParamValueResponses];
 
 export type GetPromptTemplateData = {
   body: HttpapiGetPromptTemplateRequest;
@@ -4847,6 +6859,32 @@ export type GetGitStatusResponses = {
 export type GetGitStatusResponse =
   GetGitStatusResponses[keyof GetGitStatusResponses];
 
+export type GroupSectionsData = {
+  body: HttpapiGroupSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/groupSections";
+};
+
+export type GroupSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GroupSectionsError = GroupSectionsErrors[keyof GroupSectionsErrors];
+
+export type GroupSectionsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type GroupSectionsResponse =
+  GroupSectionsResponses[keyof GroupSectionsResponses];
+
 export type ImportFilesToArtifactsData = {
   body: ArtifactsImportFilesRequest;
   path?: never;
@@ -4873,6 +6911,32 @@ export type ImportFilesToArtifactsResponses = {
 
 export type ImportFilesToArtifactsResponse =
   ImportFilesToArtifactsResponses[keyof ImportFilesToArtifactsResponses];
+
+export type IndentParamsData = {
+  body: HttpapiIndentParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/indentParams";
+};
+
+export type IndentParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type IndentParamsError = IndentParamsErrors[keyof IndentParamsErrors];
+
+export type IndentParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type IndentParamsResponse =
+  IndentParamsResponses[keyof IndentParamsResponses];
 
 export type InterruptTerminalProcessesData = {
   body: HttpapiInterruptTerminalProcessesRequest;
@@ -5359,6 +7423,84 @@ export type GetMcpServerRuntimeStatusResponses = {
 export type GetMcpServerRuntimeStatusResponse =
   GetMcpServerRuntimeStatusResponses[keyof GetMcpServerRuntimeStatusResponses];
 
+export type MoveParamGroupsData = {
+  body: HttpapiMoveParamGroupsRequest;
+  path?: never;
+  query?: never;
+  url: "/moveParamGroups";
+};
+
+export type MoveParamGroupsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type MoveParamGroupsError =
+  MoveParamGroupsErrors[keyof MoveParamGroupsErrors];
+
+export type MoveParamGroupsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type MoveParamGroupsResponse =
+  MoveParamGroupsResponses[keyof MoveParamGroupsResponses];
+
+export type MoveParamsData = {
+  body: HttpapiMoveParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/moveParams";
+};
+
+export type MoveParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type MoveParamsError = MoveParamsErrors[keyof MoveParamsErrors];
+
+export type MoveParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type MoveParamsResponse = MoveParamsResponses[keyof MoveParamsResponses];
+
+export type MoveSectionsData = {
+  body: HttpapiMoveSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/moveSections";
+};
+
+export type MoveSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type MoveSectionsError = MoveSectionsErrors[keyof MoveSectionsErrors];
+
+export type MoveSectionsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type MoveSectionsResponse =
+  MoveSectionsResponses[keyof MoveSectionsResponses];
+
 export type OpenLauncherWorkspaceData = {
   body: HttpapiLauncherOpenWorkspaceRequest;
   path?: never;
@@ -5412,6 +7554,32 @@ export type OutputAccessorCompletionResponses = {
 
 export type OutputAccessorCompletionResponse =
   OutputAccessorCompletionResponses[keyof OutputAccessorCompletionResponses];
+
+export type PasteSectionsData = {
+  body: HttpapiPasteSectionsRequest;
+  path?: never;
+  query?: never;
+  url: "/pasteSections";
+};
+
+export type PasteSectionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type PasteSectionsError = PasteSectionsErrors[keyof PasteSectionsErrors];
+
+export type PasteSectionsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type PasteSectionsResponse =
+  PasteSectionsResponses[keyof PasteSectionsResponses];
 
 export type PinLauncherRecentWorkspaceData = {
   body: HttpapiPinLauncherRecentWorkspaceRequest;
@@ -5783,6 +7951,84 @@ export type UpdatePluginResponses = {
 
 export type UpdatePluginResponse =
   UpdatePluginResponses[keyof UpdatePluginResponses];
+
+export type PrepareSectionsForCopyData = {
+  body: HttpapiPrepareSectionsForCopyRequest;
+  path?: never;
+  query?: never;
+  url: "/prepareSectionsForCopy";
+};
+
+export type PrepareSectionsForCopyErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type PrepareSectionsForCopyError =
+  PrepareSectionsForCopyErrors[keyof PrepareSectionsForCopyErrors];
+
+export type PrepareSectionsForCopyResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateSectionsClipboardData;
+};
+
+export type PrepareSectionsForCopyResponse =
+  PrepareSectionsForCopyResponses[keyof PrepareSectionsForCopyResponses];
+
+export type ReconnectEdgeData = {
+  body: HttpapiReconnectEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/reconnectEdge";
+};
+
+export type ReconnectEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ReconnectEdgeError = ReconnectEdgeErrors[keyof ReconnectEdgeErrors];
+
+export type ReconnectEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ReconnectEdgeResponse =
+  ReconnectEdgeResponses[keyof ReconnectEdgeResponses];
+
+export type RedoData = {
+  body: HttpapiRedoRequest;
+  path?: never;
+  query?: never;
+  url: "/redo";
+};
+
+export type RedoErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RedoError = RedoErrors[keyof RedoErrors];
+
+export type RedoResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
+};
+
+export type RedoResponse = RedoResponses[keyof RedoResponses];
 
 export type RemoveLauncherData = {
   body: HttpapiLauncherRequestBase;
@@ -6210,6 +8456,86 @@ export type GetServerModeResponses = {
 export type GetServerModeResponse =
   GetServerModeResponses[keyof GetServerModeResponses];
 
+export type SetActiveIdsData = {
+  body: HttpapiSetActiveIdsRequest;
+  path?: never;
+  query?: never;
+  url: "/setActiveIds";
+};
+
+export type SetActiveIdsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetActiveIdsError = SetActiveIdsErrors[keyof SetActiveIdsErrors];
+
+export type SetActiveIdsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetActiveIdsResponse =
+  SetActiveIdsResponses[keyof SetActiveIdsResponses];
+
+export type SetActiveViewModeData = {
+  body: HttpapiSetActiveViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/setActiveViewMode";
+};
+
+export type SetActiveViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetActiveViewModeError =
+  SetActiveViewModeErrors[keyof SetActiveViewModeErrors];
+
+export type SetActiveViewModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetActiveViewModeResponse =
+  SetActiveViewModeResponses[keyof SetActiveViewModeResponses];
+
+export type SetAgenticEdgesData = {
+  body: HttpapiSetAgenticEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/setAgenticEdges";
+};
+
+export type SetAgenticEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetAgenticEdgesError =
+  SetAgenticEdgesErrors[keyof SetAgenticEdgesErrors];
+
+export type SetAgenticEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetAgenticEdgesResponse =
+  SetAgenticEdgesResponses[keyof SetAgenticEdgesResponses];
+
 export type SetAppDefinitionData = {
   body: HttpapiSetAppDefinitionRequest;
   path?: never;
@@ -6263,6 +8589,461 @@ export type SetAsDefaultProjectResponses = {
 
 export type SetAsDefaultProjectResponse =
   SetAsDefaultProjectResponses[keyof SetAsDefaultProjectResponses];
+
+export type SetBrowserAreaViewModeData = {
+  body: HttpapiSetBrowserAreaViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/setBrowserAreaViewMode";
+};
+
+export type SetBrowserAreaViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetBrowserAreaViewModeError =
+  SetBrowserAreaViewModeErrors[keyof SetBrowserAreaViewModeErrors];
+
+export type SetBrowserAreaViewModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetBrowserAreaViewModeResponse =
+  SetBrowserAreaViewModeResponses[keyof SetBrowserAreaViewModeResponses];
+
+export type SetBrowserColumnWidthsData = {
+  body: HttpapiSetBrowserColumnWidthsRequest;
+  path?: never;
+  query?: never;
+  url: "/setBrowserColumnWidths";
+};
+
+export type SetBrowserColumnWidthsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetBrowserColumnWidthsError =
+  SetBrowserColumnWidthsErrors[keyof SetBrowserColumnWidthsErrors];
+
+export type SetBrowserColumnWidthsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetBrowserColumnWidthsResponse =
+  SetBrowserColumnWidthsResponses[keyof SetBrowserColumnWidthsResponses];
+
+export type SetBrowserHideColumnData = {
+  body: HttpapiSetBrowserHideColumnRequest;
+  path?: never;
+  query?: never;
+  url: "/setBrowserHideColumn";
+};
+
+export type SetBrowserHideColumnErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetBrowserHideColumnError =
+  SetBrowserHideColumnErrors[keyof SetBrowserHideColumnErrors];
+
+export type SetBrowserHideColumnResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetBrowserHideColumnResponse =
+  SetBrowserHideColumnResponses[keyof SetBrowserHideColumnResponses];
+
+export type SetBrowserSavedSearchesData = {
+  body: HttpapiSetBrowserSavedSearchesRequest;
+  path?: never;
+  query?: never;
+  url: "/setBrowserSavedSearches";
+};
+
+export type SetBrowserSavedSearchesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetBrowserSavedSearchesError =
+  SetBrowserSavedSearchesErrors[keyof SetBrowserSavedSearchesErrors];
+
+export type SetBrowserSavedSearchesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetBrowserSavedSearchesResponse =
+  SetBrowserSavedSearchesResponses[keyof SetBrowserSavedSearchesResponses];
+
+export type SetCallableData = {
+  body: HttpapiSetCallableRequest;
+  path?: never;
+  query?: never;
+  url: "/setCallable";
+};
+
+export type SetCallableErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCallableError = SetCallableErrors[keyof SetCallableErrors];
+
+export type SetCallableResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateSetCallableResponse;
+};
+
+export type SetCallableResponse =
+  SetCallableResponses[keyof SetCallableResponses];
+
+export type SetCallableHideParamsData = {
+  body: HttpapiSetCallableHideParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/setCallableHideParams";
+};
+
+export type SetCallableHideParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCallableHideParamsError =
+  SetCallableHideParamsErrors[keyof SetCallableHideParamsErrors];
+
+export type SetCallableHideParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCallableHideParamsResponse =
+  SetCallableHideParamsResponses[keyof SetCallableHideParamsResponses];
+
+export type SetChartAreaDataPathData = {
+  body: HttpapiSetChartAreaDataPathRequest;
+  path?: never;
+  query?: never;
+  url: "/setChartAreaDataPath";
+};
+
+export type SetChartAreaDataPathErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChartAreaDataPathError =
+  SetChartAreaDataPathErrors[keyof SetChartAreaDataPathErrors];
+
+export type SetChartAreaDataPathResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChartAreaDataPathResponse =
+  SetChartAreaDataPathResponses[keyof SetChartAreaDataPathResponses];
+
+export type SetChartSettingsData = {
+  body: HttpapiSetChartSettingsRequest;
+  path?: never;
+  query?: never;
+  url: "/setChartSettings";
+};
+
+export type SetChartSettingsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChartSettingsError =
+  SetChartSettingsErrors[keyof SetChartSettingsErrors];
+
+export type SetChartSettingsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChartSettingsResponse =
+  SetChartSettingsResponses[keyof SetChartSettingsResponses];
+
+export type SetChartTypeData = {
+  body: HttpapiSetChartTypeRequest;
+  path?: never;
+  query?: never;
+  url: "/setChartType";
+};
+
+export type SetChartTypeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChartTypeError = SetChartTypeErrors[keyof SetChartTypeErrors];
+
+export type SetChartTypeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChartTypeResponse =
+  SetChartTypeResponses[keyof SetChartTypeResponses];
+
+export type SetChatSectionChatIdData = {
+  body: HttpapiSetChatSectionChatIdRequest;
+  path?: never;
+  query?: never;
+  url: "/setChatSectionChatId";
+};
+
+export type SetChatSectionChatIdErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChatSectionChatIdError =
+  SetChatSectionChatIdErrors[keyof SetChatSectionChatIdErrors];
+
+export type SetChatSectionChatIdResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChatSectionChatIdResponse =
+  SetChatSectionChatIdResponses[keyof SetChatSectionChatIdResponses];
+
+export type SetChatSectionSettingsData = {
+  body: HttpapiSetChatSectionSettingsRequest;
+  path?: never;
+  query?: never;
+  url: "/setChatSectionSettings";
+};
+
+export type SetChatSectionSettingsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChatSectionSettingsError =
+  SetChatSectionSettingsErrors[keyof SetChatSectionSettingsErrors];
+
+export type SetChatSectionSettingsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChatSectionSettingsResponse =
+  SetChatSectionSettingsResponses[keyof SetChatSectionSettingsResponses];
+
+export type SetChatSectionStateData = {
+  body: HttpapiSetChatSectionStateRequest;
+  path?: never;
+  query?: never;
+  url: "/setChatSectionState";
+};
+
+export type SetChatSectionStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetChatSectionStateError =
+  SetChatSectionStateErrors[keyof SetChatSectionStateErrors];
+
+export type SetChatSectionStateResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetChatSectionStateResponse =
+  SetChatSectionStateResponses[keyof SetChatSectionStateResponses];
+
+export type SetCodeData = {
+  body: HttpapiSetCodeRequest;
+  path?: never;
+  query?: never;
+  url: "/setCode";
+};
+
+export type SetCodeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeError = SetCodeErrors[keyof SetCodeErrors];
+
+export type SetCodeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeResponse = SetCodeResponses[keyof SetCodeResponses];
+
+export type SetCodeFileBindingData = {
+  body: HttpapiSetCodeFileBindingRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeFileBinding";
+};
+
+export type SetCodeFileBindingErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeFileBindingError =
+  SetCodeFileBindingErrors[keyof SetCodeFileBindingErrors];
+
+export type SetCodeFileBindingResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeFileBindingResponse =
+  SetCodeFileBindingResponses[keyof SetCodeFileBindingResponses];
+
+export type SetCodeObjDisplayNameData = {
+  body: HttpapiSetCodeObjDisplayNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeObjDisplayName";
+};
+
+export type SetCodeObjDisplayNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeObjDisplayNameError =
+  SetCodeObjDisplayNameErrors[keyof SetCodeObjDisplayNameErrors];
+
+export type SetCodeObjDisplayNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeObjDisplayNameResponse =
+  SetCodeObjDisplayNameResponses[keyof SetCodeObjDisplayNameResponses];
+
+export type SetCodeObjNameData = {
+  body: HttpapiSetCodeObjNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeObjName";
+};
+
+export type SetCodeObjNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeObjNameError =
+  SetCodeObjNameErrors[keyof SetCodeObjNameErrors];
+
+export type SetCodeObjNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeObjNameResponse =
+  SetCodeObjNameResponses[keyof SetCodeObjNameResponses];
+
+export type SetCodeSectionAttachedTerminalData = {
+  body: HttpapiSetCodeSectionAttachedTerminalRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeSectionAttachedTerminal";
+};
+
+export type SetCodeSectionAttachedTerminalErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeSectionAttachedTerminalError =
+  SetCodeSectionAttachedTerminalErrors[keyof SetCodeSectionAttachedTerminalErrors];
+
+export type SetCodeSectionAttachedTerminalResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeSectionAttachedTerminalResponse =
+  SetCodeSectionAttachedTerminalResponses[keyof SetCodeSectionAttachedTerminalResponses];
 
 export type SetCodeSectionDiagnosticCodeSuppressionData = {
   body: HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest;
@@ -6318,6 +9099,355 @@ export type SetCodeSectionDiagnosticsMuteResponses = {
 export type SetCodeSectionDiagnosticsMuteResponse =
   SetCodeSectionDiagnosticsMuteResponses[keyof SetCodeSectionDiagnosticsMuteResponses];
 
+export type SetDefaultSectionVariantData = {
+  body: HttpapiSetDefaultSectionVariantRequest;
+  path?: never;
+  query?: never;
+  url: "/setDefaultSectionVariant";
+};
+
+export type SetDefaultSectionVariantErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetDefaultSectionVariantError =
+  SetDefaultSectionVariantErrors[keyof SetDefaultSectionVariantErrors];
+
+export type SetDefaultSectionVariantResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetDefaultSectionVariantResponse =
+  SetDefaultSectionVariantResponses[keyof SetDefaultSectionVariantResponses];
+
+export type SetEdgesData = {
+  body: HttpapiSetEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/setEdges";
+};
+
+export type SetEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetEdgesError = SetEdgesErrors[keyof SetEdgesErrors];
+
+export type SetEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetEdgesResponse = SetEdgesResponses[keyof SetEdgesResponses];
+
+export type SetGenCodePrefixData = {
+  body: HttpapiSetGenCodePrefixRequest;
+  path?: never;
+  query?: never;
+  url: "/setGenCodePrefix";
+};
+
+export type SetGenCodePrefixErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetGenCodePrefixError =
+  SetGenCodePrefixErrors[keyof SetGenCodePrefixErrors];
+
+export type SetGenCodePrefixResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetGenCodePrefixResponse =
+  SetGenCodePrefixResponses[keyof SetGenCodePrefixResponses];
+
+export type SetGenCodeSuffixData = {
+  body: HttpapiSetGenCodeSuffixRequest;
+  path?: never;
+  query?: never;
+  url: "/setGenCodeSuffix";
+};
+
+export type SetGenCodeSuffixErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetGenCodeSuffixError =
+  SetGenCodeSuffixErrors[keyof SetGenCodeSuffixErrors];
+
+export type SetGenCodeSuffixResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetGenCodeSuffixResponse =
+  SetGenCodeSuffixResponses[keyof SetGenCodeSuffixResponses];
+
+export type SetGroupOverflowModeData = {
+  body: HttpapiSetGroupOverflowModeRequest;
+  path?: never;
+  query?: never;
+  url: "/setGroupOverflowMode";
+};
+
+export type SetGroupOverflowModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetGroupOverflowModeError =
+  SetGroupOverflowModeErrors[keyof SetGroupOverflowModeErrors];
+
+export type SetGroupOverflowModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetGroupOverflowModeResponse =
+  SetGroupOverflowModeResponses[keyof SetGroupOverflowModeResponses];
+
+export type SetImageAreaImagePathData = {
+  body: HttpapiSetImageAreaImagePathRequest;
+  path?: never;
+  query?: never;
+  url: "/setImageAreaImagePath";
+};
+
+export type SetImageAreaImagePathErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetImageAreaImagePathError =
+  SetImageAreaImagePathErrors[keyof SetImageAreaImagePathErrors];
+
+export type SetImageAreaImagePathResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetImageAreaImagePathResponse =
+  SetImageAreaImagePathResponses[keyof SetImageAreaImagePathResponses];
+
+export type SetListRootViewModeData = {
+  body: HttpapiSetListRootViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/setListRootViewMode";
+};
+
+export type SetListRootViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetListRootViewModeError =
+  SetListRootViewModeErrors[keyof SetListRootViewModeErrors];
+
+export type SetListRootViewModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetListRootViewModeResponse =
+  SetListRootViewModeResponses[keyof SetListRootViewModeResponses];
+
+export type SetMetaControlShowSectionTitleData = {
+  body: HttpapiSetMetaControlShowSectionTitleRequest;
+  path?: never;
+  query?: never;
+  url: "/setMetaControlShowSectionTitle";
+};
+
+export type SetMetaControlShowSectionTitleErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetMetaControlShowSectionTitleError =
+  SetMetaControlShowSectionTitleErrors[keyof SetMetaControlShowSectionTitleErrors];
+
+export type SetMetaControlShowSectionTitleResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetMetaControlShowSectionTitleResponse =
+  SetMetaControlShowSectionTitleResponses[keyof SetMetaControlShowSectionTitleResponses];
+
+export type SetParamEnteredValueData = {
+  body: HttpapiSetParamEnteredValueRequest;
+  path?: never;
+  query?: never;
+  url: "/setParamEnteredValue";
+};
+
+export type SetParamEnteredValueErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetParamEnteredValueError =
+  SetParamEnteredValueErrors[keyof SetParamEnteredValueErrors];
+
+export type SetParamEnteredValueResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetParamEnteredValueResponse =
+  SetParamEnteredValueResponses[keyof SetParamEnteredValueResponses];
+
+export type SetParentDefaultChildSectionTypeData = {
+  body: HttpapiSetParentDefaultChildSectionTypeRequest;
+  path?: never;
+  query?: never;
+  url: "/setParentDefaultChildSectionType";
+};
+
+export type SetParentDefaultChildSectionTypeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetParentDefaultChildSectionTypeError =
+  SetParentDefaultChildSectionTypeErrors[keyof SetParentDefaultChildSectionTypeErrors];
+
+export type SetParentDefaultChildSectionTypeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetParentDefaultChildSectionTypeResponse =
+  SetParentDefaultChildSectionTypeResponses[keyof SetParentDefaultChildSectionTypeResponses];
+
+export type SetProjectChatWindowChatIdData = {
+  body: HttpapiSetProjectChatWindowChatIdRequest;
+  path?: never;
+  query?: never;
+  url: "/setProjectChatWindowChatId";
+};
+
+export type SetProjectChatWindowChatIdErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetProjectChatWindowChatIdError =
+  SetProjectChatWindowChatIdErrors[keyof SetProjectChatWindowChatIdErrors];
+
+export type SetProjectChatWindowChatIdResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateProjectChatWindowingState;
+};
+
+export type SetProjectChatWindowChatIdResponse =
+  SetProjectChatWindowChatIdResponses[keyof SetProjectChatWindowChatIdResponses];
+
+export type SetProjectChatWindowingStateData = {
+  body: HttpapiSetProjectChatWindowingStateRequest;
+  path?: never;
+  query?: never;
+  url: "/setProjectChatWindowingState";
+};
+
+export type SetProjectChatWindowingStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetProjectChatWindowingStateError =
+  SetProjectChatWindowingStateErrors[keyof SetProjectChatWindowingStateErrors];
+
+export type SetProjectChatWindowingStateResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateProjectChatWindowingState;
+};
+
+export type SetProjectChatWindowingStateResponse =
+  SetProjectChatWindowingStateResponses[keyof SetProjectChatWindowingStateResponses];
+
+export type SetProjectConfigCodegenTargetsData = {
+  body: HttpapiSetProjectConfigCodegenTargetsRequest;
+  path?: never;
+  query?: never;
+  url: "/setProjectConfigCodegenTargets";
+};
+
+export type SetProjectConfigCodegenTargetsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetProjectConfigCodegenTargetsError =
+  SetProjectConfigCodegenTargetsErrors[keyof SetProjectConfigCodegenTargetsErrors];
+
+export type SetProjectConfigCodegenTargetsResponses = {
+  /**
+   * OK
+   */
+  200: ProjectviewSingleConfig;
+};
+
+export type SetProjectConfigCodegenTargetsResponse =
+  SetProjectConfigCodegenTargetsResponses[keyof SetProjectConfigCodegenTargetsResponses];
+
 export type SetProjectConfigNameData = {
   body: HttpapiSetProjectConfigNameRequest;
   path?: never;
@@ -6344,6 +9474,1084 @@ export type SetProjectConfigNameResponses = {
 
 export type SetProjectConfigNameResponse =
   SetProjectConfigNameResponses[keyof SetProjectConfigNameResponses];
+
+export type SetPromptFormatData = {
+  body: HttpapiSetPromptFormatRequest;
+  path?: never;
+  query?: never;
+  url: "/setPromptFormat";
+};
+
+export type SetPromptFormatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetPromptFormatError =
+  SetPromptFormatErrors[keyof SetPromptFormatErrors];
+
+export type SetPromptFormatResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetPromptFormatResponse =
+  SetPromptFormatResponses[keyof SetPromptFormatResponses];
+
+export type SetPromptInputsData = {
+  body: HttpapiSetPromptInputsRequest;
+  path?: never;
+  query?: never;
+  url: "/setPromptInputs";
+};
+
+export type SetPromptInputsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetPromptInputsError =
+  SetPromptInputsErrors[keyof SetPromptInputsErrors];
+
+export type SetPromptInputsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetPromptInputsResponse =
+  SetPromptInputsResponses[keyof SetPromptInputsResponses];
+
+export type SetPromptTemplateData = {
+  body: HttpapiSetPromptTemplateRequest;
+  path?: never;
+  query?: never;
+  url: "/setPromptTemplate";
+};
+
+export type SetPromptTemplateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetPromptTemplateError =
+  SetPromptTemplateErrors[keyof SetPromptTemplateErrors];
+
+export type SetPromptTemplateResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetPromptTemplateResponse =
+  SetPromptTemplateResponses[keyof SetPromptTemplateResponses];
+
+export type SetPromptTemplateLinkData = {
+  body: HttpapiSetPromptTemplateLinkRequest;
+  path?: never;
+  query?: never;
+  url: "/setPromptTemplateLink";
+};
+
+export type SetPromptTemplateLinkErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetPromptTemplateLinkError =
+  SetPromptTemplateLinkErrors[keyof SetPromptTemplateLinkErrors];
+
+export type SetPromptTemplateLinkResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetPromptTemplateLinkResponse =
+  SetPromptTemplateLinkResponses[keyof SetPromptTemplateLinkResponses];
+
+export type SetSectionColumnWidthData = {
+  body: HttpapiSetSectionColumnWidthRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionColumnWidth";
+};
+
+export type SetSectionColumnWidthErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionColumnWidthError =
+  SetSectionColumnWidthErrors[keyof SetSectionColumnWidthErrors];
+
+export type SetSectionColumnWidthResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionColumnWidthResponse =
+  SetSectionColumnWidthResponses[keyof SetSectionColumnWidthResponses];
+
+export type SetSectionEdgeInputsData = {
+  body: HttpapiSetSectionEdgeInputsRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionEdgeInputs";
+};
+
+export type SetSectionEdgeInputsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionEdgeInputsError =
+  SetSectionEdgeInputsErrors[keyof SetSectionEdgeInputsErrors];
+
+export type SetSectionEdgeInputsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionEdgeInputsResponse =
+  SetSectionEdgeInputsResponses[keyof SetSectionEdgeInputsResponses];
+
+export type SetSectionEdgeOutputsData = {
+  body: HttpapiSetSectionEdgeOutputsRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionEdgeOutputs";
+};
+
+export type SetSectionEdgeOutputsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionEdgeOutputsError =
+  SetSectionEdgeOutputsErrors[keyof SetSectionEdgeOutputsErrors];
+
+export type SetSectionEdgeOutputsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionEdgeOutputsResponse =
+  SetSectionEdgeOutputsResponses[keyof SetSectionEdgeOutputsResponses];
+
+export type SetSectionHideUnpinnedParamsData = {
+  body: HttpapiSetSectionHideUnpinnedParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionHideUnpinnedParams";
+};
+
+export type SetSectionHideUnpinnedParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionHideUnpinnedParamsError =
+  SetSectionHideUnpinnedParamsErrors[keyof SetSectionHideUnpinnedParamsErrors];
+
+export type SetSectionHideUnpinnedParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionHideUnpinnedParamsResponse =
+  SetSectionHideUnpinnedParamsResponses[keyof SetSectionHideUnpinnedParamsResponses];
+
+export type SetSectionNameData = {
+  body: HttpapiSetSectionNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionName";
+};
+
+export type SetSectionNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionNameError =
+  SetSectionNameErrors[keyof SetSectionNameErrors];
+
+export type SetSectionNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionNameResponse =
+  SetSectionNameResponses[keyof SetSectionNameResponses];
+
+export type SetSectionParamFilterData = {
+  body: HttpapiSetSectionParamFilterRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionParamFilter";
+};
+
+export type SetSectionParamFilterErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionParamFilterError =
+  SetSectionParamFilterErrors[keyof SetSectionParamFilterErrors];
+
+export type SetSectionParamFilterResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionParamFilterResponse =
+  SetSectionParamFilterResponses[keyof SetSectionParamFilterResponses];
+
+export type SetSectionPinnedParamsData = {
+  body: HttpapiSetSectionPinnedParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionPinnedParams";
+};
+
+export type SetSectionPinnedParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionPinnedParamsError =
+  SetSectionPinnedParamsErrors[keyof SetSectionPinnedParamsErrors];
+
+export type SetSectionPinnedParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionPinnedParamsResponse =
+  SetSectionPinnedParamsResponses[keyof SetSectionPinnedParamsResponses];
+
+export type SetSectionSizesData = {
+  body: HttpapiSetSectionSizesRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionSizes";
+};
+
+export type SetSectionSizesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionSizesError =
+  SetSectionSizesErrors[keyof SetSectionSizesErrors];
+
+export type SetSectionSizesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionSizesResponse =
+  SetSectionSizesResponses[keyof SetSectionSizesResponses];
+
+export type SetSectionStyleColorData = {
+  body: HttpapiSetSectionStyleColorRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionStyleColor";
+};
+
+export type SetSectionStyleColorErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionStyleColorError =
+  SetSectionStyleColorErrors[keyof SetSectionStyleColorErrors];
+
+export type SetSectionStyleColorResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionStyleColorResponse =
+  SetSectionStyleColorResponses[keyof SetSectionStyleColorResponses];
+
+export type SetSectionTagColorData = {
+  body: HttpapiSetSectionTagColorRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionTagColor";
+};
+
+export type SetSectionTagColorErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionTagColorError =
+  SetSectionTagColorErrors[keyof SetSectionTagColorErrors];
+
+export type SetSectionTagColorResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionTagColorResponse =
+  SetSectionTagColorResponses[keyof SetSectionTagColorResponses];
+
+export type SetSectionVariantData = {
+  body: HttpapiSetSectionVariantRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionVariant";
+};
+
+export type SetSectionVariantErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionVariantError =
+  SetSectionVariantErrors[keyof SetSectionVariantErrors];
+
+export type SetSectionVariantResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionVariantResponse =
+  SetSectionVariantResponses[keyof SetSectionVariantResponses];
+
+export type SetSectionVariantNameData = {
+  body: HttpapiSetSectionVariantNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionVariantName";
+};
+
+export type SetSectionVariantNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionVariantNameError =
+  SetSectionVariantNameErrors[keyof SetSectionVariantNameErrors];
+
+export type SetSectionVariantNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionVariantNameResponse =
+  SetSectionVariantNameResponses[keyof SetSectionVariantNameResponses];
+
+export type SetSectionVariantSortOrderData = {
+  body: HttpapiSetSectionVariantSortOrderRequest;
+  path?: never;
+  query?: never;
+  url: "/setSectionVariantSortOrder";
+};
+
+export type SetSectionVariantSortOrderErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSectionVariantSortOrderError =
+  SetSectionVariantSortOrderErrors[keyof SetSectionVariantSortOrderErrors];
+
+export type SetSectionVariantSortOrderResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSectionVariantSortOrderResponse =
+  SetSectionVariantSortOrderResponses[keyof SetSectionVariantSortOrderResponses];
+
+export type SetShowParamDisplayNamesData = {
+  body: HttpapiSetShowParamDisplayNamesRequest;
+  path?: never;
+  query?: never;
+  url: "/setShowParamDisplayNames";
+};
+
+export type SetShowParamDisplayNamesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetShowParamDisplayNamesError =
+  SetShowParamDisplayNamesErrors[keyof SetShowParamDisplayNamesErrors];
+
+export type SetShowParamDisplayNamesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetShowParamDisplayNamesResponse =
+  SetShowParamDisplayNamesResponses[keyof SetShowParamDisplayNamesResponses];
+
+export type SetSocialUrlData = {
+  body: HttpapiSetSocialUrlRequest;
+  path?: never;
+  query?: never;
+  url: "/setSocialUrl";
+};
+
+export type SetSocialUrlErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSocialUrlError = SetSocialUrlErrors[keyof SetSocialUrlErrors];
+
+export type SetSocialUrlResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSocialUrlResponse =
+  SetSocialUrlResponses[keyof SetSocialUrlResponses];
+
+export type SetSpreadsheetFilePathData = {
+  body: HttpapiSetSpreadsheetFilePathRequest;
+  path?: never;
+  query?: never;
+  url: "/setSpreadsheetFilePath";
+};
+
+export type SetSpreadsheetFilePathErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSpreadsheetFilePathError =
+  SetSpreadsheetFilePathErrors[keyof SetSpreadsheetFilePathErrors];
+
+export type SetSpreadsheetFilePathResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSpreadsheetFilePathResponse =
+  SetSpreadsheetFilePathResponses[keyof SetSpreadsheetFilePathResponses];
+
+export type SetSpreadsheetSectionSettingsData = {
+  body: HttpapiSetSpreadsheetSectionSettingsRequest;
+  path?: never;
+  query?: never;
+  url: "/setSpreadsheetSectionSettings";
+};
+
+export type SetSpreadsheetSectionSettingsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetSpreadsheetSectionSettingsError =
+  SetSpreadsheetSectionSettingsErrors[keyof SetSpreadsheetSectionSettingsErrors];
+
+export type SetSpreadsheetSectionSettingsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetSpreadsheetSectionSettingsResponse =
+  SetSpreadsheetSectionSettingsResponses[keyof SetSpreadsheetSectionSettingsResponses];
+
+export type SetStateMachineEdgesData = {
+  body: HttpapiSetStateMachineEdgesRequest;
+  path?: never;
+  query?: never;
+  url: "/setStateMachineEdges";
+};
+
+export type SetStateMachineEdgesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetStateMachineEdgesError =
+  SetStateMachineEdgesErrors[keyof SetStateMachineEdgesErrors];
+
+export type SetStateMachineEdgesResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetStateMachineEdgesResponse =
+  SetStateMachineEdgesResponses[keyof SetStateMachineEdgesResponses];
+
+export type SetStateMachineSectionSettingsData = {
+  body: HttpapiSetStateMachineSectionSettingsRequest;
+  path?: never;
+  query?: never;
+  url: "/setStateMachineSectionSettings";
+};
+
+export type SetStateMachineSectionSettingsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetStateMachineSectionSettingsError =
+  SetStateMachineSectionSettingsErrors[keyof SetStateMachineSectionSettingsErrors];
+
+export type SetStateMachineSectionSettingsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetStateMachineSectionSettingsResponse =
+  SetStateMachineSectionSettingsResponses[keyof SetStateMachineSectionSettingsResponses];
+
+export type SetTaskBoardSectionStateData = {
+  body: HttpapiSetTaskBoardSectionStateRequest;
+  path?: never;
+  query?: never;
+  url: "/setTaskBoardSectionState";
+};
+
+export type SetTaskBoardSectionStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTaskBoardSectionStateError =
+  SetTaskBoardSectionStateErrors[keyof SetTaskBoardSectionStateErrors];
+
+export type SetTaskBoardSectionStateResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTaskBoardSectionStateResponse =
+  SetTaskBoardSectionStateResponses[keyof SetTaskBoardSectionStateResponses];
+
+export type SetTextBlockDisplayModeData = {
+  body: HttpapiSetTextBlockDisplayModeRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockDisplayMode";
+};
+
+export type SetTextBlockDisplayModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockDisplayModeError =
+  SetTextBlockDisplayModeErrors[keyof SetTextBlockDisplayModeErrors];
+
+export type SetTextBlockDisplayModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockDisplayModeResponse =
+  SetTextBlockDisplayModeResponses[keyof SetTextBlockDisplayModeResponses];
+
+export type SetTextBlockFormatData = {
+  body: HttpapiSetTextBlockFormatRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockFormat";
+};
+
+export type SetTextBlockFormatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockFormatError =
+  SetTextBlockFormatErrors[keyof SetTextBlockFormatErrors];
+
+export type SetTextBlockFormatResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockFormatResponse =
+  SetTextBlockFormatResponses[keyof SetTextBlockFormatResponses];
+
+export type SetTextBlockHeadingAsSectionNameData = {
+  body: HttpapiSetTextBlockHeadingAsSectionNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockHeadingAsSectionName";
+};
+
+export type SetTextBlockHeadingAsSectionNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockHeadingAsSectionNameError =
+  SetTextBlockHeadingAsSectionNameErrors[keyof SetTextBlockHeadingAsSectionNameErrors];
+
+export type SetTextBlockHeadingAsSectionNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockHeadingAsSectionNameResponse =
+  SetTextBlockHeadingAsSectionNameResponses[keyof SetTextBlockHeadingAsSectionNameResponses];
+
+export type SetTextBlockMasterFontSizeData = {
+  body: HttpapiSetTextBlockMasterFontSizeRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockMasterFontSize";
+};
+
+export type SetTextBlockMasterFontSizeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockMasterFontSizeError =
+  SetTextBlockMasterFontSizeErrors[keyof SetTextBlockMasterFontSizeErrors];
+
+export type SetTextBlockMasterFontSizeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockMasterFontSizeResponse =
+  SetTextBlockMasterFontSizeResponses[keyof SetTextBlockMasterFontSizeResponses];
+
+export type SetTextBlockMetaControlStyleData = {
+  body: HttpapiSetTextBlockMetaControlStyleRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockMetaControlStyle";
+};
+
+export type SetTextBlockMetaControlStyleErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockMetaControlStyleError =
+  SetTextBlockMetaControlStyleErrors[keyof SetTextBlockMetaControlStyleErrors];
+
+export type SetTextBlockMetaControlStyleResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockMetaControlStyleResponse =
+  SetTextBlockMetaControlStyleResponses[keyof SetTextBlockMetaControlStyleResponses];
+
+export type SetTextBlockTextData = {
+  body: HttpapiSetTextBlockTextRequest;
+  path?: never;
+  query?: never;
+  url: "/setTextBlockText";
+};
+
+export type SetTextBlockTextErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTextBlockTextError =
+  SetTextBlockTextErrors[keyof SetTextBlockTextErrors];
+
+export type SetTextBlockTextResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTextBlockTextResponse =
+  SetTextBlockTextResponses[keyof SetTextBlockTextResponses];
+
+export type SetTopLevelSectionLayoutData = {
+  body: HttpapiSetTopLevelSectionLayoutRequest;
+  path?: never;
+  query?: never;
+  url: "/setTopLevelSectionLayout";
+};
+
+export type SetTopLevelSectionLayoutErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTopLevelSectionLayoutError =
+  SetTopLevelSectionLayoutErrors[keyof SetTopLevelSectionLayoutErrors];
+
+export type SetTopLevelSectionLayoutResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTopLevelSectionLayoutResponse =
+  SetTopLevelSectionLayoutResponses[keyof SetTopLevelSectionLayoutResponses];
+
+export type SetTypeErrorIgnoreData = {
+  body: HttpapiSetTypeErrorIgnoreRequest;
+  path?: never;
+  query?: never;
+  url: "/setTypeErrorIgnore";
+};
+
+export type SetTypeErrorIgnoreErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetTypeErrorIgnoreError =
+  SetTypeErrorIgnoreErrors[keyof SetTypeErrorIgnoreErrors];
+
+export type SetTypeErrorIgnoreResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetTypeErrorIgnoreResponse =
+  SetTypeErrorIgnoreResponses[keyof SetTypeErrorIgnoreResponses];
+
+export type SetVariantJsonSourceKeysData = {
+  body: HttpapiSetVariantJsonSourceKeysRequest;
+  path?: never;
+  query?: never;
+  url: "/setVariantJsonSourceKeys";
+};
+
+export type SetVariantJsonSourceKeysErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetVariantJsonSourceKeysError =
+  SetVariantJsonSourceKeysErrors[keyof SetVariantJsonSourceKeysErrors];
+
+export type SetVariantJsonSourceKeysResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetVariantJsonSourceKeysResponse =
+  SetVariantJsonSourceKeysResponses[keyof SetVariantJsonSourceKeysResponses];
+
+export type SetViewModeNameData = {
+  body: HttpapiSetViewModeNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setViewModeName";
+};
+
+export type SetViewModeNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetViewModeNameError =
+  SetViewModeNameErrors[keyof SetViewModeNameErrors];
+
+export type SetViewModeNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetViewModeNameResponse =
+  SetViewModeNameResponses[keyof SetViewModeNameResponses];
+
+export type SetViewModeSortOrderData = {
+  body: HttpapiSetViewModeSortOrderRequest;
+  path?: never;
+  query?: never;
+  url: "/setViewModeSortOrder";
+};
+
+export type SetViewModeSortOrderErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetViewModeSortOrderError =
+  SetViewModeSortOrderErrors[keyof SetViewModeSortOrderErrors];
+
+export type SetViewModeSortOrderResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectConfigMutationResponse;
+};
+
+export type SetViewModeSortOrderResponse =
+  SetViewModeSortOrderResponses[keyof SetViewModeSortOrderResponses];
+
+export type SetViewportData = {
+  body: HttpapiSetViewportRequest;
+  path?: never;
+  query?: never;
+  url: "/setViewport";
+};
+
+export type SetViewportErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetViewportError = SetViewportErrors[keyof SetViewportErrors];
+
+export type SetViewportResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetViewportResponse =
+  SetViewportResponses[keyof SetViewportResponses];
+
+export type SetWatchCodeEnabledData = {
+  body: HttpapiSetWatchCodeEnabledRequest;
+  path?: never;
+  query?: never;
+  url: "/setWatchCodeEnabled";
+};
+
+export type SetWatchCodeEnabledErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetWatchCodeEnabledError =
+  SetWatchCodeEnabledErrors[keyof SetWatchCodeEnabledErrors];
+
+export type SetWatchCodeEnabledResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetWatchCodeEnabledResponse =
+  SetWatchCodeEnabledResponses[keyof SetWatchCodeEnabledResponses];
+
+export type SetWatchCodeInputsData = {
+  body: HttpapiSetWatchCodeInputsRequest;
+  path?: never;
+  query?: never;
+  url: "/setWatchCodeInputs";
+};
+
+export type SetWatchCodeInputsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetWatchCodeInputsError =
+  SetWatchCodeInputsErrors[keyof SetWatchCodeInputsErrors];
+
+export type SetWatchCodeInputsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetWatchCodeInputsResponse =
+  SetWatchCodeInputsResponses[keyof SetWatchCodeInputsResponses];
+
+export type SetWindowSpaceNameData = {
+  body: HttpapiSetWindowSpaceNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setWindowSpaceName";
+};
+
+export type SetWindowSpaceNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetWindowSpaceNameError =
+  SetWindowSpaceNameErrors[keyof SetWindowSpaceNameErrors];
+
+export type SetWindowSpaceNameResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectConfigMutationResponse;
+};
+
+export type SetWindowSpaceNameResponse =
+  SetWindowSpaceNameResponses[keyof SetWindowSpaceNameResponses];
+
+export type SetWindowSpaceSortOrderData = {
+  body: HttpapiSetWindowSpaceSortOrderRequest;
+  path?: never;
+  query?: never;
+  url: "/setWindowSpaceSortOrder";
+};
+
+export type SetWindowSpaceSortOrderErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetWindowSpaceSortOrderError =
+  SetWindowSpaceSortOrderErrors[keyof SetWindowSpaceSortOrderErrors];
+
+export type SetWindowSpaceSortOrderResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectConfigMutationResponse;
+};
+
+export type SetWindowSpaceSortOrderResponse =
+  SetWindowSpaceSortOrderResponses[keyof SetWindowSpaceSortOrderResponses];
 
 export type GetSettaHomeInfoData = {
   body?: never;
@@ -6889,6 +11097,276 @@ export type TextFieldCompletionResponses = {
 export type TextFieldCompletionResponse =
   TextFieldCompletionResponses[keyof TextFieldCompletionResponses];
 
+export type ToggleGroupOrientationData = {
+  body: HttpapiToggleGroupOrientationRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleGroupOrientation";
+};
+
+export type ToggleGroupOrientationErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleGroupOrientationError =
+  ToggleGroupOrientationErrors[keyof ToggleGroupOrientationErrors];
+
+export type ToggleGroupOrientationResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleGroupOrientationResponse =
+  ToggleGroupOrientationResponses[keyof ToggleGroupOrientationResponses];
+
+export type ToggleIsEditingViewModeData = {
+  body: HttpapiToggleIsEditingViewModeRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleIsEditingViewMode";
+};
+
+export type ToggleIsEditingViewModeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleIsEditingViewModeError =
+  ToggleIsEditingViewModeErrors[keyof ToggleIsEditingViewModeErrors];
+
+export type ToggleIsEditingViewModeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleIsEditingViewModeResponse =
+  ToggleIsEditingViewModeResponses[keyof ToggleIsEditingViewModeResponses];
+
+export type ToggleMinimizedData = {
+  body: HttpapiToggleMinimizedRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleMinimized";
+};
+
+export type ToggleMinimizedErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleMinimizedError =
+  ToggleMinimizedErrors[keyof ToggleMinimizedErrors];
+
+export type ToggleMinimizedResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleMinimizedResponse =
+  ToggleMinimizedResponses[keyof ToggleMinimizedResponses];
+
+export type ToggleParamSelectedData = {
+  body: HttpapiToggleParamSelectedRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleParamSelected";
+};
+
+export type ToggleParamSelectedErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleParamSelectedError =
+  ToggleParamSelectedErrors[keyof ToggleParamSelectedErrors];
+
+export type ToggleParamSelectedResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleParamSelectedResponse =
+  ToggleParamSelectedResponses[keyof ToggleParamSelectedResponses];
+
+export type TogglePositionLocksData = {
+  body: HttpapiTogglePositionLocksRequest;
+  path?: never;
+  query?: never;
+  url: "/togglePositionLocks";
+};
+
+export type TogglePositionLocksErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type TogglePositionLocksError =
+  TogglePositionLocksErrors[keyof TogglePositionLocksErrors];
+
+export type TogglePositionLocksResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type TogglePositionLocksResponse =
+  TogglePositionLocksResponses[keyof TogglePositionLocksResponses];
+
+export type ToggleSectionVisibilityData = {
+  body: HttpapiToggleSectionVisibilityRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleSectionVisibility";
+};
+
+export type ToggleSectionVisibilityErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleSectionVisibilityError =
+  ToggleSectionVisibilityErrors[keyof ToggleSectionVisibilityErrors];
+
+export type ToggleSectionVisibilityResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleSectionVisibilityResponse =
+  ToggleSectionVisibilityResponses[keyof ToggleSectionVisibilityResponses];
+
+export type ToggleVariantFrozenData = {
+  body: HttpapiToggleVariantFrozenRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleVariantFrozen";
+};
+
+export type ToggleVariantFrozenErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleVariantFrozenError =
+  ToggleVariantFrozenErrors[keyof ToggleVariantFrozenErrors];
+
+export type ToggleVariantFrozenResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleVariantFrozenResponse =
+  ToggleVariantFrozenResponses[keyof ToggleVariantFrozenResponses];
+
+export type ToggleVariantJsonSourceData = {
+  body: HttpapiToggleVariantJsonSourceRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleVariantJsonSource";
+};
+
+export type ToggleVariantJsonSourceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleVariantJsonSourceError =
+  ToggleVariantJsonSourceErrors[keyof ToggleVariantJsonSourceErrors];
+
+export type ToggleVariantJsonSourceResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleVariantJsonSourceResponse =
+  ToggleVariantJsonSourceResponses[keyof ToggleVariantJsonSourceResponses];
+
+export type ToggleViewModeTabData = {
+  body: HttpapiToggleViewModeTabRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleViewModeTab";
+};
+
+export type ToggleViewModeTabErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleViewModeTabError =
+  ToggleViewModeTabErrors[keyof ToggleViewModeTabErrors];
+
+export type ToggleViewModeTabResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleViewModeTabResponse =
+  ToggleViewModeTabResponses[keyof ToggleViewModeTabResponses];
+
+export type ToggleViewModeUserFacingData = {
+  body: HttpapiToggleViewModeUserFacingRequest;
+  path?: never;
+  query?: never;
+  url: "/toggleViewModeUserFacing";
+};
+
+export type ToggleViewModeUserFacingErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ToggleViewModeUserFacingError =
+  ToggleViewModeUserFacingErrors[keyof ToggleViewModeUserFacingErrors];
+
+export type ToggleViewModeUserFacingResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ToggleViewModeUserFacingResponse =
+  ToggleViewModeUserFacingResponses[keyof ToggleViewModeUserFacingResponses];
+
 export type TransferFileBrowserEntryData = {
   body: HttpapiTransferFileBrowserEntryRequest;
   path?: never;
@@ -6941,6 +11419,111 @@ export type TypeCheckResponses = {
 
 export type TypeCheckResponse = TypeCheckResponses[keyof TypeCheckResponses];
 
+export type UndoData = {
+  body: HttpapiUndoRequest;
+  path?: never;
+  query?: never;
+  url: "/undo";
+};
+
+export type UndoErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UndoError = UndoErrors[keyof UndoErrors];
+
+export type UndoResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
+};
+
+export type UndoResponse = UndoResponses[keyof UndoResponses];
+
+export type UngroupGroupsData = {
+  body: HttpapiUngroupGroupsRequest;
+  path?: never;
+  query?: never;
+  url: "/ungroupGroups";
+};
+
+export type UngroupGroupsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UngroupGroupsError = UngroupGroupsErrors[keyof UngroupGroupsErrors];
+
+export type UngroupGroupsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UngroupGroupsResponse =
+  UngroupGroupsResponses[keyof UngroupGroupsResponses];
+
+export type UnindentParamsData = {
+  body: HttpapiUnindentParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/unindentParams";
+};
+
+export type UnindentParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UnindentParamsError =
+  UnindentParamsErrors[keyof UnindentParamsErrors];
+
+export type UnindentParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UnindentParamsResponse =
+  UnindentParamsResponses[keyof UnindentParamsResponses];
+
+export type UnselectAllParamsData = {
+  body: HttpapiUnselectAllParamsRequest;
+  path?: never;
+  query?: never;
+  url: "/unselectAllParams";
+};
+
+export type UnselectAllParamsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UnselectAllParamsError =
+  UnselectAllParamsErrors[keyof UnselectAllParamsErrors];
+
+export type UnselectAllParamsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UnselectAllParamsResponse =
+  UnselectAllParamsResponses[keyof UnselectAllParamsResponses];
+
 export type UpdateAgentProfileData = {
   body: HttpapiUpdateAgentProfileRequest;
   path?: never;
@@ -6968,6 +11551,33 @@ export type UpdateAgentProfileResponses = {
 export type UpdateAgentProfileResponse =
   UpdateAgentProfileResponses[keyof UpdateAgentProfileResponses];
 
+export type UpdateAgenticEdgeData = {
+  body: HttpapiUpdateAgenticEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/updateAgenticEdge";
+};
+
+export type UpdateAgenticEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateAgenticEdgeError =
+  UpdateAgenticEdgeErrors[keyof UpdateAgenticEdgeErrors];
+
+export type UpdateAgenticEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UpdateAgenticEdgeResponse =
+  UpdateAgenticEdgeResponses[keyof UpdateAgenticEdgeResponses];
+
 export type UpdateArtifactsData = {
   body: HttpapiUpdateArtifactsRequest;
   path?: never;
@@ -6994,6 +11604,31 @@ export type UpdateArtifactsResponses = {
 
 export type UpdateArtifactsResponse =
   UpdateArtifactsResponses[keyof UpdateArtifactsResponses];
+
+export type UpdateEdgeData = {
+  body: HttpapiUpdateEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/updateEdge";
+};
+
+export type UpdateEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateEdgeError = UpdateEdgeErrors[keyof UpdateEdgeErrors];
+
+export type UpdateEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UpdateEdgeResponse = UpdateEdgeResponses[keyof UpdateEdgeResponses];
 
 export type UpdateEngineConfigData = {
   body: HttpapiUpdateEngineConfigRequest;
@@ -7076,6 +11711,33 @@ export type UpdateLauncherResponses = {
 export type UpdateLauncherResponse =
   UpdateLauncherResponses[keyof UpdateLauncherResponses];
 
+export type UpdateParamImplConfigData = {
+  body: HttpapiUpdateParamImplConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/updateParamImplConfig";
+};
+
+export type UpdateParamImplConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateParamImplConfigError =
+  UpdateParamImplConfigErrors[keyof UpdateParamImplConfigErrors];
+
+export type UpdateParamImplConfigResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UpdateParamImplConfigResponse =
+  UpdateParamImplConfigResponses[keyof UpdateParamImplConfigResponses];
+
 export type UpdatePromptTemplateData = {
   body: HttpapiUpdatePromptTemplateRequest;
   path?: never;
@@ -7102,6 +11764,33 @@ export type UpdatePromptTemplateResponses = {
 
 export type UpdatePromptTemplateResponse =
   UpdatePromptTemplateResponses[keyof UpdatePromptTemplateResponses];
+
+export type UpdateStateMachineEdgeData = {
+  body: HttpapiUpdateStateMachineEdgeRequest;
+  path?: never;
+  query?: never;
+  url: "/updateStateMachineEdge";
+};
+
+export type UpdateStateMachineEdgeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateStateMachineEdgeError =
+  UpdateStateMachineEdgeErrors[keyof UpdateStateMachineEdgeErrors];
+
+export type UpdateStateMachineEdgeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type UpdateStateMachineEdgeResponse =
+  UpdateStateMachineEdgeResponses[keyof UpdateStateMachineEdgeResponses];
 
 export type UpdateTranscriptionProfileData = {
   body: HttpapiUpdateTranscriptionProfileRequest;
