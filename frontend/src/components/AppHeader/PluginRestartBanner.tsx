@@ -55,7 +55,6 @@ export function PluginRestartBanner() {
         return;
       }
       if (restartResult.kind === "accepted") {
-        shouldRefreshRuntime = false;
         addTemporaryNotification("Restart request accepted.", "info");
         return;
       }

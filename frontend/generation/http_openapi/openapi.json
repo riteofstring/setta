@@ -1,0 +1,3414 @@
+{
+  "components": {
+    "schemas": {
+      "AgenticsummarycacheAgenticSummaryCacheStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "cachedSectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "consideredSectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "emptySourceSectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "maxSummariesPerRun": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "missingSectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "summarySectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "wouldAttemptSectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "maxSummariesPerRun",
+          "summarySectionIds",
+          "cachedSectionIds",
+          "missingSectionIds",
+          "emptySourceSectionIds",
+          "consideredSectionIds",
+          "wouldAttemptSectionIds"
+        ],
+        "type": "object"
+      },
+      "BinaryContentRef": {
+        "additionalProperties": false,
+        "properties": {
+          "byteLength": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": ["contentId", "byteLength"],
+        "type": "object"
+      },
+      "HttpapiAuthRefreshStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authCookieRefreshWindowSeconds": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["authCookieRefreshWindowSeconds"],
+        "type": "object"
+      },
+      "HttpapiBackendInitEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": ["message", "timestamp"],
+        "type": "object"
+      },
+      "HttpapiBackendInitStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authCookieRefreshWindowSeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "error": {
+            "type": ["string", "null"]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiBackendInitEvent"
+            },
+            "type": ["array", "null"]
+          },
+          "isReady": {
+            "type": "boolean"
+          },
+          "worktreeName": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "events",
+          "isReady",
+          "error",
+          "authCookieRefreshWindowSeconds",
+          "worktreeName"
+        ],
+        "type": "object"
+      },
+      "HttpapiBinaryUploadFormRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "durable": {
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": ["file"],
+        "type": "object"
+      },
+      "HttpapiCreateWorkspaceLaunchIntentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "launchRequest": {
+            "$ref": "#/components/schemas/HttpapiLaunchRequest"
+          },
+          "returnUrl": {
+            "type": "string"
+          }
+        },
+        "required": ["launchRequest", "returnUrl"],
+        "type": "object"
+      },
+      "HttpapiCreateWorkspaceLaunchIntentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/HttpapiWorkspaceLaunchErrorPayload"
+          },
+          "launchIntentToken": {
+            "type": ["string", "null"]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "requestedAt": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          }
+        },
+        "required": ["ok", "launchIntentToken", "requestedAt", "error"],
+        "type": "object"
+      },
+      "HttpapiDocstringToMarkdownRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "docstring": {
+            "type": "string"
+          }
+        },
+        "required": ["docstring"],
+        "type": "object"
+      },
+      "HttpapiErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "HttpapiErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/HttpapiErrorDetail"
+          }
+        },
+        "required": ["error"],
+        "type": "object"
+      },
+      "HttpapiGetAgenticSummaryCacheStatusRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chatSectionId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "chatSectionId"],
+        "type": "object"
+      },
+      "HttpapiLaunchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "launchIntentToken": {
+            "type": "string"
+          },
+          "localPort": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "remoteCmd": {
+            "type": "string"
+          },
+          "runtimeRoot": {
+            "type": "string"
+          },
+          "settaFilesLocation": {
+            "type": "string"
+          },
+          "settaFilesRoot": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          },
+          "sshArgs": {
+            "type": "string"
+          },
+          "sshTarget": {
+            "type": "string"
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "HttpapiLaunchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrapUrlFragment": {
+            "type": ["string", "null"]
+          },
+          "error": {
+            "$ref": "#/components/schemas/HttpapiWorkspaceLaunchErrorPayload"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "profile": {
+            "type": ["string", "null"]
+          },
+          "remoteCmdResolved": {
+            "type": ["string", "null"]
+          },
+          "returnUrl": {
+            "type": ["string", "null"]
+          },
+          "runtimeRoot": {
+            "type": ["string", "null"]
+          },
+          "session": {
+            "$ref": "#/components/schemas/HttpapiLaunchSessionInfo"
+          },
+          "sessionId": {
+            "type": ["string", "null"]
+          },
+          "settaFilesLocation": {
+            "type": ["string", "null"]
+          },
+          "settaFilesRoot": {
+            "type": ["string", "null"]
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          },
+          "startedNew": {
+            "type": ["boolean", "null"]
+          },
+          "workspaceRoot": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "ok",
+          "bootstrapUrlFragment",
+          "returnUrl",
+          "workspaceRoot",
+          "settaFilesLocation",
+          "settaFilesRoot",
+          "runtimeRoot",
+          "settaHome",
+          "profile",
+          "sessionId",
+          "startedNew",
+          "session",
+          "remoteCmdResolved",
+          "error"
+        ],
+        "type": "object"
+      },
+      "HttpapiLaunchSessionInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "pid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "workspacePath": {
+            "type": "string"
+          },
+          "workspacePathCanonical": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspacePath",
+          "workspacePathCanonical",
+          "host",
+          "port",
+          "pid",
+          "startedAt"
+        ],
+        "type": "object"
+      },
+      "HttpapiMCPResolvedRuntimeServer": {
+        "additionalProperties": false,
+        "properties": {
+          "consecutiveFailures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "lastAttemptAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "lastConnectedAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "lastError": {
+            "type": ["string", "null"]
+          },
+          "lastFailureAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "missingEnvVar": {
+            "type": ["string", "null"]
+          },
+          "quickInfo": {
+            "type": "string"
+          },
+          "serverId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "toolCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "serverId",
+          "transport",
+          "endpoint",
+          "state",
+          "lastAttemptAt",
+          "lastConnectedAt",
+          "lastFailureAt",
+          "consecutiveFailures",
+          "lastError",
+          "missingEnvVar",
+          "toolCount",
+          "quickInfo"
+        ],
+        "type": "object"
+      },
+      "HttpapiMCPRuntimeStatusRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chatId": {
+            "type": ["string", "null"]
+          },
+          "engineConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["chatId", "engineConfigId"],
+        "type": "object"
+      },
+      "HttpapiMCPRuntimeStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSettaFilesLocation": {
+            "type": "string"
+          },
+          "externalServers": {
+            "items": {
+              "$ref": "#/components/schemas/McpxServerRuntimeStatus"
+            },
+            "type": ["array", "null"]
+          },
+          "llmConfigPath": {
+            "type": "string"
+          },
+          "resolvedServers": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiMCPResolvedRuntimeServer"
+            },
+            "type": ["array", "null"]
+          },
+          "servers": {
+            "items": {
+              "$ref": "#/components/schemas/McpxServerRuntimeStatus"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "llmConfigPath",
+          "activeSettaFilesLocation",
+          "servers",
+          "externalServers",
+          "resolvedServers"
+        ],
+        "type": "object"
+      },
+      "HttpapiPluginConfigWriteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "config"],
+        "type": "object"
+      },
+      "HttpapiPluginEnableDisableRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId"],
+        "type": "object"
+      },
+      "HttpapiPluginInstallRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enable": {
+            "type": ["boolean", "null"]
+          },
+          "force": {
+            "type": ["boolean", "null"]
+          },
+          "installer": {
+            "type": ["string", "null"]
+          },
+          "scope": {
+            "type": ["string", "null"]
+          },
+          "sourceSpec": {
+            "type": "string"
+          }
+        },
+        "required": ["sourceSpec", "scope", "installer", "enable", "force"],
+        "type": "object"
+      },
+      "HttpapiPluginLinkRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enable": {
+            "type": ["boolean", "null"]
+          },
+          "force": {
+            "type": ["boolean", "null"]
+          },
+          "localPluginRoot": {
+            "type": "string"
+          },
+          "scope": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["localPluginRoot", "scope", "enable", "force"],
+        "type": "object"
+      },
+      "HttpapiPluginLockApplyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "check": {
+            "type": "boolean"
+          }
+        },
+        "required": ["check"],
+        "type": "object"
+      },
+      "HttpapiPluginRollbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "scope": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["pluginId", "scope"],
+        "type": "object"
+      },
+      "HttpapiPluginUninstallRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "scope": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["pluginId", "scope"],
+        "type": "object"
+      },
+      "HttpapiPluginUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "scope": {
+            "type": ["string", "null"]
+          },
+          "to": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["pluginId", "scope", "to"],
+        "type": "object"
+      },
+      "HttpapiPluginsRescanResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activePlugins": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "installedPlugins": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "serverMode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "serverMode",
+          "installedPlugins",
+          "activePlugins"
+        ],
+        "type": "object"
+      },
+      "HttpapiRevealPathInOSFileExplorerRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
+        "type": "object"
+      },
+      "HttpapiRuntimeAuth": {
+        "additionalProperties": false,
+        "properties": {
+          "authCookieName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "HttpapiRuntimeInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/HttpapiRuntimeAuth"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "paths": {
+            "$ref": "#/components/schemas/HttpapiRuntimePaths"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/HttpapiRuntimePathPolicy"
+          }
+        },
+        "required": ["mode", "paths", "policy", "auth"],
+        "type": "object"
+      },
+      "HttpapiRuntimePathPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "autoMode": {
+            "type": "string"
+          },
+          "globalSettaFilesBase": {
+            "type": "string"
+          }
+        },
+        "required": ["globalSettaFilesBase", "autoMode"],
+        "type": "object"
+      },
+      "HttpapiRuntimePaths": {
+        "additionalProperties": false,
+        "properties": {
+          "deploymentRoot": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "profileLookupHome": {
+            "type": "string"
+          },
+          "runtimeRoot": {
+            "type": "string"
+          },
+          "settaFilesLocation": {
+            "type": "string"
+          },
+          "settaFilesRoot": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceRoot",
+          "settaHome",
+          "profileLookupHome",
+          "settaFilesRoot",
+          "settaFilesLocation",
+          "runtimeRoot"
+        ],
+        "type": "object"
+      },
+      "HttpapiSaveSettingsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "settings": {}
+        },
+        "required": ["settings"],
+        "type": "object"
+      },
+      "HttpapiServerModeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": ["ide", "share", "app", "launcher"],
+            "type": "string"
+          }
+        },
+        "required": ["mode"],
+        "type": "object"
+      },
+      "HttpapiSettaHomeInfoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSettaFilesLocation": {
+            "type": ["string", "null"]
+          },
+          "globalSettaFilesBase": {
+            "type": "string"
+          },
+          "llmConfigPath": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "settaHome",
+          "globalSettaFilesBase",
+          "activeSettaFilesLocation",
+          "llmConfigPath"
+        ],
+        "type": "object"
+      },
+      "HttpapiWorkspaceLaunchErrorPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "McpxServerRuntimeStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "consecutiveFailures": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "lastAttemptAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "lastConnectedAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "lastError": {
+            "type": ["string", "null"]
+          },
+          "lastFailureAt": {
+            "format": "date-time",
+            "type": ["string", "null"]
+          },
+          "missingEnvVar": {
+            "type": ["string", "null"]
+          },
+          "serverId": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "toolCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "serverId",
+          "source",
+          "transport",
+          "endpoint",
+          "state",
+          "lastAttemptAt",
+          "lastConnectedAt",
+          "lastFailureAt",
+          "consecutiveFailures",
+          "lastError",
+          "missingEnvVar",
+          "toolCount"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginBlockedCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": ["capability", "reason"],
+        "type": "object"
+      },
+      "PluginsPluginConfigDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "currentConfig": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "currentConfigDigestSha256": {
+            "type": ["string", "null"]
+          },
+          "hasSchema": {
+            "type": "boolean"
+          },
+          "schemaJson": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "schemaJsonDigestSha256": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "hasSchema",
+          "schemaJson",
+          "schemaJsonDigestSha256",
+          "currentConfig",
+          "currentConfigDigestSha256"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginConfigValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"],
+        "type": "object"
+      },
+      "PluginsPluginConfigWriteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/PluginsPluginConfigValidationResult"
+          }
+        },
+        "required": ["pluginId", "config", "validation"],
+        "type": "object"
+      },
+      "PluginsPluginContentDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "hasBlueprints": {
+            "type": "boolean"
+          },
+          "hasProjectTemplates": {
+            "type": "boolean"
+          },
+          "hasPrompts": {
+            "type": "boolean"
+          }
+        },
+        "required": ["hasBlueprints", "hasProjectTemplates", "hasPrompts"],
+        "type": "object"
+      },
+      "PluginsPluginEnableDisableResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": ["pluginId", "state", "restartRequired"],
+        "type": "object"
+      },
+      "PluginsPluginErrorInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "PluginsPluginFrontendDescriptor": {
+        "additionalProperties": false,
+        "properties": {
+          "entrypointUrl": {
+            "type": ["string", "null"]
+          },
+          "styleUrl": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["entrypointUrl", "styleUrl"],
+        "type": "object"
+      },
+      "PluginsPluginInstallResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSourceKey": {
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "requestedCapabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "sourceDigestSha256": {
+            "type": ["string", "null"]
+          },
+          "sourcePath": {
+            "type": "string"
+          },
+          "sourceScope": {
+            "type": "string"
+          },
+          "sourceScopeLabel": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "trustStatus": {
+            "type": "string"
+          },
+          "trustWarning": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "version",
+          "sourceScope",
+          "sourceScopeLabel",
+          "sourcePath",
+          "canonicalSourceKey",
+          "sourceDigestSha256",
+          "requestedCapabilities",
+          "trustStatus",
+          "trustWarning",
+          "components",
+          "state",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginListEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "canonicalSourceKey": {
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "config": {
+            "$ref": "#/components/schemas/PluginsPluginConfigDescriptor"
+          },
+          "content": {
+            "$ref": "#/components/schemas/PluginsPluginContentDescriptor"
+          },
+          "effectiveCapabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "enablementSource": {
+            "type": ["string", "null"]
+          },
+          "frontend": {
+            "$ref": "#/components/schemas/PluginsPluginFrontendDescriptor"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "sourceDigestSha256": {
+            "type": ["string", "null"]
+          },
+          "sourceManager": {
+            "type": "string"
+          },
+          "sourceManagerHint": {
+            "type": ["string", "null"]
+          },
+          "sourceScope": {
+            "type": "string"
+          },
+          "sourceScopeLabel": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "name",
+          "version",
+          "sourceScope",
+          "sourceScopeLabel",
+          "sourceManager",
+          "sourceManagerHint",
+          "canonicalSourceKey",
+          "sourceDigestSha256",
+          "frontend",
+          "content",
+          "config",
+          "components",
+          "effectiveCapabilities",
+          "enablementSource",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "plugins": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginListEntry"
+            },
+            "type": ["array", "null"]
+          },
+          "restartCapability": {
+            "$ref": "#/components/schemas/PluginsPluginRestartCapability"
+          },
+          "schemaVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "serverMode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "serverMode",
+          "restartCapability",
+          "plugins"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginLockApplyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          },
+          "lockfilePath": {
+            "type": "string"
+          },
+          "plannedChanges": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["lockfilePath", "plannedChanges", "applied"],
+        "type": "object"
+      },
+      "PluginsPluginLockWriteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lockfilePath": {
+            "type": "string"
+          },
+          "pluginCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["lockfilePath", "pluginCount"],
+        "type": "object"
+      },
+      "PluginsPluginRegisteredBackendRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "methods": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["path", "methods"],
+        "type": "object"
+      },
+      "PluginsPluginRegisteredCodegenTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultFileName": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "pluginId",
+          "language",
+          "name",
+          "defaultFileName"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginRegisteredListenerEndpoint": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "PluginsPluginRegisteredStaticDir": {
+        "additionalProperties": false,
+        "properties": {
+          "dir": {
+            "type": "string"
+          },
+          "routePrefix": {
+            "type": "string"
+          }
+        },
+        "required": ["routePrefix", "dir"],
+        "type": "object"
+      },
+      "PluginsPluginRestartCapability": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": ["string", "null"]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "reason": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["mode", "command", "reason"],
+        "type": "object"
+      },
+      "PluginsPluginRestartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": ["string", "null"]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "reason": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["accepted", "mode", "command", "reason"],
+        "type": "object"
+      },
+      "PluginsPluginRollbackResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "restoredVersion": {
+            "type": "string"
+          },
+          "sourceDigestSha256": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "pluginId",
+          "restoredVersion",
+          "sourceDigestSha256",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginRuntimeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "list": {
+            "$ref": "#/components/schemas/PluginsPluginListResponse"
+          },
+          "schemaVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginsPluginStatusResponse"
+          }
+        },
+        "required": ["schemaVersion", "list", "status"],
+        "type": "object"
+      },
+      "PluginsPluginStatusEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "blockedCapabilities": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginBlockedCapability"
+            },
+            "type": ["array", "null"]
+          },
+          "canonicalSourceKey": {
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "effectiveCapabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "enablementSource": {
+            "type": ["string", "null"]
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginErrorInfo"
+            },
+            "type": ["array", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "registeredBackendRoutes": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredBackendRoute"
+            },
+            "type": ["array", "null"]
+          },
+          "registeredCodegenTargets": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredCodegenTarget"
+            },
+            "type": ["array", "null"]
+          },
+          "registeredListenerEndpoints": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredListenerEndpoint"
+            },
+            "type": ["array", "null"]
+          },
+          "registeredStaticDirs": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginRegisteredStaticDir"
+            },
+            "type": ["array", "null"]
+          },
+          "requestedCapabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "runtimePayloadDigestSha256": {
+            "type": "string"
+          },
+          "shadowedBySourcePath": {
+            "type": ["string", "null"]
+          },
+          "sourceDigestSha256": {
+            "type": ["string", "null"]
+          },
+          "sourceManager": {
+            "type": "string"
+          },
+          "sourceManagerHint": {
+            "type": ["string", "null"]
+          },
+          "sourcePath": {
+            "type": "string"
+          },
+          "sourceScope": {
+            "type": "string"
+          },
+          "sourceScopeLabel": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "name",
+          "version",
+          "state",
+          "sourceScope",
+          "sourceScopeLabel",
+          "sourceManager",
+          "sourceManagerHint",
+          "sourcePath",
+          "canonicalSourceKey",
+          "sourceDigestSha256",
+          "shadowedBySourcePath",
+          "requestedCapabilities",
+          "effectiveCapabilities",
+          "blockedCapabilities",
+          "components",
+          "registeredCodegenTargets",
+          "registeredBackendRoutes",
+          "registeredStaticDirs",
+          "registeredListenerEndpoints",
+          "enablementSource",
+          "restartRequired",
+          "runtimePayloadDigestSha256",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "plugins": {
+            "items": {
+              "$ref": "#/components/schemas/PluginsPluginStatusEntry"
+            },
+            "type": ["array", "null"]
+          },
+          "restartCapability": {
+            "$ref": "#/components/schemas/PluginsPluginRestartCapability"
+          },
+          "schemaVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "serverMode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "serverMode",
+          "restartCapability",
+          "plugins"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginUninstallResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "pluginId": {
+            "type": "string"
+          },
+          "removedFromScope": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": ["pluginId", "removedFromScope", "restartRequired"],
+        "type": "object"
+      },
+      "PluginsPluginUpdateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "fromVersion": {
+            "type": "string"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "sourceDigestSha256": {
+            "type": ["string", "null"]
+          },
+          "toVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pluginId",
+          "fromVersion",
+          "toVersion",
+          "sourceDigestSha256",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendMetaControlSizingPolicyByType": {
+        "additionalProperties": false,
+        "properties": {
+          "ButtonParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "CodeCallable": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "CodeParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "ColorPickerParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "DateParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "DropdownParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "DropzoneParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "NestedParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "PasswordParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "RotaryParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "SliderParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "SwitchParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "TextAreaParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "TextParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          },
+          "TimeParam": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyTypeEntry"
+          }
+        },
+        "required": [
+          "CodeCallable",
+          "CodeParam",
+          "TextParam",
+          "DateParam",
+          "TimeParam",
+          "ButtonParam",
+          "SliderParam",
+          "RotaryParam",
+          "SwitchParam",
+          "ColorPickerParam",
+          "DropdownParam",
+          "PasswordParam",
+          "TextAreaParam",
+          "DropzoneParam",
+          "NestedParam"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendMetaControlSizingPolicyTypeEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "minHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "minWidth": {
+            "format": "double",
+            "type": "number"
+          },
+          "sizeModeHeight": {
+            "type": "string"
+          },
+          "sizeModeWidth": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "minHeight",
+          "minWidth",
+          "sizeModeHeight",
+          "sizeModeWidth"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendSectionSizingPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "byType": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyByType"
+          },
+          "globals": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyGlobals"
+          },
+          "metaControlByType": {
+            "$ref": "#/components/schemas/ProjectstateFrontendMetaControlSizingPolicyByType"
+          }
+        },
+        "required": ["byType", "metaControlByType", "globals"],
+        "type": "object"
+      },
+      "ProjectstateFrontendSectionSizingPolicyByType": {
+        "additionalProperties": false,
+        "properties": {
+          "Browser": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Callable": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyCallableTypeEntry"
+          },
+          "Chart": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Chat": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Code": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Dict": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Draw": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "GenPythonCode": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "GenPythonMetadata": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "GlobalVariables": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Group": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "IFrame": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Image": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "ListRoot": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "MetaControl": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Plugin": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Prompt": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Social": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Spreadsheet": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "StateMachineEnd": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "StateMachineGate": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "StateMachineStart": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "TaskBoard": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "Terminal": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          },
+          "TextBlock": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicyTypeEntry"
+          }
+        },
+        "required": [
+          "Callable",
+          "Dict",
+          "ListRoot",
+          "Group",
+          "StateMachineStart",
+          "StateMachineGate",
+          "StateMachineEnd",
+          "Image",
+          "Chart",
+          "Draw",
+          "Prompt",
+          "TextBlock",
+          "MetaControl",
+          "Social",
+          "GlobalVariables",
+          "Code",
+          "GenPythonCode",
+          "GenPythonMetadata",
+          "Terminal",
+          "IFrame",
+          "Chat",
+          "Browser",
+          "Plugin",
+          "TaskBoard",
+          "Spreadsheet"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendSectionSizingPolicyCallableTypeEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "hideParamsMinHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "hideSearchMinHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxWidth": {
+            "format": "double",
+            "type": "number"
+          },
+          "minHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "minWidth": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hideSearchMinHeight",
+          "hideParamsMinHeight",
+          "minHeight",
+          "maxHeight",
+          "minWidth",
+          "maxWidth"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendSectionSizingPolicyGlobals": {
+        "additionalProperties": false,
+        "properties": {
+          "autoMaxHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "infiniteMaxHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "infiniteMaxWidth": {
+            "format": "double",
+            "type": "number"
+          },
+          "minimizedHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "pinnedParamsAreaMinHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "unpinnedParamsAreaMinHeight": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pinnedParamsAreaMinHeight",
+          "unpinnedParamsAreaMinHeight",
+          "minimizedHeight",
+          "infiniteMaxHeight",
+          "infiniteMaxWidth",
+          "autoMaxHeight"
+        ],
+        "type": "object"
+      },
+      "ProjectstateFrontendSectionSizingPolicyTypeEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "maxHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxWidth": {
+            "format": "double",
+            "type": "number"
+          },
+          "minHeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "minWidth": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": ["minHeight", "maxHeight", "minWidth", "maxWidth"],
+        "type": "object"
+      },
+      "PythonsdkcontractsRunningBackendVersionHandshake": {
+        "additionalProperties": false,
+        "properties": {
+          "coreVersion": {
+            "type": "string"
+          },
+          "sdkContractVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sdkVersion": {
+            "type": "string"
+          }
+        },
+        "required": ["sdkVersion", "coreVersion", "sdkContractVersion"],
+        "type": "object"
+      },
+      "SettingsstateFrontendColorPickerChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "color": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": ["color", "description"],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsBackend": {
+        "additionalProperties": false,
+        "properties": {
+          "autoRefetchCallableParamsOnLspMismatch": {
+            "type": "boolean"
+          },
+          "autobackup": {
+            "type": "boolean"
+          },
+          "autobackupFreq": {
+            "format": "double",
+            "type": "number"
+          },
+          "autobackupKeepLastN": {
+            "format": "double",
+            "type": "number"
+          },
+          "autosave": {
+            "type": "boolean"
+          },
+          "clearTerminalBeforeMarkingAsReady": {
+            "type": "boolean"
+          },
+          "completionGuardEnabled": {
+            "type": "boolean"
+          },
+          "defaultTerminalShell": {
+            "type": "string"
+          },
+          "exportDbReadableOnSave": {
+            "type": "boolean"
+          },
+          "exportDbReadableWithVariantsOnSave": {
+            "type": "boolean"
+          },
+          "renameRefactorMode": {
+            "type": "string"
+          },
+          "runSnapshotMode": {
+            "type": "string"
+          },
+          "saveRenderedValues": {
+            "type": "boolean"
+          },
+          "showDefaultConfigOnLoad": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "showDefaultConfigOnLoad",
+          "autosave",
+          "autobackup",
+          "autobackupFreq",
+          "autobackupKeepLastN",
+          "clearTerminalBeforeMarkingAsReady",
+          "exportDbReadableOnSave",
+          "exportDbReadableWithVariantsOnSave",
+          "autoRefetchCallableParamsOnLspMismatch",
+          "renameRefactorMode",
+          "saveRenderedValues",
+          "runSnapshotMode",
+          "completionGuardEnabled"
+        ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsGUI": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultZoomLevel": {
+            "format": "double",
+            "type": "number"
+          },
+          "gridColor": {
+            "type": "string"
+          },
+          "gridColorDarkMode": {
+            "type": "string"
+          },
+          "gridPattern": {
+            "type": "string"
+          },
+          "gridPatternSize": {
+            "format": "double",
+            "type": "number"
+          },
+          "leftSidePaneShiftsMap": {
+            "type": "boolean"
+          },
+          "maxZoom": {
+            "format": "double",
+            "type": "number"
+          },
+          "minZoom": {
+            "format": "double",
+            "type": "number"
+          },
+          "panOnDrag": {
+            "type": "boolean"
+          },
+          "panOnScroll": {
+            "type": "boolean"
+          },
+          "panOnScrollMode": {
+            "type": "string"
+          },
+          "panOnScrollSpeed": {
+            "format": "double",
+            "type": "number"
+          },
+          "sectionTagColorChoices": {
+            "items": {
+              "$ref": "#/components/schemas/SettingsstateFrontendColorPickerChoice"
+            },
+            "type": ["array", "null"]
+          },
+          "selectionMode": {
+            "type": "string"
+          },
+          "showGridLines": {
+            "type": "boolean"
+          },
+          "snapGrid": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": ["array", "null"]
+          },
+          "transitionDuration": {
+            "format": "double",
+            "type": "number"
+          },
+          "wireColor": {
+            "type": "string"
+          },
+          "wireColorDarkMode": {
+            "type": "string"
+          },
+          "zoomOnDoubleClick": {
+            "type": "boolean"
+          },
+          "zoomOnPinch": {
+            "type": "boolean"
+          },
+          "zoomOnScroll": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "snapGrid",
+          "showGridLines",
+          "gridPattern",
+          "gridPatternSize",
+          "gridColor",
+          "gridColorDarkMode",
+          "wireColor",
+          "wireColorDarkMode",
+          "defaultZoomLevel",
+          "minZoom",
+          "maxZoom",
+          "panOnDrag",
+          "panOnScroll",
+          "panOnScrollSpeed",
+          "panOnScrollMode",
+          "zoomOnScroll",
+          "zoomOnPinch",
+          "zoomOnDoubleClick",
+          "selectionMode",
+          "leftSidePaneShiftsMap",
+          "transitionDuration",
+          "sectionTagColorChoices"
+        ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsShortcuts": {
+        "additionalProperties": false,
+        "properties": {
+          "advancedSearchShortcut": {
+            "type": "string"
+          },
+          "commandPaletteShortcut": {
+            "type": "string"
+          },
+          "copyShortcut": {
+            "type": "string"
+          },
+          "copyTooltipTextShortcut": {
+            "type": "string"
+          },
+          "decrementTooltipPageShortcut": {
+            "type": "string"
+          },
+          "deleteSectionShortcut": {
+            "type": "string"
+          },
+          "fitViewShortcut": {
+            "type": "string"
+          },
+          "focusCanvasShortcut": {
+            "type": "string"
+          },
+          "focusHeaderShortcut": {
+            "type": "string"
+          },
+          "focusOverviewShortcut": {
+            "type": "string"
+          },
+          "focusUiEditorShortcut": {
+            "type": "string"
+          },
+          "formatCode": {
+            "type": "string"
+          },
+          "freezeTooltipShortcut": {
+            "type": "string"
+          },
+          "frozenTooltipCopyShortcut": {
+            "type": "string"
+          },
+          "frozenTooltipDecrementShortcut": {
+            "type": "string"
+          },
+          "frozenTooltipIncrementShortcut": {
+            "type": "string"
+          },
+          "frozenTooltipToMarkdownShortcut": {
+            "type": "string"
+          },
+          "frozenTooltipToPlaintextShortcut": {
+            "type": "string"
+          },
+          "groupShortcut": {
+            "type": "string"
+          },
+          "incrementTooltipPageShortcut": {
+            "type": "string"
+          },
+          "loadShortcut": {
+            "type": "string"
+          },
+          "movingFreeShortcut": {
+            "type": "string"
+          },
+          "multiSelectionKeyCode": {
+            "type": "string"
+          },
+          "newCardShortcut": {
+            "type": "string"
+          },
+          "newGroupShortcut": {
+            "type": "string"
+          },
+          "newProjectConfigShortcut": {
+            "type": "string"
+          },
+          "newTerminalShortcut": {
+            "type": "string"
+          },
+          "nextTopLevelSectionShortcut": {
+            "type": "string"
+          },
+          "panActivationKeyCode": {
+            "type": "string"
+          },
+          "paramIndentShortcut": {
+            "type": "string"
+          },
+          "paramMoveDownShortcut": {
+            "type": "string"
+          },
+          "paramMoveUpShortcut": {
+            "type": "string"
+          },
+          "paramSelect": {
+            "type": "string"
+          },
+          "paramUnindentShortcut": {
+            "type": "string"
+          },
+          "pasteAsRefShortcut": {
+            "type": "string"
+          },
+          "pasteShortcut": {
+            "type": "string"
+          },
+          "prevTopLevelSectionShortcut": {
+            "type": "string"
+          },
+          "redoShortcut": {
+            "type": "string"
+          },
+          "resetZoomShortcut": {
+            "type": "string"
+          },
+          "restartLanguageServerShortcut": {
+            "type": "string"
+          },
+          "runCodeShortcut": {
+            "type": "string"
+          },
+          "runEntryCodeBlockShortcut": {
+            "type": "string"
+          },
+          "saveAsShortcut": {
+            "type": "string"
+          },
+          "saveShortcut": {
+            "type": "string"
+          },
+          "searchShortcut": {
+            "type": "string"
+          },
+          "selectAll": {
+            "type": "string"
+          },
+          "selectTopLevelNonGroupSections": {
+            "type": "string"
+          },
+          "selectionKeyCode": {
+            "type": "string"
+          },
+          "showParamUITypeTabShortcut": {
+            "type": "string"
+          },
+          "showProjectOverviewTabShortcut": {
+            "type": "string"
+          },
+          "showTooltipShortcut": {
+            "type": "string"
+          },
+          "showVersionsTabShortcut": {
+            "type": "string"
+          },
+          "sortingShortcut": {
+            "type": "string"
+          },
+          "tooltipToMarkdownShortcut": {
+            "type": "string"
+          },
+          "tooltipToPlaintextShortcut": {
+            "type": "string"
+          },
+          "typeCheckShortcut": {
+            "type": "string"
+          },
+          "undoShortcut": {
+            "type": "string"
+          },
+          "ungroupShortcut": {
+            "type": "string"
+          },
+          "zoomActivationKeyCode": {
+            "type": "string"
+          },
+          "zoomInShortcut": {
+            "type": "string"
+          },
+          "zoomOutShortcut": {
+            "type": "string"
+          },
+          "zoomToMouseShortcut": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "newCardShortcut",
+          "newGroupShortcut",
+          "typeCheckShortcut",
+          "newProjectConfigShortcut",
+          "undoShortcut",
+          "redoShortcut",
+          "groupShortcut",
+          "ungroupShortcut",
+          "saveShortcut",
+          "saveAsShortcut",
+          "loadShortcut",
+          "searchShortcut",
+          "advancedSearchShortcut",
+          "commandPaletteShortcut",
+          "resetZoomShortcut",
+          "copyShortcut",
+          "pasteShortcut",
+          "pasteAsRefShortcut",
+          "sortingShortcut",
+          "movingFreeShortcut",
+          "showTooltipShortcut",
+          "tooltipToPlaintextShortcut",
+          "tooltipToMarkdownShortcut",
+          "freezeTooltipShortcut",
+          "frozenTooltipToPlaintextShortcut",
+          "frozenTooltipToMarkdownShortcut",
+          "incrementTooltipPageShortcut",
+          "decrementTooltipPageShortcut",
+          "copyTooltipTextShortcut",
+          "frozenTooltipIncrementShortcut",
+          "frozenTooltipDecrementShortcut",
+          "frozenTooltipCopyShortcut",
+          "newTerminalShortcut",
+          "fitViewShortcut",
+          "zoomToMouseShortcut",
+          "deleteSectionShortcut",
+          "selectAll",
+          "selectTopLevelNonGroupSections",
+          "showVersionsTabShortcut",
+          "showParamUITypeTabShortcut",
+          "showProjectOverviewTabShortcut",
+          "focusHeaderShortcut",
+          "focusOverviewShortcut",
+          "focusCanvasShortcut",
+          "focusUiEditorShortcut",
+          "nextTopLevelSectionShortcut",
+          "prevTopLevelSectionShortcut",
+          "runCodeShortcut",
+          "runEntryCodeBlockShortcut",
+          "paramSelect",
+          "paramIndentShortcut",
+          "paramUnindentShortcut",
+          "paramMoveUpShortcut",
+          "paramMoveDownShortcut",
+          "formatCode",
+          "selectionKeyCode",
+          "multiSelectionKeyCode",
+          "panActivationKeyCode",
+          "zoomActivationKeyCode",
+          "zoomInShortcut",
+          "zoomOutShortcut",
+          "restartLanguageServerShortcut"
+        ],
+        "type": "object"
+      },
+      "SettingsstateFrontendSettingsState": {
+        "additionalProperties": false,
+        "properties": {
+          "backend": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsBackend"
+          },
+          "gui": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsGUI"
+          },
+          "languageServer": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "sectionSizingPolicy": {
+            "$ref": "#/components/schemas/ProjectstateFrontendSectionSizingPolicy"
+          },
+          "shortcuts": {
+            "$ref": "#/components/schemas/SettingsstateFrontendSettingsShortcuts"
+          }
+        },
+        "required": [
+          "shortcuts",
+          "gui",
+          "backend",
+          "sectionSizingPolicy",
+          "languageServer"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Setta HTTP API",
+    "version": "0.0.0-dev"
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "openapi": "3.1.0",
+  "paths": {
+    "/authRefreshStatus": {
+      "get": {
+        "operationId": "getAuthRefreshStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiAuthRefreshStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get auth cookie refresh timing for the current runtime.",
+        "tags": ["Status"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/backendInitStatus": {
+      "get": {
+        "operationId": "getBackendInitStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiBackendInitStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the backend initialization status for the current runtime.",
+        "tags": ["Status"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/binary/upload": {
+      "post": {
+        "operationId": "uploadBinary",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiBinaryUploadFormRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BinaryContentRef"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Upload a binary payload to the runtime content store.",
+        "tags": ["Binary"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "full-ide"
+      }
+    },
+    "/binary/{contentId}": {
+      "get": {
+        "operationId": "downloadBinary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download a binary payload from the runtime content store.",
+        "tags": ["Binary"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/createWorkspaceLaunchIntent": {
+      "post": {
+        "operationId": "createWorkspaceLaunchIntent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateWorkspaceLaunchIntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiCreateWorkspaceLaunchIntentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a launch intent token for a local workspace launch.",
+        "tags": ["WorkspaceLaunch"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment"
+      }
+    },
+    "/docstringToMarkdown": {
+      "post": {
+        "operationId": "docstringToMarkdown",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDocstringToMarkdownRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Convert a docstring into Markdown.",
+        "tags": ["Docstring"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getAgenticSummaryCacheStatus": {
+      "post": {
+        "operationId": "getAgenticSummaryCacheStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAgenticSummaryCacheStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgenticsummarycacheAgenticSummaryCacheStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the cache status for a chat section summary.",
+        "tags": ["AgenticSummaryCache"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/launch": {
+      "post": {
+        "operationId": "launchWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLaunchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLaunchResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Launch or reconnect to a local workspace runtime.",
+        "tags": ["WorkspaceLaunch"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment"
+      }
+    },
+    "/loadSettings": {
+      "post": {
+        "operationId": "loadSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsstateFrontendSettingsState"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load the frontend settings document.",
+        "tags": ["Settings"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/mcpServerRuntimeStatus": {
+      "post": {
+        "operationId": "getMcpServerRuntimeStatus",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiMCPRuntimeStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiMCPRuntimeStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get current MCP runtime status for configured and external servers.",
+        "tags": ["MCP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "full-ide"
+      }
+    },
+    "/plugins/config": {
+      "post": {
+        "operationId": "writePluginConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginConfigWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginConfigWriteResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Write schema-backed plugin configuration values.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/disable": {
+      "post": {
+        "operationId": "disablePlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginEnableDisableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginEnableDisableResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Disable an installed plugin.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/enable": {
+      "post": {
+        "operationId": "enablePlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginEnableDisableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginEnableDisableResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Enable an installed plugin.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/install": {
+      "post": {
+        "operationId": "installPlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginInstallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginInstallResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Install a plugin from a supported source.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/link": {
+      "post": {
+        "operationId": "linkPlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginInstallResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Link a local plugin directory into the runtime.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/lock/apply": {
+      "post": {
+        "operationId": "applyPluginLockfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginLockApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginLockApplyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Apply the plugin lockfile to the current runtime.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/lock/write": {
+      "post": {
+        "operationId": "writePluginLockfile",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginLockWriteResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Write the plugin lockfile for the current runtime.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/rescan": {
+      "post": {
+        "operationId": "rescanPlugins",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiPluginsRescanResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Rescan installed plugins and return the updated runtime counts.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/restart": {
+      "post": {
+        "operationId": "restartPlugins",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginRestartResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Restart the plugin runtime when supported.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/rollback": {
+      "post": {
+        "operationId": "rollbackPlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginRollbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginRollbackResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Roll back a plugin to the previous installed version.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/runtime": {
+      "get": {
+        "operationId": "getPluginsRuntime",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginRuntimeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the current plugin runtime state.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/plugins/uninstall": {
+      "post": {
+        "operationId": "uninstallPlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginUninstallRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginUninstallResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Uninstall a plugin from the selected scope.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/plugins/update": {
+      "post": {
+        "operationId": "updatePlugin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPluginUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PluginsPluginUpdateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update an installed plugin.",
+        "tags": ["Plugins"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/revealPathInOsFileExplorer": {
+      "post": {
+        "operationId": "revealPathInOsFileExplorer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiRevealPathInOSFileExplorerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Reveal a filesystem path in the OS file explorer.",
+        "tags": ["Status"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/runtimeInfo": {
+      "get": {
+        "operationId": "getRuntimeInfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiRuntimeInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get runtime path and auth metadata for the current backend.",
+        "tags": ["Runtime"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/saveSettings": {
+      "post": {
+        "operationId": "saveSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSaveSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Validate and save the frontend settings document.",
+        "tags": ["Settings"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/sdkRuntimeHandshake": {
+      "get": {
+        "operationId": "sdkRuntimeHandshake",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PythonsdkcontractsRunningBackendVersionHandshake"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the running backend version handshake for the local SDK.",
+        "tags": ["Runtime"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/serverMode": {
+      "get": {
+        "operationId": "getServerMode",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiServerModeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the current backend server mode.",
+        "tags": ["Runtime"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/settaHomeInfo": {
+      "get": {
+        "operationId": "getSettaHomeInfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiSettaHomeInfoResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get Setta home and files-path information for the IDE runtime.",
+        "tags": ["Status"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "x-setta-contract-source": "explicit-typed-route-registration"
+}

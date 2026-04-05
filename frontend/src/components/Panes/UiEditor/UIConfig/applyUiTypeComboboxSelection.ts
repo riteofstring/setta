@@ -1,5 +1,9 @@
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_change_param_impl,
   route_update_param_impl_config,
@@ -9,9 +13,12 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { CALENDAR_PRESET_ID, CodeObjTypeFilterKey } from "./UITypeCombobox";
+
+type ChangeParamImplRouteResponse = ResponseDataAndStatus<null>;
+type UpdateParamImplConfigRouteResponse = ResponseDataAndStatus<null>;
 
 export async function applyUiTypeComboboxSelection(args: {
   projectConfigId: string;
@@ -28,49 +35,53 @@ export async function applyUiTypeComboboxSelection(args: {
         "Calendar preset selection is only valid for control params.",
       );
     }
-    const changeRes = await route_change_param_impl({
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      selectedId: CodeObjTypeEnum.DateParam,
-    });
+    const changeRes: ChangeParamImplRouteResponse =
+      await route_change_param_impl({
+        projectConfigId,
+        sectionId,
+        paramInfoId,
+        selectedId: CodeObjTypeEnum.DateParam,
+      });
     if (!res200(changeRes)) {
       addTemporaryNotification(
         getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
       return;
     }
-    const configRes = await route_update_param_impl_config({
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      newConfig: {
-        dateControlMode: DateControlModeEnum.calendar,
-        dateSelectionMode: DateSelectionModeEnum.multiple,
-        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      },
-    });
+    const configRes: UpdateParamImplConfigRouteResponse =
+      await route_update_param_impl_config({
+        projectConfigId,
+        sectionId,
+        paramInfoId,
+        newConfig: {
+          dateControlMode: DateControlModeEnum.calendar,
+          dateSelectionMode: DateSelectionModeEnum.multiple,
+          dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+        },
+      });
     if (!res200(configRes)) {
       addTemporaryNotification(
         getErrorDetail(configRes.data) ??
           "Failed to apply calendar preset configuration.",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
       return;
     }
     return;
   }
-  const changeRes = await route_change_param_impl({
-    projectConfigId,
-    sectionId,
-    paramInfoId,
-    selectedId,
-  });
+  const changeRes: ChangeParamImplRouteResponse = await route_change_param_impl(
+    {
+      projectConfigId,
+      sectionId,
+      paramInfoId,
+      selectedId,
+    },
+  );
   if (!res200(changeRes)) {
     addTemporaryNotification(
       getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }

@@ -57,7 +57,7 @@ describe("ai app spec tool results", () => {
       chatId: "chat-ai-apply-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: {
           id: "tool-msg-1",
           role: ChatRoleEnum.tool,
@@ -107,7 +107,7 @@ describe("ai app spec tool results", () => {
       chatId: "chat-ai-apply-stream-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: {
           id: "tool-msg-stream-1",
           role: ChatRoleEnum.tool,
@@ -158,7 +158,7 @@ describe("ai app spec tool results", () => {
       chatId: "chat-ai-apply-2",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: {
           id: "tool-msg-2",
           role: ChatRoleEnum.tool,
@@ -201,7 +201,7 @@ describe("ai app spec tool results", () => {
       chatId: "chat-ai-apply-3",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: {
           id: "tool-msg-3",
           role: ChatRoleEnum.tool,
@@ -249,7 +249,7 @@ describe("ai app spec tool results", () => {
       chatId: "chat-ai-apply-stream-err-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: {
           id: "tool-msg-stream-err-1",
           role: ChatRoleEnum.tool,
