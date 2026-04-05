@@ -105,7 +105,7 @@ func discriminatedObjectFamilyTypeDeclaration(
 	return aliasIntersectionDeclarationFromProperties(
 		frontendBindingTypeName(t),
 		frontendBindingTypeName(family.BaseType),
-		discriminatedObjectFamilyAliasProperties(baseProperties, memberProperties),
+		memberProperties,
 	), true, nil
 }
 
@@ -173,7 +173,10 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 	if err != nil {
 		return nil, nil, err
 	}
-	coreByName := discriminatedObjectFamilyPropertyMap(coreProperties)
+	coreByName := make(map[string]struct{}, len(coreProperties))
+	for _, property := range coreProperties {
+		coreByName[property.Name] = struct{}{}
+	}
 	concreteByType := make(map[reflect.Type][]TypeProperty, len(members))
 	mergedOrder := []string{}
 	mergedByName := map[string]*TypeProperty{}
@@ -220,6 +223,22 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 		property := *mergedByName[name]
 		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
 		baseProperties = append(baseProperties, property)
+	}
+	baseByName := make(map[string]TypeProperty, len(baseProperties))
+	for _, property := range baseProperties {
+		baseByName[property.Name] = property
+	}
+	for memberType, properties := range concreteByType {
+		filtered := properties[:0]
+		for _, property := range properties {
+			baseProperty, ok := baseByName[property.Name]
+			if !ok ||
+				baseProperty.TypeExpr != property.TypeExpr ||
+				baseProperty.Optional != property.Optional {
+				filtered = append(filtered, property)
+			}
+		}
+		concreteByType[memberType] = filtered
 	}
 	return baseProperties, concreteByType, nil
 }
@@ -353,29 +372,4 @@ func discriminatedObjectFamilyMembers(
 		})
 	}
 	return members, nil
-}
-
-func discriminatedObjectFamilyPropertyMap(properties []TypeProperty) map[string]TypeProperty {
-	names := make(map[string]TypeProperty, len(properties))
-	for _, property := range properties {
-		names[property.Name] = property
-	}
-	return names
-}
-
-func discriminatedObjectFamilyAliasProperties(
-	baseProperties []TypeProperty,
-	properties []TypeProperty,
-) []TypeProperty {
-	baseByName := discriminatedObjectFamilyPropertyMap(baseProperties)
-	filtered := make([]TypeProperty, 0, len(properties))
-	for _, property := range properties {
-		baseProperty, ok := baseByName[property.Name]
-		if !ok ||
-			baseProperty.TypeExpr != property.TypeExpr ||
-			baseProperty.Optional != property.Optional {
-			filtered = append(filtered, property)
-		}
-	}
-	return filtered
 }
