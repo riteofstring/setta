@@ -1,7 +1,7 @@
 # Graph Substrate Rewrite Plan
 
 Date: 2026-04-02
-Updated: 2026-04-04
+Updated: 2026-04-06
 Worktree: `pixijs-graph`
 Current branch: `pixijs-graph`
 Execution base: `main`
@@ -216,6 +216,37 @@ Oracle-noise classes alone do not justify `REPLAN_REQUIRED`. The next bounded sl
 
 Lane budget rule: after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or close it as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
 
+## Replan decision
+
+The normalized Gate 1 / Gate 2 motion/editing lane matrix has now done its job.
+
+Recent Ralph items `165` through `169` closed the remaining named blank-pane pan, spreadsheet motion/editing, and broad shared title-edit lanes on live worktree versus read-only `main` surfaces. Those probes remain valuable regression coverage, but they are no longer the active product frontier.
+
+The active architectural blocker is that the canary still maintains canary-local geometry authority inside the substrate implementation:
+
+- `SettingsGraphSubstrateCanary.tsx` tracks `observedElementSizes` with its own `ResizeObserver`
+- `settingsGraphSubstrateCanaryBounds.ts` still depends on measured DOM sizes before scene bounds and fit logic can resolve
+- `settingsGraphSubstrateCanaryNodeSync.ts` still backfills node internals from those observed DOM sizes
+
+That contradicts the rewrite ownership rule that graph placement should not depend on DOM-measured scene placement as the source of truth. Continuing to add section-specific parity probes before changing that seam would be probe churn rather than rewrite progress.
+
+From this point:
+
+- do not add new section-specific Gate 1 / Gate 2 parity probes unless an existing broad deterministic lane fails
+- treat the current parity probe matrix as regression coverage, not as the default next-slice picker
+- spend the next iterations on making section geometry authoritative outside the canary's local DOM observer path
+
+## Current tactical replan
+
+The loop has now also spent several iterations on standalone lifecycle / CDP recovery after the broad normalized `rotaryParamCodeObjDefault` lane already stayed green. That support work was justified once, but repeating it as the default next slice would be the same kind of churn the earlier replan was meant to stop.
+
+From this point:
+
+- allow at most one bounded CDP/lifecycle retry per new product slice, or when the live worktree/reference runtime is genuinely unhealthy
+- do not spend standalone iterations on parity or transport cleanup for a lane that already has repeated green deterministic evidence unless the runtime itself is down
+- treat the current DOM-backed canary as the viewable baseline to preserve while the next architectural milestone lands
+- make the next visible milestone the first scene-owned Pixi output rather than finer DOM-backed parity closure
+
 ## Branching decision
 
 This worktree already starts from `main`, and it should stay there.
@@ -228,8 +259,11 @@ Rules:
 
 ## Immediate next frontier
 
-Continue the dynamic Gate 1 / Gate 2 parity lane on normalized `All Settings`:
+Pivot from DOM-backed renderer-boundary prep to the first visible Pixi insertion:
 
-- use the graph-surface-only oracle strategy above
-- choose one shared named section and run a short pan or drag compare on that section
-- isolate the first remaining canary-only motion or interaction artifact, or explicitly close the checked pan/drag lane with normalized evidence
+1. Do not reopen the completed controller split from Ralph item `205`; `SettingsGraphSubstrateCanary.tsx` is already a view shell and that prep boundary is in place.
+2. Do not reopen the completed DOM-only shell/header/body seam-lift lane from items `228` through `233`; those contracts are now regression coverage and future scene-owned inputs, not the next default slice picker.
+3. The first remaining product frontier is permission-gated: after explicit user approval to add a frontend dependency, install Pixi and land the first scene-owned static layer for the canary while section bodies remain DOM-backed.
+4. Scope that first Pixi slice to non-editing visuals only: card shells, section chrome, simple static decoration, or equivalent scene-owned visuals that do not take over editor/input behavior.
+5. Keep the broad normalized `rotaryParamCodeObjDefault` lane as the regression oracle; rerun it plus CDP after product slices instead of opening new section-specific parity coverage.
+6. Until approval arrives, do not spend more iterations on DOM-only seam lifts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy.

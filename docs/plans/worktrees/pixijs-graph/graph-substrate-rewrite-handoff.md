@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 19:00 EDT
+Last updated: 2026-04-06 19:05 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,37 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `234` synchronizes the durable loop docs with the actual frontier after item `233`, so the next iteration no longer reopens the already-complete controller/header fallback lanes by mistake.
+  - Why this slice was needed:
+    - item `205` already finished the canary controller split, but the plan's immediate-next-frontier text still told the loop to redo that completed boundary
+    - item `233` already closed the remaining DOM-only header fallback seam, but the bottom handoff summary still told the loop to reopen the same leading-controls slice if Pixi approval was unavailable
+    - leaving those stale instructions in place would cause churn: the real remaining product frontier is now the permission-gated first scene-owned Pixi layer, not another DOM seam lift
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for the first scene-owned slice once approval arrives
+  - Production/test change:
+    - updated durable loop docs only:
+      - `RALPH.md`
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+      - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+    - the plan now records the controller split and DOM-only header/body/shell prep lanes as complete, and it treats explicit approval to add the frontend Pixi dependency as the first remaining product blocker
+  - What this slice established:
+    - the DOM-only header seam-lift lane is explicitly closed in the durable handoff, not just in the latest item entry
+    - the controller split is explicitly treated as completed prep instead of a default next slice
+    - until approval arrives, the loop should not manufacture more DOM-only seam lifts, parity-only cleanup, or lifecycle-only retries while the runtime and CDP spot-check remain healthy
+  - Verification:
+    - manual review:
+      - reread `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, and this handoff against the latest item `233` state before updating the durable next-frontier text
+    - tests:
+      - not run; docs-only sync slice
+  - Lane status:
+    - the first real remaining product frontier is blocked on explicit approval to add the frontend Pixi dependency
+    - once approval arrives, stop DOM-only seam lifting and use the accumulated shell/body/header contracts to land the first scene-owned static shell/header/body layer while DOM editors remain intact
+    - until approval arrives, treat the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only
+  - Next frontier:
+    - request explicit approval to add the Pixi frontend dependency
+    - after approval, install Pixi and land the first scene-owned static layer on the canary while section bodies remain DOM-backed
 
 - Ralph item `233` collapses the remaining `SectionHeader` leading controls behind one renderer-facing contract, so the generic header no longer hard-codes `MenuButton` plus tag-color composition inline at the same boundary a future scene-owned header would need to replace.
   - Why this slice was needed:
@@ -8242,14 +8273,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Immediate next frontier
 
 - `rotaryParamCodeObjDefault` remains the named `All Settings` spot-check target for the current renderer-ownership lane.
-- Explicit approval to add a new frontend dependency still has not arrived, so keep using the bounded DOM-backed fallback lane instead of attempting the first scene-owned Pixi shell/header/body surface.
-- The header-controls slice is now closed:
-  - `SectionHeader` no longer hard-codes the trailing diagnostics/run/follow/window/container action strip inline; one `controlsRenderer` contract now owns that strip through `DefaultSectionHeaderControlsDomAdapter`
-  - the repeated headless Playwright failure is unchanged `ensureAppReady(...)` harness noise, not product evidence, and should not trigger another standalone recovery/debugging iteration while the runtime and CDP spot-check remain healthy
-- The next bounded fallback slice, if approval is still unavailable, is the remaining leading header controls ownership:
-  - collapse the leading header controls behind one renderer-facing contract instead of leaving `MenuButton` and tag-color composition inline inside `SectionHeader`
-  - keep `rotaryParamCodeObjDefault` as the same named spot-check target and reuse the same narrow title-edit Playwright/CDP verification shape
-- If explicit approval arrives to add the frontend dependency, stop extending DOM-only header seams and use the accumulated shell-layer, body-surface, header-renderer, header-layout, and header-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact.
+- The controller split named by the plan is already complete:
+  - `SettingsGraphSubstrateCanary.tsx` is already a thin view shell behind `useSettingsGraphSubstrateCanaryController`
+  - do not reopen that boundary as a default next slice
+- The DOM-only shell/header/body prep lane is also complete through item `233`:
+  - `SectionHeader` no longer hard-codes layout, trailing controls, or leading controls inline at the future scene-owned header boundary
+  - do not reopen another DOM-only fallback seam in that area while approval is still unavailable
+- Explicit approval to add a new frontend dependency still has not arrived, and that is now the real blocker on the next product slice:
+  - once approval arrives, install Pixi and use the accumulated shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact
+  - until approval arrives, do not manufacture more DOM-only seam lifts in place of that product slice
+- Keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only:
+  - rerun it plus the required CDP spot-check after the first scene-owned slice lands
+  - the repeated headless Playwright failure is still unchanged `ensureAppReady(...)` harness noise, not product evidence
 - Do not reopen geometry-authority, parity-harness, or lifecycle-only lanes by default:
   - the current worktree and reference runtimes were healthy enough for CDP on `3076/8076/9297` and `3087/8087/9309`
   - the failing headless Playwright path still dies before the spec body with `browserContext.cookies: Target page, context or browser has been closed`, so another iteration spent only on auth/bootstrap cleanup would be churn
@@ -8275,6 +8310,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `232`
-- Latest item: `2026-04-06 232`
+- Active history window: items `001` through `234`
+- Latest item: `2026-04-06 234`
 - Older history archives: none yet

@@ -117,6 +117,10 @@ This file is the reusable loop entrypoint for this worktree.
 - If the only remaining diffs are oracle-noise classes after that normalization, do not return `REPLAN_REQUIRED`; record the noise in handoff/history and continue with `SUBTASK_DONE` or a bounded non-terminal blocker plus the next normalization or graph-surface probe step.
 - Use `REPLAN_REQUIRED` only when no bounded normalization step or graph-surface-only probe can produce trustworthy evidence without a real human decision.
 - Lane budget rule: after two oracle-only or probe-only iterations on the same named lane, the next pass must either land product code on that lane or explicitly close the lane as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
+- Once the normalized Gate 1 / Gate 2 motion/editing matrix is clean on live surfaces, stop opening new section-specific parity lanes by default. At that point the next frontier is product architecture work on scene-geometry authority and canary module deepening.
+- Treat the existing parity probe matrix as regression coverage after that handoff. Only reopen a section-specific parity lane when a broad deterministic lane or a concrete user-visible artifact fails.
+- If a broad deterministic lane is already repeatedly green and the only remaining blocker is standalone CDP/lifecycle access, do not keep spending default iterations on recovery semantics alone. After one bounded retry on the current product slice, either move to the next product prerequisite or stop for a real tooling replan.
+- After the DOM-backed substrate is stable enough to serve as a viewable baseline, the next milestone is the first visible Pixi-owned static layer. Prefer slices that make that renderer insertion possible over additional DOM-only parity closure.
 - Terminal statuses must append an explicit marker to the history file:
   - `TASK_DONE` requires `LOOP_TERMINAL_MARKER: task_done`
   - `REPLAN_REQUIRED` requires `LOOP_TERMINAL_MARKER: replan_required`
@@ -135,6 +139,7 @@ This file is the reusable loop entrypoint for this worktree.
 - If the recovery attempt still does not restore CDP/app access, return `BLOCKED`.
 - Do not claim CDP visual verification when CDP access is unavailable.
 - If a rewrite phase temporarily leaves no trustworthy live CDP canary for the gate you need, mark the slice as `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate` so the loop can keep moving while the pending visual gate stays explicit in the handoff/history.
+- Do not spend multiple back-to-back iterations on standalone lifecycle/CDP repair for a lane whose deterministic Playwright oracle is already green unless the live worktree or reference runtime is actually unhealthy. One bounded retry is enough before the blocker must either become explicit tooling debt or give way to the next product prerequisite.
 - For settings graph exact-fit / centering probes, prefer the shared Playwright parity helpers under `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` over one-off browser snippets so pane normalization, section lookup, targeted `fitView(...)`, and center-offset capture stay consistent across iterations.
 - When a settings parity lane uses the shared helpers, prefer `runSettingsGraphComparePreflight(...)` before the lane action so reference/runtime health is classified explicitly instead of being mistaken for renderer drift.
 

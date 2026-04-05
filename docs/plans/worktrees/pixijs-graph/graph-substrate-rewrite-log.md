@@ -9227,3 +9227,18 @@ LOOP_TERMINAL_MARKER: none
     - CDP visual check: done; a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, confirmed worktree `http://127.0.0.1:3076/settings` mounted the `graph-substrate-canary` with `All Settings` and `rotaryParamCodeObjDefault` visible, confirmed read-only `main` `http://127.0.0.1:3087/settings` was healthy enough for the spot-check, and found no obvious gross leading header controls drift versus `main`
   - Next: do not continue DOM-only header seam lifting; if Pixi approval arrives, use the now-complete header contracts to land the first scene-owned static shell/header/body surface while the DOM editor/body content stays intact.
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-06 19:05 EDT, Ralph item `234`
+  - Summary: synchronized the durable loop docs so the next frontier no longer points at the already-complete controller/header fallback lanes and instead records the real external blocker: explicit approval to add the frontend Pixi dependency.
+  - Files: `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Verification:
+    - manual review of `RALPH.md`, the rewrite plan, and the updated handoff against the latest completed item `233`
+    - tests not run; docs-only sync slice
+  - Result:
+    - the controller split from item `205` and the DOM-only shell/header/body prep lane through item `233` are now explicitly treated as complete in the durable docs
+    - the next real product step is permission-gated: after explicit approval, install Pixi and land the first scene-owned static shell/header/body layer while DOM editors remain intact
+    - until approval arrives, the loop should not reopen DOM-only seam lifts or spend standalone iterations on lifecycle/harness cleanup while the runtime/CDP spot-check remain healthy
+  - Next:
+    - request explicit approval to add the frontend Pixi dependency
+    - after approval, land the first scene-owned static layer and rerun the broad normalized `rotaryParamCodeObjDefault` lane plus CDP as regression coverage
+  - LOOP_TERMINAL_MARKER: none
