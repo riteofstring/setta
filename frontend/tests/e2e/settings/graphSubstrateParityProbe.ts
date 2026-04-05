@@ -80,6 +80,32 @@ export type SettingsGraphSectionMetrics = {
   transform: SettingsGraphViewportTransform | null;
 };
 
+export type SettingsGraphMotionPerfSequenceStep = {
+  deltaX: number;
+  deltaY: number;
+  modified: boolean;
+  repeat: number;
+};
+
+export type SettingsGraphMotionPerfCapture = {
+  averageFrameDurationMs: number;
+  editableControlCount: number;
+  longTaskCount: number;
+  longTaskMaxDurationMs: number;
+  longTaskTotalDurationMs: number;
+  maxFrameDurationMs: number;
+  measurementWindowMs: number;
+  rootDomNodeCount: number;
+  sampleCount: number;
+  sectionDomNodeCount: number | null;
+  slowFramesOver16_7Ms: number;
+  slowFramesOver33_3Ms: number;
+  slowFramesOver50Ms: number;
+  surfaceKind: SettingsGraphSurfaceKind | null;
+  transform: SettingsGraphViewportTransform | null;
+  visibleSectionCount: number;
+};
+
 export type SharedVisibleSettingsGraphSection = {
   name: string;
   sectionId: string;
@@ -107,6 +133,15 @@ const CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR =
 const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
 const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
+
+type SettingsGraphMotionPerfCaptureState = {
+  frameDurations: Array<number>;
+  lastFrameTimestamp: number | null;
+  longTaskDurations: Array<number>;
+  observer: PerformanceObserver | null;
+  rafHandle: number;
+  startTimestamp: number;
+};
 
 async function postSettingsGraphBackend<T>(
   page: Page,
@@ -674,6 +709,277 @@ export async function captureSettingsGraphSectionMetrics(
     titleRect,
     transform,
   };
+}
+
+export async function startSettingsGraphMotionPerfCapture(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    type SettingsGraphMotionPerfWindow = Window & {
+      __settaSettingsGraphMotionPerfCapture?: SettingsGraphMotionPerfCaptureState;
+    };
+
+    const windowRef = window as SettingsGraphMotionPerfWindow;
+    const existingCapture = windowRef.__settaSettingsGraphMotionPerfCapture;
+    if (existingCapture) {
+      cancelAnimationFrame(existingCapture.rafHandle);
+      existingCapture.observer?.disconnect();
+    }
+
+    const capture: SettingsGraphMotionPerfCaptureState = {
+      frameDurations: [],
+      lastFrameTimestamp: null,
+      longTaskDurations: [],
+      observer: null,
+      rafHandle: 0,
+      startTimestamp: performance.now(),
+    };
+
+    const onFrame = (timestamp: number) => {
+      if (capture.lastFrameTimestamp !== null) {
+        capture.frameDurations.push(timestamp - capture.lastFrameTimestamp);
+      }
+      capture.lastFrameTimestamp = timestamp;
+      capture.rafHandle = window.requestAnimationFrame(onFrame);
+    };
+
+    if (
+      typeof PerformanceObserver === "function" &&
+      PerformanceObserver.supportedEntryTypes.includes("longtask")
+    ) {
+      capture.observer = new PerformanceObserver((entryList) => {
+        for (const entry of entryList.getEntries()) {
+          capture.longTaskDurations.push(entry.duration);
+        }
+      });
+      capture.observer.observe({ entryTypes: ["longtask"] });
+    }
+
+    capture.rafHandle = window.requestAnimationFrame(onFrame);
+    windowRef.__settaSettingsGraphMotionPerfCapture = capture;
+  });
+}
+
+export async function runSettingsGraphMotionPerfSequence(
+  page: Page,
+  args: {
+    modifierKey: "Control" | "Meta";
+    point: { x: number; y: number };
+    settleFrameCount?: number;
+    steps: Array<SettingsGraphMotionPerfSequenceStep>;
+  },
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      canaryRootSelector,
+      legacyRootSelector,
+      modifierKey,
+      point,
+      settleFrameCount,
+      steps,
+    }) => {
+      const resolvedSettleFrameCount = settleFrameCount ?? 2;
+
+      const waitForAnimationFrames = async (count: number) => {
+        for (let index = 0; index < count; index += 1) {
+          await new Promise<void>((resolve) => {
+            window.requestAnimationFrame(() => resolve());
+          });
+        }
+      };
+
+      const resolveWheelTarget = (): Element => {
+        const pointTarget = document.elementFromPoint(point.x, point.y);
+        if (pointTarget instanceof Element) {
+          return pointTarget;
+        }
+
+        const root =
+          document.querySelector(canaryRootSelector) ??
+          document.querySelector(legacyRootSelector);
+        if (!(root instanceof Element)) {
+          throw new Error("Missing graph surface root for motion perf probe.");
+        }
+        return root;
+      };
+
+      await waitForAnimationFrames(2);
+
+      for (const step of steps) {
+        for (let repeatIndex = 0; repeatIndex < step.repeat; repeatIndex += 1) {
+          resolveWheelTarget().dispatchEvent(
+            new WheelEvent("wheel", {
+              bubbles: true,
+              cancelable: true,
+              clientX: point.x,
+              clientY: point.y,
+              ctrlKey: modifierKey === "Control" && step.modified,
+              deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+              deltaX: step.deltaX,
+              deltaY: step.deltaY,
+              metaKey: modifierKey === "Meta" && step.modified,
+            }),
+          );
+          await waitForAnimationFrames(resolvedSettleFrameCount);
+        }
+      }
+
+      await waitForAnimationFrames(2);
+    },
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      modifierKey: args.modifierKey,
+      point: args.point,
+      settleFrameCount: args.settleFrameCount ?? 2,
+      steps: args.steps,
+    },
+  );
+}
+
+export async function stopSettingsGraphMotionPerfCapture(
+  page: Page,
+  sectionId?: string,
+): Promise<SettingsGraphMotionPerfCapture> {
+  return page.evaluate(
+    ({
+      canaryRootSelector,
+      canarySectionSelector,
+      canaryViewportSelector,
+      legacyRootSelector,
+      legacySectionSelector,
+      legacyViewportSelector,
+      targetSectionId,
+    }) => {
+      type SettingsGraphMotionPerfWindow = Window & {
+        __settaSettingsGraphMotionPerfCapture?: SettingsGraphMotionPerfCaptureState;
+      };
+
+      const windowRef = window as SettingsGraphMotionPerfWindow;
+      const capture = windowRef.__settaSettingsGraphMotionPerfCapture;
+      if (!capture) {
+        throw new Error("Missing settings graph motion perf capture state.");
+      }
+
+      cancelAnimationFrame(capture.rafHandle);
+      capture.observer?.disconnect();
+      delete windowRef.__settaSettingsGraphMotionPerfCapture;
+
+      const surfaceKind = document.querySelector(canaryRootSelector)
+        ? "canary"
+        : document.querySelector(legacyRootSelector)
+          ? "legacy"
+          : null;
+      const rootSelector =
+        surfaceKind === "canary"
+          ? canaryRootSelector
+          : surfaceKind === "legacy"
+            ? legacyRootSelector
+            : null;
+      const sectionSelector =
+        surfaceKind === "canary"
+          ? canarySectionSelector
+          : surfaceKind === "legacy"
+            ? legacySectionSelector
+            : null;
+      const viewportSelector =
+        surfaceKind === "canary"
+          ? canaryViewportSelector
+          : surfaceKind === "legacy"
+            ? legacyViewportSelector
+            : null;
+
+      const root = rootSelector
+        ? document.querySelector<HTMLElement>(rootSelector)
+        : null;
+      const section = !targetSectionId
+        ? null
+        : document.querySelector<HTMLElement>(
+            `${canarySectionSelector}[data-section-id="${targetSectionId}"]`,
+          ) ??
+          document.querySelector<HTMLElement>(
+            `${legacySectionSelector}[data-id="${targetSectionId}"]`,
+          );
+      const viewport = viewportSelector
+        ? document.querySelector<HTMLElement>(viewportSelector)
+        : null;
+
+      const frameDurations = capture.frameDurations;
+      const longTaskDurations = capture.longTaskDurations;
+      const frameDurationTotal = frameDurations.reduce(
+        (total, duration) => total + duration,
+        0,
+      );
+      const longTaskTotalDurationMs = longTaskDurations.reduce(
+        (total, duration) => total + duration,
+        0,
+      );
+      const longTaskMaxDurationMs =
+        longTaskDurations.length > 0 ? Math.max(...longTaskDurations) : 0;
+      const transform = !viewport
+        ? null
+        : (() => {
+            const computedTransform =
+              window.getComputedStyle(viewport).transform;
+            if (!computedTransform || computedTransform === "none") {
+              return { x: 0, y: 0, zoom: 1 };
+            }
+
+            const matrix = new DOMMatrixReadOnly(computedTransform);
+            return {
+              x: matrix.e,
+              y: matrix.f,
+              zoom: matrix.a,
+            };
+          })();
+
+      return {
+        averageFrameDurationMs:
+          frameDurations.length > 0
+            ? frameDurationTotal / frameDurations.length
+            : 0,
+        editableControlCount: root
+          ? root.querySelectorAll(
+              'input, textarea, select, [contenteditable="true"]',
+            ).length
+          : 0,
+        longTaskCount: longTaskDurations.length,
+        longTaskMaxDurationMs,
+        longTaskTotalDurationMs,
+        maxFrameDurationMs:
+          frameDurations.length > 0 ? Math.max(...frameDurations) : 0,
+        measurementWindowMs: performance.now() - capture.startTimestamp,
+        rootDomNodeCount: root ? root.querySelectorAll("*").length + 1 : 0,
+        sampleCount: frameDurations.length,
+        sectionDomNodeCount: section
+          ? section.querySelectorAll("*").length + 1
+          : null,
+        slowFramesOver16_7Ms: frameDurations.filter(
+          (duration) => duration > 16.7,
+        ).length,
+        slowFramesOver33_3Ms: frameDurations.filter(
+          (duration) => duration > 33.3,
+        ).length,
+        slowFramesOver50Ms: frameDurations.filter((duration) => duration > 50)
+          .length,
+        surfaceKind,
+        transform,
+        visibleSectionCount:
+          root && sectionSelector
+            ? root.querySelectorAll(sectionSelector).length
+            : 0,
+      };
+    },
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      canaryViewportSelector: CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacyViewportSelector: LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR,
+      targetSectionId: sectionId ?? null,
+    },
+  );
 }
 
 async function waitForSettingsGraphComparePaneChrome(

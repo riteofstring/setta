@@ -16,9 +16,13 @@ import {
   getSettingsGraphSectionRenderedZIndex,
   normalizeSettingsGraphComparePaneState,
   runSettingsGraphComparePreflight,
+  runSettingsGraphMotionPerfSequence,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
+  startSettingsGraphMotionPerfCapture,
+  stopSettingsGraphMotionPerfCapture,
   type ProjectStateSingleConfigWithCompletedOpIds,
+  type SettingsGraphMotionPerfCapture,
   type SettingsGraphSectionMetrics,
 } from "./graphSubstrateParityProbe";
 
@@ -12343,6 +12347,295 @@ test("settings graph parity probe composes shared programmatic panBy and zoom in
         worktreeResult.titleRect.height - referenceResult.titleRect.height,
       ),
     ).toBeLessThan(8);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
+test("settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.slow();
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const targetSectionName = "rotaryParamCodeObjDefault";
+  const worktreeTargetSectionId = findSectionIdByName(
+    worktreeInitialState,
+    targetSectionName,
+  );
+  const referenceTargetSectionId = findSectionIdByName(
+    referenceInitialState,
+    targetSectionName,
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+
+  async function captureNormalizedMotionPerf(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    side: "reference" | "worktree";
+    targetPage: Page;
+  }): Promise<{
+    afterMetrics: SettingsGraphSectionMetrics;
+    beforeMetrics: SettingsGraphSectionMetrics;
+    perf: SettingsGraphMotionPerfCapture;
+  }> {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const beforeMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (!beforeMetrics.rect || !beforeMetrics.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} perf baseline metrics for ${targetSectionName}.`,
+      );
+    }
+
+    const motionPoint = await findSettingsGraphPanePoint(args.targetPage);
+
+    await startSettingsGraphMotionPerfCapture(args.targetPage);
+    await runSettingsGraphMotionPerfSequence(args.targetPage, {
+      modifierKey: MOD_KEY,
+      point: motionPoint,
+      settleFrameCount: 2,
+      steps: [
+        { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
+        { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
+        { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
+        { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
+      ],
+    });
+    const perf = await stopSettingsGraphMotionPerfCapture(
+      args.targetPage,
+      args.sectionId,
+    );
+
+    const afterMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (!afterMetrics.rect || !afterMetrics.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} perf result metrics for ${targetSectionName}.`,
+      );
+    }
+
+    return {
+      afterMetrics,
+      beforeMetrics,
+      perf,
+    };
+  }
+
+  try {
+    const referenceResult = await captureNormalizedMotionPerf({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceTargetSectionId,
+      side: "reference",
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureNormalizedMotionPerf({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeTargetSectionId,
+      side: "worktree",
+      targetPage: page,
+    });
+
+    console.info(
+      "settings-graph-performance-probe",
+      JSON.stringify(
+        {
+          reference: referenceResult.perf,
+          worktree: worktreeResult.perf,
+        },
+        null,
+        2,
+      ),
+    );
+
+    expect(referenceResult.perf.surfaceKind).toBe("legacy");
+    expect(worktreeResult.perf.surfaceKind).toBe("canary");
+    expect(referenceResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
+    expect(worktreeResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
+    expect(referenceResult.perf.rootDomNodeCount).toBeGreaterThan(0);
+    expect(worktreeResult.perf.rootDomNodeCount).toBeGreaterThan(0);
+    expect(referenceResult.perf.sectionDomNodeCount).toBeGreaterThan(0);
+    expect(worktreeResult.perf.sectionDomNodeCount).toBeGreaterThan(0);
+    expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40);
+    expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40);
+    expect(referenceResult.perf.maxFrameDurationMs).toBeLessThan(120);
+    expect(worktreeResult.perf.maxFrameDurationMs).toBeLessThan(120);
+
+    if (
+      referenceResult.beforeMetrics.transform &&
+      referenceResult.afterMetrics.transform &&
+      worktreeResult.beforeMetrics.transform &&
+      worktreeResult.afterMetrics.transform
+    ) {
+      expect(
+        Math.abs(
+          referenceResult.afterMetrics.transform.zoom -
+            referenceResult.beforeMetrics.transform.zoom,
+        ),
+      ).toBeLessThan(0.08);
+      expect(
+        Math.abs(
+          worktreeResult.afterMetrics.transform.zoom -
+            worktreeResult.beforeMetrics.transform.zoom,
+        ),
+      ).toBeLessThan(0.08);
+    }
   } finally {
     await restoreCurrentPageState({
       backendOrigin: WORKTREE_BACKEND_ORIGIN,

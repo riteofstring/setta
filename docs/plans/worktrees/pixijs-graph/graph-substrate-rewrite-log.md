@@ -6805,3 +6805,58 @@ LOOP_TERMINAL_MARKER: none
   - start the first measured normal-zoom performance probe on the same canonical `rotaryParamCodeObjDefault` `All Settings` lane so phase 1 can be judged against the `not obviously worse than legacy` exit criterion
   - record the findings under `perf/` and use that measurement to choose the next real product hotspot instead of reopening another controller-only extraction lane
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 182
+
+- Item: Add the first deterministic normal-zoom canary-vs-legacy performance probe on the canonical `rotaryParamCodeObjDefault` lane and record the baseline under `perf/`.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `181` already said the next real frontier was a measured normal-zoom perf pass, not another controller extraction or probe-only parity rerun
+    - the rewrite needed one automated baseline on the trusted normalized `All Settings` lane so the next hotspot choice would come from evidence rather than guesswork
+    - using the existing `rotaryParamCodeObjDefault` lane keeps the probe aligned with the current regression oracle instead of opening a new section-specific lane
+  - Production/test/report change:
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - added reusable motion-perf helpers for frame sampling, long-task capture, DOM counts, and a deterministic wheel-based pan/zoom sequence
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary`
+      - the probe normalizes both surfaces to `All Settings`, runs the shared fit-view preflight on `rotaryParamCodeObjDefault`, measures the same deterministic sequence on both sides, and keeps coarse frame-cost guardrails
+    - added `perf/reports/frontend/2026-04-05_settings-graph-substrate-normal-zoom-baseline.md`
+      - records the initial canary-vs-legacy baseline plus the paired CDP trace summary
+  - What this slice established:
+    - the worktree canary is not obviously worse than read-only `main` on the measured lane:
+      - legacy: `16.65ms` average frame duration, `33.5ms` max, `0` long tasks, `8907` graph-root DOM nodes
+      - canary: `17.00ms` average frame duration, `50.1ms` max, `1` long task (`60ms`), `9515` graph-root DOM nodes
+      - both sides collected `44` frame samples and ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the next measured hotspot is now concrete:
+      - DevTools trace saved at `perf/artifacts/frontend/settings-graph-substrate/2026-04-05-rotary-normal-zoom-worktree-trace.json`
+      - trace summary: `INP 90ms`, with `presentation delay 65ms`, `processing 23ms`, `input delay 2ms`
+      - Chrome reported `Estimated savings: none`, so the next pass should inspect presentation/layout/paint timing instead of backend/network noise
+    - the required CDP visual confirmation is also green on the same named lane:
+      - fresh-context sub-agent normalized worktree `3076/settings` and read-only main `3087/settings` to `All Settings` around `rotaryParamCodeObjDefault`
+      - the canary stayed attached with no gross drift versus `main`; only minor surrounding-order noise remained
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-012/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-012/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `40.6s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual/perf check:
+    - result: done
+    - note: no gross drift versus `main`; trace saved and summarized above
+- Lane status:
+  - the first normal-zoom performance probe is now landed as automated regression coverage plus a documented baseline report
+  - do not reopen another support-only probe pass on this lane by default; use the saved trace to drive the next product change
+- Next action:
+  - inspect the canary-side `presentation delay` contributor from the saved trace and land one bounded product change against that hotspot on the same `rotaryParamCodeObjDefault` lane
+  - rerun this exact performance probe plus CDP visual/perf confirmation after that product change
+- LOOP_TERMINAL_MARKER: none
