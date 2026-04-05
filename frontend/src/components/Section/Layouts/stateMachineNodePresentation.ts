@@ -1,6 +1,6 @@
 import { getLatestStateMachineRun } from "state/actions/stateMachineRuns";
 import {
-  AgentRunStatusEnum,
+  RunStatusEnum,
   SectionTypeEnum,
   type AgentRun,
 } from "utils/generatedTypes";
@@ -96,7 +96,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: false,
     };
   }
-  if (run.status === AgentRunStatusEnum.running) {
+  if (run.status === RunStatusEnum.running) {
     return {
       statusLabel: "Running",
       statusClasses:
@@ -105,7 +105,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: true,
     };
   }
-  if (run.status === AgentRunStatusEnum.completed) {
+  if (run.status === RunStatusEnum.completed) {
     return {
       statusLabel: "Completed",
       statusClasses:
@@ -114,7 +114,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: true,
     };
   }
-  if (run.status === AgentRunStatusEnum.failed) {
+  if (run.status === RunStatusEnum.failed) {
     return {
       statusLabel: "Failed",
       statusClasses:
@@ -277,7 +277,7 @@ function getRecentActivityItems({
     return [];
   }
   const failureSummaryLabel = getFailureSummaryLabel(latestRun);
-  const events = latestRun.events;
+  const events = Array.isArray(latestRun.events) ? latestRun.events : [];
   const activityItems: StateMachineActivityItem[] = [];
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
@@ -521,9 +521,12 @@ function getRunOutputs(run: AgentRun | null): Record<string, unknown> | null {
 }
 
 function getPayloadString(
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown> | null | undefined,
   key: string,
 ): string | null {
+  if (payload === null || payload === undefined || Array.isArray(payload)) {
+    return null;
+  }
   const rawValue = payload[key];
   if (typeof rawValue !== "string" || rawValue.trim() === "") {
     return null;
@@ -532,9 +535,12 @@ function getPayloadString(
 }
 
 function getPayloadArrayLength(
-  payload: Record<string, unknown>,
+  payload: Record<string, unknown> | null | undefined,
   key: string,
 ): number | null {
+  if (payload === null || payload === undefined || Array.isArray(payload)) {
+    return null;
+  }
   const rawValue = payload[key];
   if (!Array.isArray(rawValue)) {
     return null;
