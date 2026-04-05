@@ -15,15 +15,15 @@ function createArtifactId(extension: string = ".json") {
 }
 
 export function createJsonArtifactId() {
-  return createArtifactId(".json");
+  return createFileArtifactId(".json");
 }
 
 export function createCsvArtifactId() {
-  return createArtifactId(".csv");
+  return createFileArtifactId(".csv");
 }
 
 export function createPngArtifactId() {
-  return createArtifactId(".png");
+  return createFileArtifactId(".png");
 }
 
 export function createFileArtifactId(extension: string = ".bin") {
