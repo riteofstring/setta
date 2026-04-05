@@ -5823,3 +5823,48 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - investigate why the canary leaves `dropzoneParamCodeObjDefault` about `105px` off vertically after the same normalized backend-driven post-drag state, now that filter normalization and manual-drag noise are removed
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 162
+
+- Item: Open and close the canonical `dictSectionDefault` normalized top-level drag lane with a trusted Playwright probe plus deterministic CDP post-state confirmation.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `161` closed `dropzoneParamCodeObjDefault`, so the next bounded motion step had to move to another named section instead of repeating a finished lane
+    - `dictSectionDefault` already had authoritative viewport-shift and toolbar-zoom evidence, but it still lacked a trusted normalized top-level drag lane on `All Settings`
+    - the last two completed iterations were support/oracle-heavy, so this pass needed to spend its one allowed support slice on a new lane that directly narrows the next renderer question
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the dict config language row attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `dictSectionDefault`, runs shared compare preflight, fits the named section, applies the same short top-level drag, and compares row-anchor drift plus post-drag graph-surface geometry
+  - What this slice established:
+    - the targeted live Playwright lane passed on the current run-022 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `dictSectionDefault` drag staying within thresholds
+    - fresh-context CDP preflight was clean on both sides: worktree mounted `canary`, main mounted `legacy`, both were on `All Settings`, both matched the normalized compare pane state, and both resolved `dictSectionDefault`
+    - one fresh-context CDP manual drag replay left the canary unchanged while legacy moved; treat that read as untrusted drag-hit-target noise, not renderer evidence
+    - the follow-up fresh-context CDP rerun used the deterministic backend/state post-drag lane instead of manual drag replay:
+      - cleared viewport with `setViewport(null)`
+      - fit `dictSectionDefault`
+      - applied the same authoritative `{ x: 120, y: 80 }` backend move through `setTopLevelSectionLayout`
+      - worktree layout moved from about `1291.08,1860.72` to `1411.08,1940.72`
+      - main reference layout moved from about `1433.64,1955.76` to `1553.64,2035.76`
+    - the remaining deterministic post-state full-surface fit/scale mismatch did not track the drag delta and should be treated as oracle noise, not motion-specific renderer drift on this lane
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the dict config language row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `33.9s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - first compared worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings` with a manual drag replay and rejected that shape as untrusted when the canary did not move
+    - reran the same named lane with deterministic backend/state post-drag normalization on both sides
+  - CDP visual check:
+    - result: done
+    - note: manual drag replay on `dictSectionDefault` was untrusted hit-target noise; deterministic backend-state post-drag showed no motion-specific renderer drift on this lane
+- Lane status:
+  - close `dictSectionDefault` as a clean normalized top-level drag lane
+  - do not reopen the manual CDP drag replay miss or the deterministic fit/scale mismatch on this lane as motion-specific renderer drift
+- Next action:
+  - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
+- LOOP_TERMINAL_MARKER: none
