@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 09:42 EDT
+Last updated: 2026-04-08 09:59 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,41 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `309` spent the bounded blocker-resolution pass that item `308`
+    requested, but the required visual gate is still blocked after the one
+    allowed in-pass recovery on the current `run-026` lifecycle:
+    - no product code changed on this pass; the work stayed bounded to
+      classifying and retrying the pending visual gate for item `308`
+    - fresh-context CDP sub-agent on the pre-recovery runtime pair:
+      - worktree `3075` `/settings` mounted a stable graph shell with
+        `All Settings` active, but did not visibly show the canonical
+        `rotaryParamCodeObjDefault` lane
+      - read-only `main` `3087` `/settings` mounted a comparable settings
+        surface and did show `rotaryParamCodeObjDefault`
+      - neither side showed a blank shell or loading spinner
+    - shared automated preflight retry on the same pre-recovery runtime pair:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-026 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-026 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - result: failed in Playwright global setup because the worktree
+        bootstrap URL returned `401 Unauthorized`
+    - one bounded headless worktree recovery was attempted as required:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+      - refreshed worktree runtime after recovery: frontend `3075` (from
+        restart logs; runtime helper temporarily returned `frontendUrl: null`
+        while Vite was already serving), backend `8075`, debug port `9297`,
+        bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+    - fresh-context post-recovery CDP retry still did not close the gate:
+      - worktree `/settings` mounted and main `/settings` mounted
+      - main bootstrap token still rejected when retried directly
+      - worktree CDP page became unresponsive after keyboard activation of
+        `All Settings`; `press_key` timed out and the follow-up snapshot also
+        timed out
+    - reading:
+      - the blocker is currently lifecycle / CDP health on the live worktree
+        verification path, not a new product-code regression on the landed
+        item-`308` overlap fast path
+      - do not open another product hypothesis until a fresh loop-managed
+        lifecycle closes item `308`'s required visual gate on the restarted
+        runtime pair
   - item `308` completed one bounded product hypothesis on the canonical
     `rotaryParamCodeObjDefault` lane, then re-blocked on the required CDP gate
     after the one allowed headless recovery:

@@ -3300,6 +3300,50 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-08 09:59 EDT - Ralph item 309
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded blocker-resolution subtask that item `308` explicitly
+  handed off: retry the required visual gate on a fresh loop-managed lifecycle
+  before opening any new product hypothesis.
+- Landed:
+  - no product code changes; this pass stayed bounded to lifecycle recovery,
+    preflight classification, and the pending CDP verification retry for item
+    `308`
+- Verification:
+  - fresh-context CDP sub-agent on the pre-recovery `run-026` runtime pair:
+    - worktree `3075` `/settings` mounted a stable graph shell with
+      `All Settings` active, but it did not visibly show the canonical
+      `rotaryParamCodeObjDefault` lane
+    - read-only `main` `3087` `/settings` mounted a comparable settings
+      surface and did show `rotaryParamCodeObjDefault`
+    - neither side showed a blank shell or loading spinner
+  - shared automated preflight retry on the same pre-recovery runtime pair:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-026 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-026 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: failed in Playwright global setup because the worktree bootstrap
+      URL returned `401 Unauthorized`
+- CDP / lifecycle recovery:
+  - one bounded headless worktree recovery was attempted as required:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+    - refreshed worktree runtime after recovery: frontend `3075` (from restart
+      logs; the runtime helper temporarily returned `frontendUrl: null` while
+      Vite was already serving), backend `8075`, debug port `9297`, bootstrap
+      `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+  - fresh-context post-recovery CDP retry still failed to close the visual
+    gate:
+    - worktree `/settings` mounted and main `/settings` mounted
+    - the main bootstrap token still rejected when retried directly
+    - on the worktree page, `press_key` timed out after keyboard activation of
+      `All Settings`, and the follow-up snapshot also timed out
+- Result:
+  - the blocked lane is lifecycle / CDP health on the live worktree
+    verification path, not a new measured regression on item `308`'s landed
+    overlap fast path
+  - the one allowed in-iteration recovery attempt is spent; the next fresh
+    loop should restart the worktree lifecycle and retry the required visual
+    gate before opening another product hypothesis
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 187
 
 - Item: Move viewport fallback seeding onto the authoritative canary scene snapshot and remove the raw `sections[0]` seed from the canary root.
