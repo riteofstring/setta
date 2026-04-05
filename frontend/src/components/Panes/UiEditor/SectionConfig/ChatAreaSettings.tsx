@@ -4,7 +4,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
@@ -37,11 +36,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_agentic_summary_cache_status,
   route_set_chat_section_chat_id,
@@ -54,33 +49,28 @@ import {
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
-  type SetChatSectionSettingsRequest,
 } from "utils/generatedTypes";
 
 type ChatAreaSettingsProps = {
   sectionId: string;
 };
 
-type ChatSectionSettingsPayload = Pick<
-  SetChatSectionSettingsRequest,
-  | "managed"
-  | "engineConfigId"
-  | "transcriptionProfileId"
-  | "agentProfileId"
-  | "thinking"
-  | "permissionMode"
-  | "searchEnabled"
-  | "dictationMode"
->;
+type ChatSectionSettingsPayload = {
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  thinking: boolean;
+  permissionMode: "minimal" | "yolo" | "config_toml_custom";
+  searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
+};
 
 type SectionOption = {
   id: string;
   name: string;
   type: SectionTypeEnum;
 };
-
-type AgenticSummaryCacheStatusRouteResponse =
-  ResponseDataAndStatus<AgenticSummaryCacheStatus>;
 
 type LinkedChatTargetFilterArgs = {
   sectionOptions: Array<SectionOption>;
@@ -337,11 +327,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
-    [availableConfigGroups, selectedLLMConfigId],
-  );
 
   const sectionLabelsById = useMemo(() => {
     const labels: Record<string, string> = {};
@@ -508,11 +493,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     setSummaryCacheStatusLoading(true);
     try {
-      const response: AgenticSummaryCacheStatusRouteResponse =
-        await route_get_agentic_summary_cache_status({
-          projectConfigId,
-          chatSectionId: sectionId,
-        });
+      const response = await route_get_agentic_summary_cache_status({
+        projectConfigId,
+        chatSectionId: sectionId,
+      });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
         const status =
@@ -849,7 +833,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     : "Select an LLM";
   const highlightMissingConfig =
     engineType === EngineTypeEnum.setta_llm &&
-    !selectableLLMConfigId &&
+    !selectedLLMConfigId &&
     !noConfigsAvailable;
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
@@ -947,7 +931,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 </p>
                 <IdNameCombobox
                   allItems={availableConfigGroups}
-                  value={selectableLLMConfigId}
+                  value={selectedLLMConfigId}
                   small={false}
                   onSelectedItemChange={handleLLMConfigChange}
                   placeholder={configPlaceholder}
