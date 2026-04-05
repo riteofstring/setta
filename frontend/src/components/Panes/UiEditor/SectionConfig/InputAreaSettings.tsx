@@ -1,9 +1,10 @@
+import { createFile } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import { updateProjectState } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
 import { res200 } from "utils/endpointUtils";
-import { route_create_file } from "utils/generatedEndpoints";
 
 // TODO: enable this stuff again, but it should show jsonSourceGlob I guess
 export function InputAreaSettings({ sectionId }) {
@@ -40,7 +41,13 @@ export function InputAreaSettings({ sectionId }) {
 
   async function onClickCreateJSON() {
     if (value) {
-      const res = await route_create_file({ filepath: value });
+      const res = await callOpenAPI(
+        createFile({
+          body: {
+            filepath: value,
+          },
+        }),
+      );
       if (res200(res)) {
         onBlur(value);
       }

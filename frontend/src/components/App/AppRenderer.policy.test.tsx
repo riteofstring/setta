@@ -1,19 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useAppConfigs } from "state/definitions";
+import { useAppConfigs, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
+  createPolicy,
   createProjectConfig,
-  createSharePolicy,
   createSingletonSections,
   createTextBlockSectionImpl,
-  createUserDefaultCallableSectionImpl,
-  createUserDefaultCodeParamCodeObjImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 
@@ -67,13 +64,10 @@ describe("AppRenderer policy enforcement", () => {
       impl: sectionImplId,
       nonPresetImpls: [],
     });
-    const sectionImpl = createCallableSectionImpl(
-      createUserDefaultCallableSectionImpl(),
-      {
-        id: sectionImplId,
-        codeObjVariantMap: { [paramId]: paramVariantId },
-      },
-    );
+    const sectionImpl = createCallableSectionImpl({
+      id: sectionImplId,
+      codeObjVariantMap: { [paramId]: paramVariantId },
+    });
     const paramCore = createCore({
       id: paramId,
       name: "Param",
@@ -87,14 +81,11 @@ describe("AppRenderer policy enforcement", () => {
       impl: paramImplId,
       nonPresetImpls: [],
     });
-    const paramImpl = createCodeParamCodeObjImpl(
-      createUserDefaultCodeParamCodeObjImpl(),
-      {
-        id: paramImplId,
-        name: "Param",
-        coreNameEditable: true,
-      },
-    );
+    const paramImpl = createCodeParamCodeObjImpl({
+      id: paramImplId,
+      name: "Param",
+      coreNameEditable: true,
+    });
 
     useAppConfigs.setState({
       configs: {
@@ -103,6 +94,7 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [sectionVariantId]: sectionVariant },
           sectionImpls: { [sectionImplId]: sectionImpl },
+          sectionCapabilities: {},
           codeObjs: { [paramId]: paramCore },
           codeObjVariants: { [paramVariantId]: paramVariant },
           codeObjImpls: { [paramImplId]: paramImpl },
@@ -116,7 +108,25 @@ describe("AppRenderer policy enforcement", () => {
         },
       },
     });
+    useProjectState.setState({
+      projectConfig,
+      sections: { [sectionId]: sectionCore },
+      sectionVariants: { [sectionVariantId]: sectionVariant },
+      sectionImpls: { [sectionImplId]: sectionImpl },
+      sectionCapabilities: {},
+      codeObjs: { [paramId]: paramCore },
+      codeObjVariants: { [paramVariantId]: paramVariant },
+      codeObjImpls: { [paramImplId]: paramImpl },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+    });
     syncStoreInitialState(useAppConfigs);
+    syncStoreInitialState(useProjectState);
 
     const runtimeValue = {
       dataBindings: {},
@@ -126,7 +136,7 @@ describe("AppRenderer policy enforcement", () => {
           artifactId: "artifacts/report.txt",
         },
       },
-      policy: createSharePolicy({
+      policy: createPolicy({
         allowParamChanges: false,
         allowFileDownloads: false,
         allowExternalLinks: false,
@@ -272,14 +282,8 @@ describe("AppRenderer policy enforcement", () => {
       impl: implBId,
       nonPresetImpls: [],
     });
-    const implA = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: implAId, text: "Alpha" },
-    );
-    const implB = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: implBId, text: "Beta" },
-    );
+    const implA = createTextBlockSectionImpl({ id: implAId, text: "Alpha" });
+    const implB = createTextBlockSectionImpl({ id: implBId, text: "Beta" });
 
     useAppConfigs.setState({
       configs: {
@@ -288,6 +292,7 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
           sectionImpls: { [implAId]: implA, [implBId]: implB },
+          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -304,6 +309,7 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
           sectionImpls: { [implAId]: implA, [implBId]: implB },
+          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -322,7 +328,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createSharePolicy({ allowRun: true }),
+      policy: createPolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,
@@ -365,10 +371,10 @@ describe("AppRenderer policy enforcement", () => {
       impl: sectionImplId,
       nonPresetImpls: [],
     });
-    const sectionImpl = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: sectionImplId, text: "From impl" },
-    );
+    const sectionImpl = createTextBlockSectionImpl({
+      id: sectionImplId,
+      text: "From impl",
+    });
 
     useAppConfigs.setState({
       configs: {
@@ -377,6 +383,7 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [sectionVariantId]: sectionVariant },
           sectionImpls: { [sectionImplId]: sectionImpl },
+          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -395,7 +402,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createSharePolicy({ allowRun: true }),
+      policy: createPolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,

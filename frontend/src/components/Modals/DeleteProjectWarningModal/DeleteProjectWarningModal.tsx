@@ -1,8 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { deleteProjectConfigs } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { BiErrorCircle } from "react-icons/bi";
 import { closeModal, useModalData } from "state/actions/modal";
 import { res200 } from "utils/endpointUtils";
-import { route_delete_project_configs } from "utils/generatedEndpoints";
 import { ModalTypeEnum } from "../types";
 
 export function DeleteProjectWarningModal() {
@@ -15,9 +16,13 @@ export function DeleteProjectWarningModal() {
   };
 
   const handleConfirm = async () => {
-    const res = await route_delete_project_configs({
-      ids: selectedProjectsIdName.map((x) => x.id),
-    });
+    const res = await callOpenAPI(
+      deleteProjectConfigs({
+        body: {
+          ids: selectedProjectsIdName.map((x) => x.id),
+        },
+      }),
+    );
     if (res200(res)) {
       closeModal();
       return;

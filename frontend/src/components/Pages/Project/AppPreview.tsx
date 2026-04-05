@@ -1,4 +1,6 @@
 import { AppRenderer } from "components/App/AppRenderer";
+import { loadProjectConfig as loadProjectConfigRequest } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -8,9 +10,14 @@ import {
   useAppPreview,
   useProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_load_project_config } from "utils/generatedEndpoints";
-import { createAppDefinition } from "utils/generatedTypes";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  createAppDefinition,
+  type AppDefinition,
+  type SingleConfig,
+} from "utils/generatedTypes";
+
+type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
@@ -46,12 +53,14 @@ export function AppPreview() {
     return {
       ...base,
       theme:
-        previewThemeOverride !== undefined ? previewThemeOverride : base.theme,
+        previewThemeOverride !== undefined
+          ? (previewThemeOverride as AppDefinition["theme"])
+          : base.theme,
       assets:
         previewAssetsOverride !== undefined
-          ? previewAssetsOverride ?? []
+          ? ((previewAssetsOverride ?? []) as AppDefinition["assets"])
           : base.assets,
-    };
+    } as AppDefinition;
   }, [appDefinition, previewAssetsOverride, previewThemeOverride]);
 
   useEffect(() => {
@@ -86,11 +95,16 @@ export function AppPreview() {
     if (!configName) {
       return;
     }
+    const resolvedConfigName = configName;
     let cancelled = false;
     async function loadConfig() {
-      const res = await route_load_project_config({
-        projectConfigName: configName,
-      });
+      const res = (await callOpenAPI(
+        loadProjectConfigRequest({
+          body: {
+            projectConfigName: resolvedConfigName,
+          },
+        }),
+      )) as LoadProjectConfigRouteResponse;
       if (!res200(res) || cancelled) {
         return;
       }

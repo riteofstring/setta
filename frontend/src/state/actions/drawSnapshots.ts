@@ -1,6 +1,7 @@
+import { uploadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { res200 } from "utils/endpointUtils";
-import { route_binary_upload } from "utils/generatedEndpoints";
-import { BinaryContentRef } from "utils/generatedTypes";
+import { ContentRef } from "utils/generatedTypes";
 
 type DrawSnapshotProvider = () => Promise<Blob | null> | Blob | null;
 
@@ -19,8 +20,8 @@ export function unregisterDrawSnapshotProvider(sectionId: string): void {
 
 export async function collectDrawSnapshotPayloads(
   sectionIds: string[],
-): Promise<Record<string, BinaryContentRef> | null> {
-  const payloads: Record<string, BinaryContentRef> = {};
+): Promise<Record<string, ContentRef> | null> {
+  const payloads: Record<string, ContentRef> = {};
   const entries = await Promise.all(
     sectionIds.map(async (sectionId) => {
       const provider = drawSnapshotProviders.get(sectionId);
@@ -42,14 +43,18 @@ export async function collectDrawSnapshotPayloads(
   }
   const uploads = await Promise.all(
     blobs.map(async ({ sectionId, blob }) => {
-      const form = new FormData();
-      form.append("file", blob, "snapshot.png");
-      form.append("durable", "false");
-      const res = await route_binary_upload(form);
-      if (!res200(res)) {
+      const res = await callOpenAPI(
+        uploadBinary({
+          body: {
+            durable: false,
+            file: blob,
+          },
+        }),
+      );
+      if (!res200(res) || !res.data) {
         return null;
       }
-      return { sectionId, ref: res.data };
+      return { sectionId, ref: res.data as ContentRef };
     }),
   );
   for (const upload of uploads) {
