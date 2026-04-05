@@ -24,7 +24,6 @@ import {
   FileArtifact,
   ImageArtifact,
   NotificationTypeEnum,
-  UpdateArtifactsRequest,
 } from "utils/generatedTypes";
 type ArtifactByType =
   | ImageArtifact
@@ -32,8 +31,11 @@ type ArtifactByType =
   | DrawAreaLayerItemTransformArtifact
   | ChartDataArtifact
   | FileArtifact;
+type UpdateArtifactsBody = NonNullable<
+  Parameters<typeof updateArtifactsApi>[0]["body"]
+>;
 type UpdateArtifactsContent = {
-  artifacts: UpdateArtifactsRequest["artifacts"];
+  artifacts: UpdateArtifactsBody["artifacts"];
   updateType: "update" | "delete";
 };
 type StoreUpdate<T extends ArtifactByType> = {

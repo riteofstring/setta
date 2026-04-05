@@ -114,15 +114,7 @@ import {
   ChatPermissionModeEnum,
   ChatRoleEnum,
   ChatSectionState,
-  CreateAgentProfileRequest,
-  CreateExternalAgentConfigRequest,
   createMessageTextContent,
-  CreatePromptTemplateRequest,
-  CreateTranscriptionProfileRequest,
-  DeleteAgentProfileRequest,
-  DeleteExternalAgentConfigRequest,
-  DeletePromptTemplateRequest,
-  DeleteTranscriptionProfileRequest,
   EngineConfig,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
@@ -140,11 +132,7 @@ import {
   ToolChatMessage,
   ToolResultEvent,
   TranscriptionProfile,
-  UpdateAgentProfileRequest,
   UpdateEngineConfigRequest,
-  UpdateExternalAgentConfigRequest,
-  UpdatePromptTemplateRequest,
-  UpdateTranscriptionProfileRequest,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
@@ -191,6 +179,42 @@ type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
 };
+type CreateAgentProfileBody = NonNullable<
+  Parameters<typeof apiCreateAgentProfile>[0]["body"]
+>;
+type UpdateAgentProfileBody = NonNullable<
+  Parameters<typeof apiUpdateAgentProfile>[0]["body"]
+>;
+type DeleteAgentProfileBody = NonNullable<
+  Parameters<typeof apiDeleteAgentProfile>[0]["body"]
+>;
+type CreateTranscriptionProfileBody = NonNullable<
+  Parameters<typeof apiCreateTranscriptionProfile>[0]["body"]
+>;
+type UpdateTranscriptionProfileBody = NonNullable<
+  Parameters<typeof apiUpdateTranscriptionProfile>[0]["body"]
+>;
+type DeleteTranscriptionProfileBody = NonNullable<
+  Parameters<typeof apiDeleteTranscriptionProfile>[0]["body"]
+>;
+type CreatePromptTemplateBody = NonNullable<
+  Parameters<typeof apiCreatePromptTemplate>[0]["body"]
+>;
+type UpdatePromptTemplateBody = NonNullable<
+  Parameters<typeof apiUpdatePromptTemplate>[0]["body"]
+>;
+type DeletePromptTemplateBody = NonNullable<
+  Parameters<typeof apiDeletePromptTemplate>[0]["body"]
+>;
+type CreateExternalAgentConfigBody = NonNullable<
+  Parameters<typeof apiCreateExternalAgentConfig>[0]["body"]
+>;
+type UpdateExternalAgentConfigBody = NonNullable<
+  Parameters<typeof apiUpdateExternalAgentConfig>[0]["body"]
+>;
+type DeleteExternalAgentConfigBody = NonNullable<
+  Parameters<typeof apiDeleteExternalAgentConfig>[0]["body"]
+>;
 const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
@@ -1288,7 +1312,7 @@ function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
   return items.filter((item) => item.id !== id);
 }
 export async function createAgentProfile(
-  payload: CreateAgentProfileRequest,
+  payload: CreateAgentProfileBody,
 ): Promise<AgentProfile | null> {
   const res = await callOpenAPI(
     apiCreateAgentProfile({ body: payload } as Parameters<
@@ -1310,7 +1334,7 @@ export async function createAgentProfile(
   return profile;
 }
 export async function updateAgentProfile(
-  payload: UpdateAgentProfileRequest,
+  payload: UpdateAgentProfileBody,
 ): Promise<AgentProfile | null> {
   const res = await callOpenAPI(
     apiUpdateAgentProfile({
@@ -1337,7 +1361,7 @@ export async function updateAgentProfile(
   return profile;
 }
 export async function deleteAgentProfile(
-  payload: DeleteAgentProfileRequest,
+  payload: DeleteAgentProfileBody,
 ): Promise<boolean> {
   const res = await callOpenAPI(
     apiDeleteAgentProfile({ body: payload } as Parameters<
@@ -1391,7 +1415,7 @@ export async function updateEngineConfig(
   return nextConfig;
 }
 export async function createTranscriptionProfile(
-  payload: CreateTranscriptionProfileRequest,
+  payload: CreateTranscriptionProfileBody,
 ): Promise<TranscriptionProfile | null> {
   const res = await callOpenAPI(
     apiCreateTranscriptionProfile({ body: payload } as Parameters<
@@ -1413,7 +1437,7 @@ export async function createTranscriptionProfile(
   return profile;
 }
 export async function updateTranscriptionProfile(
-  payload: UpdateTranscriptionProfileRequest,
+  payload: UpdateTranscriptionProfileBody,
 ): Promise<TranscriptionProfile | null> {
   const res = await callOpenAPI(
     apiUpdateTranscriptionProfile({
@@ -1440,7 +1464,7 @@ export async function updateTranscriptionProfile(
   return profile;
 }
 export async function deleteTranscriptionProfile(
-  payload: DeleteTranscriptionProfileRequest,
+  payload: DeleteTranscriptionProfileBody,
 ): Promise<boolean> {
   const res = await callOpenAPI(
     apiDeleteTranscriptionProfile({ body: payload } as Parameters<
@@ -1469,7 +1493,7 @@ export async function deleteTranscriptionProfile(
   return true;
 }
 export async function createPromptTemplate(
-  payload: CreatePromptTemplateRequest,
+  payload: CreatePromptTemplateBody,
 ): Promise<Template | null> {
   const res = await callOpenAPI(
     apiCreatePromptTemplate({ body: payload } as Parameters<
@@ -1491,7 +1515,7 @@ export async function createPromptTemplate(
   return template;
 }
 export async function updatePromptTemplate(
-  payload: UpdatePromptTemplateRequest,
+  payload: UpdatePromptTemplateBody,
 ): Promise<Template | null> {
   const res = await callOpenAPI(
     apiUpdatePromptTemplate({
@@ -1518,7 +1542,7 @@ export async function updatePromptTemplate(
   return template;
 }
 export async function deletePromptTemplate(
-  payload: DeletePromptTemplateRequest,
+  payload: DeletePromptTemplateBody,
 ): Promise<boolean> {
   const res = await callOpenAPI(
     apiDeletePromptTemplate({ body: payload } as Parameters<
@@ -1539,7 +1563,7 @@ export async function deletePromptTemplate(
   return true;
 }
 export async function createExternalAgentConfig(
-  payload: CreateExternalAgentConfigRequest,
+  payload: CreateExternalAgentConfigBody,
 ): Promise<ExternalAgentConfig | null> {
   const body = {
     ...payload,
@@ -1565,7 +1589,7 @@ export async function createExternalAgentConfig(
   return config;
 }
 export async function updateExternalAgentConfig(
-  payload: UpdateExternalAgentConfigRequest,
+  payload: UpdateExternalAgentConfigBody,
 ): Promise<ExternalAgentConfig | null> {
   const requestedConfig = requireNonNull(
     payload.config,
@@ -1599,7 +1623,7 @@ export async function updateExternalAgentConfig(
   return config;
 }
 export async function deleteExternalAgentConfig(
-  payload: DeleteExternalAgentConfigRequest,
+  payload: DeleteExternalAgentConfigBody,
 ): Promise<boolean> {
   const res = await callOpenAPI(
     apiDeleteExternalAgentConfig({ body: payload } as Parameters<
