@@ -59,12 +59,40 @@
     {
       "name": "AgenticEdgeContextMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/AgenticEdgeContextMode"
+      "schemaRef": "#/$defs/AgenticEdgeContextMode",
+      "enumValues": [
+        {
+          "name": "reference_only",
+          "value": "reference_only"
+        },
+        {
+          "name": "inline_text",
+          "value": "inline_text"
+        },
+        {
+          "name": "summary",
+          "value": "summary"
+        }
+      ]
     },
     {
       "name": "AgenticEdgeKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/AgenticEdgeKind"
+      "schemaRef": "#/$defs/AgenticEdgeKind",
+      "enumValues": [
+        {
+          "name": "chat_chat",
+          "value": "chat_chat"
+        },
+        {
+          "name": "section_chat",
+          "value": "section_chat"
+        },
+        {
+          "name": "chat_section",
+          "value": "chat_section"
+        }
+      ]
     },
     {
       "name": "AgenticSummaryCacheStatus",
@@ -129,7 +157,25 @@
     {
       "name": "AppGenerationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/AppGenerationMode"
+      "schemaRef": "#/$defs/AppGenerationMode",
+      "enumValues": [
+        {
+          "name": "json_render",
+          "value": "json_render"
+        },
+        {
+          "name": "json_render_with_image",
+          "value": "json_render_with_image"
+        },
+        {
+          "name": "prompt_builder",
+          "value": "prompt_builder"
+        },
+        {
+          "name": "mcp_server",
+          "value": "mcp_server"
+        }
+      ]
     },
     {
       "name": "AppRoute",
@@ -154,7 +200,29 @@
     {
       "name": "ArtifactType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ArtifactType"
+      "schemaRef": "#/$defs/ArtifactType",
+      "enumValues": [
+        {
+          "name": "Image",
+          "value": "Image"
+        },
+        {
+          "name": "BrushStroke",
+          "value": "BrushStroke"
+        },
+        {
+          "name": "DrawAreaLayerItemTransform",
+          "value": "DrawAreaLayerItemTransform"
+        },
+        {
+          "name": "ChartData",
+          "value": "ChartData"
+        },
+        {
+          "name": "File",
+          "value": "File"
+        }
+      ]
     },
     {
       "name": "AssistantChatMessage",
@@ -189,7 +257,21 @@
     {
       "name": "BackgroundVariant",
       "kind": "enum",
-      "schemaRef": "#/$defs/BackgroundVariant"
+      "schemaRef": "#/$defs/BackgroundVariant",
+      "enumValues": [
+        {
+          "name": "lines",
+          "value": "lines"
+        },
+        {
+          "name": "dots",
+          "value": "dots"
+        },
+        {
+          "name": "cross",
+          "value": "cross"
+        }
+      ]
     },
     {
       "name": "BaseArtifactUnion",
@@ -254,7 +336,21 @@
     {
       "name": "BrowserAreaViewMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/BrowserAreaViewMode"
+      "schemaRef": "#/$defs/BrowserAreaViewMode",
+      "enumValues": [
+        {
+          "name": "list",
+          "value": "list"
+        },
+        {
+          "name": "thumbnail",
+          "value": "thumbnail"
+        },
+        {
+          "name": "carousel",
+          "value": "carousel"
+        }
+      ]
     },
     {
       "name": "BrowserSavedSearch",
@@ -269,7 +365,17 @@
     {
       "name": "BrowserSearchScope",
       "kind": "enum",
-      "schemaRef": "#/$defs/BrowserSearchScope"
+      "schemaRef": "#/$defs/BrowserSearchScope",
+      "enumValues": [
+        {
+          "name": "recursive",
+          "value": "recursive"
+        },
+        {
+          "name": "local",
+          "value": "local"
+        }
+      ]
     },
     {
       "name": "BrowserSectionImpl",
@@ -294,7 +400,21 @@
     {
       "name": "ButtonActionMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ButtonActionMode"
+      "schemaRef": "#/$defs/ButtonActionMode",
+      "enumValues": [
+        {
+          "name": "WEBSOCKET_LISTENER",
+          "value": "WEBSOCKET_LISTENER"
+        },
+        {
+          "name": "HTTP_REQUEST",
+          "value": "HTTP_REQUEST"
+        },
+        {
+          "name": "SETTA_API",
+          "value": "SETTA_API"
+        }
+      ]
     },
     {
       "name": "ButtonParamCodeObjImpl",
@@ -334,7 +454,17 @@
     {
       "name": "ChartType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChartType"
+      "schemaRef": "#/$defs/ChartType",
+      "enumValues": [
+        {
+          "name": "line",
+          "value": "line"
+        },
+        {
+          "name": "scatter",
+          "value": "scatter"
+        }
+      ]
     },
     {
       "name": "Chat",
@@ -344,12 +474,48 @@
     {
       "name": "ChatAppGenerationMessageMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatAppGenerationMessageMode"
+      "schemaRef": "#/$defs/ChatAppGenerationMessageMode",
+      "enumValues": [
+        {
+          "name": "plain_chat",
+          "value": "plain_chat"
+        },
+        {
+          "name": "json_render",
+          "value": "json_render"
+        },
+        {
+          "name": "json_render_with_image",
+          "value": "json_render_with_image"
+        },
+        {
+          "name": "prompt_builder",
+          "value": "prompt_builder"
+        },
+        {
+          "name": "mcp_server",
+          "value": "mcp_server"
+        }
+      ]
     },
     {
       "name": "ChatDictationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatDictationMode"
+      "schemaRef": "#/$defs/ChatDictationMode",
+      "enumValues": [
+        {
+          "name": "auto",
+          "value": "auto"
+        },
+        {
+          "name": "browser",
+          "value": "browser"
+        },
+        {
+          "name": "provider",
+          "value": "provider"
+        }
+      ]
     },
     {
       "name": "ChatFileAttachment",
@@ -364,12 +530,44 @@
     {
       "name": "ChatPermissionMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatPermissionMode"
+      "schemaRef": "#/$defs/ChatPermissionMode",
+      "enumValues": [
+        {
+          "name": "minimal",
+          "value": "minimal"
+        },
+        {
+          "name": "yolo",
+          "value": "yolo"
+        },
+        {
+          "name": "config_toml_custom",
+          "value": "config_toml_custom"
+        }
+      ]
     },
     {
       "name": "ChatRole",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatRole"
+      "schemaRef": "#/$defs/ChatRole",
+      "enumValues": [
+        {
+          "name": "system",
+          "value": "system"
+        },
+        {
+          "name": "user",
+          "value": "user"
+        },
+        {
+          "name": "assistant",
+          "value": "assistant"
+        },
+        {
+          "name": "tool",
+          "value": "tool"
+        }
+      ]
     },
     {
       "name": "ChatSectionBranch",
@@ -394,7 +592,13 @@
     {
       "name": "ChatSendAction",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatSendAction"
+      "schemaRef": "#/$defs/ChatSendAction",
+      "enumValues": [
+        {
+          "name": "send",
+          "value": "send"
+        }
+      ]
     },
     {
       "name": "ChatSendEvent",
@@ -404,7 +608,13 @@
     {
       "name": "ChatStopAction",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatStopAction"
+      "schemaRef": "#/$defs/ChatStopAction",
+      "enumValues": [
+        {
+          "name": "stop",
+          "value": "stop"
+        }
+      ]
     },
     {
       "name": "ChatStopEvent",
@@ -424,12 +634,44 @@
     {
       "name": "ChatWindowMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatWindowMode"
+      "schemaRef": "#/$defs/ChatWindowMode",
+      "enumValues": [
+        {
+          "name": "project_ai_mode",
+          "value": "project_ai_mode"
+        },
+        {
+          "name": "section_mode",
+          "value": "section_mode"
+        },
+        {
+          "name": "git_graph_mode",
+          "value": "git_graph_mode"
+        }
+      ]
     },
     {
       "name": "ChatWindowPlacement",
       "kind": "enum",
-      "schemaRef": "#/$defs/ChatWindowPlacement"
+      "schemaRef": "#/$defs/ChatWindowPlacement",
+      "enumValues": [
+        {
+          "name": "bottom_docked",
+          "value": "bottom_docked"
+        },
+        {
+          "name": "floating",
+          "value": "floating"
+        },
+        {
+          "name": "maximized",
+          "value": "maximized"
+        },
+        {
+          "name": "canvas_section",
+          "value": "canvas_section"
+        }
+      ]
     },
     {
       "name": "ChildCodeObjFields",
@@ -454,12 +696,32 @@
     {
       "name": "ClaudeSettingsSource",
       "kind": "enum",
-      "schemaRef": "#/$defs/ClaudeSettingsSource"
+      "schemaRef": "#/$defs/ClaudeSettingsSource",
+      "enumValues": [
+        {
+          "name": "user",
+          "value": "user"
+        },
+        {
+          "name": "project",
+          "value": "project"
+        },
+        {
+          "name": "local",
+          "value": "local"
+        }
+      ]
     },
     {
       "name": "ClipboardDataType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ClipboardDataType"
+      "schemaRef": "#/$defs/ClipboardDataType",
+      "enumValues": [
+        {
+          "name": "Sections",
+          "value": "Sections"
+        }
+      ]
     },
     {
       "name": "ClipboardProjectStateCore",
@@ -479,7 +741,21 @@
     {
       "name": "CodeFileAccessMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/CodeFileAccessMode"
+      "schemaRef": "#/$defs/CodeFileAccessMode",
+      "enumValues": [
+        {
+          "name": "read_write",
+          "value": "read_write"
+        },
+        {
+          "name": "read_only",
+          "value": "read_only"
+        },
+        {
+          "name": "write_only",
+          "value": "write_only"
+        }
+      ]
     },
     {
       "name": "CodeFileBinding",
@@ -489,7 +765,45 @@
     {
       "name": "CodeLanguage",
       "kind": "enum",
-      "schemaRef": "#/$defs/CodeLanguage"
+      "schemaRef": "#/$defs/CodeLanguage",
+      "enumValues": [
+        {
+          "name": "python",
+          "value": "python"
+        },
+        {
+          "name": "bash",
+          "value": "bash"
+        },
+        {
+          "name": "javascript",
+          "value": "javascript"
+        },
+        {
+          "name": "typescript",
+          "value": "typescript"
+        },
+        {
+          "name": "json",
+          "value": "json"
+        },
+        {
+          "name": "yaml",
+          "value": "yaml"
+        },
+        {
+          "name": "toml",
+          "value": "toml"
+        },
+        {
+          "name": "markdown",
+          "value": "markdown"
+        },
+        {
+          "name": "plaintext",
+          "value": "plaintext"
+        }
+      ]
     },
     {
       "name": "CodeMirrorCompletion",
@@ -499,7 +813,69 @@
     {
       "name": "CodeObjType",
       "kind": "enum",
-      "schemaRef": "#/$defs/CodeObjType"
+      "schemaRef": "#/$defs/CodeObjType",
+      "enumValues": [
+        {
+          "name": "CodeCallable",
+          "value": "CodeCallable"
+        },
+        {
+          "name": "CodeParam",
+          "value": "CodeParam"
+        },
+        {
+          "name": "TextParam",
+          "value": "TextParam"
+        },
+        {
+          "name": "DateParam",
+          "value": "DateParam"
+        },
+        {
+          "name": "TimeParam",
+          "value": "TimeParam"
+        },
+        {
+          "name": "ButtonParam",
+          "value": "ButtonParam"
+        },
+        {
+          "name": "SliderParam",
+          "value": "SliderParam"
+        },
+        {
+          "name": "RotaryParam",
+          "value": "RotaryParam"
+        },
+        {
+          "name": "SwitchParam",
+          "value": "SwitchParam"
+        },
+        {
+          "name": "ColorPickerParam",
+          "value": "ColorPickerParam"
+        },
+        {
+          "name": "DropdownParam",
+          "value": "DropdownParam"
+        },
+        {
+          "name": "PasswordParam",
+          "value": "PasswordParam"
+        },
+        {
+          "name": "TextAreaParam",
+          "value": "TextAreaParam"
+        },
+        {
+          "name": "DropzoneParam",
+          "value": "DropzoneParam"
+        },
+        {
+          "name": "NestedParam",
+          "value": "NestedParam"
+        }
+      ]
     },
     {
       "name": "CodeObjTypeValuePolicy",
@@ -519,7 +895,29 @@
     {
       "name": "CodeObjValueRepresentationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/CodeObjValueRepresentationMode"
+      "schemaRef": "#/$defs/CodeObjValueRepresentationMode",
+      "enumValues": [
+        {
+          "name": "expression",
+          "value": "expression"
+        },
+        {
+          "name": "json_parsed",
+          "value": "json_parsed"
+        },
+        {
+          "name": "string",
+          "value": "string"
+        },
+        {
+          "name": "file_path",
+          "value": "file_path"
+        },
+        {
+          "name": "file_read",
+          "value": "file_read"
+        }
+      ]
     },
     {
       "name": "CodeObject",
@@ -564,7 +962,17 @@
     {
       "name": "ConfigLanguage",
       "kind": "enum",
-      "schemaRef": "#/$defs/ConfigLanguage"
+      "schemaRef": "#/$defs/ConfigLanguage",
+      "enumValues": [
+        {
+          "name": "python",
+          "value": "python"
+        },
+        {
+          "name": "json",
+          "value": "json"
+        }
+      ]
     },
     {
       "name": "Connection",
@@ -574,7 +982,25 @@
     {
       "name": "ConnectionType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ConnectionType"
+      "schemaRef": "#/$defs/ConnectionType",
+      "enumValues": [
+        {
+          "name": "frontend",
+          "value": "frontend"
+        },
+        {
+          "name": "listener",
+          "value": "listener"
+        },
+        {
+          "name": "SERVER",
+          "value": "SERVER"
+        },
+        {
+          "name": "terminal",
+          "value": "terminal"
+        }
+      ]
     },
     {
       "name": "Constants",
@@ -639,17 +1065,55 @@
     {
       "name": "DateCalendarWeekStart",
       "kind": "enum",
-      "schemaRef": "#/$defs/DateCalendarWeekStart"
+      "schemaRef": "#/$defs/DateCalendarWeekStart",
+      "enumValues": [
+        {
+          "name": "sunday",
+          "value": "sunday"
+        },
+        {
+          "name": "monday",
+          "value": "monday"
+        }
+      ]
     },
     {
       "name": "DateControlMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/DateControlMode"
+      "schemaRef": "#/$defs/DateControlMode",
+      "enumValues": [
+        {
+          "name": "input",
+          "value": "input"
+        },
+        {
+          "name": "calendar",
+          "value": "calendar"
+        }
+      ]
     },
     {
       "name": "DateDisplayFormat",
       "kind": "enum",
-      "schemaRef": "#/$defs/DateDisplayFormat"
+      "schemaRef": "#/$defs/DateDisplayFormat",
+      "enumValues": [
+        {
+          "name": "iso",
+          "value": "iso"
+        },
+        {
+          "name": "us",
+          "value": "us"
+        },
+        {
+          "name": "eu",
+          "value": "eu"
+        },
+        {
+          "name": "long",
+          "value": "long"
+        }
+      ]
     },
     {
       "name": "DateParamCodeObjImpl",
@@ -659,7 +1123,17 @@
     {
       "name": "DateSelectionMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/DateSelectionMode"
+      "schemaRef": "#/$defs/DateSelectionMode",
+      "enumValues": [
+        {
+          "name": "single",
+          "value": "single"
+        },
+        {
+          "name": "multiple",
+          "value": "multiple"
+        }
+      ]
     },
     {
       "name": "DeleteChatRequest",
@@ -714,12 +1188,36 @@
     {
       "name": "DependencyKeyType",
       "kind": "enum",
-      "schemaRef": "#/$defs/DependencyKeyType"
+      "schemaRef": "#/$defs/DependencyKeyType",
+      "enumValues": [
+        {
+          "name": "Section",
+          "value": "Section"
+        },
+        {
+          "name": "SectionParam",
+          "value": "SectionParam"
+        }
+      ]
     },
     {
       "name": "DependencyValueType",
       "kind": "enum",
-      "schemaRef": "#/$defs/DependencyValueType"
+      "schemaRef": "#/$defs/DependencyValueType",
+      "enumValues": [
+        {
+          "name": "Literal",
+          "value": "Literal"
+        },
+        {
+          "name": "Binary",
+          "value": "Binary"
+        },
+        {
+          "name": "FileRead",
+          "value": "FileRead"
+        }
+      ]
     },
     {
       "name": "DetachedRun",
@@ -729,7 +1227,33 @@
     {
       "name": "DetachedStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/DetachedStatus"
+      "schemaRef": "#/$defs/DetachedStatus",
+      "enumValues": [
+        {
+          "name": "queued",
+          "value": "queued"
+        },
+        {
+          "name": "running",
+          "value": "running"
+        },
+        {
+          "name": "exited",
+          "value": "exited"
+        },
+        {
+          "name": "failed",
+          "value": "failed"
+        },
+        {
+          "name": "canceled",
+          "value": "canceled"
+        },
+        {
+          "name": "lost",
+          "value": "lost"
+        }
+      ]
     },
     {
       "name": "DictSectionImpl",
@@ -744,7 +1268,21 @@
     {
       "name": "DrawAreaBrushShape",
       "kind": "enum",
-      "schemaRef": "#/$defs/DrawAreaBrushShape"
+      "schemaRef": "#/$defs/DrawAreaBrushShape",
+      "enumValues": [
+        {
+          "name": "butt",
+          "value": "butt"
+        },
+        {
+          "name": "round",
+          "value": "round"
+        },
+        {
+          "name": "square",
+          "value": "square"
+        }
+      ]
     },
     {
       "name": "DrawAreaLayer",
@@ -769,12 +1307,36 @@
     {
       "name": "DrawAreaLayerItemType",
       "kind": "enum",
-      "schemaRef": "#/$defs/DrawAreaLayerItemType"
+      "schemaRef": "#/$defs/DrawAreaLayerItemType",
+      "enumValues": [
+        {
+          "name": "Image",
+          "value": "Image"
+        },
+        {
+          "name": "BrushStroke",
+          "value": "BrushStroke"
+        }
+      ]
     },
     {
       "name": "DrawAreaMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/DrawAreaMode"
+      "schemaRef": "#/$defs/DrawAreaMode",
+      "enumValues": [
+        {
+          "name": "draw",
+          "value": "draw"
+        },
+        {
+          "name": "erase",
+          "value": "erase"
+        },
+        {
+          "name": "edit",
+          "value": "edit"
+        }
+      ]
     },
     {
       "name": "DrawAreaTransform",
@@ -794,7 +1356,17 @@
     {
       "name": "DropzoneMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/DropzoneMode"
+      "schemaRef": "#/$defs/DropzoneMode",
+      "enumValues": [
+        {
+          "name": "STATEFUL",
+          "value": "STATEFUL"
+        },
+        {
+          "name": "STATELESS",
+          "value": "STATELESS"
+        }
+      ]
     },
     {
       "name": "DropzoneParamCodeObjImpl",
@@ -819,7 +1391,21 @@
     {
       "name": "EndpointOrigin",
       "kind": "enum",
-      "schemaRef": "#/$defs/EndpointOrigin"
+      "schemaRef": "#/$defs/EndpointOrigin",
+      "enumValues": [
+        {
+          "name": "backend",
+          "value": "backend"
+        },
+        {
+          "name": "launcher",
+          "value": "launcher"
+        },
+        {
+          "name": "BackendOrigin",
+          "value": "backend-origin"
+        }
+      ]
     },
     {
       "name": "EndpointOriginPolicy",
@@ -854,7 +1440,17 @@
     {
       "name": "EngineType",
       "kind": "enum",
-      "schemaRef": "#/$defs/EngineType"
+      "schemaRef": "#/$defs/EngineType",
+      "enumValues": [
+        {
+          "name": "setta_llm",
+          "value": "setta_llm"
+        },
+        {
+          "name": "external_agent",
+          "value": "external_agent"
+        }
+      ]
     },
     {
       "name": "EnvVarStatus",
@@ -864,7 +1460,49 @@
     {
       "name": "ErrorKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/ErrorKind"
+      "schemaRef": "#/$defs/ErrorKind",
+      "enumValues": [
+        {
+          "name": "invalid_request",
+          "value": "invalid_request"
+        },
+        {
+          "name": "path_forbidden",
+          "value": "path_forbidden"
+        },
+        {
+          "name": "path_not_found",
+          "value": "path_not_found"
+        },
+        {
+          "name": "path_not_file",
+          "value": "path_not_file"
+        },
+        {
+          "name": "binary_payload_invalid",
+          "value": "binary_payload_invalid"
+        },
+        {
+          "name": "binary_payload_not_found",
+          "value": "binary_payload_not_found"
+        },
+        {
+          "name": "artifact_type_unsupported",
+          "value": "artifact_type_unsupported"
+        },
+        {
+          "name": "policy_denied",
+          "value": "policy_denied"
+        },
+        {
+          "name": "too_large",
+          "value": "too_large"
+        },
+        {
+          "name": "mime_not_allowed",
+          "value": "mime_not_allowed"
+        }
+      ]
     },
     {
       "name": "ExternalAgentConfig",
@@ -904,7 +1542,13 @@
     {
       "name": "Format",
       "kind": "enum",
-      "schemaRef": "#/$defs/Format"
+      "schemaRef": "#/$defs/Format",
+      "enumValues": [
+        {
+          "name": "Jinja",
+          "value": "Jinja"
+        }
+      ]
     },
     {
       "name": "GenPythonCodeSectionImpl",
@@ -924,7 +1568,21 @@
     {
       "name": "GeneratedSectionKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/GeneratedSectionKind"
+      "schemaRef": "#/$defs/GeneratedSectionKind",
+      "enumValues": [
+        {
+          "name": "python_code",
+          "value": "python_code"
+        },
+        {
+          "name": "python_metadata",
+          "value": "python_metadata"
+        },
+        {
+          "name": "plugin",
+          "value": "plugin"
+        }
+      ]
     },
     {
       "name": "GetAllMetadataRequest",
@@ -954,7 +1612,37 @@
     {
       "name": "HTTPRequestMethod",
       "kind": "enum",
-      "schemaRef": "#/$defs/HTTPRequestMethod"
+      "schemaRef": "#/$defs/HTTPRequestMethod",
+      "enumValues": [
+        {
+          "name": "GET",
+          "value": "GET"
+        },
+        {
+          "name": "POST",
+          "value": "POST"
+        },
+        {
+          "name": "PUT",
+          "value": "PUT"
+        },
+        {
+          "name": "PATCH",
+          "value": "PATCH"
+        },
+        {
+          "name": "DELETE",
+          "value": "DELETE"
+        },
+        {
+          "name": "HEAD",
+          "value": "HEAD"
+        },
+        {
+          "name": "OPTIONS",
+          "value": "OPTIONS"
+        }
+      ]
     },
     {
       "name": "IdentityContent",
@@ -1064,7 +1752,21 @@
     {
       "name": "ListRootViewMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ListRootViewMode"
+      "schemaRef": "#/$defs/ListRootViewMode",
+      "enumValues": [
+        {
+          "name": "default",
+          "value": "default"
+        },
+        {
+          "name": "task_list",
+          "value": "task_list"
+        },
+        {
+          "name": "kanban",
+          "value": "kanban"
+        }
+      ]
     },
     {
       "name": "ListenerConfig",
@@ -1119,7 +1821,21 @@
     {
       "name": "ListenerDependencyMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ListenerDependencyMode"
+      "schemaRef": "#/$defs/ListenerDependencyMode",
+      "enumValues": [
+        {
+          "name": "always",
+          "value": "always"
+        },
+        {
+          "name": "realtime_only",
+          "value": "realtime_only"
+        },
+        {
+          "name": "refresh_only",
+          "value": "refresh_only"
+        }
+      ]
     },
     {
       "name": "ListenerErrorContent",
@@ -1184,7 +1900,49 @@
     {
       "name": "ListenerMessageType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ListenerMessageType"
+      "schemaRef": "#/$defs/ListenerMessageType",
+      "enumValues": [
+        {
+          "name": "ListenerInit",
+          "value": "ListenerInit"
+        },
+        {
+          "name": "ListenerRegister",
+          "value": "ListenerRegister"
+        },
+        {
+          "name": "ListenerRegisterAck",
+          "value": "ListenerRegisterAck"
+        },
+        {
+          "name": "ListenerFrontendEmit",
+          "value": "ListenerFrontendEmit"
+        },
+        {
+          "name": "ListenerRouterEndpointCall",
+          "value": "ListenerRouterEndpointCall"
+        },
+        {
+          "name": "ListenerRouterEndpointResult",
+          "value": "ListenerRouterEndpointResult"
+        },
+        {
+          "name": "ListenerRealtimeEvent",
+          "value": "ListenerRealtimeEvent"
+        },
+        {
+          "name": "ListenerDependencyEvent",
+          "value": "ListenerDependencyEvent"
+        },
+        {
+          "name": "ListenerForceRefresh",
+          "value": "ListenerForceRefresh"
+        },
+        {
+          "name": "ListenerError",
+          "value": "ListenerError"
+        }
+      ]
     },
     {
       "name": "ListenerRealtimeDelta",
@@ -1344,7 +2102,25 @@
     {
       "name": "ManagedAPIKeysWriteStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/ManagedAPIKeysWriteStatus"
+      "schemaRef": "#/$defs/ManagedAPIKeysWriteStatus",
+      "enumValues": [
+        {
+          "name": "success",
+          "value": "success"
+        },
+        {
+          "name": "revision_conflict",
+          "value": "revision_conflict"
+        },
+        {
+          "name": "corrupt_store",
+          "value": "corrupt_store"
+        },
+        {
+          "name": "store_unavailable",
+          "value": "store_unavailable"
+        }
+      ]
     },
     {
       "name": "Manifest",
@@ -1414,12 +2190,44 @@
     {
       "name": "MessageType",
       "kind": "enum",
-      "schemaRef": "#/$defs/MessageType"
+      "schemaRef": "#/$defs/MessageType",
+      "enumValues": [
+        {
+          "name": "CurrentAddressUpdate",
+          "value": "CurrentAddressUpdate"
+        },
+        {
+          "name": "UISettingRevealResult",
+          "value": "UISettingRevealResult"
+        },
+        {
+          "name": "RealtimeUIChange",
+          "value": "RealtimeUIChange"
+        },
+        {
+          "name": "RealtimeDependencyEvent",
+          "value": "RealtimeDependencyEvent"
+        }
+      ]
     },
     {
       "name": "MetaControlSizeMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/MetaControlSizeMode"
+      "schemaRef": "#/$defs/MetaControlSizeMode",
+      "enumValues": [
+        {
+          "name": "any",
+          "value": "any"
+        },
+        {
+          "name": "auto_only",
+          "value": "auto_only"
+        },
+        {
+          "name": "manual_only",
+          "value": "manual_only"
+        }
+      ]
     },
     {
       "name": "MetaControlSizingPolicyByType",
@@ -1439,7 +2247,25 @@
     {
       "name": "Mode",
       "kind": "enum",
-      "schemaRef": "#/$defs/Mode"
+      "schemaRef": "#/$defs/Mode",
+      "enumValues": [
+        {
+          "name": "ide",
+          "value": "ide"
+        },
+        {
+          "name": "share",
+          "value": "share"
+        },
+        {
+          "name": "app",
+          "value": "app"
+        },
+        {
+          "name": "launcher",
+          "value": "launcher"
+        }
+      ]
     },
     {
       "name": "ModeScopedLauncherRoutes",
@@ -1504,7 +2330,25 @@
     {
       "name": "NotificationType",
       "kind": "enum",
-      "schemaRef": "#/$defs/NotificationType"
+      "schemaRef": "#/$defs/NotificationType",
+      "enumValues": [
+        {
+          "name": "error",
+          "value": "error"
+        },
+        {
+          "name": "warning",
+          "value": "warning"
+        },
+        {
+          "name": "info",
+          "value": "info"
+        },
+        {
+          "name": "save",
+          "value": "save"
+        }
+      ]
     },
     {
       "name": "OpenAIRealtimeTranscriptionStreamMode",
@@ -1514,7 +2358,21 @@
     {
       "name": "PanOnScrollMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/PanOnScrollMode"
+      "schemaRef": "#/$defs/PanOnScrollMode",
+      "enumValues": [
+        {
+          "name": "free",
+          "value": "free"
+        },
+        {
+          "name": "vertical",
+          "value": "vertical"
+        },
+        {
+          "name": "horizontal",
+          "value": "horizontal"
+        }
+      ]
     },
     {
       "name": "ParamCodeObjFields",
@@ -1524,12 +2382,44 @@
     {
       "name": "ParamNameType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ParamNameType"
+      "schemaRef": "#/$defs/ParamNameType",
+      "enumValues": [
+        {
+          "name": "CODE",
+          "value": "CODE"
+        },
+        {
+          "name": "TEXT",
+          "value": "TEXT"
+        }
+      ]
     },
     {
       "name": "ParameterPassingStyle",
       "kind": "enum",
-      "schemaRef": "#/$defs/ParameterPassingStyle"
+      "schemaRef": "#/$defs/ParameterPassingStyle",
+      "enumValues": [
+        {
+          "name": "DEFAULT",
+          "value": "DEFAULT"
+        },
+        {
+          "name": "ARGS",
+          "value": "ARGS"
+        },
+        {
+          "name": "KWARGS",
+          "value": "KWARGS"
+        },
+        {
+          "name": "POSITIONAL_ONLY",
+          "value": "POSITIONAL_ONLY"
+        },
+        {
+          "name": "KEYWORD_ONLY",
+          "value": "KEYWORD_ONLY"
+        }
+      ]
     },
     {
       "name": "PasswordParamCodeObjImpl",
@@ -1554,7 +2444,21 @@
     {
       "name": "PluginBlockedCapabilityReason",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginBlockedCapabilityReason"
+      "schemaRef": "#/$defs/PluginBlockedCapabilityReason",
+      "enumValues": [
+        {
+          "name": "mode_policy",
+          "value": "mode_policy"
+        },
+        {
+          "name": "host_policy",
+          "value": "host_policy"
+        },
+        {
+          "name": "manifest_invalid",
+          "value": "manifest_invalid"
+        }
+      ]
     },
     {
       "name": "PluginConfigDescriptor",
@@ -1589,7 +2493,25 @@
     {
       "name": "PluginEnablementSource",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginEnablementSource"
+      "schemaRef": "#/$defs/PluginEnablementSource",
+      "enumValues": [
+        {
+          "name": "workspace_disabled",
+          "value": "workspace_disabled"
+        },
+        {
+          "name": "workspace_enabled",
+          "value": "workspace_enabled"
+        },
+        {
+          "name": "global_auto_enabled",
+          "value": "global_auto_enabled"
+        },
+        {
+          "name": "manifest_default",
+          "value": "manifest_default"
+        }
+      ]
     },
     {
       "name": "PluginErrorInfo",
@@ -1629,7 +2551,21 @@
     {
       "name": "PluginInstallerBackend",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginInstallerBackend"
+      "schemaRef": "#/$defs/PluginInstallerBackend",
+      "enumValues": [
+        {
+          "name": "auto",
+          "value": "auto"
+        },
+        {
+          "name": "pip",
+          "value": "pip"
+        },
+        {
+          "name": "uv",
+          "value": "uv"
+        }
+      ]
     },
     {
       "name": "PluginListEntry",
@@ -1699,7 +2635,17 @@
     {
       "name": "PluginRestartCapabilityMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginRestartCapabilityMode"
+      "schemaRef": "#/$defs/PluginRestartCapabilityMode",
+      "enumValues": [
+        {
+          "name": "manual",
+          "value": "manual"
+        },
+        {
+          "name": "programmatic",
+          "value": "programmatic"
+        }
+      ]
     },
     {
       "name": "PluginRestartResponse",
@@ -1719,27 +2665,89 @@
     {
       "name": "PluginRuntimeState",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginRuntimeState"
+      "schemaRef": "#/$defs/PluginRuntimeState",
+      "enumValues": [
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "disabled",
+          "value": "disabled"
+        },
+        {
+          "name": "invalid",
+          "value": "invalid"
+        },
+        {
+          "name": "shadowed",
+          "value": "shadowed"
+        },
+        {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        }
+      ]
     },
     {
       "name": "PluginScope",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginScope"
+      "schemaRef": "#/$defs/PluginScope",
+      "enumValues": [
+        {
+          "name": "workspace",
+          "value": "workspace"
+        },
+        {
+          "name": "setta_files",
+          "value": "setta_files"
+        },
+        {
+          "name": "global",
+          "value": "global"
+        }
+      ]
     },
     {
       "name": "PluginSourceManager",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginSourceManager"
+      "schemaRef": "#/$defs/PluginSourceManager",
+      "enumValues": [
+        {
+          "name": "setta",
+          "value": "setta"
+        },
+        {
+          "name": "package_manager",
+          "value": "package_manager"
+        }
+      ]
     },
     {
       "name": "PluginSourceScheme",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginSourceScheme"
+      "schemaRef": "#/$defs/PluginSourceScheme",
+      "enumValues": [
+        {
+          "name": "github",
+          "value": "github"
+        },
+        {
+          "name": "pypi",
+          "value": "pypi"
+        }
+      ]
     },
     {
       "name": "PluginSourceTrustStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/PluginSourceTrustStatus"
+      "schemaRef": "#/$defs/PluginSourceTrustStatus",
+      "enumValues": [
+        {
+          "name": "unverified",
+          "value": "unverified"
+        }
+      ]
     },
     {
       "name": "PluginStatusEntry",
@@ -1799,7 +2807,13 @@
     {
       "name": "ProjectCodegenLanguage",
       "kind": "enum",
-      "schemaRef": "#/$defs/ProjectCodegenLanguage"
+      "schemaRef": "#/$defs/ProjectCodegenLanguage",
+      "enumValues": [
+        {
+          "name": "python",
+          "value": "python"
+        }
+      ]
     },
     {
       "name": "ProjectCodegenPluginTarget",
@@ -1874,17 +2888,67 @@
     {
       "name": "PythonCodeObjValueRepresentationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/PythonCodeObjValueRepresentationMode"
+      "schemaRef": "#/$defs/PythonCodeObjValueRepresentationMode",
+      "enumValues": [
+        {
+          "name": "expression",
+          "value": "expression"
+        },
+        {
+          "name": "json_parsed",
+          "value": "json_parsed"
+        },
+        {
+          "name": "string",
+          "value": "string"
+        },
+        {
+          "name": "file_path",
+          "value": "file_path"
+        },
+        {
+          "name": "file_read",
+          "value": "file_read"
+        }
+      ]
     },
     {
       "name": "PythonSectionCodegenMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/PythonSectionCodegenMode"
+      "schemaRef": "#/$defs/PythonSectionCodegenMode",
+      "enumValues": [
+        {
+          "name": "inherit",
+          "value": "inherit"
+        },
+        {
+          "name": "include",
+          "value": "include"
+        },
+        {
+          "name": "exclude",
+          "value": "exclude"
+        }
+      ]
     },
     {
       "name": "PythonSectionRepresentationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/PythonSectionRepresentationMode"
+      "schemaRef": "#/$defs/PythonSectionRepresentationMode",
+      "enumValues": [
+        {
+          "name": "expression",
+          "value": "expression"
+        },
+        {
+          "name": "file_path",
+          "value": "file_path"
+        },
+        {
+          "name": "file_read",
+          "value": "file_read"
+        }
+      ]
     },
     {
       "name": "RawArtifact",
@@ -1929,7 +2993,21 @@
     {
       "name": "RenameRefactorMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/RenameRefactorMode"
+      "schemaRef": "#/$defs/RenameRefactorMode",
+      "enumValues": [
+        {
+          "name": "ALWAYS_ASK",
+          "value": "ALWAYS_ASK"
+        },
+        {
+          "name": "ALWAYS_RENAME",
+          "value": "ALWAYS_RENAME"
+        },
+        {
+          "name": "NEVER_RENAME",
+          "value": "NEVER_RENAME"
+        }
+      ]
     },
     {
       "name": "RenameRefactorResultsMessage",
@@ -1984,22 +3062,86 @@
     {
       "name": "RunMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/RunMode"
+      "schemaRef": "#/$defs/RunMode",
+      "enumValues": [
+        {
+          "name": "mcp",
+          "value": "mcp"
+        },
+        {
+          "name": "server",
+          "value": "server"
+        },
+        {
+          "name": "sdk",
+          "value": "sdk"
+        },
+        {
+          "name": "app_server",
+          "value": "app_server"
+        }
+      ]
     },
     {
       "name": "RunSnapshotMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/RunSnapshotMode"
+      "schemaRef": "#/$defs/RunSnapshotMode",
+      "enumValues": [
+        {
+          "name": "ephemeral",
+          "value": "ephemeral"
+        },
+        {
+          "name": "always",
+          "value": "always"
+        },
+        {
+          "name": "never",
+          "value": "never"
+        }
+      ]
     },
     {
       "name": "RunStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/RunStatus"
+      "schemaRef": "#/$defs/RunStatus",
+      "enumValues": [
+        {
+          "name": "queued",
+          "value": "queued"
+        },
+        {
+          "name": "running",
+          "value": "running"
+        },
+        {
+          "name": "completed",
+          "value": "completed"
+        },
+        {
+          "name": "failed",
+          "value": "failed"
+        },
+        {
+          "name": "cancelled",
+          "value": "cancelled"
+        }
+      ]
     },
     {
       "name": "RunTargetKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/RunTargetKind"
+      "schemaRef": "#/$defs/RunTargetKind",
+      "enumValues": [
+        {
+          "name": "manual_code",
+          "value": "manual_code"
+        },
+        {
+          "name": "generated_entry",
+          "value": "generated_entry"
+        }
+      ]
     },
     {
       "name": "RunToolsRequest",
@@ -2034,17 +3176,59 @@
     {
       "name": "SaveConflictStrategy",
       "kind": "enum",
-      "schemaRef": "#/$defs/SaveConflictStrategy"
+      "schemaRef": "#/$defs/SaveConflictStrategy",
+      "enumValues": [
+        {
+          "name": "skip",
+          "value": "skip"
+        },
+        {
+          "name": "backup",
+          "value": "backup"
+        },
+        {
+          "name": "overwrite",
+          "value": "overwrite"
+        }
+      ]
     },
     {
       "name": "SavePolicy",
       "kind": "enum",
-      "schemaRef": "#/$defs/SavePolicy"
+      "schemaRef": "#/$defs/SavePolicy",
+      "enumValues": [
+        {
+          "name": "persist",
+          "value": "persist"
+        },
+        {
+          "name": "in_memory",
+          "value": "in_memory"
+        }
+      ]
     },
     {
       "name": "SaveStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/SaveStatus"
+      "schemaRef": "#/$defs/SaveStatus",
+      "enumValues": [
+        {
+          "name": "saved",
+          "value": "saved"
+        },
+        {
+          "name": "unchanged",
+          "value": "unchanged"
+        },
+        {
+          "name": "skipped",
+          "value": "skipped"
+        },
+        {
+          "name": "conflict",
+          "value": "conflict"
+        }
+      ]
     },
     {
       "name": "ScatterChartSettings",
@@ -2064,7 +3248,21 @@
     {
       "name": "SectionCodegenMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/SectionCodegenMode"
+      "schemaRef": "#/$defs/SectionCodegenMode",
+      "enumValues": [
+        {
+          "name": "inherit",
+          "value": "inherit"
+        },
+        {
+          "name": "include",
+          "value": "include"
+        },
+        {
+          "name": "exclude",
+          "value": "exclude"
+        }
+      ]
     },
     {
       "name": "SectionCodegenOverride",
@@ -2089,7 +3287,25 @@
     {
       "name": "SectionKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/SectionKind"
+      "schemaRef": "#/$defs/SectionKind",
+      "enumValues": [
+        {
+          "name": "code",
+          "value": "code"
+        },
+        {
+          "name": "terminal",
+          "value": "terminal"
+        },
+        {
+          "name": "draw",
+          "value": "draw"
+        },
+        {
+          "name": "generated",
+          "value": "generated"
+        }
+      ]
     },
     {
       "name": "SectionParamDependencyKey",
@@ -2099,7 +3315,21 @@
     {
       "name": "SectionRepresentationMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/SectionRepresentationMode"
+      "schemaRef": "#/$defs/SectionRepresentationMode",
+      "enumValues": [
+        {
+          "name": "expression",
+          "value": "expression"
+        },
+        {
+          "name": "file_path",
+          "value": "file_path"
+        },
+        {
+          "name": "file_read",
+          "value": "file_read"
+        }
+      ]
     },
     {
       "name": "SectionSize",
@@ -2109,7 +3339,13 @@
     {
       "name": "SectionSizeMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/SectionSizeMode"
+      "schemaRef": "#/$defs/SectionSizeMode",
+      "enumValues": [
+        {
+          "name": "auto",
+          "value": "auto"
+        }
+      ]
     },
     {
       "name": "SectionSizeValue",
@@ -2144,7 +3380,109 @@
     {
       "name": "SectionType",
       "kind": "enum",
-      "schemaRef": "#/$defs/SectionType"
+      "schemaRef": "#/$defs/SectionType",
+      "enumValues": [
+        {
+          "name": "Callable",
+          "value": "Callable"
+        },
+        {
+          "name": "Dict",
+          "value": "Dict"
+        },
+        {
+          "name": "ListRoot",
+          "value": "ListRoot"
+        },
+        {
+          "name": "Group",
+          "value": "Group"
+        },
+        {
+          "name": "StateMachineStart",
+          "value": "StateMachineStart"
+        },
+        {
+          "name": "StateMachineGate",
+          "value": "StateMachineGate"
+        },
+        {
+          "name": "StateMachineEnd",
+          "value": "StateMachineEnd"
+        },
+        {
+          "name": "Image",
+          "value": "Image"
+        },
+        {
+          "name": "Chart",
+          "value": "Chart"
+        },
+        {
+          "name": "Draw",
+          "value": "Draw"
+        },
+        {
+          "name": "TextBlock",
+          "value": "TextBlock"
+        },
+        {
+          "name": "Prompt",
+          "value": "Prompt"
+        },
+        {
+          "name": "MetaControl",
+          "value": "MetaControl"
+        },
+        {
+          "name": "Social",
+          "value": "Social"
+        },
+        {
+          "name": "GlobalVariables",
+          "value": "GlobalVariables"
+        },
+        {
+          "name": "Code",
+          "value": "Code"
+        },
+        {
+          "name": "GenPythonCode",
+          "value": "GenPythonCode"
+        },
+        {
+          "name": "GenPythonMetadata",
+          "value": "GenPythonMetadata"
+        },
+        {
+          "name": "Terminal",
+          "value": "Terminal"
+        },
+        {
+          "name": "IFrame",
+          "value": "IFrame"
+        },
+        {
+          "name": "Chat",
+          "value": "Chat"
+        },
+        {
+          "name": "Browser",
+          "value": "Browser"
+        },
+        {
+          "name": "Plugin",
+          "value": "Plugin"
+        },
+        {
+          "name": "TaskBoard",
+          "value": "TaskBoard"
+        },
+        {
+          "name": "Spreadsheet",
+          "value": "Spreadsheet"
+        }
+      ]
     },
     {
       "name": "SectionTypeCodegenPolicy",
@@ -2184,7 +3522,17 @@
     {
       "name": "SelectionMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/SelectionMode"
+      "schemaRef": "#/$defs/SelectionMode",
+      "enumValues": [
+        {
+          "name": "partial",
+          "value": "partial"
+        },
+        {
+          "name": "full",
+          "value": "full"
+        }
+      ]
     },
     {
       "name": "ServerConfig",
@@ -2214,7 +3562,181 @@
     {
       "name": "ServiceErrorCode",
       "kind": "enum",
-      "schemaRef": "#/$defs/ServiceErrorCode"
+      "schemaRef": "#/$defs/ServiceErrorCode",
+      "enumValues": [
+        {
+          "name": "PLUGIN_BACKEND_BUILD_FAILED",
+          "value": "PLUGIN_BACKEND_BUILD_FAILED"
+        },
+        {
+          "name": "PLUGIN_BACKEND_RUNTIME_INVALID",
+          "value": "PLUGIN_BACKEND_RUNTIME_INVALID"
+        },
+        {
+          "name": "PLUGIN_ASSET_INVALID_PATH",
+          "value": "PLUGIN_ASSET_INVALID_PATH"
+        },
+        {
+          "name": "PLUGIN_ASSET_NOT_FOUND",
+          "value": "PLUGIN_ASSET_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_CONFIG_CHANGED",
+          "value": "PLUGIN_CONFIG_CHANGED"
+        },
+        {
+          "name": "PLUGIN_CONFIG_INVALID",
+          "value": "PLUGIN_CONFIG_INVALID"
+        },
+        {
+          "name": "PLUGIN_CONFIG_SCHEMA_INVALID",
+          "value": "PLUGIN_CONFIG_SCHEMA_INVALID"
+        },
+        {
+          "name": "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE",
+          "value": "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
+        },
+        {
+          "name": "PLUGIN_INSTALL_METADATA_INVALID",
+          "value": "PLUGIN_INSTALL_METADATA_INVALID"
+        },
+        {
+          "name": "PLUGIN_MANAGED_EXTERNALLY",
+          "value": "PLUGIN_MANAGED_EXTERNALLY"
+        },
+        {
+          "name": "PLUGIN_GLOBAL_STATE_INVALID",
+          "value": "PLUGIN_GLOBAL_STATE_INVALID"
+        },
+        {
+          "name": "PLUGIN_HOST_VERSION_INVALID",
+          "value": "PLUGIN_HOST_VERSION_INVALID"
+        },
+        {
+          "name": "PLUGIN_INIT_INVALID_ID",
+          "value": "PLUGIN_INIT_INVALID_ID"
+        },
+        {
+          "name": "PLUGIN_INIT_TARGET_EXISTS",
+          "value": "PLUGIN_INIT_TARGET_EXISTS"
+        },
+        {
+          "name": "PLUGIN_INSTALL_FAILED",
+          "value": "PLUGIN_INSTALL_FAILED"
+        },
+        {
+          "name": "PLUGIN_LINK_FAILED",
+          "value": "PLUGIN_LINK_FAILED"
+        },
+        {
+          "name": "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE",
+          "value": "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
+        },
+        {
+          "name": "PLUGIN_LOCKFILE_INVALID",
+          "value": "PLUGIN_LOCKFILE_INVALID"
+        },
+        {
+          "name": "PLUGIN_LOCKFILE_NOT_FOUND",
+          "value": "PLUGIN_LOCKFILE_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_DUPLICATE_CAPABILITY",
+          "value": "PLUGIN_MANIFEST_DUPLICATE_CAPABILITY"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_INVALID",
+          "value": "PLUGIN_MANIFEST_INVALID"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_INVALID_CAPABILITY",
+          "value": "PLUGIN_MANIFEST_INVALID_CAPABILITY"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_PATH_NOT_FOUND",
+          "value": "PLUGIN_MANIFEST_PATH_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA",
+          "value": "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA"
+        },
+        {
+          "name": "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE",
+          "value": "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE"
+        },
+        {
+          "name": "PLUGIN_NOT_FOUND",
+          "value": "PLUGIN_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_RESTART_FAILED",
+          "value": "PLUGIN_RESTART_FAILED"
+        },
+        {
+          "name": "PLUGIN_ROLLBACK_UNAVAILABLE",
+          "value": "PLUGIN_ROLLBACK_UNAVAILABLE"
+        },
+        {
+          "name": "PLUGIN_SCOPE_INVALID",
+          "value": "PLUGIN_SCOPE_INVALID"
+        },
+        {
+          "name": "PLUGIN_STATE_INVALID",
+          "value": "PLUGIN_STATE_INVALID"
+        },
+        {
+          "name": "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL",
+          "value": "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"
+        },
+        {
+          "name": "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT",
+          "value": "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT"
+        },
+        {
+          "name": "PLUGIN_SOURCE_FETCH_FAILED",
+          "value": "PLUGIN_SOURCE_FETCH_FAILED"
+        },
+        {
+          "name": "PLUGIN_SOURCE_IDENTITY_MISMATCH",
+          "value": "PLUGIN_SOURCE_IDENTITY_MISMATCH"
+        },
+        {
+          "name": "PLUGIN_SOURCE_INVALID",
+          "value": "PLUGIN_SOURCE_INVALID"
+        },
+        {
+          "name": "PLUGIN_SOURCE_MANIFEST_NOT_FOUND",
+          "value": "PLUGIN_SOURCE_MANIFEST_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_SOURCE_NOT_FOUND",
+          "value": "PLUGIN_SOURCE_NOT_FOUND"
+        },
+        {
+          "name": "PLUGIN_SOURCE_SCHEME_UNSUPPORTED",
+          "value": "PLUGIN_SOURCE_SCHEME_UNSUPPORTED"
+        },
+        {
+          "name": "PLUGIN_SOURCE_VERSION_MISMATCH",
+          "value": "PLUGIN_SOURCE_VERSION_MISMATCH"
+        },
+        {
+          "name": "PLUGIN_TARGET_EXISTS",
+          "value": "PLUGIN_TARGET_EXISTS"
+        },
+        {
+          "name": "PLUGIN_TARGET_PATH_TRAVERSAL",
+          "value": "PLUGIN_TARGET_PATH_TRAVERSAL"
+        },
+        {
+          "name": "PLUGIN_UNINSTALL_SCOPE_REQUIRED",
+          "value": "PLUGIN_UNINSTALL_SCOPE_REQUIRED"
+        },
+        {
+          "name": "PLUGIN_UPDATE_UNAVAILABLE",
+          "value": "PLUGIN_UPDATE_UNAVAILABLE"
+        }
+      ]
     },
     {
       "name": "Session",
@@ -2249,7 +3771,25 @@
     {
       "name": "SettingsMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/SettingsMode"
+      "schemaRef": "#/$defs/SettingsMode",
+      "enumValues": [
+        {
+          "name": "read_only",
+          "value": "read_only"
+        },
+        {
+          "name": "managed_local",
+          "value": "managed_local"
+        },
+        {
+          "name": "managed_project",
+          "value": "managed_project"
+        },
+        {
+          "name": "explicit_path",
+          "value": "explicit_path"
+        }
+      ]
     },
     {
       "name": "SettingsShortcuts",
@@ -2284,7 +3824,21 @@
     {
       "name": "SignatureHelpStatus",
       "kind": "enum",
-      "schemaRef": "#/$defs/SignatureHelpStatus"
+      "schemaRef": "#/$defs/SignatureHelpStatus",
+      "enumValues": [
+        {
+          "name": "matched",
+          "value": "matched"
+        },
+        {
+          "name": "no_match",
+          "value": "no_match"
+        },
+        {
+          "name": "skipped",
+          "value": "skipped"
+        }
+      ]
     },
     {
       "name": "SingleConfig",
@@ -2304,7 +3858,17 @@
     {
       "name": "SpreadsheetGridDensity",
       "kind": "enum",
-      "schemaRef": "#/$defs/SpreadsheetGridDensity"
+      "schemaRef": "#/$defs/SpreadsheetGridDensity",
+      "enumValues": [
+        {
+          "name": "compact",
+          "value": "compact"
+        },
+        {
+          "name": "comfortable",
+          "value": "comfortable"
+        }
+      ]
     },
     {
       "name": "SpreadsheetSectionImpl",
@@ -2314,7 +3878,29 @@
     {
       "name": "StateMachineCountOperator",
       "kind": "enum",
-      "schemaRef": "#/$defs/StateMachineCountOperator"
+      "schemaRef": "#/$defs/StateMachineCountOperator",
+      "enumValues": [
+        {
+          "name": "lt",
+          "value": "lt"
+        },
+        {
+          "name": "lte",
+          "value": "lte"
+        },
+        {
+          "name": "eq",
+          "value": "eq"
+        },
+        {
+          "name": "gte",
+          "value": "gte"
+        },
+        {
+          "name": "gt",
+          "value": "gt"
+        }
+      ]
     },
     {
       "name": "StateMachineEdge",
@@ -2334,7 +3920,21 @@
     {
       "name": "StateMachineGateType",
       "kind": "enum",
-      "schemaRef": "#/$defs/StateMachineGateType"
+      "schemaRef": "#/$defs/StateMachineGateType",
+      "enumValues": [
+        {
+          "name": "AND",
+          "value": "AND"
+        },
+        {
+          "name": "OR",
+          "value": "OR"
+        },
+        {
+          "name": "XOR",
+          "value": "XOR"
+        }
+      ]
     },
     {
       "name": "StateMachineGateUIState",
@@ -2359,7 +3959,21 @@
     {
       "name": "StateMachineSourceFilterType",
       "kind": "enum",
-      "schemaRef": "#/$defs/StateMachineSourceFilterType"
+      "schemaRef": "#/$defs/StateMachineSourceFilterType",
+      "enumValues": [
+        {
+          "name": "run_completed",
+          "value": "run_completed"
+        },
+        {
+          "name": "run_failed",
+          "value": "run_failed"
+        },
+        {
+          "name": "signal",
+          "value": "signal"
+        }
+      ]
     },
     {
       "name": "StateMachineStartSectionImpl",
@@ -2374,12 +3988,32 @@
     {
       "name": "StateMachineTargetActionType",
       "kind": "enum",
-      "schemaRef": "#/$defs/StateMachineTargetActionType"
+      "schemaRef": "#/$defs/StateMachineTargetActionType",
+      "enumValues": [
+        {
+          "name": "send_prompt",
+          "value": "send_prompt"
+        },
+        {
+          "name": "reset_thread",
+          "value": "reset_thread"
+        }
+      ]
     },
     {
       "name": "StateMachineThreadStrategy",
       "kind": "enum",
-      "schemaRef": "#/$defs/StateMachineThreadStrategy"
+      "schemaRef": "#/$defs/StateMachineThreadStrategy",
+      "enumValues": [
+        {
+          "name": "continue_current_thread",
+          "value": "continue_current_thread"
+        },
+        {
+          "name": "new_thread_before_send",
+          "value": "new_thread_before_send"
+        }
+      ]
     },
     {
       "name": "StatusTransportRoutes",
@@ -2389,7 +4023,37 @@
     {
       "name": "StreamingEventType",
       "kind": "enum",
-      "schemaRef": "#/$defs/StreamingEventType"
+      "schemaRef": "#/$defs/StreamingEventType",
+      "enumValues": [
+        {
+          "name": "message_start",
+          "value": "message_start"
+        },
+        {
+          "name": "delta",
+          "value": "delta"
+        },
+        {
+          "name": "tool_call_delta",
+          "value": "tool_call_delta"
+        },
+        {
+          "name": "tool_argument_preview_delta",
+          "value": "tool_argument_preview_delta"
+        },
+        {
+          "name": "tool_result",
+          "value": "tool_result"
+        },
+        {
+          "name": "message_stop",
+          "value": "message_stop"
+        },
+        {
+          "name": "message_finalized",
+          "value": "message_finalized"
+        }
+      ]
     },
     {
       "name": "SwitchParamCodeObjImpl",
@@ -2404,7 +4068,17 @@
     {
       "name": "Target",
       "kind": "enum",
-      "schemaRef": "#/$defs/Target"
+      "schemaRef": "#/$defs/Target",
+      "enumValues": [
+        {
+          "name": "main",
+          "value": "main"
+        },
+        {
+          "name": "settings",
+          "value": "settings"
+        }
+      ]
     },
     {
       "name": "TaskBoardColumn",
@@ -2414,12 +4088,92 @@
     {
       "name": "TaskBoardRecurringMonth",
       "kind": "enum",
-      "schemaRef": "#/$defs/TaskBoardRecurringMonth"
+      "schemaRef": "#/$defs/TaskBoardRecurringMonth",
+      "enumValues": [
+        {
+          "name": "january",
+          "value": "january"
+        },
+        {
+          "name": "february",
+          "value": "february"
+        },
+        {
+          "name": "march",
+          "value": "march"
+        },
+        {
+          "name": "april",
+          "value": "april"
+        },
+        {
+          "name": "may",
+          "value": "may"
+        },
+        {
+          "name": "june",
+          "value": "june"
+        },
+        {
+          "name": "july",
+          "value": "july"
+        },
+        {
+          "name": "august",
+          "value": "august"
+        },
+        {
+          "name": "september",
+          "value": "september"
+        },
+        {
+          "name": "october",
+          "value": "october"
+        },
+        {
+          "name": "november",
+          "value": "november"
+        },
+        {
+          "name": "december",
+          "value": "december"
+        }
+      ]
     },
     {
       "name": "TaskBoardRecurringWeekday",
       "kind": "enum",
-      "schemaRef": "#/$defs/TaskBoardRecurringWeekday"
+      "schemaRef": "#/$defs/TaskBoardRecurringWeekday",
+      "enumValues": [
+        {
+          "name": "monday",
+          "value": "monday"
+        },
+        {
+          "name": "tuesday",
+          "value": "tuesday"
+        },
+        {
+          "name": "wednesday",
+          "value": "wednesday"
+        },
+        {
+          "name": "thursday",
+          "value": "thursday"
+        },
+        {
+          "name": "friday",
+          "value": "friday"
+        },
+        {
+          "name": "saturday",
+          "value": "saturday"
+        },
+        {
+          "name": "sunday",
+          "value": "sunday"
+        }
+      ]
     },
     {
       "name": "TaskBoardSectionImpl",
@@ -2434,12 +4188,48 @@
     {
       "name": "TaskBoardTaskRecurrence",
       "kind": "enum",
-      "schemaRef": "#/$defs/TaskBoardTaskRecurrence"
+      "schemaRef": "#/$defs/TaskBoardTaskRecurrence",
+      "enumValues": [
+        {
+          "name": "none",
+          "value": "none"
+        },
+        {
+          "name": "hourly",
+          "value": "hourly"
+        },
+        {
+          "name": "daily",
+          "value": "daily"
+        },
+        {
+          "name": "specified_days",
+          "value": "specified_days"
+        },
+        {
+          "name": "specified_months",
+          "value": "specified_months"
+        },
+        {
+          "name": "specified_years",
+          "value": "specified_years"
+        }
+      ]
     },
     {
       "name": "TaskBoardViewMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/TaskBoardViewMode"
+      "schemaRef": "#/$defs/TaskBoardViewMode",
+      "enumValues": [
+        {
+          "name": "task_list",
+          "value": "task_list"
+        },
+        {
+          "name": "kanban",
+          "value": "kanban"
+        }
+      ]
     },
     {
       "name": "Template",
@@ -2454,7 +4244,17 @@
     {
       "name": "TerminalSessionMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/TerminalSessionMode"
+      "schemaRef": "#/$defs/TerminalSessionMode",
+      "enumValues": [
+        {
+          "name": "Interactive",
+          "value": ""
+        },
+        {
+          "name": "managed_console",
+          "value": "managed_console"
+        }
+      ]
     },
     {
       "name": "TextAreaParamCodeObjImpl",
@@ -2464,12 +4264,32 @@
     {
       "name": "TextBlockDisplayMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/TextBlockDisplayMode"
+      "schemaRef": "#/$defs/TextBlockDisplayMode",
+      "enumValues": [
+        {
+          "name": "Render",
+          "value": "Render"
+        },
+        {
+          "name": "Edit",
+          "value": "Edit"
+        }
+      ]
     },
     {
       "name": "TextBlockFormat",
       "kind": "enum",
-      "schemaRef": "#/$defs/TextBlockFormat"
+      "schemaRef": "#/$defs/TextBlockFormat",
+      "enumValues": [
+        {
+          "name": "Plaintext",
+          "value": "Plaintext"
+        },
+        {
+          "name": "Markdown",
+          "value": "Markdown"
+        }
+      ]
     },
     {
       "name": "TextBlockSectionImpl",
@@ -2484,22 +4304,70 @@
     {
       "name": "TextParamInputUIType",
       "kind": "enum",
-      "schemaRef": "#/$defs/TextParamInputUIType"
+      "schemaRef": "#/$defs/TextParamInputUIType",
+      "enumValues": [
+        {
+          "name": "plain",
+          "value": "plain"
+        },
+        {
+          "name": "time",
+          "value": "time"
+        },
+        {
+          "name": "date",
+          "value": "date"
+        }
+      ]
     },
     {
       "name": "TimeControlMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/TimeControlMode"
+      "schemaRef": "#/$defs/TimeControlMode",
+      "enumValues": [
+        {
+          "name": "input",
+          "value": "input"
+        },
+        {
+          "name": "display",
+          "value": "display"
+        }
+      ]
     },
     {
       "name": "TimeDisplayFont",
       "kind": "enum",
-      "schemaRef": "#/$defs/TimeDisplayFont"
+      "schemaRef": "#/$defs/TimeDisplayFont",
+      "enumValues": [
+        {
+          "name": "clock",
+          "value": "clock"
+        },
+        {
+          "name": "monospace",
+          "value": "monospace"
+        },
+        {
+          "name": "system",
+          "value": "system"
+        }
+      ]
     },
     {
       "name": "TimeDisplayFormat",
       "kind": "enum",
-      "schemaRef": "#/$defs/TimeDisplayFormat"
+      "schemaRef": "#/$defs/TimeDisplayFormat",
+      "enumValues": [
+        {
+          "name": "twenty_four_hour",
+          "value": "twenty_four_hour"
+        },
+        {
+          "name": "twelve_hour",
+          "value": "twelve_hour"
+        }
+      ]
     },
     {
       "name": "TimeParamCodeObjImpl",
@@ -2554,7 +4422,17 @@
     {
       "name": "ToolType",
       "kind": "enum",
-      "schemaRef": "#/$defs/ToolType"
+      "schemaRef": "#/$defs/ToolType",
+      "enumValues": [
+        {
+          "name": "claude_code",
+          "value": "claude_code"
+        },
+        {
+          "name": "codex",
+          "value": "codex"
+        }
+      ]
     },
     {
       "name": "TopLevelSectionLayout",
@@ -2579,12 +4457,40 @@
     {
       "name": "Transport",
       "kind": "enum",
-      "schemaRef": "#/$defs/Transport"
+      "schemaRef": "#/$defs/Transport",
+      "enumValues": [
+        {
+          "name": "sse",
+          "value": "sse"
+        },
+        {
+          "name": "streamable_http",
+          "value": "streamable_http"
+        },
+        {
+          "name": "stdio",
+          "value": "stdio"
+        }
+      ]
     },
     {
       "name": "TransportMode",
       "kind": "enum",
-      "schemaRef": "#/$defs/TransportMode"
+      "schemaRef": "#/$defs/TransportMode",
+      "enumValues": [
+        {
+          "name": "auto",
+          "value": "auto"
+        },
+        {
+          "name": "file",
+          "value": "file"
+        },
+        {
+          "name": "realtime",
+          "value": "realtime"
+        }
+      ]
     },
     {
       "name": "TransportRoutes",
@@ -2594,7 +4500,17 @@
     {
       "name": "Type",
       "kind": "enum",
-      "schemaRef": "#/$defs/Type"
+      "schemaRef": "#/$defs/Type",
+      "enumValues": [
+        {
+          "name": "share",
+          "value": "share"
+        },
+        {
+          "name": "app",
+          "value": "app"
+        }
+      ]
     },
     {
       "name": "TypeErrorIgnoreState",
@@ -2664,7 +4580,17 @@
     {
       "name": "UploadScope",
       "kind": "enum",
-      "schemaRef": "#/$defs/UploadScope"
+      "schemaRef": "#/$defs/UploadScope",
+      "enumValues": [
+        {
+          "name": "chat",
+          "value": "chat"
+        },
+        {
+          "name": "generic",
+          "value": "generic"
+        }
+      ]
     },
     {
       "name": "UserChatMessage",
@@ -2694,7 +4620,21 @@
     {
       "name": "WatchCodeCallableKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/WatchCodeCallableKind"
+      "schemaRef": "#/$defs/WatchCodeCallableKind",
+      "enumValues": [
+        {
+          "name": "function",
+          "value": "function"
+        },
+        {
+          "name": "async_function",
+          "value": "async_function"
+        },
+        {
+          "name": "class_init",
+          "value": "class_init"
+        }
+      ]
     },
     {
       "name": "WatchCodeFolder",
@@ -2709,7 +4649,105 @@
     {
       "name": "WebsocketMessageType",
       "kind": "enum",
-      "schemaRef": "#/$defs/WebsocketMessageType"
+      "schemaRef": "#/$defs/WebsocketMessageType",
+      "enumValues": [
+        {
+          "name": "Notification",
+          "value": "Notification"
+        },
+        {
+          "name": "AllProjectMetadata",
+          "value": "AllProjectMetadata"
+        },
+        {
+          "name": "AllConnections",
+          "value": "AllConnections"
+        },
+        {
+          "name": "FrontendIdentity",
+          "value": "FrontendIdentity"
+        },
+        {
+          "name": "ListenerCoverageSnapshot",
+          "value": "ListenerCoverageSnapshot"
+        },
+        {
+          "name": "UpdateArtifacts",
+          "value": "UpdateArtifacts"
+        },
+        {
+          "name": "LLMStreamingResponse",
+          "value": "LLMStreamingResponse"
+        },
+        {
+          "name": "AIFollowToolArgumentsUpdate",
+          "value": "AIFollowToolArgumentsUpdate"
+        },
+        {
+          "name": "AIFollowToolResultUpdate",
+          "value": "AIFollowToolResultUpdate"
+        },
+        {
+          "name": "UISettingReveal",
+          "value": "UISettingReveal"
+        },
+        {
+          "name": "LSPDiagnostics",
+          "value": "LSPDiagnostics"
+        },
+        {
+          "name": "NameValidationErrors",
+          "value": "NameValidationErrors"
+        },
+        {
+          "name": "LLMConfigUpdated",
+          "value": "LLMConfigUpdated"
+        },
+        {
+          "name": "LLMApiKeysUpdated",
+          "value": "LLMApiKeysUpdated"
+        },
+        {
+          "name": "ExternalAgentConfigsUpdated",
+          "value": "ExternalAgentConfigsUpdated"
+        },
+        {
+          "name": "EngineConfigsUpdated",
+          "value": "EngineConfigsUpdated"
+        },
+        {
+          "name": "AgentProfilesUpdated",
+          "value": "AgentProfilesUpdated"
+        },
+        {
+          "name": "AgentRunUpdated",
+          "value": "AgentRunUpdated"
+        },
+        {
+          "name": "PromptTemplatesUpdated",
+          "value": "PromptTemplatesUpdated"
+        },
+        {
+          "name": "TranscriptionProfilesUpdated",
+          "value": "TranscriptionProfilesUpdated"
+        },
+        {
+          "name": "UpdateFrontendProjectState",
+          "value": "UpdateFrontendProjectState"
+        },
+        {
+          "name": "UpdateSettings",
+          "value": "UpdateSettings"
+        },
+        {
+          "name": "ReturnRenameRefactorResults",
+          "value": "ReturnRenameRefactorResults"
+        },
+        {
+          "name": "BackendLogEvent",
+          "value": "BackendLogEvent"
+        }
+      ]
     },
     {
       "name": "WebsocketTransportRoutes",
@@ -2729,7 +4767,17 @@
     {
       "name": "WindowSpaceSurfaceKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/WindowSpaceSurfaceKind"
+      "schemaRef": "#/$defs/WindowSpaceSurfaceKind",
+      "enumValues": [
+        {
+          "name": "project_chat",
+          "value": "project_chat"
+        },
+        {
+          "name": "section",
+          "value": "section"
+        }
+      ]
     },
     {
       "name": "WindowSpaceWindow",
@@ -2739,12 +4787,40 @@
     {
       "name": "WorkingDirStrategy",
       "kind": "enum",
-      "schemaRef": "#/$defs/WorkingDirStrategy"
+      "schemaRef": "#/$defs/WorkingDirStrategy",
+      "enumValues": [
+        {
+          "name": "project_root",
+          "value": "project_root"
+        },
+        {
+          "name": "temp_dir",
+          "value": "temp_dir"
+        },
+        {
+          "name": "custom",
+          "value": "custom"
+        }
+      ]
     },
     {
       "name": "WorkspaceLaunchRouteKind",
       "kind": "enum",
-      "schemaRef": "#/$defs/WorkspaceLaunchRouteKind"
+      "schemaRef": "#/$defs/WorkspaceLaunchRouteKind",
+      "enumValues": [
+        {
+          "name": "ide",
+          "value": "ide"
+        },
+        {
+          "name": "launcher",
+          "value": "launcher"
+        },
+        {
+          "name": "blocked",
+          "value": "blocked"
+        }
+      ]
     },
     {
       "name": "zone",

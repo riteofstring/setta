@@ -9,12 +9,24 @@ func CurrentAdditionalDeclarations(converter *typeConverter) ([]TypeDeclaration,
 			"gt.RawMessage",
 		),
 	}
+	if err := ensureSemanticExportTypeDeclarations(converter); err != nil {
+		return nil, err
+	}
+	enumDeclarations, err := semanticEnumDeclarations(converter)
+	if err != nil {
+		return nil, err
+	}
+	declarations = append(declarations, enumDeclarations...)
 	familyDeclarations, err := semanticDiscriminatedFamilyDeclarations()
 	if err != nil {
 		return nil, err
 	}
 	declarations = append(declarations, familyDeclarations...)
-	declarations = append(declarations, discoveredValueDeclarations(converter)...)
+	valueDeclarations, err := semanticExportedValueDeclarations()
+	if err != nil {
+		return nil, err
+	}
+	declarations = append(declarations, valueDeclarations...)
 	return declarations, nil
 }
 

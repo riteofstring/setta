@@ -1,10 +1,6 @@
 package frontendbindings
 
-import (
-	"strings"
-
-	"setta/internal/stringenumvalues"
-)
+import "strings"
 
 // setta-go-type-discovery: skip
 type TypeDeclaration struct {
@@ -12,7 +8,7 @@ type TypeDeclaration struct {
 	Kind            string
 	Alias           string
 	Properties      []TypeProperty
-	EnumValues      []stringenumvalues.EnumValue
+	EnumValues      []TypeEnumValue
 	CreateBody      string
 	Exported        bool
 	SetElementType  string
@@ -24,6 +20,11 @@ type TypeDeclaration struct {
 	FunctionBody    string
 	FunctionReturn  string
 	ConstExpr       string
+}
+
+type TypeEnumValue struct {
+	Name  string
+	Value string
 }
 
 // setta-go-type-discovery: skip

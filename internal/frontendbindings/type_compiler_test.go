@@ -228,6 +228,29 @@ func TestUnionTypeProvidersGenerateAliasDeclarations(t *testing.T) {
 	}
 }
 
+func TestEnumDeclarationsComeFromSemanticSidecar(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	typ := reflect.TypeOf(projectstate.FrontendSectionType(""))
+	if err := converter.ensureDeclaration(typ); err != nil {
+		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	}
+	assertNoTypeDeclaration(t, converter.Declarations(), "SectionType")
+
+	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	if err != nil {
+		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
+	}
+	declaration := findTypeDeclaration(t, extraDeclarations, "SectionType")
+	if declaration.Kind != "enum" {
+		t.Fatalf("SectionType kind = %q, want %q", declaration.Kind, "enum")
+	}
+	if len(declaration.EnumValues) == 0 {
+		t.Fatalf("SectionType enum values are empty")
+	}
+}
+
 type TestEmbeddedOmitEmptyDefaults struct {
 	Enabled bool `json:"enabled,omitempty"`
 }

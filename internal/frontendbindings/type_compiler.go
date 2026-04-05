@@ -10,30 +10,11 @@ import (
 	"time"
 
 	"setta/internal/frontendbindingmeta"
-	"setta/internal/stringenumvalues"
 )
 
 var frontendSDKMirrorOwnerTypesByName = newFrontendSDKMirrorOwnerTypesByName()
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
-
-func discoveredFrontendEnumValues(t reflect.Type) ([]stringenumvalues.EnumValue, bool, error) {
-	values, ok, err := stringenumvalues.Default().Values(canonicalFrontendBindingType(t))
-	if err != nil || !ok || len(values) < 2 {
-		return values, ok, err
-	}
-	deduped := make([]stringenumvalues.EnumValue, 0, len(values))
-	seen := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		key := value.Name + "\x00" + value.Value
-		if _, duplicate := seen[key]; duplicate {
-			continue
-		}
-		seen[key] = struct{}{}
-		deduped = append(deduped, value)
-	}
-	return deduped, true, nil
-}
 
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := marshalTSLiteralJSON(value, false)
@@ -242,6 +223,11 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		c.declarations = append(c.declarations, aliasUnionDeclaration(frontendBindingTypeName(t), members...))
 		return nil
 	}
+	if isEnum, err := semanticContractIsEnum(frontendBindingTypeName(t)); err != nil {
+		return err
+	} else if isEnum {
+		return nil
+	}
 
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
 		declaration, err := c.reflectedObjectDeclaration(t, spec)
@@ -249,17 +235,6 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, declaration)
-		return nil
-	}
-
-	if values, ok, err := discoveredFrontendEnumValues(t); err != nil {
-		return err
-	} else if ok {
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       frontendBindingTypeName(t),
-			Kind:       "enum",
-			EnumValues: values,
-		})
 		return nil
 	}
 

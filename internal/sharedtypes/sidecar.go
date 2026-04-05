@@ -24,9 +24,15 @@ type SemanticSidecar struct {
 }
 
 type ContractEntry struct {
-	Name      string `json:"name"`
-	Kind      string `json:"kind"`
-	SchemaRef string `json:"schemaRef"`
+	Name       string           `json:"name"`
+	Kind       string           `json:"kind"`
+	SchemaRef  string           `json:"schemaRef"`
+	EnumValues []EnumValueEntry `json:"enumValues,omitempty"`
+}
+
+type EnumValueEntry struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type RouteInventoryEntry struct {
@@ -99,11 +105,29 @@ func buildContractEntries() ([]ContractEntry, error) {
 		if name == "" {
 			continue
 		}
-		entries = append(entries, ContractEntry{
+		kind := contractKindForType(t)
+		entry := ContractEntry{
 			Name:      name,
-			Kind:      contractKindForType(t),
+			Kind:      kind,
 			SchemaRef: "#/$defs/" + name,
-		})
+		}
+		if kind == "enum" {
+			enumValues, ok, err := discoveredEnumValues(t)
+			if err != nil {
+				return nil, err
+			}
+			if !ok || len(enumValues) == 0 {
+				return nil, fmt.Errorf("shared sidecar enum %s has no discovered values", name)
+			}
+			entry.EnumValues = make([]EnumValueEntry, 0, len(enumValues))
+			for _, enumValue := range enumValues {
+				entry.EnumValues = append(entry.EnumValues, EnumValueEntry{
+					Name:  enumValue.Name,
+					Value: enumValue.Value,
+				})
+			}
+		}
+		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i int, j int) bool {
 		return entries[i].Name < entries[j].Name

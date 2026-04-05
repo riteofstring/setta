@@ -7,13 +7,29 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
+	"sync"
 )
 
 const semanticSidecarRelativePath = "frontend/generation/non_http_shared/sidecar.json"
 
 type semanticSidecarManifest struct {
+	Contracts             []semanticContractEntry       `json:"contracts"`
+	ExportedValues        []semanticExportedValueEntry  `json:"exportedValues"`
 	DiscriminatedFamilies []semanticDiscriminatedFamily `json:"discriminatedFamilies"`
+}
+
+type semanticContractEntry struct {
+	Name       string          `json:"name"`
+	Kind       string          `json:"kind"`
+	EnumValues []TypeEnumValue `json:"enumValues"`
+}
+
+type semanticExportedValueEntry struct {
+	Name  string          `json:"name"`
+	Type  string          `json:"type"`
+	Value json.RawMessage `json:"value"`
 }
 
 type semanticDiscriminatedFamily struct {
@@ -34,6 +50,121 @@ type semanticDiscriminatedTraitSpec struct {
 	LocalUnion  bool     `json:"localUnion"`
 	IncludeBase bool     `json:"includeBase"`
 	MemberTypes []string `json:"memberTypes"`
+}
+
+var (
+	semanticSidecarManifestOnce sync.Once
+	cachedSemanticSidecar       semanticSidecarManifest
+	cachedSemanticSidecarErr    error
+)
+
+func ensureSemanticExportTypeDeclarations(converter *typeConverter) error {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return err
+	}
+	typesByName := frontendBindingTypesByName()
+	for _, export := range manifest.ExportedValues {
+		typeName := strings.TrimSpace(export.Type)
+		if typeName == "" {
+			return fmt.Errorf("frontend semantic sidecar export %s is missing type", export.Name)
+		}
+		typ, ok := typesByName[typeName]
+		if !ok {
+			continue
+		}
+		if err := converter.ensureDeclaration(typ); err != nil {
+			return fmt.Errorf("frontend semantic sidecar export %s type %s: %w", export.Name, typeName, err)
+		}
+	}
+	return nil
+}
+
+func semanticContractIsEnum(name string) (bool, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return false, err
+	}
+	trimmedName := strings.TrimSpace(name)
+	for _, contract := range manifest.Contracts {
+		if strings.TrimSpace(contract.Name) != trimmedName {
+			continue
+		}
+		return strings.TrimSpace(contract.Kind) == "enum", nil
+	}
+	return false, nil
+}
+
+func semanticEnumDeclarations(converter *typeConverter) ([]TypeDeclaration, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return nil, err
+	}
+	neededNames := map[string]struct{}{}
+	for seenType := range converter.seen {
+		name := strings.TrimSpace(frontendBindingTypeName(seenType))
+		if name != "" {
+			neededNames[name] = struct{}{}
+		}
+	}
+	for _, family := range manifest.DiscriminatedFamilies {
+		name := strings.TrimSpace(family.EnumType)
+		if name != "" {
+			neededNames[name] = struct{}{}
+		}
+	}
+	for _, export := range manifest.ExportedValues {
+		name := strings.TrimSpace(export.Type)
+		if name != "" {
+			neededNames[name] = struct{}{}
+		}
+	}
+
+	declarations := []TypeDeclaration{}
+	for _, contract := range manifest.Contracts {
+		name := strings.TrimSpace(contract.Name)
+		if _, ok := neededNames[name]; !ok {
+			continue
+		}
+		if strings.TrimSpace(contract.Kind) != "enum" {
+			continue
+		}
+		declarations = append(declarations, TypeDeclaration{
+			Name:       name,
+			Kind:       "enum",
+			EnumValues: append([]TypeEnumValue(nil), contract.EnumValues...),
+		})
+	}
+	return declarations, nil
+}
+
+func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	declarations := make([]TypeDeclaration, 0, len(manifest.ExportedValues))
+	for _, export := range manifest.ExportedValues {
+		name := strings.TrimSpace(export.Name)
+		if name == "" {
+			return nil, fmt.Errorf("frontend semantic sidecar export has empty name")
+		}
+		typeName := strings.TrimSpace(export.Type)
+		if typeName == "" {
+			return nil, fmt.Errorf("frontend semantic sidecar export %s is missing type", name)
+		}
+		value, err := decodeSemanticJSONValue(export.Value)
+		if err != nil {
+			return nil, fmt.Errorf("frontend semantic sidecar export %s: %w", name, err)
+		}
+		declarations = append(declarations, constDeclaration(
+			name,
+			true,
+			renderTSLiteralValue(value, "")+" satisfies gt."+typeName,
+		))
+	}
+	return declarations, nil
 }
 
 func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {
@@ -206,6 +337,14 @@ func decodeSemanticDefaultValue(t reflect.Type, rawDefault json.RawMessage) (any
 	return valuePtr.Elem().Interface(), nil
 }
 
+func decodeSemanticJSONValue(rawValue json.RawMessage) (any, error) {
+	var value any
+	if err := json.Unmarshal(rawValue, &value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
 func orderedTraitMembers(
 	members []semanticDiscriminatedMember,
 	traitMemberTypes []string,
@@ -244,25 +383,32 @@ func orderedTraitMembers(
 		for name := range allowed {
 			missing = append(missing, name)
 		}
+		sort.Strings(missing)
 		return nil, nil, fmt.Errorf("missing members in sidecar family: %s", strings.Join(missing, ", "))
 	}
 	return memberTypeNames, memberValues, nil
 }
 
 func loadSemanticSidecarManifest() (semanticSidecarManifest, error) {
-	path, err := semanticSidecarManifestPath()
-	if err != nil {
-		return semanticSidecarManifest{}, err
+	semanticSidecarManifestOnce.Do(func() {
+		path, err := semanticSidecarManifestPath()
+		if err != nil {
+			cachedSemanticSidecarErr = err
+			return
+		}
+		payload, err := os.ReadFile(path)
+		if err != nil {
+			cachedSemanticSidecarErr = fmt.Errorf("read frontend semantic sidecar %s: %w", path, err)
+			return
+		}
+		if err := json.Unmarshal(payload, &cachedSemanticSidecar); err != nil {
+			cachedSemanticSidecarErr = fmt.Errorf("decode frontend semantic sidecar %s: %w", path, err)
+		}
+	})
+	if cachedSemanticSidecarErr != nil {
+		return semanticSidecarManifest{}, cachedSemanticSidecarErr
 	}
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return semanticSidecarManifest{}, fmt.Errorf("read frontend semantic sidecar %s: %w", path, err)
-	}
-	var manifest semanticSidecarManifest
-	if err := json.Unmarshal(payload, &manifest); err != nil {
-		return semanticSidecarManifest{}, fmt.Errorf("decode frontend semantic sidecar %s: %w", path, err)
-	}
-	return manifest, nil
+	return cachedSemanticSidecar, nil
 }
 
 func semanticSidecarManifestPath() (string, error) {

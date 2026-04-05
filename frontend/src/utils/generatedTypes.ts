@@ -43,14 +43,6 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-export const PluginRuntimeStateEnum = {
-  active: "active",
-  disabled: "disabled",
-  invalid: "invalid",
-  shadowed: "shadowed",
-  pending_restart: "pending_restart",
-} as const;
-
 export type PluginInstallResponse = gt.PluginInstallResponse;
 
 export type PluginListEntry = gt.PluginListEntry;
@@ -82,27 +74,6 @@ export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
 export type PluginRestartResponse = gt.PluginRestartResponse;
 
 export type AgentProfile = gt.AgentProfile;
-
-export const AppGenerationModeEnum = {
-  json_render: "json_render",
-  json_render_with_image: "json_render_with_image",
-  prompt_builder: "prompt_builder",
-  mcp_server: "mcp_server",
-} as const;
-export type AppGenerationMode = gt.AppGenerationMode;
-
-export const ChatAppGenerationMessageModeEnum = {
-  plain_chat: "plain_chat",
-  json_render: "json_render",
-  json_render_with_image: "json_render_with_image",
-  prompt_builder: "prompt_builder",
-  mcp_server: "mcp_server",
-} as const;
-
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
 
 type EngineConfigDefaults = gt.EngineConfigDefaults;
 
@@ -163,14 +134,6 @@ export function createEngineConfig(
   };
 }
 
-export const RunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-
 export type AgentRun = gt.AgentRun;
 
 export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
@@ -190,37 +153,6 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
     ...mergeGeneratedOptions<AgentRun>(defaults, options),
   };
 }
-
-export const ToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-} as const;
-
-export const RunModeEnum = {
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-  app_server: "app_server",
-} as const;
-
-export const ClaudeSettingsSourceEnum = {
-  user: "user",
-  project: "project",
-  local: "local",
-} as const;
-
-export const WorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-
-export const SettingsModeEnum = {
-  read_only: "read_only",
-  managed_local: "managed_local",
-  managed_project: "managed_project",
-  explicit_path: "explicit_path",
-} as const;
 
 export type ExternalAgentConfig = gt.ExternalAgentConfig;
 
@@ -248,18 +180,6 @@ export function createAppDefinition(
   return options as AppDefinition;
 }
 
-export const BrowserAreaViewModeEnum = {
-  list: "list",
-  thumbnail: "thumbnail",
-  carousel: "carousel",
-} as const;
-export type BrowserAreaViewMode = gt.BrowserAreaViewMode;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-
 export type BrowserSavedSearchTypeFilters = gt.BrowserSavedSearchTypeFilters;
 
 export type BrowserSavedSearch = gt.BrowserSavedSearch;
@@ -286,35 +206,11 @@ export type ScatterChartSettings = gt.ScatterChartSettings;
 
 export type BaseChartSettingsUnion = gt.BaseChartSettingsUnion;
 
-export const ChartTypeEnum = {
-  line: "line",
-  scatter: "scatter",
-} as const;
-export type ChartType = gt.ChartType;
-
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-export type ChatPermissionMode = gt.ChatPermissionMode;
-
 export type ChatSectionBranch = gt.ChatSectionBranch;
 
 export type ChatSectionState = gt.ChatSectionState;
 
-export const ListRootViewModeEnum = {
-  default: "default",
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type ListRootViewMode = gt.ListRootViewMode;
-
 export type CreateChildSectionsResult = gt.CreateChildSectionsResult;
-
-export const ClipboardDataTypeEnum = {
-  Sections: "Sections",
-} as const;
 
 export type SectionsClipboardData = gt.SectionsClipboardData;
 
@@ -356,200 +252,6 @@ export function createDrawAreaLayerItem(
     ...mergeGeneratedOptions<DrawAreaLayerItem>(defaults, options),
   };
 }
-
-const SectionSizeModeEnum = {
-  auto: "auto",
-} as const;
-
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-
-export const SectionTypeEnum = {
-  Callable: "Callable",
-  Dict: "Dict",
-  ListRoot: "ListRoot",
-  Group: "Group",
-  StateMachineStart: "StateMachineStart",
-  StateMachineGate: "StateMachineGate",
-  StateMachineEnd: "StateMachineEnd",
-  Image: "Image",
-  Chart: "Chart",
-  Draw: "Draw",
-  TextBlock: "TextBlock",
-  Prompt: "Prompt",
-  MetaControl: "MetaControl",
-  Social: "Social",
-  GlobalVariables: "GlobalVariables",
-  Code: "Code",
-  GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
-  Terminal: "Terminal",
-  IFrame: "IFrame",
-  Chat: "Chat",
-  Browser: "Browser",
-  Plugin: "Plugin",
-  TaskBoard: "TaskBoard",
-  Spreadsheet: "Spreadsheet",
-} as const;
-export type SectionType = gt.SectionType;
-
-export const CodeObjTypeEnum = {
-  CodeCallable: "CodeCallable",
-  CodeParam: "CodeParam",
-  TextParam: "TextParam",
-  DateParam: "DateParam",
-  TimeParam: "TimeParam",
-  ButtonParam: "ButtonParam",
-  SliderParam: "SliderParam",
-  RotaryParam: "RotaryParam",
-  SwitchParam: "SwitchParam",
-  ColorPickerParam: "ColorPickerParam",
-  DropdownParam: "DropdownParam",
-  PasswordParam: "PasswordParam",
-  TextAreaParam: "TextAreaParam",
-  DropzoneParam: "DropzoneParam",
-  NestedParam: "NestedParam",
-} as const;
-export type CodeObjType = gt.CodeObjType;
-
-export const ConfigLanguageEnum = {
-  python: "python",
-  json: "json",
-} as const;
-
-export const ParameterPassingStyleEnum = {
-  DEFAULT: "DEFAULT",
-  ARGS: "ARGS",
-  KWARGS: "KWARGS",
-  POSITIONAL_ONLY: "POSITIONAL_ONLY",
-  KEYWORD_ONLY: "KEYWORD_ONLY",
-} as const;
-
-export const ParamNameTypeEnum = {
-  CODE: "CODE",
-  TEXT: "TEXT",
-} as const;
-
-export const ButtonActionModeEnum = {
-  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
-  HTTP_REQUEST: "HTTP_REQUEST",
-  SETTA_API: "SETTA_API",
-} as const;
-export type ButtonActionMode = gt.ButtonActionMode;
-
-export const HTTPRequestMethodEnum = {
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  PATCH: "PATCH",
-  DELETE: "DELETE",
-  HEAD: "HEAD",
-  OPTIONS: "OPTIONS",
-} as const;
-export type HTTPRequestMethod = gt.HTTPRequestMethod;
-
-export const DropzoneModeEnum = {
-  STATEFUL: "STATEFUL",
-  STATELESS: "STATELESS",
-} as const;
-
-export const TextParamInputUITypeEnum = {
-  plain: "plain",
-  time: "time",
-  date: "date",
-} as const;
-export type TextParamInputUIType = gt.TextParamInputUIType;
-
-export const TimeDisplayFormatEnum = {
-  twenty_four_hour: "twenty_four_hour",
-  twelve_hour: "twelve_hour",
-} as const;
-export type TimeDisplayFormat = gt.TimeDisplayFormat;
-
-export const TimeControlModeEnum = {
-  input: "input",
-  display: "display",
-} as const;
-export type TimeControlMode = gt.TimeControlMode;
-
-export const TimeDisplayFontEnum = {
-  clock: "clock",
-  monospace: "monospace",
-  system: "system",
-} as const;
-export type TimeDisplayFont = gt.TimeDisplayFont;
-
-export const DateDisplayFormatEnum = {
-  iso: "iso",
-  us: "us",
-  eu: "eu",
-  long: "long",
-} as const;
-export type DateDisplayFormat = gt.DateDisplayFormat;
-
-export const DateControlModeEnum = {
-  input: "input",
-  calendar: "calendar",
-} as const;
-export type DateControlMode = gt.DateControlMode;
-
-export const DateSelectionModeEnum = {
-  single: "single",
-  multiple: "multiple",
-} as const;
-export type DateSelectionMode = gt.DateSelectionMode;
-
-export const DateCalendarWeekStartEnum = {
-  sunday: "sunday",
-  monday: "monday",
-} as const;
-export type DateCalendarWeekStart = gt.DateCalendarWeekStart;
-
-export const TaskBoardTaskRecurrenceEnum = {
-  none: "none",
-  hourly: "hourly",
-  daily: "daily",
-  specified_days: "specified_days",
-  specified_months: "specified_months",
-  specified_years: "specified_years",
-} as const;
-export type TaskBoardTaskRecurrence = gt.TaskBoardTaskRecurrence;
-
-export const TaskBoardRecurringWeekdayEnum = {
-  monday: "monday",
-  tuesday: "tuesday",
-  wednesday: "wednesday",
-  thursday: "thursday",
-  friday: "friday",
-  saturday: "saturday",
-  sunday: "sunday",
-} as const;
-export type TaskBoardRecurringWeekday = gt.TaskBoardRecurringWeekday;
-
-export const TaskBoardRecurringMonthEnum = {
-  january: "january",
-  february: "february",
-  march: "march",
-  april: "april",
-  may: "may",
-  june: "june",
-  july: "july",
-  august: "august",
-  september: "september",
-  october: "october",
-  november: "november",
-  december: "december",
-} as const;
-export type TaskBoardRecurringMonth = gt.TaskBoardRecurringMonth;
 
 export type CodeFileBinding = gt.CodeFileBinding;
 
@@ -720,23 +422,6 @@ export function createStateMachineStartSectionImpl(
   };
 }
 
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = gt.StateMachineGateType;
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-
 type TextBlockSectionImpl = gt.TextBlockSectionImpl;
 
 export function createTextBlockSectionImpl(
@@ -772,11 +457,6 @@ export function createTextBlockSectionImpl(
     size: createSectionSize(options.size ?? defaults.size),
   };
 }
-
-export const FormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type Format = gt.Format;
 
 export type PromptSectionImpl = gt.PromptSectionImpl;
 
@@ -1019,12 +699,6 @@ export function createTaskBoardTask(
   };
 }
 
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = gt.TaskBoardViewMode;
-
 export type TaskBoardColumn = gt.TaskBoardColumn;
 
 export function createTaskBoardColumn(
@@ -1111,12 +785,6 @@ export function createChartSectionImpl(
     size: createSectionSize(options.size ?? defaults.size),
   };
 }
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
 
 type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
 
@@ -2007,21 +1675,6 @@ export function createLSPDiagnosticsPayload(
 
 export type NameValidationContract = gt.NameValidationContract;
 
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-export type ChatWindowPlacement = gt.ChatWindowPlacement;
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-export type ChatWindowMode = gt.ChatWindowMode;
-
 export type ChatWindowBounds = gt.ChatWindowBounds;
 
 function createChatWindowBounds(
@@ -2105,11 +1758,6 @@ export function createProjectChatWindowingState(
   };
 }
 
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-
 export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
 
 function createNormalizedFloatingWindowBounds(
@@ -2185,42 +1833,7 @@ export function createWindowSpaceConfig(
   };
 }
 
-export const CodeLanguageEnum = {
-  python: "python",
-  bash: "bash",
-  javascript: "javascript",
-  typescript: "typescript",
-  json: "json",
-  yaml: "yaml",
-  toml: "toml",
-  markdown: "markdown",
-  plaintext: "plaintext",
-} as const;
-
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = gt.CodeFileAccessMode;
-
 export type ProjectConfigMetadata = gt.ProjectConfigMetadata;
-
-export const RenameRefactorModeEnum = {
-  ALWAYS_ASK: "ALWAYS_ASK",
-  ALWAYS_RENAME: "ALWAYS_RENAME",
-  NEVER_RENAME: "NEVER_RENAME",
-} as const;
-export type RenameRefactorMode = gt.RenameRefactorMode;
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
-export type StateMachineCountOperator = gt.StateMachineCountOperator;
 
 export type CreateTopLevelSectionResult = gt.CreateTopLevelSectionResult;
 
@@ -2237,20 +1850,6 @@ export function createAgenticSummaryCacheStatus(
 export type CanvasPoint = gt.CanvasPoint;
 
 export type DrawAreaTransform = gt.DrawAreaTransform;
-
-export const DrawAreaBrushShapeEnum = {
-  butt: "butt",
-  round: "round",
-  square: "square",
-} as const;
-export type DrawAreaBrushShape = gt.DrawAreaBrushShape;
-
-export const DrawAreaModeEnum = {
-  draw: "draw",
-  erase: "erase",
-  edit: "edit",
-} as const;
-export type DrawAreaMode = gt.DrawAreaMode;
 
 export type BrushStroke = gt.BrushStroke;
 
@@ -2397,29 +1996,7 @@ export function createChartDataArtifact(
 
 export type FileArtifact = gt.FileArtifact;
 
-export const ArtifactTypeEnum = {
-  Image: "Image",
-  BrushStroke: "BrushStroke",
-  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
-  ChartData: "ChartData",
-  File: "File",
-} as const;
-export type ArtifactType = gt.ArtifactType;
-
 export type JSONArtifact = gt.JSONArtifact;
-
-export const ProjectCodegenLanguageEnum = {
-  python: "python",
-} as const;
-
-export const CodeObjValueRepresentationModeEnum = {
-  expression: "expression",
-  json_parsed: "json_parsed",
-  string: "string",
-  file_path: "file_path",
-  file_read: "file_read",
-} as const;
-export type CodeObjValueRepresentationMode = gt.CodeObjValueRepresentationMode;
 
 type SectionTypeCodegenPolicy = gt.SectionTypeCodegenPolicy;
 
@@ -3247,23 +2824,6 @@ function createSettingsShortcuts(
   };
 }
 
-export const BackgroundVariantEnum = {
-  lines: "lines",
-  dots: "dots",
-  cross: "cross",
-} as const;
-
-export const PanOnScrollModeEnum = {
-  free: "free",
-  vertical: "vertical",
-  horizontal: "horizontal",
-} as const;
-
-export const SelectionModeEnum = {
-  partial: "partial",
-  full: "full",
-} as const;
-
 type SettingsGUI = gt.SettingsGUI;
 
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
@@ -3328,7 +2888,6 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
     ...mergeGeneratedOptions<SettingsGUI>(defaults, options),
   };
 }
-export type RunSnapshotMode = gt.RunSnapshotMode;
 
 type SettingsBackend = gt.SettingsBackend;
 
@@ -3783,13 +3342,6 @@ export function createSettingsState(
   };
 }
 
-export const ChatRoleEnum = {
-  system: "system",
-  user: "user",
-  assistant: "assistant",
-  tool: "tool",
-} as const;
-
 export type ChatFileAttachment = gt.ChatFileAttachment;
 
 export type ChatSendEvent = gt.ChatSendEvent;
@@ -3920,20 +3472,9 @@ export function createToolChatMessage(
 
 export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
 
-export const DependencyKeyTypeEnum = {
-  Section: "Section",
-  SectionParam: "SectionParam",
-} as const;
-
 export type SectionDependencyKey = gt.SectionDependencyKey;
 
 export type SectionParamDependencyKey = gt.SectionParamDependencyKey;
-
-export const DependencyValueTypeEnum = {
-  Literal: "Literal",
-  Binary: "Binary",
-  FileRead: "FileRead",
-} as const;
 
 export type LiteralDependencyValue = gt.LiteralDependencyValue;
 
@@ -3952,52 +3493,6 @@ export function createListenerCoverageSnapshot(
 ): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
 }
-
-export const WebsocketMessageTypeEnum = {
-  Notification: "Notification",
-  AllProjectMetadata: "AllProjectMetadata",
-  AllConnections: "AllConnections",
-  FrontendIdentity: "FrontendIdentity",
-  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
-  UpdateArtifacts: "UpdateArtifacts",
-  LLMStreamingResponse: "LLMStreamingResponse",
-  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
-  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  UISettingReveal: "UISettingReveal",
-  LSPDiagnostics: "LSPDiagnostics",
-  NameValidationErrors: "NameValidationErrors",
-  LLMConfigUpdated: "LLMConfigUpdated",
-  LLMApiKeysUpdated: "LLMApiKeysUpdated",
-  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
-  EngineConfigsUpdated: "EngineConfigsUpdated",
-  AgentProfilesUpdated: "AgentProfilesUpdated",
-  AgentRunUpdated: "AgentRunUpdated",
-  PromptTemplatesUpdated: "PromptTemplatesUpdated",
-  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
-  UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  UpdateSettings: "UpdateSettings",
-  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
-  BackendLogEvent: "BackendLogEvent",
-} as const;
-export type WebsocketMessageType = gt.WebsocketMessageType;
-
-export const NotificationTypeEnum = {
-  error: "error",
-  warning: "warning",
-  info: "info",
-  save: "save",
-} as const;
-export type NotificationType = gt.NotificationType;
-
-export const StreamingEventTypeEnum = {
-  message_start: "message_start",
-  delta: "delta",
-  tool_call_delta: "tool_call_delta",
-  tool_argument_preview_delta: "tool_argument_preview_delta",
-  tool_result: "tool_result",
-  message_stop: "message_stop",
-  message_finalized: "message_finalized",
-} as const;
 
 export type AIFollowToolArgumentsUpdateContent =
   gt.AIFollowToolArgumentsUpdateContent;
@@ -4033,13 +3528,6 @@ export type UISettingRevealResultStatus = gt.UISettingRevealResultStatus;
 
 export type UISettingRevealResultMessage = gt.UISettingRevealResultMessage;
 
-export const ConnectionTypeEnum = {
-  frontend: "frontend",
-  listener: "listener",
-  SERVER: "SERVER",
-  terminal: "terminal",
-} as const;
-
 export type Connection = gt.Connection;
 
 export function createConnection(
@@ -4062,13 +3550,6 @@ export type RenameReferenceChangedValue = gt.RenameReferenceChangedValue;
 
 export type RenameRefactorBroadcastContent = gt.RenameRefactorBroadcastContent;
 
-export const MessageTypeEnum = {
-  CurrentAddressUpdate: "CurrentAddressUpdate",
-  UISettingRevealResult: "UISettingRevealResult",
-  RealtimeUIChange: "RealtimeUIChange",
-  RealtimeDependencyEvent: "RealtimeDependencyEvent",
-} as const;
-
 export type CurrentAddressUpdateMessage = gt.CurrentAddressUpdateMessage;
 
 export function createCurrentAddressUpdateMessage(
@@ -4090,15 +3571,235 @@ export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
 
 export type AllProjectMetadata = gt.AllProjectMetadata;
 
-type BootstrapHandoffProtocol = gt.BootstrapHandoffProtocol;
-
-type Constants = gt.Constants;
-
 export type Policy = gt.Policy;
 
 export function createPolicy(options: Partial<Policy> = {}): Policy {
   return options as Policy;
 }
+
+export type ServerModeCapabilities = gt.ServerModeCapabilities;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+
+export const AppGenerationModeEnum = {
+  json_render: "json_render",
+  json_render_with_image: "json_render_with_image",
+  prompt_builder: "prompt_builder",
+  mcp_server: "mcp_server",
+} as const;
+export type AppGenerationMode = gt.AppGenerationMode;
+
+export const ArtifactTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
+  ChartData: "ChartData",
+  File: "File",
+} as const;
+export type ArtifactType = gt.ArtifactType;
+
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+export type BrowserAreaViewMode = gt.BrowserAreaViewMode;
+
+export const BrowserSearchScopeEnum = {
+  recursive: "recursive",
+  local: "local",
+} as const;
+
+export const ButtonActionModeEnum = {
+  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+  SETTA_API: "SETTA_API",
+} as const;
+export type ButtonActionMode = gt.ButtonActionMode;
+
+export const ChartTypeEnum = {
+  line: "line",
+  scatter: "scatter",
+} as const;
+export type ChartType = gt.ChartType;
+
+export const ChatAppGenerationMessageModeEnum = {
+  plain_chat: "plain_chat",
+  json_render: "json_render",
+  json_render_with_image: "json_render_with_image",
+  prompt_builder: "prompt_builder",
+  mcp_server: "mcp_server",
+} as const;
+
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = gt.ChatPermissionMode;
+
+export const ChatRoleEnum = {
+  system: "system",
+  user: "user",
+  assistant: "assistant",
+  tool: "tool",
+} as const;
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = gt.ChatWindowMode;
+
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = gt.ChatWindowPlacement;
+
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+
+export const ClipboardDataTypeEnum = {
+  Sections: "Sections",
+} as const;
+
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = gt.CodeFileAccessMode;
+
+export const CodeLanguageEnum = {
+  python: "python",
+  bash: "bash",
+  javascript: "javascript",
+  typescript: "typescript",
+  json: "json",
+  yaml: "yaml",
+  toml: "toml",
+  markdown: "markdown",
+  plaintext: "plaintext",
+} as const;
+
+export const CodeObjTypeEnum = {
+  CodeCallable: "CodeCallable",
+  CodeParam: "CodeParam",
+  TextParam: "TextParam",
+  DateParam: "DateParam",
+  TimeParam: "TimeParam",
+  ButtonParam: "ButtonParam",
+  SliderParam: "SliderParam",
+  RotaryParam: "RotaryParam",
+  SwitchParam: "SwitchParam",
+  ColorPickerParam: "ColorPickerParam",
+  DropdownParam: "DropdownParam",
+  PasswordParam: "PasswordParam",
+  TextAreaParam: "TextAreaParam",
+  DropzoneParam: "DropzoneParam",
+  NestedParam: "NestedParam",
+} as const;
+export type CodeObjType = gt.CodeObjType;
+
+export const CodeObjValueRepresentationModeEnum = {
+  expression: "expression",
+  json_parsed: "json_parsed",
+  string: "string",
+  file_path: "file_path",
+  file_read: "file_read",
+} as const;
+export type CodeObjValueRepresentationMode = gt.CodeObjValueRepresentationMode;
+
+export const ConfigLanguageEnum = {
+  python: "python",
+  json: "json",
+} as const;
+
+export const ConnectionTypeEnum = {
+  frontend: "frontend",
+  listener: "listener",
+  SERVER: "SERVER",
+  terminal: "terminal",
+} as const;
+
+export const DateCalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+export type DateCalendarWeekStart = gt.DateCalendarWeekStart;
+
+export const DateControlModeEnum = {
+  input: "input",
+  calendar: "calendar",
+} as const;
+export type DateControlMode = gt.DateControlMode;
+
+export const DateDisplayFormatEnum = {
+  iso: "iso",
+  us: "us",
+  eu: "eu",
+  long: "long",
+} as const;
+export type DateDisplayFormat = gt.DateDisplayFormat;
+
+export const DateSelectionModeEnum = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+export type DateSelectionMode = gt.DateSelectionMode;
+
+export const DependencyKeyTypeEnum = {
+  Section: "Section",
+  SectionParam: "SectionParam",
+} as const;
+
+export const DependencyValueTypeEnum = {
+  Literal: "Literal",
+  Binary: "Binary",
+  FileRead: "FileRead",
+} as const;
+
+export const DrawAreaBrushShapeEnum = {
+  butt: "butt",
+  round: "round",
+  square: "square",
+} as const;
+export type DrawAreaBrushShape = gt.DrawAreaBrushShape;
+
+export const DrawAreaModeEnum = {
+  draw: "draw",
+  erase: "erase",
+  edit: "edit",
+} as const;
+export type DrawAreaMode = gt.DrawAreaMode;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
 
 export const EndpointOriginEnum = {
   backend: "backend",
@@ -4107,13 +3808,302 @@ export const EndpointOriginEnum = {
 } as const;
 export type EndpointOrigin = gt.EndpointOrigin;
 
-type EndpointOriginPolicy = gt.EndpointOriginPolicy;
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
 
-type ModeScopedLauncherRoutes = gt.ModeScopedLauncherRoutes;
+export const FormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type Format = gt.Format;
 
-type RequiredUIEditorTabMap = gt.RequiredUIEditorTabMap;
+export const HTTPRequestMethodEnum = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
+} as const;
+export type HTTPRequestMethod = gt.HTTPRequestMethod;
 
-export type ServerModeCapabilities = gt.ServerModeCapabilities;
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type ListRootViewMode = gt.ListRootViewMode;
+
+export const MessageTypeEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+  UISettingRevealResult: "UISettingRevealResult",
+  RealtimeUIChange: "RealtimeUIChange",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
+} as const;
+
+export const NotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+export type NotificationType = gt.NotificationType;
+
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+
+export const ParamNameTypeEnum = {
+  CODE: "CODE",
+  TEXT: "TEXT",
+} as const;
+
+export const ParameterPassingStyleEnum = {
+  DEFAULT: "DEFAULT",
+  ARGS: "ARGS",
+  KWARGS: "KWARGS",
+  POSITIONAL_ONLY: "POSITIONAL_ONLY",
+  KEYWORD_ONLY: "KEYWORD_ONLY",
+} as const;
+
+export const PluginRuntimeStateEnum = {
+  active: "active",
+  disabled: "disabled",
+  invalid: "invalid",
+  shadowed: "shadowed",
+  pending_restart: "pending_restart",
+} as const;
+
+export const ProjectCodegenLanguageEnum = {
+  python: "python",
+} as const;
+
+export const RenameRefactorModeEnum = {
+  ALWAYS_ASK: "ALWAYS_ASK",
+  ALWAYS_RENAME: "ALWAYS_RENAME",
+  NEVER_RENAME: "NEVER_RENAME",
+} as const;
+export type RenameRefactorMode = gt.RenameRefactorMode;
+
+export const RunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+export type RunSnapshotMode = gt.RunSnapshotMode;
+
+export const RunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+const SectionSizeModeEnum = {
+  auto: "auto",
+} as const;
+
+export const SectionTypeEnum = {
+  Callable: "Callable",
+  Dict: "Dict",
+  ListRoot: "ListRoot",
+  Group: "Group",
+  StateMachineStart: "StateMachineStart",
+  StateMachineGate: "StateMachineGate",
+  StateMachineEnd: "StateMachineEnd",
+  Image: "Image",
+  Chart: "Chart",
+  Draw: "Draw",
+  TextBlock: "TextBlock",
+  Prompt: "Prompt",
+  MetaControl: "MetaControl",
+  Social: "Social",
+  GlobalVariables: "GlobalVariables",
+  Code: "Code",
+  GenPythonCode: "GenPythonCode",
+  GenPythonMetadata: "GenPythonMetadata",
+  Terminal: "Terminal",
+  IFrame: "IFrame",
+  Chat: "Chat",
+  Browser: "Browser",
+  Plugin: "Plugin",
+  TaskBoard: "TaskBoard",
+  Spreadsheet: "Spreadsheet",
+} as const;
+export type SectionType = gt.SectionType;
+
+export const SelectionModeEnum = {
+  partial: "partial",
+  full: "full",
+} as const;
+
+export const SettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = gt.StateMachineCountOperator;
+
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = gt.StateMachineGateType;
+
+export const StreamingEventTypeEnum = {
+  message_start: "message_start",
+  delta: "delta",
+  tool_call_delta: "tool_call_delta",
+  tool_argument_preview_delta: "tool_argument_preview_delta",
+  tool_result: "tool_result",
+  message_stop: "message_stop",
+  message_finalized: "message_finalized",
+} as const;
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
+export type TaskBoardRecurringMonth = gt.TaskBoardRecurringMonth;
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+export type TaskBoardRecurringWeekday = gt.TaskBoardRecurringWeekday;
+
+export const TaskBoardTaskRecurrenceEnum = {
+  none: "none",
+  hourly: "hourly",
+  daily: "daily",
+  specified_days: "specified_days",
+  specified_months: "specified_months",
+  specified_years: "specified_years",
+} as const;
+export type TaskBoardTaskRecurrence = gt.TaskBoardTaskRecurrence;
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = gt.TaskBoardViewMode;
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+
+export const TextParamInputUITypeEnum = {
+  plain: "plain",
+  time: "time",
+  date: "date",
+} as const;
+export type TextParamInputUIType = gt.TextParamInputUIType;
+
+export const TimeControlModeEnum = {
+  input: "input",
+  display: "display",
+} as const;
+export type TimeControlMode = gt.TimeControlMode;
+
+export const TimeDisplayFontEnum = {
+  clock: "clock",
+  monospace: "monospace",
+  system: "system",
+} as const;
+export type TimeDisplayFont = gt.TimeDisplayFont;
+
+export const TimeDisplayFormatEnum = {
+  twenty_four_hour: "twenty_four_hour",
+  twelve_hour: "twelve_hour",
+} as const;
+export type TimeDisplayFormat = gt.TimeDisplayFormat;
+
+export const ToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+} as const;
+
+export const WebsocketMessageTypeEnum = {
+  Notification: "Notification",
+  AllProjectMetadata: "AllProjectMetadata",
+  AllConnections: "AllConnections",
+  FrontendIdentity: "FrontendIdentity",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  UpdateArtifacts: "UpdateArtifacts",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  UISettingReveal: "UISettingReveal",
+  LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  AgentRunUpdated: "AgentRunUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateSettings: "UpdateSettings",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
+  BackendLogEvent: "BackendLogEvent",
+} as const;
+export type WebsocketMessageType = gt.WebsocketMessageType;
+
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+
+export const WorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
 
 export const WorkspaceLaunchRouteKindEnum = {
   ide: "ide",
@@ -4121,12 +4111,6 @@ export const WorkspaceLaunchRouteKindEnum = {
   blocked: "blocked",
 } as const;
 export type WorkspaceLaunchRouteKind = gt.WorkspaceLaunchRouteKind;
-
-type ServerModeBoundaryPolicy = gt.ServerModeBoundaryPolicy;
-
-type ToolNameNormalization = gt.ToolNameNormalization;
-
-type TransportRoutes = gt.TransportRoutes;
 
 export type BaseCodeObjImplUnion = gt.BaseCodeObjImplUnion;
 
@@ -4246,7 +4230,7 @@ export const BootstrapProtocol = {
   workspaceHistoryHashParam: "wh",
   workspaceHistoryQueryParam: "__setta_workspace_history",
   workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
-} satisfies BootstrapHandoffProtocol;
+} satisfies gt.BootstrapHandoffProtocol;
 
 export const C = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: 3600,
@@ -4272,7 +4256,7 @@ export const C = {
   SETTA_TERMINAL_READY: "SETTA_TERMINAL_READY",
   SETTINGS_PROJECT_NAME: "settings",
   WS_TERMINAL_RESIZE: "terminalResize",
-} satisfies Constants;
+} satisfies gt.Constants;
 
 export const DefaultAppPolicy = {
   allowExternalLinks: false,
@@ -4284,7 +4268,7 @@ export const DefaultAppPolicy = {
   allowRun: true,
   allowVariantChanges: false,
   runSnapshotMode: "ephemeral",
-} satisfies Policy;
+} satisfies gt.Policy;
 
 export const EndpointOriginPolicyByRoute = {
   "/__setta__/tools/call": "backend-origin",
@@ -4298,12 +4282,12 @@ export const EndpointOriginPolicyByRoute = {
   "/pinLauncherRecentWorkspace": "launcher",
   "/removeLauncherRecentWorkspace": "launcher",
   "/settaHomeInfo": "backend",
-} satisfies EndpointOriginPolicy;
+} satisfies gt.EndpointOriginPolicy;
 
 export const ModeScopedLauncherRoutesList = [
   "/launch",
   "/createWorkspaceLaunchIntent",
-] satisfies ModeScopedLauncherRoutes;
+] satisfies gt.ModeScopedLauncherRoutes;
 
 export const NameValidationRules = {
   projectReservedNames: ["home", "settings"],
@@ -4535,7 +4519,7 @@ export const NameValidationRules = {
     "z",
   ],
   slugReplacementChars: ["[", "]", '"', "'", " "],
-} satisfies NameValidationContract;
+} satisfies gt.NameValidationContract;
 
 export const RequiredUIEditorTabs = {
   Browser: ["SectionConfig"],
@@ -4578,7 +4562,7 @@ export const RequiredUIEditorTabs = {
   TaskBoard: ["SectionConfig"],
   Terminal: ["SectionConfig"],
   TextBlock: ["SectionConfig", "InfoConfig", "SectionVariantsConfig"],
-} satisfies RequiredUIEditorTabMap;
+} satisfies gt.RequiredUIEditorTabMap;
 
 export const ServerModeBoundaryPolicyByMode = {
   app: {
@@ -4597,13 +4581,13 @@ export const ServerModeBoundaryPolicyByMode = {
     capabilities: { canManageDesktopLauncher: false },
     workspaceLaunchRouteKind: "blocked",
   },
-} satisfies ServerModeBoundaryPolicy;
+} satisfies gt.ServerModeBoundaryPolicy;
 
 export const ToolNameNormalizationConfig = {
   askUserQuestionToolName: "AskUserQuestion",
   doublePrefix: "setta__",
   singlePrefix: "setta_",
-} satisfies ToolNameNormalization;
+} satisfies gt.ToolNameNormalization;
 
 export const TransportRouteConstants = {
   apiPrefix: "/api",
@@ -4649,4 +4633,4 @@ export const TransportRouteConstants = {
     listenerById: "/ws/listeners/{listenerID}",
     terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
   },
-} satisfies TransportRoutes;
+} satisfies gt.TransportRoutes;
