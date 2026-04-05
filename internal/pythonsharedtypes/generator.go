@@ -151,25 +151,7 @@ func filteredPythonImportLine(line string) string {
 	if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
 		return ""
 	}
-	_, imported, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
-	if !ok {
-		return trimmed
-	}
-	for _, name := range strings.Split(imported, ",") {
-		if !isLocalPythonContractImportName(name) {
-			return trimmed
-		}
-	}
-	return ""
-}
-
-func isLocalPythonContractImportName(name string) bool {
-	name = strings.TrimSpace(strings.TrimSuffix(name, "WithDiscriminator"))
-	if name == "" {
-		return false
-	}
-	_, local := sharedtypes.TypeByContractName(name)
-	return local
+	return trimmed
 }
 
 func fieldJSONName(field reflect.StructField) (string, error) {

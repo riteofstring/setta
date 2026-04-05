@@ -3,9 +3,9 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-from setta.types.artifact import BaseArtifactUnion
-from setta.types.protocol import (
-    BaseDependencyKeyUnionWithDiscriminator,
+from setta.types.generated.go_shared_types import (
+    BaseArtifactUnion,
+    BaseDependencyKeyUnion,
     BaseDependencyValueUnion,
 )
 
@@ -42,12 +42,10 @@ class RunnerSummarySnapshot(SettaSDKContractBaseModel):
 
 
 class ListenerDependencyCatalogEntry(SettaSDKContractBaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    dependencyKey: BaseDependencyKeyUnion
     name: str
     fullPathName: str
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
-        default_factory=list
-    )
+    dependencies: list[BaseDependencyKeyUnion] = Field(default_factory=list)
     includeInCodegen: bool = True
     sectionType: str | None = None
     codeObjType: str | None = None
@@ -64,7 +62,7 @@ class ListenerDependencyCatalog(SettaSDKContractBaseModel):
 
 
 class ListenerRenderedDependencyValue(SettaSDKContractBaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    dependencyKey: BaseDependencyKeyUnion
     renderedValue: str
 
 
@@ -93,9 +91,7 @@ class ListenerInitRequest(SettaSDKContractBaseModel):
 
 
 class ListenerRegisterCallbackSpec(SettaSDKContractBaseModel):
-    dependencies: list[BaseDependencyKeyUnionWithDiscriminator] = Field(
-        default_factory=list
-    )
+    dependencies: list[BaseDependencyKeyUnion] = Field(default_factory=list)
     dependencyMode: Literal["refresh_only", "realtime_only", "always"]
     debounceMs: int | None = None
     throttleMs: int | None = None
@@ -146,7 +142,7 @@ class ListenerRouterEndpointResult(SettaSDKContractBaseModel):
 
 
 class ListenerRealtimeDelta(SettaSDKContractBaseModel):
-    dependency: BaseDependencyKeyUnionWithDiscriminator
+    dependency: BaseDependencyKeyUnion
     value: BaseDependencyValueUnion
 
 
@@ -159,7 +155,7 @@ class ListenerRealtimeEvent(SettaSDKContractBaseModel):
 
 
 class ListenerDependencyEventEntry(SettaSDKContractBaseModel):
-    dependencyKey: BaseDependencyKeyUnionWithDiscriminator
+    dependencyKey: BaseDependencyKeyUnion
     payload: BaseDependencyValueUnion | None = None
     timestampMs: int
 
@@ -199,7 +195,7 @@ class LocalCoreResultEnvelope(SettaSDKContractBaseModel):
 
 
 class LocalCoreListenerRealtimeDelta(SettaSDKContractBaseModel):
-    dependency: BaseDependencyKeyUnionWithDiscriminator
+    dependency: BaseDependencyKeyUnion
     value: BaseDependencyValueUnion
     binaryPayloadBase64: str | None = None
 
