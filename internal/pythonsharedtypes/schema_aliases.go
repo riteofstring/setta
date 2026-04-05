@@ -288,31 +288,17 @@ func trimDatamodelFieldDefault(value string) string {
 		return ""
 	}
 
-	brackets := 0
-	braces := 0
-	parens := 0
+	depth := 0
 	for index, char := range value {
 		switch char {
-		case '[':
-			brackets++
-		case ']':
-			if brackets > 0 {
-				brackets--
-			}
-		case '{':
-			braces++
-		case '}':
-			if braces > 0 {
-				braces--
-			}
-		case '(':
-			parens++
-		case ')':
-			if parens > 0 {
-				parens--
+		case '[', '{', '(':
+			depth++
+		case ']', '}', ')':
+			if depth > 0 {
+				depth--
 			}
 		case '=':
-			if brackets == 0 && braces == 0 && parens == 0 {
+			if depth == 0 {
 				return strings.TrimSpace(value[:index])
 			}
 		}
@@ -326,63 +312,47 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 	declarations := []datamodelDeclaration{}
 	sawDeclaration := false
 
-	flushBlock := func(block []string) error {
-		if len(block) == 0 {
-			return nil
-		}
-		header := block[0]
-		header = strings.TrimSpace(header)
-		switch {
-		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
-			return nil
-		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
-			for _, line := range block {
-				trimmed := strings.TrimSpace(line)
-				if trimmed == "" || strings.HasPrefix(trimmed, "#") || trimmed == "from __future__ import annotations" {
-					continue
-				}
-				if !strings.HasPrefix(trimmed, "from ") && !strings.HasPrefix(trimmed, "import ") {
-					continue
-				}
-				if _, duplicate := seen[trimmed]; duplicate {
-					continue
-				}
-				seen[trimmed] = struct{}{}
-				imports = append(imports, trimmed)
-			}
-			return nil
-		default:
-			declaration := datamodelDeclaration{Block: strings.Join(block, "\n")}
-			if strings.HasPrefix(header, "class ") {
-				name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
-				if before, _, ok := strings.Cut(name, "("); ok {
-					name = strings.TrimSpace(before)
-				}
-				if name == "" {
-					return fmt.Errorf("python shared types: datamodel class has empty name")
-				}
-				declaration.Name = name
-			}
-			sawDeclaration = true
-			declarations = append(declarations, declaration)
-		}
-		return nil
-	}
-
-	block := []string{}
-	for _, line := range strings.Split(module, "\n") {
-		line = strings.TrimRight(line, " \t")
-		if strings.TrimSpace(line) == "" {
-			if err := flushBlock(block); err != nil {
-				return datamodelModule{}, err
-			}
-			block = block[:0]
+	for _, block := range strings.Split(module, "\n\n") {
+		block = strings.TrimSpace(block)
+		if block == "" {
 			continue
 		}
-		block = append(block, line)
-	}
-	if err := flushBlock(block); err != nil {
-		return datamodelModule{}, err
+		lines := strings.Split(block, "\n")
+		header := strings.TrimSpace(lines[0])
+		switch {
+		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
+			continue
+		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") || line == "from __future__ import annotations" {
+					continue
+				}
+				if !strings.HasPrefix(line, "from ") && !strings.HasPrefix(line, "import ") {
+					continue
+				}
+				if _, duplicate := seen[line]; duplicate {
+					continue
+				}
+				seen[line] = struct{}{}
+				imports = append(imports, line)
+			}
+			continue
+		}
+
+		declaration := datamodelDeclaration{Block: block}
+		if strings.HasPrefix(header, "class ") {
+			name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
+			if before, _, ok := strings.Cut(name, "("); ok {
+				name = strings.TrimSpace(before)
+			}
+			if name == "" {
+				return datamodelModule{}, fmt.Errorf("python shared types: datamodel class has empty name")
+			}
+			declaration.Name = name
+		}
+		sawDeclaration = true
+		declarations = append(declarations, declaration)
 	}
 	return datamodelModule{
 		ImportLines:  imports,
