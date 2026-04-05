@@ -1,6 +1,7 @@
 package scriptablechat
 
 import (
+	"reflect"
 	"time"
 )
 
@@ -72,6 +73,16 @@ type MessageThinkingContent struct {
 	Signature *string `json:"signature,omitempty"`
 }
 
+type MessageContent struct{}
+
+func (MessageContent) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(MessageTextContent{}),
+		reflect.TypeOf(MessageImageURLContent{}),
+		reflect.TypeOf(MessageThinkingContent{}),
+	}
+}
+
 type ToolReferenceContent struct {
 	Type     string `json:"type" ts_type:"\"tool_reference\""`
 	ToolName string `json:"tool_name"`
@@ -86,6 +97,17 @@ type ToolCall struct {
 	ID       string           `json:"id"`
 	Type     string           `json:"type" ts_type:"\"function\""`
 	Function ToolCallFunction `json:"function"`
+}
+
+type BaseChatMessageUnion struct{}
+
+func (BaseChatMessageUnion) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(SystemChatMessage{}),
+		reflect.TypeOf(AssistantChatMessage{}),
+		reflect.TypeOf(UserChatMessage{}),
+		reflect.TypeOf(ToolChatMessage{}),
+	}
 }
 
 type SystemChatMessage struct {

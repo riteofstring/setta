@@ -26,11 +26,19 @@ type BinaryRouteDependencies struct {
 
 type BinaryUploadRequest struct{}
 
+func (BinaryUploadRequest) FrontendBindingTypeScriptExpr() string {
+	return "FormData"
+}
+
 type BinaryDownloadRequest struct {
 	ContentID string `json:"contentId"`
 }
 
 type BinaryDownloadResponse struct{}
+
+func (BinaryDownloadResponse) FrontendBindingTypeScriptExpr() string {
+	return "Uint8Array"
+}
 
 func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error {
 	if router == nil {

@@ -1,5 +1,7 @@
 package projectview
 
+import "reflect"
+
 type ProjectCodegenLanguage string
 
 const ProjectCodegenLanguagePython ProjectCodegenLanguage = "python"
@@ -76,3 +78,10 @@ type ProjectCodegenPluginTarget struct {
 }
 
 type ProjectCodegenTarget struct{}
+
+func (ProjectCodegenTarget) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(ProjectCodegenPythonTarget{}),
+		reflect.TypeOf(ProjectCodegenPluginTarget{}),
+	}
+}

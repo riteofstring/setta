@@ -4,76 +4,21 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/httpapi"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 )
 
 func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations := []TypeDeclaration{
-		aliasDeclaration("BuiltinCodeLanguage", "CodeLanguage"),
-		aliasDeclaration("MessageContentDelta", "MessageTextDelta | MessageThinkingDelta"),
-		aliasDeclaration(
-			"LLMStreamingResponseChunk",
-			"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
-		),
-		aliasDeclarationWithCreateExpr(
-			"ViewModeConfig",
-			"ViewMode",
-			"createViewMode(options)",
-		),
 		aliasDeclaration(
 			"JSONValue",
 			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
-		),
-		aliasDeclaration(
-			"MessageContent",
-			"MessageTextContent | MessageImageURLContent | MessageThinkingContent",
-		),
-		aliasDeclaration(
-			"BaseChatMessageUnion",
-			"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
-		),
-		aliasDeclaration(
-			"BaseChartSettingsUnion",
-			"LineChartSettings | ScatterChartSettings",
-		),
-		aliasDeclaration(
-			"ProjectCodegenTarget",
-			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 		),
 	}
 	declarations = append(declarations, generatedContractDeclarations(converter)...)
 	return declarations
 }
 
-var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
-	reflect.TypeOf(realtime.BaseDependencyKeyUnion{}): aliasDeclaration(
-		"BaseDependencyKeyUnion",
-		"SectionDependencyKey | SectionParamDependencyKey",
-	),
-	reflect.TypeOf(realtime.BaseDependencyValueUnion{}): aliasDeclaration(
-		"BaseDependencyValueUnion",
-		"LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
-	),
-	reflect.TypeOf(projectstate.SectionSizeValue{}): aliasDeclaration(
-		"SectionSizeValue",
-		"number | SectionSizeMode",
-	),
-	reflect.TypeOf(httpapi.BinaryUploadRequest{}): aliasDeclaration(
-		"BinaryUploadRequest",
-		"FormData",
-	),
-	reflect.TypeOf(httpapi.BinaryDownloadResponse{}): aliasDeclaration(
-		"BinaryDownloadResponse",
-		"Uint8Array",
-	),
-}
-
 func specialMetadataTypeDeclaration(converter *typeConverter, t reflect.Type) (TypeDeclaration, bool) {
-	if declaration, ok := specialMetadataDeclarations[t]; ok {
-		return declaration, true
-	}
 	if declaration, ok := generatedConcreteSectionMetadataDeclaration(converter, t); ok {
 		return declaration, true
 	}

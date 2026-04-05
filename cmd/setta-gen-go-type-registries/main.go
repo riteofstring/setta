@@ -36,6 +36,16 @@ type registryEntry struct {
 	PkgPath string
 }
 
+func frontendConvertibleRegistrySource(pkgPath string) registrySource {
+	return registrySource{
+		PkgPath:                  pkgPath,
+		RequireJSONTaggedStructs: true,
+		IncludeZeroFieldStructs:  true,
+		IncludeCollectionAliases: true,
+		IncludeNonStringScalars:  true,
+	}
+}
+
 type defaultProviderEntry struct {
 	Target              registryEntry
 	ProviderPackagePath string
@@ -78,120 +88,25 @@ func main() {
 			FuncName:         "DiscoveredConvertibleTypes",
 			TypeOverrideFunc: "DiscoveredTypeOverrides",
 			Sources: []registrySource{
-				{
-					PkgPath:                  "setta/internal/plugins",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/agentprofiles",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/agentruns",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/detachedruns",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/externalagentconfigs",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/llmconfig",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/projectstate",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/agenticsummarycache",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/artifacts",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/projectview",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/prompttemplates",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/settingsstate",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/scriptablechat",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/realtime",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/wsapi",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/transcriptionprofiles",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/lspcompletion",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/projectshell",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/gitread",
-					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
+				frontendConvertibleRegistrySource("setta/internal/plugins"),
+				frontendConvertibleRegistrySource("setta/internal/agentprofiles"),
+				frontendConvertibleRegistrySource("setta/internal/agentruns"),
+				frontendConvertibleRegistrySource("setta/internal/detachedruns"),
+				frontendConvertibleRegistrySource("setta/internal/externalagentconfigs"),
+				frontendConvertibleRegistrySource("setta/internal/llmconfig"),
+				frontendConvertibleRegistrySource("setta/internal/projectstate"),
+				frontendConvertibleRegistrySource("setta/internal/agenticsummarycache"),
+				frontendConvertibleRegistrySource("setta/internal/artifacts"),
+				frontendConvertibleRegistrySource("setta/internal/projectview"),
+				frontendConvertibleRegistrySource("setta/internal/prompttemplates"),
+				frontendConvertibleRegistrySource("setta/internal/settingsstate"),
+				frontendConvertibleRegistrySource("setta/internal/scriptablechat"),
+				frontendConvertibleRegistrySource("setta/internal/realtime"),
+				frontendConvertibleRegistrySource("setta/internal/wsapi"),
+				frontendConvertibleRegistrySource("setta/internal/transcriptionprofiles"),
+				frontendConvertibleRegistrySource("setta/internal/lspcompletion"),
+				frontendConvertibleRegistrySource("setta/internal/projectshell"),
+				frontendConvertibleRegistrySource("setta/internal/gitread"),
 			},
 			Comment: "Code generated by ./scripts/go.sh run ./cmd/setta-gen-go-type-registries; DO NOT EDIT.",
 		},

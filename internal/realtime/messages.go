@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"reflect"
 	"strings"
 
 	"setta/internal/agentprofiles"
@@ -128,6 +129,15 @@ type MessageThinkingDelta struct {
 	Signature *string `json:"signature" ts_optional:"true"`
 }
 
+type MessageContentDelta struct{}
+
+func (MessageContentDelta) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(MessageTextDelta{}),
+		reflect.TypeOf(MessageThinkingDelta{}),
+	}
+}
+
 type MessageStartEvent struct {
 	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.MESSAGE_START"`
 	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
@@ -171,6 +181,20 @@ type MessageStopEvent struct {
 type MessageFinalizedEvent struct {
 	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.MESSAGE_FINALIZED"`
 	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
+}
+
+type LLMStreamingResponseChunk struct{}
+
+func (LLMStreamingResponseChunk) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(MessageStartEvent{}),
+		reflect.TypeOf(MessageDeltaEvent{}),
+		reflect.TypeOf(ToolCallDeltaEvent{}),
+		reflect.TypeOf(ToolResultEvent{}),
+		reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}),
+		reflect.TypeOf(MessageStopEvent{}),
+		reflect.TypeOf(MessageFinalizedEvent{}),
+	}
 }
 
 type LLMStreamingResponseContent struct {

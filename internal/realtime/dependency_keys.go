@@ -3,6 +3,7 @@ package realtime
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 
 	binarypayload "setta/internal/binary"
@@ -52,8 +53,23 @@ type BinaryDependencyValue struct {
 // setta-go-type-discovery: skip
 type BaseDependencyKeyUnion struct{}
 
+func (BaseDependencyKeyUnion) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(SectionDependencyKey{}),
+		reflect.TypeOf(SectionParamDependencyKey{}),
+	}
+}
+
 // setta-go-type-discovery: skip
 type BaseDependencyValueUnion struct{}
+
+func (BaseDependencyValueUnion) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(LiteralDependencyValue{}),
+		reflect.TypeOf(FileReadDependencyValue{}),
+		reflect.TypeOf(BinaryDependencyValue{}),
+	}
+}
 
 type DependencyEvent struct {
 	DependencyKey BaseDependencyKeyUnion    `json:"dependencyKey"`

@@ -780,6 +780,8 @@ function createScatterChartSettings(
   );
 }
 
+export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
 export const ChartTypeEnum = {
   line: "line",
   scatter: "scatter",
@@ -4481,6 +4483,10 @@ export function createProjectCodegenPluginTarget(
   );
 }
 
+export type ProjectCodegenTarget =
+  | ProjectCodegenPythonTarget
+  | ProjectCodegenPluginTarget;
+
 export type Core = {
   id: string;
   name: string;
@@ -5578,6 +5584,11 @@ export function createMessageThinkingContent(
   );
 }
 
+type MessageContent =
+  | MessageTextContent
+  | MessageImageURLContent
+  | MessageThinkingContent;
+
 type ToolReferenceContent = {
   type: "tool_reference";
   tool_name: string;
@@ -5706,6 +5717,12 @@ export function createToolChatMessage(
     options,
   );
 }
+
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
 
 export const DependencyKeyTypeEnum = {
   Section: "Section",
@@ -5849,6 +5866,8 @@ type MessageThinkingDelta = {
   signature?: string | null;
 };
 
+type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+
 export type MessageStartEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_START;
   message: BaseChatMessageUnion;
@@ -5893,6 +5912,15 @@ export type MessageFinalizedEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
   message: BaseChatMessageUnion;
 };
+
+type LLMStreamingResponseChunk =
+  | MessageStartEvent
+  | MessageDeltaEvent
+  | ToolCallDeltaEvent
+  | ToolResultEvent
+  | ToolArgumentPreviewDeltaEvent
+  | MessageStopEvent
+  | MessageFinalizedEvent;
 
 export type LLMStreamingResponseContent = {
   chatId: string;
@@ -8278,10 +8306,7 @@ export type SetSectionPinnedParamsRequest = {
   pinnedParams: Array<string>;
 };
 
-type sectionSizeValueRequest = {
-  auto: boolean;
-  value: number;
-};
+type sectionSizeValueRequest = number | SectionSizeMode;
 
 type sectionSizeRequest = {
   width: sectionSizeValueRequest;
@@ -8879,19 +8904,6 @@ export function createWriteFileContentResponse(
   return options as WriteFileContentResponse;
 }
 
-type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
-
-type LLMStreamingResponseChunk =
-  | MessageStartEvent
-  | MessageDeltaEvent
-  | ToolCallDeltaEvent
-  | ToolResultEvent
-  | ToolArgumentPreviewDeltaEvent
-  | MessageStopEvent
-  | MessageFinalizedEvent;
-
-export type ViewModeConfig = ViewMode;
-
 type JSONValue =
   | null
   | boolean
@@ -8899,23 +8911,6 @@ type JSONValue =
   | string
   | Array<JSONValue>
   | { [key: string]: JSONValue | undefined };
-
-type MessageContent =
-  | MessageTextContent
-  | MessageImageURLContent
-  | MessageThinkingContent;
-
-export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
-
-export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
-
-export type ProjectCodegenTarget =
-  | ProjectCodegenPythonTarget
-  | ProjectCodegenPluginTarget;
 
 type GlobalVariablesSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.GlobalVariables;

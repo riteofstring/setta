@@ -1,5 +1,7 @@
 package projectstate
 
+import "reflect"
+
 type LineChartSettings struct {
 	Type               ChartType `json:"type" py_default:"ChartType.line" ts_type:"typeof ChartTypeEnum.line"`
 	XAxisColumn        *string   `json:"xAxisColumn,omitempty"`
@@ -15,4 +17,13 @@ type ScatterChartSettings struct {
 	CategoryColumn *string   `json:"categoryColumn,omitempty"`
 	XAxisLog       bool      `json:"xAxisLog" py_default:"False"`
 	YAxisLog       bool      `json:"yAxisLog" py_default:"False"`
+}
+
+type BaseChartSettingsUnion struct{}
+
+func (BaseChartSettingsUnion) FrontendBindingUnionTypes() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeOf(LineChartSettings{}),
+		reflect.TypeOf(ScatterChartSettings{}),
+	}
 }

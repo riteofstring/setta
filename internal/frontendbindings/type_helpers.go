@@ -12,7 +12,6 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 	"setta/internal/transcriptionsessions"
 )
 
@@ -498,40 +497,13 @@ func specialTypeDeclaration(
 	if declaration, ok, err := artifactTypeDeclaration(t); ok || err != nil {
 		return declaration, ok, err
 	}
+	if declaration, ok, err := ownerProvidedTypeDeclaration(converter, t); ok || err != nil {
+		return declaration, ok, err
+	}
 	if declaration, ok := specialMetadataTypeDeclaration(converter, t); ok {
-		if err := ensureSpecialDeclarationDependencies(converter, t); err != nil {
-			return TypeDeclaration{}, false, err
-		}
 		return declaration, true, nil
 	}
 	return TypeDeclaration{}, false, nil
-}
-
-func ensureSpecialDeclarationDependencies(converter *typeConverter, t reflect.Type) error {
-	var dependencies []reflect.Type
-	switch t {
-	case reflect.TypeOf(realtime.BaseDependencyKeyUnion{}):
-		dependencies = []reflect.Type{
-			reflect.TypeOf(realtime.DependencyKeyType("")),
-			reflect.TypeOf(realtime.SectionDependencyKey{}),
-			reflect.TypeOf(realtime.SectionParamDependencyKey{}),
-		}
-	case reflect.TypeOf(realtime.BaseDependencyValueUnion{}):
-		dependencies = []reflect.Type{
-			reflect.TypeOf(realtime.DependencyValueType("")),
-			reflect.TypeOf(realtime.LiteralDependencyValue{}),
-			reflect.TypeOf(realtime.FileReadDependencyValue{}),
-			reflect.TypeOf(realtime.BinaryDependencyValue{}),
-		}
-	default:
-		return nil
-	}
-	for _, dependency := range dependencies {
-		if err := converter.ensureDeclaration(dependency); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func mustGeneratedUserDefaultDeclarations(converter *typeConverter) []TypeDeclaration {
