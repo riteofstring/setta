@@ -9426,3 +9426,31 @@ LOOP_TERMINAL_MARKER: none
     - rerun the original sanctioned shell-owned border and top-drag-handle tests on the committed shell-layer code and diagnose the remaining canary-mount failure if it persists
     - retry the required worktree CDP spot-check once `chrome-devtools-mcp` stops timing out on `Network.enable`
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 01:35 EDT, Ralph item `242`
+  - Summary: fixed the remaining shell-layer mount stall by deferring shell-layer Pixi ref publication until `app.init(...)` completed, reran the sanctioned shell-owned border/top-handle acceptance tests green, used the one allowed headless `aireset` recovery, and still could not complete the required CDP visual spot-check because `chrome-devtools-mcp` remained unavailable in fresh sub-agent sessions.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`4 files`, `13 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone'` -> passed (`1 test`, `21.0s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle'` -> passed (`1 test`, `26.7s`)
+    - one allowed in-iteration recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-007/worktree-ai.log` -> refreshed backend/bootstrap on `8075`, debug port `9297`, stale frontend URL still echoed as `3076` from the runtime log
+    - fresh-context CDP sub-agents before and after recovery:
+      - result: `chrome-devtools-mcp` unavailable in-session both times, so no trustworthy graph-surface screenshot or spot-check could be captured
+  - Result:
+    - the shell-layer mount hang is fixed and the sanctioned shell-owned acceptance tests are green again
+    - the remaining gap on this slice is the required live CDP visual gate, which stayed unavailable after the one allowed recovery and is now explicit tooling debt rather than an open product bug on this lane
+    - because this lane already consumed the bounded CDP retry, the next pass should not spend another default iteration on lifecycle/CDP repair alone
+  - Next:
+    - keep the pending CDP spot-check explicit and move to the next real product frontier unless `chrome-devtools-mcp` is cheaply usable at the start of the next iteration
+    - if CDP becomes available without another recovery-only pass, use the named `rotaryParamCodeObjDefault` target for the outstanding graph-surface spot-check
+  - LOOP_TERMINAL_MARKER: none

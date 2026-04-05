@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 01:08 EDT
+Last updated: 2026-04-07 01:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `242` fixed the remaining shell-layer mount stall in the first Pixi-owned slice, reran the two sanctioned shell-owned acceptance tests green, and exhausted the one allowed headless lifecycle recovery without restoring a usable `chrome-devtools-mcp` visual spot-check.
+  - Why this pass stopped here:
+    - item `241` already said the next bounded step was to rerun the sanctioned shell-owned border and top-drag-handle tests on committed code, then diagnose the remaining canary-mount blocker rather than inventing another support-only lane
+    - a fresh single-test rerun plus Playwright API tracing showed the browser stalled immediately after `applyProjectStateUpdate(...)`; the border lane never progressed past finding the `All Settings` button or the canary root, so the remaining blocker was a live product-side mount hang inside the new shell layer rather than cleanup noise in `finally`
+    - the shell layer was publishing `appRef` / `graphicsRef` before `app.init(...)` completed, which allowed `useLayoutEffect` to call `syncSettingsGraphSubstrateCanarySectionShellPixiCanvas(...)` against a pre-init Pixi application; moving those refs to the post-init ready path cleared the stall and made the sanctioned shell-owned checks deterministic again
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+      - pinned Pixi renderer init to `preference: "webgl"` for the shell canvas
+      - delayed publishing `appRef.current` / `graphicsRef.current` until after `app.init(...)` completed and the stage child was attached, so `useLayoutEffect` can no longer sync/draw against a pre-init Pixi application
+    - updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts)
+      - restored the explicit `All Settings` tab click in the two shell-owned acceptance tests so they use the same deterministic surface-activation path as the other canary tests in this file
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - sanctioned Playwright helper:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone'`
+      - result: passed (`1 test`, `21.0s`)
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle'`
+      - result: passed (`1 test`, `26.7s`)
+    - one allowed lifecycle recovery for CDP:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: restarted the worktree lifecycle on frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap session `8fb622`, debug port `9297`
+      - runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-007/worktree-ai.log`
+        - result: confirmed fresh backend/bootstrap on `8075` and debug port `9297` (the helper still reported stale frontend `3076` from the runtime log)
+    - CDP visual gate:
+      - not run
+      - reason:
+        - two fresh-context CDP sub-agents were attempted in this iteration
+        - before recovery, the sub-agent could not access a usable `chrome-devtools-mcp` session from the current interface
+        - after the one allowed recovery, a second fresh-context sub-agent still reported `chrome-devtools-mcp` unavailable in-session, so no trustworthy graph-surface screenshot or spot-check could be captured
+  - Lane status:
+    - the shell-layer pre-init mount hang is fixed in code and the two sanctioned shell-owned acceptance tests are green again
+    - the remaining gap on this slice is the required live CDP visual spot-check, which stayed unavailable after the one allowed recovery and is now explicit tooling debt rather than an open product failure on the shell-owned lane
+  - Next frontier:
+    - do not spend another default iteration on standalone CDP/lifecycle repair for this shell-owned lane unless `chrome-devtools-mcp` is cheaply available at the start of the pass
+    - keep the pending visual spot-check explicit, and move to the next real product frontier on the Pixi-owned canary unless the next iteration can complete the spot-check without another recovery-only pass
 
 - Ralph item `241` fixed a real Pixi runtime crash in the first shell-owned slice, but the sanctioned shell-border acceptance lane still needs a clean rerun on the committed code and the required CDP spot-check remains blocked by DevTools transport timeouts.
   - Why this pass stopped here:

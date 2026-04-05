@@ -1793,6 +1793,9 @@ test("settings graph substrate canary renders the shell-owned border without a d
     );
     await applyProjectStateUpdate(page, stateWithoutViewport);
 
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
     const canarySection = page.locator(
       `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
@@ -1887,6 +1890,9 @@ test("settings graph substrate canary renders the shell-owned top drag handle wi
     );
     await applyProjectStateUpdate(page, stateWithoutViewport);
 
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
 
     const created = await postBackend<{ sectionId?: string }>(

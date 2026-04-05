@@ -72,8 +72,6 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
 
     const app = new Application();
     const graphics = new Graphics();
-    appRef.current = app;
-    graphicsRef.current = graphics;
 
     const destroyPixi = () => {
       if (destroyed || !initCompleted) {
@@ -95,6 +93,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
         backgroundAlpha: 0,
         canvas,
         antialias: true,
+        preference: "webgl",
         resolution: window.devicePixelRatio || 1,
         sharedTicker: false,
       });
@@ -107,6 +106,8 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       app.stage.eventMode = "none";
       graphics.eventMode = "none";
       app.stage.addChild(graphics);
+      appRef.current = app;
+      graphicsRef.current = graphics;
 
       const syncCanvas = () => {
         syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
