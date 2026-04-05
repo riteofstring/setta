@@ -38,76 +38,24 @@ func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T)
 	}
 }
 
-func TestPythonValueExprFromGoValueNormalizesOwnerFrontendNames(t *testing.T) {
-	expr, err := pythonValueExprFromGoValue(projectstate.FrontendSectionTypeChat)
-	if err != nil {
-		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
-	}
-	if expr != "SectionType.Chat" {
-		t.Fatalf("expr = %q, want %q", expr, "SectionType.Chat")
-	}
-}
-
-func TestPythonValueExprFromGoValueRendersDefaultProjectCodegenTarget(t *testing.T) {
-	expr, err := pythonValueExprFromGoValue(
-		[]projectview.ProjectCodegenPythonTarget{
-			projectview.FrontendDefaultProjectCodegenPythonTarget(),
-		},
-	)
-	if err != nil {
-		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
-	}
-	if !strings.HasPrefix(expr, "[ProjectCodegenPythonTarget(") {
-		t.Fatalf("expected project codegen target constructor, got %q", expr)
-	}
-	if !strings.Contains(expr, "language=ProjectCodegenLanguage.python") {
-		t.Fatalf("expected enum-backed language value, got %q", expr)
-	}
-	if !strings.Contains(expr, `genCodeSuffix="state = SettaState()"`) {
-		t.Fatalf("expected canonical suffix default, got %q", expr)
-	}
-	if !strings.Contains(expr, "sectionPolicy=SectionCodegenPolicy(") {
-		t.Fatalf("expected nested section policy constructor, got %q", expr)
-	}
-	if !strings.Contains(
-		expr,
-		`"Chat": SectionTypeCodegenPolicy(mode=SectionCodegenMode.inherit, representation=SectionRepresentationMode.file_read)`,
-	) {
-		t.Fatalf("expected canonical Chat section policy, got %q", expr)
-	}
-	if !strings.Contains(
-		expr,
-		`"DropzoneParam": CodeObjTypeValuePolicy(representation=CodeObjValueRepresentationMode.file_path)`,
-	) {
-		t.Fatalf("expected canonical DropzoneParam value policy, got %q", expr)
-	}
-}
-
-func TestPythonValueExprFromGoValueRendersRawProjectCodegenTargetSemantically(t *testing.T) {
-	t.Parallel()
-
-	expr, err := pythonValueExprFromGoValue(
-		projectview.PythonSharedDefaultProjectConfig().CodegenTargets,
-	)
-	if err != nil {
-		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
-	}
-	if !strings.HasPrefix(expr, "[ProjectCodegenPythonTarget(") {
-		t.Fatalf("expected semantic project codegen target constructor, got %q", expr)
-	}
-}
-
 func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 
-	expectedCodegenTargets := "Field(default_factory=lambda: " + mustPythonValueExprFromGoValue(
-		"default project codegen targets",
-		[]projectview.ProjectCodegenPythonTarget{
-			projectview.FrontendDefaultProjectCodegenPythonTarget(),
-		},
-	) + ")"
-	if got := defaultExprForTypeField(t, ownerType, "codegenTargets"); got != expectedCodegenTargets {
-		t.Fatalf("codegenTargets default = %q, want %q", got, expectedCodegenTargets)
+	codegenTargetsDefault := defaultExprForTypeField(t, ownerType, "codegenTargets")
+	if !strings.Contains(
+		codegenTargetsDefault,
+		`TypeAdapter(list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]).validate_json("`,
+	) {
+		t.Fatalf("expected TypeAdapter-backed codegenTargets default, got %q", codegenTargetsDefault)
+	}
+	if !strings.Contains(codegenTargetsDefault, `\"language\":\"python\"`) {
+		t.Fatalf("expected codegenTargets default to include canonical language JSON, got %q", codegenTargetsDefault)
+	}
+	if !strings.Contains(codegenTargetsDefault, `\"representation\":\"file_read\"`) {
+		t.Fatalf("expected codegenTargets default to include canonical section policy JSON, got %q", codegenTargetsDefault)
+	}
+	if !strings.Contains(codegenTargetsDefault, `\"representation\":\"file_path\"`) {
+		t.Fatalf("expected codegenTargets default to include canonical code object policy JSON, got %q", codegenTargetsDefault)
 	}
 
 	if got := defaultExprForTypeField(t, ownerType, "allowJsonSourceKeyEdits"); got != "True" {
@@ -119,11 +67,17 @@ func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 	if got := defaultExprForTypeField(t, ownerType, "previewImgColor"); got != `"bg-blue-500/60 dark:bg-blue-600/30"` {
 		t.Fatalf("previewImgColor default = %q, want canonical preview color", got)
 	}
-	if got := defaultExprForTypeField(t, ownerType, "viewport"); got != "Field(default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0))" {
-		t.Fatalf("viewport default = %q, want canonical go-backed viewport", got)
+	if got := defaultExprForTypeField(t, ownerType, "viewport"); !strings.Contains(
+		got,
+		`TypeAdapter(Viewport | None).validate_json("{\"x\":0,\"y\":0,\"zoom\":1}")`,
+	) {
+		t.Fatalf("viewport default = %q, want canonical TypeAdapter-backed viewport", got)
 	}
-	if got := defaultExprForTypeField(t, ownerType, "runCapabilities"); got != "Field(default_factory=lambda: ProjectRunCapabilities(canRunFromMain=False, mainRunDisabledReason=None, effectiveEntrySectionId=None))" {
-		t.Fatalf("runCapabilities default = %q, want canonical go-backed run capabilities", got)
+	if got := defaultExprForTypeField(t, ownerType, "runCapabilities"); !strings.Contains(
+		got,
+		`TypeAdapter(ProjectRunCapabilities).validate_json("{\"canRunFromMain\":false,\"mainRunDisabledReason\":null,\"effectiveEntrySectionId\":null}")`,
+	) {
+		t.Fatalf("runCapabilities default = %q, want canonical TypeAdapter-backed run capabilities", got)
 	}
 	for _, fieldName := range []string{
 		"sectionPathSlugsById",
@@ -199,6 +153,9 @@ func TestBuildUsesAuthoritativeSharedRouteInventory(t *testing.T) {
 	}
 	if !strings.Contains(generated.PythonModule, `LISTENER_BY_ID = "/ws/listeners/{listenerID}"`) {
 		t.Fatalf("expected generated routes to include listener route")
+	}
+	if !strings.Contains(generated.PythonModule, `from pydantic import TypeAdapter`) {
+		t.Fatalf("expected generated module to import TypeAdapter for structured go_value defaults")
 	}
 }
 

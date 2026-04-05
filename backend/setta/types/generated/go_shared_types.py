@@ -7,7 +7,7 @@ from enum import Enum, StrEnum
 from typing import Annotated, Any
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
@@ -2794,197 +2794,11 @@ class ProjectConfig(BaseModel):
     allowJsonSourceKeyEdits: bool = True
     codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = (
         Field(
-            default_factory=lambda: [
-                ProjectCodegenPythonTarget(
-                    language=ProjectCodegenLanguage.python,
-                    genCodePrefix="",
-                    genCodeSuffix="state = SettaState()",
-                    generateMetadata=False,
-                    sectionPolicy=SectionCodegenPolicy(
-                        allowlist=[
-                            SectionType.Callable,
-                            SectionType.Dict,
-                            SectionType.ListRoot,
-                            SectionType.Group,
-                            SectionType.GlobalVariables,
-                            SectionType.TextBlock,
-                            SectionType.Draw,
-                            SectionType.MetaControl,
-                            SectionType.TaskBoard,
-                            SectionType.Spreadsheet,
-                        ],
-                        metaControlAllowlist=[
-                            CodeObjType.CodeParam,
-                            CodeObjType.TextParam,
-                            CodeObjType.DateParam,
-                            CodeObjType.TimeParam,
-                            CodeObjType.TextAreaParam,
-                            CodeObjType.SliderParam,
-                            CodeObjType.RotaryParam,
-                            CodeObjType.SwitchParam,
-                            CodeObjType.ColorPickerParam,
-                            CodeObjType.DropdownParam,
-                            CodeObjType.PasswordParam,
-                            CodeObjType.ButtonParam,
-                            CodeObjType.DropzoneParam,
-                        ],
-                        exclude=[],
-                        typePolicies={
-                            "Browser": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Callable": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Chart": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Chat": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.file_read,
-                            ),
-                            "Code": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Dict": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Draw": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.file_read,
-                            ),
-                            "GenPythonCode": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "GenPythonMetadata": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "GlobalVariables": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Group": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "IFrame": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Image": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.file_read,
-                            ),
-                            "ListRoot": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "MetaControl": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Plugin": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Prompt": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Social": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Spreadsheet": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "StateMachineEnd": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "StateMachineGate": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "StateMachineStart": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "TaskBoard": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "Terminal": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                            "TextBlock": SectionTypeCodegenPolicy(
-                                mode=SectionCodegenMode.inherit,
-                                representation=SectionRepresentationMode.expression,
-                            ),
-                        },
-                        sectionOverrides={},
-                    ),
-                    codeObjValuePolicy=CodeObjValuePolicy(
-                        typePolicies={
-                            "ButtonParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "CodeCallable": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "CodeParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "ColorPickerParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                            "DateParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                            "DropdownParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "DropzoneParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.file_path
-                            ),
-                            "NestedParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "PasswordParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                            "RotaryParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "SliderParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "SwitchParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.expression
-                            ),
-                            "TextAreaParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                            "TextParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                            "TimeParam": CodeObjTypeValuePolicy(
-                                representation=CodeObjValueRepresentationMode.string
-                            ),
-                        },
-                        codeObjOverrides={},
-                    ),
-                )
-            ]
+            default_factory=lambda: TypeAdapter(
+                list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
+            ).validate_json(
+                '[{"language":"python","genCodePrefix":"","genCodeSuffix":"state = SettaState()","generateMetadata":false,"sectionPolicy":{"allowlist":["Callable","Dict","ListRoot","Group","GlobalVariables","TextBlock","Draw","MetaControl","TaskBoard","Spreadsheet"],"metaControlAllowlist":["CodeParam","TextParam","DateParam","TimeParam","TextAreaParam","SliderParam","RotaryParam","SwitchParam","ColorPickerParam","DropdownParam","PasswordParam","ButtonParam","DropzoneParam"],"exclude":[],"typePolicies":{"Browser":{"mode":"inherit","representation":"expression"},"Callable":{"mode":"inherit","representation":"expression"},"Chart":{"mode":"inherit","representation":"expression"},"Chat":{"mode":"inherit","representation":"file_read"},"Code":{"mode":"inherit","representation":"expression"},"Dict":{"mode":"inherit","representation":"expression"},"Draw":{"mode":"inherit","representation":"file_read"},"GenPythonCode":{"mode":"inherit","representation":"expression"},"GenPythonMetadata":{"mode":"inherit","representation":"expression"},"GlobalVariables":{"mode":"inherit","representation":"expression"},"Group":{"mode":"inherit","representation":"expression"},"IFrame":{"mode":"inherit","representation":"expression"},"Image":{"mode":"inherit","representation":"file_read"},"ListRoot":{"mode":"inherit","representation":"expression"},"MetaControl":{"mode":"inherit","representation":"expression"},"Plugin":{"mode":"inherit","representation":"expression"},"Prompt":{"mode":"inherit","representation":"expression"},"Social":{"mode":"inherit","representation":"expression"},"Spreadsheet":{"mode":"inherit","representation":"expression"},"StateMachineEnd":{"mode":"inherit","representation":"expression"},"StateMachineGate":{"mode":"inherit","representation":"expression"},"StateMachineStart":{"mode":"inherit","representation":"expression"},"TaskBoard":{"mode":"inherit","representation":"expression"},"Terminal":{"mode":"inherit","representation":"expression"},"TextBlock":{"mode":"inherit","representation":"expression"}},"sectionOverrides":{}},"codeObjValuePolicy":{"typePolicies":{"ButtonParam":{"representation":"expression"},"CodeCallable":{"representation":"expression"},"CodeParam":{"representation":"expression"},"ColorPickerParam":{"representation":"string"},"DateParam":{"representation":"string"},"DropdownParam":{"representation":"expression"},"DropzoneParam":{"representation":"file_path"},"NestedParam":{"representation":"expression"},"PasswordParam":{"representation":"string"},"RotaryParam":{"representation":"expression"},"SliderParam":{"representation":"expression"},"SwitchParam":{"representation":"expression"},"TextAreaParam":{"representation":"string"},"TextParam":{"representation":"string"},"TimeParam":{"representation":"string"}},"codeObjOverrides":{}}}]'
+            )
         )
     )
     edges: list[Edge] = Field(default_factory=list)
@@ -2995,10 +2809,8 @@ class ProjectConfig(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     runCapabilities: ProjectRunCapabilities = Field(
-        default_factory=lambda: ProjectRunCapabilities(
-            canRunFromMain=False,
-            mainRunDisabledReason=None,
-            effectiveEntrySectionId=None,
+        default_factory=lambda: TypeAdapter(ProjectRunCapabilities).validate_json(
+            '{"canRunFromMain":false,"mainRunDisabledReason":null,"effectiveEntrySectionId":null}'
         )
     )
     sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)
@@ -3009,7 +2821,9 @@ class ProjectConfig(BaseModel):
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
     viewModes: dict[ID, ViewMode] = Field(default_factory=dict)
     viewport: Viewport | None = Field(
-        default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0)
+        default_factory=lambda: TypeAdapter(Viewport | None).validate_json(
+            '{"x":0,"y":0,"zoom":1}'
+        )
     )
     viewportInitialized: bool = False
     watchCodeBaselineByPath: dict[str, list[str]] = Field(default_factory=dict)

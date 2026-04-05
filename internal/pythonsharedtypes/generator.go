@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -154,14 +155,19 @@ func appendUniqueImportLines(base []string, extras ...string) []string {
 }
 
 func pythonBlockImportLines(blocks []string) []string {
+	imports := map[string]struct{}{}
 	for _, block := range blocks {
 		for _, name := range referencedTypeNames(block) {
 			if name == "datetime" {
-				return []string{"from datetime import datetime"}
+				imports["from datetime import datetime"] = struct{}{}
+				break
 			}
 		}
+		if strings.Contains(block, "TypeAdapter(") {
+			imports["from pydantic import TypeAdapter"] = struct{}{}
+		}
 	}
-	return nil
+	return sortedImportNames(imports)
 }
 
 func pythonRouteEnumImportLines(
@@ -675,7 +681,7 @@ func pythonDefaultExpr(
 		}
 		return "", nil
 	case "go_value":
-		return pythonDefaultExprFromGoValue(ownerType, field, defaultSourcesByType)
+		return pythonDefaultExprFromGoValue(ownerType, field, typeExpr, defaultSourcesByType)
 	case "factory:list":
 		return "Field(default_factory=list)", nil
 	case "factory:dict":
@@ -688,98 +694,100 @@ func pythonDefaultExpr(
 func pythonDefaultExprFromGoValue(
 	ownerType reflect.Type,
 	field reflect.StructField,
+	typeExpr string,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (string, error) {
 	defaultValue, ok := pythonSharedDefaultValueForField(ownerType, field, defaultSourcesByType)
 	if !ok {
 		defaultValue = reflect.Zero(field.Type)
 	}
-	return pythonFieldDefaultExprFromValue(defaultValue)
+	return pythonFieldDefaultExprFromValue(defaultValue, typeExpr)
 }
 
-func pythonFieldDefaultExprFromValue(value reflect.Value) (string, error) {
+func pythonFieldDefaultExprFromValue(value reflect.Value, typeExpr string) (string, error) {
 	if !value.IsValid() {
 		return "None", nil
 	}
 	if value.Kind() == reflect.Interface {
-		return pythonInterfaceFieldDefaultExpr(value)
+		if value.IsNil() {
+			return "None", nil
+		}
+		return pythonFieldDefaultExprFromValue(value.Elem(), typeExpr)
 	}
-	if expr, ok, err := pythonCollectionFieldDefaultExpr(value); ok || err != nil {
-		return expr, err
+	if value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return "None", nil
+		}
+		value = value.Elem()
 	}
-	if expr, ok, err := pythonPointerFieldDefaultExpr(value); ok || err != nil {
-		return expr, err
+	if expr, ok := pythonEmptyCollectionDefaultExpr(value); ok {
+		return expr, nil
 	}
-	if expr, ok, err := pythonStructuredFieldDefaultExpr(value); ok || err != nil {
-		return expr, err
+	if expr, ok := pythonScalarDefaultExpr(value); ok {
+		return expr, nil
 	}
-	return pythonValueExpr(value)
+	payload, err := json.Marshal(value.Interface())
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"Field(default_factory=lambda: TypeAdapter(%s).validate_json(%q))",
+		typeExpr,
+		string(payload),
+	), nil
 }
 
-func pythonInterfaceFieldDefaultExpr(value reflect.Value) (string, error) {
-	if value.IsNil() {
-		return "None", nil
-	}
-	return pythonFieldDefaultExprFromValue(value.Elem())
-}
-
-func pythonCollectionFieldDefaultExpr(value reflect.Value) (string, bool, error) {
+func pythonEmptyCollectionDefaultExpr(value reflect.Value) (string, bool) {
 	switch value.Kind() {
 	case reflect.Map:
 		if value.IsNil() || value.Len() == 0 {
-			return "Field(default_factory=dict)", true, nil
+			return "Field(default_factory=dict)", true
 		}
-		expr, err := pythonValueExpr(value)
-		if err != nil {
-			return "", true, err
-		}
-		return "Field(default_factory=lambda: " + expr + ")", true, nil
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Uint8 {
-			expr, err := pythonValueExpr(value)
-			if err != nil {
-				return "", true, err
-			}
-			return expr, true, nil
+			return "", false
 		}
 		if value.IsNil() || value.Len() == 0 {
-			return "Field(default_factory=list)", true, nil
+			return "Field(default_factory=list)", true
 		}
-		expr, err := pythonValueExpr(value)
-		if err != nil {
-			return "", true, err
-		}
-		return "Field(default_factory=lambda: " + expr + ")", true, nil
-	default:
-		return "", false, nil
 	}
+	return "", false
 }
 
-func pythonPointerFieldDefaultExpr(value reflect.Value) (string, bool, error) {
-	if value.Kind() != reflect.Pointer {
-		return "", false, nil
+func pythonScalarDefaultExpr(value reflect.Value) (string, bool) {
+	valueType := value.Type()
+	if valueType.Kind() == reflect.String && valueType.Name() != "" && valueType.PkgPath() != "" {
+		return "", false
 	}
-	if value.IsNil() {
-		return "None", true, nil
-	}
-	expr, err := pythonValueExpr(value)
-	if err != nil {
-		return "", true, err
-	}
-	return "Field(default_factory=lambda: " + expr + ")", true, nil
-}
-
-func pythonStructuredFieldDefaultExpr(value reflect.Value) (string, bool, error) {
 	switch value.Kind() {
-	case reflect.Struct, reflect.Array:
-		expr, err := pythonValueExpr(value)
-		if err != nil {
-			return "", true, err
+	case reflect.String:
+		return strconv.Quote(value.String()), true
+	case reflect.Bool:
+		if value.Bool() {
+			return "True", true
 		}
-		return "Field(default_factory=lambda: " + expr + ")", true, nil
+		return "False", true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(value.Int(), 10), true
+	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(value.Uint(), 10), true
+	case reflect.Uint8:
+		return strconv.FormatUint(value.Uint(), 10), true
+	case reflect.Float32:
+		return pythonFloatLiteral(value.Float(), 32), true
+	case reflect.Float64:
+		return pythonFloatLiteral(value.Float(), 64), true
 	default:
-		return "", false, nil
+		return "", false
 	}
+}
+
+func pythonFloatLiteral(value float64, bitSize int) string {
+	literal := strconv.FormatFloat(value, 'f', -1, bitSize)
+	if strings.ContainsRune(literal, '.') {
+		return literal
+	}
+	return literal + ".0"
 }
 
 func renderFieldLine(field fieldSpec) string {
