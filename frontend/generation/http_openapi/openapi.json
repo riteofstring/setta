@@ -727,6 +727,23 @@
         "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
         "type": "object"
       },
+      "HttpapiAttachmentDownloadURLEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["artifactId", "url", "expiresAt"],
+        "type": "object"
+      },
       "HttpapiAuthRefreshStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1204,6 +1221,19 @@
         "required": ["templateId"],
         "type": "object"
       },
+      "HttpapiDeleteTerminalsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["sectionIds"],
+        "type": "object"
+      },
       "HttpapiDeleteTranscriptionProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1403,6 +1433,49 @@
         "required": ["projectConfigId", "chatSectionId"],
         "type": "object"
       },
+      "HttpapiGetAttachmentDownloadURLRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["artifactId", "projectConfigId"],
+        "type": "object"
+      },
+      "HttpapiGetAttachmentDownloadURLResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["url", "expiresAt"],
+        "type": "object"
+      },
+      "HttpapiGetAttachmentDownloadURLsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "projectConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["artifactIds", "projectConfigId"],
+        "type": "object"
+      },
       "HttpapiGetEngineConfigRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1539,6 +1612,27 @@
           }
         },
         "required": ["folderPath"],
+        "type": "object"
+      },
+      "HttpapiInterruptTerminalProcessesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectId"],
+        "type": "object"
+      },
+      "HttpapiInterruptTerminalProcessesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "interruptedSessionCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["interruptedSessionCount"],
         "type": "object"
       },
       "HttpapiLLMAPIKeysSnapshot": {
@@ -2562,6 +2656,55 @@
           }
         },
         "required": ["path"],
+        "type": "object"
+      },
+      "HttpapiRunCodeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cliId": {
+            "type": "string"
+          },
+          "drawSnapshotsBySectionId": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BinaryContentRef"
+            },
+            "type": "object"
+          },
+          "paramOverrides": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "runSnapshotMode": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          },
+          "sectionVariantOverrides": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "terminalSectionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectConfigId",
+          "sectionId",
+          "terminalSectionId",
+          "cliId",
+          "runSnapshotMode",
+          "drawSnapshotsBySectionId",
+          "sectionVariantOverrides",
+          "paramOverrides"
+        ],
         "type": "object"
       },
       "HttpapiRuntimeAuth": {
@@ -6453,6 +6596,49 @@
         "x-setta-mode-requirement": "app"
       }
     },
+    "/attachments/{token}": {
+      "get": {
+        "operationId": "downloadAttachment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download a chat attachment by signed token.",
+        "tags": ["Attachment"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/authRefreshStatus": {
       "get": {
         "operationId": "getAuthRefreshStatus",
@@ -7338,6 +7524,47 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/deleteTerminals": {
+      "post": {
+        "operationId": "deleteTerminals",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeleteTerminalsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete terminal sessions for the requested terminal sections.",
+        "tags": ["Terminal"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/deleteTranscriptionProfile": {
       "post": {
         "operationId": "deleteTranscriptionProfile",
@@ -7665,6 +7892,91 @@
         "tags": ["AgenticSummaryCache"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getAttachmentDownloadUrl": {
+      "post": {
+        "operationId": "getAttachmentDownloadUrl",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAttachmentDownloadURLRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiGetAttachmentDownloadURLResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Build a signed download URL for a single chat attachment.",
+        "tags": ["Attachment"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getAttachmentDownloadUrls": {
+      "post": {
+        "operationId": "getAttachmentDownloadUrls",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAttachmentDownloadURLsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HttpapiAttachmentDownloadURLEntry"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Build signed download URLs for a batch of chat attachments.",
+        "tags": ["Attachment"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/getEngineConfig": {
@@ -8279,6 +8591,47 @@
         },
         "summary": "Detect whether a workspace folder contains Python project signals.",
         "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/interruptTerminalProcesses": {
+      "post": {
+        "operationId": "interruptTerminalProcesses",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiInterruptTerminalProcessesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiInterruptTerminalProcessesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Interrupt running terminal processes for a project.",
+        "tags": ["Terminal"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
       }
@@ -9571,6 +9924,47 @@
         "tags": ["Status"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/runCode": {
+      "post": {
+        "operationId": "runCode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiRunCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Run code for the requested section or generated entrypoint.",
+        "tags": ["Terminal"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/runtimeInfo": {

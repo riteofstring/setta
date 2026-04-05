@@ -73,15 +73,63 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 			Store:  deps.ShareSessions,
 		}
 		shareGuard := RequireShareSession(shareResolver)
-		router.With(shareGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, deps.Deployment))
-		router.With(shareGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, deps.Deployment))
-		router.Post(RouteRunCode, runCodeHandler(deps.RunCode, &shareResolver))
+		registerOpenAPIPost[DeleteTerminalsRequest, openAPIJSONNull](
+			router.With(shareGuard),
+			"deleteTerminals",
+			RouteDeleteTerminals,
+			deleteTerminalsHandler(deps.Terminals, deps.Deployment),
+			withOpenAPITags("Terminal"),
+			withOpenAPISummary("Delete terminal sessions for the requested terminal sections."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[InterruptTerminalProcessesRequest, InterruptTerminalProcessesResponse](
+			router.With(shareGuard),
+			"interruptTerminalProcesses",
+			RouteInterruptTerminalProcesses,
+			interruptTerminalProcessesHandler(deps.Terminals, deps.Deployment),
+			withOpenAPITags("Terminal"),
+			withOpenAPISummary("Interrupt running terminal processes for a project."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[RunCodeRequest, openAPIJSONNull](
+			router,
+			"runCode",
+			RouteRunCode,
+			runCodeHandler(deps.RunCode, &shareResolver),
+			withOpenAPITags("Terminal"),
+			withOpenAPISummary("Run code for the requested section or generated entrypoint."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 		return nil
 	}
 	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
-	router.With(ideGuard).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals, nil))
-	router.With(ideGuard).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals, nil))
-	router.With(ideGuard).Post(RouteRunCode, runCodeHandler(deps.RunCode, nil))
+	registerOpenAPIPost[DeleteTerminalsRequest, openAPIJSONNull](
+		router.With(ideGuard),
+		"deleteTerminals",
+		RouteDeleteTerminals,
+		deleteTerminalsHandler(deps.Terminals, nil),
+		withOpenAPITags("Terminal"),
+		withOpenAPISummary("Delete terminal sessions for the requested terminal sections."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[InterruptTerminalProcessesRequest, InterruptTerminalProcessesResponse](
+		router.With(ideGuard),
+		"interruptTerminalProcesses",
+		RouteInterruptTerminalProcesses,
+		interruptTerminalProcessesHandler(deps.Terminals, nil),
+		withOpenAPITags("Terminal"),
+		withOpenAPISummary("Interrupt running terminal processes for a project."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[RunCodeRequest, openAPIJSONNull](
+		router.With(ideGuard),
+		"runCode",
+		RouteRunCode,
+		runCodeHandler(deps.RunCode, nil),
+		withOpenAPITags("Terminal"),
+		withOpenAPISummary("Run code for the requested section or generated entrypoint."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
+	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
@@ -30,7 +31,9 @@ import (
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/runs"
 	"setta/internal/settingsstate"
+	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
 )
@@ -431,12 +434,31 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("register binary routes: %w", err)
 	}
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &chatattachments.Service{},
+	}); err != nil {
+		return nil, fmt.Errorf("register attachment root routes: %w", err)
+	}
+	if err := RegisterAttachmentRoutes(router, AttachmentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &chatattachments.Service{},
+	}); err != nil {
+		return nil, fmt.Errorf("register attachment routes: %w", err)
+	}
 	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
 		ModePolicy:    modes.NewPolicy(config.ModeIDE),
 		Shell:         frontendHTTPOpenAPIProjectShellService{},
 		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register project shell routes: %w", err)
+	}
+	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Terminals:  &terminals.Service{},
+		RunCode:    &runs.Service{},
+	}); err != nil {
+		return nil, fmt.Errorf("register terminal routes: %w", err)
 	}
 	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
 		ModePolicy:       modes.NewPolicy(config.ModeIDE),

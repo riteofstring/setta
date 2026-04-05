@@ -1,3 +1,5 @@
+import { interruptTerminalProcesses, runCode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useLocalStorage,
   useProjectState,
@@ -7,11 +9,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_get_latest_project_state,
-  route_interrupt_terminal_processes,
-  route_run_code,
-} from "utils/generatedEndpoints";
+import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
   ContentRef,
   type ProjectStateSingleConfigWithCompletedOpIDs,
@@ -61,14 +59,18 @@ export async function runCodeBlock(sectionId: string | null) {
     terminalSectionId === null &&
     shouldRefreshProjectStateAfterRun(executionSectionId);
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
-  const runResponse: RunCodeRouteResponse = await route_run_code({
-    projectConfigId: projectConfig.id,
-    sectionId: executionSectionId,
-    terminalSectionId,
-    cliId: null,
-    runSnapshotMode,
-    drawSnapshotsBySectionId,
-  });
+  const runResponse: RunCodeRouteResponse = await callOpenAPI(
+    runCode({
+      body: {
+        projectConfigId: projectConfig.id,
+        sectionId: executionSectionId,
+        terminalSectionId,
+        cliId: null,
+        runSnapshotMode,
+        drawSnapshotsBySectionId,
+      },
+    }),
+  );
   if (!shouldRefreshProjectState || !res200(runResponse)) {
     return;
   }
@@ -115,9 +117,13 @@ export async function runFromMainRunButton(): Promise<void> {
 
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  route_interrupt_terminal_processes({
-    projectId: getCurrProjectConfigId(),
-  });
+  void callOpenAPI(
+    interruptTerminalProcesses({
+      body: {
+        projectId: getCurrProjectConfigId(),
+      },
+    }),
+  );
 }
 
 async function collectDrawSnapshotsForRun(): Promise<Record<

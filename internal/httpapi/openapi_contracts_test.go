@@ -16,6 +16,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
+	"setta/internal/chatattachments"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
@@ -28,6 +29,8 @@ import (
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/runs"
+	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
 )
@@ -103,6 +106,52 @@ func TestNewHandlerServesOpenAPIJSON(t *testing.T) {
 		"mode",
 		[]string{"ide", "share", "app", "launcher"},
 	)
+}
+
+func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
+	handler, err := NewHandler(Dependencies{
+		Logger: discardLogger(),
+		Info:   openAPITestInfoService{},
+		RegisterRoot: func(r chi.Router) {
+			if err := RegisterAttachmentRootRoutes(r, AttachmentRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Service:    &chatattachments.Service{},
+			}); err != nil {
+				t.Fatalf("register attachment root routes: %v", err)
+			}
+		},
+		Register: func(r chi.Router) {
+			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Terminals:  &terminals.Service{},
+				RunCode:    &runs.Service{},
+			}); err != nil {
+				t.Fatalf("register terminal routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest("GET", "/api/openapi.json", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != 200 {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &document); err != nil {
+		t.Fatalf("unmarshal openapi: %v", err)
+	}
+
+	paths, ok := document["paths"].(map[string]any)
+	if !ok {
+		t.Fatalf("paths missing from document: %#v", document["paths"])
+	}
+	assertOpenAPIOperationID(t, paths, RouteAttachmentDownload, "get", "downloadAttachment")
+	assertOpenAPIOperationID(t, paths, RouteRunCode, "post", "runCode")
 }
 
 func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
@@ -220,12 +269,31 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register binary routes: %v", err)
 	}
+	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &chatattachments.Service{},
+	}); err != nil {
+		t.Fatalf("register attachment root routes: %v", err)
+	}
+	if err := RegisterAttachmentRoutes(router, AttachmentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    &chatattachments.Service{},
+	}); err != nil {
+		t.Fatalf("register attachment routes: %v", err)
+	}
 	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
 		ModePolicy:    modes.NewPolicy(config.ModeIDE),
 		Shell:         frontendHTTPOpenAPIProjectShellService{},
 		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
 	}); err != nil {
 		t.Fatalf("register project shell routes: %v", err)
+	}
+	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Terminals:  &terminals.Service{},
+		RunCode:    &runs.Service{},
+	}); err != nil {
+		t.Fatalf("register terminal routes: %v", err)
 	}
 	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
 	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
@@ -532,6 +600,76 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := binaryDownload.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
 		t.Fatalf("binary download mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAttachmentDownloadURL := document.Paths[RouteGetAttachmentDownloadURL].Post
+	if getAttachmentDownloadURL == nil {
+		t.Fatalf("expected %s post operation", RouteGetAttachmentDownloadURL)
+	}
+	if getAttachmentDownloadURL.OperationID != "getAttachmentDownloadUrl" {
+		t.Fatalf("attachment download url operation id = %q, want %q", getAttachmentDownloadURL.OperationID, "getAttachmentDownloadUrl")
+	}
+	if got := getAttachmentDownloadURL.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("attachment download url mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getAttachmentDownloadURLs := document.Paths[RouteGetAttachmentDownloadURLs].Post
+	if getAttachmentDownloadURLs == nil {
+		t.Fatalf("expected %s post operation", RouteGetAttachmentDownloadURLs)
+	}
+	if getAttachmentDownloadURLs.OperationID != "getAttachmentDownloadUrls" {
+		t.Fatalf("attachment download urls operation id = %q, want %q", getAttachmentDownloadURLs.OperationID, "getAttachmentDownloadUrls")
+	}
+
+	attachmentDownload := document.Paths[RouteAttachmentDownload].Get
+	if attachmentDownload == nil {
+		t.Fatalf("expected %s get operation", RouteAttachmentDownload)
+	}
+	if attachmentDownload.OperationID != "downloadAttachment" {
+		t.Fatalf("attachment download operation id = %q, want %q", attachmentDownload.OperationID, "downloadAttachment")
+	}
+	assertOpenAPIParameter(t, attachmentDownload.Parameters, "token", "path", true)
+	attachmentDownloadResponse := attachmentDownload.Responses["200"]
+	if attachmentDownloadResponse == nil {
+		t.Fatalf("expected attachment download success response")
+	}
+	attachmentDownloadContent := attachmentDownloadResponse.Content["application/octet-stream"]
+	if attachmentDownloadContent == nil || attachmentDownloadContent.Schema == nil || attachmentDownloadContent.Schema.Format != "binary" {
+		t.Fatalf("attachment download response schema = %#v, want binary octet-stream", attachmentDownloadContent)
+	}
+
+	deleteTerminals := document.Paths[RouteDeleteTerminals].Post
+	if deleteTerminals == nil {
+		t.Fatalf("expected %s post operation", RouteDeleteTerminals)
+	}
+	if deleteTerminals.OperationID != "deleteTerminals" {
+		t.Fatalf("delete terminals operation id = %q, want %q", deleteTerminals.OperationID, "deleteTerminals")
+	}
+	if got := deleteTerminals.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("delete terminals mode requirement = %#v, want %q", got, "not-launcher")
+	}
+	deleteTerminalsJSON := deleteTerminals.Responses["200"].Content["application/json"]
+	if deleteTerminalsJSON == nil || deleteTerminalsJSON.Schema == nil || deleteTerminalsJSON.Schema.Type != "null" {
+		t.Fatalf("delete terminals response schema = %#v, want json null", deleteTerminalsJSON)
+	}
+
+	interruptTerminalProcesses := document.Paths[RouteInterruptTerminalProcesses].Post
+	if interruptTerminalProcesses == nil {
+		t.Fatalf("expected %s post operation", RouteInterruptTerminalProcesses)
+	}
+	if interruptTerminalProcesses.OperationID != "interruptTerminalProcesses" {
+		t.Fatalf("interrupt terminal processes operation id = %q, want %q", interruptTerminalProcesses.OperationID, "interruptTerminalProcesses")
+	}
+
+	runCode := document.Paths[RouteRunCode].Post
+	if runCode == nil {
+		t.Fatalf("expected %s post operation", RouteRunCode)
+	}
+	if runCode.OperationID != "runCode" {
+		t.Fatalf("run code operation id = %q, want %q", runCode.OperationID, "runCode")
+	}
+	if got := runCode.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("run code mode requirement = %#v, want %q", got, "not-launcher")
 	}
 
 	loadAllProjectMetadata := document.Paths[RouteLoadAllProjectMetadata].Post

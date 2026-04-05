@@ -239,7 +239,27 @@ func registerOpenAPIOperation[Req, Resp any](
 	handler http.HandlerFunc,
 	options ...openAPIOperationOption,
 ) {
-	router.MethodFunc(method, routePath, handler)
+	registerOpenAPIOperationAtPaths[Req, Resp](
+		router,
+		method,
+		operationID,
+		routePath,
+		routePath,
+		handler,
+		options...,
+	)
+}
+
+func registerOpenAPIOperationAtPaths[Req, Resp any](
+	router chi.Router,
+	method string,
+	operationID string,
+	runtimePath string,
+	documentPath string,
+	handler http.HandlerFunc,
+	options ...openAPIOperationOption,
+) {
+	router.MethodFunc(method, runtimePath, handler)
 
 	collector := openAPICollectorFromRouter(router)
 	if collector == nil {
@@ -249,7 +269,7 @@ func registerOpenAPIOperation[Req, Resp any](
 	operation := openAPIOperation{
 		OperationID:         strings.TrimSpace(operationID),
 		Method:              method,
-		Path:                strings.TrimSpace(routePath),
+		Path:                strings.TrimSpace(documentPath),
 		AuthRequirement:     "auth-cookie-when-enabled",
 		RequestType:         normalizeOpenAPIType(openAPIReflectType[Req]()),
 		ResponseType:        normalizeOpenAPIType(openAPIReflectType[Resp]()),

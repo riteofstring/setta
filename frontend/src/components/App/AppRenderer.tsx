@@ -5,6 +5,8 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
+import { getAttachmentDownloadUrl, runCode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -16,10 +18,6 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
 import { resolveAppPolicy } from "utils/deploymentPolicies";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_get_attachment_download_url,
-  route_run_code,
-} from "utils/generatedEndpoints";
 import type { AppDefinition, Policy } from "utils/generatedTypes";
 import {
   resolveMainRunRequest,
@@ -320,12 +318,18 @@ export function AppRenderer({
       }
       setIsRunning(true);
       try {
-        const res = await route_run_code({
-          projectConfigId: configId,
-          sectionId: runRequest.executionSectionId,
-          ...(hasSectionVariantOverrides ? { sectionVariantOverrides } : {}),
-          ...(hasParamOverrides ? { paramOverrides } : {}),
-        });
+        const res = await callOpenAPI(
+          runCode({
+            body: {
+              projectConfigId: configId,
+              sectionId: runRequest.executionSectionId,
+              ...(hasSectionVariantOverrides
+                ? { sectionVariantOverrides }
+                : {}),
+              ...(hasParamOverrides ? { paramOverrides } : {}),
+            },
+          }),
+        );
         if (res200(res)) {
           if (deploymentMode) {
             incrementAppSessionRunCount();
@@ -379,10 +383,14 @@ export function AppRenderer({
         addTemporaryNotification("Missing project config for download.");
         return;
       }
-      const res = await route_get_attachment_download_url({
-        artifactId,
-        projectConfigId: resolvedConfigId,
-      });
+      const res = await callOpenAPI(
+        getAttachmentDownloadUrl({
+          body: {
+            artifactId,
+            projectConfigId: resolvedConfigId,
+          },
+        }),
+      );
       if (res200(res) && res.data.url) {
         triggerDownload(res.data.url, filename ?? undefined);
         return;

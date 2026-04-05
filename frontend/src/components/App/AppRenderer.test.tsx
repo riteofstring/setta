@@ -4,9 +4,9 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as endpoints from "openapi/http";
 import { useAppConfigs, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import * as endpoints from "utils/generatedEndpoints";
 import type { Policy } from "utils/generatedTypes";
 import {
   createAppDefinition,
@@ -193,9 +193,11 @@ describe("AppRenderer", () => {
       },
     });
 
-    const runSpy = vi
-      .spyOn(endpoints, "route_run_code")
-      .mockResolvedValue({ data: null, status: 200, hasResponse: true });
+    const runSpy = vi.spyOn(endpoints, "runCode").mockResolvedValue({
+      data: null,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
+    });
 
     renderApp(appSpec, {
       appDefinition,
@@ -208,10 +210,12 @@ describe("AppRenderer", () => {
     await handler?.();
 
     expect(runSpy).toHaveBeenCalledWith({
-      projectConfigId: configId,
-      sectionId,
-      sectionVariantOverrides: { [sectionId]: "variant-2" },
-      paramOverrides: { [`${sectionId}:param-1`]: "override" },
+      body: {
+        projectConfigId: configId,
+        sectionId,
+        sectionVariantOverrides: { [sectionId]: "variant-2" },
+        paramOverrides: { [`${sectionId}:param-1`]: "override" },
+      },
     });
   });
 
@@ -268,7 +272,7 @@ describe("AppRenderer", () => {
       },
     });
 
-    const runSpy = vi.spyOn(endpoints, "route_run_code");
+    const runSpy = vi.spyOn(endpoints, "runCode");
 
     renderApp(appSpec, {
       appDefinition,

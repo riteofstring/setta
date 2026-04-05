@@ -222,6 +222,12 @@ export type HttpapiAppDeploymentStateResponse = {
   projectState: ProjectviewSingleConfig;
 };
 
+export type HttpapiAttachmentDownloadUrlEntry = {
+  artifactId: string;
+  expiresAt: number;
+  url: string;
+};
+
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -375,6 +381,10 @@ export type HttpapiDeletePromptTemplateRequest = {
   templateId: string;
 };
 
+export type HttpapiDeleteTerminalsRequest = {
+  sectionIds: Array<string> | null;
+};
+
 export type HttpapiDeleteTranscriptionProfileRequest = {
   profileId: string | null;
 };
@@ -439,6 +449,21 @@ export type HttpapiGetAgenticSummaryCacheStatusRequest = {
   projectConfigId: string;
 };
 
+export type HttpapiGetAttachmentDownloadUrlRequest = {
+  artifactId: string;
+  projectConfigId: string | null;
+};
+
+export type HttpapiGetAttachmentDownloadUrlResponse = {
+  expiresAt: number;
+  url: string;
+};
+
+export type HttpapiGetAttachmentDownloadUrlsRequest = {
+  artifactIds: Array<string> | null;
+  projectConfigId: string | null;
+};
+
 export type HttpapiGetEngineConfigRequest = {
   configId: string;
 };
@@ -487,6 +512,14 @@ export type HttpapiGetPromptTemplateRequest = {
 
 export type HttpapiGetWorkspacePythonSignalRequest = {
   folderPath: string;
+};
+
+export type HttpapiInterruptTerminalProcessesRequest = {
+  projectId: string;
+};
+
+export type HttpapiInterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
 };
 
 export type HttpapiLlmapiKeysSnapshot = {
@@ -813,6 +846,23 @@ export type HttpapiPublishShareDeploymentRequest = {
 
 export type HttpapiRevealPathInOsFileExplorerRequest = {
   path: string;
+};
+
+export type HttpapiRunCodeRequest = {
+  cliId: string;
+  drawSnapshotsBySectionId: {
+    [key: string]: BinaryContentRef;
+  };
+  paramOverrides: {
+    [key: string]: string;
+  };
+  projectConfigId: string;
+  runSnapshotMode: string;
+  sectionId: string;
+  sectionVariantOverrides: {
+    [key: string]: string;
+  };
+  terminalSectionId: string;
 };
 
 export type HttpapiRuntimeAuth = {
@@ -2141,6 +2191,35 @@ export type GetAppDeploymentStateResponses = {
 export type GetAppDeploymentStateResponse =
   GetAppDeploymentStateResponses[keyof GetAppDeploymentStateResponses];
 
+export type DownloadAttachmentData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: "/attachments/{token}";
+};
+
+export type DownloadAttachmentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DownloadAttachmentError =
+  DownloadAttachmentErrors[keyof DownloadAttachmentErrors];
+
+export type DownloadAttachmentResponses = {
+  /**
+   * OK
+   */
+  200: Blob | File;
+};
+
+export type DownloadAttachmentResponse =
+  DownloadAttachmentResponses[keyof DownloadAttachmentResponses];
+
 export type GetAuthRefreshStatusData = {
   body?: never;
   path?: never;
@@ -2734,6 +2813,33 @@ export type DeletePromptTemplateResponses = {
 export type DeletePromptTemplateResponse =
   DeletePromptTemplateResponses[keyof DeletePromptTemplateResponses];
 
+export type DeleteTerminalsData = {
+  body: HttpapiDeleteTerminalsRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteTerminals";
+};
+
+export type DeleteTerminalsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteTerminalsError =
+  DeleteTerminalsErrors[keyof DeleteTerminalsErrors];
+
+export type DeleteTerminalsResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteTerminalsResponse =
+  DeleteTerminalsResponses[keyof DeleteTerminalsResponses];
+
 export type DeleteTranscriptionProfileData = {
   body: HttpapiDeleteTranscriptionProfileRequest;
   path?: never;
@@ -2951,6 +3057,60 @@ export type GetAgenticSummaryCacheStatusResponses = {
 
 export type GetAgenticSummaryCacheStatusResponse =
   GetAgenticSummaryCacheStatusResponses[keyof GetAgenticSummaryCacheStatusResponses];
+
+export type GetAttachmentDownloadUrlData = {
+  body: HttpapiGetAttachmentDownloadUrlRequest;
+  path?: never;
+  query?: never;
+  url: "/getAttachmentDownloadUrl";
+};
+
+export type GetAttachmentDownloadUrlErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAttachmentDownloadUrlError =
+  GetAttachmentDownloadUrlErrors[keyof GetAttachmentDownloadUrlErrors];
+
+export type GetAttachmentDownloadUrlResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiGetAttachmentDownloadUrlResponse;
+};
+
+export type GetAttachmentDownloadUrlResponse =
+  GetAttachmentDownloadUrlResponses[keyof GetAttachmentDownloadUrlResponses];
+
+export type GetAttachmentDownloadUrlsData = {
+  body: HttpapiGetAttachmentDownloadUrlsRequest;
+  path?: never;
+  query?: never;
+  url: "/getAttachmentDownloadUrls";
+};
+
+export type GetAttachmentDownloadUrlsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAttachmentDownloadUrlsError =
+  GetAttachmentDownloadUrlsErrors[keyof GetAttachmentDownloadUrlsErrors];
+
+export type GetAttachmentDownloadUrlsResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiAttachmentDownloadUrlEntry> | null;
+};
+
+export type GetAttachmentDownloadUrlsResponse =
+  GetAttachmentDownloadUrlsResponses[keyof GetAttachmentDownloadUrlsResponses];
 
 export type GetEngineConfigData = {
   body: HttpapiGetEngineConfigRequest;
@@ -3383,6 +3543,33 @@ export type GetWorkspacePythonSignalResponses = {
 
 export type GetWorkspacePythonSignalResponse =
   GetWorkspacePythonSignalResponses[keyof GetWorkspacePythonSignalResponses];
+
+export type InterruptTerminalProcessesData = {
+  body: HttpapiInterruptTerminalProcessesRequest;
+  path?: never;
+  query?: never;
+  url: "/interruptTerminalProcesses";
+};
+
+export type InterruptTerminalProcessesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type InterruptTerminalProcessesError =
+  InterruptTerminalProcessesErrors[keyof InterruptTerminalProcessesErrors];
+
+export type InterruptTerminalProcessesResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiInterruptTerminalProcessesResponse;
+};
+
+export type InterruptTerminalProcessesResponse =
+  InterruptTerminalProcessesResponses[keyof InterruptTerminalProcessesResponses];
 
 export type LaunchWorkspaceData = {
   body: HttpapiLaunchRequest;
@@ -4293,6 +4480,31 @@ export type RevealPathInOsFileExplorerResponses = {
 
 export type RevealPathInOsFileExplorerResponse =
   RevealPathInOsFileExplorerResponses[keyof RevealPathInOsFileExplorerResponses];
+
+export type RunCodeData = {
+  body: HttpapiRunCodeRequest;
+  path?: never;
+  query?: never;
+  url: "/runCode";
+};
+
+export type RunCodeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RunCodeError = RunCodeErrors[keyof RunCodeErrors];
+
+export type RunCodeResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type RunCodeResponse = RunCodeResponses[keyof RunCodeResponses];
 
 export type GetRuntimeInfoData = {
   body?: never;

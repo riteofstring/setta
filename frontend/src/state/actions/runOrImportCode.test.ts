@@ -34,8 +34,12 @@ const {
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_latest_project_state: routeGetLatestProjectStateMock,
-  route_interrupt_terminal_processes: routeInterruptTerminalProcessesMock,
-  route_run_code: routeRunCodeMock,
+}));
+
+vi.mock("openapi/http", () => ({
+  runCode: (...args: unknown[]) => routeRunCodeMock(...args),
+  interruptTerminalProcesses: (...args: unknown[]) =>
+    routeInterruptTerminalProcessesMock(...args),
 }));
 
 vi.mock("./notifications", () => ({
@@ -168,9 +172,9 @@ describe("runCodeBlock", () => {
     resetProjectStores();
     vi.clearAllMocks();
     routeRunCodeMock.mockResolvedValue({
-      status: 200,
       data: null,
-      hasResponse: true,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
     getCurrProjectConfigIdMock.mockReturnValue("project-1");
   });
@@ -198,9 +202,11 @@ describe("runCodeBlock", () => {
 
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-1",
-        sectionId: codeSectionId,
-        terminalSectionId: null,
+        body: expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId: codeSectionId,
+          terminalSectionId: null,
+        }),
       }),
     );
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
@@ -220,9 +226,11 @@ describe("runCodeBlock", () => {
 
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-1",
-        sectionId: codeSectionId,
-        terminalSectionId,
+        body: expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId: codeSectionId,
+          terminalSectionId,
+        }),
       }),
     );
     expect(routeGetLatestProjectStateMock).not.toHaveBeenCalled();
@@ -254,9 +262,11 @@ describe("runCodeBlock", () => {
 
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-1",
-        sectionId: null,
-        terminalSectionId: null,
+        body: expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId: null,
+          terminalSectionId: null,
+        }),
       }),
     );
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
@@ -295,9 +305,11 @@ describe("runCodeBlock", () => {
 
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        projectConfigId: "project-1",
-        sectionId: codeSectionId,
-        terminalSectionId: null,
+        body: expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId: codeSectionId,
+          terminalSectionId: null,
+        }),
       }),
     );
   });
@@ -308,6 +320,11 @@ describe("stopCode", () => {
     resetProjectStores();
     vi.clearAllMocks();
     getCurrProjectConfigIdMock.mockReturnValue("project-1");
+    routeInterruptTerminalProcessesMock.mockResolvedValue({
+      data: null,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
+    });
   });
 
   afterEach(() => {
@@ -321,7 +338,9 @@ describe("stopCode", () => {
       "Stopping subprocesses",
     );
     expect(routeInterruptTerminalProcessesMock).toHaveBeenCalledWith({
-      projectId: "project-1",
+      body: {
+        projectId: "project-1",
+      },
     });
   });
 });

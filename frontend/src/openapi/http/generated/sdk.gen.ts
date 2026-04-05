@@ -68,6 +68,9 @@ import type {
   DeletePromptTemplateData,
   DeletePromptTemplateErrors,
   DeletePromptTemplateResponses,
+  DeleteTerminalsData,
+  DeleteTerminalsErrors,
+  DeleteTerminalsResponses,
   DeleteTranscriptionProfileData,
   DeleteTranscriptionProfileErrors,
   DeleteTranscriptionProfileResponses,
@@ -77,6 +80,9 @@ import type {
   DocstringToMarkdownData,
   DocstringToMarkdownErrors,
   DocstringToMarkdownResponses,
+  DownloadAttachmentData,
+  DownloadAttachmentErrors,
+  DownloadAttachmentResponses,
   DownloadBinaryData,
   DownloadBinaryErrors,
   DownloadBinaryResponses,
@@ -113,6 +119,12 @@ import type {
   GetAppDeploymentStateData,
   GetAppDeploymentStateErrors,
   GetAppDeploymentStateResponses,
+  GetAttachmentDownloadUrlData,
+  GetAttachmentDownloadUrlErrors,
+  GetAttachmentDownloadUrlResponses,
+  GetAttachmentDownloadUrlsData,
+  GetAttachmentDownloadUrlsErrors,
+  GetAttachmentDownloadUrlsResponses,
   GetAuthRefreshStatusData,
   GetAuthRefreshStatusErrors,
   GetAuthRefreshStatusResponses,
@@ -212,6 +224,9 @@ import type {
   InstallPluginData,
   InstallPluginErrors,
   InstallPluginResponses,
+  InterruptTerminalProcessesData,
+  InterruptTerminalProcessesErrors,
+  InterruptTerminalProcessesResponses,
   LaunchWorkspaceData,
   LaunchWorkspaceErrors,
   LaunchWorkspaceResponses,
@@ -281,6 +296,9 @@ import type {
   RollbackPluginData,
   RollbackPluginErrors,
   RollbackPluginResponses,
+  RunCodeData,
+  RunCodeErrors,
+  RunCodeResponses,
   SaveAsNewProjectConfigData,
   SaveAsNewProjectConfigErrors,
   SaveAsNewProjectConfigResponses,
@@ -520,6 +538,22 @@ export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/app/deployments/{deploymentName}/{version}/state",
+    ...options,
+  });
+};
+
+/**
+ * Download a chat attachment by signed token.
+ */
+export const downloadAttachment = <ThrowOnError extends boolean = false>(
+  options: Options<DownloadAttachmentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    DownloadAttachmentResponses,
+    DownloadAttachmentErrors,
+    ThrowOnError
+  >({
+    url: "/attachments/{token}",
     ...options,
   });
 };
@@ -958,6 +992,26 @@ export const deletePromptTemplate = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Delete terminal sessions for the requested terminal sections.
+ */
+export const deleteTerminals = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteTerminalsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteTerminalsResponses,
+    DeleteTerminalsErrors,
+    ThrowOnError
+  >({
+    url: "/deleteTerminals",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Delete a transcription profile.
  */
 export const deleteTranscriptionProfile = <
@@ -1105,6 +1159,46 @@ export const getAgenticSummaryCacheStatus = <
     ThrowOnError
   >({
     url: "/getAgenticSummaryCacheStatus",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Build a signed download URL for a single chat attachment.
+ */
+export const getAttachmentDownloadUrl = <ThrowOnError extends boolean = false>(
+  options: Options<GetAttachmentDownloadUrlData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAttachmentDownloadUrlResponses,
+    GetAttachmentDownloadUrlErrors,
+    ThrowOnError
+  >({
+    url: "/getAttachmentDownloadUrl",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Build signed download URLs for a batch of chat attachments.
+ */
+export const getAttachmentDownloadUrls = <ThrowOnError extends boolean = false>(
+  options: Options<GetAttachmentDownloadUrlsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAttachmentDownloadUrlsResponses,
+    GetAttachmentDownloadUrlsErrors,
+    ThrowOnError
+  >({
+    url: "/getAttachmentDownloadUrls",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1403,6 +1497,28 @@ export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/getWorkspacePythonSignal",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Interrupt running terminal processes for a project.
+ */
+export const interruptTerminalProcesses = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<InterruptTerminalProcessesData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    InterruptTerminalProcessesResponses,
+    InterruptTerminalProcessesErrors,
+    ThrowOnError
+  >({
+    url: "/interruptTerminalProcesses",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2045,6 +2161,26 @@ export const revealPathInOsFileExplorer = <
     ThrowOnError
   >({
     url: "/revealPathInOsFileExplorer",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Run code for the requested section or generated entrypoint.
+ */
+export const runCode = <ThrowOnError extends boolean = false>(
+  options: Options<RunCodeData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RunCodeResponses,
+    RunCodeErrors,
+    ThrowOnError
+  >({
+    url: "/runCode",
     ...options,
     headers: {
       "Content-Type": "application/json",

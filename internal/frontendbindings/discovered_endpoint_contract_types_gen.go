@@ -65,6 +65,7 @@ func DiscoveredEndpointContractTypes() []reflect.Type {
 		reflect.TypeOf(httpapi.GetAttachmentDownloadURLRequest{}),
 		reflect.TypeOf(httpapi.GetAttachmentDownloadURLResponse{}),
 		reflect.TypeOf(httpapi.GetAttachmentDownloadURLsRequest{}),
+		reflect.TypeOf(httpapi.AttachmentDownloadRouteParams{}),
 		reflect.TypeOf(httpapi.AttachmentDownloadURLEntry{}),
 		reflect.TypeOf(httpapi.BinaryRouteDependencies{}),
 		reflect.TypeOf(httpapi.BinaryUploadFormRequest{}),

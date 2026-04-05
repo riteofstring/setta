@@ -46,12 +46,6 @@ export async function route_append_transcription_audio(
   return await post(GoHTTPRouteHelpers.appendTranscriptionAudio(), x);
 }
 
-export async function route_attachment_download(
-  token: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get(GoHTTPRouteHelpers.attachmentDownload(token));
-}
-
 export async function route_auto_layout_top_level_sections(
   x: gt.AutoLayoutTopLevelSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -196,12 +190,6 @@ export async function route_delete_state_machine_edges(
   return await post(GoHTTPRouteHelpers.deleteStateMachineEdges(), x);
 }
 
-export async function route_delete_terminals(
-  x: gt.DeleteTerminalsRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deleteTerminals(), x);
-}
-
 export async function route_delete_view_mode(
   x: gt.DeleteViewModeRequest,
 ): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
@@ -268,18 +256,6 @@ export async function route_get_app_gen_skills(): Promise<
   ResponseDataAndStatus<gt.GetSkillsResponse>
 > {
   return await get(GoHTTPRouteHelpers.getAppGenSkills());
-}
-
-export async function route_get_attachment_download_url(
-  x: gt.GetAttachmentDownloadURLRequest,
-): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
-  return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrl(), x);
-}
-
-export async function route_get_attachment_download_urls(
-  x: gt.GetAttachmentDownloadURLsRequest,
-): Promise<ResponseDataAndStatus<Array<gt.AttachmentDownloadURLEntry>>> {
-  return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrls(), x);
 }
 
 export async function route_get_chat_section_chat_id(
@@ -392,12 +368,6 @@ export async function route_indent_params(
   return await post(GoHTTPRouteHelpers.indentParams(), x);
 }
 
-export async function route_interrupt_terminal_processes(
-  x: gt.InterruptTerminalProcessesRequest,
-): Promise<ResponseDataAndStatus<gt.InterruptTerminalProcessesResponse>> {
-  return await post(GoHTTPRouteHelpers.interruptTerminalProcesses(), x);
-}
-
 export async function route_load_cached_brush_strokes(
   x: gt.LoadCachedPathsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.JSONArtifact>>> {
@@ -485,12 +455,6 @@ export async function route_respond_external_agent_question(
   x: gt.RespondExternalAgentQuestionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.respondExternalAgentQuestion(), x);
-}
-
-export async function route_run_code(
-  x: gt.RunCodeRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.runCode(), x);
 }
 
 export async function route_run_detached(

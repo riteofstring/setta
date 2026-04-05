@@ -1,18 +1,18 @@
+import {
+  getAttachmentDownloadUrls,
+  type HttpapiAttachmentDownloadUrlEntry,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
-import {
-  AttachmentDownloadURLEntry,
-  BaseChatMessageUnion,
-  ChatFileAttachment,
-} from "utils/generatedTypes";
+import { BaseChatMessageUnion, ChatFileAttachment } from "utils/generatedTypes";
 
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 
 export type AttachmentUrlEntry = {
-  url: AttachmentDownloadURLEntry["url"];
-  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
+  url: HttpapiAttachmentDownloadUrlEntry["url"];
+  expiresAt: HttpapiAttachmentDownloadUrlEntry["expiresAt"];
 };
 
 export function isAttachmentUrlStale(
@@ -87,12 +87,16 @@ export function useChatMessageAttachmentUrls(
         attachmentUrlRequests.current.add(attachment.id);
       }
       const projectConfigId = getCurrProjectConfigId();
-      let entries: AttachmentDownloadURLEntry[] = [];
+      let entries: HttpapiAttachmentDownloadUrlEntry[] = [];
       try {
-        const res = await route_get_attachment_download_urls({
-          artifactIds: pending.map((attachment) => attachment.id),
-          projectConfigId,
-        });
+        const res = await callOpenAPI(
+          getAttachmentDownloadUrls({
+            body: {
+              artifactIds: pending.map((attachment) => attachment.id),
+              projectConfigId,
+            },
+          }),
+        );
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           console.warn(
@@ -101,7 +105,7 @@ export function useChatMessageAttachmentUrls(
           );
           return {};
         }
-        entries = res.data;
+        entries = res.data ?? [];
       } catch (error) {
         console.warn("Failed to load attachment URLs", error);
         return {};

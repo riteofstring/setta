@@ -10,17 +10,16 @@ vi.mock("state/actions/sectionInfos", () => ({
   getCurrProjectConfigId: vi.fn(() => "project-config-1"),
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_attachment_download_urls: vi.fn(),
+    getAttachmentDownloadUrls: vi.fn(),
   };
 });
 
-import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
+import { getAttachmentDownloadUrls } from "openapi/http";
 
 import {
   type AttachmentUrlEntry,
@@ -105,15 +104,11 @@ describe("useChatMessageAttachmentUrls", () => {
   });
 
   it("deduplicates in-flight attachment URL loads across rerenders", async () => {
-    const routeGetAttachmentDownloadUrls = vi.mocked(
-      route_get_attachment_download_urls,
-    );
+    const routeGetAttachmentDownloadUrls = vi.mocked(getAttachmentDownloadUrls);
     const requestGate = createDeferredPromise<void>();
     routeGetAttachmentDownloadUrls.mockImplementation(async () => {
       await requestGate.promise;
       return {
-        status: 200,
-        hasResponse: true,
         data: [
           {
             artifactId: sharedAttachment.id,
@@ -121,6 +116,8 @@ describe("useChatMessageAttachmentUrls", () => {
             expiresAt: Math.ceil(Date.now() / 1000) + 120,
           },
         ],
+        error: undefined,
+        response: new Response(null, { status: 200 }),
       };
     });
 
@@ -135,8 +132,10 @@ describe("useChatMessageAttachmentUrls", () => {
 
     expect(routeGetAttachmentDownloadUrls).toHaveBeenCalledTimes(1);
     expect(routeGetAttachmentDownloadUrls).toHaveBeenCalledWith({
-      artifactIds: [sharedAttachment.id],
-      projectConfigId: "project-config-1",
+      body: {
+        artifactIds: [sharedAttachment.id],
+        projectConfigId: "project-config-1",
+      },
     });
 
     await act(async () => {
@@ -151,13 +150,9 @@ describe("useChatMessageAttachmentUrls", () => {
   });
 
   it("reuses fresh attachment URLs unless a force refresh is requested", async () => {
-    const routeGetAttachmentDownloadUrls = vi.mocked(
-      route_get_attachment_download_urls,
-    );
+    const routeGetAttachmentDownloadUrls = vi.mocked(getAttachmentDownloadUrls);
     routeGetAttachmentDownloadUrls
       .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
         data: [
           {
             artifactId: sharedAttachment.id,
@@ -165,10 +160,10 @@ describe("useChatMessageAttachmentUrls", () => {
             expiresAt: Math.ceil(Date.now() / 1000) + 120,
           },
         ],
+        error: undefined,
+        response: new Response(null, { status: 200 }),
       })
       .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
         data: [
           {
             artifactId: sharedAttachment.id,
@@ -176,6 +171,8 @@ describe("useChatMessageAttachmentUrls", () => {
             expiresAt: Math.ceil(Date.now() / 1000) + 180,
           },
         ],
+        error: undefined,
+        response: new Response(null, { status: 200 }),
       });
 
     await act(async () => {

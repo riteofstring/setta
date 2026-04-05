@@ -319,27 +319,6 @@ export type UpdateArtifactsRequest = {
   uploadScope: UploadScope;
 };
 
-export type GetAttachmentDownloadURLRequest = {
-  artifactId: string;
-  projectConfigId: string | null;
-};
-
-export type GetAttachmentDownloadURLResponse = {
-  url: string;
-  expiresAt: number;
-};
-
-export type GetAttachmentDownloadURLsRequest = {
-  artifactIds: Array<string>;
-  projectConfigId: string | null;
-};
-
-export type AttachmentDownloadURLEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
-};
-
 type BootstrapHandoffProtocol = {
   workspaceHistoryStorageKey: string;
   workspaceHistoryQueryParam: string;
@@ -2856,18 +2835,6 @@ export type StateMachineRunControlResponse = {
   stoppedRunId?: string | null;
 };
 
-export type DeleteTerminalsRequest = {
-  sectionIds: Array<string>;
-};
-
-export type InterruptTerminalProcessesRequest = {
-  projectId: string;
-};
-
-export type InterruptTerminalProcessesResponse = {
-  interruptedSessionCount: number;
-};
-
 export type ContentRef = {
   contentId: string;
   byteLength: number;
@@ -2879,17 +2846,6 @@ export function createContentRef(
 ): ContentRef {
   return options as ContentRef;
 }
-
-export type RunCodeRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  terminalSectionId: string;
-  cliId: string;
-  runSnapshotMode: RunSnapshotMode | null;
-  drawSnapshotsBySectionId: Record<string, ContentRef>;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-};
 
 const TransportModeEnum = {
   auto: "auto",

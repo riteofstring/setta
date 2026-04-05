@@ -97,6 +97,8 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	}
 
 	router := chi.NewRouter()
+	openAPIDocument := newOpenAPIDocument()
+	openAPIRouter := wrapRouterWithOpenAPI(router, openAPIDocument)
 	router.Use(corsMiddleware(deps.Auth, deps.TrustedOrigins))
 	router.Use(requestIDMiddleware)
 	router.Use(modeContextMiddleware(deps.ModePolicy))
@@ -115,7 +117,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	})
 
 	if deps.RegisterRoot != nil {
-		deps.RegisterRoot(router)
+		deps.RegisterRoot(openAPIRouter)
 	}
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
@@ -127,17 +129,16 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	}
 	if deps.RegisterAuthenticatedRoot != nil {
 		if deps.Auth != nil && deps.Auth.Enabled() {
-			router.Group(func(r chi.Router) {
+			openAPIRouter.Group(func(r chi.Router) {
 				r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 				deps.RegisterAuthenticatedRoot(r)
 			})
 		} else {
-			deps.RegisterAuthenticatedRoot(router)
+			deps.RegisterAuthenticatedRoot(openAPIRouter)
 		}
 	}
 
-	openAPIDocument := newOpenAPIDocument()
-	router.Route(apiPrefix, func(r chi.Router) {
+	openAPIRouter.Route(apiPrefix, func(r chi.Router) {
 		if deps.Auth != nil && deps.Auth.Enabled() {
 			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}

@@ -16,7 +16,7 @@ import (
 const (
 	RouteGetAttachmentDownloadURL  = "/getAttachmentDownloadUrl"
 	RouteGetAttachmentDownloadURLs = "/getAttachmentDownloadUrls"
-	RouteAttachmentDownload        = "/api/attachments/{token}"
+	RouteAttachmentDownload        = "/attachments/{token}"
 )
 
 type AttachmentRouteDependencies struct {
@@ -44,13 +44,37 @@ func RegisterAttachmentRootRoutes(router chi.Router, deps AttachmentRootRouteDep
 		if deps.ShareSessions == nil {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		router.With(RequireShareSession(modes.Resolver{
-			Policy: deps.ModePolicy,
-			Store:  deps.ShareSessions,
-		})).Get(RouteAttachmentDownload, attachmentDownloadHandler(deps))
+		registerOpenAPIOperationAtPaths[openAPINoBody, openAPIBinaryPayload](
+			router.With(RequireShareSession(modes.Resolver{
+				Policy: deps.ModePolicy,
+				Store:  deps.ShareSessions,
+			})),
+			http.MethodGet,
+			"downloadAttachment",
+			RouteAPIPrefix+RouteAttachmentDownload,
+			RouteAttachmentDownload,
+			attachmentDownloadHandler(deps),
+			withOpenAPITags("Attachment"),
+			withOpenAPISummary("Download a chat attachment by signed token."),
+			withOpenAPIModeRequirement("not-launcher"),
+			withOpenAPIPathParams[AttachmentDownloadRouteParams](),
+			withOpenAPIResponseContentType("application/octet-stream"),
+		)
 		return nil
 	}
-	router.Get(RouteAttachmentDownload, attachmentDownloadHandler(deps))
+	registerOpenAPIOperationAtPaths[openAPINoBody, openAPIBinaryPayload](
+		router,
+		http.MethodGet,
+		"downloadAttachment",
+		RouteAPIPrefix+RouteAttachmentDownload,
+		RouteAttachmentDownload,
+		attachmentDownloadHandler(deps),
+		withOpenAPITags("Attachment"),
+		withOpenAPISummary("Download a chat attachment by signed token."),
+		withOpenAPIModeRequirement("not-launcher"),
+		withOpenAPIPathParams[AttachmentDownloadRouteParams](),
+		withOpenAPIResponseContentType("application/octet-stream"),
+	)
 	return nil
 }
 
@@ -67,6 +91,10 @@ type GetAttachmentDownloadURLResponse struct {
 type GetAttachmentDownloadURLsRequest struct {
 	ArtifactIDs     []string `json:"artifactIds"`
 	ProjectConfigID *string  `json:"projectConfigId"`
+}
+
+type AttachmentDownloadRouteParams struct {
+	Token string `json:"token"`
 }
 
 type AttachmentDownloadURLEntry struct {
@@ -96,13 +124,45 @@ func RegisterAttachmentRoutes(router chi.Router, deps AttachmentRouteDependencie
 			Policy: deps.ModePolicy,
 			Store:  deps.ShareSessions,
 		})
-		router.With(guard).Post(RouteGetAttachmentDownloadURL, getAttachmentDownloadURLHandler(deps))
-		router.With(guard).Post(RouteGetAttachmentDownloadURLs, getAttachmentDownloadURLsHandler(deps))
+		registerOpenAPIPost[GetAttachmentDownloadURLRequest, GetAttachmentDownloadURLResponse](
+			router.With(guard),
+			"getAttachmentDownloadUrl",
+			RouteGetAttachmentDownloadURL,
+			getAttachmentDownloadURLHandler(deps),
+			withOpenAPITags("Attachment"),
+			withOpenAPISummary("Build a signed download URL for a single chat attachment."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
+		registerOpenAPIPost[GetAttachmentDownloadURLsRequest, []AttachmentDownloadURLEntry](
+			router.With(guard),
+			"getAttachmentDownloadUrls",
+			RouteGetAttachmentDownloadURLs,
+			getAttachmentDownloadURLsHandler(deps),
+			withOpenAPITags("Attachment"),
+			withOpenAPISummary("Build signed download URLs for a batch of chat attachments."),
+			withOpenAPIModeRequirement("not-launcher"),
+		)
 		return nil
 	}
 	guard := modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)
-	router.With(guard).Post(RouteGetAttachmentDownloadURL, getAttachmentDownloadURLHandler(deps))
-	router.With(guard).Post(RouteGetAttachmentDownloadURLs, getAttachmentDownloadURLsHandler(deps))
+	registerOpenAPIPost[GetAttachmentDownloadURLRequest, GetAttachmentDownloadURLResponse](
+		router.With(guard),
+		"getAttachmentDownloadUrl",
+		RouteGetAttachmentDownloadURL,
+		getAttachmentDownloadURLHandler(deps),
+		withOpenAPITags("Attachment"),
+		withOpenAPISummary("Build a signed download URL for a single chat attachment."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetAttachmentDownloadURLsRequest, []AttachmentDownloadURLEntry](
+		router.With(guard),
+		"getAttachmentDownloadUrls",
+		RouteGetAttachmentDownloadURLs,
+		getAttachmentDownloadURLsHandler(deps),
+		withOpenAPITags("Attachment"),
+		withOpenAPISummary("Build signed download URLs for a batch of chat attachments."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
 	return nil
 }
 
@@ -217,7 +277,7 @@ func ensureAttachmentDownloadsAllowed(w http.ResponseWriter, r *http.Request, de
 }
 
 func buildAttachmentDownloadURL(r *http.Request, token string, shareSessionID string) string {
-	downloadURL := requestOrigin(r) + strings.TrimSpace(RouteAttachmentDownload)
+	downloadURL := requestOrigin(r) + RouteAPIPrefix + strings.TrimSpace(RouteAttachmentDownload)
 	if strings.TrimSpace(shareSessionID) == "" {
 		return strings.ReplaceAll(downloadURL, "{token}", url.PathEscape(token))
 	}
