@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 15:43 EDT
+Last updated: 2026-04-05 16:44 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,71 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `193` closed the pending normalized `rotaryParamCodeObjDefault` visual-gate blocker after the bounded `aireset.sh` recovery that item `191` enabled.
+  - Why this slice was needed:
+    - item `191` explicitly handed off to one fresh retry of the required CDP compare on the corrected restart path before another product slice
+    - item `192` moved the default frontier back to product work, but this exact retry was still justified because the blocker had not yet been reclassified on the corrected recovery path
+  - What this slice established:
+    - the first fresh-context CDP attempt on the run-024 worktree no longer failed at raw port discovery; instead it classified `worktree_unhealthy`:
+      - `chromium.connectOverCDP('http://127.0.0.1:9297')` timed out after the browser websocket connected
+      - direct worktree bootstrap consume on `http://127.0.0.1:8077/__setta__/bootstrap/consume` returned `401`, and `http://127.0.0.1:3077/settings` stayed on the loading spinner
+    - the one allowed self-recovery now behaves like a true stop-reset-start path:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` stopped the old worktree sessions, reset state, and launched a fresh worktree runtime on `3075/8075`
+      - `setta status --connect-info --latest --json` and `./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json` agreed on the fresh backend/bootstrap session and runtime-metadata-backed `debugPort: 9297`
+      - the inherited `run-024` runtime-log frontend value `3077` was stale; `curl -I` confirmed `3075` was live and `3077` was down
+    - the post-recovery fresh-context CDP sub-agent completed the required visual gate against read-only `main` on the named `rotaryParamCodeObjDefault` lane under `All Settings`
+    - no visual discrepancy was observed between worktree `http://127.0.0.1:3075/settings` and reference `http://127.0.0.1:3088/settings` for the checked filtered view
+    - the broad `rotaryParamCodeObjDefault` lane is usable again as regression coverage instead of an active blocker
+  - Verification:
+    - targeted Playwright oracle before recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<run-024 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<run-024 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed only on a reference-side perf cap outlier (`main` max frame `216.5ms`); both sides still ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: fresh worktree runtime on `3075/8075` with session `7d4ad6`
+    - runtime refresh after recovery:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-024/worktree-ai.log`
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+      - result: unified fresh backend/bootstrap plus runtime-metadata debug port; only the inherited runtime-log frontend port was stale
+    - frontend liveness sanity:
+      - `curl -I --max-time 5 http://127.0.0.1:3075/`
+      - `curl -I --max-time 5 http://127.0.0.1:3077/`
+      - result: `3075` returned `200 OK`; `3077` was no longer serving
+    - fresh-context CDP retry after recovery:
+      - result: completed; the sub-agent confirmed the named `rotaryParamCodeObjDefault` `All Settings` lane matched between worktree and read-only `main`
+  - Lane status:
+    - the required `rotaryParamCodeObjDefault` CDP visual gate is no longer blocking this rewrite
+    - do not reopen standalone lifecycle/CDP repair by default; only revisit it if a future live product slice makes the worktree unhealthy again
+  - Next frontier:
+    - finish splitting the remaining viewport/runtime controller ownership out of `SettingsGraphSubstrateCanary.tsx`
+    - then take the next geometry-authority product slice from that deeper boundary and rerun the broad normalized `rotaryParamCodeObjDefault` lane plus CDP as regression coverage
+
+- Ralph item `192` manually replanned the loop so it stops defaulting to standalone CDP/lifecycle recovery and instead targets the first visible Pixi-owned static layer once the remaining canary controller split is in place.
+  - Why this slice was needed:
+    - items `189` through `191` spent three consecutive iterations on CDP/lifecycle access and restart behavior while the broad normalized `rotaryParamCodeObjDefault` Playwright lane remained green
+    - one bounded recovery retry was justified, but continuing to spend default iterations on tooling-only repair would be the same parity-churn pattern the earlier replan already identified
+    - the current canary is already a live, viewable DOM-backed substrate baseline, so the next meaningful milestone is the first visible scene-owned renderer insertion rather than finer DOM-backed verification
+  - Production/test change:
+    - docs only; updated `RALPH.md`, the rewrite plan, this handoff, and the rewrite log to redirect iteration sequencing
+  - What this slice established:
+    - the current DOM-backed canary remains the baseline to preserve while renderer ownership changes
+    - repeated CDP/tool failures are now supporting debt rather than the default product frontier unless the runtime itself is unhealthy
+    - the next renderer milestone is the first visible Pixi-owned static layer, not another DOM-only parity lane
+    - Pixi is still not approved or installed in the frontend, so the first scene-owned slice remains gated on explicit user permission to add that dependency
+  - Verification:
+    - manual review:
+      - reread `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, and the latest handoff/history entries before updating the durable docs
+    - tests:
+      - not run; docs-only replan
+  - Lane status:
+    - freeze standalone CDP/lifecycle repair as the default next slice
+    - keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage and rerun it after product slices instead of reopening more DOM-backed parity coverage
+  - Next frontier:
+    - finish splitting the remaining viewport/runtime controller ownership out of `SettingsGraphSubstrateCanary.tsx`
+    - after explicit user approval to add Pixi, land the first scene-owned static visual layer while section bodies remain DOM-backed
+    - rerun one broad normalized pan/zoom/drag/edit lane plus CDP after that first Pixi slice
 
 - Ralph item `191` fixed the `aireset.sh` restart path so the loop's one allowed self-recovery no longer layers a fresh launch on top of the existing worktree browser/runtime.
   - Why this slice was needed:
@@ -6159,6 +6224,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `157`
-- Latest item: `2026-04-05 157`
+- Active history window: items `001` through `193`
+- Latest item: `2026-04-05 193`
 - Older history archives: none yet

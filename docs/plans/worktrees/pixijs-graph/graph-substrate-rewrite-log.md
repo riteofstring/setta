@@ -7320,6 +7320,36 @@ LOOP_TERMINAL_MARKER: none
   - if `chrome-devtools` still times out after that clean restart, keep the blocker classified as CDP/tooling access instead of reopening restart semantics
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 192
+
+- Item: Manual replan to stop defaulting to standalone CDP/lifecycle recovery and prioritize the first visible Pixi-owned static layer.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - items `189` through `191` had already spent three consecutive iterations on CDP/lifecycle access and restart behavior while the broad normalized `rotaryParamCodeObjDefault` deterministic lane stayed green
+    - one bounded recovery retry was justified, but continuing to spend default iterations on tooling-only repair would have recreated the same churn pattern that the earlier parity-lane replan was meant to stop
+    - the current canary is already a live, viewable DOM-backed substrate baseline, so the next meaningful milestone is the first visible scene-owned renderer insertion rather than finer DOM-backed verification
+  - Production/test change:
+    - docs only; updated `RALPH.md`, the rewrite plan, and the handoff to redirect iteration sequencing
+  - What this slice established:
+    - the current DOM-backed canary remains the baseline to preserve while renderer ownership changes
+    - repeated CDP/tool failures are supporting debt rather than the default product frontier unless the runtime itself is unhealthy
+    - the next renderer milestone is the first visible Pixi-owned static layer, not another DOM-only parity lane
+    - Pixi is still not approved or installed in the frontend, so the first scene-owned slice remains gated on explicit user permission to add that dependency
+- Verification:
+  - manual review:
+    - reread `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, and the latest handoff/history entries before updating the durable docs
+  - tests:
+    - not run; docs-only replan
+- Lane status:
+  - freeze standalone CDP/lifecycle repair as the default next slice
+  - keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage and rerun it after product slices instead of reopening more DOM-backed parity coverage
+- Next action:
+  - finish splitting the remaining viewport/runtime controller ownership out of `SettingsGraphSubstrateCanary.tsx`
+  - after explicit user approval to add Pixi, land the first scene-owned static visual layer while section bodies remain DOM-backed
+  - rerun one broad normalized pan/zoom/drag/edit lane plus CDP after that first Pixi slice
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 190
 
 - Item: Retry the blocked normalized `rotaryParamCodeObjDefault` CDP compare on a fresh outer iteration, then do the one allowed in-iteration worktree recovery if the tool is still inaccessible.
@@ -7362,4 +7392,48 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - begin the next iteration with a fresh outer worktree lifecycle bootstrap and retry the same normalized `rotaryParamCodeObjDefault` CDP compare before any new geometry-authority code slice
   - if the fresh pass still shows stale `3076/9297` transport metadata or `chrome-devtools` call timeouts, keep the blocker explicit as lifecycle/CDP repair instead of taking another product move
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 193
+
+- Item: Retry the normalized `rotaryParamCodeObjDefault` CDP visual gate on the corrected recovery path, then use the one allowed self-recovery only if the fresh worktree is still unhealthy.
+- Status: `subtask_done`
+- Details:
+  - This iteration intentionally did not change production code. The bounded goal was to decide whether item `191`'s `aireset.sh` fix actually restored a trustworthy `rotaryParamCodeObjDefault` CDP lane on the next fresh pass.
+  - The first fresh-context CDP sub-agent tightened the blocker from raw tool access to `worktree_unhealthy`:
+    - `chromium.connectOverCDP('http://127.0.0.1:9297')` timed out after the browser websocket connected
+    - direct worktree bootstrap consume on `http://127.0.0.1:8077/__setta__/bootstrap/consume` returned `401`
+    - `http://127.0.0.1:3077/settings` remained on a loading spinner instead of reaching the normalized compare surface
+  - The one allowed self-recovery was then used and, unlike the broken pre-item-191 path, it produced one fresh worktree session instead of mixed old/new transport state:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` stopped the old sessions, reset `setta_files_dev`, and relaunched the worktree on `3075/8075`
+    - `setta status --connect-info --latest --json` and `./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json` agreed on session `7d4ad6`, backend `8075`, and runtime-metadata-backed `debugPort: 9297`
+    - the inherited `run-024` runtime log still reported `3077`, but `curl -I` showed `3075` live and `3077` down, so the stale frontend port was a log artifact rather than mixed live state
+  - The post-recovery fresh-context CDP retry completed the required visual gate:
+    - the named `rotaryParamCodeObjDefault` lane was checked under `All Settings` on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3088/settings`
+    - the sub-agent reported matching surrounding structure with no visual discrepancy on the filtered target lane
+  - The broad deterministic oracle remains usable as regression coverage, but this pass also exposed one transient reference-side perf outlier to keep in mind:
+    - the pre-recovery Playwright rerun on `3077/3088` failed only because `main` hit `216.5ms` max frame duration
+    - despite that outlier, both worktree and `main` still ended the checked lane on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+- Verification:
+  - targeted Playwright oracle before recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<run-024 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<run-024 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed only on a reference-side perf cap outlier (`main` max frame `216.5ms`); transform still matched on both sides
+  - bounded self-recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: fresh worktree runtime on `3075/8075`, session `7d4ad6`, `debugPort: 9297`
+  - runtime refresh after recovery:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-024/worktree-ai.log`
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+    - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+    - result: backend/bootstrap and debug port unified on the fresh session; only the inherited runtime-log frontend port was stale
+  - frontend liveness sanity:
+    - `curl -I --max-time 5 http://127.0.0.1:3075/`
+    - `curl -I --max-time 5 http://127.0.0.1:3077/`
+    - result: `3075` returned `200 OK`; `3077` refused connections
+  - fresh-context CDP retry after recovery:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: completed; the named `rotaryParamCodeObjDefault` `All Settings` lane matched between worktree and read-only `main`
+- Next action:
+  - stop spending the default slice on standalone CDP/lifecycle repair now that the required visual gate is green again
+  - finish splitting the remaining viewport/runtime controller ownership out of `SettingsGraphSubstrateCanary.tsx`, then take the next geometry-authority product slice from that deeper boundary
 - LOOP_TERMINAL_MARKER: none
