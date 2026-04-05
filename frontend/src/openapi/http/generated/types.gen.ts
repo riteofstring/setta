@@ -10,11 +10,89 @@ export type AgenticsummarycacheAgenticSummaryCacheStatus = {
   wouldAttemptSectionIds: Array<string> | null;
 };
 
+export type AgentprofilesProfile = {
+  description: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
+  engineConfigId: string | null;
+  id: string;
+  memoryScope: string | null;
+  name: string;
+  systemPrompt: string;
+  toolAllowlist: Array<string> | null;
+};
+
+export type AgentrunsEngineConfig = {
+  defaults?: AgentrunsEngineConfigDefaults;
+  engineType: string;
+  externalAgentConfigId?: string;
+  id: string;
+  name: string;
+  runtimeSupport?: AgentrunsEngineRuntimeSupport;
+  settaLlmConfigId?: string;
+};
+
+export type AgentrunsEngineConfigDefaults = {
+  thinking?: boolean;
+};
+
+export type AgentrunsEngineRuntimeSupport = {
+  thinking: boolean;
+};
+
 export type BinaryContentRef = {
   byteLength: number;
   contentId: string;
   mimeType?: string;
   sha256?: string;
+};
+
+export type ExternalagentconfigsClaudeSettingsManaged = {
+  defaultMode?: string;
+  mcp?: {
+    [key: string]: unknown;
+  };
+  permissions?: ExternalagentconfigsClaudeSettingsPermissions;
+};
+
+export type ExternalagentconfigsClaudeSettingsPermissions = {
+  allow: Array<string> | null;
+  ask: Array<string> | null;
+  deny: Array<string> | null;
+};
+
+export type ExternalagentconfigsConfig = {
+  approvalPolicy?: string;
+  baseUrl?: string;
+  codexSkipGitRepoCheck?: boolean;
+  commandPath?: string;
+  defaultModel?: string;
+  description: string;
+  envVarWhitelist: Array<string> | null;
+  id: string;
+  name: string;
+  runMode: string;
+  sandboxPolicy?: string;
+  settingsAllowSettaEdits: boolean;
+  settingsFilePath?: string;
+  settingsManagedBlock?: ExternalagentconfigsSettingsManagedBlock;
+  settingsMode: string;
+  settingsSources?: Array<string> | null;
+  toolType: string;
+  workingDir?: string;
+  workingDirStrategy: string;
+};
+
+export type ExternalagentconfigsEnvVarStatus = {
+  missing: Array<string> | null;
+  present: Array<string> | null;
+};
+
+export type ExternalagentconfigsSettingsManagedBlock = {
+  claude?: ExternalagentconfigsClaudeSettingsManaged;
+  codex?: {
+    [key: string]: unknown;
+  };
 };
 
 export type FilebrowserFileBrowserDownloadUrlEntry = {
@@ -75,6 +153,18 @@ export type FilebrowserWriteFileContentResponse = {
   size: number;
 };
 
+export type HttpapiAgentProfilePayload = {
+  description: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  id: string | null;
+  memoryScope: string | null;
+  name: string | null;
+  systemPrompt: string | null;
+  toolAllowlist: Array<string> | null;
+};
+
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -106,8 +196,69 @@ export type HttpapiCheckWorkspaceInitializedRequest = {
   folderPath: string;
 };
 
+export type HttpapiCreateAgentProfileRequest = {
+  description: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  memoryScope: string | null;
+  name: string | null;
+  systemPrompt: string | null;
+  toolAllowlist: Array<string> | null;
+};
+
+export type HttpapiCreateEngineConfigRequest = {
+  defaults: AgentrunsEngineConfigDefaults;
+  engineType: string | null;
+  externalAgentConfigId: string | null;
+  name: string | null;
+  settaLlmConfigId: string | null;
+};
+
+export type HttpapiCreateExternalAgentConfigRequest = {
+  approvalPolicy: string | null;
+  baseUrl: string | null;
+  codexSkipGitRepoCheck: boolean | null;
+  commandPath: string | null;
+  defaultModel: string | null;
+  description: string | null;
+  envVarWhitelist: Array<string> | null;
+  name: string | null;
+  runMode: string | null;
+  sandboxPolicy: string | null;
+  settingsAllowSettaEdits: boolean | null;
+  settingsFilePath: string | null;
+  settingsManagedBlock: ExternalagentconfigsSettingsManagedBlock;
+  settingsMode: string | null;
+  settingsSources: Array<string> | null;
+  toolType: string | null;
+  workingDir: string | null;
+  workingDirStrategy: string | null;
+};
+
 export type HttpapiCreateFileRequest = {
   filepath: string;
+};
+
+export type HttpapiCreatePromptTemplateRequest = {
+  description: string | null;
+  format: string | null;
+  inputSchema: {
+    [key: string]: unknown;
+  };
+  metadata: {
+    [key: string]: unknown;
+  };
+  name: string | null;
+  template: string | null;
+};
+
+export type HttpapiCreateTranscriptionProfileRequest = {
+  chunkMs: number | null;
+  language: string | null;
+  name: string | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: string | null;
 };
 
 export type HttpapiCreateWorkspaceLaunchIntentRequest = {
@@ -120,6 +271,26 @@ export type HttpapiCreateWorkspaceLaunchIntentResponse = {
   launchIntentToken: string | null;
   ok: boolean;
   requestedAt: number | null;
+};
+
+export type HttpapiDeleteAgentProfileRequest = {
+  profileId: string;
+};
+
+export type HttpapiDeleteEngineConfigRequest = {
+  configId: string;
+};
+
+export type HttpapiDeleteExternalAgentConfigRequest = {
+  configId: string;
+};
+
+export type HttpapiDeletePromptTemplateRequest = {
+  templateId: string;
+};
+
+export type HttpapiDeleteTranscriptionProfileRequest = {
+  profileId: string | null;
 };
 
 export type HttpapiDocstringToMarkdownRequest = {
@@ -136,9 +307,36 @@ export type HttpapiErrorResponse = {
   error: HttpapiErrorDetail;
 };
 
+export type HttpapiExternalAgentPreflightStatus = {
+  available: boolean;
+  baseUrl: string | null;
+  cliVersion: string | null;
+  configId: string;
+  envVars: ExternalagentconfigsEnvVarStatus;
+  issues: Array<string> | null;
+  name: string;
+  runMode: string;
+  sdkVersion: string | null;
+  supported: boolean;
+  toolType: string;
+  workingDir: string | null;
+};
+
+export type HttpapiGetAgentProfileRequest = {
+  profileId: string;
+};
+
 export type HttpapiGetAgenticSummaryCacheStatusRequest = {
   chatSectionId: string;
   projectConfigId: string;
+};
+
+export type HttpapiGetEngineConfigRequest = {
+  configId: string;
+};
+
+export type HttpapiGetExternalAgentConfigRequest = {
+  configId: string;
 };
 
 export type HttpapiGetFileBrowserDownloadUrlsRequest = {
@@ -167,8 +365,22 @@ export type HttpapiGetFolderContentsRequest = {
   missingFolderBehavior?: string;
 };
 
+export type HttpapiGetPromptTemplateRequest = {
+  templateId: string;
+};
+
 export type HttpapiGetWorkspacePythonSignalRequest = {
   folderPath: string;
+};
+
+export type HttpapiLlmapiKeysSnapshot = {
+  apiKeys: {
+    [key: string]: string;
+  };
+  corrupt: boolean;
+  errorCode: string | null;
+  message: string | null;
+  revision: number;
 };
 
 export type HttpapiLaunchRequest = {
@@ -293,6 +505,20 @@ export type HttpapiPluginsRescanResponse = {
   serverMode: string;
 };
 
+export type HttpapiPromptTemplatePayload = {
+  description: string | null;
+  format: string | null;
+  id: string | null;
+  inputSchema: {
+    [key: string]: unknown;
+  };
+  metadata: {
+    [key: string]: unknown;
+  };
+  name: string | null;
+  template: string | null;
+};
+
 export type HttpapiRevealPathInOsFileExplorerRequest = {
   path: string;
 };
@@ -332,6 +558,13 @@ export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
 };
 
+export type HttpapiSetLlmapiKeysRequest = {
+  apiKeys: {
+    [key: string]: string;
+  };
+  expectedRevision: number;
+};
+
 export type HttpapiSettaHomeInfoResponse = {
   activeSettaFilesLocation: string | null;
   globalSettaFilesBase: string;
@@ -339,10 +572,50 @@ export type HttpapiSettaHomeInfoResponse = {
   settaHome: string;
 };
 
+export type HttpapiTranscriptionProfilePayload = {
+  chunkMs: number | null;
+  id: string | null;
+  language: string | null;
+  name: string | null;
+  supportsRealtimeTranscription: boolean | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: string | null;
+};
+
 export type HttpapiTransferFileBrowserEntryRequest = {
   destinationFolderPath: string;
   operation: string;
   sourcePath: string;
+};
+
+export type HttpapiUpdateAgentProfileRequest = {
+  profile: HttpapiAgentProfilePayload;
+};
+
+export type HttpapiUpdateEngineConfigPayload = {
+  defaults: AgentrunsEngineConfigDefaults;
+  engineType: string | null;
+  externalAgentConfigId: string | null;
+  id: string | null;
+  name: string | null;
+  runtimeSupport: AgentrunsEngineRuntimeSupport;
+  settaLlmConfigId: string | null;
+};
+
+export type HttpapiUpdateEngineConfigRequest = {
+  config: HttpapiUpdateEngineConfigPayload;
+};
+
+export type HttpapiUpdateExternalAgentConfigRequest = {
+  config: ExternalagentconfigsConfig;
+};
+
+export type HttpapiUpdatePromptTemplateRequest = {
+  template: HttpapiPromptTemplatePayload;
+};
+
+export type HttpapiUpdateTranscriptionProfileRequest = {
+  profile: HttpapiTranscriptionProfilePayload;
 };
 
 export type HttpapiWorkspaceLaunchErrorPayload = {
@@ -354,6 +627,47 @@ export type HttpapiWriteFileBrowserFileContentRequest = {
   contentId: string;
   expectedMtimeNs?: number;
   path: string;
+};
+
+export type LlmconfigAllConfigs = {
+  codexMcpImportedAt?: string;
+  configs: {
+    [key: string]: LlmconfigConfig;
+  };
+  defaultMcpServerIds: Array<string> | null;
+  default_config_id?: string;
+  mcpServers: {
+    [key: string]: LlmconfigServerConfig;
+  };
+};
+
+export type LlmconfigConfig = {
+  api_key_env?: string;
+  base_url?: string;
+  id: string;
+  mcpServerIds?: Array<string> | null;
+  model: string;
+  other_params?: {
+    [key: string]: unknown;
+  };
+  provider?: string;
+  temporary?: boolean;
+};
+
+export type LlmconfigServerConfig = {
+  args?: Array<string> | null;
+  command?: string;
+  cwd?: string;
+  encoding?: string;
+  encoding_error_handler?: string;
+  env?: {
+    [key: string]: string;
+  };
+  http_headers?: {
+    [key: string]: string;
+  };
+  transport: string;
+  url?: string;
 };
 
 export type McpxServerRuntimeStatus = {
@@ -655,6 +969,20 @@ export type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
   minWidth: number;
 };
 
+export type PrompttemplatesTemplate = {
+  description: string;
+  format: string;
+  id: string;
+  inputSchema: {
+    [key: string]: unknown;
+  };
+  metadata: {
+    [key: string]: unknown;
+  };
+  name: string;
+  template: string;
+};
+
 export type PythonsdkcontractsRunningBackendVersionHandshake = {
   coreVersion: string;
   sdkContractVersion: number;
@@ -781,6 +1109,16 @@ export type SettingsstateFrontendSettingsState = {
   };
   sectionSizingPolicy: ProjectstateFrontendSectionSizingPolicy;
   shortcuts: SettingsstateFrontendSettingsShortcuts;
+};
+
+export type TranscriptionprofilesProfile = {
+  chunkMs: number;
+  id: string;
+  language?: string;
+  name: string;
+  supportsRealtimeTranscription: boolean;
+  transcriptionLlmConfigId: string;
+  transportMode: string;
 };
 
 export type GetAuthRefreshStatusData = {
@@ -946,6 +1284,87 @@ export type CheckWorkspaceInitializedResponses = {
 export type CheckWorkspaceInitializedResponse =
   CheckWorkspaceInitializedResponses[keyof CheckWorkspaceInitializedResponses];
 
+export type CreateAgentProfileData = {
+  body: HttpapiCreateAgentProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/createAgentProfile";
+};
+
+export type CreateAgentProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateAgentProfileError =
+  CreateAgentProfileErrors[keyof CreateAgentProfileErrors];
+
+export type CreateAgentProfileResponses = {
+  /**
+   * OK
+   */
+  200: AgentprofilesProfile;
+};
+
+export type CreateAgentProfileResponse =
+  CreateAgentProfileResponses[keyof CreateAgentProfileResponses];
+
+export type CreateEngineConfigData = {
+  body: HttpapiCreateEngineConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/createEngineConfig";
+};
+
+export type CreateEngineConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateEngineConfigError =
+  CreateEngineConfigErrors[keyof CreateEngineConfigErrors];
+
+export type CreateEngineConfigResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsEngineConfig;
+};
+
+export type CreateEngineConfigResponse =
+  CreateEngineConfigResponses[keyof CreateEngineConfigResponses];
+
+export type CreateExternalAgentConfigData = {
+  body: HttpapiCreateExternalAgentConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/createExternalAgentConfig";
+};
+
+export type CreateExternalAgentConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateExternalAgentConfigError =
+  CreateExternalAgentConfigErrors[keyof CreateExternalAgentConfigErrors];
+
+export type CreateExternalAgentConfigResponses = {
+  /**
+   * OK
+   */
+  200: ExternalagentconfigsConfig;
+};
+
+export type CreateExternalAgentConfigResponse =
+  CreateExternalAgentConfigResponses[keyof CreateExternalAgentConfigResponses];
+
 export type CreateFileData = {
   body: HttpapiCreateFileRequest;
   path?: never;
@@ -970,6 +1389,60 @@ export type CreateFileResponses = {
 };
 
 export type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
+
+export type CreatePromptTemplateData = {
+  body: HttpapiCreatePromptTemplateRequest;
+  path?: never;
+  query?: never;
+  url: "/createPromptTemplate";
+};
+
+export type CreatePromptTemplateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreatePromptTemplateError =
+  CreatePromptTemplateErrors[keyof CreatePromptTemplateErrors];
+
+export type CreatePromptTemplateResponses = {
+  /**
+   * OK
+   */
+  200: PrompttemplatesTemplate;
+};
+
+export type CreatePromptTemplateResponse =
+  CreatePromptTemplateResponses[keyof CreatePromptTemplateResponses];
+
+export type CreateTranscriptionProfileData = {
+  body: HttpapiCreateTranscriptionProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/createTranscriptionProfile";
+};
+
+export type CreateTranscriptionProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateTranscriptionProfileError =
+  CreateTranscriptionProfileErrors[keyof CreateTranscriptionProfileErrors];
+
+export type CreateTranscriptionProfileResponses = {
+  /**
+   * OK
+   */
+  200: TranscriptionprofilesProfile;
+};
+
+export type CreateTranscriptionProfileResponse =
+  CreateTranscriptionProfileResponses[keyof CreateTranscriptionProfileResponses];
 
 export type CreateWorkspaceLaunchIntentData = {
   body: HttpapiCreateWorkspaceLaunchIntentRequest;
@@ -997,6 +1470,141 @@ export type CreateWorkspaceLaunchIntentResponses = {
 
 export type CreateWorkspaceLaunchIntentResponse =
   CreateWorkspaceLaunchIntentResponses[keyof CreateWorkspaceLaunchIntentResponses];
+
+export type DeleteAgentProfileData = {
+  body: HttpapiDeleteAgentProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteAgentProfile";
+};
+
+export type DeleteAgentProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteAgentProfileError =
+  DeleteAgentProfileErrors[keyof DeleteAgentProfileErrors];
+
+export type DeleteAgentProfileResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteAgentProfileResponse =
+  DeleteAgentProfileResponses[keyof DeleteAgentProfileResponses];
+
+export type DeleteEngineConfigData = {
+  body: HttpapiDeleteEngineConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteEngineConfig";
+};
+
+export type DeleteEngineConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteEngineConfigError =
+  DeleteEngineConfigErrors[keyof DeleteEngineConfigErrors];
+
+export type DeleteEngineConfigResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteEngineConfigResponse =
+  DeleteEngineConfigResponses[keyof DeleteEngineConfigResponses];
+
+export type DeleteExternalAgentConfigData = {
+  body: HttpapiDeleteExternalAgentConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteExternalAgentConfig";
+};
+
+export type DeleteExternalAgentConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteExternalAgentConfigError =
+  DeleteExternalAgentConfigErrors[keyof DeleteExternalAgentConfigErrors];
+
+export type DeleteExternalAgentConfigResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteExternalAgentConfigResponse =
+  DeleteExternalAgentConfigResponses[keyof DeleteExternalAgentConfigResponses];
+
+export type DeletePromptTemplateData = {
+  body: HttpapiDeletePromptTemplateRequest;
+  path?: never;
+  query?: never;
+  url: "/deletePromptTemplate";
+};
+
+export type DeletePromptTemplateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeletePromptTemplateError =
+  DeletePromptTemplateErrors[keyof DeletePromptTemplateErrors];
+
+export type DeletePromptTemplateResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeletePromptTemplateResponse =
+  DeletePromptTemplateResponses[keyof DeletePromptTemplateResponses];
+
+export type DeleteTranscriptionProfileData = {
+  body: HttpapiDeleteTranscriptionProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteTranscriptionProfile";
+};
+
+export type DeleteTranscriptionProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteTranscriptionProfileError =
+  DeleteTranscriptionProfileErrors[keyof DeleteTranscriptionProfileErrors];
+
+export type DeleteTranscriptionProfileResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type DeleteTranscriptionProfileResponse =
+  DeleteTranscriptionProfileResponses[keyof DeleteTranscriptionProfileResponses];
 
 export type DocstringToMarkdownData = {
   body: HttpapiDocstringToMarkdownRequest;
@@ -1054,6 +1662,60 @@ export type DownloadFileBrowserEntryResponses = {
 export type DownloadFileBrowserEntryResponse =
   DownloadFileBrowserEntryResponses[keyof DownloadFileBrowserEntryResponses];
 
+export type GetAgentProfileData = {
+  body: HttpapiGetAgentProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/getAgentProfile";
+};
+
+export type GetAgentProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAgentProfileError =
+  GetAgentProfileErrors[keyof GetAgentProfileErrors];
+
+export type GetAgentProfileResponses = {
+  /**
+   * OK
+   */
+  200: AgentprofilesProfile;
+};
+
+export type GetAgentProfileResponse =
+  GetAgentProfileResponses[keyof GetAgentProfileResponses];
+
+export type GetAgentProfilesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getAgentProfiles";
+};
+
+export type GetAgentProfilesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAgentProfilesError =
+  GetAgentProfilesErrors[keyof GetAgentProfilesErrors];
+
+export type GetAgentProfilesResponses = {
+  /**
+   * OK
+   */
+  200: Array<AgentprofilesProfile> | null;
+};
+
+export type GetAgentProfilesResponse =
+  GetAgentProfilesResponses[keyof GetAgentProfilesResponses];
+
 export type GetAgenticSummaryCacheStatusData = {
   body: HttpapiGetAgenticSummaryCacheStatusRequest;
   path?: never;
@@ -1080,6 +1742,141 @@ export type GetAgenticSummaryCacheStatusResponses = {
 
 export type GetAgenticSummaryCacheStatusResponse =
   GetAgenticSummaryCacheStatusResponses[keyof GetAgenticSummaryCacheStatusResponses];
+
+export type GetEngineConfigData = {
+  body: HttpapiGetEngineConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/getEngineConfig";
+};
+
+export type GetEngineConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetEngineConfigError =
+  GetEngineConfigErrors[keyof GetEngineConfigErrors];
+
+export type GetEngineConfigResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsEngineConfig;
+};
+
+export type GetEngineConfigResponse =
+  GetEngineConfigResponses[keyof GetEngineConfigResponses];
+
+export type GetEngineConfigsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getEngineConfigs";
+};
+
+export type GetEngineConfigsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetEngineConfigsError =
+  GetEngineConfigsErrors[keyof GetEngineConfigsErrors];
+
+export type GetEngineConfigsResponses = {
+  /**
+   * OK
+   */
+  200: Array<AgentrunsEngineConfig> | null;
+};
+
+export type GetEngineConfigsResponse =
+  GetEngineConfigsResponses[keyof GetEngineConfigsResponses];
+
+export type GetExternalAgentConfigData = {
+  body: HttpapiGetExternalAgentConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/getExternalAgentConfig";
+};
+
+export type GetExternalAgentConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetExternalAgentConfigError =
+  GetExternalAgentConfigErrors[keyof GetExternalAgentConfigErrors];
+
+export type GetExternalAgentConfigResponses = {
+  /**
+   * OK
+   */
+  200: ExternalagentconfigsConfig;
+};
+
+export type GetExternalAgentConfigResponse =
+  GetExternalAgentConfigResponses[keyof GetExternalAgentConfigResponses];
+
+export type GetExternalAgentConfigsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getExternalAgentConfigs";
+};
+
+export type GetExternalAgentConfigsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetExternalAgentConfigsError =
+  GetExternalAgentConfigsErrors[keyof GetExternalAgentConfigsErrors];
+
+export type GetExternalAgentConfigsResponses = {
+  /**
+   * OK
+   */
+  200: Array<ExternalagentconfigsConfig> | null;
+};
+
+export type GetExternalAgentConfigsResponse =
+  GetExternalAgentConfigsResponses[keyof GetExternalAgentConfigsResponses];
+
+export type GetExternalAgentHealthData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getExternalAgentHealth";
+};
+
+export type GetExternalAgentHealthErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetExternalAgentHealthError =
+  GetExternalAgentHealthErrors[keyof GetExternalAgentHealthErrors];
+
+export type GetExternalAgentHealthResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiExternalAgentPreflightStatus> | null;
+};
+
+export type GetExternalAgentHealthResponse =
+  GetExternalAgentHealthResponses[keyof GetExternalAgentHealthResponses];
 
 export type GetFileBrowserDownloadUrlsData = {
   body: HttpapiGetFileBrowserDownloadUrlsRequest;
@@ -1216,6 +2013,87 @@ export type GetFolderContentsResponses = {
 export type GetFolderContentsResponse =
   GetFolderContentsResponses[keyof GetFolderContentsResponses];
 
+export type GetPromptTemplateData = {
+  body: HttpapiGetPromptTemplateRequest;
+  path?: never;
+  query?: never;
+  url: "/getPromptTemplate";
+};
+
+export type GetPromptTemplateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetPromptTemplateError =
+  GetPromptTemplateErrors[keyof GetPromptTemplateErrors];
+
+export type GetPromptTemplateResponses = {
+  /**
+   * OK
+   */
+  200: PrompttemplatesTemplate;
+};
+
+export type GetPromptTemplateResponse =
+  GetPromptTemplateResponses[keyof GetPromptTemplateResponses];
+
+export type GetPromptTemplatesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getPromptTemplates";
+};
+
+export type GetPromptTemplatesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetPromptTemplatesError =
+  GetPromptTemplatesErrors[keyof GetPromptTemplatesErrors];
+
+export type GetPromptTemplatesResponses = {
+  /**
+   * OK
+   */
+  200: Array<PrompttemplatesTemplate> | null;
+};
+
+export type GetPromptTemplatesResponse =
+  GetPromptTemplatesResponses[keyof GetPromptTemplatesResponses];
+
+export type GetTranscriptionProfilesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/getTranscriptionProfiles";
+};
+
+export type GetTranscriptionProfilesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetTranscriptionProfilesError =
+  GetTranscriptionProfilesErrors[keyof GetTranscriptionProfilesErrors];
+
+export type GetTranscriptionProfilesResponses = {
+  /**
+   * OK
+   */
+  200: Array<TranscriptionprofilesProfile> | null;
+};
+
+export type GetTranscriptionProfilesResponse =
+  GetTranscriptionProfilesResponses[keyof GetTranscriptionProfilesResponses];
+
 export type GetWorkspacePythonSignalData = {
   body: HttpapiGetWorkspacePythonSignalRequest;
   path?: never;
@@ -1269,6 +2147,110 @@ export type LaunchWorkspaceResponses = {
 
 export type LaunchWorkspaceResponse =
   LaunchWorkspaceResponses[keyof LaunchWorkspaceResponses];
+
+export type GetLlmApiKeysData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/llm/apiKeys";
+};
+
+export type GetLlmApiKeysErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLlmApiKeysError = GetLlmApiKeysErrors[keyof GetLlmApiKeysErrors];
+
+export type GetLlmApiKeysResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLlmapiKeysSnapshot;
+};
+
+export type GetLlmApiKeysResponse =
+  GetLlmApiKeysResponses[keyof GetLlmApiKeysResponses];
+
+export type SetLlmApiKeysData = {
+  body: HttpapiSetLlmapiKeysRequest;
+  path?: never;
+  query?: never;
+  url: "/llm/apiKeys";
+};
+
+export type SetLlmApiKeysErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetLlmApiKeysError = SetLlmApiKeysErrors[keyof SetLlmApiKeysErrors];
+
+export type SetLlmApiKeysResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLlmapiKeysSnapshot;
+};
+
+export type SetLlmApiKeysResponse =
+  SetLlmApiKeysResponses[keyof SetLlmApiKeysResponses];
+
+export type GetLlmConfigData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/llm/config";
+};
+
+export type GetLlmConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLlmConfigError = GetLlmConfigErrors[keyof GetLlmConfigErrors];
+
+export type GetLlmConfigResponses = {
+  /**
+   * OK
+   */
+  200: LlmconfigAllConfigs;
+};
+
+export type GetLlmConfigResponse =
+  GetLlmConfigResponses[keyof GetLlmConfigResponses];
+
+export type SetLlmConfigData = {
+  body: LlmconfigAllConfigs;
+  path?: never;
+  query?: never;
+  url: "/llm/config";
+};
+
+export type SetLlmConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetLlmConfigError = SetLlmConfigErrors[keyof SetLlmConfigErrors];
+
+export type SetLlmConfigResponses = {
+  /**
+   * OK
+   */
+  200: LlmconfigAllConfigs;
+};
+
+export type SetLlmConfigResponse =
+  SetLlmConfigResponses[keyof SetLlmConfigResponses];
 
 export type LoadSettingsData = {
   body?: never;
@@ -1853,6 +2835,141 @@ export type TransferFileBrowserEntryResponses = {
 
 export type TransferFileBrowserEntryResponse =
   TransferFileBrowserEntryResponses[keyof TransferFileBrowserEntryResponses];
+
+export type UpdateAgentProfileData = {
+  body: HttpapiUpdateAgentProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/updateAgentProfile";
+};
+
+export type UpdateAgentProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateAgentProfileError =
+  UpdateAgentProfileErrors[keyof UpdateAgentProfileErrors];
+
+export type UpdateAgentProfileResponses = {
+  /**
+   * OK
+   */
+  200: AgentprofilesProfile;
+};
+
+export type UpdateAgentProfileResponse =
+  UpdateAgentProfileResponses[keyof UpdateAgentProfileResponses];
+
+export type UpdateEngineConfigData = {
+  body: HttpapiUpdateEngineConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/updateEngineConfig";
+};
+
+export type UpdateEngineConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateEngineConfigError =
+  UpdateEngineConfigErrors[keyof UpdateEngineConfigErrors];
+
+export type UpdateEngineConfigResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsEngineConfig;
+};
+
+export type UpdateEngineConfigResponse =
+  UpdateEngineConfigResponses[keyof UpdateEngineConfigResponses];
+
+export type UpdateExternalAgentConfigData = {
+  body: HttpapiUpdateExternalAgentConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/updateExternalAgentConfig";
+};
+
+export type UpdateExternalAgentConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateExternalAgentConfigError =
+  UpdateExternalAgentConfigErrors[keyof UpdateExternalAgentConfigErrors];
+
+export type UpdateExternalAgentConfigResponses = {
+  /**
+   * OK
+   */
+  200: ExternalagentconfigsConfig;
+};
+
+export type UpdateExternalAgentConfigResponse =
+  UpdateExternalAgentConfigResponses[keyof UpdateExternalAgentConfigResponses];
+
+export type UpdatePromptTemplateData = {
+  body: HttpapiUpdatePromptTemplateRequest;
+  path?: never;
+  query?: never;
+  url: "/updatePromptTemplate";
+};
+
+export type UpdatePromptTemplateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdatePromptTemplateError =
+  UpdatePromptTemplateErrors[keyof UpdatePromptTemplateErrors];
+
+export type UpdatePromptTemplateResponses = {
+  /**
+   * OK
+   */
+  200: PrompttemplatesTemplate;
+};
+
+export type UpdatePromptTemplateResponse =
+  UpdatePromptTemplateResponses[keyof UpdatePromptTemplateResponses];
+
+export type UpdateTranscriptionProfileData = {
+  body: HttpapiUpdateTranscriptionProfileRequest;
+  path?: never;
+  query?: never;
+  url: "/updateTranscriptionProfile";
+};
+
+export type UpdateTranscriptionProfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateTranscriptionProfileError =
+  UpdateTranscriptionProfileErrors[keyof UpdateTranscriptionProfileErrors];
+
+export type UpdateTranscriptionProfileResponses = {
+  /**
+   * OK
+   */
+  200: TranscriptionprofilesProfile;
+};
+
+export type UpdateTranscriptionProfileResponse =
+  UpdateTranscriptionProfileResponses[keyof UpdateTranscriptionProfileResponses];
 
 export type WriteFileBrowserFileContentData = {
   body: HttpapiWriteFileBrowserFileContentRequest;

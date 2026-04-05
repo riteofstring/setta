@@ -100,12 +100,61 @@ func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConf
 		return fmt.Errorf("websocket hub is required in ide mode")
 	}
 
-	router.Get(RouteGetExternalAgentConfigs, getExternalAgentConfigsHandler(deps))
-	router.Post(RouteGetExternalAgentConfig, getExternalAgentConfigHandler(deps))
-	router.Get(RouteGetExternalAgentHealth, getExternalAgentHealthHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateExternalAgentConfig, createExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateExternalAgentConfig, updateExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteExternalAgentConfig, deleteExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub))
+	registerOpenAPIGet[ExternalAgentConfigList](
+		router,
+		"getExternalAgentConfigs",
+		RouteGetExternalAgentConfigs,
+		getExternalAgentConfigsHandler(deps),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("List configured external agent runtimes when allowed by the current mode and policy."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetExternalAgentConfigRequest, externalagentconfigs.Config](
+		router,
+		"getExternalAgentConfig",
+		RouteGetExternalAgentConfig,
+		getExternalAgentConfigHandler(deps),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("Get a single external agent runtime configuration."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIGet[ExternalAgentPreflightStatusList](
+		router,
+		"getExternalAgentHealth",
+		RouteGetExternalAgentHealth,
+		getExternalAgentHealthHandler(deps),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("Get preflight availability and health details for configured external agent runtimes."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	protected := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIPost[CreateExternalAgentConfigRequest, externalagentconfigs.Config](
+		protected,
+		"createExternalAgentConfig",
+		RouteCreateExternalAgentConfig,
+		createExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("Create an external agent runtime configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdateExternalAgentConfigRequest, externalagentconfigs.Config](
+		protected,
+		"updateExternalAgentConfig",
+		RouteUpdateExternalAgentConfig,
+		updateExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("Update an external agent runtime configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteExternalAgentConfigRequest, openAPIJSONNull](
+		protected,
+		"deleteExternalAgentConfig",
+		RouteDeleteExternalAgentConfig,
+		deleteExternalAgentConfigHandler(deps.Configs, deps.WebsocketHub),
+		withOpenAPITags("External Agent Configs"),
+		withOpenAPISummary("Delete an external agent runtime configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

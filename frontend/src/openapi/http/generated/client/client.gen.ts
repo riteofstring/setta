@@ -50,7 +50,7 @@ export const createClient = (config: Config = {}): Client => {
     }
 
     if (opts.requestValidator) {
-      await opts.requestValidator(opts);
+      await opts.requestValidator(opts as unknown as ResolvedRequestOptions);
     }
 
     if (opts.body && opts.bodySerializer) {
@@ -73,7 +73,7 @@ export const createClient = (config: Config = {}): Client => {
 
     for (const fn of interceptors.request._fns) {
       if (fn) {
-        request = await fn(request, opts);
+        request = await fn(request, opts as unknown as ResolvedRequestOptions);
       }
     }
 
@@ -84,7 +84,11 @@ export const createClient = (config: Config = {}): Client => {
 
     for (const fn of interceptors.response._fns) {
       if (fn) {
-        response = await fn(response, request, opts);
+        response = await fn(
+          response,
+          request,
+          opts as unknown as ResolvedRequestOptions,
+        );
       }
     }
 
@@ -161,7 +165,12 @@ export const createClient = (config: Config = {}): Client => {
 
     for (const fn of interceptors.error._fns) {
       if (fn) {
-        finalError = (await fn(error, response, request, opts)) as string;
+        finalError = (await fn(
+          error,
+          response,
+          request,
+          opts as unknown as ResolvedRequestOptions,
+        )) as string;
       }
     }
 

@@ -84,11 +84,51 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps))
-	router.Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps))
-	router.Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps))
-	router.Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps))
-	router.Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps))
+	registerOpenAPIGet[PromptTemplateList](
+		router,
+		"getPromptTemplates",
+		RouteGetPromptTemplates,
+		getPromptTemplatesHandler(deps),
+		withOpenAPITags("Prompt Templates"),
+		withOpenAPISummary("List prompt templates when allowed by the current mode and policy."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetPromptTemplateRequest, prompttemplates.Template](
+		router,
+		"getPromptTemplate",
+		RouteGetPromptTemplate,
+		getPromptTemplateHandler(deps),
+		withOpenAPITags("Prompt Templates"),
+		withOpenAPISummary("Get a single prompt template."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[CreatePromptTemplateRequest, prompttemplates.Template](
+		router,
+		"createPromptTemplate",
+		RouteCreatePromptTemplate,
+		createPromptTemplateHandler(deps),
+		withOpenAPITags("Prompt Templates"),
+		withOpenAPISummary("Create a prompt template."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdatePromptTemplateRequest, prompttemplates.Template](
+		router,
+		"updatePromptTemplate",
+		RouteUpdatePromptTemplate,
+		updatePromptTemplateHandler(deps),
+		withOpenAPITags("Prompt Templates"),
+		withOpenAPISummary("Update a prompt template."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeletePromptTemplateRequest, openAPIJSONNull](
+		router,
+		"deletePromptTemplate",
+		RouteDeletePromptTemplate,
+		deletePromptTemplateHandler(deps),
+		withOpenAPITags("Prompt Templates"),
+		withOpenAPISummary("Delete a prompt template."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

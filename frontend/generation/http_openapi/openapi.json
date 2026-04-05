@@ -56,6 +56,100 @@
         ],
         "type": "object"
       },
+      "AgentprofilesProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "enableBackgroundSummaryFill": {
+            "type": "boolean"
+          },
+          "enableLlmChatTitles": {
+            "type": "boolean"
+          },
+          "engineConfigId": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "memoryScope": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "systemPrompt": {
+            "type": "string"
+          },
+          "toolAllowlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "systemPrompt",
+          "enableBackgroundSummaryFill",
+          "enableLlmChatTitles",
+          "engineConfigId",
+          "toolAllowlist",
+          "memoryScope"
+        ],
+        "type": "object"
+      },
+      "AgentrunsEngineConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/AgentrunsEngineConfigDefaults"
+          },
+          "engineType": {
+            "type": "string"
+          },
+          "externalAgentConfigId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runtimeSupport": {
+            "$ref": "#/components/schemas/AgentrunsEngineRuntimeSupport"
+          },
+          "settaLlmConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name", "engineType"],
+        "type": "object"
+      },
+      "AgentrunsEngineConfigDefaults": {
+        "additionalProperties": false,
+        "properties": {
+          "thinking": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AgentrunsEngineRuntimeSupport": {
+        "additionalProperties": false,
+        "properties": {
+          "thinking": {
+            "type": "boolean"
+          }
+        },
+        "required": ["thinking"],
+        "type": "object"
+      },
       "BinaryContentRef": {
         "additionalProperties": false,
         "properties": {
@@ -74,6 +168,159 @@
           }
         },
         "required": ["contentId", "byteLength"],
+        "type": "object"
+      },
+      "ExternalagentconfigsClaudeSettingsManaged": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultMode": {
+            "type": "string"
+          },
+          "mcp": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/ExternalagentconfigsClaudeSettingsPermissions"
+          }
+        },
+        "type": "object"
+      },
+      "ExternalagentconfigsClaudeSettingsPermissions": {
+        "additionalProperties": false,
+        "properties": {
+          "allow": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "ask": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "deny": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["allow", "ask", "deny"],
+        "type": "object"
+      },
+      "ExternalagentconfigsConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalPolicy": {
+            "type": "string"
+          },
+          "baseUrl": {
+            "type": "string"
+          },
+          "codexSkipGitRepoCheck": {
+            "type": "boolean"
+          },
+          "commandPath": {
+            "type": "string"
+          },
+          "defaultModel": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "envVarWhitelist": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "runMode": {
+            "type": "string"
+          },
+          "sandboxPolicy": {
+            "type": "string"
+          },
+          "settingsAllowSettaEdits": {
+            "type": "boolean"
+          },
+          "settingsFilePath": {
+            "type": "string"
+          },
+          "settingsManagedBlock": {
+            "$ref": "#/components/schemas/ExternalagentconfigsSettingsManagedBlock"
+          },
+          "settingsMode": {
+            "type": "string"
+          },
+          "settingsSources": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "toolType": {
+            "type": "string"
+          },
+          "workingDir": {
+            "type": "string"
+          },
+          "workingDirStrategy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "toolType",
+          "runMode",
+          "settingsMode",
+          "settingsAllowSettaEdits",
+          "envVarWhitelist",
+          "workingDirStrategy"
+        ],
+        "type": "object"
+      },
+      "ExternalagentconfigsEnvVarStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "present": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["present", "missing"],
+        "type": "object"
+      },
+      "ExternalagentconfigsSettingsManagedBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "claude": {
+            "$ref": "#/components/schemas/ExternalagentconfigsClaudeSettingsManaged"
+          },
+          "codex": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "FilebrowserFileBrowserDownloadURLEntry": {
@@ -247,6 +494,53 @@
         "required": ["path", "mimeType", "mtimeNs", "size"],
         "type": "object"
       },
+      "HttpapiAgentProfilePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "enableBackgroundSummaryFill": {
+            "type": ["boolean", "null"]
+          },
+          "enableLlmChatTitles": {
+            "type": ["boolean", "null"]
+          },
+          "engineConfigId": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": ["string", "null"]
+          },
+          "memoryScope": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "systemPrompt": {
+            "type": ["string", "null"]
+          },
+          "toolAllowlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "systemPrompt",
+          "enableBackgroundSummaryFill",
+          "enableLlmChatTitles",
+          "engineConfigId",
+          "toolAllowlist",
+          "memoryScope"
+        ],
+        "type": "object"
+      },
       "HttpapiAuthRefreshStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -342,6 +636,163 @@
         "required": ["folderPath"],
         "type": "object"
       },
+      "HttpapiCreateAgentProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "enableBackgroundSummaryFill": {
+            "type": ["boolean", "null"]
+          },
+          "enableLlmChatTitles": {
+            "type": ["boolean", "null"]
+          },
+          "engineConfigId": {
+            "type": ["string", "null"]
+          },
+          "memoryScope": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "systemPrompt": {
+            "type": ["string", "null"]
+          },
+          "toolAllowlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "systemPrompt",
+          "enableBackgroundSummaryFill",
+          "enableLlmChatTitles",
+          "engineConfigId",
+          "toolAllowlist",
+          "memoryScope"
+        ],
+        "type": "object"
+      },
+      "HttpapiCreateEngineConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/AgentrunsEngineConfigDefaults"
+          },
+          "engineType": {
+            "type": ["string", "null"]
+          },
+          "externalAgentConfigId": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "settaLlmConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "name",
+          "engineType",
+          "settaLlmConfigId",
+          "externalAgentConfigId",
+          "defaults"
+        ],
+        "type": "object"
+      },
+      "HttpapiCreateExternalAgentConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalPolicy": {
+            "type": ["string", "null"]
+          },
+          "baseUrl": {
+            "type": ["string", "null"]
+          },
+          "codexSkipGitRepoCheck": {
+            "type": ["boolean", "null"]
+          },
+          "commandPath": {
+            "type": ["string", "null"]
+          },
+          "defaultModel": {
+            "type": ["string", "null"]
+          },
+          "description": {
+            "type": ["string", "null"]
+          },
+          "envVarWhitelist": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "runMode": {
+            "type": ["string", "null"]
+          },
+          "sandboxPolicy": {
+            "type": ["string", "null"]
+          },
+          "settingsAllowSettaEdits": {
+            "type": ["boolean", "null"]
+          },
+          "settingsFilePath": {
+            "type": ["string", "null"]
+          },
+          "settingsManagedBlock": {
+            "$ref": "#/components/schemas/ExternalagentconfigsSettingsManagedBlock"
+          },
+          "settingsMode": {
+            "type": ["string", "null"]
+          },
+          "settingsSources": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "toolType": {
+            "type": ["string", "null"]
+          },
+          "workingDir": {
+            "type": ["string", "null"]
+          },
+          "workingDirStrategy": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "toolType",
+          "runMode",
+          "commandPath",
+          "baseUrl",
+          "defaultModel",
+          "sandboxPolicy",
+          "approvalPolicy",
+          "settingsMode",
+          "settingsSources",
+          "settingsFilePath",
+          "settingsManagedBlock",
+          "settingsAllowSettaEdits",
+          "envVarWhitelist",
+          "workingDirStrategy",
+          "workingDir",
+          "codexSkipGitRepoCheck"
+        ],
+        "type": "object"
+      },
       "HttpapiCreateFileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -350,6 +801,69 @@
           }
         },
         "required": ["filepath"],
+        "type": "object"
+      },
+      "HttpapiCreatePromptTemplateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "format": {
+            "type": ["string", "null"]
+          },
+          "inputSchema": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "template": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "template",
+          "format",
+          "inputSchema",
+          "metadata"
+        ],
+        "type": "object"
+      },
+      "HttpapiCreateTranscriptionProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkMs": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "language": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "transcriptionLlmConfigId": {
+            "type": ["string", "null"]
+          },
+          "transportMode": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "name",
+          "transcriptionLlmConfigId",
+          "transportMode",
+          "chunkMs",
+          "language"
+        ],
         "type": "object"
       },
       "HttpapiCreateWorkspaceLaunchIntentRequest": {
@@ -383,6 +897,56 @@
           }
         },
         "required": ["ok", "launchIntentToken", "requestedAt", "error"],
+        "type": "object"
+      },
+      "HttpapiDeleteAgentProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profileId": {
+            "type": "string"
+          }
+        },
+        "required": ["profileId"],
+        "type": "object"
+      },
+      "HttpapiDeleteEngineConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "configId": {
+            "type": "string"
+          }
+        },
+        "required": ["configId"],
+        "type": "object"
+      },
+      "HttpapiDeleteExternalAgentConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "configId": {
+            "type": "string"
+          }
+        },
+        "required": ["configId"],
+        "type": "object"
+      },
+      "HttpapiDeletePromptTemplateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "templateId": {
+            "type": "string"
+          }
+        },
+        "required": ["templateId"],
+        "type": "object"
+      },
+      "HttpapiDeleteTranscriptionProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profileId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["profileId"],
         "type": "object"
       },
       "HttpapiDocstringToMarkdownRequest": {
@@ -421,6 +985,75 @@
         "required": ["error"],
         "type": "object"
       },
+      "HttpapiExternalAgentPreflightStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "baseUrl": {
+            "type": ["string", "null"]
+          },
+          "cliVersion": {
+            "type": ["string", "null"]
+          },
+          "configId": {
+            "type": "string"
+          },
+          "envVars": {
+            "$ref": "#/components/schemas/ExternalagentconfigsEnvVarStatus"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "name": {
+            "type": "string"
+          },
+          "runMode": {
+            "type": "string"
+          },
+          "sdkVersion": {
+            "type": ["string", "null"]
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "toolType": {
+            "type": "string"
+          },
+          "workingDir": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "configId",
+          "name",
+          "toolType",
+          "runMode",
+          "supported",
+          "available",
+          "issues",
+          "sdkVersion",
+          "cliVersion",
+          "baseUrl",
+          "workingDir",
+          "envVars"
+        ],
+        "type": "object"
+      },
+      "HttpapiGetAgentProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profileId": {
+            "type": "string"
+          }
+        },
+        "required": ["profileId"],
+        "type": "object"
+      },
       "HttpapiGetAgenticSummaryCacheStatusRequest": {
         "additionalProperties": false,
         "properties": {
@@ -432,6 +1065,26 @@
           }
         },
         "required": ["projectConfigId", "chatSectionId"],
+        "type": "object"
+      },
+      "HttpapiGetEngineConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "configId": {
+            "type": "string"
+          }
+        },
+        "required": ["configId"],
+        "type": "object"
+      },
+      "HttpapiGetExternalAgentConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "configId": {
+            "type": "string"
+          }
+        },
+        "required": ["configId"],
         "type": "object"
       },
       "HttpapiGetFileBrowserDownloadURLsRequest": {
@@ -512,6 +1165,16 @@
         "required": ["folderPath"],
         "type": "object"
       },
+      "HttpapiGetPromptTemplateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "templateId": {
+            "type": "string"
+          }
+        },
+        "required": ["templateId"],
+        "type": "object"
+      },
       "HttpapiGetWorkspacePythonSignalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -520,6 +1183,32 @@
           }
         },
         "required": ["folderPath"],
+        "type": "object"
+      },
+      "HttpapiLLMAPIKeysSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "apiKeys": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "corrupt": {
+            "type": "boolean"
+          },
+          "errorCode": {
+            "type": ["string", "null"]
+          },
+          "message": {
+            "type": ["string", "null"]
+          },
+          "revision": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["apiKeys", "revision", "corrupt", "errorCode", "message"],
         "type": "object"
       },
       "HttpapiLaunchRequest": {
@@ -919,6 +1608,44 @@
         ],
         "type": "object"
       },
+      "HttpapiPromptTemplatePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": ["string", "null"]
+          },
+          "format": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": ["string", "null"]
+          },
+          "inputSchema": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "template": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "template",
+          "format",
+          "inputSchema",
+          "metadata"
+        ],
+        "type": "object"
+      },
       "HttpapiRevealPathInOSFileExplorerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1027,6 +1754,23 @@
         "required": ["mode"],
         "type": "object"
       },
+      "HttpapiSetLLMAPIKeysRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "apiKeys": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["apiKeys", "expectedRevision"],
+        "type": "object"
+      },
       "HttpapiSettaHomeInfoResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1051,6 +1795,43 @@
         ],
         "type": "object"
       },
+      "HttpapiTranscriptionProfilePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkMs": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "id": {
+            "type": ["string", "null"]
+          },
+          "language": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "supportsRealtimeTranscription": {
+            "type": ["boolean", "null"]
+          },
+          "transcriptionLlmConfigId": {
+            "type": ["string", "null"]
+          },
+          "transportMode": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "transcriptionLlmConfigId",
+          "transportMode",
+          "chunkMs",
+          "supportsRealtimeTranscription",
+          "language"
+        ],
+        "type": "object"
+      },
       "HttpapiTransferFileBrowserEntryRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1065,6 +1846,92 @@
           }
         },
         "required": ["sourcePath", "destinationFolderPath", "operation"],
+        "type": "object"
+      },
+      "HttpapiUpdateAgentProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/HttpapiAgentProfilePayload"
+          }
+        },
+        "required": ["profile"],
+        "type": "object"
+      },
+      "HttpapiUpdateEngineConfigPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/AgentrunsEngineConfigDefaults"
+          },
+          "engineType": {
+            "type": ["string", "null"]
+          },
+          "externalAgentConfigId": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": ["string", "null"]
+          },
+          "name": {
+            "type": ["string", "null"]
+          },
+          "runtimeSupport": {
+            "$ref": "#/components/schemas/AgentrunsEngineRuntimeSupport"
+          },
+          "settaLlmConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "engineType",
+          "settaLlmConfigId",
+          "externalAgentConfigId",
+          "defaults",
+          "runtimeSupport"
+        ],
+        "type": "object"
+      },
+      "HttpapiUpdateEngineConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/HttpapiUpdateEngineConfigPayload"
+          }
+        },
+        "required": ["config"],
+        "type": "object"
+      },
+      "HttpapiUpdateExternalAgentConfigRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ExternalagentconfigsConfig"
+          }
+        },
+        "required": ["config"],
+        "type": "object"
+      },
+      "HttpapiUpdatePromptTemplateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "template": {
+            "$ref": "#/components/schemas/HttpapiPromptTemplatePayload"
+          }
+        },
+        "required": ["template"],
+        "type": "object"
+      },
+      "HttpapiUpdateTranscriptionProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/HttpapiTranscriptionProfilePayload"
+          }
+        },
+        "required": ["profile"],
         "type": "object"
       },
       "HttpapiWorkspaceLaunchErrorPayload": {
@@ -1095,6 +1962,115 @@
           }
         },
         "required": ["path", "contentId"],
+        "type": "object"
+      },
+      "LlmconfigAllConfigs": {
+        "additionalProperties": false,
+        "properties": {
+          "codexMcpImportedAt": {
+            "type": "string"
+          },
+          "configs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LlmconfigConfig"
+            },
+            "type": "object"
+          },
+          "defaultMcpServerIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "default_config_id": {
+            "type": "string"
+          },
+          "mcpServers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LlmconfigServerConfig"
+            },
+            "type": "object"
+          }
+        },
+        "required": ["configs", "mcpServers", "defaultMcpServerIds"],
+        "type": "object"
+      },
+      "LlmconfigConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key_env": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mcpServerIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "model": {
+            "type": "string"
+          },
+          "other_params": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "temporary": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "model"],
+        "type": "object"
+      },
+      "LlmconfigServerConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "command": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "encoding_error_handler": {
+            "type": "string"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "http_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "transport": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": ["transport"],
         "type": "object"
       },
       "McpxServerRuntimeStatus": {
@@ -2154,6 +3130,44 @@
         "required": ["minHeight", "maxHeight", "minWidth", "maxWidth"],
         "type": "object"
       },
+      "PrompttemplatesTemplate": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inputSchema": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          },
+          "template": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "template",
+          "format",
+          "inputSchema",
+          "metadata"
+        ],
+        "type": "object"
+      },
       "PythonsdkcontractsRunningBackendVersionHandshake": {
         "additionalProperties": false,
         "properties": {
@@ -2644,6 +3658,42 @@
           "languageServer"
         ],
         "type": "object"
+      },
+      "TranscriptionprofilesProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "supportsRealtimeTranscription": {
+            "type": "boolean"
+          },
+          "transcriptionLlmConfigId": {
+            "type": "string"
+          },
+          "transportMode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "transcriptionLlmConfigId",
+          "transportMode",
+          "chunkMs",
+          "supportsRealtimeTranscription"
+        ],
+        "type": "object"
       }
     }
   },
@@ -2880,6 +3930,129 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/createAgentProfile": {
+      "post": {
+        "operationId": "createAgentProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateAgentProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentprofilesProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create an agent profile.",
+        "tags": ["Agent Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/createEngineConfig": {
+      "post": {
+        "operationId": "createEngineConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateEngineConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsEngineConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a new execution engine configuration.",
+        "tags": ["Engine Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/createExternalAgentConfig": {
+      "post": {
+        "operationId": "createExternalAgentConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateExternalAgentConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalagentconfigsConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create an external agent runtime configuration.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/createFile": {
       "post": {
         "operationId": "createFile",
@@ -2917,6 +4090,88 @@
         },
         "summary": "Create an empty file inside the workspace root.",
         "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/createPromptTemplate": {
+      "post": {
+        "operationId": "createPromptTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreatePromptTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrompttemplatesTemplate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a prompt template.",
+        "tags": ["Prompt Templates"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/createTranscriptionProfile": {
+      "post": {
+        "operationId": "createTranscriptionProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCreateTranscriptionProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionprofilesProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Create a transcription profile.",
+        "tags": ["Transcription Profiles"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
       }
@@ -2960,6 +4215,211 @@
         "tags": ["WorkspaceLaunch"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-deployment"
+      }
+    },
+    "/deleteAgentProfile": {
+      "post": {
+        "operationId": "deleteAgentProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeleteAgentProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete an agent profile.",
+        "tags": ["Agent Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/deleteEngineConfig": {
+      "post": {
+        "operationId": "deleteEngineConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeleteEngineConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete an execution engine configuration.",
+        "tags": ["Engine Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/deleteExternalAgentConfig": {
+      "post": {
+        "operationId": "deleteExternalAgentConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeleteExternalAgentConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete an external agent runtime configuration.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/deletePromptTemplate": {
+      "post": {
+        "operationId": "deletePromptTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeletePromptTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a prompt template.",
+        "tags": ["Prompt Templates"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/deleteTranscriptionProfile": {
+      "post": {
+        "operationId": "deleteTranscriptionProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiDeleteTranscriptionProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a transcription profile.",
+        "tags": ["Transcription Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
       }
     },
     "/docstringToMarkdown": {
@@ -3046,6 +4506,81 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/getAgentProfile": {
+      "post": {
+        "operationId": "getAgentProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAgentProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentprofilesProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a single agent profile.",
+        "tags": ["Agent Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getAgentProfiles": {
+      "get": {
+        "operationId": "getAgentProfiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentprofilesProfile"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List agent profiles when allowed by the current mode and policy.",
+        "tags": ["Agent Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/getAgenticSummaryCacheStatus": {
       "post": {
         "operationId": "getAgenticSummaryCacheStatus",
@@ -3085,6 +4620,190 @@
         "tags": ["AgenticSummaryCache"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getEngineConfig": {
+      "post": {
+        "operationId": "getEngineConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetEngineConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsEngineConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a single execution engine configuration.",
+        "tags": ["Engine Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getEngineConfigs": {
+      "get": {
+        "operationId": "getEngineConfigs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentrunsEngineConfig"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List configured execution engines.",
+        "tags": ["Engine Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getExternalAgentConfig": {
+      "post": {
+        "operationId": "getExternalAgentConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetExternalAgentConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalagentconfigsConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a single external agent runtime configuration.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getExternalAgentConfigs": {
+      "get": {
+        "operationId": "getExternalAgentConfigs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExternalagentconfigsConfig"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List configured external agent runtimes when allowed by the current mode and policy.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getExternalAgentHealth": {
+      "get": {
+        "operationId": "getExternalAgentHealth",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HttpapiExternalAgentPreflightStatus"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get preflight availability and health details for configured external agent runtimes.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/getFileBrowserDownloadUrls": {
@@ -3285,6 +5004,114 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/getPromptTemplate": {
+      "post": {
+        "operationId": "getPromptTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetPromptTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrompttemplatesTemplate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get a single prompt template.",
+        "tags": ["Prompt Templates"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getPromptTemplates": {
+      "get": {
+        "operationId": "getPromptTemplates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PrompttemplatesTemplate"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List prompt templates when allowed by the current mode and policy.",
+        "tags": ["Prompt Templates"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getTranscriptionProfiles": {
+      "get": {
+        "operationId": "getTranscriptionProfiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TranscriptionprofilesProfile"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List configured transcription profiles.",
+        "tags": ["Transcription Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
     "/getWorkspacePythonSignal": {
       "post": {
         "operationId": "getWorkspacePythonSignal",
@@ -3365,6 +5192,146 @@
         "tags": ["WorkspaceLaunch"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-deployment"
+      }
+    },
+    "/llm/apiKeys": {
+      "get": {
+        "operationId": "getLlmApiKeys",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLLMAPIKeysSnapshot"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the current managed LLM API key snapshot.",
+        "tags": ["LLM"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      },
+      "post": {
+        "operationId": "setLlmApiKeys",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetLLMAPIKeysRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLLMAPIKeysSnapshot"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Save managed LLM API keys for the current runtime.",
+        "tags": ["LLM"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/llm/config": {
+      "get": {
+        "operationId": "getLlmConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmconfigAllConfigs"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the current LLM configuration document.",
+        "tags": ["LLM"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      },
+      "post": {
+        "operationId": "setLlmConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LlmconfigAllConfigs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LlmconfigAllConfigs"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Validate and save the current LLM configuration document.",
+        "tags": ["LLM"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
       }
     },
     "/loadSettings": {
@@ -4173,6 +6140,211 @@
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/updateAgentProfile": {
+      "post": {
+        "operationId": "updateAgentProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateAgentProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentprofilesProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update an agent profile.",
+        "tags": ["Agent Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/updateEngineConfig": {
+      "post": {
+        "operationId": "updateEngineConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateEngineConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsEngineConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update an existing execution engine configuration.",
+        "tags": ["Engine Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/updateExternalAgentConfig": {
+      "post": {
+        "operationId": "updateExternalAgentConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateExternalAgentConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalagentconfigsConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update an external agent runtime configuration.",
+        "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/updatePromptTemplate": {
+      "post": {
+        "operationId": "updatePromptTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdatePromptTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrompttemplatesTemplate"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update a prompt template.",
+        "tags": ["Prompt Templates"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/updateTranscriptionProfile": {
+      "post": {
+        "operationId": "updateTranscriptionProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateTranscriptionProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionprofilesProfile"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update a transcription profile.",
+        "tags": ["Transcription Profiles"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
       }
     },
     "/writeFileBrowserFileContent": {

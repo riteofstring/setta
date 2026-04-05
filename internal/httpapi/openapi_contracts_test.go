@@ -10,13 +10,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agenticsummarycache"
+	"setta/internal/agentprofiles"
+	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/externalagentconfigs"
+	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
+	"setta/internal/realtime"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
 )
 
@@ -110,6 +117,50 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register settings routes: %v", err)
 	}
+	if err := RegisterLLMRoutes(router, LLMRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Service:      &llmconfig.Service{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register llm routes: %v", err)
+	}
+	if err := RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Engines:      &agentruns.EngineStore{},
+		LLM:          &llmconfig.Runtime{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register engine config routes: %v", err)
+	}
+	if err := RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Profiles:     &agentprofiles.Store{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register agent profile routes: %v", err)
+	}
+	if err := RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Templates:    &prompttemplates.Store{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register prompt template routes: %v", err)
+	}
+	if err := RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Configs:      &externalagentconfigs.Service{},
+		Preflight:    frontendHTTPOpenAPIExternalAgentChecker{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register external agent config routes: %v", err)
+	}
+	if err := RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Profiles:     &transcriptionprofiles.Service{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		t.Fatalf("register transcription profile routes: %v", err)
+	}
 	if err := RegisterDocstringRoutes(router, DocstringRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 	}); err != nil {
@@ -185,6 +236,71 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if loadSettings.RequestBody != nil {
 		t.Fatalf("expected loadSettings request body to be omitted, got %#v", loadSettings.RequestBody)
+	}
+
+	getLlmConfig := document.Paths[RouteLLMConfig].Get
+	if getLlmConfig == nil {
+		t.Fatalf("expected %s get operation", RouteLLMConfig)
+	}
+	if getLlmConfig.OperationID != "getLlmConfig" {
+		t.Fatalf("llm config operation id = %q, want %q", getLlmConfig.OperationID, "getLlmConfig")
+	}
+	if got := getLlmConfig.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("llm config mode requirement = %#v, want %q", got, "ide")
+	}
+
+	getLlmAPIKeys := document.Paths[RouteLLMAPIKeys].Get
+	if getLlmAPIKeys == nil {
+		t.Fatalf("expected %s get operation", RouteLLMAPIKeys)
+	}
+	if getLlmAPIKeys.OperationID != "getLlmApiKeys" {
+		t.Fatalf("llm api keys operation id = %q, want %q", getLlmAPIKeys.OperationID, "getLlmApiKeys")
+	}
+
+	getEngineConfigs := document.Paths[RouteGetEngineConfigs].Get
+	if getEngineConfigs == nil {
+		t.Fatalf("expected %s get operation", RouteGetEngineConfigs)
+	}
+	if getEngineConfigs.OperationID != "getEngineConfigs" {
+		t.Fatalf("engine configs operation id = %q, want %q", getEngineConfigs.OperationID, "getEngineConfigs")
+	}
+
+	getAgentProfiles := document.Paths[RouteGetAgentProfiles].Get
+	if getAgentProfiles == nil {
+		t.Fatalf("expected %s get operation", RouteGetAgentProfiles)
+	}
+	if got := getAgentProfiles.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("agent profiles mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getPromptTemplates := document.Paths[RouteGetPromptTemplates].Get
+	if getPromptTemplates == nil {
+		t.Fatalf("expected %s get operation", RouteGetPromptTemplates)
+	}
+	if got := getPromptTemplates.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("prompt templates mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getExternalAgentHealth := document.Paths[RouteGetExternalAgentHealth].Get
+	if getExternalAgentHealth == nil {
+		t.Fatalf("expected %s get operation", RouteGetExternalAgentHealth)
+	}
+	if getExternalAgentHealth.OperationID != "getExternalAgentHealth" {
+		t.Fatalf("external agent health operation id = %q, want %q", getExternalAgentHealth.OperationID, "getExternalAgentHealth")
+	}
+	if got := getExternalAgentHealth.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("external agent health mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	createTranscriptionProfile := document.Paths[RouteCreateTranscriptionProfile].Post
+	if createTranscriptionProfile == nil {
+		t.Fatalf("expected %s post operation", RouteCreateTranscriptionProfile)
+	}
+	if createTranscriptionProfile.OperationID != "createTranscriptionProfile" {
+		t.Fatalf("transcription profile create operation id = %q, want %q", createTranscriptionProfile.OperationID, "createTranscriptionProfile")
+	}
+	if got := createTranscriptionProfile.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("transcription profile create mode requirement = %#v, want %q", got, "ide")
 	}
 
 	workspaceLaunch := document.Paths[RouteLaunch].Post

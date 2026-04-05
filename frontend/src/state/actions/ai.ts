@@ -1,4 +1,38 @@
 import {
+  createAgentProfile as apiCreateAgentProfile,
+  createExternalAgentConfig as apiCreateExternalAgentConfig,
+  createPromptTemplate as apiCreatePromptTemplate,
+  createTranscriptionProfile as apiCreateTranscriptionProfile,
+  deleteAgentProfile as apiDeleteAgentProfile,
+  deleteExternalAgentConfig as apiDeleteExternalAgentConfig,
+  deletePromptTemplate as apiDeletePromptTemplate,
+  deleteTranscriptionProfile as apiDeleteTranscriptionProfile,
+  updateAgentProfile as apiUpdateAgentProfile,
+  updateEngineConfig as apiUpdateEngineConfig,
+  updateExternalAgentConfig as apiUpdateExternalAgentConfig,
+  updatePromptTemplate as apiUpdatePromptTemplate,
+  updateTranscriptionProfile as apiUpdateTranscriptionProfile,
+  getAgentProfiles,
+  getEngineConfigs,
+  getExternalAgentConfigs,
+  getExternalAgentHealth,
+  getLlmApiKeys,
+  getLlmConfig,
+  getPromptTemplates,
+  getTranscriptionProfiles,
+  setLlmApiKeys,
+  setLlmConfig,
+  type AgentprofilesProfile,
+  type AgentrunsEngineConfig,
+  type ExternalagentconfigsConfig,
+  type HttpapiExternalAgentPreflightStatus,
+  type HttpapiLlmapiKeysSnapshot,
+  type LlmconfigAllConfigs,
+  type PrompttemplatesTemplate,
+  type TranscriptionprofilesProfile,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   clearAIFollowToolArgumentsForChat,
   getAIFollowToolArgumentsSnapshot,
   receiveAgenticScopeViolationEdges,
@@ -53,40 +87,17 @@ import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
-  route_create_agent_profile,
-  route_create_external_agent_config,
-  route_create_prompt_template,
-  route_create_transcription_profile,
-  route_delete_agent_profile,
-  route_delete_external_agent_config,
-  route_delete_prompt_template,
-  route_delete_transcription_profile,
-  route_get_agent_profiles,
   route_get_agent_runs,
-  route_get_engine_configs,
   route_get_external_agent_chat,
-  route_get_external_agent_configs,
-  route_get_external_agent_health,
   route_get_llm_chat,
-  route_get_llm_config,
   route_get_llm_response,
-  route_get_llmapi_keys,
-  route_get_prompt_templates,
-  route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
-  route_set_llm_config,
-  route_set_llmapi_keys,
   route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
   route_stop_transcription_session,
-  route_update_agent_profile,
-  route_update_engine_config,
-  route_update_external_agent_config,
-  route_update_prompt_template,
-  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -130,7 +141,7 @@ import {
   ToolChatMessage,
   ToolResultEvent,
   TranscriptionProfile,
-  TranscriptionSessionDeltaResponse,
+  Delta as TranscriptionSessionDeltaResponse,
   UpdateAgentProfileRequest,
   UpdateEngineConfigRequest,
   UpdateExternalAgentConfigRequest,
@@ -192,6 +203,111 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
+
+function requireNonNull<T>(
+  value: T | null | undefined,
+  message: string,
+): NonNullable<T> {
+  if (value == null) {
+    throw new Error(message);
+  }
+  return value;
+}
+
+function normalizeLLMConfigPayload(payload: LlmconfigAllConfigs): AllConfigs {
+  return {
+    ...payload,
+    configs: Object.fromEntries(
+      Object.entries(payload.configs).map(([id, config]) => [
+        id,
+        {
+          ...config,
+          mcpServerIds: config.mcpServerIds ?? [],
+        },
+      ]),
+    ),
+    defaultMcpServerIds: payload.defaultMcpServerIds ?? [],
+    mcpServers: Object.fromEntries(
+      Object.entries(payload.mcpServers).map(([id, server]) => [
+        id,
+        {
+          ...server,
+          args: server.args ?? [],
+        },
+      ]),
+    ),
+  } as AllConfigs;
+}
+
+function normalizeLLMApiKeysSnapshot(
+  payload: HttpapiLlmapiKeysSnapshot,
+): LLMAPIKeysSnapshot {
+  return payload;
+}
+
+function normalizeAgentProfile(profile: AgentprofilesProfile): AgentProfile {
+  return {
+    ...profile,
+    toolAllowlist: profile.toolAllowlist ?? [],
+  };
+}
+
+function normalizePromptTemplate(template: PrompttemplatesTemplate): Template {
+  return template as Template;
+}
+
+function normalizeExternalAgentConfig(
+  config: ExternalagentconfigsConfig,
+): ExternalAgentConfig {
+  return {
+    ...config,
+    approvalPolicy: config.approvalPolicy ?? null,
+    baseUrl: config.baseUrl ?? null,
+    codexSkipGitRepoCheck: config.codexSkipGitRepoCheck ?? null,
+    commandPath: config.commandPath ?? null,
+    defaultModel: config.defaultModel ?? null,
+    envVarWhitelist: config.envVarWhitelist ?? [],
+    sandboxPolicy: config.sandboxPolicy ?? null,
+    settingsFilePath: config.settingsFilePath ?? null,
+    settingsManagedBlock: config.settingsManagedBlock ?? null,
+    settingsSources: config.settingsSources ?? [],
+    workingDir: config.workingDir ?? null,
+  } as ExternalAgentConfig;
+}
+
+function normalizeExternalAgentHealth(
+  status: HttpapiExternalAgentPreflightStatus,
+): ExternalAgentPreflightStatus {
+  return {
+    ...status,
+    envVars: {
+      missing: status.envVars.missing ?? [],
+      present: status.envVars.present ?? [],
+    },
+    issues: status.issues ?? [],
+  } as ExternalAgentPreflightStatus;
+}
+
+function normalizeEngineConfig(config: AgentrunsEngineConfig): EngineConfig {
+  return {
+    ...config,
+    defaults: {
+      thinking: config.defaults?.thinking ?? null,
+    },
+    externalAgentConfigId: config.externalAgentConfigId ?? null,
+    runtimeSupport: config.runtimeSupport ?? null,
+    settaLlmConfigId: config.settaLlmConfigId ?? null,
+  } as EngineConfig;
+}
+
+function normalizeTranscriptionProfile(
+  profile: TranscriptionprofilesProfile,
+): TranscriptionProfile {
+  return {
+    ...profile,
+    language: profile.language ?? null,
+  } as TranscriptionProfile;
+}
 
 function refreshAgentRunsAfterSubmit(): void {
   void loadAgentRuns();
@@ -457,7 +573,9 @@ async function decodeDictationBlobToPcm16(
     for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
       const channelData = decodedBuffer.getChannelData(channelIndex);
       for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-        mono[sampleIndex] += (channelData[sampleIndex] ?? 0) / channelCount;
+        const currentSample = mono[sampleIndex] ?? 0;
+        const channelSample = channelData[sampleIndex] ?? 0;
+        mono[sampleIndex] = currentSample + channelSample / channelCount;
       }
     }
     const pcm16 = float32ToInt16(mono);
@@ -628,9 +746,9 @@ export async function loadLLMConfig() {
     return;
   }
   llmConfigLoadPromise = (async () => {
-    const res = await route_get_llm_config();
+    const res = await callOpenAPI(getLlmConfig());
     if (res200(res)) {
-      receiveLLMConfigUpdate(res.data);
+      receiveLLMConfigUpdate(normalizeLLMConfigPayload(res.data));
       return;
     }
     useAIStore.setState({
@@ -648,7 +766,7 @@ export async function loadLLMConfig() {
 export async function saveLLMConfig(
   config: AllConfigs,
 ): Promise<AllConfigs | null> {
-  const res = await route_set_llm_config(config);
+  const res = await callOpenAPI(setLlmConfig({ body: config }));
   if (!res200(res)) {
     useAIStore.setState({
       allLLMConfigsInitialLoadComplete: true,
@@ -656,8 +774,9 @@ export async function saveLLMConfig(
     });
     return null;
   }
-  receiveLLMConfigUpdate(res.data);
-  return res.data;
+  const nextConfig = normalizeLLMConfigPayload(res.data);
+  receiveLLMConfigUpdate(nextConfig);
+  return nextConfig;
 }
 
 type ManagedAPIKeysErrorDetails = {
@@ -746,9 +865,9 @@ export async function loadLLMApiKeys() {
     return;
   }
   llmApiKeysLoadPromise = (async () => {
-    const res = await route_get_llmapi_keys();
+    const res = await callOpenAPI(getLlmApiKeys());
     if (res200(res)) {
-      receiveLLMApiKeysSnapshotUpdate(res.data);
+      receiveLLMApiKeysSnapshotUpdate(normalizeLLMApiKeysSnapshot(res.data));
       return;
     }
     applyManagedApiKeysReadFailure(res.data);
@@ -806,9 +925,9 @@ function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
 }
 
 async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
-  const res = await route_get_llmapi_keys();
+  const res = await callOpenAPI(getLlmApiKeys());
   if (res200(res)) {
-    receiveLLMApiKeysSnapshotUpdate(res.data);
+    receiveLLMApiKeysSnapshotUpdate(normalizeLLMApiKeysSnapshot(res.data));
     return true;
   }
   applyManagedApiKeysReadFailure(res.data);
@@ -822,12 +941,16 @@ async function persistLLMApiKeysMutation(
   for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
     const state = useAIStore.getState();
     const nextApiKeys = mutation(state.apiKeys);
-    const res = await route_set_llmapi_keys({
-      apiKeys: nextApiKeys,
-      expectedRevision: state.apiKeysRevision,
-    });
+    const res = await callOpenAPI(
+      setLlmApiKeys({
+        body: {
+          apiKeys: nextApiKeys,
+          expectedRevision: state.apiKeysRevision,
+        },
+      }),
+    );
     if (res200(res)) {
-      receiveLLMApiKeysSnapshotUpdate(res.data);
+      receiveLLMApiKeysSnapshotUpdate(normalizeLLMApiKeysSnapshot(res.data));
       return true;
     }
     const errorCode = getErrorCode(res.data);
@@ -902,9 +1025,9 @@ export async function loadAgentProfiles(force: boolean = false) {
     return;
   }
   useAIStore.setState({ agentProfilesLoading: true });
-  const res = await route_get_agent_profiles();
+  const res = await callOpenAPI(getAgentProfiles());
   if (res200(res)) {
-    receiveAgentProfilesUpdate(res.data);
+    receiveAgentProfilesUpdate((res.data ?? []).map(normalizeAgentProfile));
   } else {
     useAIStore.setState({
       agentProfilesInitialLoadComplete: true,
@@ -1043,9 +1166,9 @@ export async function loadPromptTemplates(force: boolean = false) {
     return;
   }
   useAIStore.setState({ promptTemplatesLoading: true });
-  const res = await route_get_prompt_templates();
+  const res = await callOpenAPI(getPromptTemplates());
   if (res200(res)) {
-    receivePromptTemplatesUpdate(res.data);
+    receivePromptTemplatesUpdate((res.data ?? []).map(normalizePromptTemplate));
   } else {
     useAIStore.setState({
       promptTemplatesInitialLoadComplete: true,
@@ -1073,9 +1196,11 @@ export async function loadExternalAgentConfigs(force: boolean = false) {
     return;
   }
   useAIStore.setState({ externalAgentConfigsLoading: true });
-  const res = await route_get_external_agent_configs();
+  const res = await callOpenAPI(getExternalAgentConfigs());
   if (res200(res)) {
-    receiveExternalAgentConfigsUpdate(res.data);
+    receiveExternalAgentConfigsUpdate(
+      (res.data ?? []).map(normalizeExternalAgentConfig),
+    );
   } else {
     useAIStore.setState({
       externalAgentConfigsInitialLoadComplete: true,
@@ -1094,9 +1219,11 @@ export async function loadExternalAgentHealth(force: boolean = false) {
     return;
   }
   useAIStore.setState({ externalAgentHealthLoading: true });
-  const res = await route_get_external_agent_health();
+  const res = await callOpenAPI(getExternalAgentHealth());
   if (res200(res)) {
-    receiveExternalAgentHealthUpdate(res.data);
+    receiveExternalAgentHealthUpdate(
+      (res.data ?? []).map(normalizeExternalAgentHealth),
+    );
   } else {
     useAIStore.setState({
       externalAgentHealthInitialLoadComplete: true,
@@ -1138,9 +1265,9 @@ export async function loadEngineConfigs(force: boolean = false) {
     return;
   }
   useAIStore.setState({ engineConfigsLoading: true });
-  const res = await route_get_engine_configs();
+  const res = await callOpenAPI(getEngineConfigs());
   if (res200(res)) {
-    receiveEngineConfigsUpdate(res.data);
+    receiveEngineConfigsUpdate((res.data ?? []).map(normalizeEngineConfig));
   } else {
     useAIStore.setState({
       engineConfigsInitialLoadComplete: true,
@@ -1168,9 +1295,11 @@ export async function loadTranscriptionProfiles(force: boolean = false) {
     return;
   }
   useAIStore.setState({ transcriptionProfilesLoading: true });
-  const res = await route_get_transcription_profiles();
+  const res = await callOpenAPI(getTranscriptionProfiles());
   if (res200(res)) {
-    receiveTranscriptionProfilesUpdate(res.data);
+    receiveTranscriptionProfilesUpdate(
+      (res.data ?? []).map(normalizeTranscriptionProfile),
+    );
   } else {
     useAIStore.setState({
       transcriptionProfilesInitialLoadComplete: true,
@@ -1210,14 +1339,14 @@ function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
 export async function createAgentProfile(
   payload: CreateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
-  const res = await route_create_agent_profile(payload);
+  const res = await callOpenAPI(apiCreateAgentProfile({ body: payload }));
   if (!res200(res)) {
     useAIStore.setState({
       agentProfilesLoadError: "Failed to create agent profile",
     });
     return null;
   }
-  const profile = res.data;
+  const profile = normalizeAgentProfile(res.data);
   useAIStore.setState((state) => ({
     agentProfiles: upsertById(state.agentProfiles, profile),
     agentProfilesInitialLoadComplete: true,
@@ -1229,14 +1358,23 @@ export async function createAgentProfile(
 export async function updateAgentProfile(
   payload: UpdateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
-  const res = await route_update_agent_profile(payload);
+  const res = await callOpenAPI(
+    apiUpdateAgentProfile({
+      body: {
+        profile: requireNonNull(
+          payload.profile,
+          "updateAgentProfile requires a profile payload.",
+        ),
+      },
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       agentProfilesLoadError: "Failed to update agent profile",
     });
     return null;
   }
-  const profile = res.data;
+  const profile = normalizeAgentProfile(res.data);
   useAIStore.setState((state) => ({
     agentProfiles: upsertById(state.agentProfiles, profile),
     agentProfilesInitialLoadComplete: true,
@@ -1248,7 +1386,7 @@ export async function updateAgentProfile(
 export async function deleteAgentProfile(
   payload: DeleteAgentProfileRequest,
 ): Promise<boolean> {
-  const res = await route_delete_agent_profile(payload);
+  const res = await callOpenAPI(apiDeleteAgentProfile({ body: payload }));
   if (!res200(res)) {
     useAIStore.setState({
       agentProfilesLoadError: "Failed to delete agent profile",
@@ -1266,33 +1404,50 @@ export async function deleteAgentProfile(
 export async function updateEngineConfig(
   payload: UpdateEngineConfigRequest,
 ): Promise<EngineConfig | null> {
-  const res = await route_update_engine_config(payload);
+  const config = requireNonNull(
+    payload.config,
+    "updateEngineConfig requires a config payload.",
+  );
+  const body = {
+    config: {
+      ...config,
+      defaults: config.defaults ?? {},
+      runtimeSupport: config.runtimeSupport ?? { thinking: false },
+    },
+  } as Parameters<typeof apiUpdateEngineConfig>[0]["body"];
+  const res = await callOpenAPI(
+    apiUpdateEngineConfig({
+      body,
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       engineConfigsLoadError: "Failed to update engine config",
     });
     return null;
   }
-  const config = res.data;
+  const nextConfig = normalizeEngineConfig(res.data);
   useAIStore.setState((state) => ({
-    engineConfigs: upsertById(state.engineConfigs, config),
+    engineConfigs: upsertById(state.engineConfigs, nextConfig),
     engineConfigsInitialLoadComplete: true,
     engineConfigsLoadError: null,
   }));
-  return config;
+  return nextConfig;
 }
 
 export async function createTranscriptionProfile(
   payload: CreateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
-  const res = await route_create_transcription_profile(payload);
+  const res = await callOpenAPI(
+    apiCreateTranscriptionProfile({ body: payload }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       transcriptionProfilesLoadError: "Failed to create transcription profile",
     });
     return null;
   }
-  const profile = res.data;
+  const profile = normalizeTranscriptionProfile(res.data);
   useAIStore.setState((state) => ({
     transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
     transcriptionProfilesInitialLoadComplete: true,
@@ -1304,14 +1459,23 @@ export async function createTranscriptionProfile(
 export async function updateTranscriptionProfile(
   payload: UpdateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
-  const res = await route_update_transcription_profile(payload);
+  const res = await callOpenAPI(
+    apiUpdateTranscriptionProfile({
+      body: {
+        profile: requireNonNull(
+          payload.profile,
+          "updateTranscriptionProfile requires a profile payload.",
+        ),
+      },
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       transcriptionProfilesLoadError: "Failed to update transcription profile",
     });
     return null;
   }
-  const profile = res.data;
+  const profile = normalizeTranscriptionProfile(res.data);
   useAIStore.setState((state) => ({
     transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
     transcriptionProfilesInitialLoadComplete: true,
@@ -1323,22 +1487,25 @@ export async function updateTranscriptionProfile(
 export async function deleteTranscriptionProfile(
   payload: DeleteTranscriptionProfileRequest,
 ): Promise<boolean> {
-  const res = await route_delete_transcription_profile(payload);
+  const res = await callOpenAPI(
+    apiDeleteTranscriptionProfile({ body: payload }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       transcriptionProfilesLoadError: "Failed to delete transcription profile",
     });
     return false;
   }
+  const profileId = requireNonNull(
+    payload.profileId,
+    "deleteTranscriptionProfile requires a profile id.",
+  );
   useAIStore.setState((state) => ({
-    transcriptionProfiles: removeById(
-      state.transcriptionProfiles,
-      payload.profileId,
-    ),
+    transcriptionProfiles: removeById(state.transcriptionProfiles, profileId),
     transcriptionProfilesInitialLoadComplete: true,
     transcriptionProfilesLoadError: null,
     projectChatTranscriptionProfileId:
-      state.projectChatTranscriptionProfileId === payload.profileId
+      state.projectChatTranscriptionProfileId === profileId
         ? null
         : state.projectChatTranscriptionProfileId,
   }));
@@ -1348,14 +1515,14 @@ export async function deleteTranscriptionProfile(
 export async function createPromptTemplate(
   payload: CreatePromptTemplateRequest,
 ): Promise<Template | null> {
-  const res = await route_create_prompt_template(payload);
+  const res = await callOpenAPI(apiCreatePromptTemplate({ body: payload }));
   if (!res200(res)) {
     useAIStore.setState({
       promptTemplatesLoadError: "Failed to create prompt template",
     });
     return null;
   }
-  const template = res.data;
+  const template = normalizePromptTemplate(res.data);
   useAIStore.setState((state) => ({
     promptTemplates: upsertById(state.promptTemplates, template),
     promptTemplatesInitialLoadComplete: true,
@@ -1367,14 +1534,23 @@ export async function createPromptTemplate(
 export async function updatePromptTemplate(
   payload: UpdatePromptTemplateRequest,
 ): Promise<Template | null> {
-  const res = await route_update_prompt_template(payload);
+  const res = await callOpenAPI(
+    apiUpdatePromptTemplate({
+      body: {
+        template: requireNonNull(
+          payload.template,
+          "updatePromptTemplate requires a template payload.",
+        ),
+      },
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       promptTemplatesLoadError: "Failed to update prompt template",
     });
     return null;
   }
-  const template = res.data;
+  const template = normalizePromptTemplate(res.data);
   useAIStore.setState((state) => ({
     promptTemplates: upsertById(state.promptTemplates, template),
     promptTemplatesInitialLoadComplete: true,
@@ -1386,7 +1562,7 @@ export async function updatePromptTemplate(
 export async function deletePromptTemplate(
   payload: DeletePromptTemplateRequest,
 ): Promise<boolean> {
-  const res = await route_delete_prompt_template(payload);
+  const res = await callOpenAPI(apiDeletePromptTemplate({ body: payload }));
   if (!res200(res)) {
     useAIStore.setState({
       promptTemplatesLoadError: "Failed to delete prompt template",
@@ -1404,14 +1580,22 @@ export async function deletePromptTemplate(
 export async function createExternalAgentConfig(
   payload: CreateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
-  const res = await route_create_external_agent_config(payload);
+  const body = {
+    ...payload,
+    settingsManagedBlock: payload.settingsManagedBlock ?? {},
+  } as Parameters<typeof apiCreateExternalAgentConfig>[0]["body"];
+  const res = await callOpenAPI(
+    apiCreateExternalAgentConfig({
+      body,
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       externalAgentConfigsLoadError: "Failed to create external agent config",
     });
     return null;
   }
-  const config = res.data;
+  const config = normalizeExternalAgentConfig(res.data);
   useAIStore.setState((state) => ({
     externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
     externalAgentConfigsInitialLoadComplete: true,
@@ -1423,14 +1607,30 @@ export async function createExternalAgentConfig(
 export async function updateExternalAgentConfig(
   payload: UpdateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
-  const res = await route_update_external_agent_config(payload);
+  const requestedConfig = requireNonNull(
+    payload.config,
+    "updateExternalAgentConfig requires a config payload.",
+  );
+  const body = {
+    config: {
+      ...requestedConfig,
+      envVarWhitelist: requestedConfig.envVarWhitelist ?? [],
+      settingsManagedBlock: requestedConfig.settingsManagedBlock ?? undefined,
+      settingsSources: requestedConfig.settingsSources ?? [],
+    },
+  } as Parameters<typeof apiUpdateExternalAgentConfig>[0]["body"];
+  const res = await callOpenAPI(
+    apiUpdateExternalAgentConfig({
+      body,
+    }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       externalAgentConfigsLoadError: "Failed to update external agent config",
     });
     return null;
   }
-  const config = res.data;
+  const config = normalizeExternalAgentConfig(res.data);
   useAIStore.setState((state) => ({
     externalAgentConfigs: upsertById(state.externalAgentConfigs, config),
     externalAgentConfigsInitialLoadComplete: true,
@@ -1442,7 +1642,9 @@ export async function updateExternalAgentConfig(
 export async function deleteExternalAgentConfig(
   payload: DeleteExternalAgentConfigRequest,
 ): Promise<boolean> {
-  const res = await route_delete_external_agent_config(payload);
+  const res = await callOpenAPI(
+    apiDeleteExternalAgentConfig({ body: payload }),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       externalAgentConfigsLoadError: "Failed to delete external agent config",

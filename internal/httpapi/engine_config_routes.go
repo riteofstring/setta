@@ -77,11 +77,52 @@ func RegisterEngineConfigRoutes(router chi.Router, deps EngineConfigRouteDepende
 		return fmt.Errorf("websocket hub is required in ide mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetEngineConfigs, getEngineConfigsHandler(deps.Engines, deps.LLM))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetEngineConfig, getEngineConfigHandler(deps.Engines, deps.LLM))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEngineConfig, deleteEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub))
+	protected := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIGet[[]agentruns.EngineConfig](
+		protected,
+		"getEngineConfigs",
+		RouteGetEngineConfigs,
+		getEngineConfigsHandler(deps.Engines, deps.LLM),
+		withOpenAPITags("Engine Configs"),
+		withOpenAPISummary("List configured execution engines."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[GetEngineConfigRequest, agentruns.EngineConfig](
+		protected,
+		"getEngineConfig",
+		RouteGetEngineConfig,
+		getEngineConfigHandler(deps.Engines, deps.LLM),
+		withOpenAPITags("Engine Configs"),
+		withOpenAPISummary("Get a single execution engine configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[CreateEngineConfigRequest, agentruns.EngineConfig](
+		protected,
+		"createEngineConfig",
+		RouteCreateEngineConfig,
+		createEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub),
+		withOpenAPITags("Engine Configs"),
+		withOpenAPISummary("Create a new execution engine configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdateEngineConfigRequest, agentruns.EngineConfig](
+		protected,
+		"updateEngineConfig",
+		RouteUpdateEngineConfig,
+		updateEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub),
+		withOpenAPITags("Engine Configs"),
+		withOpenAPISummary("Update an existing execution engine configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteEngineConfigRequest, openAPIJSONNull](
+		protected,
+		"deleteEngineConfig",
+		RouteDeleteEngineConfig,
+		deleteEngineConfigHandler(deps.Engines, deps.LLM, deps.WebsocketHub),
+		withOpenAPITags("Engine Configs"),
+		withOpenAPISummary("Delete an execution engine configuration."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

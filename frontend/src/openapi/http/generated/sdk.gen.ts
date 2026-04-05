@@ -3,8 +3,8 @@
 import {
   type Client,
   type Options as ClientOptions,
-  formDataBodySerializer,
   type TDataShape,
+  formDataBodySerializer,
 } from "./client";
 import { client as _heyApiClient } from "./client.gen";
 import type {
@@ -17,12 +17,42 @@ import type {
   CheckWorkspaceInitializedData,
   CheckWorkspaceInitializedErrors,
   CheckWorkspaceInitializedResponses,
+  CreateAgentProfileData,
+  CreateAgentProfileErrors,
+  CreateAgentProfileResponses,
+  CreateEngineConfigData,
+  CreateEngineConfigErrors,
+  CreateEngineConfigResponses,
+  CreateExternalAgentConfigData,
+  CreateExternalAgentConfigErrors,
+  CreateExternalAgentConfigResponses,
   CreateFileData,
   CreateFileErrors,
   CreateFileResponses,
+  CreatePromptTemplateData,
+  CreatePromptTemplateErrors,
+  CreatePromptTemplateResponses,
+  CreateTranscriptionProfileData,
+  CreateTranscriptionProfileErrors,
+  CreateTranscriptionProfileResponses,
   CreateWorkspaceLaunchIntentData,
   CreateWorkspaceLaunchIntentErrors,
   CreateWorkspaceLaunchIntentResponses,
+  DeleteAgentProfileData,
+  DeleteAgentProfileErrors,
+  DeleteAgentProfileResponses,
+  DeleteEngineConfigData,
+  DeleteEngineConfigErrors,
+  DeleteEngineConfigResponses,
+  DeleteExternalAgentConfigData,
+  DeleteExternalAgentConfigErrors,
+  DeleteExternalAgentConfigResponses,
+  DeletePromptTemplateData,
+  DeletePromptTemplateErrors,
+  DeletePromptTemplateResponses,
+  DeleteTranscriptionProfileData,
+  DeleteTranscriptionProfileErrors,
+  DeleteTranscriptionProfileResponses,
   DisablePluginData,
   DisablePluginErrors,
   DisablePluginResponses,
@@ -38,6 +68,12 @@ import type {
   EnablePluginData,
   EnablePluginErrors,
   EnablePluginResponses,
+  GetAgentProfileData,
+  GetAgentProfileErrors,
+  GetAgentProfileResponses,
+  GetAgentProfilesData,
+  GetAgentProfilesErrors,
+  GetAgentProfilesResponses,
   GetAgenticSummaryCacheStatusData,
   GetAgenticSummaryCacheStatusErrors,
   GetAgenticSummaryCacheStatusResponses,
@@ -47,6 +83,21 @@ import type {
   GetBackendInitStatusData,
   GetBackendInitStatusErrors,
   GetBackendInitStatusResponses,
+  GetEngineConfigData,
+  GetEngineConfigErrors,
+  GetEngineConfigResponses,
+  GetEngineConfigsData,
+  GetEngineConfigsErrors,
+  GetEngineConfigsResponses,
+  GetExternalAgentConfigData,
+  GetExternalAgentConfigErrors,
+  GetExternalAgentConfigResponses,
+  GetExternalAgentConfigsData,
+  GetExternalAgentConfigsErrors,
+  GetExternalAgentConfigsResponses,
+  GetExternalAgentHealthData,
+  GetExternalAgentHealthErrors,
+  GetExternalAgentHealthResponses,
   GetFileBrowserDownloadUrlsData,
   GetFileBrowserDownloadUrlsErrors,
   GetFileBrowserDownloadUrlsResponses,
@@ -62,12 +113,24 @@ import type {
   GetFolderContentsData,
   GetFolderContentsErrors,
   GetFolderContentsResponses,
+  GetLlmApiKeysData,
+  GetLlmApiKeysErrors,
+  GetLlmApiKeysResponses,
+  GetLlmConfigData,
+  GetLlmConfigErrors,
+  GetLlmConfigResponses,
   GetMcpServerRuntimeStatusData,
   GetMcpServerRuntimeStatusErrors,
   GetMcpServerRuntimeStatusResponses,
   GetPluginsRuntimeData,
   GetPluginsRuntimeErrors,
   GetPluginsRuntimeResponses,
+  GetPromptTemplateData,
+  GetPromptTemplateErrors,
+  GetPromptTemplateResponses,
+  GetPromptTemplatesData,
+  GetPromptTemplatesErrors,
+  GetPromptTemplatesResponses,
   GetRuntimeInfoData,
   GetRuntimeInfoErrors,
   GetRuntimeInfoResponses,
@@ -77,6 +140,9 @@ import type {
   GetSettaHomeInfoData,
   GetSettaHomeInfoErrors,
   GetSettaHomeInfoResponses,
+  GetTranscriptionProfilesData,
+  GetTranscriptionProfilesErrors,
+  GetTranscriptionProfilesResponses,
   GetWorkspacePythonSignalData,
   GetWorkspacePythonSignalErrors,
   GetWorkspacePythonSignalResponses,
@@ -110,15 +176,36 @@ import type {
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  SetLlmApiKeysData,
+  SetLlmApiKeysErrors,
+  SetLlmApiKeysResponses,
+  SetLlmConfigData,
+  SetLlmConfigErrors,
+  SetLlmConfigResponses,
   TransferFileBrowserEntryData,
   TransferFileBrowserEntryErrors,
   TransferFileBrowserEntryResponses,
   UninstallPluginData,
   UninstallPluginErrors,
   UninstallPluginResponses,
+  UpdateAgentProfileData,
+  UpdateAgentProfileErrors,
+  UpdateAgentProfileResponses,
+  UpdateEngineConfigData,
+  UpdateEngineConfigErrors,
+  UpdateEngineConfigResponses,
+  UpdateExternalAgentConfigData,
+  UpdateExternalAgentConfigErrors,
+  UpdateExternalAgentConfigResponses,
   UpdatePluginData,
   UpdatePluginErrors,
   UpdatePluginResponses,
+  UpdatePromptTemplateData,
+  UpdatePromptTemplateErrors,
+  UpdatePromptTemplateResponses,
+  UpdateTranscriptionProfileData,
+  UpdateTranscriptionProfileErrors,
+  UpdateTranscriptionProfileResponses,
   UploadBinaryData,
   UploadBinaryErrors,
   UploadBinaryResponses,
@@ -260,6 +347,66 @@ export const checkWorkspaceInitialized = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Create an agent profile.
+ */
+export const createAgentProfile = <ThrowOnError extends boolean = false>(
+  options: Options<CreateAgentProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateAgentProfileResponses,
+    CreateAgentProfileErrors,
+    ThrowOnError
+  >({
+    url: "/createAgentProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create a new execution engine configuration.
+ */
+export const createEngineConfig = <ThrowOnError extends boolean = false>(
+  options: Options<CreateEngineConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateEngineConfigResponses,
+    CreateEngineConfigErrors,
+    ThrowOnError
+  >({
+    url: "/createEngineConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create an external agent runtime configuration.
+ */
+export const createExternalAgentConfig = <ThrowOnError extends boolean = false>(
+  options: Options<CreateExternalAgentConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateExternalAgentConfigResponses,
+    CreateExternalAgentConfigErrors,
+    ThrowOnError
+  >({
+    url: "/createExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Create an empty file inside the workspace root.
  */
 export const createFile = <ThrowOnError extends boolean = false>(
@@ -271,6 +418,48 @@ export const createFile = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/createFile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create a prompt template.
+ */
+export const createPromptTemplate = <ThrowOnError extends boolean = false>(
+  options: Options<CreatePromptTemplateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreatePromptTemplateResponses,
+    CreatePromptTemplateErrors,
+    ThrowOnError
+  >({
+    url: "/createPromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Create a transcription profile.
+ */
+export const createTranscriptionProfile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateTranscriptionProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateTranscriptionProfileResponses,
+    CreateTranscriptionProfileErrors,
+    ThrowOnError
+  >({
+    url: "/createTranscriptionProfile",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -293,6 +482,108 @@ export const createWorkspaceLaunchIntent = <
     ThrowOnError
   >({
     url: "/createWorkspaceLaunchIntent",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete an agent profile.
+ */
+export const deleteAgentProfile = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteAgentProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteAgentProfileResponses,
+    DeleteAgentProfileErrors,
+    ThrowOnError
+  >({
+    url: "/deleteAgentProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete an execution engine configuration.
+ */
+export const deleteEngineConfig = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteEngineConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteEngineConfigResponses,
+    DeleteEngineConfigErrors,
+    ThrowOnError
+  >({
+    url: "/deleteEngineConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete an external agent runtime configuration.
+ */
+export const deleteExternalAgentConfig = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteExternalAgentConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteExternalAgentConfigResponses,
+    DeleteExternalAgentConfigErrors,
+    ThrowOnError
+  >({
+    url: "/deleteExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete a prompt template.
+ */
+export const deletePromptTemplate = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePromptTemplateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeletePromptTemplateResponses,
+    DeletePromptTemplateErrors,
+    ThrowOnError
+  >({
+    url: "/deletePromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete a transcription profile.
+ */
+export const deleteTranscriptionProfile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteTranscriptionProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteTranscriptionProfileResponses,
+    DeleteTranscriptionProfileErrors,
+    ThrowOnError
+  >({
+    url: "/deleteTranscriptionProfile",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -338,6 +629,42 @@ export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get a single agent profile.
+ */
+export const getAgentProfile = <ThrowOnError extends boolean = false>(
+  options: Options<GetAgentProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAgentProfileResponses,
+    GetAgentProfileErrors,
+    ThrowOnError
+  >({
+    url: "/getAgentProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List agent profiles when allowed by the current mode and policy.
+ */
+export const getAgentProfiles = <ThrowOnError extends boolean = false>(
+  options?: Options<GetAgentProfilesData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetAgentProfilesResponses,
+    GetAgentProfilesErrors,
+    ThrowOnError
+  >({
+    url: "/getAgentProfiles",
+    ...options,
+  });
+};
+
+/**
  * Get the cache status for a chat section summary.
  */
 export const getAgenticSummaryCacheStatus = <
@@ -356,6 +683,94 @@ export const getAgenticSummaryCacheStatus = <
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+};
+
+/**
+ * Get a single execution engine configuration.
+ */
+export const getEngineConfig = <ThrowOnError extends boolean = false>(
+  options: Options<GetEngineConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetEngineConfigResponses,
+    GetEngineConfigErrors,
+    ThrowOnError
+  >({
+    url: "/getEngineConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List configured execution engines.
+ */
+export const getEngineConfigs = <ThrowOnError extends boolean = false>(
+  options?: Options<GetEngineConfigsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetEngineConfigsResponses,
+    GetEngineConfigsErrors,
+    ThrowOnError
+  >({
+    url: "/getEngineConfigs",
+    ...options,
+  });
+};
+
+/**
+ * Get a single external agent runtime configuration.
+ */
+export const getExternalAgentConfig = <ThrowOnError extends boolean = false>(
+  options: Options<GetExternalAgentConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetExternalAgentConfigResponses,
+    GetExternalAgentConfigErrors,
+    ThrowOnError
+  >({
+    url: "/getExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List configured external agent runtimes when allowed by the current mode and policy.
+ */
+export const getExternalAgentConfigs = <ThrowOnError extends boolean = false>(
+  options?: Options<GetExternalAgentConfigsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetExternalAgentConfigsResponses,
+    GetExternalAgentConfigsErrors,
+    ThrowOnError
+  >({
+    url: "/getExternalAgentConfigs",
+    ...options,
+  });
+};
+
+/**
+ * Get preflight availability and health details for configured external agent runtimes.
+ */
+export const getExternalAgentHealth = <ThrowOnError extends boolean = false>(
+  options?: Options<GetExternalAgentHealthData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetExternalAgentHealthResponses,
+    GetExternalAgentHealthErrors,
+    ThrowOnError
+  >({
+    url: "/getExternalAgentHealth",
+    ...options,
   });
 };
 
@@ -458,6 +873,58 @@ export const getFolderContents = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get a single prompt template.
+ */
+export const getPromptTemplate = <ThrowOnError extends boolean = false>(
+  options: Options<GetPromptTemplateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetPromptTemplateResponses,
+    GetPromptTemplateErrors,
+    ThrowOnError
+  >({
+    url: "/getPromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * List prompt templates when allowed by the current mode and policy.
+ */
+export const getPromptTemplates = <ThrowOnError extends boolean = false>(
+  options?: Options<GetPromptTemplatesData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetPromptTemplatesResponses,
+    GetPromptTemplatesErrors,
+    ThrowOnError
+  >({
+    url: "/getPromptTemplates",
+    ...options,
+  });
+};
+
+/**
+ * List configured transcription profiles.
+ */
+export const getTranscriptionProfiles = <ThrowOnError extends boolean = false>(
+  options?: Options<GetTranscriptionProfilesData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetTranscriptionProfilesResponses,
+    GetTranscriptionProfilesErrors,
+    ThrowOnError
+  >({
+    url: "/getTranscriptionProfiles",
+    ...options,
+  });
+};
+
+/**
  * Detect whether a workspace folder contains Python project signals.
  */
 export const getWorkspacePythonSignal = <ThrowOnError extends boolean = false>(
@@ -489,6 +956,78 @@ export const launchWorkspace = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/launch",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the current managed LLM API key snapshot.
+ */
+export const getLlmApiKeys = <ThrowOnError extends boolean = false>(
+  options?: Options<GetLlmApiKeysData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetLlmApiKeysResponses,
+    GetLlmApiKeysErrors,
+    ThrowOnError
+  >({
+    url: "/llm/apiKeys",
+    ...options,
+  });
+};
+
+/**
+ * Save managed LLM API keys for the current runtime.
+ */
+export const setLlmApiKeys = <ThrowOnError extends boolean = false>(
+  options: Options<SetLlmApiKeysData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetLlmApiKeysResponses,
+    SetLlmApiKeysErrors,
+    ThrowOnError
+  >({
+    url: "/llm/apiKeys",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the current LLM configuration document.
+ */
+export const getLlmConfig = <ThrowOnError extends boolean = false>(
+  options?: Options<GetLlmConfigData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetLlmConfigResponses,
+    GetLlmConfigErrors,
+    ThrowOnError
+  >({
+    url: "/llm/config",
+    ...options,
+  });
+};
+
+/**
+ * Validate and save the current LLM configuration document.
+ */
+export const setLlmConfig = <ThrowOnError extends boolean = false>(
+  options: Options<SetLlmConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetLlmConfigResponses,
+    SetLlmConfigErrors,
+    ThrowOnError
+  >({
+    url: "/llm/config",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -895,6 +1434,108 @@ export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/transferFileBrowserEntry",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update an agent profile.
+ */
+export const updateAgentProfile = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateAgentProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateAgentProfileResponses,
+    UpdateAgentProfileErrors,
+    ThrowOnError
+  >({
+    url: "/updateAgentProfile",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update an existing execution engine configuration.
+ */
+export const updateEngineConfig = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateEngineConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateEngineConfigResponses,
+    UpdateEngineConfigErrors,
+    ThrowOnError
+  >({
+    url: "/updateEngineConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update an external agent runtime configuration.
+ */
+export const updateExternalAgentConfig = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateExternalAgentConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateExternalAgentConfigResponses,
+    UpdateExternalAgentConfigErrors,
+    ThrowOnError
+  >({
+    url: "/updateExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update a prompt template.
+ */
+export const updatePromptTemplate = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePromptTemplateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdatePromptTemplateResponses,
+    UpdatePromptTemplateErrors,
+    ThrowOnError
+  >({
+    url: "/updatePromptTemplate",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update a transcription profile.
+ */
+export const updateTranscriptionProfile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateTranscriptionProfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateTranscriptionProfileResponses,
+    UpdateTranscriptionProfileErrors,
+    ThrowOnError
+  >({
+    url: "/updateTranscriptionProfile",
     ...options,
     headers: {
       "Content-Type": "application/json",

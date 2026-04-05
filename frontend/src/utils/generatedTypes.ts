@@ -54,10 +54,6 @@ export type CreateAgentProfileRequest = {
   memoryScope: string | null;
 };
 
-export type GetAgentProfileRequest = {
-  profileId: string;
-};
-
 type AgentProfilePayload = {
   id: string | null;
   name: string | null;
@@ -1225,10 +1221,6 @@ export type GetRunnerSummaryRequest = {
   projectConfigId: string;
 };
 
-export type GetEngineConfigRequest = {
-  configId: string;
-};
-
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
@@ -1248,14 +1240,6 @@ function createEngineConfigDefaults(
     options,
   );
 }
-
-export type CreateEngineConfigRequest = {
-  name: string | null;
-  engineType: EngineType | null;
-  settaLlmConfigId: string | null;
-  externalAgentConfigId: string | null;
-  defaults: EngineConfigDefaults | null;
-};
 
 type EngineRuntimeSupport = {
   thinking: boolean;
@@ -1283,10 +1267,6 @@ type UpdateEngineConfigPayload = {
 
 export type UpdateEngineConfigRequest = {
   config: UpdateEngineConfigPayload | null;
-};
-
-export type DeleteEngineConfigRequest = {
-  configId: string;
 };
 
 export const ToolTypeEnum = {
@@ -1385,12 +1365,6 @@ export type ExternalAgentConfig = {
   codexSkipGitRepoCheck?: boolean | null;
 };
 
-export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
-
-export type GetExternalAgentConfigRequest = {
-  configId: string;
-};
-
 export type UpdateExternalAgentConfigRequest = {
   config: ExternalAgentConfig | null;
 };
@@ -1423,9 +1397,6 @@ export function createExternalAgentPreflightStatus(
 ): ExternalAgentPreflightStatus {
   return options as ExternalAgentPreflightStatus;
 }
-
-export type ExternalAgentPreflightStatusList =
-  Array<ExternalAgentPreflightStatus>;
 
 export const EndpointOriginEnum = {
   backend: "backend",
@@ -1674,11 +1645,6 @@ export type ForceRefreshProjectRequest = {
 
 export type ListenerCoverageRequest = {
   projectConfigId: string;
-};
-
-export type SetLLMAPIKeysRequest = {
-  apiKeys: Record<string, string>;
-  expectedRevision: number;
 };
 
 export type LLMAPIKeysSnapshot = {
@@ -3131,10 +3097,6 @@ export type Template = {
   format: Format;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
-};
-
-export type GetPromptTemplateRequest = {
-  templateId: string;
 };
 
 type PromptTemplatePayload = {

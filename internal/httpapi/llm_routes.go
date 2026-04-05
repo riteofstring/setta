@@ -43,10 +43,42 @@ func RegisterLLMRoutes(router chi.Router, deps LLMRouteDependencies) error {
 	}
 
 	protected := router.With(RequireIDEMode(deps.ModePolicy))
-	protected.Get(RouteLLMConfig, getLLMConfigHandler(deps))
-	protected.Post(RouteLLMConfig, setLLMConfigHandler(deps))
-	protected.Get(RouteLLMAPIKeys, getLLMAPIKeysHandler(deps))
-	protected.Post(RouteLLMAPIKeys, setLLMAPIKeysHandler(deps))
+	registerOpenAPIGet[llmconfig.AllConfigs](
+		protected,
+		"getLlmConfig",
+		RouteLLMConfig,
+		getLLMConfigHandler(deps),
+		withOpenAPITags("LLM"),
+		withOpenAPISummary("Get the current LLM configuration document."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[llmconfig.AllConfigs, llmconfig.AllConfigs](
+		protected,
+		"setLlmConfig",
+		RouteLLMConfig,
+		setLLMConfigHandler(deps),
+		withOpenAPITags("LLM"),
+		withOpenAPISummary("Validate and save the current LLM configuration document."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIGet[LLMAPIKeysSnapshot](
+		protected,
+		"getLlmApiKeys",
+		RouteLLMAPIKeys,
+		getLLMAPIKeysHandler(deps),
+		withOpenAPITags("LLM"),
+		withOpenAPISummary("Get the current managed LLM API key snapshot."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[SetLLMAPIKeysRequest, LLMAPIKeysSnapshot](
+		protected,
+		"setLlmApiKeys",
+		RouteLLMAPIKeys,
+		setLLMAPIKeysHandler(deps),
+		withOpenAPITags("LLM"),
+		withOpenAPISummary("Save managed LLM API keys for the current runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

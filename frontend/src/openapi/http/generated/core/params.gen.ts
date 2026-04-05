@@ -13,7 +13,7 @@ type Field =
        * Field mapped name. This is the name we want to use in the request.
        * If omitted, we use the same value as `key`.
        */
-      map?: string;
+      map?: string | undefined;
     }
   | {
       in: Extract<Slot, "body">;
@@ -21,7 +21,7 @@ type Field =
        * Key isn't required for bodies.
        */
       key?: string;
-      map?: string;
+      map?: string | undefined;
     };
 
 interface Fields {
@@ -43,7 +43,7 @@ type KeyMap = Map<
   string,
   {
     in: Slot;
-    map?: string;
+    map?: string | undefined;
   }
 >;
 

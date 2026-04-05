@@ -271,9 +271,9 @@ const getUrl = ({
   querySerializer,
   url: _url,
 }: {
-  baseUrl?: string;
-  path?: Record<string, unknown>;
-  query?: Record<string, unknown>;
+  baseUrl?: string | undefined;
+  path?: Record<string, unknown> | undefined;
+  query?: Record<string, unknown> | undefined;
   querySerializer: QuerySerializer;
   url: string;
 }) => {

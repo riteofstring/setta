@@ -64,10 +64,41 @@ func RegisterTranscriptionProfileRoutes(router chi.Router, deps TranscriptionPro
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.Get(RouteGetTranscriptionProfiles, getTranscriptionProfilesHandler(deps))
-	router.Post(RouteCreateTranscriptionProfile, createTranscriptionProfileHandler(deps))
-	router.Post(RouteUpdateTranscriptionProfile, updateTranscriptionProfileHandler(deps))
-	router.Post(RouteDeleteTranscriptionProfile, deleteTranscriptionProfileHandler(deps))
+	registerOpenAPIGet[[]transcriptionprofiles.Profile](
+		router,
+		"getTranscriptionProfiles",
+		RouteGetTranscriptionProfiles,
+		getTranscriptionProfilesHandler(deps),
+		withOpenAPITags("Transcription Profiles"),
+		withOpenAPISummary("List configured transcription profiles."),
+	)
+	registerOpenAPIPost[CreateTranscriptionProfileRequest, transcriptionprofiles.Profile](
+		router,
+		"createTranscriptionProfile",
+		RouteCreateTranscriptionProfile,
+		createTranscriptionProfileHandler(deps),
+		withOpenAPITags("Transcription Profiles"),
+		withOpenAPISummary("Create a transcription profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdateTranscriptionProfileRequest, transcriptionprofiles.Profile](
+		router,
+		"updateTranscriptionProfile",
+		RouteUpdateTranscriptionProfile,
+		updateTranscriptionProfileHandler(deps),
+		withOpenAPITags("Transcription Profiles"),
+		withOpenAPISummary("Update a transcription profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteTranscriptionProfileRequest, openAPIJSONNull](
+		router,
+		"deleteTranscriptionProfile",
+		RouteDeleteTranscriptionProfile,
+		deleteTranscriptionProfileHandler(deps),
+		withOpenAPITags("Transcription Profiles"),
+		withOpenAPISummary("Delete a transcription profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

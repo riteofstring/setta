@@ -132,12 +132,6 @@ export async function route_code_area_completion(
   return await post(GoHTTPRouteHelpers.codeAreaCompletion(), x);
 }
 
-export async function route_create_agent_profile(
-  x: gt.CreateAgentProfileRequest,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post(GoHTTPRouteHelpers.createAgentProfile(), x);
-}
-
 export async function route_create_agentic_edge(
   x: gt.CreateAgenticEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -162,18 +156,6 @@ export async function route_create_edge(
   return await post(GoHTTPRouteHelpers.createEdge(), x);
 }
 
-export async function route_create_engine_config(
-  x: gt.CreateEngineConfigRequest,
-): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
-  return await post(GoHTTPRouteHelpers.createEngineConfig(), x);
-}
-
-export async function route_create_external_agent_config(
-  x: gt.CreateExternalAgentConfigRequest,
-): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
-  return await post(GoHTTPRouteHelpers.createExternalAgentConfig(), x);
-}
-
 export async function route_create_new_section_variant(
   x: gt.CreateNewSectionVariantRequest,
 ): Promise<ResponseDataAndStatus<gt.CreateNewSectionVariantResult>> {
@@ -186,12 +168,6 @@ export async function route_create_project_config(
   return await post(GoHTTPRouteHelpers.createProjectConfig(), x);
 }
 
-export async function route_create_prompt_template(
-  x: gt.CreatePromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.Template>> {
-  return await post(GoHTTPRouteHelpers.createPromptTemplate(), x);
-}
-
 export async function route_create_state_machine_edge(
   x: gt.CreateStateMachineEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -202,12 +178,6 @@ export async function route_create_top_level_section(
   x: gt.CreateTopLevelSectionRequest,
 ): Promise<ResponseDataAndStatus<gt.CreateTopLevelSectionResult>> {
   return await post(GoHTTPRouteHelpers.createTopLevelSection(), x);
-}
-
-export async function route_create_transcription_profile(
-  x: gt.CreateTranscriptionProfileRequest,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post(GoHTTPRouteHelpers.createTranscriptionProfile(), x);
 }
 
 export async function route_create_view_mode(
@@ -226,12 +196,6 @@ export async function route_decline_rename_refactor(
   x: gt.DeclineRenameRefactorRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.declineRenameRefactor(), x);
-}
-
-export async function route_delete_agent_profile(
-  x: gt.DeleteAgentProfileRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deleteAgentProfile(), x);
 }
 
 export async function route_delete_agentic_edges(
@@ -258,18 +222,6 @@ export async function route_delete_edges(
   return await post(GoHTTPRouteHelpers.deleteEdges(), x);
 }
 
-export async function route_delete_engine_config(
-  x: gt.DeleteEngineConfigRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deleteEngineConfig(), x);
-}
-
-export async function route_delete_external_agent_config(
-  x: gt.DeleteExternalAgentConfigRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deleteExternalAgentConfig(), x);
-}
-
 export async function route_delete_json_source_file_and_variant(
   x: gt.DeleteJSONSourceFileAndVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -292,12 +244,6 @@ export async function route_delete_project_configs(
   x: gt.DeleteProjectConfigsRequest,
 ): Promise<ResponseDataAndStatus<gt.DeleteProjectConfigsResponse>> {
   return await post(GoHTTPRouteHelpers.deleteProjectConfigs(), x);
-}
-
-export async function route_delete_prompt_template(
-  x: gt.DeletePromptTemplateRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deletePromptTemplate(), x);
 }
 
 export async function route_delete_section_variant_or_ask(
@@ -328,12 +274,6 @@ export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteTerminals(), x);
-}
-
-export async function route_delete_transcription_profile(
-  x: gt.DeleteTranscriptionProfileRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.deleteTranscriptionProfile(), x);
 }
 
 export async function route_delete_view_mode(
@@ -370,18 +310,6 @@ export async function route_gen_code_suffix_completion(
   x: gt.GenCodeSuffixCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.genCodeSuffixCompletion(), x);
-}
-
-export async function route_get_agent_profile(
-  x: gt.GetAgentProfileRequest,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post(GoHTTPRouteHelpers.getAgentProfile(), x);
-}
-
-export async function route_get_agent_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.AgentProfile>>
-> {
-  return await get(GoHTTPRouteHelpers.getAgentProfiles());
 }
 
 export async function route_get_agent_run(
@@ -446,40 +374,10 @@ export async function route_get_chat_section_chat_id(
   return await post(GoHTTPRouteHelpers.getChatSectionChatId(), x);
 }
 
-export async function route_get_engine_config(
-  x: gt.GetEngineConfigRequest,
-): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
-  return await post(GoHTTPRouteHelpers.getEngineConfig(), x);
-}
-
-export async function route_get_engine_configs(): Promise<
-  ResponseDataAndStatus<Array<gt.EngineConfig>>
-> {
-  return await get(GoHTTPRouteHelpers.getEngineConfigs());
-}
-
 export async function route_get_external_agent_chat(
   x: gt.GetExternalAgentChatRequest,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentChatResponse>> {
   return await post(GoHTTPRouteHelpers.getExternalAgentChat(), x);
-}
-
-export async function route_get_external_agent_config(
-  x: gt.GetExternalAgentConfigRequest,
-): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
-  return await post(GoHTTPRouteHelpers.getExternalAgentConfig(), x);
-}
-
-export async function route_get_external_agent_configs(): Promise<
-  ResponseDataAndStatus<gt.ExternalAgentConfigList>
-> {
-  return await get(GoHTTPRouteHelpers.getExternalAgentConfigs());
-}
-
-export async function route_get_external_agent_health(): Promise<
-  ResponseDataAndStatus<gt.ExternalAgentPreflightStatusList>
-> {
-  return await get(GoHTTPRouteHelpers.getExternalAgentHealth());
 }
 
 export async function route_get_git_commit_details(
@@ -556,22 +454,10 @@ export async function route_get_llm_chat(
   return await post(GoHTTPRouteHelpers.getLLMChat(), x);
 }
 
-export async function route_get_llm_config(): Promise<
-  ResponseDataAndStatus<gt.AllConfigs>
-> {
-  return await get(GoHTTPRouteHelpers.getLLMConfig());
-}
-
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequest,
 ): Promise<ResponseDataAndStatus<gt.LLMChatIDResponse>> {
   return await post(GoHTTPRouteHelpers.getLLMResponse(), x);
-}
-
-export async function route_get_llmapi_keys(): Promise<
-  ResponseDataAndStatus<gt.LLMAPIKeysSnapshot>
-> {
-  return await get(GoHTTPRouteHelpers.getLLMAPIKeys());
 }
 
 export async function route_get_notifications(
@@ -584,18 +470,6 @@ export async function route_get_password_param_value(
   x: gt.GetPasswordParamValueRequest,
 ): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
   return await post(GoHTTPRouteHelpers.getPasswordParamValue(), x);
-}
-
-export async function route_get_prompt_template(
-  x: gt.GetPromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.Template>> {
-  return await post(GoHTTPRouteHelpers.getPromptTemplate(), x);
-}
-
-export async function route_get_prompt_templates(): Promise<
-  ResponseDataAndStatus<Array<gt.Template>>
-> {
-  return await get(GoHTTPRouteHelpers.getPromptTemplates());
 }
 
 export async function route_get_run_status(
@@ -614,12 +488,6 @@ export async function route_get_state_machine_run(
   x: gt.GetStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.getStateMachineRun(), x);
-}
-
-export async function route_get_transcription_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.TranscriptionProfile>>
-> {
-  return await get(GoHTTPRouteHelpers.getTranscriptionProfiles());
 }
 
 export async function route_group_sections(
@@ -1030,18 +898,6 @@ export async function route_set_list_root_view_mode(
   x: gt.SetListRootViewModeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.setListRootViewMode(), x);
-}
-
-export async function route_set_llm_config(
-  x: gt.AllConfigs,
-): Promise<ResponseDataAndStatus<gt.AllConfigs>> {
-  return await post(GoHTTPRouteHelpers.setLLMConfig(), x);
-}
-
-export async function route_set_llmapi_keys(
-  x: gt.SetLLMAPIKeysRequest,
-): Promise<ResponseDataAndStatus<gt.LLMAPIKeysSnapshot>> {
-  return await post(GoHTTPRouteHelpers.setLLMAPIKeys(), x);
 }
 
 export async function route_set_meta_control_show_section_title(
@@ -1532,12 +1388,6 @@ export async function route_unselect_all_params(
   return await post(GoHTTPRouteHelpers.unselectAllParams(), x);
 }
 
-export async function route_update_agent_profile(
-  x: gt.UpdateAgentProfileRequest,
-): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
-  return await post(GoHTTPRouteHelpers.updateAgentProfile(), x);
-}
-
 export async function route_update_agentic_edge(
   x: gt.UpdateAgenticEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1556,18 +1406,6 @@ export async function route_update_edge(
   return await post(GoHTTPRouteHelpers.updateEdge(), x);
 }
 
-export async function route_update_engine_config(
-  x: gt.UpdateEngineConfigRequest,
-): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
-  return await post(GoHTTPRouteHelpers.updateEngineConfig(), x);
-}
-
-export async function route_update_external_agent_config(
-  x: gt.UpdateExternalAgentConfigRequest,
-): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
-  return await post(GoHTTPRouteHelpers.updateExternalAgentConfig(), x);
-}
-
 export async function route_update_launcher(
   x: gt.UpdateLauncherRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
@@ -1580,22 +1418,10 @@ export async function route_update_param_impl_config(
   return await post(GoHTTPRouteHelpers.updateParamImplConfig(), x);
 }
 
-export async function route_update_prompt_template(
-  x: gt.UpdatePromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.Template>> {
-  return await post(GoHTTPRouteHelpers.updatePromptTemplate(), x);
-}
-
 export async function route_update_state_machine_edge(
   x: gt.UpdateStateMachineEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.updateStateMachineEdge(), x);
-}
-
-export async function route_update_transcription_profile(
-  x: gt.UpdateTranscriptionProfileRequest,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post(GoHTTPRouteHelpers.updateTranscriptionProfile(), x);
 }
 
 export async function route_upsert_app_gen_custom_skill(

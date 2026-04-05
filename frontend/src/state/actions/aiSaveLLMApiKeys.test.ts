@@ -1,8 +1,9 @@
-import { resetProjectStores } from "state/utils";
 import {
-  route_get_llmapi_keys,
-  route_set_llmapi_keys,
-} from "utils/generatedEndpoints";
+  getLlmApiKeys,
+  setLlmApiKeys,
+  type HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
+import { resetProjectStores } from "state/utils";
 import {
   afterAll,
   afterEach,
@@ -13,25 +14,100 @@ import {
   it,
   vi,
 } from "vitest";
+import { createJSONStorage } from "zustand/middleware";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_llmapi_keys: vi.fn(),
-    route_set_llmapi_keys: vi.fn(),
+    getLlmApiKeys: vi.fn(),
+    setLlmApiKeys: vi.fn(),
   };
 });
 
-const mockedRouteGetLLMApiKeys = vi.mocked(route_get_llmapi_keys);
-const mockedRouteSetLLMApiKeys = vi.mocked(route_set_llmapi_keys);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: async function <TData, TError>(
+    promise: Promise<{
+      data?: TData;
+      error?: TError;
+      response: Response;
+    }>,
+  ) {
+    const result = await promise;
+    return {
+      data: (result.data ?? result.error) as TData | undefined,
+      status: result.response.status,
+      hasResponse: true,
+    };
+  },
+}));
+
+const mockedGetLLMApiKeys = vi.mocked(getLlmApiKeys);
+const mockedSetLLMApiKeys = vi.mocked(setLlmApiKeys);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let mutateAndSaveLLMApiKeys: typeof import("state/actions/ai").mutateAndSaveLLMApiKeys;
 let receiveLLMApiKeysSnapshotUpdate: typeof import("state/actions/ai").receiveLLMApiKeysSnapshotUpdate;
 let memoryStorage: Storage;
+
+function createAPIKeysSnapshot(
+  overrides: Partial<HttpapiLlmapiKeysSnapshot> = {},
+): HttpapiLlmapiKeysSnapshot {
+  return {
+    apiKeys: {},
+    corrupt: false,
+    errorCode: null,
+    message: null,
+    revision: 0,
+    ...overrides,
+  };
+}
+
+function mockAPIKeysSuccess(
+  data: HttpapiLlmapiKeysSnapshot,
+  status: number = 200,
+): Awaited<ReturnType<typeof setLlmApiKeys>> {
+  return {
+    data,
+    error: undefined,
+    request: new Request("http://localhost/llm/apiKeys"),
+    response: new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  } as Awaited<ReturnType<typeof setLlmApiKeys>>;
+}
+
+function mockAPIKeysError(
+  error: unknown,
+  status: number,
+): Awaited<ReturnType<typeof setLlmApiKeys>> {
+  return {
+    data: undefined,
+    error,
+    request: new Request("http://localhost/llm/apiKeys"),
+    response: new Response(JSON.stringify(error), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  } as Awaited<ReturnType<typeof setLlmApiKeys>>;
+}
+
+function mockGetAPIKeysSuccess(
+  data: HttpapiLlmapiKeysSnapshot,
+  status: number = 200,
+): Awaited<ReturnType<typeof getLlmApiKeys>> {
+  return {
+    data,
+    error: undefined,
+    request: new Request("http://localhost/llm/apiKeys"),
+    response: new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  } as Awaited<ReturnType<typeof getLlmApiKeys>>;
+}
 
 describe("mutateAndSaveLLMApiKeys", () => {
   beforeAll(async () => {
@@ -65,11 +141,7 @@ describe("mutateAndSaveLLMApiKeys", () => {
   beforeEach(() => {
     resetProjectStores();
     useAIStore.persist.setOptions({
-      storage: {
-        getItem: memoryStorage.getItem.bind(memoryStorage),
-        setItem: memoryStorage.setItem.bind(memoryStorage),
-        removeItem: memoryStorage.removeItem.bind(memoryStorage),
-      },
+      storage: createJSONStorage(() => memoryStorage),
     });
     vi.clearAllMocks();
   });
@@ -90,17 +162,17 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: null,
     });
-    mockedRouteSetLLMApiKeys.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        apiKeys: {
-          OPENAI_API_KEY: "old-secret",
-          ANTHROPIC_API_KEY: "new-secret",
-        },
-        revision: 4,
-      },
-    });
+    mockedSetLLMApiKeys.mockResolvedValue(
+      mockAPIKeysSuccess(
+        createAPIKeysSnapshot({
+          apiKeys: {
+            OPENAI_API_KEY: "old-secret",
+            ANTHROPIC_API_KEY: "new-secret",
+          },
+          revision: 4,
+        }),
+      ),
+    );
 
     const didPersist = await mutateAndSaveLLMApiKeys((currentApiKeys) => ({
       ...currentApiKeys,
@@ -108,12 +180,14 @@ describe("mutateAndSaveLLMApiKeys", () => {
     }));
 
     expect(didPersist).toBe(true);
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenCalledWith({
-      apiKeys: {
-        OPENAI_API_KEY: "old-secret",
-        ANTHROPIC_API_KEY: "new-secret",
+    expect(mockedSetLLMApiKeys).toHaveBeenCalledWith({
+      body: {
+        apiKeys: {
+          OPENAI_API_KEY: "old-secret",
+          ANTHROPIC_API_KEY: "new-secret",
+        },
+        expectedRevision: 3,
       },
-      expectedRevision: 3,
     });
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({
@@ -132,39 +206,40 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: null,
     });
-    mockedRouteSetLLMApiKeys
-      .mockResolvedValueOnce({
-        status: 409,
-        hasResponse: true,
-        data: {
-          errorCode: "managed_api_keys_revision_conflict",
-          message: "revision mismatch",
-          revision: 2,
-        },
-      })
-      .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
-        data: {
+    mockedSetLLMApiKeys
+      .mockResolvedValueOnce(
+        mockAPIKeysError(
+          {
+            errorCode: "managed_api_keys_revision_conflict",
+            message: "revision mismatch",
+            revision: 2,
+          },
+          409,
+        ),
+      )
+      .mockResolvedValueOnce(
+        mockAPIKeysSuccess(
+          createAPIKeysSnapshot({
+            apiKeys: {
+              OPENAI_API_KEY: "server-secret",
+              GEMINI_API_KEY: "keep-this",
+              ANTHROPIC_API_KEY: "new-secret",
+            },
+            revision: 3,
+          }),
+        ),
+      );
+    mockedGetLLMApiKeys.mockResolvedValue(
+      mockGetAPIKeysSuccess(
+        createAPIKeysSnapshot({
           apiKeys: {
             OPENAI_API_KEY: "server-secret",
             GEMINI_API_KEY: "keep-this",
-            ANTHROPIC_API_KEY: "new-secret",
           },
-          revision: 3,
-        },
-      });
-    mockedRouteGetLLMApiKeys.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        apiKeys: {
-          OPENAI_API_KEY: "server-secret",
-          GEMINI_API_KEY: "keep-this",
-        },
-        revision: 2,
-      },
-    });
+          revision: 2,
+        }),
+      ),
+    );
 
     const didPersist = await mutateAndSaveLLMApiKeys((currentApiKeys) => ({
       ...currentApiKeys,
@@ -172,22 +247,26 @@ describe("mutateAndSaveLLMApiKeys", () => {
     }));
 
     expect(didPersist).toBe(true);
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenNthCalledWith(1, {
-      apiKeys: {
-        OPENAI_API_KEY: "local-secret",
-        ANTHROPIC_API_KEY: "new-secret",
+    expect(mockedSetLLMApiKeys).toHaveBeenNthCalledWith(1, {
+      body: {
+        apiKeys: {
+          OPENAI_API_KEY: "local-secret",
+          ANTHROPIC_API_KEY: "new-secret",
+        },
+        expectedRevision: 1,
       },
-      expectedRevision: 1,
     });
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenNthCalledWith(2, {
-      apiKeys: {
-        OPENAI_API_KEY: "server-secret",
-        GEMINI_API_KEY: "keep-this",
-        ANTHROPIC_API_KEY: "new-secret",
+    expect(mockedSetLLMApiKeys).toHaveBeenNthCalledWith(2, {
+      body: {
+        apiKeys: {
+          OPENAI_API_KEY: "server-secret",
+          GEMINI_API_KEY: "keep-this",
+          ANTHROPIC_API_KEY: "new-secret",
+        },
+        expectedRevision: 2,
       },
-      expectedRevision: 2,
     });
-    expect(mockedRouteGetLLMApiKeys).toHaveBeenCalledTimes(1);
+    expect(mockedGetLLMApiKeys).toHaveBeenCalledTimes(1);
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({
       OPENAI_API_KEY: "server-secret",
@@ -207,32 +286,26 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysLoadError: null,
     });
     let resolveFirstSave:
-      | ((value: {
-          status: number;
-          hasResponse: boolean;
-          data: { apiKeys: Record<string, string>; revision: number };
-        }) => void)
+      | ((value: Awaited<ReturnType<typeof setLlmApiKeys>>) => void)
       | null = null;
-    const firstSaveResponse = new Promise<{
-      status: number;
-      hasResponse: boolean;
-      data: { apiKeys: Record<string, string>; revision: number };
-    }>((resolve) => {
+    const firstSaveResponse = new Promise<
+      Awaited<ReturnType<typeof setLlmApiKeys>>
+    >((resolve) => {
       resolveFirstSave = resolve;
     });
-    mockedRouteSetLLMApiKeys
+    mockedSetLLMApiKeys
       .mockImplementationOnce(async () => await firstSaveResponse)
-      .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
-        data: {
-          apiKeys: {
-            OPENAI_API_KEY: "one",
-            ANTHROPIC_API_KEY: "two",
-          },
-          revision: 2,
-        },
-      });
+      .mockResolvedValueOnce(
+        mockAPIKeysSuccess(
+          createAPIKeysSnapshot({
+            apiKeys: {
+              OPENAI_API_KEY: "one",
+              ANTHROPIC_API_KEY: "two",
+            },
+            revision: 2,
+          }),
+        ),
+      );
 
     const firstMutation = mutateAndSaveLLMApiKeys((currentApiKeys) => ({
       ...currentApiKeys,
@@ -244,30 +317,34 @@ describe("mutateAndSaveLLMApiKeys", () => {
     }));
 
     await expect
-      .poll(() => mockedRouteSetLLMApiKeys.mock.calls.length)
+      .poll(() => mockedSetLLMApiKeys.mock.calls.length)
       .toBeGreaterThanOrEqual(1);
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenNthCalledWith(1, {
-      apiKeys: { OPENAI_API_KEY: "one" },
-      expectedRevision: 0,
-    });
-
-    resolveFirstSave?.({
-      status: 200,
-      hasResponse: true,
-      data: {
+    expect(mockedSetLLMApiKeys).toHaveBeenNthCalledWith(1, {
+      body: {
         apiKeys: { OPENAI_API_KEY: "one" },
-        revision: 1,
+        expectedRevision: 0,
       },
     });
+
+    resolveFirstSave?.(
+      mockAPIKeysSuccess(
+        createAPIKeysSnapshot({
+          apiKeys: { OPENAI_API_KEY: "one" },
+          revision: 1,
+        }),
+      ),
+    );
     await Promise.all([firstMutation, secondMutation]);
 
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenCalledTimes(2);
-    expect(mockedRouteSetLLMApiKeys).toHaveBeenNthCalledWith(2, {
-      apiKeys: {
-        OPENAI_API_KEY: "one",
-        ANTHROPIC_API_KEY: "two",
+    expect(mockedSetLLMApiKeys).toHaveBeenCalledTimes(2);
+    expect(mockedSetLLMApiKeys).toHaveBeenNthCalledWith(2, {
+      body: {
+        apiKeys: {
+          OPENAI_API_KEY: "one",
+          ANTHROPIC_API_KEY: "two",
+        },
+        expectedRevision: 1,
       },
-      expectedRevision: 1,
     });
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({
@@ -286,11 +363,12 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysLoadError: "stale error",
     });
 
-    receiveLLMApiKeysSnapshotUpdate({
-      apiKeys: { OPENAI_API_KEY: "new", ANTHROPIC_API_KEY: "secret" },
-      revision: 7,
-      corrupt: false,
-    });
+    receiveLLMApiKeysSnapshotUpdate(
+      createAPIKeysSnapshot({
+        apiKeys: { OPENAI_API_KEY: "new", ANTHROPIC_API_KEY: "secret" },
+        revision: 7,
+      }),
+    );
 
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({
@@ -310,13 +388,15 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysLoadError: null,
     });
 
-    receiveLLMApiKeysSnapshotUpdate({
-      apiKeys: {},
-      revision: 9,
-      corrupt: true,
-      errorCode: "managed_api_keys_store_corrupt",
-      message: "Managed API key store is corrupt.",
-    });
+    receiveLLMApiKeysSnapshotUpdate(
+      createAPIKeysSnapshot({
+        apiKeys: {},
+        revision: 9,
+        corrupt: true,
+        errorCode: "managed_api_keys_store_corrupt",
+        message: "Managed API key store is corrupt.",
+      }),
+    );
 
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({});
@@ -333,13 +413,14 @@ describe("mutateAndSaveLLMApiKeys", () => {
       apiKeysLoadError: null,
     });
 
-    receiveLLMApiKeysSnapshotUpdate({
-      apiKeys: {},
-      revision: 4,
-      corrupt: false,
-      errorCode: "managed_api_keys_store_unavailable",
-      message: "Managed API key store is unavailable.",
-    });
+    receiveLLMApiKeysSnapshotUpdate(
+      createAPIKeysSnapshot({
+        apiKeys: {},
+        revision: 4,
+        errorCode: "managed_api_keys_store_unavailable",
+        message: "Managed API key store is unavailable.",
+      }),
+    );
 
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({});

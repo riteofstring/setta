@@ -13,4 +13,5 @@ rm -rf src/openapi/http/generated
 pnpm exec openapi-ts \
   -i generation/http_openapi/openapi.json \
   -o src/openapi/http/generated
+node ./generation/fix_http_openapi_exact_optional.mjs
 pnpm exec prettier generation/http_openapi/openapi.json src/openapi/http/generated --write

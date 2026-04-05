@@ -81,11 +81,51 @@ func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDepende
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.Get(RouteGetAgentProfiles, getAgentProfilesHandler(deps))
-	router.Post(RouteGetAgentProfile, getAgentProfileHandler(deps))
-	router.Post(RouteCreateAgentProfile, createAgentProfileHandler(deps))
-	router.Post(RouteUpdateAgentProfile, updateAgentProfileHandler(deps))
-	router.Post(RouteDeleteAgentProfile, deleteAgentProfileHandler(deps))
+	registerOpenAPIGet[[]agentprofiles.Profile](
+		router,
+		"getAgentProfiles",
+		RouteGetAgentProfiles,
+		getAgentProfilesHandler(deps),
+		withOpenAPITags("Agent Profiles"),
+		withOpenAPISummary("List agent profiles when allowed by the current mode and policy."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[GetAgentProfileRequest, agentprofiles.Profile](
+		router,
+		"getAgentProfile",
+		RouteGetAgentProfile,
+		getAgentProfileHandler(deps),
+		withOpenAPITags("Agent Profiles"),
+		withOpenAPISummary("Get a single agent profile."),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
+	registerOpenAPIPost[CreateAgentProfileRequest, agentprofiles.Profile](
+		router,
+		"createAgentProfile",
+		RouteCreateAgentProfile,
+		createAgentProfileHandler(deps),
+		withOpenAPITags("Agent Profiles"),
+		withOpenAPISummary("Create an agent profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdateAgentProfileRequest, agentprofiles.Profile](
+		router,
+		"updateAgentProfile",
+		RouteUpdateAgentProfile,
+		updateAgentProfileHandler(deps),
+		withOpenAPITags("Agent Profiles"),
+		withOpenAPISummary("Update an agent profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteAgentProfileRequest, openAPIJSONNull](
+		router,
+		"deleteAgentProfile",
+		RouteDeleteAgentProfile,
+		deleteAgentProfileHandler(deps),
+		withOpenAPITags("Agent Profiles"),
+		withOpenAPISummary("Delete an agent profile."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

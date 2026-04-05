@@ -8,23 +8,30 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agenticsummarycache"
+	"setta/internal/agentprofiles"
+	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
+	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
 type frontendHTTPOpenAPIFileBrowserService struct{}
 type frontendHTTPOpenAPIPluginService struct{}
+type frontendHTTPOpenAPIExternalAgentChecker struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -188,6 +195,10 @@ func (frontendHTTPOpenAPIPluginService) Restart(context.Context) (plugins.Plugin
 	return plugins.PluginRestartResponse{}, nil
 }
 
+func (frontendHTTPOpenAPIExternalAgentChecker) Check(externalagentconfigs.Config) (externalagentconfigs.Status, error) {
+	return externalagentconfigs.Status{}, nil
+}
+
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -243,6 +254,50 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		WebsocketHub:  &realtime.WebsocketHub{},
 	}); err != nil {
 		return nil, fmt.Errorf("register settings routes: %w", err)
+	}
+	if err := RegisterLLMRoutes(router, LLMRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Service:      &llmconfig.Service{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register llm routes: %w", err)
+	}
+	if err := RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Engines:      &agentruns.EngineStore{},
+		LLM:          &llmconfig.Runtime{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register engine config routes: %w", err)
+	}
+	if err := RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Profiles:     &agentprofiles.Store{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register agent profile routes: %w", err)
+	}
+	if err := RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Templates:    &prompttemplates.Store{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register prompt template routes: %w", err)
+	}
+	if err := RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Configs:      &externalagentconfigs.Service{},
+		Preflight:    frontendHTTPOpenAPIExternalAgentChecker{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register external agent config routes: %w", err)
+	}
+	if err := RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		Profiles:     &transcriptionprofiles.Service{},
+		WebsocketHub: &realtime.WebsocketHub{},
+	}); err != nil {
+		return nil, fmt.Errorf("register transcription profile routes: %w", err)
 	}
 	if err := RegisterDocstringRoutes(router, DocstringRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
