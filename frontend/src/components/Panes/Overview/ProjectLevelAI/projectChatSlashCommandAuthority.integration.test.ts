@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
 import { createAgentRun, EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,7 +6,7 @@ import {
   resolveProjectChatComposerNativeSlashCommandTokens,
   resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 
 describe("project chat slash command authority integration", () => {
   it("keeps native commands scoped to the active external-agent engine across recognition and execution", () => {
