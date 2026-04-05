@@ -202,6 +202,30 @@ resolve_path() {
   printf '%s/%s\n' "${base_dir}" "${target_path}"
 }
 
+resolve_ralph_runtime_state_dir() {
+  local configured_dir="${RALPH_RUNTIME_STATE_DIR:-}"
+  local git_dir=""
+
+  if [[ -n "${configured_dir}" ]]; then
+    mkdir -p "${configured_dir}"
+    (
+      cd "${configured_dir}"
+      pwd -P
+    )
+    return 0
+  fi
+
+  if git_dir="$(git -C "${ROOT_DIR}" rev-parse --absolute-git-dir 2>/dev/null)" \
+    && [[ -n "${git_dir}" ]]; then
+    mkdir -p "${git_dir}/ralph-runtime"
+    printf '%s\n' "${git_dir}/ralph-runtime"
+    return 0
+  fi
+
+  mkdir -p "${ROOT_DIR}/.ralph-runtime"
+  printf '%s\n' "${ROOT_DIR}/.ralph-runtime"
+}
+
 sanitize_single_line() {
   local value="$1"
   value="${value//$'\r'/ }"
@@ -1859,6 +1883,64 @@ write_status_file() {
   done
 }
 
+status_value() {
+  local file_path="$1"
+  local key="$2"
+
+  if [[ ! -f "${file_path}" ]]; then
+    return 0
+  fi
+
+  awk -F= -v target="${key}" '$1 == target { print substr($0, index($0, "=") + 1); exit }' "${file_path}"
+}
+
+write_loop_active_run_file() {
+  local status="${1:-running}"
+
+  if [[ "${RALPH_SUPERVISED_LOOP:-0}" == "1" ]] || [[ -z "${loop_active_run_file:-}" ]]; then
+    return 0
+  fi
+
+  cat > "${loop_active_run_file}" <<EOF
+mode=raw_loop
+pid=$$
+root_dir=${ROOT_DIR}
+workdir=${workdir:-}
+output_dir=${output_dir:-}
+stop_request_file=${stop_after_iteration_file:-}
+status=${status}
+EOF
+}
+
+clear_loop_active_run_file_if_owned() {
+  local owner_pid=""
+  local owner_root=""
+
+  if [[ "${RALPH_SUPERVISED_LOOP:-0}" == "1" ]] || [[ -z "${loop_active_run_file:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -f "${loop_active_run_file}" ]]; then
+    owner_pid="$(status_value "${loop_active_run_file}" "pid")"
+    owner_root="$(status_value "${loop_active_run_file}" "root_dir")"
+    if [[ "${owner_pid}" == "$$" ]] && [[ "${owner_root}" == "${ROOT_DIR}" ]]; then
+      rm -f "${loop_active_run_file}" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  if [[ -n "${stop_after_iteration_file:-}" ]]; then
+    rm -f "${stop_after_iteration_file}" >/dev/null 2>&1 || true
+  fi
+}
+
+cleanup_loop_runtime_state() {
+  clear_loop_active_run_file_if_owned
+}
+
+stop_after_iteration_requested() {
+  [[ -n "${stop_after_iteration_file:-}" ]] && [[ -f "${stop_after_iteration_file}" ]]
+}
+
 PROGRESS_REVIEW_DECISION=""
 PROGRESS_REVIEW_SUMMARY=""
 PROGRESS_REVIEW_NEXT_ACTION=""
@@ -2007,6 +2089,7 @@ build_self_exec_args() {
     --verify-command "${verify_command}"
     --iterations "${iterations}"
     --new-session-every "${new_session_every}"
+    --stop-after-iteration-file "${stop_after_iteration_file}"
     --progress-review-every "${progress_review_every}"
     --codex-inactivity-timeout-seconds "${codex_inactivity_timeout_seconds}"
     --output-dir "${output_dir}"
@@ -2181,6 +2264,7 @@ verify_command=""
 pre_session_command=""
 iterations=""
 new_session_every=""
+stop_after_iteration_file=""
 progress_review_every=""
 output_dir=""
 workdir=""
@@ -2257,6 +2341,11 @@ while [[ $# -gt 0 ]]; do
     --new-session-every)
       require_value "$1" "${2:-}"
       new_session_every="$2"
+      shift 2
+      ;;
+    --stop-after-iteration-file)
+      require_value "$1" "${2:-}"
+      stop_after_iteration_file="$2"
       shift 2
       ;;
     --progress-review-every)
@@ -2629,6 +2718,18 @@ if [[ -z "${output_dir}" ]]; then
 fi
 
 mkdir -p "${output_dir}"
+runtime_state_dir="$(resolve_ralph_runtime_state_dir)"
+loop_active_run_file="${runtime_state_dir}/loop-active-run.env"
+if [[ -z "${stop_after_iteration_file}" ]]; then
+  stop_after_iteration_file="${runtime_state_dir}/loop-stop-after-iteration.request"
+else
+  stop_after_iteration_file="$(resolve_path "${ROOT_DIR}" "${stop_after_iteration_file}")"
+fi
+if [[ "${RALPH_SUPERVISED_LOOP:-0}" != "1" ]]; then
+  rm -f "${stop_after_iteration_file}" >/dev/null 2>&1 || true
+fi
+write_loop_active_run_file "starting"
+trap cleanup_loop_runtime_state EXIT INT TERM
 
 worktree_frontend_url=""
 worktree_backend_url=""
@@ -2685,6 +2786,8 @@ if [[ "${print_prompt_only}" == "1" ]]; then
   cat "${start_prompt_file}"
   exit 0
 fi
+
+write_loop_active_run_file "running"
 
 if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
   set +e
@@ -3121,6 +3224,14 @@ for ((iteration = 1; ; iteration += 1)); do
     "before_head=${before_head}" \
     "after_head=${after_head}"
 
+  echo "[$iteration/$iterations] LOOP_STATUS: ${loop_status}"
+  echo "[$iteration/$iterations] LOOP_SUMMARY: ${loop_summary}"
+  echo "[$iteration/$iterations] LOOP_NEXT_ACTION: ${loop_next_action}"
+  echo "[$iteration/$iterations] LOOP_VERIFY_COMMAND: ${loop_verify_command}"
+  echo "[$iteration/$iterations] LOOP_VERIFY_RESULT: ${loop_verify_result}"
+  echo "[$iteration/$iterations] LOOP_RECOVERY: ${loop_recovery}"
+  echo "[$iteration/$iterations] LOOP_COMMIT: ${loop_commit}"
+  echo "[$iteration/$iterations] LOOP_TERMINAL_MARKER: ${loop_terminal_marker}"
   echo "[$iteration/$iterations] ${loop_status}: ${loop_summary}"
 
   if [[ -n "${loop_commit}" ]] && [[ "${loop_commit}" != "none" ]] && [[ -n "${after_head}" ]] && [[ "${loop_commit}" != "${after_head}" ]]; then
@@ -3150,6 +3261,11 @@ for ((iteration = 1; ; iteration += 1)); do
     fi
   else
     continue_loop_after_iteration="1"
+  fi
+
+  if [[ "${continue_loop_after_iteration}" == "1" ]] && stop_after_iteration_requested; then
+    echo "[$iteration/$iterations] Stop requested. Current iteration completed; exiting before the next iteration."
+    break
   fi
 
   if [[ "${continue_loop_after_iteration}" == "1" ]] \
