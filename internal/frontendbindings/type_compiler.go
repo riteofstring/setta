@@ -101,14 +101,10 @@ func frontendBindingTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
-	if name, ok := frontendBindingGeneratedTypeNamesByType[t]; ok && strings.TrimSpace(name) != "" {
+	if name := strings.TrimSpace(frontendBindingGeneratedTypeNamesByType[t]); name != "" {
 		return name
 	}
-	name := strings.TrimSpace(t.Name())
-	if strings.HasPrefix(name, "Frontend") && len(name) > len("Frontend") {
-		return strings.TrimPrefix(name, "Frontend")
-	}
-	return name
+	return strings.TrimSpace(t.Name())
 }
 
 func BindingTypeName(t reflect.Type) string {
