@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 15:53 EDT
+Last updated: 2026-04-06 16:03 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,48 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `223` keeps canary scene bounds authoritative on the resolved subset, so one unresolved section no longer nulls the whole `All Settings` scene or leaves the viewport stuck on the provisional seed.
+  - Why this slice was needed:
+    - item `222` closed the writer-side split-size persistence seam, but the canary scene-bounds reducer still returned `null` as soon as any section lacked a positive current size
+    - that meant one unresolved section could block the entire scene from auto-fitting even when sibling sections already had authoritative geometry, leaving the canary dependent on another local measurement timing cycle
+    - this is a bounded product fix on the active geometry-authority lane, not another forwarding hop or harness-only pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - `getSettingsGraphSubstrateCanarySceneBoundsForSections(...)` now skips unresolved sections and returns `null` only when no authoritative section bounds remain
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - added coverage proving mixed-authority snapshots keep scene bounds on the authoritative subset while still leaving unresolved sections unresolved
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - added coverage proving the viewport runtime auto-fits the authoritative subset instead of staying on the provisional fallback seed when another section still lacks current geometry
+  - What this slice established:
+    - one unresolved section no longer collapses the full canary scene bounds when authoritative sibling geometry already exists
+    - initial viewport auto-fit can now promote from the provisional seed to the authoritative subset on mixed-authority scenes
+    - bounds still stay `null` when no section has current authoritative size, so this does not revive stale geometry
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed (`2 files`, `11 tests`)
+    - runtime info refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.2u3wkI/loop-001/run-005/worktree-ai.log`
+      - result: passed (`frontendUrl=http://127.0.0.1:3076/`, `backendUrl=http://127.0.0.1:8076`, `debugPort=9297`)
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the bootstrap token was rejected, so the visual check used the fallback frontend URL `http://127.0.0.1:3076/settings`
+      - note: `All Settings` was active, the graph substrate canary was visibly mounted, and `rotaryParamCodeObjDefault` had a non-zero rect (`x=86`, `y=368`, `w=210`, `h=16`)
+      - note: the chat pane was still open in that captured state; treat it as non-target chrome/oracle noise for later compares, not renderer drift from this slice
+  - Lane status:
+    - this closes the first scene-bounds authority step that item `222` pointed at
+    - the whole canary scene no longer loses bounds solely because one sibling section is still unresolved
+    - the headless Playwright harness was not reopened here; keep the repeated `ensureAppReady(...)` failure as tooling noise unless a future slice specifically needs live Playwright again
+  - Next frontier:
+    - continue the geometry-authority lane at the remaining measured-size dependency by shrinking the set of sections that still enter the snapshot as `sizeAuthority: "none"` and rely on canary-local observed size before they can contribute authoritative bounds
+    - do not spend the next iteration on another standalone Playwright/lifecycle recovery loop unless the next product slice genuinely requires it
 
 - Ralph item `222` closes the writer-side split-size persistence seam, so top-level layout snapshots and pane moves can no longer re-store a mixed partial `w/h` pair after item `221` taught the reader/model to reject those hybrids.
   - Why this slice was needed:

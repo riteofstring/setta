@@ -80,17 +80,23 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
+  let hasAuthoritativeSectionBounds = false;
 
   for (const section of sections) {
     const boundsSize = getPositiveSceneBoundsSize(section.resolvedSize);
     if (!boundsSize) {
-      return null;
+      continue;
     }
+    hasAuthoritativeSectionBounds = true;
 
     minX = Math.min(minX, section.renderedPosition.x);
     minY = Math.min(minY, section.renderedPosition.y);
     maxX = Math.max(maxX, section.renderedPosition.x + boundsSize.width);
     maxY = Math.max(maxY, section.renderedPosition.y + boundsSize.height);
+  }
+
+  if (!hasAuthoritativeSectionBounds) {
+    return null;
   }
 
   return {

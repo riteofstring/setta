@@ -8,7 +8,10 @@ import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  resolveSettingsGraphSubstrateCanarySceneSnapshot,
+  type SettingsGraphSubstrateCanarySceneSnapshot,
+} from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
@@ -161,6 +164,76 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       ).width,
     );
     expect(reactFlowState.viewportPersistenceEnabled).toBe(false);
+  });
+
+  it("auto-fits the authoritative subset when another section has not resolved current geometry yet", async () => {
+    const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+        {
+          sectionId: "section-b",
+          position: { x: 720, y: 320 },
+          width: null,
+          height: null,
+          zIndex: 1,
+          tempZIndex: 1,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {},
+      null,
+      null,
+    );
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={sceneSnapshot}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    const probe = readViewportProbe(host);
+    await resizeObserverController.trigger([
+      {
+        element: probe,
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    const effectivePaneWidths =
+      resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
+        overviewVisible: false,
+        overviewTrueWidth: 420,
+        uiEditorVisible: false,
+        uiEditorTrueWidth: 260,
+      });
+    const expectedViewport = fitSettingsGraphSubstrateCanaryViewport(
+      { x: 120, y: 80, width: 240, height: 160 },
+      { width: 1000, height: 600 },
+      {
+        defaultZoomLevel: 1,
+        maxZoom: 4,
+        minZoom: 0.1,
+        overviewWidth: effectivePaneWidths.overviewWidth,
+        uiEditorWidth: effectivePaneWidths.uiEditorWidth,
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(expectedViewport);
+    });
   });
 
   it("restores a shared backend viewport instead of auto-fitting over it", async () => {

@@ -8756,6 +8756,44 @@ LOOP_TERMINAL_MARKER: none
     - do not spend a third pass re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `223` | 2026-04-06 16:03 EDT
+  - Subtask: keep canary scene bounds authoritative on the resolved subset so one unresolved section no longer blocks the whole `All Settings` scene from auto-fitting.
+  - Why:
+    - item `222` closed the writer-side split-size seam, but `getSettingsGraphSubstrateCanarySceneBoundsForSections(...)` still returned `null` as soon as any section lacked a positive current size
+    - that kept the viewport on the provisional fallback seed whenever one sibling section had not resolved current geometry yet, even if other sections were already authoritative
+    - this is a bounded product fix on the active scene-bounds authority lane, not another forwarding hop or harness-only retry
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - the scene-bounds reducer now skips unresolved sections and returns `null` only when no authoritative section bounds remain
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - added coverage proving mixed-authority snapshots keep scene bounds on the authoritative subset while unresolved sections stay unresolved
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - added coverage proving the viewport runtime auto-fits the authoritative subset instead of staying on the provisional fallback seed when another section lacks current geometry
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx` -> passed (`2 files`, `11 tests`)
+  - Runtime verification:
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.2u3wkI/loop-001/run-005/worktree-ai.log`
+      - result: passed (`frontendUrl=http://127.0.0.1:3076/`, `backendUrl=http://127.0.0.1:8076`, `debugPort=9297`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - bootstrap token was rejected, so it verified the fallback frontend URL `http://127.0.0.1:3076/settings`
+      - `All Settings` was active and the graph substrate canary was visibly mounted
+      - confirmed `rotaryParamCodeObjDefault` with non-zero rect `x=86`, `y=368`, `w=210`, `h=16`
+      - note: the chat pane remained open in the captured state; treat that as non-target chrome/oracle noise rather than renderer drift from this slice
+      - result: pass
+  - Result:
+    - the canary scene no longer loses all bounds just because one sibling section is unresolved
+    - mixed-authority scenes can auto-fit from the authoritative subset without waiting on another local measurement timing cycle
+    - bounds still correctly stay `null` when no section has current authoritative geometry
+  - Next:
+    - continue the geometry-authority lane by shrinking the sections that still reach `sizeAuthority: "none"` / measured-size-only fallback before they can contribute authoritative bounds
+    - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop unless the next product slice truly needs live Playwright again
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `222` | 2026-04-06 15:53 EDT
   - Subtask: enforce pair-only top-level layout persistence so writer paths cannot re-store split `w/h` geometry after the reader/model started rejecting it.
   - Why:
