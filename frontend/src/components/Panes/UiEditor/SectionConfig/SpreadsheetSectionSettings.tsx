@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { setSpreadsheetSectionSettings } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -7,13 +9,11 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_spreadsheet_section_settings } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   SpreadsheetGridDensity,
   SpreadsheetGridDensityEnum,
 } from "utils/generatedTypes";
-
 export function SpreadsheetSectionSettings({
   sectionId,
 }: {
@@ -40,9 +40,7 @@ export function SpreadsheetSectionSettings({
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
-
   const isDisabled = isFrozen || !canEditLayout;
-
   function persist(next: {
     readOnly: boolean;
     showRowNumbers: boolean;
@@ -63,18 +61,21 @@ export function SpreadsheetSectionSettings({
         );
       },
       send: (frontendOpId) =>
-        route_set_spreadsheet_section_settings({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          readOnly: next.readOnly,
-          showRowNumbers: next.showRowNumbers,
-          density: next.density,
-          autoReloadOnExternalChange: next.autoReloadOnExternalChange,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSpreadsheetSectionSettings({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              readOnly: next.readOnly,
+              showRowNumbers: next.showRowNumbers,
+              density: next.density,
+              autoReloadOnExternalChange: next.autoReloadOnExternalChange,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSpreadsheetSectionSettings>[0]),
+        ),
     });
   }
-
   return (
     <div className="flex flex-col gap-2 rounded-md border border-setta-200/70 p-2 dark:border-setta-700/70">
       <p className="text-xs font-bold text-setta-700 dark:text-setta-300">

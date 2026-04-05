@@ -1,4 +1,4 @@
-import { createGitCommit } from "utils/generatedTypes";
+import type { GitreadCommit as Commit } from "openapi/http";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,8 +21,8 @@ function commit(
     authorName?: string;
     decorations?: string[];
   } = {},
-) {
-  return createGitCommit({
+): Commit {
+  return {
     hash,
     parents: [],
     authorName,
@@ -30,7 +30,7 @@ function commit(
     authorTimeMs: 1,
     subject,
     decorations,
-  });
+  };
 }
 
 describe("buildGitGraphRowHeightCacheKey", () => {
