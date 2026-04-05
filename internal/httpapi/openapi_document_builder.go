@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
@@ -8,124 +11,71 @@ import (
 	"setta/internal/plugins"
 )
 
+var openAPIRouteDependencyModePolicyType = reflect.TypeFor[modes.Policy]()
+
+var frontendOpenAPIDocumentModeOverrides = map[string]config.Mode{
+	"ShareDeployment": config.ModeShare,
+	"AppDeployment":   config.ModeApp,
+	"LauncherHome":    config.ModeLauncher,
+	"AI":              config.ModeShare,
+}
+
 func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
-	ideMode, shareMode, appMode, launcherMode := modes.NewPolicy(config.ModeIDE), modes.NewPolicy(config.ModeShare), modes.NewPolicy(config.ModeApp), modes.NewPolicy(config.ModeLauncher)
+	rootDeps, err := newOpenAPIDocumentRouteDependencies[FrontendRootRouteDependencies](nil)
+	if err != nil {
+		return err
+	}
+	apiDeps, err := newOpenAPIDocumentRouteDependencies[FrontendAPIRouteDependencies](frontendOpenAPIDocumentModeOverrides)
+	if err != nil {
+		return err
+	}
+	apiDeps.Plugin.Service = (*plugins.Service)(nil)
 
 	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
 		Server: config.Server{Mode: config.ModeIDE},
 	}, ""))
-	if err := RegisterFrontendRootRoutes(router, FrontendRootRouteDependencies{
-		AttachmentRoot: &AttachmentRootRouteDependencies{
-			ModePolicy: ideMode,
-		},
-	}); err != nil {
+	if err := RegisterFrontendRootRoutes(router, rootDeps); err != nil {
 		return err
 	}
-	return RegisterFrontendAPIRoutes(router, FrontendAPIRouteDependencies{
-		Status: StatusRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Docstring: DocstringRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Settings: SettingsRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Plugin: &PluginRouteDependencies{
-			ModePolicy: ideMode,
-			Service:    (*plugins.Service)(nil),
-		},
-		Listener: ListenerRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		DeploymentIDE: DeploymentIDERouteDependencies{
-			ModePolicy: ideMode,
-		},
-		ShareDeployment: DeploymentRouteDependencies{
-			ModePolicy: shareMode,
-		},
-		AppDeployment: DeploymentRouteDependencies{
-			ModePolicy: appMode,
-		},
-		LauncherHome: LauncherHomeRouteDependencies{
-			ModePolicy: launcherMode,
-		},
-		LauncherManagement: LauncherManagementRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		WorkspaceLaunch: WorkspaceLaunchRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Binary: BinaryRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Attachment: AttachmentRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		FileBrowser: FileBrowserRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Artifact: ArtifactRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Terminal: TerminalRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		DetachedRun: DetachedRunRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		ProjectShell: ProjectShellRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Git: GitRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		Project: ProjectRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		AppDefinition: AppDefinitionRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		AI: AIRouteDependencies{
-			ModePolicy: shareMode,
-		},
-		AgentProfile: AgentProfileRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		PromptTemplate: PromptTemplateRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		AppGenSkill: AppGenSkillRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		ExternalAgentConfig: ExternalAgentConfigRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		EngineConfig: EngineConfigRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		TranscriptionProfile: TranscriptionProfileRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		LLM: LLMRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		AgenticSummaryCache: AgenticSummaryCacheRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		AgentRun: AgentRunRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		StateMachine: StateMachineRunRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		MCP: MCPRouteDependencies{
-			ModePolicy: ideMode,
-		},
-		LSP: LSPRouteDependencies{
-			ModePolicy: ideMode,
-		},
-	})
+	return RegisterFrontendAPIRoutes(router, apiDeps)
+}
+
+func newOpenAPIDocumentRouteDependencies[T any](modeOverrides map[string]config.Mode) (T, error) {
+	var deps T
+	container := reflect.ValueOf(&deps).Elem()
+	if container.Kind() != reflect.Struct {
+		return deps, fmt.Errorf("document route dependency container must be a struct")
+	}
+	for index := 0; index < container.NumField(); index++ {
+		field := container.Field(index)
+		fieldName := container.Type().Field(index).Name
+		mode := config.ModeIDE
+		if override, ok := modeOverrides[fieldName]; ok {
+			mode = override
+		}
+		if err := setOpenAPIDocumentRouteDependencyModePolicy(field, modes.NewPolicy(mode)); err != nil {
+			return deps, fmt.Errorf("%s: %w", fieldName, err)
+		}
+	}
+	return deps, nil
+}
+
+func setOpenAPIDocumentRouteDependencyModePolicy(field reflect.Value, policy modes.Policy) error {
+	if field.Kind() == reflect.Pointer {
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		field = field.Elem()
+	}
+	if field.Kind() != reflect.Struct {
+		return fmt.Errorf("route dependency must be a struct or pointer to struct")
+	}
+	modeField := field.FieldByName("ModePolicy")
+	if !modeField.IsValid() || !modeField.CanSet() || modeField.Type() != openAPIRouteDependencyModePolicyType {
+		return fmt.Errorf("route dependency must expose a settable ModePolicy")
+	}
+	modeField.Set(reflect.ValueOf(policy))
+	return nil
 }
 
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
