@@ -11,7 +11,7 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -331,7 +331,7 @@ describe("project chat windowing rollback", () => {
     ).toBe(1);
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           id: "project-config-1",
         }),
