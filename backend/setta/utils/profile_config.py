@@ -29,10 +29,6 @@ class SettaProfileConfig:
     auth_cookie_name: str | None
 
 
-def resolve_setta_profiles_dir(*, setta_home: Path) -> Path:
-    return (setta_home / "profiles").resolve(strict=False)
-
-
 def resolve_setta_profile_path(*, setta_home: Path, profile: str) -> Path:
     trimmed = profile.strip()
     if not trimmed:
@@ -41,7 +37,7 @@ def resolve_setta_profile_path(*, setta_home: Path, profile: str) -> Path:
         raise SettaProfileConfigError(f"Invalid profile name: {profile!r}")
     if "/" in trimmed or "\\" in trimmed:
         raise SettaProfileConfigError(f"Invalid profile name: {profile!r}")
-    return resolve_setta_profiles_dir(setta_home=setta_home) / f"{trimmed}.json"
+    return (setta_home / "profiles").resolve(strict=False) / f"{trimmed}.json"
 
 
 def _coerce_optional_string(*, raw: object, label: str) -> str | None:
@@ -169,7 +165,3 @@ def load_setta_profile(
 ) -> SettaProfileConfig:
     resolved_home = (setta_home or resolve_setta_home()).resolve(strict=False)
     return _load_setta_profile_uncached(profile=profile, setta_home=resolved_home)
-
-
-def clear_setta_profile_config_cache() -> None:
-    load_setta_profile.cache_clear()

@@ -1,111 +1,64 @@
-import { RouteEnum, type ServerModeResponse } from "./generatedTypes";
+import type { HttpapiServerModeResponse } from "openapi/http";
+import {
+  resolveGeneratedEndpointOriginForMode,
+  resolveGeneratedServerModeCapabilities,
+  resolveGeneratedWorkspaceLaunchRouteKind,
+} from "./bindingRuntime";
+import {
+  EndpointOriginEnum,
+  EndpointOriginPolicyByRoute,
+  ModeScopedLauncherRoutesList,
+  ServerModeBoundaryPolicyByMode,
+  WorkspaceLaunchRouteKindEnum,
+  type EndpointOrigin as GeneratedEndpointOrigin,
+  type ServerModeCapabilities as GeneratedServerModeCapabilities,
+  type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
+} from "./generatedTypes";
+import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
-export type ServerMode = ServerModeResponse["mode"] | null;
-export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
-export type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
+export type ServerMode = HttpapiServerModeResponse["mode"] | null;
+export type EndpointOrigin = GeneratedEndpointOrigin;
+export type WorkspaceLaunchRouteKind = GeneratedWorkspaceLaunchRouteKind;
 
-export type ServerModeCapabilities = {
-  canManageDesktopLauncher: boolean;
+export type ServerModeCapabilities = GeneratedServerModeCapabilities;
+
+export const ENDPOINT_ORIGIN_POLICY = EndpointOriginPolicyByRoute;
+
+const NULL_SERVER_MODE_CAPABILITIES: ServerModeCapabilities = {
+  canManageDesktopLauncher: false,
 };
-
-type ModeBoundaryPolicy = {
-  capabilities: ServerModeCapabilities;
-  workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
-};
-
-const MODE_BOUNDARY_POLICY: Readonly<
-  Record<ServerModeResponse["mode"], ModeBoundaryPolicy>
-> = Object.freeze({
-  ide: {
-    capabilities: { canManageDesktopLauncher: true },
-    workspaceLaunchRouteKind: "ide",
-  },
-  share: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-  app: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-  launcher: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "launcher",
-  },
-});
-
-export const ENDPOINT_ORIGIN_POLICY: Readonly<
-  Record<string, EndpointOriginPolicy>
-> = Object.freeze({
-  [RouteEnum.LAUNCH]: "launcher",
-  [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
-  [RouteEnum.GET_SETTA_HOME_INFO]: "backend",
-  [RouteEnum.TOOLS_CALL]: "backend-origin",
-  [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
-  [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS]: "launcher",
-  [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
-  [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
-});
-
-const MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
-  RouteEnum.LAUNCH,
-  RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT,
-]);
 
 export function resolveServerModeCapabilities(
   mode: ServerMode,
 ): ServerModeCapabilities {
-  if (mode === null) {
-    return { canManageDesktopLauncher: false };
-  }
-  return MODE_BOUNDARY_POLICY[mode].capabilities;
+  return resolveGeneratedServerModeCapabilities(
+    ServerModeBoundaryPolicyByMode,
+    mode,
+    NULL_SERVER_MODE_CAPABILITIES,
+  );
 }
 
 export function resolveWorkspaceLaunchRouteKind(
   mode: ServerMode,
 ): WorkspaceLaunchRouteKind {
-  if (mode === null) {
-    return "blocked";
-  }
-  return MODE_BOUNDARY_POLICY[mode].workspaceLaunchRouteKind;
-}
-
-function stripQueryAndHash(address: string): string {
-  const hashIndex = address.indexOf("#");
-  let withoutHash = address;
-  if (hashIndex >= 0) {
-    withoutHash = address.slice(0, hashIndex);
-  }
-  const queryIndex = withoutHash.indexOf("?");
-  if (queryIndex >= 0) {
-    return withoutHash.slice(0, queryIndex);
-  }
-  return withoutHash;
+  return resolveGeneratedWorkspaceLaunchRouteKind(
+    ServerModeBoundaryPolicyByMode,
+    mode,
+    WorkspaceLaunchRouteKindEnum.blocked,
+  );
 }
 
 export function resolveEndpointOriginForMode(
   address: string,
   serverMode: ServerMode,
-): EndpointOriginPolicy {
-  const normalizedAddress = stripQueryAndHash(address);
-  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
-    return "backend-origin";
-  }
-  const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
-  if (routePolicy === "backend-origin") {
-    return "backend-origin";
-  }
-  if (routePolicy === "launcher") {
-    if (
-      MODE_SCOPED_LAUNCHER_ROUTES.has(normalizedAddress) &&
-      serverMode !== "launcher"
-    ) {
-      return "backend";
-    }
-    return "launcher";
-  }
-  return "backend";
+): EndpointOrigin {
+  return resolveGeneratedEndpointOriginForMode(address, serverMode, {
+    bootstrapPage: ROOT_TRANSPORT_ROUTES.bootstrapPage,
+    launcherMode: "launcher",
+    endpointOriginPolicy: EndpointOriginPolicyByRoute,
+    modeScopedLauncherRoutes: new Set<string>(ModeScopedLauncherRoutesList),
+    backendOriginValue: EndpointOriginEnum.BackendOrigin,
+    launcherOriginValue: EndpointOriginEnum.launcher,
+    backendValue: EndpointOriginEnum.backend,
+  });
 }
