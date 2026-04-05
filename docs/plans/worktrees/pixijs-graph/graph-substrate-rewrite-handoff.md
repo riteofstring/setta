@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 19:20 EDT
+Last updated: 2026-04-05 19:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,60 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `206` split the canary sections layer into a section-shell boundary plus a memoized DOM body implementation so shell-only updates no longer rerender `SectionContainer`.
+  - Why this slice was needed:
+    - item `205` explicitly handed off to a renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` when Pixi approval was still unavailable
+    - drag state, z-index, and rendered-position updates still flowed through the same component that rendered the heavy DOM-backed section body, so any first scene-owned shell insertion would have to reopen that fused layer
+    - those shell-only changes also caused unnecessary `SectionContainer` rerenders even though the DOM body content itself had not changed
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - owns the positioned section shell contract: pointer-capture wiring, cursor state, shell transform, z-index, and canary section data attributes
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - keeps the DOM-backed `SectionContainer` behind one memoized body implementation boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - now composes `SettingsGraphSubstrateCanarySectionShell` with `SettingsGraphSubstrateCanaryDomSectionBody` instead of rendering the body directly inside the drag shell map
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - now proves drag-state and shell-position updates change only the shell while the DOM-backed section body stays memoized
+  - What this slice established:
+    - the canary now has a real section-shell contract at the layer where a future scene-owned renderer will attach, instead of another controller-only or forwarding seam hop
+    - shell updates such as `data-dragging`, translated position, and temp z-index no longer force `SectionContainer` rerenders for the same `sectionId`
+    - the next scene-owned static layer can target `SettingsGraphSubstrateCanarySectionShell` while keeping the current DOM body path isolated in `SettingsGraphSubstrateCanaryDomSectionBody`
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green on refreshed run-037 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.03741ms`; worktree average frame duration was `17.0025ms`
+      - visible section count stayed `46` on both sides
+      - both sides recorded one long task during the capture window (`52ms` reference, `51ms` worktree)
+    - the required CDP visual gate is green on the same normalized lane:
+      - a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - live `/settings` tabs on worktree `3076` and read-only `main` `3087` were checked around `rotaryParamCodeObjDefault`
+      - one `3087` tab was still loading, but another fully rendered `3087` tab was usable and showed no blocking gross graph-surface drift; workspace label/chat chrome remained oracle noise
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed (`2 files`, `7 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanary(SectionsLayer|SectionShell|DomSectionBody)" || true`
+      - result: no matches
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-037/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-037/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-037 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-037 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `36.7s`)
+    - CDP visual check:
+      - result: done
+      - note: a fully rendered read-only `main` `/settings` tab and the worktree `/settings` tab showed no blocking gross graph-surface drift around `rotaryParamCodeObjDefault`; extra workspace label/chat chrome remained oracle noise
+  - Lane status:
+    - this closes the requested renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer`
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, install Pixi and land the first scene-owned static shell layer using `SettingsGraphSubstrateCanarySectionShell` while DOM bodies stay in `SettingsGraphSubstrateCanaryDomSectionBody`
+    - if approval is still unavailable, keep the next bounded slice on renderer ownership rather than parity/controller cleanup by extracting the section-shell appearance data that a future scene-owned layer will need from the current DOM section chrome path
 
 - Ralph item `205` extracted the remaining canary pane/viewport controller wiring out of `SettingsGraphSubstrateCanary.tsx` into one dedicated controller seam.
   - Why this slice was needed:

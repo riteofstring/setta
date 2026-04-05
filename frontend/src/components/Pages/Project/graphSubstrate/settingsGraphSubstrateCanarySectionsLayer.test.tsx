@@ -87,7 +87,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
-  it("rerenders the layer when drag state changes the rendered section shell", async () => {
+  it("updates shell drag state without rerendering the section body", async () => {
     const sceneSections = [createSceneSection()];
 
     await act(async () => {
@@ -100,7 +100,12 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       );
     });
 
-    // Dragging state changes the visible cursor/data flags, so the layer must commit again.
+    const initialSection = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section"]',
+    );
+    expect(initialSection?.dataset.dragging).toBe("false");
+
+    // Dragging state changes the visible shell flags, but not the DOM-backed body.
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -111,7 +116,55 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       );
     });
 
-    expect(mockSectionContainer).toHaveBeenCalledTimes(2);
+    const draggingSection = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section"]',
+    );
+    expect(draggingSection?.dataset.dragging).toBe("true");
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates shell positioning without rerendering the section body", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              renderedPosition: { x: 120, y: 80 },
+              tempZIndex: 2,
+            }),
+          ]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    const initialSection = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section"]',
+    );
+    expect(initialSection?.style.transform).toContain("120px");
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              renderedPosition: { x: 260, y: 140 },
+              tempZIndex: 8,
+            }),
+          ]}
+          viewportTick={1}
+        />,
+      );
+    });
+
+    const movedSection = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section"]',
+    );
+    expect(movedSection?.style.transform).toContain("260px");
+    expect(movedSection?.style.zIndex).toBe("8");
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -134,6 +187,7 @@ function createSceneSection(
 
 function createSectionDragController() {
   return {
+    cancelSectionDrag: vi.fn(),
     cleanup: vi.fn(),
     finishSectionDrag: vi.fn(() => false),
     handleSectionPointerDown: vi.fn(() => false),

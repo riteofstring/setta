@@ -1,10 +1,8 @@
-import { SectionContainer } from "components/Section/Container/SectionContainer";
-import React, {
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import React, { type PointerEvent as ReactPointerEvent } from "react";
+import { SettingsGraphSubstrateCanaryDomSectionBody } from "./settingsGraphSubstrateCanaryDomSectionBody";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
+import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
@@ -71,41 +69,19 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   return (
     <>
       {sceneSections.map((section) => {
-        let sectionCursor: CSSProperties["cursor"] = "grab";
-        if (section.positionAndSizeLocked) {
-          sectionCursor = "default";
-        } else if (draggingSectionId === section.sectionId) {
-          sectionCursor = "grabbing";
-        }
-
         return (
-          <div
+          <SettingsGraphSubstrateCanarySectionShell
             key={section.sectionId}
-            className="react-flow__node"
-            style={{
-              cursor: sectionCursor,
-              touchAction: "none",
-              position: "absolute",
-              transform: `translate(${section.renderedPosition.x}px,${section.renderedPosition.y}px)`,
-              transformOrigin: "0 0",
-              pointerEvents: "all",
-              visibility: "visible",
-              zIndex: section.tempZIndex,
-            }}
-            data-id={section.sectionId}
-            data-dragging={
-              draggingSectionId === section.sectionId ? "true" : "false"
-            }
-            data-testid="graph-substrate-canary-section"
-            onPointerDownCapture={(event) =>
-              handleSectionPointerDown(section, event)
-            }
-            onPointerMoveCapture={handleSectionPointerMove}
-            onPointerUpCapture={(event) => finishSectionDrag(event, true)}
-            onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
+            draggingSectionId={draggingSectionId}
+            finishSectionDrag={finishSectionDrag}
+            handleSectionPointerDown={handleSectionPointerDown}
+            handleSectionPointerMove={handleSectionPointerMove}
+            section={section}
           >
-            <SectionContainer sectionId={section.sectionId} isTopLevel={true} />
-          </div>
+            <SettingsGraphSubstrateCanaryDomSectionBody
+              sectionId={section.sectionId}
+            />
+          </SettingsGraphSubstrateCanarySectionShell>
         );
       })}
     </>
