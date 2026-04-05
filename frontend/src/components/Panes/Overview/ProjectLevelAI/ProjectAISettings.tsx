@@ -2,6 +2,8 @@ import { buildLLMConfigGroups } from "components/Chat/llmConfigUtils";
 import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { saveSettings } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -34,19 +36,18 @@ import {
   useShareSession,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_save_settings } from "utils/generatedEndpoints";
 import {
   AgentProfile,
   ClaudeSettingsSourceEnum,
   ExternalAgentConfig,
-  ExternalAgentRunModeEnum,
-  ExternalAgentSettingsModeEnum,
-  ExternalAgentToolTypeEnum,
-  ExternalAgentWorkingDirStrategyEnum,
-  PromptFormatEnum,
-  PromptTemplate,
+  FormatEnum,
+  RunModeEnum,
+  SettingsModeEnum,
+  Template,
+  ToolTypeEnum,
   TranscriptionProfile,
   TranscriptionTransportModeEnum,
+  WorkingDirStrategyEnum,
   createSettingsState,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -125,20 +126,16 @@ type ExternalAgentConfigDraft = {
   claudeAllowText: string;
   claudeAskText: string;
   claudeDenyText: string;
-  opencodePermissionText: string;
-  opencodeMcpText: string;
 };
 
-type PromptFormatValue =
-  (typeof PromptFormatEnum)[keyof typeof PromptFormatEnum];
+type PromptFormatValue = (typeof FormatEnum)[keyof typeof FormatEnum];
 type ExternalAgentToolTypeValue =
-  (typeof ExternalAgentToolTypeEnum)[keyof typeof ExternalAgentToolTypeEnum];
-type ExternalAgentRunModeValue =
-  (typeof ExternalAgentRunModeEnum)[keyof typeof ExternalAgentRunModeEnum];
+  (typeof ToolTypeEnum)[keyof typeof ToolTypeEnum];
+type ExternalAgentRunModeValue = (typeof RunModeEnum)[keyof typeof RunModeEnum];
 type ExternalAgentSettingsModeValue =
-  (typeof ExternalAgentSettingsModeEnum)[keyof typeof ExternalAgentSettingsModeEnum];
+  (typeof SettingsModeEnum)[keyof typeof SettingsModeEnum];
 type ExternalAgentWorkingDirStrategyValue =
-  (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
+  (typeof WorkingDirStrategyEnum)[keyof typeof WorkingDirStrategyEnum];
 type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 type TranscriptionTransportModeValue =
@@ -173,6 +170,13 @@ const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(shutdown:*)",
   "Bash(reboot:*)",
 ];
+const CLAUDE_APPROVAL_POLICY_OPTIONS = [
+  { value: "", label: "Use settings file / chat override" },
+  { value: "default", label: "Default" },
+  { value: "acceptEdits", label: "Accept edits" },
+  { value: "plan", label: "Plan" },
+  { value: "bypassPermissions", label: "YOLO (bypassPermissions)" },
+] as const;
 const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
 
 export function resolveTranscriptionChunkMsForSave({
@@ -284,7 +288,7 @@ export function ProjectAISettings() {
       {
         value: "project-ai-settings-external-agents",
         title: "External Agents",
-        description: "Configure Claude Code, Codex, or OpenCode adapters.",
+        description: "Configure Claude Code and Codex adapters.",
         triggerTestId: "project-ai-settings-accordion-external-agents",
         content: (
           <div data-setting-anchor="core.project_ai_settings.external_agents">
@@ -392,7 +396,9 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
       completionGuardSaveRequestIdRef.current = requestId;
       setIsSavingCompletionGuard(true);
       void (async () => {
-        const response = await route_save_settings({ settings: nextSettings });
+        const response = await callOpenAPI(
+          saveSettings({ body: { settings: nextSettings } }),
+        );
         if (requestId !== completionGuardSaveRequestIdRef.current) {
           return;
         }
@@ -1184,7 +1190,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const [inputSchemaError, setInputSchemaError] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
 
-  const formatOptions = useMemo(() => Object.values(PromptFormatEnum), []);
+  const formatOptions = useMemo(() => Object.values(FormatEnum), []);
 
   useEffect(() => {
     if (isCreating) {
@@ -1215,7 +1221,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         template: "",
-        format: PromptFormatEnum.Jinja,
+        format: FormatEnum.Jinja,
         inputSchemaText: "{}",
         metadataText: "{}",
       });
@@ -1518,25 +1524,15 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<ExternalAgentConfigDraft | null>(null);
-  const [opencodePermissionError, setOpencodePermissionError] = useState<
-    string | null
-  >(null);
-  const [opencodeMcpError, setOpencodeMcpError] = useState<string | null>(null);
 
-  const toolTypeOptions = useMemo(
-    () => Object.values(ExternalAgentToolTypeEnum),
-    [],
-  );
-  const runModeOptions = useMemo(
-    () => Object.values(ExternalAgentRunModeEnum),
-    [],
-  );
+  const toolTypeOptions = useMemo(() => Object.values(ToolTypeEnum), []);
+  const runModeOptions = useMemo(() => Object.values(RunModeEnum), []);
   const workingDirOptions = useMemo(
-    () => Object.values(ExternalAgentWorkingDirStrategyEnum),
+    () => Object.values(WorkingDirStrategyEnum),
     [],
   );
   const settingsModeOptions = useMemo(
-    () => Object.values(ExternalAgentSettingsModeEnum),
+    () => Object.values(SettingsModeEnum),
     [],
   );
   const settingsSourceOptions = useMemo(
@@ -1546,7 +1542,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
 
   const defaultToolType = toolTypeOptions.length
     ? toolTypeOptions[0]
-    : ExternalAgentToolTypeEnum.codex;
+    : ToolTypeEnum.codex;
 
   useEffect(() => {
     if (isCreating) {
@@ -1583,13 +1579,13 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         toolType: defaultToolType,
-        runMode: ExternalAgentRunModeEnum.sdk,
+        runMode: RunModeEnum.sdk,
         commandPath: "",
         baseUrl: "",
         defaultModel: "",
         sandboxPolicy: "",
         approvalPolicy: "",
-        settingsMode: ExternalAgentSettingsModeEnum.managed_local,
+        settingsMode: SettingsModeEnum.managed_local,
         settingsSources: [
           ClaudeSettingsSourceEnum.project,
           ClaudeSettingsSourceEnum.local,
@@ -1597,27 +1593,19 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         settingsFilePath: "",
         settingsAllowSettaEdits: true,
         envVarWhitelistText: "",
-        workingDirStrategy: ExternalAgentWorkingDirStrategyEnum.project_root,
+        workingDirStrategy: WorkingDirStrategyEnum.project_root,
         workingDir: "",
         claudeAllowText: "",
         claudeAskText: DEFAULT_CLAUDE_ASK_RULES.join("\n"),
         claudeDenyText: "",
-        opencodePermissionText: "",
-        opencodeMcpText: "",
       });
-      setOpencodePermissionError(null);
-      setOpencodeMcpError(null);
       return;
     }
     if (!activeConfig) {
       setDraft(null);
-      setOpencodePermissionError(null);
-      setOpencodeMcpError(null);
       return;
     }
     setDraft(buildExternalAgentConfigDraft(activeConfig));
-    setOpencodePermissionError(null);
-    setOpencodeMcpError(null);
   }, [activeConfig, defaultToolType, isCreating]);
 
   const listClassName = MANAGER_LIST_CLASS_NAME;
@@ -1639,37 +1627,12 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     const envVarWhitelist = parseListInput(draft.envVarWhitelistText);
     let settingsSources: Array<ClaudeSettingsSourceValue> | null = null;
     if (
-      draft.toolType === ExternalAgentToolTypeEnum.claude_code &&
+      draft.toolType === ToolTypeEnum.claude_code &&
       draft.settingsSources.length > 0
     ) {
       settingsSources = draft.settingsSources;
     }
-    let opencodePermission: OpenCodePermission | null = null;
-    let opencodeMcp: Record<string, unknown> | null = null;
-    if (draft.toolType === ExternalAgentToolTypeEnum.opencode) {
-      const permissionResult = parseOpenCodePermission(
-        draft.opencodePermissionText,
-      );
-      const mcpResult = parseOptionalJsonObject(draft.opencodeMcpText);
-      setOpencodePermissionError(permissionResult.error);
-      setOpencodeMcpError(mcpResult.error);
-      if (permissionResult.error || mcpResult.error) {
-        return;
-      }
-      opencodePermission = permissionResult.value;
-      opencodeMcp = mcpResult.value;
-    } else {
-      setOpencodePermissionError(null);
-      setOpencodeMcpError(null);
-    }
-    const settingsManagedBlock = buildSettingsManagedBlock(
-      draft,
-      activeConfig,
-      {
-        opencodePermission,
-        opencodeMcp,
-      },
-    );
+    const settingsManagedBlock = buildSettingsManagedBlock(draft, activeConfig);
     const payloadBase = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -1730,8 +1693,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     }
     if (activeConfig) {
       setDraft(buildExternalAgentConfigDraft(activeConfig));
-      setOpencodePermissionError(null);
-      setOpencodeMcpError(null);
     }
   };
 
@@ -1747,16 +1708,16 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         const toolType = value as ExternalAgentToolTypeValue;
         let nextRunMode = prev.runMode;
         if (
-          toolType === ExternalAgentToolTypeEnum.codex &&
-          prev.runMode === ExternalAgentRunModeEnum.sdk
+          toolType === ToolTypeEnum.codex &&
+          prev.runMode === RunModeEnum.sdk
         ) {
-          nextRunMode = ExternalAgentRunModeEnum.app_server;
+          nextRunMode = RunModeEnum.app_server;
         }
         if (
-          toolType !== ExternalAgentToolTypeEnum.codex &&
-          prev.runMode === ExternalAgentRunModeEnum.app_server
+          toolType !== ToolTypeEnum.codex &&
+          prev.runMode === RunModeEnum.app_server
         ) {
-          nextRunMode = ExternalAgentRunModeEnum.sdk;
+          nextRunMode = RunModeEnum.sdk;
         }
         return { ...prev, toolType, runMode: nextRunMode };
       }
@@ -1767,17 +1728,15 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
-  const isClaudeTool =
-    draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
-  const isOpenCodeTool = draft?.toolType === ExternalAgentToolTypeEnum.opencode;
-  const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
+  const isClaudeTool = draft?.toolType === ToolTypeEnum.claude_code;
+  const needsBaseUrl = draft?.runMode === RunModeEnum.server;
   const commandPathPlaceholder =
-    draft?.toolType === ExternalAgentToolTypeEnum.codex &&
-    draft?.runMode === ExternalAgentRunModeEnum.app_server
+    draft?.toolType === ToolTypeEnum.codex &&
+    draft?.runMode === RunModeEnum.app_server
       ? "codex"
       : "node";
   const isExplicitSettingsPath =
-    draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
+    draft?.settingsMode === SettingsModeEnum.explicit_path;
 
   return (
     <div className="flex flex-col gap-3">
@@ -1953,15 +1912,42 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                     disabled={!canEdit}
                   />
                 </Field>
-                <Field label="Approval Policy">
-                  <input
-                    value={draft.approvalPolicy}
-                    onChange={(event) =>
-                      handleFieldChange("approvalPolicy", event.target.value)
-                    }
-                    className={INPUT_CLASS_NAME}
-                    disabled={!canEdit}
-                  />
+                <Field
+                  label="Approval Policy"
+                  hint={
+                    draft.toolType === ToolTypeEnum.claude_code
+                      ? "Claude Code permission mode. Choose YOLO to bypass approval prompts when chat permissions stay at config_toml_custom; /permissions yolo still overrides per run."
+                      : undefined
+                  }
+                >
+                  {draft.toolType === ToolTypeEnum.claude_code ? (
+                    <select
+                      value={draft.approvalPolicy}
+                      onChange={(event) =>
+                        handleFieldChange("approvalPolicy", event.target.value)
+                      }
+                      className={SELECT_CLASS_NAME}
+                      disabled={!canEdit}
+                    >
+                      {CLAUDE_APPROVAL_POLICY_OPTIONS.map((option) => (
+                        <option
+                          key={option.value || "default-source"}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={draft.approvalPolicy}
+                      onChange={(event) =>
+                        handleFieldChange("approvalPolicy", event.target.value)
+                      }
+                      className={INPUT_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  )}
                 </Field>
               </div>
               <div className="grid gap-3 @[40rem]:grid-cols-2">
@@ -2102,52 +2088,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   </div>
                 </>
               ) : null}
-              {isOpenCodeTool ? (
-                <>
-                  <Field
-                    label="OpenCode Permission (JSON)"
-                    hint="Leave blank to use defaults."
-                    error={opencodePermissionError}
-                  >
-                    <textarea
-                      value={draft.opencodePermissionText}
-                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-                        handleFieldChange(
-                          "opencodePermissionText",
-                          event.target.value,
-                        );
-                        const result = parseOpenCodePermission(
-                          event.target.value,
-                        );
-                        setOpencodePermissionError(result.error);
-                      }}
-                      className={TEXTAREA_CLASS_NAME}
-                      disabled={!canEdit}
-                    />
-                  </Field>
-                  <Field
-                    label="OpenCode MCP Overrides (JSON)"
-                    hint="Optional. Merged into opencode.json."
-                    error={opencodeMcpError}
-                  >
-                    <textarea
-                      value={draft.opencodeMcpText}
-                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-                        handleFieldChange(
-                          "opencodeMcpText",
-                          event.target.value,
-                        );
-                        const result = parseOptionalJsonObject(
-                          event.target.value,
-                        );
-                        setOpencodeMcpError(result.error);
-                      }}
-                      className={TEXTAREA_CLASS_NAME}
-                      disabled={!canEdit}
-                    />
-                  </Field>
-                </>
-              ) : null}
               <Field label="Env Var Whitelist" hint="Names only, one per line.">
                 <textarea
                   value={draft.envVarWhitelistText}
@@ -2250,9 +2190,7 @@ function buildTranscriptionProfileDraft(
   };
 }
 
-function buildPromptTemplateDraft(
-  template: PromptTemplate,
-): PromptTemplateDraft {
+function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
   return {
     name: template.name ?? "",
     description: template.description ?? "",
@@ -2276,11 +2214,10 @@ function buildExternalAgentConfigDraft(
     defaultModel: config.defaultModel ?? "",
     sandboxPolicy: config.sandboxPolicy ?? "",
     approvalPolicy: config.approvalPolicy ?? "",
-    settingsMode:
-      config.settingsMode ?? ExternalAgentSettingsModeEnum.managed_local,
+    settingsMode: config.settingsMode ?? SettingsModeEnum.managed_local,
     settingsSources:
       config.settingsSources ??
-      (config.toolType === ExternalAgentToolTypeEnum.claude_code
+      (config.toolType === ToolTypeEnum.claude_code
         ? [ClaudeSettingsSourceEnum.project, ClaudeSettingsSourceEnum.local]
         : []),
     settingsFilePath: config.settingsFilePath ?? "",
@@ -2294,51 +2231,25 @@ function buildExternalAgentConfigDraft(
       config.settingsManagedBlock?.claude?.permissions?.ask?.join("\n") ?? "",
     claudeDenyText:
       config.settingsManagedBlock?.claude?.permissions?.deny?.join("\n") ?? "",
-    opencodePermissionText: serializeJson(
-      config.settingsManagedBlock?.opencode?.permission,
-    ),
-    opencodeMcpText: serializeJson(config.settingsManagedBlock?.opencode?.mcp),
   };
 }
 
 function buildSettingsManagedBlock(
   draft: ExternalAgentConfigDraft,
   existing: ExternalAgentConfig | null,
-  opencodeOverrides?: {
-    opencodePermission: OpenCodePermission | null;
-    opencodeMcp: Record<string, unknown> | null;
-  },
 ): ExternalAgentConfig["settingsManagedBlock"] | null {
   const existingBlock = existing?.settingsManagedBlock ?? null;
   const baseBlock: NonNullable<ExternalAgentConfig["settingsManagedBlock"]> =
     existingBlock && typeof existingBlock === "object"
       ? { ...existingBlock }
       : {};
-  if (draft.toolType === ExternalAgentToolTypeEnum.claude_code) {
+  if (draft.toolType === ToolTypeEnum.claude_code) {
     const claudePermissions = {
       allow: parseListInput(draft.claudeAllowText),
       ask: parseListInput(draft.claudeAskText),
       deny: parseListInput(draft.claudeDenyText),
     };
     baseBlock.claude = { permissions: claudePermissions };
-    return baseBlock;
-  }
-  if (draft.toolType === ExternalAgentToolTypeEnum.opencode) {
-    const permission = opencodeOverrides?.opencodePermission ?? null;
-    const mcp = opencodeOverrides?.opencodeMcp ?? null;
-    if (permission === null && mcp === null) {
-      return existingBlock;
-    }
-    const existingOpencode =
-      existingBlock && typeof existingBlock === "object"
-        ? existingBlock.opencode ?? null
-        : null;
-    const opencodeBlock = {
-      permission: permission ?? existingOpencode?.permission ?? null,
-      mcp: mcp ?? existingOpencode?.mcp ?? null,
-      model: existingOpencode?.model ?? null,
-    };
-    baseBlock.opencode = opencodeBlock;
     return baseBlock;
   }
   return existingBlock;
@@ -2364,24 +2275,6 @@ type JsonParseResult = {
   error: string | null;
 };
 
-type OptionalJsonParseResult = {
-  value: Record<string, unknown> | null;
-  error: string | null;
-};
-
-type OpenCodePermission = Record<string, string | Record<string, string>>;
-
-function serializeJson(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "";
-  }
-}
-
 function parseJsonObject(value: string): JsonParseResult {
   if (!value.trim()) {
     return { value: {}, error: null };
@@ -2395,49 +2288,4 @@ function parseJsonObject(value: string): JsonParseResult {
   } catch {
     return { value: {}, error: "Invalid JSON." };
   }
-}
-
-function parseOptionalJsonObject(value: string): OptionalJsonParseResult {
-  if (!value.trim()) {
-    return { value: null, error: null };
-  }
-  const result = parseJsonObject(value);
-  if (result.error) {
-    return { value: null, error: result.error };
-  }
-  return { value: result.value, error: null };
-}
-
-function parseOpenCodePermission(value: string): {
-  value: OpenCodePermission | null;
-  error: string | null;
-} {
-  if (!value.trim()) {
-    return { value: null, error: null };
-  }
-  const result = parseJsonObject(value);
-  if (result.error) {
-    return { value: null, error: result.error };
-  }
-  const entries = Object.entries(result.value);
-  for (const [, entry] of entries) {
-    if (typeof entry === "string") {
-      continue;
-    }
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      return {
-        value: null,
-        error: "Permission values must be strings or JSON objects.",
-      };
-    }
-    for (const nested of Object.values(entry)) {
-      if (typeof nested !== "string") {
-        return {
-          value: null,
-          error: "Permission objects must map to string values.",
-        };
-      }
-    }
-  }
-  return { value: result.value as OpenCodePermission, error: null };
 }

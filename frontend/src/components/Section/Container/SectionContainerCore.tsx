@@ -6,16 +6,22 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
-import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
+import {
+  useAgenticScopeHighlights,
+  useLocalStorage,
+  useProjectState,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
-import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
@@ -88,16 +94,37 @@ function _SectionContainerCore({
       : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
-  const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
-    useSectionChromeAppearance({
-      sectionId,
-      sectionTypeName,
-      styleColor,
-      textBlockMetaControlStyle,
-    });
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
+  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const sectionStyleTheme =
+    resolvedStyleColor && !useMetaControlStyle
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null;
+  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
+  const sectionStyleVars = sectionStyleTheme
+    ? ({
+        "--setta-section-style-bg": sectionStyleTheme.bg,
+        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+        "--setta-section-style-border": sectionStyleTheme.border,
+        "--setta-section-style-outline": sectionStyleTheme.outline,
+        "--setta-section-style-text": sectionStyleTheme.text,
+        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+        "--setta-section-style-arg-handle": sectionStyleTheme.border,
+        "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
+        "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
+        "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
+      } as React.CSSProperties)
+    : undefined;
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
