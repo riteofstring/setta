@@ -9,12 +9,12 @@ import {
   route_get_git_status,
 } from "utils/generatedEndpoints";
 import {
+  createGetGitCommitDetailsResponse,
+  createGetGitLogResponse,
+  createGetGitStatusResponse,
   createGitCommit,
-  createGitCommitDetailsResponse,
-  createGitLogResponse,
-  createGitStatusResponse,
+  type GetGitLogResponse,
   type GitCommit,
-  type GitLogResponse,
 } from "utils/generatedTypes";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -70,8 +70,8 @@ function createLogResponse({
   nextOffset: number | null;
   hasMore: boolean;
   isCapped: boolean;
-}): GitLogResponse {
-  return createGitLogResponse({
+}): GetGitLogResponse {
+  return createGetGitLogResponse({
     repoRoot: "/repo",
     headBranch: "main",
     commits,
@@ -90,7 +90,7 @@ function setGraphOverlayState({
   loadMoreError = null,
 }: {
   projectConfigId?: string;
-  response: GitLogResponse;
+  response: GetGitLogResponse;
   filterText?: string;
   loadMoreError?: string | null;
 }): void {
@@ -160,7 +160,7 @@ function setGitStatusResponse(
   useGitStore.setState((state) => ({
     ...state,
     status: {
-      response: createGitStatusResponse({
+      response: createGetGitStatusResponse({
         repo: {
           isGitRepo: true,
           repoRoot: "/repo",
@@ -582,7 +582,7 @@ describe("git graph actions", () => {
           return {
             status: 200,
             hasResponse: true,
-            data: createGitCommitDetailsResponse({
+            data: createGetGitCommitDetailsResponse({
               repoRoot: "/repo",
               commitHash,
               parents: [],
@@ -610,7 +610,7 @@ describe("git graph actions", () => {
         return {
           status: 200,
           hasResponse: true,
-          data: createGitCommitDetailsResponse({
+          data: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash,
             parents: ["a1b2c3"],
@@ -677,7 +677,7 @@ describe("git graph actions", () => {
     const detailsDeferred = createDeferred<{
       status: number;
       hasResponse: boolean;
-      data: ReturnType<typeof createGitCommitDetailsResponse>;
+      data: ReturnType<typeof createGetGitCommitDetailsResponse>;
     }>();
     setGraphOverlayState({
       projectConfigId: "project-a",
@@ -721,7 +721,7 @@ describe("git graph actions", () => {
     detailsDeferred.resolve({
       status: 200,
       hasResponse: true,
-      data: createGitCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo-a",
         commitHash: "a1b2c3",
         parents: [],
@@ -773,7 +773,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGitCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -859,7 +859,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGitCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -924,7 +924,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createGitCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -1063,7 +1063,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGitCommitDetailsResponse({
+          selectedCommitDetails: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],
@@ -1149,7 +1149,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGitCommitDetailsResponse({
+          selectedCommitDetails: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],

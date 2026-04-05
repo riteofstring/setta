@@ -6,29 +6,17 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
-import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_share_session_current,
   route_load_share_project_config,
 } from "utils/generatedEndpoints";
-import type {
-  ProjectStateSingleConfigWithCompletedOpIDs,
-  ShareDeploymentSessionResponse,
-} from "utils/generatedTypes";
+import type { ShareDeploymentSessionResponse } from "utils/generatedTypes";
 
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
   forceNewSession?: boolean;
 };
-
-type ShareDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<ShareDeploymentSessionResponse>;
-type ShareProjectConfigRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
@@ -193,8 +181,7 @@ export async function ensureShareSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes: ShareDeploymentSessionRouteResponse =
-    await route_create_share_session_current();
+  const sessionRes = await route_create_share_session_current();
   if (!res200(sessionRes)) {
     return null;
   }
@@ -250,19 +237,13 @@ export async function loadShareProjectConfig({
   }
 
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
-  const stateRes: ShareProjectConfigRouteResponse =
-    await route_load_share_project_config(
-      shareSession.shareDeploymentName,
-      shareSession.shareDeploymentVersion,
-      { projectConfigId },
-    );
+  const stateRes = await route_load_share_project_config(
+    shareSession.shareDeploymentName,
+    shareSession.shareDeploymentVersion,
+    { projectConfigId },
+  );
   if (!res200(stateRes)) {
-    const errorCode = getErrorCode(stateRes.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
+    if (allowRetry && stateRes.status === 404) {
       const session = await ensureShareSessionFromCurrentDeployment({
         forceNewSession: true,
       });

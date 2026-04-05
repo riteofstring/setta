@@ -16,15 +16,11 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_delete_sections,
-  route_get_latest_project_state,
-} from "utils/generatedEndpoints";
+import { route_delete_sections } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type PluginAreaProps = {
@@ -333,21 +329,14 @@ function PluginSectionFallbackCard({
       return;
     }
     setIsDeleting(true);
-    const projectConfigId = getCurrProjectConfigId();
     const response = await route_delete_sections({
-      projectConfigId,
+      projectConfigId: getCurrProjectConfigId(),
       sectionIds: [sectionId],
     });
     setIsDeleting(false);
     if (!res200(response)) {
       addTemporaryNotification("Failed to delete plugin section.", "error");
       return;
-    }
-    const latestProjectStateResponse = await route_get_latest_project_state({
-      projectConfigId,
-    });
-    if (res200(latestProjectStateResponse)) {
-      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
     }
     addTemporaryNotification("Plugin section deleted.", "info");
   }

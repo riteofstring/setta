@@ -7,7 +7,10 @@ import {
   route_set_state_machine_edges,
   route_update_state_machine_edge,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum, type SingleConfig } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  type ProjectStateSingleConfig,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
@@ -28,7 +31,8 @@ export const STATE_MACHINE_EDGE_HANDLE_IDS = {
   reverseStart: "workflow-reverse-start",
 } as const;
 
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
+type WorkflowEdge =
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 type WorkflowSourceFilter = NonNullable<WorkflowEdge["sourceFilter"]>;
 type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
 
@@ -48,7 +52,7 @@ type WorkflowMachineGroupMergeSnapshot = {
 };
 
 function getWorkflowSectionInfo(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): WorkflowSectionInfo {
   if (!(sectionId in state.projectConfig.sectionVariantMap)) {
@@ -149,7 +153,7 @@ function usesSharedChatHandleOnNormalizedTarget(
 }
 
 function getUniqueConnectedMachineGroupId(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): string | null {
   const machineGroupIds = new Set<string>();
@@ -169,7 +173,7 @@ function getUniqueConnectedMachineGroupId(
 }
 
 function resolveExistingMachineGroupIdForConnectionEndpoint(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
   sectionInfo: WorkflowSectionInfo,
 ): string | null {
@@ -181,7 +185,7 @@ function resolveExistingMachineGroupIdForConnectionEndpoint(
 
 function resolveMachineGroupTransitionForConnection(
   connection: Connection,
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
 ): WorkflowMachineGroupTransition {
   if (!connection.source || !connection.target) {
     return {
@@ -232,7 +236,7 @@ function resolveMachineGroupTransitionForConnection(
 }
 
 function captureWorkflowMachineGroupMergeSnapshot(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   mergedMachineGroupIds: string[],
 ): WorkflowMachineGroupMergeSnapshot {
   const mergedMachineGroupIdSet = new Set(mergedMachineGroupIds);
@@ -261,7 +265,7 @@ function captureWorkflowMachineGroupMergeSnapshot(
 }
 
 function applyWorkflowMachineGroupMerge(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   machineGroupId: string,
   mergedMachineGroupIds: string[],
 ): void {
@@ -312,7 +316,7 @@ function applyWorkflowMachineGroupMerge(
 }
 
 function restoreWorkflowMachineGroupMergeSnapshot(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   snapshot: WorkflowMachineGroupMergeSnapshot,
 ): void {
   for (const [sectionId, machineGroupId] of Object.entries(
@@ -425,7 +429,7 @@ function createDefaultTargetAction(
 
 function buildStateMachineEdgeForConnection(
   connection: Connection,
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
 ): WorkflowEdge | null {
   const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   if (
