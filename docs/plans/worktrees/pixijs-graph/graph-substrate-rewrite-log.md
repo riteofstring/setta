@@ -75,6 +75,56 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `210` | 2026-04-05 20:31 EDT
+  - Subtask: replace the canary's direct `xyflow` background dependency with a substrate-owned background component driven by the canary viewport state.
+  - Why:
+    - the last few iterations had stayed on chrome-contract extraction, and repeating that pattern again would have been churn instead of moving the active renderer frontier
+    - the immediate plan frontier says to keep product work near the remaining viewport/runtime ownership boundary that makes the first renderer insertion possible
+    - `SettingsGraphSubstrateCanary.tsx` still rendered `forks/xyflow/background/Background`, so even the grid layer was reading transform state from the shared `xyflow` store instead of canary viewport authority
+  - Production:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.tsx`
+      - ports the existing line/dot SVG primitives behind a canary-owned background component
+      - resolves pattern gap/offset/scale from the canary `GraphViewport` instead of `useReactFlow(...transform)`
+      - keeps the existing `react-flow__background` class/test id so current CSS/probes still recognize the surface
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now renders `SettingsGraphSubstrateCanaryBackground` instead of `forks/xyflow/background/Background`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - now exposes `resolvedViewport` so the canary root can drive the new background from the same viewport authority as the section layer
+  - Tests:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx`
+      - covers canary-owned pattern math and the rendered SVG attributes/theme color path
+    - added `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      - locks the root wiring to the substrate-owned background plus the existing empty-state/sections-layer branch
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx` -> passed (`3 files`, `8 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanaryController\\.ts|settingsGraphSubstrateCanaryBackground(\\.test)?\\.tsx" || true` -> no matches
+  - Runtime verification:
+    - refreshed run-041 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-041/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-041/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-041 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-041 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `40.0s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.02082ms`; worktree average frame duration was `16.62373ms`
+      - visible section count stayed `46` on both sides; reference recorded one `52ms` long task and worktree recorded none
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared the already-mounted `/settings` tabs on worktree `3076` and read-only `main` `3087`
+      - selected `rotaryParamCodeObjDefault` on both
+      - fresh bootstrap URLs were rejected again in that browser profile, so the compare stayed on the existing mounted sessions
+    - CDP visual check:
+      - result: done
+      - no target-lane graph-surface drift was visible; the background/grid treatment and node framing around `rotaryParamCodeObjDefault` matched `main`
+      - only a minimized worktree chat chip outside the graph surface differed, which stayed oracle noise
+  - Result:
+    - the canary graph surface now owns its background/grid treatment instead of depending on `xyflow`'s `Background` component and transform hook
+    - this lands one real static renderer-facing surface at the graph boundary without reopening the repeated header/chrome contract lane
+  - Next:
+    - if approval arrives to add the dependency, use the new background ownership seam plus the existing section shell boundary to land the first Pixi-owned static shell layer while section bodies stay DOM-backed
+    - if approval is still unavailable, keep the next bounded slice on a canary scene-surface composition boundary near `SettingsGraphSubstrateCanary.tsx` / `SettingsGraphSubstrateCanarySectionsLayer.tsx` instead of reopening header-action/button chrome extraction
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `209` | 2026-04-05 20:14 EDT
   - Subtask: extract section-title appearance into the shared chrome contract so section headers and project chat window headers stop depending on `SectionHeader` for title styling.
   - Why:

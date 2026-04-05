@@ -29,6 +29,7 @@ export type SettingsGraphSubstrateCanaryController = {
   handlePanePointerDown: SettingsGraphSubstrateCanarySurfaceRuntime["handlePanePointerDown"];
   handlePanePointerMove: SettingsGraphSubstrateCanarySurfaceRuntime["handlePanePointerMove"];
   handlePaneWheel: SettingsGraphSubstrateCanarySurfaceRuntime["handlePaneWheel"];
+  resolvedViewport: GraphViewport | null;
   rootCursor: CSSProperties["cursor"];
   rootRef: RefObject<HTMLDivElement | null>;
   sceneSections: SettingsGraphSubstrateCanarySurfaceRuntime["sceneSnapshot"]["sections"];
@@ -144,6 +145,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     handlePanePointerDown: surfaceRuntime.handlePanePointerDown,
     handlePanePointerMove: surfaceRuntime.handlePanePointerMove,
     handlePaneWheel: surfaceRuntime.handlePaneWheel,
+    resolvedViewport: surfaceRuntime.resolvedViewport,
     rootCursor: surfaceRuntime.isViewportPanning ? "grabbing" : "grab",
     rootRef,
     sceneSections: surfaceRuntime.sceneSnapshot.sections,

@@ -1,5 +1,5 @@
-import Background from "forks/xyflow/background/Background";
 import type { CSSProperties } from "react";
+import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrateCanaryBackground";
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
 
@@ -31,7 +31,11 @@ export function SettingsGraphSubstrateCanary() {
       onPointerCancel={controller.finishPanePan}
       onWheel={controller.handlePaneWheel}
     >
-      {controller.shouldShowGridLines && <Background />}
+      {controller.shouldShowGridLines && (
+        <SettingsGraphSubstrateCanaryBackground
+          viewport={controller.resolvedViewport}
+        />
+      )}
       <div
         className="react-flow__viewport"
         data-testid="graph-substrate-canary-viewport"

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 20:14 EDT
+Last updated: 2026-04-05 20:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,60 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `210` replaced the canary's direct `xyflow` background dependency with a substrate-owned background component so the settings graph surface now owns one real static visual layer at the renderer boundary without adding a new dependency.
+  - Why this slice was needed:
+    - the last few iterations had stayed on chrome-contract extraction, and continuing into header-action/button appearance would have repeated the same refactor shape instead of moving the active renderer frontier
+    - the immediate plan frontier says to keep product work near the remaining viewport/runtime ownership boundary that makes the first renderer insertion possible
+    - `SettingsGraphSubstrateCanary.tsx` still rendered `forks/xyflow/background/Background`, so even the grid layer was reading transform state from the shared `xyflow` store instead of the canary viewport authority
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.tsx`
+      - ports the existing line/dot SVG primitives behind a canary-owned background component
+      - resolves pattern offset/gap/scale from the canary `GraphViewport` instead of `useReactFlow(...transform)`
+      - keeps the existing `react-flow__background` class/test id so current CSS and probes still recognize the surface
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now renders `SettingsGraphSubstrateCanaryBackground` instead of `forks/xyflow/background/Background`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - now exposes `resolvedViewport` so the canary root can drive the substrate-owned background from the same viewport authority as the section layer
+    - added focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - What this slice established:
+    - the canary graph surface now owns its background/grid treatment instead of depending on `xyflow`'s `Background` component and transform store hook
+    - this lands one real static renderer-facing surface at the graph boundary without reopening the repeated header/chrome contract lane
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green on refreshed run-041 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.02082ms`; worktree average frame duration was `16.62373ms`
+      - visible section count stayed `46` on both sides
+      - reference recorded one `52ms` long task; worktree recorded none
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBackground.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+      - result: passed (`3 files`, `8 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanaryController\\.ts|settingsGraphSubstrateCanaryBackground(\\.test)?\\.tsx" || true`
+      - result: no matches
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-041/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-041/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-041 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-041 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `40.0s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, compared the already-mounted `/settings` tabs on worktree `3076` and read-only `main` `3087`, and selected `rotaryParamCodeObjDefault` on both
+      - note: the fresh bootstrap URLs were rejected again in that browser profile, so the visual compare stayed on the existing mounted `/settings` sessions instead of new bootstrap tabs
+      - note: no target-lane graph-surface drift was visible; the background/grid treatment and node framing around `rotaryParamCodeObjDefault` matched `main`, with only a non-target minimized worktree chat chip outside the graph surface
+  - Lane status:
+    - this closes the canary background-ownership slice and moves the product frontier back to viewport/scene composition instead of another header/chrome contract pass
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if approval arrives to add the dependency, use the new background ownership seam plus the existing section shell boundary to land the first Pixi-owned static shell layer while section bodies stay DOM-backed
+    - if approval is still unavailable, keep the next bounded slice on a canary scene-surface composition boundary near `SettingsGraphSubstrateCanary.tsx` / `SettingsGraphSubstrateCanarySectionsLayer.tsx` so future static shell ownership lands there rather than reopening header-action/button chrome extraction
 
 - Ralph item `209` extracted section-title appearance behind the shared chrome contract so section headers and project chat window headers no longer depend on a DOM header helper for title styling.
   - Why this slice was needed:
