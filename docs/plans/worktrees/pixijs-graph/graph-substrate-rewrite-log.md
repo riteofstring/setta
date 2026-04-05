@@ -11298,3 +11298,20 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in the deeper viewport-sync / shared-store mirror path
     - do not reopen the Pixi host-size cache idea unless a future trace shows that path dominating the lane
   - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 05:04 EDT - Ralph item 296
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked one bounded product hypothesis on the remaining viewport-sync / shared-store mirror lane: defer the debounced viewport-persistence scheduling during active interaction bursts and fire one write after settle.
+- Added a temporary experiment in `frontend/src/state/subscriptions.ts` plus temporary unit coverage, then measured the same normalized cross-worktree motion probe on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes.
+- The first Playwright attempt failed because the provided worktree bootstrap token had already been consumed (`401 Unauthorized`); refreshed runtime info minted fresh worktree/main bootstrap URLs and the second attempt passed.
+- Motion-perf result stayed flat on the temporary branch:
+  - legacy `main`: average `17.80ms`, max `82.4ms`, `44` samples, long-task total `155ms`
+  - worktree canary: average `18.99ms`, max `83.4ms`, `43` samples, long-task total `150ms`
+- Because the measured lane did not improve, reverted the temporary product/test change and recorded the closed hypothesis in `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-persistence-defer-hypothesis.md`.
+- CDP follow-up was partial only:
+  - one fresh-context sub-agent confirmed the main reference Settings surface
+  - a later fresh-token retry confirmed the live browser endpoint (`127.0.0.1:9298`) and both worktree/main `/settings` tabs with the `Settings` title
+  - the worktree canary visibility check never completed because `chrome-devtools-mcp` calls timed out and a direct CDP `Runtime.evaluate` hung
+- Next frontier: a different remaining transform-subscriber / shared-store mirror consumer on the same canonical lane; do not reopen the viewport-persistence debounce hypothesis by default.
+- LOOP_TERMINAL_MARKER: none

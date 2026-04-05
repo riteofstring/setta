@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 04:26 EDT
+Last updated: 2026-04-08 05:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -70,6 +70,12 @@ This section overrides older "next frontier" notes below when choosing the next 
     - the cross-worktree motion-perf probe showed a real improvement for this slice:
       - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
       - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - item `296` tested and closed one focused viewport-sync / shared-store mirror hypothesis on the same lane:
+    - temporary product experiment: defer the debounced viewport-persistence scheduling during active canary interaction bursts and schedule one write after the interaction settles
+    - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes stayed effectively flat:
+      - legacy `main`: average `17.80ms`, max `82.4ms`, `44` samples, long-task total `155ms`
+      - worktree canary with the temporary deferral: average `18.99ms`, max `83.4ms`, `43` samples, long-task total `150ms`
+    - because the lane did not improve, the temporary product/test change was reverted; this closes the per-tick viewport-persistence scheduling hypothesis without leaving production code behind
   - the fresh-loop CDP smoke retry on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes passed:
     - refreshed runtime info resolved worktree frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
     - refreshed runtime info resolved main frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
@@ -96,25 +102,29 @@ This section overrides older "next frontier" notes below when choosing the next 
     - root DOM stayed `135`
     - average frame duration improved `20.54ms -> 18.99ms`, but legacy still measured `17.80ms`
   - this means repeated interaction-state store writes were one real piece of the remaining motion cost, but not the last one
+  - item `296` narrows that further:
+    - deferring the viewport-persistence debounce during active interaction bursts was not a measured win on the canonical lane
+    - the remaining hotspot is therefore deeper than the persistence-debounce path and more likely lives in other transform-subscriber / shared-store mirror consumers
   - item `295` narrows that further:
     - removing Pixi host-size layout reads from the viewport-present path was not a measured win on the canonical lane
     - the remaining hotspot is now more likely deeper viewport-sync / shared-store mirror work than Pixi host size reads, DOM shell fan-out, or presented-subset ownership
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
+  - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
-  - the next true product hotspot is still the remaining focused viewport-sync / shared-store mirror work that runs after presentation gating and interaction-state dedupe
+  - the next true product hotspot is still the remaining focused viewport-sync / shared-store mirror work that runs after presentation gating, interaction-state dedupe, and the failed persistence-debounce experiment
   - the blocked smoke gate is no longer the blocker, so the next iteration should return to one bounded production reduction on the same canonical lane instead of reopening transport triage
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- land one bounded production reduction in the remaining focused viewport-sync / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
+- land one bounded production reduction in the remaining focused transform-subscriber / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
 
 Recommended next target:
 
-- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe viewport mirror work
-- prefer a deeper focused viewport-sync / shared-store mirror reduction over another Pixi host-size experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
+- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe transform-subscriber / shared-store mirror work
+- prefer a different focused transform-consumer reduction over another viewport-persistence debounce experiment, Pixi host-size experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
 - keep the CDP work bounded to the required visual confirmation for the chosen product slice; do not spend the default pass re-proving the smoke gate that is now green
 
 Recommended deliverables for the next iteration:
@@ -141,6 +151,38 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `296` tested one bounded viewport-sync / shared-store mirror hypothesis on `rotaryParamCodeObjDefault`, found that deferring the debounced viewport-persistence scheduling during active interaction bursts was not a measured win on the canonical motion lane, reverted the temporary code, and handed the next pass to a different remaining transform-subscriber / shared-store mirror hotspot.
+
+  - Why this pass completed:
+    - item `295` explicitly handed the next iteration back to one bounded product slice on the canonical lane instead of another smoke-only retry or another Pixi host-size experiment
+    - the chosen slice stayed on the measured motion lane and targeted one concrete shared-store side effect rather than another presentation-boundary hop
+    - the result is now explicit and durable: this particular hypothesis did not move the lane and should not be reopened by default
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Product/test change:
+    - temporary experiment only: deferred the viewport-persistence debounce from [`subscriptions.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/subscriptions.ts) until active interaction bursts settled and added temporary non-landed unit coverage
+    - reverted that temporary product/test change after live verification showed no measured win, so no production code from the experiment remains landed
+    - added [`2026-04-08_settings-graph-substrate-canary-viewport-persistence-defer-hypothesis.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-persistence-defer-hypothesis.md)
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/state/subscriptions.test.ts` -> passed on the temporary experiment branch before the revert (`1 file`, `3 tests`)
+    - first cross-worktree probe attempt failed in Playwright global setup because the provided worktree bootstrap token had already been consumed (`401 Unauthorized`)
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-013/worktree-ai.log` -> passed twice; refreshed worktree frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9298`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-013/main-ai.log` -> passed; refreshed main frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
+    - `cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed on the second attempt (`1 passed`, `1.3m`)
+    - normalized motion-perf output on the temporary experiment branch:
+      - legacy `main`: average `17.80ms`, max `82.4ms`, `44` samples, long-task total `155ms`, visible section count `46`
+      - worktree canary: average `18.99ms`, max `83.4ms`, `43` samples, long-task total `150ms`, visible section count `1`
+    - fresh-context CDP sub-agents -> partial only:
+      - one sub-agent confirmed the main reference `http://127.0.0.1:3087/settings` rendered the live Settings surface
+      - a fresh-token retry confirmed the live browser endpoint on `127.0.0.1:9298` and both `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings` tabs with the `Settings` page title
+      - the same retry did not obtain a trustworthy worktree canary visibility check because `chrome-devtools-mcp` tools timed out and a direct CDP `Runtime.evaluate` hung
+  - Lane status:
+    - the viewport-persistence deferral hypothesis is closed and should not be retried by default
+    - the next hotspot is still deeper transform-subscriber / shared-store mirror work on the same canonical lane
+    - the required CDP visual check for this iteration did not produce a trustworthy worktree canary confirmation, even though the live browser endpoint and both Settings tabs were present
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `295` tested one bounded Pixi/scene reduction hypothesis on `rotaryParamCodeObjDefault`, found that removing Pixi host-size layout reads was not a measured win on the canonical motion lane, reverted the temporary code, and handed the next pass to the deeper viewport-sync / shared-store mirror hotspot.
 
