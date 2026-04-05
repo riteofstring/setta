@@ -52,7 +52,7 @@ func discardLogger() *slog.Logger {
 func TestNewHandlerServesOpenAPIJSON(t *testing.T) {
 	handler, err := NewHandler(Dependencies{
 		Logger: discardLogger(),
-		Info:   frontendHTTPOpenAPIInfoService{},
+		Info:   NewConfigInfoService(config.Config{Server: config.Server{Mode: config.ModeIDE}}, ""),
 	})
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
@@ -89,7 +89,7 @@ func TestNewHandlerServesOpenAPIJSON(t *testing.T) {
 func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 	handler, err := NewHandler(Dependencies{
 		Logger: discardLogger(),
-		Info:   frontendHTTPOpenAPIInfoService{},
+		Info:   NewConfigInfoService(config.Config{Server: config.Server{Mode: config.ModeIDE}}, ""),
 		RegisterRoot: func(r chi.Router) {
 			if err := RegisterAttachmentRootRoutes(r, AttachmentRootRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeIDE),

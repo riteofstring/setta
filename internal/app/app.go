@@ -25,7 +25,6 @@ import (
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/boundcode"
-	"setta/internal/buildinfo"
 	"setta/internal/chatattachments"
 	"setta/internal/chatsections"
 	"setta/internal/codegen"
@@ -59,7 +58,6 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
-	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runchains"
 	"setta/internal/runs"
@@ -2047,11 +2045,8 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 
 func newAppHandler(deps appHandlerDeps) (http.Handler, error) {
 	return httpapi.NewHandler(httpapi.Dependencies{
-		Logger: deps.logger,
-		Info: infoService{
-			config:         deps.cfg,
-			authCookieName: deps.authService.AuthCookieBaseName(),
-		},
+		Logger:         deps.logger,
+		Info:           httpapi.NewConfigInfoService(deps.cfg, deps.authService.AuthCookieBaseName()),
 		Auth:           deps.authService,
 		TrustedOrigins: deps.trustedOrigins,
 		ModePolicy:     deps.modePolicy,
@@ -2980,46 +2975,6 @@ func (a *App) Shutdown(ctx context.Context) error {
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
-}
-
-type infoService struct {
-	config         config.Config
-	authCookieName string
-}
-
-func (s infoService) ServerMode(context.Context) string {
-	return string(s.config.Server.Mode)
-}
-
-func (s infoService) RuntimeInfo(context.Context) httpapi.RuntimeInfo {
-	return httpapi.RuntimeInfo{
-		Mode: string(s.config.Server.Mode),
-		Paths: httpapi.RuntimePaths{
-			WorkspaceRoot:      s.config.Paths.WorkspaceRoot,
-			DeploymentRoot:     s.config.Paths.DeploymentRoot,
-			SettaHome:          s.config.Paths.SettaHome,
-			ProfileLookupHome:  s.config.Paths.ProfileLookupHome,
-			Profile:            s.config.Paths.ProfileName,
-			SettaFilesRoot:     s.config.Paths.SettaFilesRoot,
-			SettaFilesLocation: s.config.Paths.ActiveSettaFilesLocation(),
-			RuntimeRoot:        s.config.Paths.RuntimeRoot,
-		},
-		Policy: httpapi.RuntimePathPolicy{
-			GlobalSettaFilesBase: s.config.User.GlobalSettaFilesBase,
-			AutoMode:             string(s.config.User.AutoMode),
-		},
-		Auth: httpapi.RuntimeAuth{
-			AuthCookieName: s.authCookieName,
-		},
-	}
-}
-
-func (s infoService) SDKRuntimeHandshake(context.Context) pythonsdkcontracts.RunningBackendVersionHandshake {
-	return pythonsdkcontracts.RunningBackendVersionHandshake{
-		SDKVersion:         buildinfo.HostPackageVersion(),
-		CoreVersion:        buildinfo.Version(),
-		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
-	}
 }
 
 func closeProjectResources(projectStates *projectstate.Registry, deploymentRuntime *deployments.Runtime) error {

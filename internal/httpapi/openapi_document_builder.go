@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -44,38 +43,6 @@ import (
 	"setta/internal/workspacelaunch"
 )
 
-type frontendHTTPOpenAPIInfoService struct{}
-
-func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
-	return string(config.ModeIDE)
-}
-
-func (frontendHTTPOpenAPIInfoService) RuntimeInfo(context.Context) RuntimeInfo {
-	return RuntimeInfo{
-		Mode: string(config.ModeIDE),
-		Paths: RuntimePaths{
-			WorkspaceRoot:      "/workspace",
-			SettaHome:          "/setta-home",
-			ProfileLookupHome:  "/profiles",
-			SettaFilesRoot:     "/setta-files",
-			SettaFilesLocation: "local",
-			RuntimeRoot:        "/runtime",
-		},
-		Policy: RuntimePathPolicy{
-			GlobalSettaFilesBase: "/global-setta",
-			AutoMode:             string(config.FilesLocationLocal),
-		},
-	}
-}
-
-func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pythonsdkcontracts.RunningBackendVersionHandshake {
-	return pythonsdkcontracts.RunningBackendVersionHandshake{
-		SDKVersion:         "dev-sdk",
-		CoreVersion:        "dev-core",
-		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
-	}
-}
-
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -115,7 +82,21 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
 	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
-	registerCoreRuntimeOpenAPIRoutes(router, frontendHTTPOpenAPIInfoService{})
+	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
+		Server: config.Server{Mode: config.ModeIDE},
+		Paths: config.Paths{
+			WorkspaceRoot:         "/workspace",
+			SettaHome:             "/setta-home",
+			ProfileLookupHome:     "/profiles",
+			SettaFilesRoot:        "/setta-files",
+			ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+			RuntimeRoot:           "/runtime",
+		},
+		User: config.UserConfig{
+			GlobalSettaFilesBase: "/global-setta",
+			AutoMode:             config.AutoModeCreateLocal,
+		},
+	}, ""))
 	if err := RegisterStatusRoutes(router, StatusRouteDependencies{
 		ModePolicy:           modes.NewPolicy(config.ModeIDE),
 		SettaHome:            "/setta-home",
