@@ -8,12 +8,12 @@ import (
 const simpleNameSlugReplacementChars = "[]\"' "
 
 type FrontendNameValidationContract struct {
-	ProjectReservedNames          []string
-	PythonKeywords                []string
-	SimpleNameAllowedChars        []string
-	PythonIdentifierStartChars    []string
-	PythonIdentifierContinueChars []string
-	SlugReplacementChars          []string
+	ProjectReservedNames          []string `json:"projectReservedNames"`
+	PythonKeywords                []string `json:"pythonKeywords"`
+	SimpleNameAllowedChars        []string `json:"simpleNameAllowedChars"`
+	PythonIdentifierStartChars    []string `json:"pythonIdentifierStartChars"`
+	PythonIdentifierContinueChars []string `json:"pythonIdentifierContinueChars"`
+	SlugReplacementChars          []string `json:"slugReplacementChars"`
 }
 
 func FrontendNameValidationContractData() FrontendNameValidationContract {

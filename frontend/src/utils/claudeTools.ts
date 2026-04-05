@@ -1,9 +1,10 @@
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
+  GENERATED_TOOL_NAME_NORMALIZATION,
   ToolCall,
-  normalizeGeneratedToolName,
 } from "utils/generatedTypes";
+import { normalizeGeneratedToolName } from "./bindingRuntime";
 
 export const APPROVAL_TOOL_NAME = "setta.approval";
 export const TODO_TOOL_NAME = "TodoWrite";
@@ -49,7 +50,12 @@ export type ApprovalPayload = {
 export function normalizeToolName(
   name: string | null | undefined,
 ): string | null {
-  return normalizeGeneratedToolName(name);
+  return normalizeGeneratedToolName(
+    name,
+    GENERATED_TOOL_NAME_NORMALIZATION.singlePrefix,
+    GENERATED_TOOL_NAME_NORMALIZATION.doublePrefix,
+    GENERATED_TOOL_NAME_NORMALIZATION.askUserQuestionToolName,
+  );
 }
 
 export function resolveToolCallArguments(

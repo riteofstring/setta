@@ -23,7 +23,7 @@ func transportPolicySupportDeclarations() []TypeDeclaration {
 		),
 		constDeclaration(
 			"GENERATED_SERVER_MODE_BOUNDARY_POLICY",
-			false,
+			true,
 			buildGeneratedServerModeBoundaryPolicyExprTS(),
 		),
 		constDeclaration(
@@ -33,67 +33,10 @@ func transportPolicySupportDeclarations() []TypeDeclaration {
 		),
 		constDeclaration(
 			"GENERATED_MODE_SCOPED_LAUNCHER_ROUTES",
-			false,
+			true,
 			buildGeneratedModeScopedLauncherRoutesExprTS(),
 		),
-		exportedFunctionDeclaration(
-			"resolveGeneratedServerModeCapabilities",
-			"GeneratedServerModeCapabilities",
-			buildResolveGeneratedServerModeCapabilitiesBodyTS(),
-			TypeProperty{Name: "mode", TypeExpr: `ServerModeResponse["mode"] | null`},
-		),
-		exportedFunctionDeclaration(
-			"resolveGeneratedWorkspaceLaunchRouteKind",
-			"GeneratedWorkspaceLaunchRouteKind",
-			buildResolveGeneratedWorkspaceLaunchRouteKindBodyTS(),
-			TypeProperty{Name: "mode", TypeExpr: `ServerModeResponse["mode"] | null`},
-		),
-		exportedFunctionDeclaration(
-			"resolveGeneratedEndpointOriginForMode",
-			"GeneratedEndpointOriginPolicy",
-			buildResolveGeneratedEndpointOriginForModeBodyTS(),
-			TypeProperty{Name: "address", TypeExpr: "string"},
-			TypeProperty{Name: "serverMode", TypeExpr: `ServerModeResponse["mode"] | null`},
-		),
 	}
-}
-
-func buildResolveGeneratedServerModeCapabilitiesBodyTS() string {
-	return strings.Join([]string{
-		"  return generatedBindingRuntime.resolveGeneratedServerModeCapabilities(",
-		"    GENERATED_SERVER_MODE_BOUNDARY_POLICY,",
-		"    mode,",
-		"    { canManageDesktopLauncher: false },",
-		"  );",
-	}, "\n")
-}
-
-func buildResolveGeneratedWorkspaceLaunchRouteKindBodyTS() string {
-	return strings.Join([]string{
-		"  return generatedBindingRuntime.resolveGeneratedWorkspaceLaunchRouteKind(",
-		"    GENERATED_SERVER_MODE_BOUNDARY_POLICY,",
-		"    mode,",
-		"    " + tsStringLiteralExpr("blocked") + ",",
-		"  );",
-	}, "\n")
-}
-
-func buildResolveGeneratedEndpointOriginForModeBodyTS() string {
-	return strings.Join([]string{
-		"  return generatedBindingRuntime.resolveGeneratedEndpointOriginForMode(",
-		"    address,",
-		"    serverMode,",
-		"    {",
-		"      bootstrapPage: " + tsStringLiteralExpr(httpapi.RouteBootstrapPage) + ",",
-		"      launcherMode: " + tsStringLiteralExpr(string(config.ModeLauncher)) + ",",
-		"      endpointOriginPolicy: GENERATED_ENDPOINT_ORIGIN_POLICY,",
-		"      modeScopedLauncherRoutes: GENERATED_MODE_SCOPED_LAUNCHER_ROUTES,",
-		`      backendOriginValue: "backend-origin",`,
-		`      launcherOriginValue: "launcher",`,
-		`      backendValue: "backend",`,
-		"    },",
-		"  );",
-	}, "\n")
 }
 
 func buildGeneratedServerModeBoundaryPolicyExprTS() string {

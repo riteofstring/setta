@@ -22,12 +22,6 @@ func appGenerationSupportDeclarations() []TypeDeclaration {
 			true,
 			tsStringLiteralExpr(agentruns.ChatAppGenerationMessageModePlainChat),
 		),
-		exportedFunctionDeclaration(
-			"parseGeneratedAppGenerationMode",
-			"GeneratedAppGenerationMode | null",
-			buildParseGeneratedAppGenerationModeBody(),
-			TypeProperty{Name: "value", TypeExpr: "unknown"},
-		),
 	}
 }
 
@@ -52,27 +46,5 @@ func buildGeneratedAppGenerationModeEnumExprTS() string {
 	builder.WriteString("({\n")
 	writeTSObjectFields(&builder, "  ", fields)
 	builder.WriteString("}) as const satisfies Record<string, GeneratedAppGenerationMode>")
-	return builder.String()
-}
-
-func buildParseGeneratedAppGenerationModeBody() string {
-	var builder strings.Builder
-	builder.WriteString("  if (typeof value !== \"string\") {\n")
-	builder.WriteString("    return null;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const trimmed = value.trim();\n")
-	builder.WriteString("  if (!trimmed) {\n")
-	builder.WriteString("    return null;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  switch (trimmed) {\n")
-	for _, mode := range agentruns.AppGenerationModes() {
-		builder.WriteString("    case ")
-		builder.WriteString(tsStringLiteralExpr(mode))
-		builder.WriteString(":\n")
-	}
-	builder.WriteString("      return trimmed;\n")
-	builder.WriteString("    default:\n")
-	builder.WriteString("      return null;\n")
-	builder.WriteString("  }\n")
 	return builder.String()
 }

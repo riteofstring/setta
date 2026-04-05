@@ -146,6 +146,7 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.LSPDiagnosticsPayload{}),
 		reflect.TypeOf(projectstate.MoveSectionsInput{}),
 		reflect.TypeOf(projectstate.NameValidationErrors{}),
+		reflect.TypeOf(projectstate.FrontendNameValidationContract{}),
 		reflect.TypeOf(projectstate.MoveParamsInput{}),
 		reflect.TypeOf(projectstate.MoveParamGroupInput{}),
 		reflect.TypeOf(projectstate.MoveParamGroupsInput{}),

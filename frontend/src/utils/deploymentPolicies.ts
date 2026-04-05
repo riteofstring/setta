@@ -1,10 +1,12 @@
 import {
-  createDefaultAppPolicy as createGeneratedDefaultAppPolicy,
+  GENERATED_DEFAULT_APP_POLICY,
   createSharePolicy,
   type SharePolicy,
 } from "./generatedTypes";
 
-export const createDefaultAppPolicy = createGeneratedDefaultAppPolicy;
+export function createDefaultAppPolicy(): SharePolicy {
+  return createSharePolicy({ ...GENERATED_DEFAULT_APP_POLICY });
+}
 
 export function createDefaultSharePolicy(): SharePolicy {
   return createSharePolicy();

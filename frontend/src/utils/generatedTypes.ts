@@ -9782,403 +9782,258 @@ export const GeneratedAppGenerationModeEnum = {
 
 export const GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
 
-export function parseGeneratedAppGenerationMode(
-  value: unknown,
-): GeneratedAppGenerationMode | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  switch (trimmed) {
-    case "json_render":
-    case "json_render_with_image":
-    case "prompt_builder":
-    case "mcp_server":
-      return trimmed;
-    default:
-      return null;
-  }
-}
-
-type GeneratedProjectNameValidationOptions = {
-  allowReserved?: boolean;
+export type GeneratedNameValidationContract = {
+  projectReservedNames: ReadonlyArray<string>;
+  pythonKeywords: ReadonlyArray<string>;
+  simpleNameAllowedChars: ReadonlyArray<string>;
+  pythonIdentifierStartChars: ReadonlyArray<string>;
+  pythonIdentifierContinueChars: ReadonlyArray<string>;
+  slugReplacementChars: ReadonlyArray<string>;
 };
 
-type GeneratedParamNameValidationOptions = {
-  allowEmpty: boolean;
-  requirePythonIdentifier: boolean;
-  skipPathChecks?: boolean;
-};
+export const GENERATED_NAME_VALIDATION_CONTRACT = {
+  projectReservedNames: ["home", "settings"],
+  pythonKeywords: [
+    "False",
+    "None",
+    "True",
+    "and",
+    "as",
+    "assert",
+    "async",
+    "await",
+    "break",
+    "case",
+    "class",
+    "continue",
+    "def",
+    "del",
+    "elif",
+    "else",
+    "except",
+    "finally",
+    "for",
+    "from",
+    "global",
+    "if",
+    "import",
+    "in",
+    "is",
+    "lambda",
+    "match",
+    "nonlocal",
+    "not",
+    "or",
+    "pass",
+    "raise",
+    "return",
+    "try",
+    "type",
+    "while",
+    "with",
+    "yield",
+  ],
+  simpleNameAllowedChars: [
+    " ",
+    "-",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "_",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+  ],
+  pythonIdentifierStartChars: [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "_",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+  ],
+  pythonIdentifierContinueChars: [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Y",
+    "Z",
+    "_",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "o",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "u",
+    "v",
+    "w",
+    "x",
+    "y",
+    "z",
+  ],
+  slugReplacementChars: ["[", "]", '"', "'", " "],
+} as const satisfies GeneratedNameValidationContract;
 
-const generatedSimpleNameAllowedChars = new Set<string>([
-  " ",
-  "-",
-  "0",
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "9",
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "H",
-  "I",
-  "J",
-  "K",
-  "L",
-  "M",
-  "N",
-  "O",
-  "P",
-  "Q",
-  "R",
-  "S",
-  "T",
-  "U",
-  "V",
-  "W",
-  "X",
-  "Y",
-  "Z",
-  "_",
-  "a",
-  "b",
-  "c",
-  "d",
-  "e",
-  "f",
-  "g",
-  "h",
-  "i",
-  "j",
-  "k",
-  "l",
-  "m",
-  "n",
-  "o",
-  "p",
-  "q",
-  "r",
-  "s",
-  "t",
-  "u",
-  "v",
-  "w",
-  "x",
-  "y",
-  "z",
-]);
-
-const generatedProjectReservedNames = new Set<string>(["home", "settings"]);
-
-const generatedPythonIdentifierStartChars = new Set<string>([
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "H",
-  "I",
-  "J",
-  "K",
-  "L",
-  "M",
-  "N",
-  "O",
-  "P",
-  "Q",
-  "R",
-  "S",
-  "T",
-  "U",
-  "V",
-  "W",
-  "X",
-  "Y",
-  "Z",
-  "_",
-  "a",
-  "b",
-  "c",
-  "d",
-  "e",
-  "f",
-  "g",
-  "h",
-  "i",
-  "j",
-  "k",
-  "l",
-  "m",
-  "n",
-  "o",
-  "p",
-  "q",
-  "r",
-  "s",
-  "t",
-  "u",
-  "v",
-  "w",
-  "x",
-  "y",
-  "z",
-]);
-
-const generatedPythonIdentifierContinueChars = new Set<string>([
-  "0",
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "9",
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "H",
-  "I",
-  "J",
-  "K",
-  "L",
-  "M",
-  "N",
-  "O",
-  "P",
-  "Q",
-  "R",
-  "S",
-  "T",
-  "U",
-  "V",
-  "W",
-  "X",
-  "Y",
-  "Z",
-  "_",
-  "a",
-  "b",
-  "c",
-  "d",
-  "e",
-  "f",
-  "g",
-  "h",
-  "i",
-  "j",
-  "k",
-  "l",
-  "m",
-  "n",
-  "o",
-  "p",
-  "q",
-  "r",
-  "s",
-  "t",
-  "u",
-  "v",
-  "w",
-  "x",
-  "y",
-  "z",
-]);
-
-const generatedPythonKeywords = new Set<string>([
-  "False",
-  "None",
-  "True",
-  "and",
-  "as",
-  "assert",
-  "async",
-  "await",
-  "break",
-  "case",
-  "class",
-  "continue",
-  "def",
-  "del",
-  "elif",
-  "else",
-  "except",
-  "finally",
-  "for",
-  "from",
-  "global",
-  "if",
-  "import",
-  "in",
-  "is",
-  "lambda",
-  "match",
-  "nonlocal",
-  "not",
-  "or",
-  "pass",
-  "raise",
-  "return",
-  "try",
-  "type",
-  "while",
-  "with",
-  "yield",
-]);
-
-const generatedSlugReplacementChars = new Set<string>([
-  "[",
-  "]",
-  '"',
-  "'",
-  " ",
-]);
-
-const generatedEmptyNameValidationSet = new Set<string>();
-
-function validateGeneratedSimpleNameInput(
-  name: string,
-  label: string,
-  reservedNames: ReadonlySet<string>,
-  allowReserved: boolean = false,
-): string | null {
-  return generatedBindingRuntime.validateGeneratedSimpleNameInput(
-    name,
-    label,
-    reservedNames,
-    generatedSimpleNameAllowedChars,
-    allowReserved,
-  );
-}
-
-function sanitizeGeneratedSimpleNameSlug(name: string): string {
-  return generatedBindingRuntime.sanitizeGeneratedSimpleNameSlug(
-    name,
-    generatedSlugReplacementChars,
-  );
-}
-
-export function validateGeneratedProjectNameInput(
-  name: string,
-  options: GeneratedProjectNameValidationOptions = {} as GeneratedProjectNameValidationOptions,
-): string | null {
-  const allowReserved = options.allowReserved ?? false;
-  const baseError = validateGeneratedSimpleNameInput(
-    name,
-    "Project name",
-    generatedProjectReservedNames,
-    allowReserved,
-  );
-  if (baseError) {
-    return baseError;
-  }
-  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
-    return "Project name is invalid after sanitization.";
-  }
-  return null;
-}
-
-export function validateGeneratedViewModeNameInput(
-  name: string,
-): string | null {
-  const baseError = validateGeneratedSimpleNameInput(
-    name,
-    "View mode name",
-    generatedProjectReservedNames,
-  );
-  if (baseError) {
-    return baseError;
-  }
-  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
-    return "View mode name is invalid after sanitization.";
-  }
-  return null;
-}
-
-export function validateGeneratedWindowSpaceNameInput(
-  name: string,
-): string | null {
-  const baseError = validateGeneratedSimpleNameInput(
-    name,
-    "Window space name",
-    generatedEmptyNameValidationSet,
-  );
-  if (baseError) {
-    return baseError;
-  }
-  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
-    return "Window space name is invalid after sanitization.";
-  }
-  return null;
-}
-
-export function validateGeneratedSectionNameInput(name: string): string | null {
-  const baseError = validateGeneratedSimpleNameInput(
-    name,
-    "Section name",
-    generatedEmptyNameValidationSet,
-  );
-  if (baseError) {
-    return baseError;
-  }
-  return null;
-}
-
-export function validateGeneratedParamNameInput(
-  name: string,
-  options: GeneratedParamNameValidationOptions,
-): string | null {
-  return generatedBindingRuntime.validateGeneratedParamNameInput(
-    name,
-    options,
-    generatedPythonKeywords,
-    (candidate: string) =>
-      generatedBindingRuntime.isGeneratedPythonIdentifier(
-        candidate,
-        generatedPythonIdentifierStartChars,
-        generatedPythonIdentifierContinueChars,
-      ),
-  );
-}
-
-export function createDefaultAppPolicy(
-  options: Partial<SharePolicy> = {},
-): SharePolicy {
-  return mergeGeneratedOptions<SharePolicy>(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: false,
-      allowLayoutChanges: false,
-      allowRun: true,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: "ephemeral",
-    },
-    options,
-  );
-}
+export const GENERATED_DEFAULT_APP_POLICY = {
+  allowParamChanges: true,
+  allowVariantChanges: false,
+  allowLayoutChanges: false,
+  allowRun: true,
+  allowLLM: false,
+  allowExternalLinks: false,
+  allowFileDownloads: false,
+  allowMultipleRuns: true,
+  runSnapshotMode: "ephemeral",
+} as const satisfies SharePolicy;
 
 type SafeParseSuccess<T> = {
   success: true;
@@ -10354,7 +10209,7 @@ export type GeneratedServerModeCapabilities = {
   canManageDesktopLauncher: boolean;
 };
 
-const GENERATED_SERVER_MODE_BOUNDARY_POLICY = {
+export const GENERATED_SERVER_MODE_BOUNDARY_POLICY = {
   ide: {
     capabilities: { canManageDesktopLauncher: true },
     workspaceLaunchRouteKind: "ide",
@@ -10393,63 +10248,19 @@ export const GENERATED_ENDPOINT_ORIGIN_POLICY = {
   "/openLauncherWorkspace": "launcher",
 } as Readonly<Record<string, GeneratedEndpointOriginPolicy>>;
 
-const GENERATED_MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
+export const GENERATED_MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
   "/launch",
   "/createWorkspaceLaunchIntent",
 ]);
 
-export function resolveGeneratedServerModeCapabilities(
-  mode: ServerModeResponse["mode"] | null,
-): GeneratedServerModeCapabilities {
-  return generatedBindingRuntime.resolveGeneratedServerModeCapabilities(
-    GENERATED_SERVER_MODE_BOUNDARY_POLICY,
-    mode,
-    { canManageDesktopLauncher: false },
-  );
-}
+type GeneratedToolNameNormalization = {
+  singlePrefix: string;
+  doublePrefix: string;
+  askUserQuestionToolName: string;
+};
 
-export function resolveGeneratedWorkspaceLaunchRouteKind(
-  mode: ServerModeResponse["mode"] | null,
-): GeneratedWorkspaceLaunchRouteKind {
-  return generatedBindingRuntime.resolveGeneratedWorkspaceLaunchRouteKind(
-    GENERATED_SERVER_MODE_BOUNDARY_POLICY,
-    mode,
-    "blocked",
-  );
-}
-
-export function resolveGeneratedEndpointOriginForMode(
-  address: string,
-  serverMode: ServerModeResponse["mode"] | null,
-): GeneratedEndpointOriginPolicy {
-  return generatedBindingRuntime.resolveGeneratedEndpointOriginForMode(
-    address,
-    serverMode,
-    {
-      bootstrapPage: "/__setta__/bootstrap",
-      launcherMode: "launcher",
-      endpointOriginPolicy: GENERATED_ENDPOINT_ORIGIN_POLICY,
-      modeScopedLauncherRoutes: GENERATED_MODE_SCOPED_LAUNCHER_ROUTES,
-      backendOriginValue: "backend-origin",
-      launcherOriginValue: "launcher",
-      backendValue: "backend",
-    },
-  );
-}
-
-export function normalizeGeneratedOrigin(
-  rawOrigin: string | null | undefined,
-): string | null {
-  return generatedBindingRuntime.normalizeGeneratedOrigin(rawOrigin);
-}
-
-export function normalizeGeneratedToolName(
-  rawToolName: string | null | undefined,
-): string | null {
-  return generatedBindingRuntime.normalizeGeneratedToolName(
-    rawToolName,
-    "setta_",
-    "setta__",
-    "AskUserQuestion",
-  );
-}
+export const GENERATED_TOOL_NAME_NORMALIZATION = {
+  singlePrefix: "setta_",
+  doublePrefix: "setta__",
+  askUserQuestionToolName: "AskUserQuestion",
+} as const satisfies GeneratedToolNameNormalization;

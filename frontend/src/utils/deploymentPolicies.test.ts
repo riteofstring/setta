@@ -5,7 +5,7 @@ import {
   resolveAppPolicy,
 } from "./deploymentPolicies";
 import {
-  createDefaultAppPolicy as createGeneratedDefaultAppPolicy,
+  GENERATED_DEFAULT_APP_POLICY,
   createSharePolicy,
 } from "./generatedTypes";
 
@@ -15,7 +15,7 @@ describe("deploymentPolicies", () => {
   });
 
   it("reuses generated app defaults", () => {
-    expect(createDefaultAppPolicy()).toEqual(createGeneratedDefaultAppPolicy());
+    expect(createDefaultAppPolicy()).toEqual(GENERATED_DEFAULT_APP_POLICY);
   });
 
   it("preserves an explicit app policy", () => {

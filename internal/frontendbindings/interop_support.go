@@ -1,41 +1,29 @@
 package frontendbindings
 
-import (
-	"strings"
-
-	"setta/internal/mcpx"
-)
+import "setta/internal/mcpx"
 
 const generatedAskUserQuestionToolName = "AskUserQuestion"
 
 func interopSupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
-		exportedFunctionDeclaration(
-			"normalizeGeneratedOrigin",
-			"string | null",
-			buildNormalizeGeneratedOriginBody(),
-			TypeProperty{Name: "rawOrigin", TypeExpr: "string | null | undefined"},
+		objectDeclaration(
+			"GeneratedToolNameNormalization",
+			TypeProperty{Name: "singlePrefix", TypeExpr: "string"},
+			TypeProperty{Name: "doublePrefix", TypeExpr: "string"},
+			TypeProperty{Name: "askUserQuestionToolName", TypeExpr: "string"},
 		),
-		exportedFunctionDeclaration(
-			"normalizeGeneratedToolName",
-			"string | null",
-			buildNormalizeGeneratedToolNameBody(),
-			TypeProperty{Name: "rawToolName", TypeExpr: "string | null | undefined"},
+		constDeclaration(
+			"GENERATED_TOOL_NAME_NORMALIZATION",
+			true,
+			buildGeneratedToolNameNormalizationExprTS(),
 		),
 	}
 }
 
-func buildNormalizeGeneratedOriginBody() string {
-	return "  return generatedBindingRuntime.normalizeGeneratedOrigin(rawOrigin);"
-}
-
-func buildNormalizeGeneratedToolNameBody() string {
-	return strings.Join([]string{
-		"  return generatedBindingRuntime.normalizeGeneratedToolName(",
-		"    rawToolName,",
-		"    " + tsStringLiteralExpr(mcpx.DefaultServerID+"_") + ",",
-		"    " + tsStringLiteralExpr(mcpx.DefaultServerID+mcpx.ToolNameSeparator) + ",",
-		"    " + tsStringLiteralExpr(generatedAskUserQuestionToolName) + ",",
-		"  );",
-	}, "\n")
+func buildGeneratedToolNameNormalizationExprTS() string {
+	return "({\n" +
+		"  singlePrefix: " + tsStringLiteralExpr(mcpx.DefaultServerID+"_") + ",\n" +
+		"  doublePrefix: " + tsStringLiteralExpr(mcpx.DefaultServerID+mcpx.ToolNameSeparator) + ",\n" +
+		"  askUserQuestionToolName: " + tsStringLiteralExpr(generatedAskUserQuestionToolName) + ",\n" +
+		"}) as const satisfies GeneratedToolNameNormalization"
 }

@@ -2,27 +2,20 @@ package frontendbindings
 
 import "setta/internal/deployments"
 
-func defaultAppPolicyDeclaration() TypeDeclaration {
-	return exportedFunctionDeclaration(
-		"createDefaultAppPolicy",
-		"SharePolicy",
-		buildDefaultAppPolicyFunctionBodyTS(),
-		TypeProperty{Name: "options", TypeExpr: "Partial<SharePolicy>", DefaultValue: "{}"},
-	)
+func deploymentPolicySupportDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		constDeclaration(
+			"GENERATED_DEFAULT_APP_POLICY",
+			true,
+			buildGeneratedDefaultAppPolicyExprTS(),
+		),
+	}
 }
 
-func buildDefaultAppPolicyFunctionBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
+func buildGeneratedDefaultAppPolicyExprTS() string {
+	return renderTSObjectLiteralFromGoValue(
 		"frontend default app policy",
 		deployments.DefaultAppPolicy(),
 		goJSONFieldOrder(deployments.Policy{}),
-		"options",
-		"SharePolicy",
-	)
-}
-
-func deploymentPolicySupportDeclarations() []TypeDeclaration {
-	return []TypeDeclaration{
-		defaultAppPolicyDeclaration(),
-	}
+	) + " as const satisfies SharePolicy"
 }

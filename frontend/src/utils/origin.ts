@@ -1,4 +1,4 @@
-import { normalizeGeneratedOrigin } from "./generatedTypes";
+import { normalizeGeneratedOrigin } from "./bindingRuntime";
 
 export function normalizeOrigin(
   origin: string,
