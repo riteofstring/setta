@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 03:31 EDT
+Last updated: 2026-04-08 03:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,52 +62,54 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification state:
-  - item `292` is now landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
-  - the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes both passed the live canary probes:
-    - worktree-only instrumentation probe passed again after minting a fresh bootstrap token from `setta status --connect-info --latest --json --workspace ...`
-    - focused instrumentation now shows `pixiDrawableCount` `1` at focused fit-view and `2` after normalized pan/zoom, while auto-fit still shows `42`
-  - the cross-worktree motion-perf probe for item `292` showed only a small improvement, not a real win:
-    - legacy `main`: average `17.79ms`, max `81.5ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-    - worktree canary: average `20.54ms`, max `100ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-  - Chrome DevTools MCP status for this slice:
-    - one fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md) and confirmed both `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings` loaded live Settings workspaces rather than blank/crashed pages
-    - trustworthiness is bounded smoke-check only, not a focused parity proof; the reference side reported one snapshot/viewport mismatch, so treat this as "live and rendering" confirmation only
+  - item `293` is now landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
+  - the pre-recovery live probes on the current `3077/8077` worktree and `3088/8088` read-only `main` runtimes passed:
+    - worktree-only instrumentation probe stayed stable on the focused lane:
+      - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
+      - auto-fit still showed `42`
+    - the cross-worktree motion-perf probe showed a real improvement for this slice:
+      - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - Chrome DevTools MCP status for this slice is currently blocked:
+    - two fresh-context CDP sub-agent attempts did not return before shutdown
+    - the returned CDP blocker report said `list_pages` timed out and both `new_page` attempts failed with `Network.enable timed out`
+    - a direct main-thread retry saw the same `Network.enable timed out` failure
+    - one allowed headless `./aireset.sh` recovery restarted the worktree on `3076/8076` with debug port `9298`, but a retry still failed immediately at `list_pages` with the same timeout
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the shared presented-scene-section boundary landed, but the focused motion sample is still slower than legacy:
+  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, but the canary is still slower than legacy:
     - visible section count stayed `1`
     - root DOM stayed `135`
-    - average frame duration only improved `20.93ms -> 20.54ms`
-  - this means presentation-boundary duplication is no longer the dominant motion cost on the focused lane
-  - the remaining hotspot is now more likely deeper inside focused Pixi/scene work or viewport-sync churn than in DOM shell fan-out or the raw presented/not-present boundary
+    - average frame duration improved `20.54ms -> 18.99ms`, but legacy still measured `17.80ms`
+  - this means repeated interaction-state store writes were one real piece of the remaining motion cost, but not the last one
+  - the remaining hotspot is still more likely deeper viewport-sync or focused Pixi/scene work than DOM shell fan-out or presented-subset ownership
 - Working hypothesis:
-  - the measurable motion win still came from DOM shell fan-out reduction in item `290`, not from the later presentation-boundary refinements
-  - the Pixi drawable-presentation lane and the shared presented-scene-section lane are now complete unless focused `pixiDrawableCount` or visible-section counts regress again
-  - the next true product hotspot is the remaining focused Pixi/scene or viewport-sync work that still runs even after offscreen inactive shells and drawables are gated out
-  - the worktree-only canary probe is healthy again on the current runtime, so keep using it as a guard rail while the cross-worktree motion probe remains the main measurement oracle
+  - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
+  - the next true product hotspot is still the remaining focused viewport-sync or Pixi/scene work that runs after presentation gating and interaction-state dedupe
+  - however, the next iteration must close the blocked CDP smoke gate first because the live surface itself is healthy and only the CDP transport is failing
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- on the same canonical `rotaryParamCodeObjDefault` lane, land one bounded production reduction in the remaining focused Pixi/scene path now that simple drawable presentation gating has been tried and measured
+- first retry the blocked CDP smoke-check on a fresh lifecycle for item `293`; do not pick a new product slice until the required visual gate is either closed or clearly still transport-blocked
 
 Recommended next target:
 
-- keep the existing body-gating, scene-sync, shell-redraw, viewport-transform, section-entry memoization, DOM shell-presentation reduction, Pixi drawable-presentation gate, and shared presented-scene-section boundary as landed; do not reopen those lanes unless the canonical probes regress
-- reuse the same canonical target and the same normalized probes; do not open a new section-specific lane
-- start from the measured hotspot that remains after item `292`: pure motion now mounts only `1` visible section, keeps focused `pixiDrawableCount` at `1-2`, and is still slower than legacy
-- prefer the smallest slice that reduces remaining focused Pixi/scene or viewport-sync work without reopening the flat `pixiSyncCount` contract or the visible-section-count regression guard during normalized pan/zoom
+- start from a fresh loop bootstrap and retry the same bounded CDP smoke-check only:
+  - worktree `http://127.0.0.1:3076/settings`
+  - read-only `main` `http://127.0.0.1:3088/settings`
+- if CDP is healthy again, confirm only that the worktree still renders a live canary workspace and `main` still renders a live legacy workspace; do not spend the retry on deep parity or fragile gestures
+- if that smoke-check closes, then return to one bounded production reduction in the remaining focused viewport-sync or Pixi/scene path on `rotaryParamCodeObjDefault`
 
 Recommended deliverables for the next iteration:
 
-- one bounded production change on the same `All Settings` motion lane that removes remaining focused Pixi/scene or viewport-sync work beyond the already-landed presentation boundaries
-- reuse the cross-worktree motion-perf probe to measure whether that slice produces an actual motion win instead of only shifting counters
-- keep the visible-section-count and focused-pixi-drawable regression guards in place while measuring the next slice
-- use Chrome DevTools MCP again only for a bounded sanity check; do not spend another default iteration on CDP-only recovery unless the live surface itself regresses
+- bounded CDP smoke-check retry after the fresh lifecycle
+- if the retry passes, keep the wheel-interaction dedupe lane closed and pick the next viewport-sync or focused Pixi/scene slice using the same motion probe
+- if the retry fails with the same transport timeout again, record that the blocker survived the fresh lifecycle and stop treating it as a product regression signal
 
 Recommended canonical target:
 
@@ -117,7 +119,7 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another CDP-only retry on a healthy live surface
+- a new product refactor before the blocked item `293` CDP smoke gate is resolved or explicitly reclassified
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
@@ -126,6 +128,47 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `293` deduped repeated wheel interaction-state syncs on the canonical `rotaryParamCodeObjDefault` lane, which produced a real motion win on the trusted cross-worktree probe, but the required CDP smoke-check is blocked because `chrome-devtools-mcp` still times out after one allowed headless `./aireset.sh` recovery.
+
+  - Why this pass completed:
+    - item `292` explicitly handed the next iteration to one bounded production reduction in the remaining focused viewport-sync or Pixi/scene path instead of another presentation-boundary hop
+    - the chosen slice stays on the canonical 20-event wheel burst used by the normalized motion probe and removes redundant shared-store writes during that exact burst
+    - the production change is small, local, and now measured: the canary improved materially, but the required visual gate is transport-blocked rather than product-failing
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific lane
+  - Product/test change:
+    - updated [`settingsGraphSubstrateCanaryPaneInteractionController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts) so `syncViewportInteractionState(...)` only fires when the effective interaction mode actually changes
+    - updated [`settingsGraphSubstrateCanaryPaneInteractionController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts) to cover repeated pan-scroll and repeated modified-wheel zoom bursts on the same active interaction window
+    - added [`2026-04-08_settings-graph-substrate-canary-wheel-interaction-state-dedup.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-wheel-interaction-state-dedup.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-wheel-interaction-state-dedup.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts` -> passed (`1 file`, `6 tests`)
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-010/worktree-ai.log` -> passed before recovery; resolved frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap `http://127.0.0.1:8077/__setta__/bootstrap#token=...`, debug port `9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-010/main-ai.log` -> passed; resolved frontend `http://127.0.0.1:3088/`, backend `http://127.0.0.1:8088`, bootstrap `http://127.0.0.1:8088/__setta__/bootstrap#token=...`, debug port `9309`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `35.2s`)
+    - focused live canary instrumentation stayed stable:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, `pixiDrawableCount` `42`, `pixiSyncCount` `1`
+      - focused fit-view baseline: mounted section bodies `1`, `pixiDrawableCount` `1`, `pixiSyncCount` `1`
+      - after normalized blank-pane pan: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token minted in the same shell>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url minted in the same shell>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.0m`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - worktree bootstrap tokens were single-use again:
+      - reusing the same token for the second Playwright run returned `401 Unauthorized`
+      - minting fresh worktree and main bootstrap URLs in the same shell invocation fixed the probe
+    - fresh-context Chrome DevTools MCP sub-agent -> blocked:
+      - reported `list_pages` timeout and `new_page` failures with `Network.enable timed out`
+      - a direct main-thread retry saw the same error
+      - one allowed headless `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovery restarted the worktree on `3076/8076`, but a post-restart `list_pages` retry still failed with `Network.enable timed out`
+  - Lane status:
+    - the repeated wheel interaction-state sync lane is landed and should not be reopened unless repeated wheel bursts start regressing again
+    - the canonical motion probe now shows a real win on this lane, but the canary still trails legacy slightly and the next hotspot remains deeper viewport-sync or focused Pixi/scene work
+    - the required CDP smoke gate for this slice is blocked by CDP transport, not by a detected renderer regression
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `292` moved the canary presented-section decision to the composition boundary so the DOM shell layer and Pixi shell layer both consume the same stable presented subset, but the canonical motion probe only improved slightly and the next hotspot is still deeper than presentation gating.
 

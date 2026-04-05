@@ -9376,6 +9376,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 02:53 EDT, Ralph item `291`
+
   - Summary: shared the DOM shell presentation gate with the Pixi shell layer so focused `rotaryParamCodeObjDefault` no longer resolves inactive offscreen Pixi drawables, but the normalized motion sample still did not improve on the current `3077/8077` runtime.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -11043,6 +11044,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 01:25 EDT, Ralph item `288`
+
   - Summary: memoized the canary section-entry render path so viewport-only motion no longer rebuilds every mounted section entry when the section snapshot/body gate stay unchanged, kept the deterministic `rotaryParamCodeObjDefault` probes green, but blocked on the required CDP visual gate even after the one allowed `./aireset.sh` recovery.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
@@ -11083,6 +11085,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 01:34 EDT, Ralph item `289`
+
   - Summary: closed the blocked Chrome DevTools MCP visual gate for item `288` on the fresh loop-managed `3076/8076` runtime; the worktree and read-only `main` both showed a live `All Settings` workspace, so the item `288` canary is no longer blocked on "blank/crashed" verification.
   - Files:
     - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
@@ -11108,6 +11111,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 02:03 EDT, Ralph item `290`
+
   - Summary: viewport-gated the canary DOM shell presentation set so the focused `rotaryParamCodeObjDefault` lane stops mounting offscreen inactive shell wrappers, which reduced visible section shells from `46` to `1`, cut root DOM from `180` to `135`, and improved the normalized motion sample without reopening body continuity or Pixi redraw churn.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -11152,6 +11156,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 03:31 EDT, Ralph item `292`
+
   - Summary: moved the canary presented-section decision to the composition boundary so the DOM shell layer and Pixi shell layer share the same stable presented subset on the canonical `rotaryParamCodeObjDefault` lane, then remeasured the same normalized motion probe and found only a small improvement rather than a real win.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -11191,4 +11196,43 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in deeper focused Pixi/scene or viewport-sync work
     - reuse the same instrumentation guards and cross-worktree motion probe; do not spend the next default pass on another presentation-boundary hop
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 03:51 EDT, Ralph item `293`
+  - Summary: deduped repeated wheel interaction-state syncs on the canonical `rotaryParamCodeObjDefault` lane, which improved the normalized cross-worktree motion probe, but the required CDP smoke-check remained blocked even after one allowed headless `./aireset.sh` recovery because `chrome-devtools-mcp` kept timing out.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts`
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-wheel-interaction-state-dedup.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized motion lane and did not open a new section-specific lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-wheel-interaction-state-dedup.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts` -> passed (`1 file`, `6 tests`)
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `35.2s`)
+    - focused live canary instrumentation stayed stable:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, `pixiDrawableCount` `42`, `pixiSyncCount` `1`
+      - focused fit-view baseline: mounted section bodies `1`, `pixiDrawableCount` `1`, `pixiSyncCount` `1`
+      - after normalized blank-pane pan: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token minted in the same shell>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url minted in the same shell>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.0m`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - reusing the same worktree bootstrap token for the second Playwright run returned `401 Unauthorized`; minting fresh worktree and main bootstrap URLs in the same shell invocation fixed the probe
+    - fresh-context CDP sub-agent report: `list_pages` timed out and `new_page` failed with `Network.enable timed out`
+    - direct main-thread CDP retry saw the same transport timeout
+    - bounded self-recovery:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree on `3076/8076` with a new Setta session and debug browser
+      - post-restart `chrome-devtools-mcp` retry still failed immediately at `list_pages` with `Network.enable timed out`
+  - Result:
+    - the repeated wheel interaction-state sync lane is landed and should not be reopened unless wheel bursts regress again
+    - the canonical motion probe improved materially (`20.54ms -> 18.99ms` average, `100ms -> 66.7ms` max), but the canary still trails legacy slightly
+    - the remaining iteration blocker is CDP transport availability, not a detected renderer regression
+  - Next:
+    - start the next iteration from a fresh loop bootstrap and retry only the bounded CDP smoke-check for `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3088/settings`
+    - if the visual smoke-check closes, return to one bounded viewport-sync or focused Pixi/scene reduction on the same `rotaryParamCodeObjDefault` lane
   - LOOP_TERMINAL_MARKER: none

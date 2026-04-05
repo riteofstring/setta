@@ -93,15 +93,28 @@ export function createSettingsGraphSubstrateCanaryPaneInteractionController({
   let isPanScrolling = false;
   let isViewportPanning = false;
   let isWheelZooming = false;
+  let lastSyncedState: SettingsGraphSubstrateCanaryPaneInteractionState | null =
+    null;
   let panScrollTimeout: ReturnType<typeof setTimeout> | null = null;
   let wheelZoomTimeout: ReturnType<typeof setTimeout> | null = null;
 
   function syncState() {
-    syncViewportInteractionState({
+    const nextState = {
       isPanScrolling,
       isViewportPanning,
       isWheelZooming,
-    });
+    };
+    if (
+      lastSyncedState &&
+      areSettingsGraphSubstrateCanaryPaneInteractionStatesEqual(
+        lastSyncedState,
+        nextState,
+      )
+    ) {
+      return;
+    }
+    lastSyncedState = nextState;
+    syncViewportInteractionState(nextState);
   }
 
   function clearPanScrollTimeout() {
@@ -136,6 +149,7 @@ export function createSettingsGraphSubstrateCanaryPaneInteractionController({
       isPanScrolling = false;
       isViewportPanning = false;
       isWheelZooming = false;
+      lastSyncedState = null;
     },
     finishPanePan({ pointerId }) {
       if (!activeViewportPan || activeViewportPan.pointerId !== pointerId) {
@@ -261,4 +275,15 @@ export function createSettingsGraphSubstrateCanaryPaneInteractionController({
       return true;
     },
   };
+}
+
+function areSettingsGraphSubstrateCanaryPaneInteractionStatesEqual(
+  left: SettingsGraphSubstrateCanaryPaneInteractionState,
+  right: SettingsGraphSubstrateCanaryPaneInteractionState,
+) {
+  return (
+    left.isPanScrolling === right.isPanScrolling &&
+    left.isViewportPanning === right.isViewportPanning &&
+    left.isWheelZooming === right.isWheelZooming
+  );
 }
