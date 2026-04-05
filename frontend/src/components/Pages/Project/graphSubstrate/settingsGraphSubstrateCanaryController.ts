@@ -25,7 +25,7 @@ import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
 } from "./settingsGraphSubstrateCanarySurfaceRuntime";
-import type { GraphViewport } from "./viewportTransform";
+import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 export type SettingsGraphSubstrateCanaryController = {
   draggingSectionId: string | null;
@@ -40,6 +40,7 @@ export type SettingsGraphSubstrateCanaryController = {
   sceneSections: SettingsGraphSubstrateCanarySurfaceRuntime["sceneSnapshot"]["sections"];
   sectionDragController: SettingsGraphSubstrateCanarySurfaceRuntime["sectionDragController"];
   shouldShowGridLines: boolean;
+  visibleViewportRect: GraphRect | null;
   viewportTransform: string | undefined;
 };
 
@@ -184,6 +185,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     sceneSections: surfaceRuntime.sceneSnapshot.sections,
     sectionDragController: surfaceRuntime.sectionDragController,
     shouldShowGridLines: snapToGrid && showGridLines,
+    visibleViewportRect: surfaceRuntime.visibleViewportRect,
     viewportTransform: resolveSettingsGraphSubstrateCanaryViewportTransform(
       surfaceRuntime.resolvedViewport,
     ),

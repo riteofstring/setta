@@ -7,6 +7,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
+import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
@@ -73,12 +74,16 @@ function SectionsLayerProbe({
   draggingSectionId,
   onHoveredSectionChange = () => {},
   sceneSections,
+  viewport = DEFAULT_VIEWPORT,
   viewportTick,
+  visibleViewportRect = DEFAULT_VISIBLE_VIEWPORT_RECT,
 }: {
   draggingSectionId: string | null;
   onHoveredSectionChange?: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  viewport?: GraphViewport | null;
   viewportTick: number;
+  visibleViewportRect?: GraphRect | null;
 }) {
   const sectionDragController = useRef(createSectionDragController()).current;
 
@@ -89,6 +94,8 @@ function SectionsLayerProbe({
         onHoveredSectionChange={onHoveredSectionChange}
         sceneSections={sceneSections}
         sectionDragController={sectionDragController}
+        viewport={viewport}
+        visibleViewportRect={visibleViewportRect}
       />
     </div>
   );
@@ -113,7 +120,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     document.body.innerHTML = "";
   });
 
-  it("skips rerendering the section wrapper layer on parent viewport-only updates", async () => {
+  it("keeps the visible DOM body memoized on viewport-only updates", async () => {
     const sceneSections = [createSceneSection()];
 
     await act(async () => {
@@ -121,22 +128,82 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
         <SectionsLayerProbe
           draggingSectionId={null}
           sceneSections={sceneSections}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
           viewportTick={0}
         />,
       );
     });
 
-    // A viewport-only parent update should keep the section wrapper subtree memoized.
+    // A viewport-only update should not force the already-visible DOM body to rerender.
     await act(async () => {
       root.render(
         <SectionsLayerProbe
           draggingSectionId={null}
           sceneSections={sceneSections}
+          viewport={{ x: -24, y: 12, zoom: 1 }}
           viewportTick={1}
         />,
       );
     });
 
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("unmounts offscreen inactive section bodies while keeping visible ones mounted", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({ sectionId: "visible-section" }),
+            createSceneSection({
+              renderedPosition: { x: 1280, y: 80 },
+              position: { x: 1280, y: 80 },
+              sectionId: "offscreen-section",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(
+      host.querySelectorAll('[data-testid="graph-substrate-canary-section"]'),
+    ).toHaveLength(2);
+    expect(
+      host.querySelector('[data-testid="section-content-visible-section"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="section-content-offscreen-section"]'),
+    ).toBeNull();
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps active offscreen section bodies mounted for interaction continuity", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              isActiveSection: true,
+              renderedPosition: { x: 1280, y: 80 },
+              position: { x: 1280, y: 80 },
+              sectionId: "active-offscreen-section",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="section-content-active-offscreen-section"]',
+      ),
+    ).not.toBeNull();
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
@@ -390,6 +457,19 @@ function createSceneSection(
     ...overrides,
   };
 }
+
+const DEFAULT_VIEWPORT: GraphViewport = {
+  x: 0,
+  y: 0,
+  zoom: 1,
+};
+
+const DEFAULT_VISIBLE_VIEWPORT_RECT: GraphRect = {
+  x: 0,
+  y: 0,
+  width: 720,
+  height: 828,
+};
 
 function createSectionDragController() {
   return {

@@ -10617,3 +10617,36 @@ LOOP_TERMINAL_MARKER: none
     - use the new snapshot to land one bounded body-narrowing slice on normalized `All Settings`, and prove `mountedSectionBodyCount` drops while the Pixi shell/canvas stays visually healthy
     - avoid another instrumentation-only pass unless a concrete motion question blocks that product slice
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 15:59 EDT, Ralph item `278`
+  - Summary: landed the first production DOM body narrowing slice by mounting canary section bodies only when they are viewport-visible, active, dragging, or still missing authoritative size, which dropped the focused `rotaryParamCodeObjDefault` fit-view from `46` mounted bodies to `1`.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-body-visibility-mount-gate.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass measured both the wide auto-fit lane and the focused fit-view on the same canonical target; it did not open a new section-specific parity lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`3 files`, `26 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"` -> passed (`1 passed`, `36.3s`)
+    - Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+    - fresh-context CDP sub-agent -> read `docs/guides/browser-mcp-quickstart.md`, checked the live worktree Chrome session over CDP at `127.0.0.1:9298` against `http://127.0.0.1:3075/settings`, and confirmed mounted `Settings`, active `All Settings`, and populated body content (`languageServer`, `backend`, `shortcuts`, `gui`, `sectionSizingPolicy`) instead of a blank shell/body
+  - Result:
+    - the canary now has a production viewport-visible body-mount gate instead of one DOM body per scene section
+    - the focused normalized lane is down to one mounted body while the Pixi shell/drawable counts remain unchanged, which isolates the improvement to DOM ownership rather than scene redraw behavior
+    - the wide auto-fit lane still mounts `42` bodies, so broad DOM ownership is still the likely remaining hotspot
+  - Next:
+    - validate the new gate during pan/zoom motion on `rotaryParamCodeObjDefault` so the next lane proves the focused body does not blank/pop during movement
+    - if that motion lane is already clean, use the same instrumentation to narrow the remaining `42` wide-view bodies further without reopening support-only work
+  - LOOP_TERMINAL_MARKER: none

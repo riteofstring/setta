@@ -14,6 +14,7 @@ import {
   getLatestProjectState,
   getLocalPaneState,
   getSettingsGraphRootRelativePoint,
+  getSettingsGraphSectionTitleBoundingBox,
   normalizeSettingsGraphComparePaneState,
   readSettingsGraphCanaryInstrumentationSnapshot,
   runSettingsGraphComparePreflight,
@@ -179,16 +180,25 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     const normalizedState = await getLatestProjectState(page, projectConfigId);
     await applyProjectStateUpdate(page, normalizedState);
 
-    const allTab = page.getByRole("button", {
-      name: "All Settings",
-      exact: true,
-    });
-    await expect(allTab).toBeVisible();
-    await allTab.click();
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
     await expect
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
+
+    await expect
+      .poll(async () => {
+        const snapshot =
+          await readSettingsGraphCanaryInstrumentationSnapshot(page);
+        return snapshot?.mounted === true ? snapshot : null;
+      })
+      .not.toBeNull();
+
+    const autoFitSnapshot =
+      await readSettingsGraphCanaryInstrumentationSnapshot(page);
+    expect(autoFitSnapshot).not.toBeNull();
+    if (!autoFitSnapshot) {
+      throw new Error("Missing auto-fit canary instrumentation snapshot.");
+    }
 
     const preflight = await runSettingsGraphComparePreflight({
       expectedSurfaceKind: "canary",
@@ -207,37 +217,62 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       .poll(async () => {
         const snapshot =
           await readSettingsGraphCanaryInstrumentationSnapshot(page);
-        return snapshot?.mounted === true ? snapshot : null;
+        return snapshot &&
+          snapshot.mounted === true &&
+          snapshot.mountedSectionBodyCount <
+            autoFitSnapshot.mountedSectionBodyCount
+          ? snapshot
+          : null;
       })
       .not.toBeNull();
 
-    const beforeSnapshot =
+    const focusedSnapshot =
       await readSettingsGraphCanaryInstrumentationSnapshot(page);
-    expect(beforeSnapshot).not.toBeNull();
-    if (!beforeSnapshot) {
+    expect(focusedSnapshot).not.toBeNull();
+    if (!focusedSnapshot) {
       throw new Error("Missing canary instrumentation snapshot.");
     }
 
-    expect(beforeSnapshot.mounted).toBe(true);
-    expect(beforeSnapshot.mountedSceneSectionCount).toBeGreaterThan(1);
-    expect(beforeSnapshot.mountedSectionBodyCount).toBe(
-      beforeSnapshot.mountedSceneSectionCount,
-    );
-    expect(beforeSnapshot.pixiDrawableCount).toBeGreaterThan(1);
-    expect(beforeSnapshot.pixiSyncCount).toBeGreaterThan(0);
-    expect(beforeSnapshot.sceneSyncCount).toBeGreaterThan(0);
+    expect(autoFitSnapshot.mounted).toBe(true);
+    expect(autoFitSnapshot.mountedSceneSectionCount).toBeGreaterThan(1);
+    expect(autoFitSnapshot.pixiDrawableCount).toBeGreaterThan(1);
+    expect(autoFitSnapshot.pixiSyncCount).toBeGreaterThan(0);
+    expect(autoFitSnapshot.sceneSyncCount).toBeGreaterThan(0);
     expect(
-      beforeSnapshot.unresolvedSectionSeedFallbackCount,
+      autoFitSnapshot.unresolvedSectionSeedFallbackCount,
     ).toBeGreaterThanOrEqual(0);
-    expect(beforeSnapshot.viewportZoom ?? 0).toBeGreaterThan(0);
-    expect(beforeSnapshot.visibleViewportSize?.width ?? 0).toBeGreaterThan(0);
-    expect(beforeSnapshot.visibleViewportSize?.height ?? 0).toBeGreaterThan(0);
+    expect(autoFitSnapshot.viewportZoom ?? 0).toBeGreaterThan(0);
+    expect(autoFitSnapshot.visibleViewportSize?.width ?? 0).toBeGreaterThan(0);
+    expect(autoFitSnapshot.visibleViewportSize?.height ?? 0).toBeGreaterThan(0);
+
+    expect(focusedSnapshot.mounted).toBe(true);
+    expect(focusedSnapshot.mountedSceneSectionCount).toBe(
+      autoFitSnapshot.mountedSceneSectionCount,
+    );
+    expect(focusedSnapshot.mountedSectionBodyCount).toBeGreaterThan(0);
+    expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(
+      focusedSnapshot.mountedSceneSectionCount,
+    );
+    expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(
+      autoFitSnapshot.mountedSectionBodyCount,
+    );
+
+    await expect
+      .poll(async () => {
+        const titleRect = await getSettingsGraphSectionTitleBoundingBox(
+          page,
+          targetSectionId,
+        );
+        return titleRect?.width ?? 0;
+      })
+      .toBeGreaterThan(0);
 
     console.info(
-      "settings-graph-canary-instrumentation",
+      "settings-graph-canary-body-visibility",
       JSON.stringify(
         {
-          snapshot: beforeSnapshot,
+          autoFitSnapshot,
+          focusedSnapshot,
           targetSectionId,
           targetSectionName,
         },

@@ -28,7 +28,7 @@ import {
   createSettingsGraphSubstrateCanaryViewportController,
   type SettingsGraphSubstrateCanaryViewportControllerState,
 } from "./settingsGraphSubstrateCanaryViewportController";
-import type { GraphViewport } from "./viewportTransform";
+import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanaryViewportRuntimeArgs = {
   defaultZoomLevel: number;
@@ -56,6 +56,7 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
     isViewportPanning: boolean;
     isWheelZooming: boolean;
   }) => void;
+  visibleViewportRect: GraphRect | null;
 };
 
 export function useSettingsGraphSubstrateCanaryViewportRuntime({
@@ -117,6 +118,21 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       effectivePaneWidths.uiEditorWidth,
     );
   }, [effectivePaneWidths, wrapperDimensions]);
+  const visibleViewportRect = useMemo(() => {
+    if (visibleViewportSize.width <= 0 || visibleViewportSize.height <= 0) {
+      return null;
+    }
+    return {
+      x: effectivePaneWidths.overviewWidth,
+      y: 0,
+      width: visibleViewportSize.width,
+      height: visibleViewportSize.height,
+    };
+  }, [
+    effectivePaneWidths.overviewWidth,
+    visibleViewportSize.height,
+    visibleViewportSize.width,
+  ]);
 
   const shouldPersistResolvedViewport =
     shouldPersistSettingsGraphSubstrateCanaryViewport(
@@ -416,6 +432,7 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     onViewportPanningChange: setIsViewportPanning,
     resolvedViewport,
     syncViewportInteractionState,
+    visibleViewportRect,
   };
 }
 

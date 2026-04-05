@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 15:40 EDT
+Last updated: 2026-04-07 15:59 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -66,56 +66,92 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - section bodies are still DOM-backed through [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) and [`settingsGraphSubstrateCanarySectionBodyAdapter.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx)
+  - section bodies are still DOM-backed through [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) and [`settingsGraphSubstrateCanarySectionBodyAdapter.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx), but only a viewport-visible subset mounts after item `278`
   - the canary still selects all renderable `All Settings` sections in [`settingsGraphSubstrateCanaryModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts)
   - the scene runtime still snapshots/syncs the whole active section set in [`settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts)
   - the Pixi shell layer still clears and redraws the full drawable list per sync in [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
-- New baseline evidence from item `277` on normalized `All Settings` fit-view:
-  - mounted scene section count: `46`
-  - mounted section-body count: `46`
-  - Pixi drawable count: `46`
-  - Pixi sync count: `2`
-  - scene sync count: `3`
-  - unresolved seed-cache fallback count: `0`
-  - viewport zoom / visible viewport size: `1.1900826446280992` at `720 x 828`
+- New baseline evidence from item `278` on normalized `All Settings`:
+  - auto-fit snapshot: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `0.1`
+  - targeted fit-view snapshot on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
 - Working hypothesis:
   - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
   - the normalized baseline no longer points at seed-fallback churn on the visible canary path
-  - the next real product slice should attack DOM body ownership / mount count before reopening more measured-authority cleanup by default
+  - the new viewport-visible mount gate proves the canary can narrow DOM body ownership without blanking the focused section body
+  - the next real product slice should test this gate under motion or reduce the remaining `42` auto-fit bodies before reopening more measured-authority cleanup by default
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- use the new instrumentation baseline to land the first bounded DOM body narrowing slice on normalized `All Settings`
+- keep the new body-mount gate honest under motion, or narrow the remaining wide-view body count further without regressing canary health
 
 Recommended product target:
 
 - keep Pixi shells/chrome visible across the whole `All Settings` canary
-- reduce DOM body ownership for non-target sections, offscreen sections, or both through one bounded substrate-owned gate
-- use the new instrumentation snapshot to prove `mountedSectionBodyCount` drops without regressing canary health
+- use the new viewport-visible mount gate as the current baseline, not as an experiment to rerun from scratch
+- either:
+  - verify pan/zoom on `rotaryParamCodeObjDefault` does not produce blank-body pop-in with the gate, or
+  - tighten the wide auto-fit lane so the remaining `42` mounted bodies fall further without breaking the focused section body path
 
 Recommended deliverables for the next iteration:
 
-- one production code slice that measurably lowers mounted body count on the canary
-- focused Vitest coverage for the new body-ownership gate
-- one targeted Playwright probe that reads the instrumentation snapshot before/after the change
-- one append-only perf report update under `perf/reports/frontend/`
+- one production or deterministic verification slice that directly exercises the landed mount gate
+- focused automated coverage for the chosen motion/wide-view path
+- one targeted Playwright probe that reuses the canary instrumentation on the same canonical target
+- one bounded CDP visual check on the live worktree after the lane action
 
 Recommended canonical target:
 
 - keep `rotaryParamCodeObjDefault` as the broad regression anchor for normalization and fit-view setup
-- use the whole `All Settings` canary as the measured scene for the instrumentation pass
+- use the whole `All Settings` canary as the measured scene, but keep the focused fit-view on `rotaryParamCodeObjDefault` as the narrow correctness check
 
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another instrumentation-only pass unless a concrete motion question blocks the body-narrowing slice
+- another instrumentation-only pass unless a concrete motion question blocks the gate follow-up
 - another shell-only visual contract slice
 - another standalone lifecycle recovery pass unless the runtime is actually unhealthy
 - another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
 
 ## Current status
+
+- Ralph item `278` landed the first production DOM body narrowing slice for the canary by mounting section bodies only when they are viewport-visible, active, dragging, or still missing authoritative size.
+
+  - Why this pass completed:
+    - item `277` explicitly said the next pass should stop instrumenting and land one bounded body-ownership reduction slice on the normalized `All Settings` canary
+    - the chosen seam was product code in the canary sections layer plus the viewport runtime, not another forwarding lift or another support-only probe pass
+    - the resulting Playwright snapshot proved the intended outcome on the canonical lane: focused `rotaryParamCodeObjDefault` fit-view dropped mounted section bodies from `46` to `1` without blanking the visible card body
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass measured both the wide auto-fit view and the focused target fit-view; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) to compute a viewport-visible body-mount set from authoritative scene section bounds plus the current visible viewport rect, while always keeping active, dragging, and unresolved-size sections mounted
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx) so the live canary threads the current visible viewport rect into that mount gate
+    - expanded [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx) for visible/offscreen/active body-mount behavior and updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) so the probe records auto-fit versus focused-fit body counts without depending on the `All Settings` tab chrome being visible in the seeded workspace
+    - recorded the append-only report in [`perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-body-visibility-mount-gate.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-body-visibility-mount-gate.md)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`3 files`, `26 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"`
+      - result: passed (`1 passed`, `36.3s`)
+      - captured snapshots:
+        - auto-fit: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+        - focused fit-view on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - checked the live worktree Chrome session over CDP at `127.0.0.1:9298` against `http://127.0.0.1:3075/settings`
+      - observed `Settings`, active `All Settings`, and populated body content (`languageServer`, `backend`, `shortcuts`, `gui`, `sectionSizingPolicy`) instead of a blank shell/body
+      - final classification: pass for bounded live canary health after the mount gate
+  - Lane status:
+    - the first body-ownership reduction slice requested by item `277` is now complete and should not be reopened as another “initial body gate” pass
+    - the focused normalized lane is now down to one mounted DOM body, but the wide auto-fit lane still mounts `42` bodies, so broad DOM ownership remains the likely next hotspot
+    - the next iteration should either validate the new gate during pan/zoom motion on the same canonical target or narrow the remaining wide-view body count further
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `277` landed a canary-only instrumentation snapshot plus a normalized `All Settings` baseline report, so the live canary now exposes scene/body/drawable/sync/viewport/fallback counters through a narrow debug seam.
 

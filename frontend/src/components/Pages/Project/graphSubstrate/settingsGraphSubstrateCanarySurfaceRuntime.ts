@@ -21,7 +21,7 @@ import {
 } from "./settingsGraphSubstrateCanarySectionDragController";
 import type { SettingsGraphSubstrateCanaryWheelBehavior } from "./settingsGraphSubstrateCanaryViewport";
 import { useSettingsGraphSubstrateCanaryViewportRuntime } from "./settingsGraphSubstrateCanaryViewportRuntime";
-import type { GraphViewport } from "./viewportTransform";
+import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySurfaceRuntimeArgs = {
   defaultZoomLevel: number;
@@ -53,6 +53,7 @@ export type SettingsGraphSubstrateCanarySurfaceRuntime = {
   resolvedViewport: GraphViewport | null;
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
+  visibleViewportRect: GraphRect | null;
 };
 
 export function useSettingsGraphSubstrateCanarySurfaceRuntime({
@@ -265,5 +266,6 @@ export function useSettingsGraphSubstrateCanarySurfaceRuntime({
     resolvedViewport: viewportRuntime.resolvedViewport,
     sceneSnapshot,
     sectionDragController,
+    visibleViewportRect: viewportRuntime.visibleViewportRect,
   };
 }

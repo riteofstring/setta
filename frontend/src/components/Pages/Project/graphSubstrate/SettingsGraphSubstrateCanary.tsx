@@ -84,6 +84,8 @@ export function SettingsGraphSubstrateCanary() {
             onHoveredSectionChange={handleHoveredSectionChange}
             sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}
+            viewport={controller.resolvedViewport}
+            visibleViewportRect={controller.visibleViewportRect}
           />
         ) : (
           <div

@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useMemo,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -11,12 +12,19 @@ import {
 } from "./settingsGraphSubstrateCanarySectionBodyAdapter";
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
 import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
+import {
+  worldPointToScreenPoint,
+  type GraphRect,
+  type GraphViewport,
+} from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
   onHoveredSectionChange: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
 };
 
 function _SettingsGraphSubstrateCanarySectionsLayer({
@@ -24,12 +32,29 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   onHoveredSectionChange,
   sceneSections,
   sectionDragController,
+  viewport,
+  visibleViewportRect,
 }: SettingsGraphSubstrateCanarySectionsLayerProps) {
+  const mountedSectionBodyIds = useMemo(() => {
+    return new Set(
+      sceneSections
+        .filter((section) =>
+          shouldMountSettingsGraphSubstrateCanarySectionBody({
+            draggingSectionId,
+            section,
+            viewport,
+            visibleViewportRect,
+          }),
+        )
+        .map((section) => section.sectionId),
+    );
+  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
+
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
-      mountedSectionBodyCount: sceneSections.length,
+      mountedSectionBodyCount: mountedSectionBodyIds.size,
     });
-  }, [sceneSections.length]);
+  }, [mountedSectionBodyIds]);
 
   function handleSectionPointerDown(
     section: SettingsGraphSubstrateCanarySceneSection,
@@ -85,6 +110,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   return (
     <>
       {sceneSections.map((section) => {
+        const shouldMountBody = mountedSectionBodyIds.has(section.sectionId);
         const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
           positionAndSizeLocked: section.positionAndSizeLocked,
           sectionId: section.sectionId,
@@ -103,13 +129,65 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             onHoveredSectionChange={onHoveredSectionChange}
             section={section}
           >
-            <SettingsGraphSubstrateCanarySectionBodyDomAdapter
-              sectionBody={sectionBody}
-            />
+            {shouldMountBody ? (
+              <SettingsGraphSubstrateCanarySectionBodyDomAdapter
+                sectionBody={sectionBody}
+              />
+            ) : null}
           </SettingsGraphSubstrateCanarySectionShell>
         );
       })}
     </>
+  );
+}
+
+export function shouldMountSettingsGraphSubstrateCanarySectionBody({
+  draggingSectionId,
+  section,
+  viewport,
+  visibleViewportRect,
+}: {
+  draggingSectionId: string | null;
+  section: SettingsGraphSubstrateCanarySceneSection;
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
+}): boolean {
+  if (
+    section.sectionId === draggingSectionId ||
+    section.isActiveSection === true ||
+    viewport === null ||
+    viewport.zoom <= 0 ||
+    visibleViewportRect === null
+  ) {
+    return true;
+  }
+
+  const sectionBoundsSize = section.sceneBoundsSize;
+  if (!sectionBoundsSize) {
+    return true;
+  }
+
+  const sectionScreenPosition = worldPointToScreenPoint(
+    section.renderedPosition,
+    viewport,
+  );
+  return graphRectsIntersect(
+    {
+      x: sectionScreenPosition.x,
+      y: sectionScreenPosition.y,
+      width: sectionBoundsSize.width * viewport.zoom,
+      height: sectionBoundsSize.height * viewport.zoom,
+    },
+    visibleViewportRect,
+  );
+}
+
+function graphRectsIntersect(left: GraphRect, right: GraphRect) {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
   );
 }
 
