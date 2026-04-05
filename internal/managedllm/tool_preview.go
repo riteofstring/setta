@@ -25,6 +25,11 @@ type partialJSONStringToken struct {
 	IsComplete bool
 }
 
+const (
+	jsonContainerObject = "object"
+	jsonContainerArray  = "array"
+)
+
 type jsonContainerState struct {
 	kind           string
 	valueOwnerKey  string
@@ -33,6 +38,11 @@ type jsonContainerState struct {
 	expectingValue bool
 	pendingKey     string
 	hasPendingKey  bool
+}
+
+type partialJSONScanner struct {
+	tokens     []partialJSONStringToken
+	containers []jsonContainerState
 }
 
 func newToolPreviewAccumulator() *toolPreviewAccumulator {
@@ -268,149 +278,166 @@ func cloneStringSliceMap(values map[string][]string) map[string][]string {
 }
 
 func scanPartialJSONStrings(buffer string) ([]partialJSONStringToken, error) {
-	tokens := []partialJSONStringToken{}
-	containers := []jsonContainerState{}
-
+	scanner := partialJSONScanner{}
 	for i := 0; i < len(buffer); {
-		char := buffer[i]
-		switch char {
-		case '"':
-			value, nextIndex, isComplete, err := parsePartialJSONStringWithEnd(buffer, i+1)
-			if err != nil {
-				return nil, err
-			}
-			var container *jsonContainerState
-			if len(containers) > 0 {
-				container = &containers[len(containers)-1]
-			}
-			if container != nil && container.kind == "object" {
-				switch {
-				case container.expectingKey:
-					tokens = append(tokens, partialJSONStringToken{
-						Value:      value,
-						Kind:       "key",
-						OwnerKey:   container.objectKeyOwner,
-						IsComplete: isComplete,
-					})
-					if isComplete {
-						container.pendingKey = value
-						container.hasPendingKey = true
-						container.expectingKey = false
-					}
-				case container.expectingValue:
-					tokens = append(tokens, partialJSONStringToken{
-						Value:      value,
-						Kind:       "value",
-						OwnerKey:   container.pendingKey,
-						IsComplete: isComplete,
-					})
-					if isComplete {
-						container.pendingKey = ""
-						container.hasPendingKey = false
-						container.expectingValue = false
-					}
-				default:
-					tokens = append(tokens, partialJSONStringToken{
-						Value:      value,
-						Kind:       "value",
-						IsComplete: isComplete,
-					})
-				}
-			} else if container != nil && container.kind == "array" {
-				tokens = append(tokens, partialJSONStringToken{
-					Value:      value,
-					Kind:       "value",
-					OwnerKey:   container.valueOwnerKey,
-					IsComplete: isComplete,
-				})
-			} else {
-				tokens = append(tokens, partialJSONStringToken{
-					Value:      value,
-					Kind:       "value",
-					IsComplete: isComplete,
-				})
-			}
-			i = nextIndex
-			if !isComplete {
-				return tokens, nil
-			}
-		case '{':
-			container := jsonContainerState{
-				kind:         "object",
-				expectingKey: true,
-			}
-			if len(containers) > 0 {
-				parent := &containers[len(containers)-1]
-				switch {
-				case parent.kind == "object" && parent.expectingValue && parent.hasPendingKey:
-					container.valueOwnerKey = parent.pendingKey
-					container.objectKeyOwner = parent.pendingKey
-					parent.expectingValue = false
-					parent.pendingKey = ""
-					parent.hasPendingKey = false
-				case parent.kind == "array":
-					container.valueOwnerKey = parent.valueOwnerKey
-				}
-			}
-			containers = append(containers, container)
-			i++
-		case '[':
-			container := jsonContainerState{kind: "array"}
-			if len(containers) > 0 {
-				parent := &containers[len(containers)-1]
-				switch {
-				case parent.kind == "object" && parent.expectingValue && parent.hasPendingKey:
-					container.valueOwnerKey = parent.pendingKey
-					parent.expectingValue = false
-					parent.pendingKey = ""
-					parent.hasPendingKey = false
-				case parent.kind == "array":
-					container.valueOwnerKey = parent.valueOwnerKey
-				}
-			}
-			containers = append(containers, container)
-			i++
-		case ':':
-			if len(containers) > 0 {
-				container := &containers[len(containers)-1]
-				if container.kind == "object" && container.hasPendingKey && !container.expectingValue {
-					container.expectingValue = true
-				}
-			}
-			i++
-		case ',':
-			if len(containers) > 0 {
-				container := &containers[len(containers)-1]
-				if container.kind == "object" {
-					container.expectingKey = true
-					container.expectingValue = false
-					container.pendingKey = ""
-					container.hasPendingKey = false
-				}
-			}
-			i++
-		case '}':
-			if len(containers) > 0 && containers[len(containers)-1].kind == "object" {
-				containers = containers[:len(containers)-1]
-			}
-			i++
-		case ']':
-			if len(containers) > 0 && containers[len(containers)-1].kind == "array" {
-				containers = containers[:len(containers)-1]
-			}
-			i++
-		default:
-			if len(containers) > 0 {
-				container := &containers[len(containers)-1]
-				if container.kind == "object" && container.expectingValue && !isWhitespace(char) {
-					i = consumeNonStringValue(buffer, i, container)
-					continue
-				}
-			}
-			i++
+		nextIndex, isTerminal, err := scanner.consume(buffer, i)
+		if err != nil {
+			return nil, err
+		}
+		i = nextIndex
+		if isTerminal {
+			return scanner.tokens, nil
 		}
 	}
-	return tokens, nil
+	return scanner.tokens, nil
+}
+
+func (s *partialJSONScanner) consume(buffer string, index int) (int, bool, error) {
+	switch buffer[index] {
+	case '"':
+		return s.consumeString(buffer, index)
+	case '{':
+		s.pushContainer(jsonContainerState{
+			kind:         jsonContainerObject,
+			expectingKey: true,
+		})
+	case '[':
+		s.pushContainer(jsonContainerState{kind: jsonContainerArray})
+	case ':':
+		if container := s.currentContainer(); container != nil {
+			container.noteObjectValueStart()
+		}
+	case ',':
+		if container := s.currentContainer(); container != nil {
+			container.noteObjectEntrySeparator()
+		}
+	case '}':
+		s.popContainer(jsonContainerObject)
+	case ']':
+		s.popContainer(jsonContainerArray)
+	default:
+		if container := s.currentContainer(); container != nil && container.shouldConsumeNonStringValue(buffer[index]) {
+			return consumeNonStringValue(buffer, index, container), false, nil
+		}
+	}
+	return index + 1, false, nil
+}
+
+func (s *partialJSONScanner) consumeString(buffer string, startIndex int) (int, bool, error) {
+	value, nextIndex, isComplete, err := parsePartialJSONStringWithEnd(buffer, startIndex+1)
+	if err != nil {
+		return 0, false, err
+	}
+	s.appendStringToken(value, isComplete)
+	return nextIndex, !isComplete, nil
+}
+
+func (s *partialJSONScanner) appendStringToken(value string, isComplete bool) {
+	token := partialJSONStringToken{
+		Value:      value,
+		Kind:       "value",
+		IsComplete: isComplete,
+	}
+	if container := s.currentContainer(); container != nil {
+		token = container.classifyStringToken(value, isComplete)
+		container.recordCompletedStringToken(token)
+	}
+	s.tokens = append(s.tokens, token)
+}
+
+func (s *partialJSONScanner) currentContainer() *jsonContainerState {
+	if len(s.containers) == 0 {
+		return nil
+	}
+	return &s.containers[len(s.containers)-1]
+}
+
+func (s *partialJSONScanner) pushContainer(container jsonContainerState) {
+	if parent := s.currentContainer(); parent != nil {
+		parent.attachChild(&container)
+	}
+	s.containers = append(s.containers, container)
+}
+
+func (s *partialJSONScanner) popContainer(kind string) {
+	if len(s.containers) == 0 || s.containers[len(s.containers)-1].kind != kind {
+		return
+	}
+	s.containers = s.containers[:len(s.containers)-1]
+}
+
+func (c *jsonContainerState) classifyStringToken(value string, isComplete bool) partialJSONStringToken {
+	token := partialJSONStringToken{
+		Value:      value,
+		Kind:       "value",
+		IsComplete: isComplete,
+	}
+	switch c.kind {
+	case jsonContainerObject:
+		switch {
+		case c.expectingKey:
+			token.Kind = "key"
+			token.OwnerKey = c.objectKeyOwner
+		case c.expectingValue:
+			token.OwnerKey = c.pendingKey
+		}
+	case jsonContainerArray:
+		token.OwnerKey = c.valueOwnerKey
+	}
+	return token
+}
+
+func (c *jsonContainerState) recordCompletedStringToken(token partialJSONStringToken) {
+	if !token.IsComplete || c.kind != jsonContainerObject {
+		return
+	}
+	switch token.Kind {
+	case "key":
+		c.pendingKey = token.Value
+		c.hasPendingKey = true
+		c.expectingKey = false
+	case "value":
+		if c.expectingValue {
+			c.clearPendingValue()
+		}
+	}
+}
+
+func (c *jsonContainerState) attachChild(child *jsonContainerState) {
+	switch {
+	case c.kind == jsonContainerObject && c.expectingValue && c.hasPendingKey:
+		child.valueOwnerKey = c.pendingKey
+		if child.kind == jsonContainerObject {
+			child.objectKeyOwner = c.pendingKey
+		}
+		c.clearPendingValue()
+	case c.kind == jsonContainerArray:
+		child.valueOwnerKey = c.valueOwnerKey
+	}
+}
+
+func (c *jsonContainerState) noteObjectValueStart() {
+	if c.kind == jsonContainerObject && c.hasPendingKey && !c.expectingValue {
+		c.expectingValue = true
+	}
+}
+
+func (c *jsonContainerState) noteObjectEntrySeparator() {
+	if c.kind != jsonContainerObject {
+		return
+	}
+	c.expectingKey = true
+	c.clearPendingValue()
+}
+
+func (c *jsonContainerState) shouldConsumeNonStringValue(char byte) bool {
+	return c.kind == jsonContainerObject && c.expectingValue && !isWhitespace(char)
+}
+
+func (c *jsonContainerState) clearPendingValue() {
+	c.expectingValue = false
+	c.pendingKey = ""
+	c.hasPendingKey = false
 }
 
 func consumeNonStringValue(buffer string, startIndex int, container *jsonContainerState) int {

@@ -94,6 +94,32 @@ func TestExtractPreviewTargetIDsFromTokensCollectsArrayValuesAndObjectKeys(t *te
 	}
 }
 
+func TestExtractPreviewTargetIDsFromTokensCollectsNestedArrayValues(t *testing.T) {
+	t.Parallel()
+
+	tokens, err := scanPartialJSONStrings(
+		"{\"sectionIds\":[[\"temp-1\"],[\"temp-2\",\"temp-3\"]]}",
+	)
+	if err != nil {
+		t.Fatalf("scan partial json strings: %v", err)
+	}
+
+	idsByType := extractPreviewTargetIDsFromTokens(tokens, map[tools.IDType][]string{
+		tools.IDTypeSection: {"sectionIds"},
+	})
+
+	got := idsByType[tools.IDTypeSection]
+	want := []string{"temp-1", "temp-2", "temp-3"}
+	if len(got) != len(want) {
+		t.Fatalf("expected section ids %#v, got %#v", want, got)
+	}
+	for index, expected := range want {
+		if got[index] != expected {
+			t.Fatalf("expected section id %q at index %d, got %#v", expected, index, got)
+		}
+	}
+}
+
 func TestCanonicalizePreviewTargetIDsByTypeResolvesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
