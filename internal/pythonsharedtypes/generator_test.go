@@ -275,44 +275,31 @@ func defaultSourcesForTest(t *testing.T) map[reflect.Type]reflect.Value {
 
 func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fieldName string) string {
 	t.Helper()
-	module, err := pythonSharedSchemaModule()
+	schemasByName, err := pythonSharedProjectionSchemas()
 	if err != nil {
-		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
+		t.Fatalf("pythonSharedProjectionSchemas() error = %v", err)
 	}
 	contractName := sharedtypes.ContractNameForType(ownerType)
-	for _, block := range strings.Split(module, "\n\n") {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		lines := strings.Split(block, "\n")
-		header := strings.TrimSpace(lines[0])
-		if !strings.HasPrefix(header, "class ") {
-			continue
-		}
-		name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
-		if before, _, ok := strings.Cut(name, "("); ok {
-			name = strings.TrimSpace(before)
-		}
-		if name != contractName {
-			continue
-		}
-		for index := 0; index < len(lines); {
-			name, typeExpr, end, ok, err := parseDatamodelField(lines, index)
-			if err != nil {
-				t.Fatalf("parseDatamodelField(%s.%s) error = %v", contractName, fieldName, err)
-			}
-			if !ok {
-				index++
-				continue
-			}
-			if name != fieldName {
-				index = end
-				continue
-			}
-			return typeExpr
-		}
+	rawSchema, ok := schemasByName[contractName]
+	if !ok {
+		t.Fatalf("projected schema %q not found", contractName)
 	}
-	t.Fatalf("field %q not found in datamodel declaration %s", fieldName, contractName)
+	schema, ok := rawSchema.(map[string]any)
+	if !ok {
+		t.Fatalf("projected schema %q has unsupported shape %T", contractName, rawSchema)
+	}
+	properties, err := projectedSchemaProperties(schema)
+	if err != nil {
+		t.Fatalf("projectedSchemaProperties(%s) error = %v", contractName, err)
+	}
+	rawProperty, ok := properties[fieldName]
+	if !ok {
+		t.Fatalf("field %q not found in projected schema %s", fieldName, contractName)
+	}
+	typeExpr, err := pythonProjectedSchemaTypeExpr(rawProperty)
+	if err != nil {
+		t.Fatalf("pythonProjectedSchemaTypeExpr(%s.%s) error = %v", contractName, fieldName, err)
+	}
+	return typeExpr
 	return ""
 }

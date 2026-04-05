@@ -4,26 +4,117 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Literal
-
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, conint
+from pydantic import TypeAdapter
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
+from typing import Annotated, Any, Literal
 
+class AIFollowToolArgumentsUpdateContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    chatId: str
+    idsByType: dict[str, list[str] | None]
+
+class AIFollowToolResultUpdateContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    chatId: str
+    idsByType: dict[str, list[str] | None]
+
+class AddKwargResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjId: str
+
+class AgentProfile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    description: str
+    systemPrompt: str
+    enableBackgroundSummaryFill: bool
+    enableLlmChatTitles: bool
+    engineConfigId: str | None = None
+    toolAllowlist: list[str] | None = None
+    memoryScope: str | None = None
+
+class AgentProfilesUpdatedContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    profiles: list[AgentProfile] | None = None
 
 class AgenticEdgeContextMode(StrEnum):
     reference_only = "reference_only"
     inline_text = "inline_text"
     summary = "summary"
 
-
 class AgenticEdgeKind(StrEnum):
     chat_chat = "chat_chat"
     section_chat = "section_chat"
     chat_section = "chat_section"
 
+class AgenticSummaryCacheStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    maxSummariesPerRun: int
+    summarySectionIds: list[str] | None = None
+    cachedSectionIds: list[str] | None = None
+    missingSectionIds: list[str] | None = None
+    emptySourceSectionIds: list[str] | None = None
+    consideredSectionIds: list[str] | None = None
+    wouldAttemptSectionIds: list[str] | None = None
+
+class Allocation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    deploymentName: str
+    deploymentVersion: str
+    deploymentRoot: str
+
+class AppCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    catalogId: str
+    catalogVersion: str
+    appSpecVersion: str
+    themeSchemaVersion: str
+    features: dict[str, bool]
+
+class AppGenerationMode(StrEnum):
+    json_render = "json_render"
+    json_render_with_image = "json_render_with_image"
+    prompt_builder = "prompt_builder"
+    mcp_server = "mcp_server"
+
+class AppRoute(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    path: str
+    name: str
+    rootKey: str
+
+class AppValidationIssue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: str
+    elementKey: str
+    elementType: str
 
 class ArtifactType(StrEnum):
     Image = "Image"
@@ -32,28 +123,97 @@ class ArtifactType(StrEnum):
     ChartData = "ChartData"
     File = "File"
 
+class BackendCodegenTargetRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    language: str
+    targetId: str
+    projectState: dict[str, Any]
+    targetOptions: dict[str, Any]
+
+class BackendHTTPResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    statusCode: int
+    headers: dict[str, list[str] | None]
+
+class BackgroundVariant(StrEnum):
+    lines = "lines"
+    dots = "dots"
+    cross = "cross"
+
+class BaseParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
+    typeAnnotation: str
+
+class BaseValueParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
+    typeAnnotation: str
+    defaultVal: str
+    value: str
+
+class BinaryTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    upload: str
+    download: str
+
+class BootstrapHandoffProtocol(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    workspaceHistoryStorageKey: str
+    workspaceHistoryQueryParam: str
+    workspaceHistoryHashParam: str
+    launcherOriginStorageKey: str
+    launcherOriginHashParam: str
+    launcherOriginProofHashParam: str
+    openWorkspaceSwitcherQueryParam: str
+    openWorkspaceSwitcherHashParam: str
+    backendOriginOverrideQueryParam: str
+    maxValueLength: int
 
 class BrowserAreaViewMode(StrEnum):
     list = "list"
     thumbnail = "thumbnail"
     carousel = "carousel"
 
-
 class BrowserSavedSearchTypeFilters(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    audio: bool = True
-    data: bool = True
     image: bool = True
-    text: bool = True
     video: bool = True
-
+    audio: bool = True
+    text: bool = True
+    data: bool = True
 
 class BrowserSearchScope(StrEnum):
     recursive = "recursive"
     local = "local"
-
 
 class BrowserSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -62,14 +222,12 @@ class BrowserSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class BrowserSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class BrowserSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -78,12 +236,10 @@ class BrowserSectionImplSize(BaseModel):
     height: BrowserSectionImplSizeHeight
     width: BrowserSectionImplSizeWidth
 
-
 class ButtonActionMode(StrEnum):
     WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
     HTTP_REQUEST = "HTTP_REQUEST"
     SETTA_API = "SETTA_API"
-
 
 class CallableSectionImplEdgeOutputPort(BaseModel):
     model_config = ConfigDict(
@@ -92,14 +248,12 @@ class CallableSectionImplEdgeOutputPort(BaseModel):
     accessor: str
     id: str
 
-
 class CallableSectionImplIgnoreTypeErrors(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     callable: bool
     params: dict[str, bool]
-
 
 class CallableSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -108,14 +262,12 @@ class CallableSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class CallableSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class CallableSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -124,13 +276,11 @@ class CallableSectionImplSize(BaseModel):
     height: CallableSectionImplSizeHeight
     width: CallableSectionImplSizeWidth
 
-
 type CanvasPoint = Annotated[
     list[float], Field(..., max_length=2, min_length=2, title="CanvasPoint")
 ]
 
 type ChartDataValue = dict[str, list[str | float]]
-
 
 class ChartSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -139,14 +289,12 @@ class ChartSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class ChartSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class ChartSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -155,55 +303,56 @@ class ChartSectionImplSize(BaseModel):
     height: ChartSectionImplSizeHeight
     width: ChartSectionImplSizeWidth
 
-
 class ChartSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    chartSettings: Any
-    dataPath: str
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
-    size: ChartSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
+    isPreset: bool
+    dataPath: str
+    chartSettings: Any
 
 class ChartType(StrEnum):
     line = "line"
     scatter = "scatter"
 
+class ChatAppGenerationMessageMode(StrEnum):
+    plain_chat = "plain_chat"
+    json_render = "json_render"
+    json_render_with_image = "json_render_with_image"
+    prompt_builder = "prompt_builder"
+    mcp_server = "mcp_server"
 
 class ChatDictationMode(StrEnum):
     auto = "auto"
     browser = "browser"
     provider = "provider"
 
-
 class ChatFileAttachment(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     id: str
-    mimeType: str | None = None
     name: str
+    mimeType: str | None = None
     size: int | None = None
-
 
 class ChatPermissionMode(StrEnum):
     minimal = "minimal"
     yolo = "yolo"
     config_toml_custom = "config_toml_custom"
-
 
 class ChatRole(StrEnum):
     system = "system"
@@ -211,6 +360,14 @@ class ChatRole(StrEnum):
     assistant = "assistant"
     tool = "tool"
 
+class ChatSectionImplBranches(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    branchFromMessageId: str | None
+    createdAt: int
+    messages: list[dict[str, Any]]
+    parentBranchId: str | None
 
 class ChatSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -219,14 +376,12 @@ class ChatSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class ChatSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class ChatSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -235,106 +390,177 @@ class ChatSectionImplSize(BaseModel):
     height: ChatSectionImplSizeHeight
     width: ChatSectionImplSizeWidth
 
-
 class ChatSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    activeBranchId: ID | None = None
-    agentProfileId: str | None = None
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-    chatId: str | None = None
-    dictationMode: ChatDictationMode
-    engineConfigId: str | None = None
-    id: str
-    inputText: str = ""
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
+    positionAndSizeLocked: bool
     isPreset: bool
     managed: bool
-    messages: list[dict[str, Any]]
-    name: str
-    permissionMode: ChatPermissionMode
-    positionAndSizeLocked: bool
-    searchEnabled: bool
-    size: ChatSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    thinking: bool
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
+    engineConfigId: str | None = None
     transcriptionProfileId: str | None = None
-    type: str
+    agentProfileId: str | None = None
+    chatId: str | None = None
+    thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    dictationMode: ChatDictationMode
+    messages: list[dict[str, Any]] | None = None
+    inputText: str = ""
     waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
+    activeBranchId: ID | None = None
+    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
+class ChatSectionSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    managed: bool
+    engineConfigId: str | None = None
+    transcriptionProfileId: str | None = None
+    agentProfileId: str | None = None
+    thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    dictationMode: ChatDictationMode
 
 class ChatSendAction(StrEnum):
     send = "send"
-
 
 class ChatSendEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     action: ChatSendAction
-    attachments: list[ChatFileAttachment]
-    managed: bool
-    messageId: str
-    role: ChatRole
     sectionId: str
+    messageId: str
     text: str
+    attachments: list[ChatFileAttachment] | None = None
+    role: ChatRole
     timestampMs: int
-
+    managed: bool
 
 class ChatStopAction(StrEnum):
     stop = "stop"
-
 
 class ChatStopEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     action: ChatStopAction
-    managed: bool
     sectionId: str
     timestampMs: int
+    managed: bool
 
+class ChatWindowBounds(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    x: float
+    y: float
+    width: float
+    height: float
+
+class ChatWindowDockMetrics(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    widthFraction: float | None = None
+    preferredWidthPx: float | None = None
 
 class ChatWindowMode(StrEnum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
     git_graph_mode = "git_graph_mode"
 
+class ChatWindowPlacement(StrEnum):
+    bottom_docked = "bottom_docked"
+    floating = "floating"
+    maximized = "maximized"
+    canvas_section = "canvas_section"
+
+class ChildCodeObjFields(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    children: list[str] | None = None
+
+class ChildSectionFields(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    children: list[str] | None = None
+
+class ClaudeSettingsPermissions(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    allow: list[str] | None = None
+    ask: list[str] | None = None
+    deny: list[str] | None = None
+
+class ClaudeSettingsSource(StrEnum):
+    user = "user"
+    project = "project"
+    local = "local"
+
+class ClipboardDataType(StrEnum):
+    Sections = "Sections"
 
 class CodeCallableCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    children: list[str]
-    description: str
-    id: str
-    isPreset: bool
-    name: str
     type: str
-
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    children: list[str] | None = None
 
 class CodeFileAccessMode(StrEnum):
     read_write = "read_write"
     read_only = "read_only"
     write_only = "write_only"
 
-
 class CodeFileBinding(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    canonical_path: str
     access_mode: CodeFileAccessMode
     autoBinding: bool
-    canonical_path: str
 
+class CodeLanguage(StrEnum):
+    python = "python"
+    bash = "bash"
+    javascript = "javascript"
+    typescript = "typescript"
+    json = "json"
+    yaml = "yaml"
+    toml = "toml"
+    markdown = "markdown"
+    plaintext = "plaintext"
+
+class CodeMirrorCompletion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    label: str
+    type: str
 
 class CodeObjType(StrEnum):
     CodeCallable = "CodeCallable"
@@ -353,7 +579,6 @@ class CodeObjType(StrEnum):
     DropzoneParam = "DropzoneParam"
     NestedParam = "NestedParam"
 
-
 class CodeObjValueRepresentationMode(StrEnum):
     expression = "expression"
     json_parsed = "json_parsed"
@@ -361,31 +586,28 @@ class CodeObjValueRepresentationMode(StrEnum):
     file_path = "file_path"
     file_read = "file_read"
 
-
 class CodeParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
 
 class CodeSectionDiagnosticsIgnoreState(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     muted: bool
-    suppressedCodes: list[Any]
-
+    suppressedCodes: list[Any] | None = None
 
 class CodeSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -394,14 +616,12 @@ class CodeSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class CodeSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class CodeSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -410,75 +630,144 @@ class CodeSectionImplSize(BaseModel):
     height: CodeSectionImplSizeHeight
     width: CodeSectionImplSizeWidth
 
-
 class CodeSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    attachedTerminalSectionId: str | None = None
-    children: list[str]
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
+    children: list[str] | None = None
     code: str
     codeFileBinding: CodeFileBinding | None = None
+    attachedTerminalSectionId: str | None = None
     codeLanguage: str
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isMinimized: bool
-    isPreset: bool
-    name: str
-    positionAndSizeLocked: bool
-    size: CodeSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
 
+class ColorPickerChoice(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    color: str
+    description: str
 
 class ColorPickerParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    colorChoices: list[dict[str, str]]
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
+    colorChoices: list[dict[str, str]] | None = None
 
 class ConfigLanguage(StrEnum):
     python = "python"
     json = "json"
 
+class ConnectionType(StrEnum):
+    frontend = "frontend"
+    listener = "listener"
+    SERVER = "SERVER"
+    terminal = "terminal"
+
+class Constants(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    AUTH_COOKIE_REFRESH_WINDOW_SECONDS: int
+    CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: list[str] | None = None
+    CHAT_ATTACHMENTS_MAX_FILES: int
+    CHAT_ATTACHMENTS_MAX_FILE_BYTES: int
+    CHAT_ATTACHMENTS_MAX_FILE_LABEL: str
+    DEFAULT_HOST: str
+    DEFAULT_PORT: int
+    DROPZONE_ALLOWED_MIME_PREFIXES: list[str] | None = None
+    DROPZONE_STATEFUL_MAX_FILE_BYTES: int
+    DROPZONE_STATEFUL_MAX_FILE_LABEL: str
+    DROPZONE_STATELESS_MAX_FILE_BYTES: int
+    DROPZONE_STATELESS_MAX_FILE_LABEL: str
+    DROPZONE_STATELESS_MAX_TOTAL_BYTES: int
+    DROPZONE_STATELESS_MAX_TOTAL_LABEL: str
+    EDGE_OUTPUT_BASE_LABEL: str
+    GEN_CODE_SEPARATOR_NEWLINES: int
+    LLM_TEXT: str
+    LLM_THINKING: str
+    NOTIFICATION_IS_FOR_ALL_PROJECTS: str
+    REALTIME_BINARY_MAX_BYTES: int
+    SETTA_TERMINAL_READY: str
+    SETTINGS_PROJECT_NAME: str
+    WS_TERMINAL_RESIZE: str
 
 class ContentRef(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    byteLength: int
     contentId: str
-    mimeType: str | None = None
-    sha256: str | None = None
+    byteLength: int
+    mimeType: str
+    sha256: str
 
+class CreateChildSectionsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    parentId: str
+    implType: str
+    numChildren: int
+    startIdx: int | None = None
+
+class CreateChildSectionsResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionIds: list[str] | None = None
+
+class CreateChildSectionsViaIncrementerInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    calledBy: str
+    implType: str
+    numChildren: int
+
+class CreateNewSectionVariantInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+
+class CreateNewSectionVariantResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    variantId: str
 
 class DateCalendarWeekStart(StrEnum):
     sunday = "sunday"
     monday = "monday"
 
-
 class DateControlMode(StrEnum):
     input = "input"
     calendar = "calendar"
-
 
 class DateDisplayFormat(StrEnum):
     iso = "iso"
@@ -486,22 +775,78 @@ class DateDisplayFormat(StrEnum):
     eu = "eu"
     long = "long"
 
-
 class DateSelectionMode(StrEnum):
     single = "single"
     multiple = "multiple"
 
+class DeleteChatRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    chatId: str
+
+class DeleteChildSectionsViaDecrementerInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    calledBy: str
+    numChildren: int
+
+class DeleteKwargResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjId: str
+
+class DeleteRequestItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+
+class DeleteSectionsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionIds: list[str] | None = None
+
+class DeleteSectionsResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionIds: list[str] | None = None
+
+class DeleteSelectedParamsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    paramInfoIds: list[str] | None = None
+
+class DeleteSelectedParamsResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    paramInfoIds: list[str] | None = None
 
 class DependencyKeyType(StrEnum):
     Section = "Section"
     SectionParam = "SectionParam"
-
 
 class DependencyValueType(StrEnum):
     Literal = "Literal"
     Binary = "Binary"
     FileRead = "FileRead"
 
+class DetachedStatus(StrEnum):
+    queued = "queued"
+    running = "running"
+    exited = "exited"
+    failed = "failed"
+    canceled = "canceled"
+    lost = "lost"
 
 class DictSectionImplEdgeOutputPort(BaseModel):
     model_config = ConfigDict(
@@ -510,14 +855,12 @@ class DictSectionImplEdgeOutputPort(BaseModel):
     accessor: str
     id: str
 
-
 class DictSectionImplIgnoreTypeErrors(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     callable: bool
     params: dict[str, bool]
-
 
 class DictSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -526,14 +869,12 @@ class DictSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class DictSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class DictSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -542,124 +883,182 @@ class DictSectionImplSize(BaseModel):
     height: DictSectionImplSizeHeight
     width: DictSectionImplSizeWidth
 
-
 class DictSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
     codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
     columnWidth: float | None = None
     configLanguage: str
-    edgeInputParams: list[str]
-    edgeOutputPorts: list[DictSectionImplEdgeOutputPort]
-    hideUnpinnedParams: bool
-    id: str
-    ignoreTypeErrors: DictSectionImplIgnoreTypeErrors
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isJsonSource: bool
-    isMinimized: bool
-    isPreset: bool
-    jsonSourceKeys: list[str]
-    jsonSourceMissing: bool
-    name: str
-    paramFilter: str
-    pinnedParams: list[str]
-    positionAndSizeLocked: bool
-    selectedParams: list[str]
-    size: DictSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: dict[str, Any]
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[dict[str, Any]] | None = None
     topLevelParamId: str | None = None
-    type: str
+    isJsonSource: bool
+    jsonSourceKeys: list[str] | None = None
+    jsonSourceMissing: bool
 
+class Document(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
 
 class DrawAreaBrushShape(StrEnum):
     butt = "butt"
     round = "round"
     square = "square"
 
+class DrawAreaLayerItemType(StrEnum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+
+class DrawAreaMode(StrEnum):
+    draw = "draw"
+    erase = "erase"
+    edit = "edit"
 
 type DrawAreaTransform = Annotated[
     list[float], Field(..., max_length=6, min_length=6, title="DrawAreaTransform")
 ]
 
+class DrawSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    renderedImagePath: str
 
 class DropdownParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    choices: list[str]
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
+    choices: list[str] | None = None
 
 class DropzoneMode(StrEnum):
     STATEFUL = "STATEFUL"
     STATELESS = "STATELESS"
 
-
 class DropzoneParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    maxAttachments: int | None = None
-    mode: DropzoneMode
-    name: str
-    passingStyle: str
-    placeholder: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
+    mode: DropzoneMode
+    maxAttachments: int | None = None
+    placeholder: str
 
+class EdgePort(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    accessor: str
 
 class EndpointOrigin(StrEnum):
     backend = "backend"
     launcher = "launcher"
     backend_origin = "backend-origin"
 
-
 type EndpointOriginPolicy = dict[str, EndpointOrigin]
 
+class EngineConfigDefaults(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    thinking: bool | None = None
+
+class EngineRuntimeSupport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    thinking: bool
+
+class EngineType(StrEnum):
+    setta_llm = "setta_llm"
+    external_agent = "external_agent"
+
+class EnvVarStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    present: list[str] | None = None
+    missing: list[str] | None = None
+
+class ErrorKind(StrEnum):
+    invalid_request = "invalid_request"
+    path_forbidden = "path_forbidden"
+    path_not_found = "path_not_found"
+    path_not_file = "path_not_file"
+    binary_payload_invalid = "binary_payload_invalid"
+    binary_payload_not_found = "binary_payload_not_found"
+    artifact_type_unsupported = "artifact_type_unsupported"
+    policy_denied = "policy_denied"
+    too_large = "too_large"
+    mime_not_allowed = "mime_not_allowed"
 
 class FileArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: Literal["File"]
+    id: str
     value: ContentRef
 
+class FileBrowserTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    getFileBrowserRoot: str
+    getFolderContents: str
+    writeFileBrowserContent: str
 
 class FileReadDependencyValue(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    payload: str
     type: Literal["FileRead"]
-
+    payload: str
 
 class Format(StrEnum):
     Jinja = "Jinja"
-
 
 class GenPythonCodeSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -668,14 +1067,12 @@ class GenPythonCodeSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class GenPythonCodeSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class GenPythonCodeSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -684,32 +1081,30 @@ class GenPythonCodeSectionImplSize(BaseModel):
     height: GenPythonCodeSectionImplSizeHeight
     width: GenPythonCodeSectionImplSizeWidth
 
-
 class GenPythonCodeSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    attachedTerminalSectionId: str | None = None
-    children: list[str]
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
+    children: list[str] | None = None
     code: str
     codeFileBinding: CodeFileBinding | None = None
+    attachedTerminalSectionId: str | None = None
     codeLanguage: str
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isMinimized: bool
-    isPreset: bool
-    name: str
-    positionAndSizeLocked: bool
-    size: GenPythonCodeSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
 
 class GenPythonMetadataSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -718,14 +1113,12 @@ class GenPythonMetadataSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class GenPythonMetadataSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class GenPythonMetadataSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -734,32 +1127,48 @@ class GenPythonMetadataSectionImplSize(BaseModel):
     height: GenPythonMetadataSectionImplSizeHeight
     width: GenPythonMetadataSectionImplSizeWidth
 
-
 class GenPythonMetadataSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    attachedTerminalSectionId: str | None = None
-    children: list[str]
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
+    children: list[str] | None = None
     code: str
     codeFileBinding: CodeFileBinding | None = None
+    attachedTerminalSectionId: str | None = None
     codeLanguage: str
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isMinimized: bool
-    isPreset: bool
-    name: str
-    positionAndSizeLocked: bool
-    size: GenPythonMetadataSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
 
+class GeneratedSectionKind(StrEnum):
+    python_code = "python_code"
+    python_metadata = "python_metadata"
+    plugin = "plugin"
+
+class GetAllMetadataRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+
+class GetChatRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    chatId: str
 
 class GlobalVariablesSectionImplEdgeOutputPort(BaseModel):
     model_config = ConfigDict(
@@ -768,14 +1177,12 @@ class GlobalVariablesSectionImplEdgeOutputPort(BaseModel):
     accessor: str
     id: str
 
-
 class GlobalVariablesSectionImplIgnoreTypeErrors(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     callable: bool
     params: dict[str, bool]
-
 
 class GlobalVariablesSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -784,14 +1191,12 @@ class GlobalVariablesSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class GlobalVariablesSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class GlobalVariablesSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -800,40 +1205,38 @@ class GlobalVariablesSectionImplSize(BaseModel):
     height: GlobalVariablesSectionImplSizeHeight
     width: GlobalVariablesSectionImplSizeWidth
 
-
 class GlobalVariablesSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
     codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
     columnWidth: float | None = None
     configLanguage: str
-    edgeInputParams: list[str]
-    edgeOutputPorts: list[GlobalVariablesSectionImplEdgeOutputPort]
-    hideUnpinnedParams: bool
-    id: str
-    ignoreTypeErrors: GlobalVariablesSectionImplIgnoreTypeErrors
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isJsonSource: bool
-    isMinimized: bool
-    isPreset: bool
-    jsonSourceKeys: list[str]
-    jsonSourceMissing: bool
-    name: str
-    paramFilter: str
-    pinnedParams: list[str]
-    positionAndSizeLocked: bool
-    selectedParams: list[str]
-    size: GlobalVariablesSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: dict[str, Any]
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[dict[str, Any]] | None = None
     topLevelParamId: str | None = None
-    type: str
-
+    isJsonSource: bool
+    jsonSourceKeys: list[str] | None = None
+    jsonSourceMissing: bool
 
 class GroupSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -842,14 +1245,12 @@ class GroupSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class GroupSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class GroupSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -858,6 +1259,11 @@ class GroupSectionImplSize(BaseModel):
     height: GroupSectionImplSizeHeight
     width: GroupSectionImplSizeWidth
 
+class GroupSectionsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionIds: list[str] | None = None
 
 class HTTPRequestMethod(StrEnum):
     GET = "GET"
@@ -868,41 +1274,83 @@ class HTTPRequestMethod(StrEnum):
     HEAD = "HEAD"
     OPTIONS = "OPTIONS"
 
+class IdentityContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    frontendAffinityToken: str
 
 class ImageArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: Literal["Image"]
+    id: str
     value: ContentRef
 
+class ImportFilesResponseItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    kind: str
+    id: str
+    name: str
+    mimeType: str
+    size: int
+
+class IndentParamsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    paramIds: list[str] | None = None
 
 class LLMConfig(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    api_key_env: str | None = None
-    base_url: str | None = None
     id: str
-    mcpServerIds: list[str] | None = None
     model: str
-    other_params: dict[str, Any] | None = None
-    provider: str | None = None
+    provider: str
+    base_url: str
+    api_key_env: str
+    other_params: dict[str, Any]
+    mcpServerIds: list[str] | None = None
     temporary: bool = False
 
+class LSPDiagnosticPosition(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    line: int
+    character: int
+
+class LSPDiagnosticRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    start: LSPDiagnosticPosition
+    end: LSPDiagnosticPosition
+
+class LauncherManagementTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    getLauncherStatus: str
+    repairLauncher: str
+    updateLauncher: str
+    removeLauncher: str
 
 class LineChartSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    secondYAxisColumns: list[str] = Field(default_factory=list)
     type: ChartType = ChartType.line
     xAxisColumn: str | None = None
+    secondYAxisColumns: list[str] = Field(default_factory=list)
     xAxisLog: bool = False
     y1AxisLog: bool = False
     y2AxisLog: bool = False
-
 
 class ListRootSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -911,14 +1359,12 @@ class ListRootSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class ListRootSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class ListRootSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -927,35 +1373,78 @@ class ListRootSectionImplSize(BaseModel):
     height: ListRootSectionImplSizeHeight
     width: ListRootSectionImplSizeWidth
 
-
 class ListRootViewMode(StrEnum):
     default = "default"
     task_list = "task_list"
     kanban = "kanban"
 
+class ListenerConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entrypoint: str
+    enabled: bool
+
+class ListenerCoverageDependency(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: DependencyKeyType
+    sectionId: str
+    codeObjId: str
+
+class ListenerDependencyCatalogEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: str
+    name: str
+    fullPathName: str
+    dependencies: list[str] | None = None
+    includeInCodegen: bool
+    sectionType: str
+    codeObjType: str
+    passingStyle: str
+    controlCodeObjId: str
+    controlCodeObjType: str
+    sectionRepresentation: str
+    controlValueRepresentation: str
+    valueRepresentation: str
 
 class ListenerDependencyMode(StrEnum):
     always = "always"
     realtime_only = "realtime_only"
     refresh_only = "refresh_only"
 
-
 class ListenerErrorContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    details: dict[str, Any] | None = None
     error: str
+    details: dict[str, Any]
 
+class ListenerErrorEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    error: str
+    details: dict[str, Any] = Field(default_factory=dict)
 
 class ListenerInitContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    projectConfigId: str
+    projectName: str
+    useTemporaryIds: bool
+
+class ListenerInitRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     projectConfigId: str | None = None
     projectName: str | None = None
-    useTemporaryIds: bool | None = None
-
+    useTemporaryIds: bool = False
 
 class ListenerMessageType(StrEnum):
     ListenerInit = "ListenerInit"
@@ -969,150 +1458,339 @@ class ListenerMessageType(StrEnum):
     ListenerForceRefresh = "ListenerForceRefresh"
     ListenerError = "ListenerError"
 
-
 class ListenerRegisterAckStatus(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message: str | None = None
     status: str
+    message: str
 
+class ListenerRegisterCallbackSpec(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencies: list[str] | None = None
+    dependencyMode: ListenerDependencyMode
+
+class ListenerRegisterContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    callbacks: dict[str, ListenerRegisterCallbackSpec]
+
+class ListenerRegisterMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: ListenerMessageType
+    content: ListenerRegisterContent
+
+class ListenerRegisterRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    callbacks: dict[str, ListenerRegisterCallbackSpec] = Field(default_factory=dict)
+
+class ListenerRenderedDependencyValue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: str
+    renderedValue: str
+
+class ListenerRenderedDependencyValues(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entries: list[ListenerRenderedDependencyValue] | None = None
+
+class ListenerRouterEndpointCall(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    callId: str
+    endpointName: str
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 class ListenerRouterEndpointCallContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    projectConfigId: str
     callId: str
     endpointName: str
     payload: dict[str, Any]
-    projectConfigId: str
-
 
 class ListenerRouterEndpointCallMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerRouterEndpointCallContent
     messageType: ListenerMessageType
+    content: ListenerRouterEndpointCallContent
 
+class ListenerRouterEndpointResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    callId: str
+    ok: bool
+    result: Any | None = None
+    error: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 class ListenerRouterEndpointResultContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    callId: str
-    details: dict[str, Any] | None = None
-    error: str | None = None
-    ok: bool
     projectConfigId: str
-    result: Any | None = None
-
+    callId: str
+    ok: bool
+    result: Any
+    error: str
+    details: dict[str, Any]
 
 class ListenerRouterEndpointResultMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerRouterEndpointResultContent
     messageType: ListenerMessageType
-
+    content: ListenerRouterEndpointResultContent
 
 class LiteralDependencyValue(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    payload: str
     type: Literal["Literal"]
+    payload: str
 
+class LoadCachedPathsRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    paths: list[str] | None = None
+
+class LocalCoreCommandEnvelope(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str
+    commandName: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+class LocalCoreRenderRealtimeDependencyValuesResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyValues: ListenerRenderedDependencyValues
+
+class LocalCoreResultEnvelope(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str
+    ok: bool
+    result: Any | None = None
+    error: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+
+class LocalCoreVersionHandshake(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    protocolVersion: int
+    sdkVersion: str | None = None
+    coreVersion: str | None = None
+    sdkContractVersion: int
+
+class Location(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+class ManagedAPIKeysSnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    apiKeys: dict[str, str]
+    revision: int
+    corrupt: bool
+    errorCode: str | None = None
+    message: str | None = None
+
+class ManagedAPIKeysWriteStatus(StrEnum):
+    success = "success"
+    revision_conflict = "revision_conflict"
+    corrupt_store = "corrupt_store"
+    store_unavailable = "store_unavailable"
 
 class MessageImageURL(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    detail: str | None = None
     url: str
-
+    detail: str | None = None
 
 class MessageImageURLContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    image_url: MessageImageURL
     type: str
-
+    image_url: MessageImageURL
 
 class MessageTextContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    text: str
     type: str
-
+    text: str
 
 class MessageTextDelta(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
     index: int
     text: str
-    type: str
-
 
 class MessageThinkingContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    signature: str | None = None
-    summary: str | None = None
-    thinking: str
     type: str
-
+    thinking: str
+    summary: str | None = None
+    signature: str | None = None
 
 class MessageThinkingDelta(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    index: int
-    signature: str | None = None
-    summary: str | None = None
-    thinking: str
     type: str
+    index: int
+    thinking: str
+    summary: str | None = None
+    signature: str | None = None
 
+class MessageType(StrEnum):
+    CurrentAddressUpdate = "CurrentAddressUpdate"
+    UISettingRevealResult = "UISettingRevealResult"
+    RealtimeUIChange = "RealtimeUIChange"
+    RealtimeDependencyEvent = "RealtimeDependencyEvent"
+
+class MetaControlSizeMode(StrEnum):
+    any = "any"
+    auto_only = "auto_only"
+    manual_only = "manual_only"
+
+class MetaControlSizingPolicyTypeEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    minHeight: float
+    minWidth: float
+    sizeModeHeight: MetaControlSizeMode
+    sizeModeWidth: MetaControlSizeMode
+
+class Mode(StrEnum):
+    ide = "ide"
+    share = "share"
+    app = "app"
+    launcher = "launcher"
 
 type ModeScopedLauncherRoutes = Annotated[
     list[str], Field(..., title="ModeScopedLauncherRoutes")
 ]
 
+class MoveParamGroupInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    paramIds: list[str] | None = None
+    newParentId: str
+    newIndex: int
+
+class MoveParamGroupsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    moves: list[MoveParamGroupInput] | None = None
+
+class MoveParamsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    paramIds: list[str] | None = None
+    newParentId: str
+    newIndex: int
+
+class NameValidationContract(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectReservedNames: list[str] | None = None
+    pythonKeywords: list[str] | None = None
+    simpleNameAllowedChars: list[str] | None = None
+    pythonIdentifierStartChars: list[str] | None = None
+    pythonIdentifierContinueChars: list[str] | None = None
+    slugReplacementChars: list[str] | None = None
+
+class NameValidationErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    projectErrors: list[str] | None = None
+    sectionErrors: dict[str, list[str] | None]
+    paramErrors: dict[str, list[str] | None]
 
 class NestedParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    children: list[str]
-    coreNameEditable: bool
-    coreNameType: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    children: list[str] | None = None
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
-
 
 class NormalizedFloatingWindowBounds(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    height: float
-    width: float
     x: float
     y: float
+    width: float
+    height: float
 
+class NotificationType(StrEnum):
+    error = "error"
+    warning = "warning"
+    info = "info"
+    save = "save"
 
 type OpenAIRealtimeTranscriptionStreamMode = Annotated[
     int, Field(..., title="OpenAIRealtimeTranscriptionStreamMode")
 ]
 
+class PanOnScrollMode(StrEnum):
+    free = "free"
+    vertical = "vertical"
+    horizontal = "horizontal"
+
+class ParamNameType(StrEnum):
+    CODE = "CODE"
+    TEXT = "TEXT"
 
 class ParameterPassingStyle(StrEnum):
     DEFAULT = "DEFAULT"
@@ -1121,28 +1799,317 @@ class ParameterPassingStyle(StrEnum):
     POSITIONAL_ONLY = "POSITIONAL_ONLY"
     KEYWORD_ONLY = "KEYWORD_ONLY"
 
-
 class PasswordParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    hasSecret: bool
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
+    hasSecret: bool
 
+class PluginBackendManifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entrypoint: str
+
+class PluginBlockedCapabilityReason(StrEnum):
+    mode_policy = "mode_policy"
+    host_policy = "host_policy"
+    manifest_invalid = "manifest_invalid"
+
+class PluginConfigDescriptor(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    hasSchema: bool
+    schemaJson: dict[str, Any]
+    schemaJsonDigestSha256: str | None = None
+    currentConfig: dict[str, Any]
+    currentConfigDigestSha256: str | None = None
+
+class PluginConfigValidationResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    ok: bool
+
+class PluginConfigWriteResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    config: dict[str, Any]
+    validation: PluginConfigValidationResult
+
+class PluginContentDescriptor(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    hasBlueprints: bool
+    hasProjectTemplates: bool
+    hasPrompts: bool
+
+class PluginContentManifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    blueprintsDir: str
+    projectTemplatesDir: str
+    promptsDir: str
+
+class PluginEnablementSource(StrEnum):
+    workspace_disabled = "workspace_disabled"
+    workspace_enabled = "workspace_enabled"
+    global_auto_enabled = "global_auto_enabled"
+    manifest_default = "manifest_default"
+
+class PluginErrorInfo(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    code: str
+    message: str
+
+class PluginFrontendDescriptor(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entrypointUrl: str | None = None
+    styleUrl: str | None = None
+
+class PluginFrontendManifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entrypoint: str
+    style: str
+
+class PluginInstallHistoryEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    version: str
+    sourceDigestSha256: str | None = None
+    snapshotPath: str
+    timestampIso: str
+
+class PluginInstallerBackend(StrEnum):
+    auto = "auto"
+    pip = "pip"
+    uv = "uv"
+
+class PluginLockApplyResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    lockfilePath: str
+    plannedChanges: list[str] | None = None
+    applied: bool
+
+class PluginLockWriteResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    lockfilePath: str
+    pluginCount: int
+
+class PluginManifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schemaVersion: int
+    id: str
+    name: str
+    version: str
+    settaVersionRange: str
+    enabledByDefault: bool
+    backend: PluginBackendManifest | None = None
+    frontend: PluginFrontendManifest | None = None
+    content: PluginContentManifest | None = None
+    configSchemaPath: str
+    capabilities: list[str] | None = None
+
+class PluginRegisteredBackendRoute(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    path: str
+    methods: list[str] | None = None
+
+class PluginRegisteredCodegenTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    targetId: str
+    pluginId: str
+    language: str
+    name: str
+    defaultFileName: str
+
+class PluginRegisteredLanguageServer(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    name: str
+    language: str
+    command: str
+    args: list[str] | None = None
+    settingsKey: str | None = None
+
+class PluginRegisteredListenerEndpoint(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str
+
+class PluginRegisteredStaticDir(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    routePrefix: str
+    dir: str
+
+class PluginRegisteredUISetting(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    localSettingId: str
+    pluginId: str
+    title: str
+    description: str
+    synonyms: list[str] | None = None
+    paneId: str
+    revealKey: str
+    mutability: str
+    valueSchema: dict[str, Any]
+    readHandlerId: str
+    writeHandlerId: str | None = None
+
+class PluginRestartCapabilityMode(StrEnum):
+    manual = "manual"
+    programmatic = "programmatic"
+
+class PluginRestartResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    accepted: bool
+    mode: PluginRestartCapabilityMode
+    command: str | None = None
+    reason: str | None = None
+
+class PluginRollbackResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    restoredVersion: str
+    sourceDigestSha256: str | None = None
+    restartRequired: bool
+
+class PluginRuntimeState(StrEnum):
+    active = "active"
+    disabled = "disabled"
+    invalid = "invalid"
+    shadowed = "shadowed"
+    pending_restart = "pending_restart"
+
+class PluginScope(StrEnum):
+    workspace = "workspace"
+    setta_files = "setta_files"
+    global_ = "global"
+
+class PluginSourceManager(StrEnum):
+    setta = "setta"
+    package_manager = "package_manager"
+
+class PluginSourceScheme(StrEnum):
+    github = "github"
+    pypi = "pypi"
+
+class PluginSourceTrustStatus(StrEnum):
+    unverified = "unverified"
+
+class PluginUninstallResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    removedFromScope: PluginScope
+    restartRequired: bool
+
+class PluginUpdateResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    fromVersion: str
+    toVersion: str
+    sourceDigestSha256: str | None = None
+    restartRequired: bool
+
+class PluginsGlobalStateFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    autoEnabledPluginIds: list[str] | None = None
+
+class PluginsStateFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabledPluginIds: list[str] | None = None
+    disabledPluginIds: list[str] | None = None
+    pendingRestartBackendPluginIds: list[str] | None = None
+    pluginConfigById: dict[str, Any]
+
+class Position(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    x: float
+    y: float
+
+class ProjectChatWindowInstance(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    instanceId: str
+    placement: ChatWindowPlacement
+    isMinimized: bool
+    isClosed: bool
+    isMaximized: bool
+    bounds: ChatWindowBounds
+    dockMetrics: ChatWindowDockMetrics
+    zIndex: int
+    lastPlacementBeforeMaximize: ChatWindowPlacement | None = None
+    mode: ChatWindowMode
+    sectionIdOrNull: str | None = None
+    title: str | None = None
+    lastFocusedAt: int
+    chatId: str | None = None
+
+class ProjectChatWindowingState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    instancesById: dict[str, ProjectChatWindowInstance]
+    order: list[str] | None = None
+    nextInstanceNumber: int
 
 class ProjectCodegenLanguage(StrEnum):
     python = "python"
-
 
 class ProjectCodegenPluginTarget(BaseModel):
     model_config = ConfigDict(
@@ -1151,15 +2118,20 @@ class ProjectCodegenPluginTarget(BaseModel):
     language: str
     options: dict[str, Any]
 
+class ProjectConfigMetadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str
+    id: str
 
 class ProjectRunCapabilities(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     canRunFromMain: bool
-    effectiveEntrySectionId: str | None = None
     mainRunDisabledReason: str | None = None
-
+    effectiveEntrySectionId: str | None = None
 
 class PromptSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1168,14 +2140,12 @@ class PromptSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class PromptSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class PromptSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -1184,61 +2154,102 @@ class PromptSectionImplSize(BaseModel):
     height: PromptSectionImplSizeHeight
     width: PromptSectionImplSizeWidth
 
-
 class PromptSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    format: Format
-    id: str
-    inputs: dict[str, str]
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    missingVariables: list[str]
-    name: str
     positionAndSizeLocked: bool
+    isPreset: bool
     promptTemplateId: str | None = None
-    renderError: str | None = None
-    renderedText: str
-    size: PromptSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
     template: str
-    type: str
+    format: Format
+    inputs: dict[str, str]
+    renderedText: str
+    missingVariables: list[str] | None = None
+    renderError: str | None = None
 
+class PythonCodeObjValueRepresentationMode(StrEnum):
+    expression = "expression"
+    json_parsed = "json_parsed"
+    string = "string"
+    file_path = "file_path"
+    file_read = "file_read"
+
+class PythonSectionCodegenMode(StrEnum):
+    inherit = "inherit"
+    include = "include"
+    exclude = "exclude"
+
+class PythonSectionRepresentationMode(StrEnum):
+    expression = "expression"
+    file_path = "file_path"
+    file_read = "file_read"
 
 type RawMessage = Annotated[
     bool | float | str | list[RawMessage] | dict[str, RawMessage] | None,
     Field(..., title="RawMessage"),
 ]
 
+class RealtimeDependencyEventPayload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: RawMessage | None = None
+    payload: RawMessage | None = None
+    timestampMs: int
+
+class RenameRefactorMode(StrEnum):
+    ALWAYS_ASK = "ALWAYS_ASK"
+    ALWAYS_RENAME = "ALWAYS_RENAME"
+    NEVER_RENAME = "NEVER_RENAME"
+
+class RenameReferenceDependencyKey(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    sectionId: str
+    codeObjId: str
+
 type RequiredUIEditorTabMap = dict[str, list[str]]
 
+class RootTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    bootstrapPage: str
+    toolsCall: str
 
 class RotaryParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    max: float
-    min: float
-    name: str
-    passingStyle: str
-    step: float
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
+    min: float
+    max: float
+    step: float
 
 class Route(StrEnum):
     ACCEPT_RENAME_REFACTOR = "/acceptRenameRefactor"
@@ -1551,61 +2562,184 @@ class Route(StrEnum):
     VALIDATE_APP_DEFINITION = "/validateAppDefinition"
     WRITE_FILE_BROWSER_CONTENT = "/writeFileBrowserFileContent"
 
+class RunEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    timestamp: datetime
+    type: str
+    payload: dict[str, Any]
+
+class RunIndexEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    runType: str | None = None
+    chatId: str | None = None
+    projectConfigId: str | None = None
+
+class RunMode(StrEnum):
+    mcp = "mcp"
+    server = "server"
+    sdk = "sdk"
+    app_server = "app_server"
 
 class RunSnapshotMode(StrEnum):
     ephemeral = "ephemeral"
     always = "always"
     never = "never"
 
+class RunStatus(StrEnum):
+    queued = "queued"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+class RunTargetKind(StrEnum):
+    manual_code = "manual_code"
+    generated_entry = "generated_entry"
+
+class RunnerSummaryParam(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    displayName: str | None = None
+
+class RunnerSummaryVariant(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+
+class RunningBackendVersionHandshake(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sdkVersion: str
+    coreVersion: str
+    sdkContractVersion: int
+
+class SaveConflictStrategy(StrEnum):
+    skip = "skip"
+    backup = "backup"
+    overwrite = "overwrite"
+
+class SavePolicy(StrEnum):
+    persist = "persist"
+    in_memory = "in_memory"
+
+class SaveStatus(StrEnum):
+    saved = "saved"
+    unchanged = "unchanged"
+    skipped = "skipped"
+    conflict = "conflict"
 
 class ScatterChartSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    categoryColumn: str | None = None
     type: ChartType = ChartType.scatter
     xAxisColumn: str | None = None
+    categoryColumn: str | None = None
     xAxisLog: bool = False
     yAxisLog: bool = False
 
+class Section(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    displayName: str
+    variantIds: list[str] | None = None
+    defaultVariantId: str
+    parentSectionId: str
+    sharedModifier: RawMessage | None = None
+    unsharedKeys: list[str] | None = None
+
+class SectionCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    canRun: bool
+    runDisabledReason: str | None = None
+    runRequestSectionId: str | None = None
+    canSelectAsEntryCodeBlock: bool
+    entryCodeBlockValue: str | None = None
 
 class SectionCodegenMode(StrEnum):
     inherit = "inherit"
     include = "include"
     exclude = "exclude"
 
-
 class SectionDependencyKey(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    sectionId: ID
     type: Literal["Section"]
+    sectionId: ID
 
+class SectionKind(StrEnum):
+    code = "code"
+    terminal = "terminal"
+    draw = "draw"
+    generated = "generated"
 
 class SectionParamDependencyKey(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    codeObjId: ID
-    sectionId: ID
     type: Literal["SectionParam"]
-
+    sectionId: ID
+    codeObjId: ID
 
 class SectionRepresentationMode(StrEnum):
     expression = "expression"
     file_path = "file_path"
     file_read = "file_read"
 
-
 class SectionSizeMode(StrEnum):
     auto = "auto"
-
 
 type SectionSizeValue = Annotated[
     float | SectionSizeMode, Field(..., title="SectionSizeValue")
 ]
 
+class SectionSizingPolicyCallableTypeEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    minHeight: float
+    maxHeight: float
+    minWidth: float
+    maxWidth: float
+    hideSearchMinHeight: float
+    hideParamsMinHeight: float
+
+class SectionSizingPolicyGlobals(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pinnedParamsAreaMinHeight: float
+    unpinnedParamsAreaMinHeight: float
+    minimizedHeight: float
+    infiniteMaxHeight: float
+    infiniteMaxWidth: float
+    autoMaxHeight: float
+
+class SectionSizingPolicyTypeEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    minHeight: float
+    maxHeight: float
+    minWidth: float
+    maxWidth: float
 
 class SectionType(StrEnum):
     Callable = "Callable"
@@ -1634,7 +2768,6 @@ class SectionType(StrEnum):
     TaskBoard = "TaskBoard"
     Spreadsheet = "Spreadsheet"
 
-
 class SectionTypeCodegenPolicy(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1642,6 +2775,79 @@ class SectionTypeCodegenPolicy(BaseModel):
     mode: SectionCodegenMode
     representation: SectionRepresentationMode
 
+class SectionTypeErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: list[str] | None = None
+    params: dict[str, list[str] | None]
+
+class SectionVariant(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    implId: str
+    nonPresetImplIds: list[str] | None = None
+    modifier: RawMessage | None = None
+    isFrozen: bool
+
+class SectionWithParamsCommonEdgeOutputPort(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    accessor: str
+    id: str
+
+class SectionWithParamsCommonIgnoreTypeErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: bool
+    params: dict[str, bool]
+
+class SectionWithParamsCommon(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
+    columnWidth: float | None = None
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: dict[str, Any]
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[dict[str, Any]] | None = None
+
+class SectionWithParamsLeadingFields(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
+    columnWidth: float | None = None
+
+class SelectionMode(StrEnum):
+    partial = "partial"
+    full = "full"
+
+class ServerModeBoundaryRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    launch: str
+    createWorkspaceLaunchIntent: str
+    getSettaHomeInfo: str
+    getLauncherRecentWorkspaces: str
+    addLauncherRecentWorkspace: str
+    removeLauncherRecentWorkspace: str
+    pinLauncherRecentWorkspace: str
+    getLauncherFilesystemRoots: str
+    listLauncherDirectory: str
+    openLauncherWorkspace: str
 
 class ServerModeCapabilities(BaseModel):
     model_config = ConfigDict(
@@ -1649,31 +2855,258 @@ class ServerModeCapabilities(BaseModel):
     )
     canManageDesktopLauncher: bool
 
+class ServiceErrorCode(StrEnum):
+    PLUGIN_BACKEND_BUILD_FAILED = "PLUGIN_BACKEND_BUILD_FAILED"
+    PLUGIN_BACKEND_RUNTIME_INVALID = "PLUGIN_BACKEND_RUNTIME_INVALID"
+    PLUGIN_ASSET_INVALID_PATH = "PLUGIN_ASSET_INVALID_PATH"
+    PLUGIN_ASSET_NOT_FOUND = "PLUGIN_ASSET_NOT_FOUND"
+    PLUGIN_CONFIG_CHANGED = "PLUGIN_CONFIG_CHANGED"
+    PLUGIN_CONFIG_INVALID = "PLUGIN_CONFIG_INVALID"
+    PLUGIN_CONFIG_SCHEMA_INVALID = "PLUGIN_CONFIG_SCHEMA_INVALID"
+    PLUGIN_INSTALLER_BACKEND_UNAVAILABLE = "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
+    PLUGIN_INSTALL_METADATA_INVALID = "PLUGIN_INSTALL_METADATA_INVALID"
+    PLUGIN_MANAGED_EXTERNALLY = "PLUGIN_MANAGED_EXTERNALLY"
+    PLUGIN_GLOBAL_STATE_INVALID = "PLUGIN_GLOBAL_STATE_INVALID"
+    PLUGIN_HOST_VERSION_INVALID = "PLUGIN_HOST_VERSION_INVALID"
+    PLUGIN_INIT_INVALID_ID = "PLUGIN_INIT_INVALID_ID"
+    PLUGIN_INIT_TARGET_EXISTS = "PLUGIN_INIT_TARGET_EXISTS"
+    PLUGIN_INSTALL_FAILED = "PLUGIN_INSTALL_FAILED"
+    PLUGIN_LINK_FAILED = "PLUGIN_LINK_FAILED"
+    PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE = "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
+    PLUGIN_LOCKFILE_INVALID = "PLUGIN_LOCKFILE_INVALID"
+    PLUGIN_LOCKFILE_NOT_FOUND = "PLUGIN_LOCKFILE_NOT_FOUND"
+    PLUGIN_MANIFEST_DUPLICATE_CAPABILITY = "PLUGIN_MANIFEST_DUPLICATE_CAPABILITY"
+    PLUGIN_MANIFEST_INVALID = "PLUGIN_MANIFEST_INVALID"
+    PLUGIN_MANIFEST_INVALID_CAPABILITY = "PLUGIN_MANIFEST_INVALID_CAPABILITY"
+    PLUGIN_MANIFEST_PATH_NOT_FOUND = "PLUGIN_MANIFEST_PATH_NOT_FOUND"
+    PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA = "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA"
+    PLUGIN_MANIFEST_VERSION_INCOMPATIBLE = "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE"
+    PLUGIN_NOT_FOUND = "PLUGIN_NOT_FOUND"
+    PLUGIN_RESTART_FAILED = "PLUGIN_RESTART_FAILED"
+    PLUGIN_ROLLBACK_UNAVAILABLE = "PLUGIN_ROLLBACK_UNAVAILABLE"
+    PLUGIN_SCOPE_INVALID = "PLUGIN_SCOPE_INVALID"
+    PLUGIN_STATE_INVALID = "PLUGIN_STATE_INVALID"
+    PLUGIN_SOURCE_ARCHIVE_TRAVERSAL = "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"
+    PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT = "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT"
+    PLUGIN_SOURCE_FETCH_FAILED = "PLUGIN_SOURCE_FETCH_FAILED"
+    PLUGIN_SOURCE_IDENTITY_MISMATCH = "PLUGIN_SOURCE_IDENTITY_MISMATCH"
+    PLUGIN_SOURCE_INVALID = "PLUGIN_SOURCE_INVALID"
+    PLUGIN_SOURCE_MANIFEST_NOT_FOUND = "PLUGIN_SOURCE_MANIFEST_NOT_FOUND"
+    PLUGIN_SOURCE_NOT_FOUND = "PLUGIN_SOURCE_NOT_FOUND"
+    PLUGIN_SOURCE_SCHEME_UNSUPPORTED = "PLUGIN_SOURCE_SCHEME_UNSUPPORTED"
+    PLUGIN_SOURCE_VERSION_MISMATCH = "PLUGIN_SOURCE_VERSION_MISMATCH"
+    PLUGIN_TARGET_EXISTS = "PLUGIN_TARGET_EXISTS"
+    PLUGIN_TARGET_PATH_TRAVERSAL = "PLUGIN_TARGET_PATH_TRAVERSAL"
+    PLUGIN_UNINSTALL_SCOPE_REQUIRED = "PLUGIN_UNINSTALL_SCOPE_REQUIRED"
+    PLUGIN_UPDATE_UNAVAILABLE = "PLUGIN_UPDATE_UNAVAILABLE"
+
+class Session(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    createdAt: datetime
+    lastSeenAt: datetime
+    runCount: int
+
+class SetSystemPromptRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    chatId: str
+    systemPrompt: str
+
+class SettaAPIPresetRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    createTopLevelSection: str
+    getLatestProjectState: str
+    saveProject: str
+
+class SettingsBackend(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    showDefaultConfigOnLoad: bool
+    autosave: bool
+    autobackup: bool
+    autobackupFreq: float
+    autobackupKeepLastN: float
+    clearTerminalBeforeMarkingAsReady: bool
+    defaultTerminalShell: str | None = None
+    exportDbReadableOnSave: bool
+    exportDbReadableWithVariantsOnSave: bool
+    autoRefetchCallableParamsOnLspMismatch: bool
+    renameRefactorMode: RenameRefactorMode
+    saveRenderedValues: bool
+    runSnapshotMode: RunSnapshotMode
+    completionGuardEnabled: bool
+
+class SettingsGUI(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    snapGrid: list[float]
+    showGridLines: bool
+    gridPattern: BackgroundVariant
+    gridPatternSize: float
+    gridColor: str
+    gridColorDarkMode: str
+    wireColor: str
+    wireColorDarkMode: str
+    defaultZoomLevel: float
+    minZoom: float
+    maxZoom: float
+    panOnDrag: bool
+    panOnScroll: bool
+    panOnScrollSpeed: float
+    panOnScrollMode: PanOnScrollMode
+    zoomOnScroll: bool
+    zoomOnPinch: bool
+    zoomOnDoubleClick: bool
+    selectionMode: SelectionMode
+    leftSidePaneShiftsMap: bool
+    transitionDuration: float
+    sectionTagColorChoices: list[ColorPickerChoice] | None = None
+
+class SettingsMode(StrEnum):
+    read_only = "read_only"
+    managed_local = "managed_local"
+    managed_project = "managed_project"
+    explicit_path = "explicit_path"
+
+class SettingsShortcuts(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    newCardShortcut: str
+    newGroupShortcut: str
+    typeCheckShortcut: str
+    newProjectConfigShortcut: str
+    undoShortcut: str
+    redoShortcut: str
+    groupShortcut: str
+    ungroupShortcut: str
+    saveShortcut: str
+    saveAsShortcut: str
+    loadShortcut: str
+    searchShortcut: str
+    advancedSearchShortcut: str
+    commandPaletteShortcut: str
+    resetZoomShortcut: str
+    copyShortcut: str
+    pasteShortcut: str
+    pasteAsRefShortcut: str
+    sortingShortcut: str
+    movingFreeShortcut: str
+    showTooltipShortcut: str
+    tooltipToPlaintextShortcut: str
+    tooltipToMarkdownShortcut: str
+    freezeTooltipShortcut: str
+    frozenTooltipToPlaintextShortcut: str
+    frozenTooltipToMarkdownShortcut: str
+    incrementTooltipPageShortcut: str
+    decrementTooltipPageShortcut: str
+    copyTooltipTextShortcut: str
+    frozenTooltipIncrementShortcut: str
+    frozenTooltipDecrementShortcut: str
+    frozenTooltipCopyShortcut: str
+    newTerminalShortcut: str
+    fitViewShortcut: str
+    zoomToMouseShortcut: str
+    deleteSectionShortcut: str
+    selectAll: str
+    selectTopLevelNonGroupSections: str
+    showVersionsTabShortcut: str
+    showParamUITypeTabShortcut: str
+    showProjectOverviewTabShortcut: str
+    focusHeaderShortcut: str
+    focusOverviewShortcut: str
+    focusCanvasShortcut: str
+    focusUiEditorShortcut: str
+    nextTopLevelSectionShortcut: str
+    prevTopLevelSectionShortcut: str
+    runCodeShortcut: str
+    runEntryCodeBlockShortcut: str
+    paramSelect: str
+    paramIndentShortcut: str
+    paramUnindentShortcut: str
+    paramMoveUpShortcut: str
+    paramMoveDownShortcut: str
+    formatCode: str
+    selectionKeyCode: str
+    multiSelectionKeyCode: str
+    panActivationKeyCode: str
+    zoomActivationKeyCode: str
+    zoomInShortcut: str
+    zoomOutShortcut: str
+    restartLanguageServerShortcut: str
+
+class SharePolicyOverrides(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    allowParamChanges: bool | None = None
+    allowVariantChanges: bool | None = None
+    allowLayoutChanges: bool | None = None
+    allowRun: bool | None = None
+    allowLLM: bool | None = None
+    allowExternalLinks: bool | None = None
+    allowFileDownloads: bool | None = None
+    allowMultipleRuns: bool | None = None
+    runSnapshotMode: RunSnapshotMode | None = None
+
+class ShownParamIDDetails(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    requiredParamIdsToPaths: dict[str, list[str] | None]
+    topLevelParamIds: list[str] | None = None
+
+class ShownParamIDs(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pinned: ShownParamIDDetails
+    unpinned: ShownParamIDDetails
+
+class SignatureHelpStatus(StrEnum):
+    matched = "matched"
+    no_match = "no_match"
+    skipped = "skipped"
+
+class SingletonSections(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    GlobalVariables: str | None = None
+    GenPythonCode: str | None = None
+    GenPythonMetadata: str | None = None
 
 class SliderParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    max: float
-    min: float
-    name: str
-    passingStyle: str
-    step: float
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
+    min: float
+    max: float
+    step: float
 
 class SpreadsheetGridDensity(StrEnum):
     compact = "compact"
     comfortable = "comfortable"
-
 
 class SpreadsheetSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1682,14 +3115,12 @@ class SpreadsheetSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class SpreadsheetSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class SpreadsheetSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -1698,32 +3129,30 @@ class SpreadsheetSectionImplSize(BaseModel):
     height: SpreadsheetSectionImplSizeHeight
     width: SpreadsheetSectionImplSizeWidth
 
-
 class SpreadsheetSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    activeSheet: str | None = None
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    autoReloadOnExternalChange: bool
-    density: SpreadsheetGridDensity
-    filePath: str
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
+    isPreset: bool
+    filePath: str
+    activeSheet: str | None = None
     readOnly: bool
     showRowNumbers: bool
-    size: SpreadsheetSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
+    density: SpreadsheetGridDensity
+    autoReloadOnExternalChange: bool
 
 class StateMachineCountOperator(StrEnum):
     lt = "lt"
@@ -1732,14 +3161,12 @@ class StateMachineCountOperator(StrEnum):
     gte = "gte"
     gt = "gt"
 
-
 class StateMachineEndSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class StateMachineEndSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
@@ -1748,7 +3175,6 @@ class StateMachineEndSectionImplSizeWidth(BaseModel):
     Auto: bool
     Value: float
 
-
 class StateMachineEndSectionImplSize(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1756,28 +3182,26 @@ class StateMachineEndSectionImplSize(BaseModel):
     height: StateMachineEndSectionImplSizeHeight
     width: StateMachineEndSectionImplSizeWidth
 
-
 class StateMachineEndSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    label: str
-    machineGroupId: str
-    name: str
     positionAndSizeLocked: bool
-    size: StateMachineEndSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
+    isPreset: bool
+    machineGroupId: str
+    label: str
 
 class StateMachineGateSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1786,14 +3210,12 @@ class StateMachineGateSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class StateMachineGateSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class StateMachineGateSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -1802,12 +3224,10 @@ class StateMachineGateSectionImplSize(BaseModel):
     height: StateMachineGateSectionImplSizeHeight
     width: StateMachineGateSectionImplSizeWidth
 
-
 class StateMachineGateType(StrEnum):
     AND = "AND"
     OR = "OR"
     XOR = "XOR"
-
 
 class StateMachineGateUIState(BaseModel):
     model_config = ConfigDict(
@@ -1815,6 +3235,13 @@ class StateMachineGateUIState(BaseModel):
     )
     showDetails: bool
 
+class StateMachineSectionSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    machineGroupId: str
+    label: str
+    gateType: StateMachineGateType | None = None
 
 class StateMachineSourceActivationCountCondition(BaseModel):
     model_config = ConfigDict(
@@ -1823,12 +3250,10 @@ class StateMachineSourceActivationCountCondition(BaseModel):
     operator: StateMachineCountOperator
     value: int
 
-
 class StateMachineSourceFilterType(StrEnum):
     run_completed = "run_completed"
     run_failed = "run_failed"
     signal = "signal"
-
 
 class StateMachineStartSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1837,14 +3262,12 @@ class StateMachineStartSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class StateMachineStartSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class StateMachineStartSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -1853,39 +3276,42 @@ class StateMachineStartSectionImplSize(BaseModel):
     height: StateMachineStartSectionImplSizeHeight
     width: StateMachineStartSectionImplSizeWidth
 
-
 class StateMachineStartSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    label: str
-    machineGroupId: str
-    maxIterations: int | None = None
-    name: str
     positionAndSizeLocked: bool
-    size: StateMachineStartSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
+    isPreset: bool
+    machineGroupId: str
+    label: str
+    maxIterations: int | None = None
 
 class StateMachineTargetActionType(StrEnum):
     send_prompt = "send_prompt"
     reset_thread = "reset_thread"
 
-
 class StateMachineThreadStrategy(StrEnum):
     continue_current_thread = "continue_current_thread"
     new_thread_before_send = "new_thread_before_send"
 
+class StatusTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    getSettaHomeInfo: str
+    revealPathInOsFileExplorer: str
 
 class StreamingEventType(StrEnum):
     message_start = "message_start"
@@ -1896,46 +3322,67 @@ class StreamingEventType(StrEnum):
     message_stop = "message_stop"
     message_finalized = "message_finalized"
 
-
 class SwitchParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
 
 class SystemChatMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
     role: Literal["system"] = ChatRole.system
+    createdAt: int = 0
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] | None = Field(default_factory=list)
 
+class Target(StrEnum):
+    main = "main"
+    settings = "settings"
 
 class TaskBoardColumn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    color: str
     id: str
     name: str
+    color: str
     sortIndex: int
 
+class TaskBoardRecurringMonth(StrEnum):
+    january = "january"
+    february = "february"
+    march = "march"
+    april = "april"
+    may = "may"
+    june = "june"
+    july = "july"
+    august = "august"
+    september = "september"
+    october = "october"
+    november = "november"
+    december = "december"
+
+class TaskBoardRecurringWeekday(StrEnum):
+    monday = "monday"
+    tuesday = "tuesday"
+    wednesday = "wednesday"
+    thursday = "thursday"
+    friday = "friday"
+    saturday = "saturday"
+    sunday = "sunday"
 
 class TaskBoardSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1944,14 +3391,12 @@ class TaskBoardSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class TaskBoardSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class TaskBoardSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -1960,28 +3405,45 @@ class TaskBoardSectionImplSize(BaseModel):
     height: TaskBoardSectionImplSizeHeight
     width: TaskBoardSectionImplSizeWidth
 
-
 class TaskBoardTask(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    columnId: str | None = None
-    completed: bool
-    description: str
-    dueDateIso: str
     id: str
-    recurrence: str
-    recurrenceDays: list[str]
-    recurrenceMonths: list[str]
-    recurrenceYears: list[int]
-    sortIndex: int
     title: str
+    description: str
+    completed: bool
+    columnId: str | None = None
+    dueDateIso: str
+    recurrence: str
+    recurrenceDays: list[str] | None = None
+    recurrenceMonths: list[str] | None = None
+    recurrenceYears: list[int] | None = None
+    sortIndex: int
 
+class TaskBoardTaskRecurrence(StrEnum):
+    none = "none"
+    hourly = "hourly"
+    daily = "daily"
+    specified_days = "specified_days"
+    specified_months = "specified_months"
+    specified_years = "specified_years"
 
 class TaskBoardViewMode(StrEnum):
     task_list = "task_list"
     kanban = "kanban"
 
+class Template(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    description: str
+    template: str
+    format: Format
+    inputSchema: dict[str, Any]
+    metadata: dict[str, Any]
 
 class TerminalSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -1990,14 +3452,12 @@ class TerminalSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class TerminalSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class TerminalSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -2006,53 +3466,52 @@ class TerminalSectionImplSize(BaseModel):
     height: TerminalSectionImplSizeHeight
     width: TerminalSectionImplSizeWidth
 
-
 class TerminalSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
-    size: TerminalSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
+    isPreset: bool
 
+class TerminalSessionMode(StrEnum):
+    field_ = ""
+    managed_console = "managed_console"
 
 class TextAreaParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
-
 
 class TextBlockDisplayMode(StrEnum):
     Render = "Render"
     Edit = "Edit"
 
-
 class TextBlockFormat(StrEnum):
     Plaintext = "Plaintext"
     Markdown = "Markdown"
-
 
 class TextBlockSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
@@ -2061,14 +3520,12 @@ class TextBlockSectionImplSizeHeight(BaseModel):
     Auto: bool
     Value: float
 
-
 class TextBlockSectionImplSizeWidth(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Auto: bool
     Value: float
-
 
 class TextBlockSectionImplSize(BaseModel):
     model_config = ConfigDict(
@@ -2077,168 +3534,248 @@ class TextBlockSectionImplSize(BaseModel):
     height: TextBlockSectionImplSizeHeight
     width: TextBlockSectionImplSizeWidth
 
-
 class TextBlockSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    format: TextBlockFormat
-    headingAsSectionName: bool
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    masterFontSizePx: float
-    metaControlStyle: bool
-    name: str
     positionAndSizeLocked: bool
-    size: TextBlockSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    text: str
+    isPreset: bool
+    format: TextBlockFormat
+    masterFontSizePx: float
+    headingAsSectionName: bool
+    metaControlStyle: bool
     textDisplayMode: TextBlockDisplayMode
-    type: str
-
+    text: str
 
 class TextParamInputUIType(StrEnum):
     plain = "plain"
     time = "time"
     date = "date"
 
-
 class TimeControlMode(StrEnum):
     input = "input"
     display = "display"
-
 
 class TimeDisplayFont(StrEnum):
     clock = "clock"
     monospace = "monospace"
     system = "system"
 
-
 class TimeDisplayFormat(StrEnum):
     twenty_four_hour = "twenty_four_hour"
     twelve_hour = "twelve_hour"
-
 
 class TimeParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
-    timeControlMode: TimeControlMode
-    timeDisplayFont: TimeDisplayFont
-    timeDisplayFormat: TimeDisplayFormat
-    timeDisplayScale: float
-    timeDisplayTransparent: bool
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
+    timeControlMode: TimeControlMode
+    timeDisplayFormat: TimeDisplayFormat
+    timeDisplayTransparent: bool
+    timeDisplayScale: float
+    timeDisplayFont: TimeDisplayFont
 
+class ToggleParamSelectedInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    paramInfoId: str
 
 class ToolArgumentPreviewDeltaEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    arguments_delta: str
+    type: Literal["tool_argument_preview_delta"]
     message_id: str
-    preview_kind: str
-    preview_value_delta: str
-    target_ids_by_type: dict[str, list[str]]
     tool_call_id: str
     tool_name: str
-    type: Literal["tool_argument_preview_delta"]
-
+    arguments_delta: str
+    preview_kind: str
+    target_ids_by_type: dict[str, list[str] | None]
+    preview_value_delta: str
 
 class ToolCallDeltaEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    arguments_delta: str
+    type: Literal["tool_call_delta"]
     message_id: str
     tool_call_id: str
+    arguments_delta: str
     tool_name: str | None = None
-    type: Literal["tool_call_delta"]
-
 
 class ToolCallFunction(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    arguments: dict[str, Any]
     name: str
-
+    arguments: dict[str, Any]
 
 class ToolChatMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    arguments: Any = Field(default_factory=dict)
-    completed_at: datetime | None = None
-    content: list[
-        TextContent | ImageContent | EmbeddedResource | ToolReferenceContent
-    ] = Field(default_factory=list)
-    createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
-    is_error: bool = False
-    result: Any = None
     role: Literal["tool"] = ChatRole.tool
-    started_at: datetime = Field(default_factory=get_now_timestamp)
+    createdAt: int = 0
     tool_call_id: str
     tool_name: str | None = None
+    arguments: Any = Field(default_factory=dict)
+    result: Any = None
+    content: list[TextContent | ImageContent | EmbeddedResource | ToolReferenceContent] = Field(default_factory=list)
+    is_error: bool = False
+    started_at: datetime = Field(default_factory=get_now_timestamp)
+    completed_at: datetime | None = None
 
+class ToolNameNormalization(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    singlePrefix: str
+    doublePrefix: str
+    askUserQuestionToolName: str
 
 class ToolReferenceContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    tool_name: str
     type: str
-
+    tool_name: str
 
 class ToolResultEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    result: ToolChatMessage
     type: Literal["tool_result"]
+    result: ToolChatMessage
 
+class ToolType(StrEnum):
+    claude_code = "claude_code"
+    codex = "codex"
 
 class TopLevelSectionLayout(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    h: float | None = None
-    w: float | None = None
     x: float
     y: float
-    zIndex: int | None = None
+    zIndex: int
+    w: float | None = None
+    h: float | None = None
 
+class Transport(StrEnum):
+    sse = "sse"
+    streamable_http = "streamable_http"
+    stdio = "stdio"
+
+class TransportMode(StrEnum):
+    auto = "auto"
+    file = "file"
+    realtime = "realtime"
+
+class Type(StrEnum):
+    share = "share"
+    app = "app"
+
+class TypeErrorIgnoreState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: bool = False
+    params: dict[str, bool] = Field(default_factory=dict)
+
+class UISettingRevealActivationStep(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: str
+    itemValue: str
+
+class UISettingRevealResultStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    settingId: str
+    status: str
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+class UISettingRevealTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    settingId: str
+    side: str
+    overviewTabKey: str | None = None
+    uiEditorTabName: str | None = None
+    pluginId: str | None = None
+    paneId: str | None = None
+    strategy: str
+    anchorId: str | None = None
+    pluginRevealKey: str | None = None
+    revealActivationSteps: list[UISettingRevealActivationStep] | None = None
+
+class UngroupGroupsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    groupIds: list[str] | None = None
+
+class UnindentParamsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    paramIds: list[str] | None = None
+
+class UploadScope(StrEnum):
+    chat = "chat"
+    generic = "generic"
 
 class UserChatMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
     role: Literal["user"] = ChatRole.user
+    createdAt: int = 0
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] | None = Field(default_factory=list)
 
+class Variant(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    impl: str
+    nonPresetImpls: list[str] | None = None
+    modifier: RawMessage | None = None
+    isFrozen: bool
 
 class Viewport(BaseModel):
     model_config = ConfigDict(
@@ -2248,12 +3785,19 @@ class Viewport(BaseModel):
     y: float = 0.0
     zoom: float = 1.0
 
+class ViewportBounds(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    x: float
+    y: float
+    w: float
+    h: float
 
 class WatchCodeCallableKind(StrEnum):
     function = "function"
     async_function = "async_function"
     class_init = "class_init"
-
 
 class WatchCodeFolder(BaseModel):
     model_config = ConfigDict(
@@ -2262,234 +3806,396 @@ class WatchCodeFolder(BaseModel):
     path: str
     recursive: bool
 
-
 class WatchCodeRegistryEntry(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    bodyHash: str
     callableName: str
     kind: WatchCodeCallableKind
-    sectionIds: list[str] | None = None
-    sectionsCount: int | None = None
     signatureHash: str
+    bodyHash: str
     sourcePath: str
+    sectionIds: list[str] | None = None
+    sectionsCount: int
 
+class WebsocketMessageType(StrEnum):
+    Notification = "Notification"
+    AllProjectMetadata = "AllProjectMetadata"
+    AllConnections = "AllConnections"
+    FrontendIdentity = "FrontendIdentity"
+    ListenerCoverageSnapshot = "ListenerCoverageSnapshot"
+    UpdateArtifacts = "UpdateArtifacts"
+    LLMStreamingResponse = "LLMStreamingResponse"
+    AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
+    AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
+    UISettingReveal = "UISettingReveal"
+    LSPDiagnostics = "LSPDiagnostics"
+    NameValidationErrors = "NameValidationErrors"
+    LLMConfigUpdated = "LLMConfigUpdated"
+    LLMApiKeysUpdated = "LLMApiKeysUpdated"
+    ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
+    EngineConfigsUpdated = "EngineConfigsUpdated"
+    AgentProfilesUpdated = "AgentProfilesUpdated"
+    AgentRunUpdated = "AgentRunUpdated"
+    PromptTemplatesUpdated = "PromptTemplatesUpdated"
+    TranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
+    UpdateFrontendProjectState = "UpdateFrontendProjectState"
+    UpdateSettings = "UpdateSettings"
+    ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
+    BackendLogEvent = "BackendLogEvent"
+
+class WebsocketTransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    frontend: str
+    listenerById: str
+    terminalBySection: str
 
 class WindowSpaceSurfaceKind(StrEnum):
     project_chat = "project_chat"
     section = "section"
 
-
 class WindowSpaceWindow(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    chatId: str | None = None
-    embeddedGitPaneVisible: bool | None = None
-    mode: ChatWindowMode | None = None
-    normalizedBounds: NormalizedFloatingWindowBounds | None = None
+    surfaceKind: WindowSpaceSurfaceKind
     sectionIdOrNull: str | None = None
-    surfaceKind: WindowSpaceSurfaceKind | None = None
+    mode: ChatWindowMode
     title: str | None = None
-    zIndex: int | None = None
+    chatId: str | None = None
+    embeddedGitPaneVisible: bool
+    zIndex: int
+    normalizedBounds: NormalizedFloatingWindowBounds
 
+class WorkingDirStrategy(StrEnum):
+    project_root = "project_root"
+    temp_dir = "temp_dir"
+    custom = "custom"
 
 class WorkspaceLaunchRouteKind(StrEnum):
     ide = "ide"
     launcher = "launcher"
     blocked = "blocked"
 
+class AIFollowToolArgumentsUpdateMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: AIFollowToolArgumentsUpdateContent
+
+class AIFollowToolResultUpdateMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: AIFollowToolResultUpdateContent
+
+class AgentProfilesUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: AgentProfilesUpdatedContent
+
+class AgentRun(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    profileId: str | None = None
+    status: RunStatus
+    startedAt: datetime | None = None
+    finishedAt: datetime | None = None
+    inputs: dict[str, Any]
+    outputs: dict[str, Any]
+    toolCalls: list[dict[str, Any]] | None = None
+    cost: float | None = None
+    events: list[RunEvent] | None = None
+
+class AgentRunUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: AgentRun
 
 class AgenticEdge(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    contextMode: AgenticEdgeContextMode | None = None
-    hidden: bool | None = None
     id: str
-    kind: AgenticEdgeKind
-    selected: bool | None = None
     sourceSectionId: str
-    style: RawMessage | None = None
     targetSectionId: str
-    zIndex: int | None = None
+    kind: AgenticEdgeKind
+    contextMode: AgenticEdgeContextMode
+    style: RawMessage | None = None
+    hidden: bool
+    zIndex: int
+    selected: bool
 
+class AllProjectMetadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    defaultProjectConfigId: str | None = None
+    projectMetadata: list[ProjectConfigMetadata] | None = None
+
+class AllProjectMetadataContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    defaultProjectConfigId: str | None = None
+    projectMetadata: list[ProjectConfigMetadata] | None = None
+
+class AllProjectMetadataMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: AllProjectMetadataContent
+
+class AppDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    appSpecVersion: str
+    catalogId: str
+    appSpecPath: str
+    routes: list[AppRoute] | None = None
+    dataBindings: RawMessage | None = None
+    actions: RawMessage | None = None
+    theme: RawMessage | None = None
+    assets: RawMessage | None = None
+
+class AppDefinitionMutationResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    appSpec: Any
+    appDefinition: AppDefinition | None = None
+
+class AppDefinitionReadResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    appSpec: Any
+    appDefinition: AppDefinition | None = None
+
+class AppDefinitionValidationResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    errors: list[AppValidationIssue] | None = None
+    warnings: list[AppValidationIssue] | None = None
+    capabilities: AppCapabilities
+
+class ArtifactSaveResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    status: SaveStatus
+    backupPath: str | None = None
+    message: str | None = None
+
+class BackendRequestContext(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    serverMode: Mode
+    hasAuth: bool
+    sessionId: str
+    shareSessionId: str
+    projectConfigId: str
 
 type BaseChartSettingsUnion = Annotated[
     LineChartSettings | ScatterChartSettings, Field(..., title="BaseChartSettingsUnion")
 ]
 
-
 class BaseCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    description: str
-    id: str
-    isPreset: bool
-    name: str
     type: CodeObjType
-
+    id: str
+    name: str
+    description: str
+    isPreset: bool
 
 type BaseDependencyKeyUnion = Annotated[
     SectionDependencyKey | SectionParamDependencyKey,
     Field(..., discriminator="type", title="BaseDependencyKeyUnion"),
 ]
 
-
 class BinaryDependencyValue(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    payload: ContentRef
     type: Literal["Binary"]
-
+    payload: ContentRef
 
 class BrowserSavedSearch(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    color: str
     id: str
     name: str
     query: str
-    quickInfo: str
     searchScope: BrowserSearchScope
     typeFilters: BrowserSavedSearchTypeFilters | None = None
-
+    color: str
+    quickInfo: str
 
 class BrowserSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    columnWidth: float | None = None
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
     folder: str
     hideColumn: bool
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isMinimized: bool
-    isPreset: bool
-    name: str
-    positionAndSizeLocked: bool
-    savedSearches: list[BrowserSavedSearch]
-    size: BrowserSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
+    columnWidth: float | None = None
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode
-
+    savedSearches: list[BrowserSavedSearch] | None = None
 
 class BrushStroke(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    globalCompositeOperation: str
-    lineCap: DrawAreaBrushShape
-    lineWidth: float
-    points: list[Any]
     strokeStyle: str
-
+    lineWidth: float
+    lineCap: DrawAreaBrushShape
+    points: list[Any] | None = None
+    globalCompositeOperation: str
 
 class BrushStrokeArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: Literal["BrushStroke"]
+    id: str
     value: BrushStroke
-
 
 class BrushStrokeWithTransform(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    globalCompositeOperation: str
-    lineCap: DrawAreaBrushShape
-    lineWidth: float
-    points: list[Any]
     strokeStyle: str
+    lineWidth: float
+    lineCap: DrawAreaBrushShape
+    points: list[Any] | None = None
+    globalCompositeOperation: str
     transform: DrawAreaTransform
-
 
 class ButtonParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    actionMode: ButtonActionMode
-    coreNameEditable: bool
-    coreNameType: str
-    description: str
+    type: str
     id: str
-    isPreset: bool
-    label: str
     name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
     passingStyle: str
-    requestBody: str
-    requestHeaderKey: str
-    requestHeaderValue: str
+    typeAnnotation: str
+    label: str
+    actionMode: ButtonActionMode
     requestMethod: HTTPRequestMethod
     requestUrl: str
-    type: str
-    typeAnnotation: str
-
+    requestHeaderKey: str
+    requestHeaderValue: str
+    requestBody: str
 
 class CallableSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    callable: str | None = None
+    isMinimized: bool
+    positionAndSizeLocked: bool
+    isPreset: bool
     codeObjVariantMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
     columnWidth: float | None = None
     configLanguage: ConfigLanguage
-    edgeInputParams: list[str]
-    edgeOutputPorts: list[CallableSectionImplEdgeOutputPort]
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: dict[str, Any]
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[dict[str, Any]] | None = None
+    callable: str | None = None
     hideParams: bool
-    hideUnpinnedParams: bool
-    id: str
-    ignoreTypeErrors: CallableSectionImplIgnoreTypeErrors
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
-    isMinimized: bool
-    isPreset: bool
-    name: str
-    paramFilter: str
-    pinnedParams: list[str]
-    positionAndSizeLocked: bool
-    selectedParams: list[str]
-    size: CallableSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
-
 
 class ChartDataArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: Literal["ChartData"]
+    id: str
     value: ChartDataValue
 
+class ChartSettingsUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: ChartType
+    xAxisColumn: str | None = None
+    secondYAxisColumns: list[str] | None = None
+    categoryColumn: str | None = None
+    xAxisLog: bool
+    y1AxisLog: bool
+    y2AxisLog: bool
+    yAxisLog: bool
 
 class ChatMetadata(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     id: ID = Field(default_factory=create_new_id)
+    name: str
     lastUpdated: datetime
     llmConfig: LLMConfig
-    name: str
     projectConfigId: ID | None = None
 
+class ClaudeSettingsManaged(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    permissions: ClaudeSettingsPermissions | None = None
+    defaultMode: str | None = None
+    mcp: dict[str, Any]
 
 class CodeObjTypeValuePolicy(BaseModel):
     model_config = ConfigDict(
@@ -2497,161 +4203,488 @@ class CodeObjTypeValuePolicy(BaseModel):
     )
     representation: CodeObjValueRepresentationMode
 
-
 class CodeObjValueOverride(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     representation: CodeObjValueRepresentationMode
 
-
 class CodeObjValuePolicy(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    codeObjOverrides: dict[str, CodeObjValueOverride]
     typePolicies: dict[str, CodeObjTypeValuePolicy]
+    codeObjOverrides: dict[str, CodeObjValueOverride]
 
+class CodeObject(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    displayName: str
+    variantIds: list[str] | None = None
+    defaultVariantId: str
+    sharedModifier: RawMessage | None = None
+    unsharedKeys: list[str] | None = None
+
+class CodeObjectImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: str
+    payload: RawMessage | None = None
+
+class CodeObjectVariant(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    implId: str
+    nonPresetImplIds: list[str] | None = None
+    modifier: RawMessage | None = None
+    isFrozen: bool
+
+class Connection(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    connectionType: ConnectionType
+    shareSessionId: str
+    currentAddress: str
+
+class Core(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    displayName: str
+    variants: list[str] | None = None
+    defaultVariant: str | None = None
+    sharedModifier: RawMessage | None = None
+    unsharedKeys: list[str] | None = None
+
+class CreateTopLevelSectionInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    implType: str
+    controlCodeObjType: str | None = None
+    implOverrides: dict[str, Any]
+    position: Position | None = None
+    name: str | None = None
+    topLevelSections: dict[str, TopLevelSectionLayout]
+    viewportBounds: ViewportBounds | None = None
+
+class CreateTopLevelSectionResult(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    metaControlParamId: str | None = None
+    panTo: Position | None = None
+
+class CurrentAddressUpdateMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: MessageType
+    content: str
 
 class DateParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    dateCalendarWeekStart: DateCalendarWeekStart
-    dateControlMode: DateControlMode
-    dateDisplayFormat: DateDisplayFormat
-    dateIncludesTime: bool
-    dateSelectionMode: DateSelectionMode
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
+    defaultVal: str
     value: str
+    dateDisplayFormat: DateDisplayFormat
+    dateControlMode: DateControlMode
+    dateSelectionMode: DateSelectionMode
+    dateCalendarWeekStart: DateCalendarWeekStart
+    dateIncludesTime: bool
 
+class DeleteRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    artifacts: list[DeleteRequestItem] | None = None
+
+class DetachedRun(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    runId: str
+    status: DetachedStatus
+    createdAtMs: int
+    startedAtMs: int | None = None
+    exitedAtMs: int | None = None
+    exitCode: int | None = None
+    pid: int | None = None
+    command: str
+    snapshotPath: str
+    projectConfigId: str
+    entrySectionId: str | None = None
+    tags: dict[str, str]
+
+class DrawAreaLayerItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: DrawAreaLayerItemType
+    dataPath: str
+    transformId: str
 
 class DrawAreaLayerItemTransform(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    eraserStrokes: list[BrushStrokeWithTransform]
     transform: DrawAreaTransform
-
+    eraserStrokes: list[BrushStrokeWithTransform] | None = None
 
 class DrawAreaLayerItemTransformArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: Literal["DrawAreaLayerItemTransform"]
+    id: str
     value: DrawAreaLayerItemTransform
-
 
 class Edge(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    animated: bool | None = None
-    data: RawMessage | None = None
-    hidden: bool | None = None
     id: str
-    label: str | None = None
-    selected: bool | None = None
-    sourcePortId: str
     sourceSectionId: str
     sourceVariantId: str
-    style: RawMessage | None = None
-    targetPortId: str
+    sourcePortId: str
     targetSectionId: str
     targetVariantId: str
-    type: str | None = None
-    zIndex: int | None = None
+    targetPortId: str
+    type: str
+    label: str | None = None
+    style: RawMessage | None = None
+    animated: bool
+    hidden: bool
+    zIndex: int
+    data: RawMessage | None = None
+    selected: bool
 
+class EngineConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    engineType: EngineType
+    settaLlmConfigId: str | None = None
+    externalAgentConfigId: str | None = None
+    defaults: EngineConfigDefaults
+    runtimeSupport: EngineRuntimeSupport | None = None
+
+class EngineConfigsUpdatedContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    configs: list[EngineConfig] | None = None
+
+class EngineConfigsUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: EngineConfigsUpdatedContent
+
+class ExternalAgentStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    configId: str
+    name: str
+    toolType: ToolType
+    runMode: RunMode
+    supported: bool
+    available: bool
+    issues: list[str] | None = None
+    baseUrl: str | None = None
+    workingDir: str | None = None
+    commandPath: str | None = None
+    sdkVersion: str | None = None
+    cliVersion: str | None = None
+    envVars: EnvVarStatus
+
+class GeneratedSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    kind: GeneratedSectionKind
 
 class GroupSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    children: list[str]
-    defaultChildSectionType: SectionType
-    id: str
-    isFrozen: bool
-    isHorizontalOrientation: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
-    overflowMode: bool
     positionAndSizeLocked: bool
-    size: GroupSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
+    isPreset: bool
+    children: list[str] | None = None
+    isHorizontalOrientation: bool
+    overflowMode: bool
+    defaultChildSectionType: SectionType
 
+class IdentityMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: IdentityContent
+
+class ImportFilesRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    paths: list[str] | None = None
+    uploadScope: UploadScope
+
+class JSONArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: ArtifactType
+    id: str
+    value: RawMessage | None = None
+
+class LLMAPIKeysUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: ManagedAPIKeysSnapshot
+
+class LSPDiagnostic(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: str
+    severity: int | None = None
+    code: Any
+    source: str | None = None
+    range: LSPDiagnosticRange
+    uri: str | None = None
 
 class ListRootSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    children: list[str]
-    defaultChildSectionType: SectionType
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
-    size: ListRootSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
+    isPreset: bool
+    children: list[str] | None = None
+    defaultChildSectionType: SectionType
     viewMode: ListRootViewMode
 
+class ListenerCoverageSnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    dependencies: list[BaseDependencyKeyUnion] | None = None
+    hasRealtimeWildcard: bool
+
+class ListenerCoverageSnapshotMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: ListenerCoverageSnapshot
+
+class ListenerDependencyCatalog(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entries: list[ListenerDependencyCatalogEntry] | None = None
+
+class ListenerDependencyEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: str
+    payload: RawMessage | None = None
+    timestampMs: int
+
+class ListenerDependencyEventContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    shareSessionId: str
+    dependencyEvents: list[ListenerDependencyEvent] | None = None
+    sequence: int
+
+class ListenerDependencyEventEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: BaseDependencyKeyUnion
+    payload: BaseDependencyValueUnion | None = None
+    timestampMs: int
+
+class ListenerDependencyEventMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: ListenerMessageType
+    content: ListenerDependencyEventContent
 
 class ListenerErrorMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerErrorContent
     messageType: ListenerMessageType
+    content: ListenerErrorContent
 
+class ListenerFrontendEmitRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    dependencyValues: dict[str, Any] = Field(default_factory=dict)
+    artifactUpdates: list[BaseArtifactUnion] = Field(default_factory=list)
 
 class ListenerInitMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerInitContent
     messageType: ListenerMessageType
+    content: ListenerInitContent
 
+class ListenerRealtimeDelta(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependency: str
+    value: RawMessage | None = None
+
+class ListenerRealtimeEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    shareSessionId: str | None = None
+    deltas: list[ListenerRealtimeDelta] = Field(default_factory=list)
+    dependencyValues: ListenerRenderedDependencyValues | None = None
+    sequence: int
+
+class ListenerRealtimeEventContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    shareSessionId: str
+    deltas: list[ListenerRealtimeDelta] | None = None
+    dependencyValues: ListenerRenderedDependencyValues | None = None
+    sequence: int
+
+class ListenerRealtimeEventMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: ListenerMessageType
+    content: ListenerRealtimeEventContent
 
 class ListenerRegisterAckContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    projectConfigId: str
+    shareSessionId: str
     callbacks: dict[str, ListenerRegisterAckStatus]
+
+class ListenerRegisterAckEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     projectConfigId: str
     shareSessionId: str | None = None
-
+    callbacks: dict[str, ListenerRegisterAckStatus] = Field(default_factory=dict)
 
 class ListenerRegisterAckMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerRegisterAckContent
     messageType: ListenerMessageType
+    content: ListenerRegisterAckContent
 
+class ListenerSnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    shareSessionId: str | None = None
+    dependencyCatalog: ListenerDependencyCatalog
+    dependencyValues: ListenerRenderedDependencyValues
+
+class LocalCoreListenerRealtimeDelta(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependency: BaseDependencyKeyUnion
+    value: BaseDependencyValueUnion
+    binaryPayloadBase64: str | None = None
+
+class LocalCoreRenderRealtimeDependencyValuesRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyCatalog: ListenerDependencyCatalog
+    currentDependencyValues: ListenerRenderedDependencyValues
+    deltas: list[LocalCoreListenerRealtimeDelta] = Field(default_factory=list)
+
+class Manifest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    version: int
+    deploymentName: str
+    deploymentType: Type
+    defaultProjectConfigId: str
+    deploymentVersion: str
+    createdAt: datetime
+    listener: ListenerConfig | None = None
 
 type MessageContent = Annotated[
     MessageTextContent | MessageImageURLContent | MessageThinkingContent,
@@ -2662,32 +4695,333 @@ type MessageContentDelta = Annotated[
     MessageTextDelta | MessageThinkingDelta, Field(..., title="MessageContentDelta")
 ]
 
-
 class MessageDeltaEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: list[MessageContentDelta]
-    message_id: str
     type: Literal["delta"]
-
+    message_id: str
+    content: list[MessageContentDelta] | None = None
 
 class MessageStopEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message_id: str
     type: Literal["message_stop"]
+    message_id: str
 
+class MetaControlSizingPolicyByType(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    CodeCallable: MetaControlSizingPolicyTypeEntry
+    CodeParam: MetaControlSizingPolicyTypeEntry
+    TextParam: MetaControlSizingPolicyTypeEntry
+    DateParam: MetaControlSizingPolicyTypeEntry
+    TimeParam: MetaControlSizingPolicyTypeEntry
+    ButtonParam: MetaControlSizingPolicyTypeEntry
+    SliderParam: MetaControlSizingPolicyTypeEntry
+    RotaryParam: MetaControlSizingPolicyTypeEntry
+    SwitchParam: MetaControlSizingPolicyTypeEntry
+    ColorPickerParam: MetaControlSizingPolicyTypeEntry
+    DropdownParam: MetaControlSizingPolicyTypeEntry
+    PasswordParam: MetaControlSizingPolicyTypeEntry
+    TextAreaParam: MetaControlSizingPolicyTypeEntry
+    DropzoneParam: MetaControlSizingPolicyTypeEntry
+    NestedParam: MetaControlSizingPolicyTypeEntry
+
+class Metadata(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    deploymentName: str
+    deploymentVersion: str
+    deploymentType: Type
+    defaultProjectConfigId: str
+    defaultProjectConfigName: str
+    createdAt: datetime
+    deploymentRoot: str
+    policyPath: str
+
+class MoveSectionsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionIds: list[str] | None = None
+    newParentId: str | None = None
+    newIndex: int | None = None
+    positionsById: dict[str, Position]
+
+class NameValidationErrorsMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: NameValidationErrors
+
+class NotificationContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    projectConfigId: str
+    type: NotificationType
+    message: str
+    temporary: bool
+    timestamp: str
+    metadata: dict[str, Any]
+    read_status: bool
+
+class NotificationMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: NotificationContent
+
+class ParamCodeObjFields(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameType: ParamNameType
+    coreNameEditable: bool
+    passingStyle: ParameterPassingStyle
+    typeAnnotation: str
+
+class PluginBlockedCapability(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    capability: str
+    reason: PluginBlockedCapabilityReason
+
+class PluginEnableDisableResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    state: PluginRuntimeState
+    restartRequired: bool
+
+class PluginInstallMetadataEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    scope: PluginScope
+    sourceSpec: str
+    installerBackend: PluginInstallerBackend | None = None
+    canonicalSourceKey: str
+    sourceDigestSha256: str | None = None
+    version: str
+    history: list[PluginInstallHistoryEntry] | None = None
+
+class PluginInstallMetadataFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entries: dict[str, PluginInstallMetadataEntry]
+
+class PluginInstallResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    version: str
+    sourceScope: PluginScope
+    sourceScopeLabel: str
+    sourcePath: str
+    canonicalSourceKey: str
+    sourceDigestSha256: str | None = None
+    requestedCapabilities: list[str] | None = None
+    trustStatus: PluginSourceTrustStatus
+    trustWarning: str
+    components: list[str] | None = None
+    state: PluginRuntimeState
+    restartRequired: bool
+
+class PluginListEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    name: str
+    version: str
+    sourceScope: PluginScope
+    sourceScopeLabel: str
+    sourceManager: PluginSourceManager
+    sourceManagerHint: str | None = None
+    canonicalSourceKey: str
+    sourceDigestSha256: str | None = None
+    frontend: PluginFrontendDescriptor
+    content: PluginContentDescriptor
+    config: PluginConfigDescriptor
+    components: list[str] | None = None
+    effectiveCapabilities: list[str] | None = None
+    enablementSource: PluginEnablementSource | None = None
+    restartRequired: bool
+
+class PluginLockEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    version: str
+    canonicalSourceKey: str
+    scope: PluginScope
+    sourceDigestSha256: str | None = None
+    sourceSpec: str | None = None
+    installerBackend: PluginInstallerBackend | None = None
+
+class PluginRestartCapability(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    mode: PluginRestartCapabilityMode
+    command: str | None = None
+    reason: str | None = None
+
+class PluginStatusEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pluginId: str
+    name: str
+    version: str
+    state: PluginRuntimeState
+    sourceScope: PluginScope
+    sourceScopeLabel: str
+    sourceManager: PluginSourceManager
+    sourceManagerHint: str | None = None
+    sourcePath: str
+    canonicalSourceKey: str
+    sourceDigestSha256: str | None = None
+    shadowedBySourcePath: str | None = None
+    requestedCapabilities: list[str] | None = None
+    effectiveCapabilities: list[str] | None = None
+    blockedCapabilities: list[PluginBlockedCapability] | None = None
+    components: list[str] | None = None
+    registeredCodegenTargets: list[PluginRegisteredCodegenTarget] | None = None
+    registeredBackendRoutes: list[PluginRegisteredBackendRoute] | None = None
+    registeredStaticDirs: list[PluginRegisteredStaticDir] | None = None
+    registeredListenerEndpoints: list[PluginRegisteredListenerEndpoint] | None = None
+    enablementSource: PluginEnablementSource | None = None
+    restartRequired: bool
+    runtimePayloadDigestSha256: str
+    errors: list[PluginErrorInfo] | None = None
+
+class PluginStatusResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schemaVersion: int
+    serverMode: Mode
+    restartCapability: PluginRestartCapability
+    plugins: list[PluginStatusEntry] | None = None
+
+class PluginsLockFile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schemaVersion: int
+    plugins: list[PluginLockEntry] | None = None
+
+class Policy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    allowParamChanges: bool
+    allowVariantChanges: bool
+    allowLayoutChanges: bool
+    allowRun: bool
+    allowLLM: bool
+    allowExternalLinks: bool
+    allowFileDownloads: bool
+    allowMultipleRuns: bool
+    runSnapshotMode: RunSnapshotMode
+
+class ProjectConfigDiagnostics(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    errors: dict[str, SectionTypeErrors]
+    isGenCode: bool
+
+class ProjectStateItem(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sectionId: str
+    coreName: str
+    variantId: str
+    variantName: str
+    parentSectionId: str | None = None
+    childSectionIds: list[str] | None = None
+    topLevelLayout: TopLevelSectionLayout | None = None
+
+class PromptTemplatesUpdatedContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    templates: list[Template] | None = None
+
+class PromptTemplatesUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: PromptTemplatesUpdatedContent
 
 class RawArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str
     type: ArtifactType
+    id: str
     value: RawMessage | None = None
 
+class RenameReferenceChangedValue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    depKey: RenameReferenceDependencyKey
+    newValue: str
+
+class RestartRequiredResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pendingPlugins: list[PluginStatusEntry] | None = None
+    pendingPluginIds: list[str] | None = None
+    pendingPluginIdsWithoutStatus: list[str] | None = None
+    restartCapability: PluginRestartCapability
+
+class RunIndex(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    version: int
+    runs: dict[str, RunIndexEntry]
+
+class RunnerSummarySection(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    displayName: str | None = None
+    supportsParams: bool = False
+    variants: list[RunnerSummaryVariant] = Field(default_factory=list)
+    params: list[RunnerSummaryParam] = Field(default_factory=list)
+
+class RunnerSummarySnapshot(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    sections: list[RunnerSummarySection] = Field(default_factory=list)
 
 class SectionCodegenOverride(BaseModel):
     model_config = ConfigDict(
@@ -2696,25 +5030,88 @@ class SectionCodegenOverride(BaseModel):
     mode: SectionCodegenMode
     representation: SectionRepresentationMode
 
-
 class SectionCodegenPolicy(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    allowlist: list[SectionType]
-    exclude: list[str]
-    metaControlAllowlist: list[CodeObjType]
-    sectionOverrides: dict[str, SectionCodegenOverride]
+    allowlist: list[SectionType] | None = None
+    metaControlAllowlist: list[CodeObjType] | None = None
+    exclude: list[str] | None = None
     typePolicies: dict[str, SectionTypeCodegenPolicy]
+    sectionOverrides: dict[str, SectionCodegenOverride]
 
+class SectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    kind: SectionKind
+    payload: RawMessage | None = None
+    code: CodeSectionImpl | None = None
+    terminal: TerminalSectionImpl | None = None
+    draw: DrawSectionImpl | None = None
+    generated: GeneratedSectionImpl | None = None
 
 class SectionSize(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    height: SectionSizeValue
     width: SectionSizeValue
+    height: SectionSizeValue
 
+class SectionSizingPolicyByType(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Callable: SectionSizingPolicyCallableTypeEntry
+    Dict: SectionSizingPolicyTypeEntry
+    ListRoot: SectionSizingPolicyTypeEntry
+    Group: SectionSizingPolicyTypeEntry
+    StateMachineStart: SectionSizingPolicyTypeEntry
+    StateMachineGate: SectionSizingPolicyTypeEntry
+    StateMachineEnd: SectionSizingPolicyTypeEntry
+    Image: SectionSizingPolicyTypeEntry
+    Chart: SectionSizingPolicyTypeEntry
+    Draw: SectionSizingPolicyTypeEntry
+    Prompt: SectionSizingPolicyTypeEntry
+    TextBlock: SectionSizingPolicyTypeEntry
+    MetaControl: SectionSizingPolicyTypeEntry
+    Social: SectionSizingPolicyTypeEntry
+    GlobalVariables: SectionSizingPolicyTypeEntry
+    Code: SectionSizingPolicyTypeEntry
+    GenPythonCode: SectionSizingPolicyTypeEntry
+    GenPythonMetadata: SectionSizingPolicyTypeEntry
+    Terminal: SectionSizingPolicyTypeEntry
+    IFrame: SectionSizingPolicyTypeEntry
+    Chat: SectionSizingPolicyTypeEntry
+    Browser: SectionSizingPolicyTypeEntry
+    Plugin: SectionSizingPolicyTypeEntry
+    TaskBoard: SectionSizingPolicyTypeEntry
+    Spreadsheet: SectionSizingPolicyTypeEntry
+
+class SectionWithParamsTrailingFields(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pinnedParams: list[str] | None = None
+    selectedParams: list[str] | None = None
+    ignoreTypeErrors: TypeErrorIgnoreState
+    edgeInputParams: list[str] | None = None
+    edgeOutputPorts: list[EdgePort] | None = None
+
+class ServerConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    transport: Transport
+    url: str
+    command: str
+    args: list[str] | None = None
+    env: dict[str, str]
+    http_headers: dict[str, str]
+    cwd: str
+    encoding: str
+    encoding_error_handler: str
 
 class ServerModeBoundary(BaseModel):
     model_config = ConfigDict(
@@ -2723,150 +5120,267 @@ class ServerModeBoundary(BaseModel):
     capabilities: ServerModeCapabilities
     workspaceLaunchRouteKind: WorkspaceLaunchRouteKind
 
-
 type ServerModeBoundaryPolicy = dict[str, ServerModeBoundary]
 
+class SettingsManagedBlock(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    claude: ClaudeSettingsManaged | None = None
+    codex: dict[str, Any]
+
+class SettingsUpdateMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: Document
 
 class StateMachineGateSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    gateType: StateMachineGateType
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    label: str
-    machineGroupId: str
-    name: str
     positionAndSizeLocked: bool
-    size: StateMachineGateSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: str
+    isPreset: bool
+    machineGroupId: str
+    gateType: StateMachineGateType
+    label: str
     ui: StateMachineGateUIState
-
 
 class StateMachineSourceFilter(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    equals: str | None = None
-    payloadField: str | None = None
-    signalName: str | None = None
     type: StateMachineSourceFilterType
-
+    signalName: str | None = None
+    payloadField: str | None = None
+    equals: str | None = None
 
 class StateMachineTargetAction(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    agentProfileId: str | None = None
-    engineConfigId: str | None = None
-    inlinePrompt: str | None = None
-    permissionMode: str | None = None
-    promptInputs: dict[str, str] | None = None
-    promptSectionId: str | None = None
-    promptTemplateId: str | None = None
-    searchEnabled: bool | None = None
-    stopIfRunning: bool | None = None
-    threadStrategy: StateMachineThreadStrategy
     type: StateMachineTargetActionType
-
+    promptTemplateId: str | None = None
+    promptSectionId: str | None = None
+    inlinePrompt: str | None = None
+    promptInputs: dict[str, str]
+    threadStrategy: StateMachineThreadStrategy
+    stopIfRunning: bool
+    engineConfigId: str | None = None
+    agentProfileId: str | None = None
+    permissionMode: str | None = None
+    searchEnabled: bool | None = None
 
 class TaskBoardSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: str
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: dict[str, Any]
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    columns: list[TaskBoardColumn]
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
-    size: TaskBoardSectionImplSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    tasks: list[TaskBoardTask]
-    type: str
+    isPreset: bool
     viewMode: TaskBoardViewMode
-
+    columns: list[TaskBoardColumn] | None = None
+    tasks: list[TaskBoardTask] | None = None
 
 class TextParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    coreNameEditable: bool
-    coreNameType: str
-    defaultVal: str
-    description: str
-    id: str
-    isPreset: bool
-    name: str
-    passingStyle: str
     type: str
+    id: str
+    name: str
+    description: str
+    isPreset: bool
+    coreNameType: str
+    coreNameEditable: bool
+    passingStyle: str
     typeAnnotation: str
-    uiType: TextParamInputUIType
+    defaultVal: str
     value: str
-
+    uiType: TextParamInputUIType
 
 class ToolCall(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    function: ToolCallFunction
     id: str
     type: str
+    function: ToolCallFunction
 
+class TranscriptionProfile(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    transcriptionLlmConfigId: str
+    transportMode: TransportMode
+    chunkMs: int
+    supportsRealtimeTranscription: bool
+    language: str | None = None
+
+class TranscriptionProfilesUpdatedContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    profiles: list[TranscriptionProfile] | None = None
+
+class TranscriptionProfilesUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: TranscriptionProfilesUpdatedContent
+
+class TransportRoutes(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    apiPrefix: str
+    root: RootTransportRoutes
+    binary: BinaryTransportRoutes
+    websocket: WebsocketTransportRoutes
+    serverModeBoundary: ServerModeBoundaryRoutes
+    status: StatusTransportRoutes
+    launcherManagement: LauncherManagementTransportRoutes
+    fileBrowser: FileBrowserTransportRoutes
+    settaApiPresets: SettaAPIPresetRoutes
+
+class UISettingRevealContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    chatId: str | None = None
+    activeSectionId: str | None = None
+    reveals: list[UISettingRevealTarget] | None = None
+    durationMs: int
+    requestId: str
+
+class UISettingRevealMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: UISettingRevealContent
+
+class UISettingRevealResultContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    requestId: str
+    statuses: list[UISettingRevealResultStatus] | None = None
+
+class UISettingRevealResultMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: str
+    content: UISettingRevealResultContent
 
 class ViewMode(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     id: str
-    isTab: bool | None = None
-    isUserFacing: bool | None = None
     name: str
     sortIndex: int
-    topLevelSections: dict[str, TopLevelSectionLayout] | None = None
+    isUserFacing: bool
+    isTab: bool
+    visibilityBySectionId: dict[str, bool]
     viewport: Viewport | None = None
-    viewportInitialized: bool | None = None
-    visibilityBySectionId: dict[str, bool] | None = None
-
+    viewportInitialized: bool
+    topLevelSections: dict[str, TopLevelSectionLayout]
 
 class WindowSpaceConfig(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    id: str | None = None
-    name: str | None = None
-    order: list[str]
-    sortIndex: int | None = None
     windowsById: dict[str, WindowSpaceWindow]
+    order: list[str] | None = None
+    id: str
+    name: str
+    sortIndex: int
 
+class WindowSpaceState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    windowsById: dict[str, WindowSpaceWindow]
+    order: list[str] | None = None
+
+class AllConfigs(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    configs: dict[str, LLMConfig]
+    mcpServers: dict[str, ServerConfig]
+    defaultMcpServerIds: list[str] | None = None
+    default_config_id: str
+    codexMcpImportedAt: str
+
+class AllConnectionsMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: list[Connection] | None = None
 
 class AssistantChatMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
     role: Literal["assistant"] = ChatRole.assistant
+    createdAt: int = 0
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] | None = Field(default_factory=list)
     tool_calls: list[ToolCall] | None = None
 
+class BackendHTTPRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    context: BackendRequestContext
+    method: str
+    path: str
+    rawQuery: str
+    headers: dict[str, list[str] | None]
+
+class BackendListenerEndpointRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    context: BackendRequestContext
+    endpointName: str
+    payload: dict[str, Any]
 
 type BaseArtifactUnion = Annotated[
     ImageArtifact
@@ -2882,197 +5396,390 @@ type BaseChatMessageUnion = Annotated[
     Field(..., discriminator="role", title="BaseChatMessageUnion"),
 ]
 
-type BaseChildlessCodeObjImplUnion = (
-    BaseCodeObjImpl
-    | CodeParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DateParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-    | RotaryParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | TimeParamCodeObjImpl
-)
+type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl | ColorPickerParamCodeObjImpl | DateParamCodeObjImpl | DropdownParamCodeObjImpl | DropzoneParamCodeObjImpl | PasswordParamCodeObjImpl | RotaryParamCodeObjImpl | SliderParamCodeObjImpl | SwitchParamCodeObjImpl | TextAreaParamCodeObjImpl | TextParamCodeObjImpl | TimeParamCodeObjImpl
 
-type BaseCodeObjImplUnion = (
-    BaseCodeObjImpl
-    | CodeCallableCodeObjImpl
-    | CodeParamCodeObjImpl
-    | TextParamCodeObjImpl
-    | DateParamCodeObjImpl
-    | TimeParamCodeObjImpl
-    | ButtonParamCodeObjImpl
-    | SliderParamCodeObjImpl
-    | RotaryParamCodeObjImpl
-    | SwitchParamCodeObjImpl
-    | ColorPickerParamCodeObjImpl
-    | DropdownParamCodeObjImpl
-    | PasswordParamCodeObjImpl
-    | TextAreaParamCodeObjImpl
-    | DropzoneParamCodeObjImpl
-    | NestedParamCodeObjImpl
-)
+type BaseCodeObjImplUnion = BaseCodeObjImpl | CodeCallableCodeObjImpl | CodeParamCodeObjImpl | TextParamCodeObjImpl | DateParamCodeObjImpl | TimeParamCodeObjImpl | ButtonParamCodeObjImpl | SliderParamCodeObjImpl | RotaryParamCodeObjImpl | SwitchParamCodeObjImpl | ColorPickerParamCodeObjImpl | DropdownParamCodeObjImpl | PasswordParamCodeObjImpl | TextAreaParamCodeObjImpl | DropzoneParamCodeObjImpl | NestedParamCodeObjImpl
 
 type BaseDependencyValueUnion = Annotated[
     LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue,
     Field(..., discriminator="type", title="BaseDependencyValueUnion"),
 ]
 
-
 class BaseSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    type: SectionType
+    id: str
+    name: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    tagColor: str | None = None
+    styleColor: str | None = None
+    size: SectionSize
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    id: str
-    isFrozen: bool
-    isInOtherProjectConfigs: bool
     isMinimized: bool
-    isPreset: bool
-    name: str
     positionAndSizeLocked: bool
-    size: SectionSize
-    styleColor: str | None = None
-    tagColor: str | None = None
-    type: SectionType
+    isPreset: bool
 
-
-type BaseSectionImplUnion = (
-    BaseSectionImpl
-    | CallableSectionImpl
-    | DictSectionImpl
-    | ListRootSectionImpl
-    | GroupSectionImpl
-    | StateMachineStartSectionImpl
-    | StateMachineGateSectionImpl
-    | StateMachineEndSectionImpl
-    | ChartSectionImpl
-    | TextBlockSectionImpl
-    | PromptSectionImpl
-    | GlobalVariablesSectionImpl
-    | CodeSectionImpl
-    | GenPythonCodeSectionImpl
-    | GenPythonMetadataSectionImpl
-    | TerminalSectionImpl
-    | ChatSectionImpl
-    | BrowserSectionImpl
-    | TaskBoardSectionImpl
-    | SpreadsheetSectionImpl
-)
-
+type BaseSectionImplUnion = BaseSectionImpl | CallableSectionImpl | DictSectionImpl | ListRootSectionImpl | GroupSectionImpl | StateMachineStartSectionImpl | StateMachineGateSectionImpl | StateMachineEndSectionImpl | ChartSectionImpl | TextBlockSectionImpl | PromptSectionImpl | GlobalVariablesSectionImpl | CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl | TerminalSectionImpl | ChatSectionImpl | BrowserSectionImpl | TaskBoardSectionImpl | SpreadsheetSectionImpl
 
 class Chat(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     id: ID = Field(default_factory=create_new_id)
+    name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
     llmConfig: LLMConfig
-    messages: list[BaseChatMessageUnion]
-    name: str
     projectConfigId: ID | None = None
+    messages: list[BaseChatMessageUnion] | None = None
     systemPrompt: str | None = None
-
 
 class ChatSectionBranch(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    branchFromMessageId: ID | None = None
+    messages: list[BaseChatMessageUnion] | None = None
     createdAt: int = 0
-    messages: list[BaseChatMessageUnion]
     parentBranchId: ID | None = None
-
+    branchFromMessageId: ID | None = None
 
 class ChatSectionState(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    messages: list[BaseChatMessageUnion] | None = None
+    inputText: str = ""
+    waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
     activeBranchId: ID | None = None
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-    inputText: str = ""
-    messages: list[BaseChatMessageUnion]
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    waitingForResponse: bool = False
 
+class ClipboardProjectStateCore(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sections: dict[str, Section]
+    sectionImpls: dict[str, BaseSectionImpl | CallableSectionImpl | DictSectionImpl | ListRootSectionImpl | GroupSectionImpl | StateMachineStartSectionImpl | StateMachineGateSectionImpl | StateMachineEndSectionImpl | ChartSectionImpl | TextBlockSectionImpl | PromptSectionImpl | GlobalVariablesSectionImpl | CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl | TerminalSectionImpl | ChatSectionImpl | BrowserSectionImpl | TaskBoardSectionImpl | SpreadsheetSectionImpl]
+    sectionVariants: dict[str, SectionVariant]
+    codeObjs: dict[str, CodeObject]
+    codeObjImpls: dict[str, BaseCodeObjImpl | CodeCallableCodeObjImpl | CodeParamCodeObjImpl | TextParamCodeObjImpl | DateParamCodeObjImpl | TimeParamCodeObjImpl | ButtonParamCodeObjImpl | SliderParamCodeObjImpl | RotaryParamCodeObjImpl | SwitchParamCodeObjImpl | ColorPickerParamCodeObjImpl | DropdownParamCodeObjImpl | PasswordParamCodeObjImpl | TextAreaParamCodeObjImpl | DropzoneParamCodeObjImpl | NestedParamCodeObjImpl]
+    codeObjVariants: dict[str, CodeObjectVariant]
+
+class ClipboardProjectStateCoreWithSectionVariantMap(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    core: ClipboardProjectStateCore
+    sectionVariantMap: dict[str, str]
+
+class CreateChatRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    engineConfigId: str | None = None
+    firstMessage: BaseChatMessageUnion
+
+class DependencyEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    dependencyKey: BaseDependencyKeyUnion
+    payload: BaseDependencyValueUnion | None = None
+    timestampMs: int
+
+class DrawAreaLayer(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str
+    elements: list[DrawAreaLayerItem] | None = None
+    visible: bool
+    layerOpacity: float
+
+class ExternalAgentConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    name: str
+    description: str
+    toolType: ToolType
+    runMode: RunMode
+    commandPath: str | None = None
+    baseUrl: str | None = None
+    defaultModel: str | None = None
+    sandboxPolicy: str | None = None
+    approvalPolicy: str | None = None
+    settingsMode: SettingsMode
+    settingsSources: list[ClaudeSettingsSource] | None = None
+    settingsFilePath: str | None = None
+    settingsManagedBlock: SettingsManagedBlock | None = None
+    settingsAllowSettaEdits: bool
+    envVarWhitelist: list[str] | None = None
+    workingDirStrategy: WorkingDirStrategy
+    workingDir: str | None = None
+    codexSkipGitRepoCheck: bool | None = None
+
+class ExternalAgentConfigsUpdatedContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    configs: list[ExternalAgentConfig] | None = None
+
+class ExternalAgentConfigsUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: ExternalAgentConfigsUpdatedContent
+
+class LLMConfigUpdatedMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: AllConfigs
+
+class LSPDiagnosticsPayload(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    genCode: ProjectConfigDiagnostics
+    codeSections: dict[str, list[LSPDiagnostic] | None]
+    unmappedGenCode: list[LSPDiagnostic] | None = None
+
+class ListenerForceRefreshContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str
+    snapshot: ListenerSnapshot
+    sequence: int | None = None
+    refreshKind: str
+
+class ListenerForceRefreshEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str | None = None
+    snapshot: ListenerSnapshot
+    sequence: int | None = None
+    refreshKind: str | None = None
+
+class ListenerForceRefreshMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: ListenerMessageType
+    content: ListenerForceRefreshContent
 
 class ListenerFrontendEmitContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    artifactUpdates: list[RawArtifact] | None = None
-    dependencyValues: dict[str, RawMessage | None] | None = None
     projectConfigId: str
-
+    dependencyValues: dict[str, RawMessage | None]
+    artifactUpdates: list[RawArtifact] | None = None
 
 class ListenerFrontendEmitMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: ListenerFrontendEmitContent
     messageType: ListenerMessageType
-
+    content: ListenerFrontendEmitContent
 
 class MessageFinalizedEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message: BaseChatMessageUnion
     type: Literal["message_finalized"]
-
+    message: BaseChatMessageUnion
 
 class MessageStartEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    message: BaseChatMessageUnion
     type: Literal["message_start"]
+    message: BaseChatMessageUnion
 
+class PasteSectionsInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data: ClipboardProjectStateCoreWithSectionVariantMap
+    position: Position
+    asRef: bool
+
+class PluginListResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schemaVersion: int
+    serverMode: Mode
+    restartCapability: PluginRestartCapability
+    plugins: list[PluginListEntry] | None = None
+
+class PluginRuntimeResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    schemaVersion: int
+    list: PluginListResponse
+    status: PluginStatusResponse
 
 class ProjectCodegenPythonTarget(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    codeObjValuePolicy: CodeObjValuePolicy
+    language: ProjectCodegenLanguage
     genCodePrefix: str
     genCodeSuffix: str
     generateMetadata: bool
-    language: ProjectCodegenLanguage
     sectionPolicy: SectionCodegenPolicy
-
+    codeObjValuePolicy: CodeObjValuePolicy
 
 type ProjectCodegenTarget = Annotated[
     ProjectCodegenPythonTarget | ProjectCodegenPluginTarget,
     Field(..., title="ProjectCodegenTarget"),
 ]
 
+class RealtimeDependencyEventContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    dependencyEvent: DependencyEvent
+
+class RealtimeDependencyEventMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: MessageType
+    content: RealtimeDependencyEventContent
+
+class RealtimeUIChangeContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    dependencyKey: BaseDependencyKeyUnion | None = None
+    value: BaseDependencyValueUnion | None = None
+
+class RealtimeUIChangeMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: MessageType
+    content: RealtimeUIChangeContent
+
+class RenameRefactorBroadcastContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    frontendOpId: str
+    renameMode: RenameRefactorMode
+    changedNodeValues: list[RenameReferenceChangedValue] | None = None
+
+class RenameRefactorResultsMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: RenameRefactorBroadcastContent
+
+class RunToolsRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    chatId: str
+    sectionId: str
+    frontendAffinityToken: str | None = None
+    toolCalls: list[ToolCall] | None = None
+
+class SectionSizingPolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    byType: SectionSizingPolicyByType
+    metaControlByType: MetaControlSizingPolicyByType
+    globals: SectionSizingPolicyGlobals
+
+class SectionsClipboardData(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: ClipboardDataType
+    data: ClipboardProjectStateCoreWithSectionVariantMap
+
+class SettingsState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    shortcuts: SettingsShortcuts
+    gui: SettingsGUI
+    backend: SettingsBackend
+    sectionSizingPolicy: SectionSizingPolicy
+    languageServer: dict[str, Any]
 
 class StateMachineEdge(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    hidden: bool | None = None
     id: str
     machineGroupId: str
-    selected: bool | None = None
-    sourceActivationCountCondition: (
-        StateMachineSourceActivationCountCondition | None
-    ) = None
-    sourceFilter: StateMachineSourceFilter | None = None
-    sourcePortId: str
     sourceSectionId: str
-    style: RawMessage | None = None
-    targetAction: StateMachineTargetAction | None = None
-    targetPortId: str
+    sourcePortId: str
     targetSectionId: str
-    zIndex: int | None = None
+    targetPortId: str
+    sourceFilter: StateMachineSourceFilter | None = None
+    sourceActivationCountCondition: StateMachineSourceActivationCountCondition | None = None
+    targetAction: StateMachineTargetAction | None = None
+    style: RawMessage | None = None
+    hidden: bool
+    zIndex: int
+    selected: bool
 
+class UpdateArtifactsContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    artifacts: list[BaseArtifactUnion] | None = None
+    updateType: str
+
+class UpdateArtifactsMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: UpdateArtifactsContent
+
+class UpdateRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    artifacts: list[BaseArtifactUnion] | None = None
+    conflictStrategy: SaveConflictStrategy | None = None
+    uploadScope: UploadScope
+
+class AppendMessagesRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    chatId: str
+    messages: list[BaseChatMessageUnion] | None = None
 
 type LLMStreamingResponseChunk = Annotated[
     MessageStartEvent
@@ -3085,54 +5792,118 @@ type LLMStreamingResponseChunk = Annotated[
     Field(..., discriminator="type", title="LLMStreamingResponseChunk"),
 ]
 
+class LLMStreamingResponseContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    chatId: str
+    chunk: LLMStreamingResponseChunk
+    sectionId: str | None = None
+    projectConfigId: str | None = None
+
+class LLMStreamingResponseMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: LLMStreamingResponseContent
+
+class LSPDiagnosticsMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    messageType: WebsocketMessageType
+    content: LSPDiagnosticsPayload
 
 class ProjectConfig(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    activeIds: list[ID] = Field(default_factory=list)
-    activeViewModeId: ID | None = None
-    agenticEdges: list[AgenticEdge] = Field(default_factory=list)
-    allowJsonSourceKeyEdits: bool = True
-    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = (
-        Field(
-            default_factory=lambda: TypeAdapter(
-                list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
-            ).validate_json(
-                '[{"language":"python","genCodePrefix":"","genCodeSuffix":"state = SettaState()","generateMetadata":false,"sectionPolicy":{"allowlist":["Callable","Dict","ListRoot","Group","GlobalVariables","TextBlock","Draw","MetaControl","TaskBoard","Spreadsheet"],"metaControlAllowlist":["CodeParam","TextParam","DateParam","TimeParam","TextAreaParam","SliderParam","RotaryParam","SwitchParam","ColorPickerParam","DropdownParam","PasswordParam","ButtonParam","DropzoneParam"],"exclude":[],"typePolicies":{"Browser":{"mode":"inherit","representation":"expression"},"Callable":{"mode":"inherit","representation":"expression"},"Chart":{"mode":"inherit","representation":"expression"},"Chat":{"mode":"inherit","representation":"file_read"},"Code":{"mode":"inherit","representation":"expression"},"Dict":{"mode":"inherit","representation":"expression"},"Draw":{"mode":"inherit","representation":"file_read"},"GenPythonCode":{"mode":"inherit","representation":"expression"},"GenPythonMetadata":{"mode":"inherit","representation":"expression"},"GlobalVariables":{"mode":"inherit","representation":"expression"},"Group":{"mode":"inherit","representation":"expression"},"IFrame":{"mode":"inherit","representation":"expression"},"Image":{"mode":"inherit","representation":"file_read"},"ListRoot":{"mode":"inherit","representation":"expression"},"MetaControl":{"mode":"inherit","representation":"expression"},"Plugin":{"mode":"inherit","representation":"expression"},"Prompt":{"mode":"inherit","representation":"expression"},"Social":{"mode":"inherit","representation":"expression"},"Spreadsheet":{"mode":"inherit","representation":"expression"},"StateMachineEnd":{"mode":"inherit","representation":"expression"},"StateMachineGate":{"mode":"inherit","representation":"expression"},"StateMachineStart":{"mode":"inherit","representation":"expression"},"TaskBoard":{"mode":"inherit","representation":"expression"},"Terminal":{"mode":"inherit","representation":"expression"},"TextBlock":{"mode":"inherit","representation":"expression"}},"sectionOverrides":{}},"codeObjValuePolicy":{"typePolicies":{"ButtonParam":{"representation":"expression"},"CodeCallable":{"representation":"expression"},"CodeParam":{"representation":"expression"},"ColorPickerParam":{"representation":"string"},"DateParam":{"representation":"string"},"DropdownParam":{"representation":"expression"},"DropzoneParam":{"representation":"file_path"},"NestedParam":{"representation":"expression"},"PasswordParam":{"representation":"string"},"RotaryParam":{"representation":"expression"},"SliderParam":{"representation":"expression"},"SwitchParam":{"representation":"expression"},"TextAreaParam":{"representation":"string"},"TextParam":{"representation":"string"},"TimeParam":{"representation":"string"}},"codeObjOverrides":{}}}]'
-            )
-        )
-    )
-    edges: list[Edge] = Field(default_factory=list)
-    entryCodeBlockId: ID | None = None
-    hasPythonCodegenTarget: bool = False
     id: ID = Field(default_factory=create_new_id)
-    isEditingViewMode: bool = False
     name: str = Field(default_factory=generate_memorable_string)
-    previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
-    runCapabilities: ProjectRunCapabilities = Field(
-        default_factory=lambda: TypeAdapter(ProjectRunCapabilities).validate_json(
-            '{"canRunFromMain":false,"mainRunDisabledReason":null,"effectiveEntrySectionId":null}'
-        )
-    )
-    sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)
-    sectionPathSlugsById: dict[ID, str] = Field(default_factory=dict)
-    sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     showParamDisplayNames: bool = False
-    stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
-    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
-    viewModes: dict[ID, ViewMode] = Field(default_factory=dict)
-    viewport: Viewport | None = Field(
-        default_factory=lambda: TypeAdapter(Viewport | None).validate_json(
-            '{"x":0,"y":0,"zoom":1}'
-        )
-    )
+    allowJsonSourceKeyEdits: bool = True
+    previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
+    viewport: Viewport | None = Field(default_factory=lambda: TypeAdapter(Viewport | None).validate_json("{\"x\":0,\"y\":0,\"zoom\":1}"))
     viewportInitialized: bool = False
-    watchCodeBaselineByPath: dict[str, list[str]] = Field(default_factory=dict)
+    viewModes: dict[ID, ViewMode] = Field(default_factory=dict)
+    activeViewModeId: ID | None = None
+    isEditingViewMode: bool = False
+    hasPythonCodegenTarget: bool = False
+    runCapabilities: ProjectRunCapabilities = Field(default_factory=lambda: TypeAdapter(ProjectRunCapabilities).validate_json("{\"canRunFromMain\":false,\"mainRunDisabledReason\":null,\"effectiveEntrySectionId\":null}"))
+    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = Field(default_factory=lambda: TypeAdapter(list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]).validate_json("[{\"language\":\"python\",\"genCodePrefix\":\"\",\"genCodeSuffix\":\"state = SettaState()\",\"generateMetadata\":false,\"sectionPolicy\":{\"allowlist\":[\"Callable\",\"Dict\",\"ListRoot\",\"Group\",\"GlobalVariables\",\"TextBlock\",\"Draw\",\"MetaControl\",\"TaskBoard\",\"Spreadsheet\"],\"metaControlAllowlist\":[\"CodeParam\",\"TextParam\",\"DateParam\",\"TimeParam\",\"TextAreaParam\",\"SliderParam\",\"RotaryParam\",\"SwitchParam\",\"ColorPickerParam\",\"DropdownParam\",\"PasswordParam\",\"ButtonParam\",\"DropzoneParam\"],\"exclude\":[],\"typePolicies\":{\"Browser\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Callable\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Chart\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Chat\":{\"mode\":\"inherit\",\"representation\":\"file_read\"},\"Code\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Dict\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Draw\":{\"mode\":\"inherit\",\"representation\":\"file_read\"},\"GenPythonCode\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"GenPythonMetadata\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"GlobalVariables\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Group\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"IFrame\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Image\":{\"mode\":\"inherit\",\"representation\":\"file_read\"},\"ListRoot\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"MetaControl\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Plugin\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Prompt\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Social\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Spreadsheet\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"StateMachineEnd\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"StateMachineGate\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"StateMachineStart\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"TaskBoard\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"Terminal\":{\"mode\":\"inherit\",\"representation\":\"expression\"},\"TextBlock\":{\"mode\":\"inherit\",\"representation\":\"expression\"}},\"sectionOverrides\":{}},\"codeObjValuePolicy\":{\"typePolicies\":{\"ButtonParam\":{\"representation\":\"expression\"},\"CodeCallable\":{\"representation\":\"expression\"},\"CodeParam\":{\"representation\":\"expression\"},\"ColorPickerParam\":{\"representation\":\"string\"},\"DateParam\":{\"representation\":\"string\"},\"DropdownParam\":{\"representation\":\"expression\"},\"DropzoneParam\":{\"representation\":\"file_path\"},\"NestedParam\":{\"representation\":\"expression\"},\"PasswordParam\":{\"representation\":\"string\"},\"RotaryParam\":{\"representation\":\"expression\"},\"SliderParam\":{\"representation\":\"expression\"},\"SwitchParam\":{\"representation\":\"expression\"},\"TextAreaParam\":{\"representation\":\"string\"},\"TextParam\":{\"representation\":\"string\"},\"TimeParam\":{\"representation\":\"string\"}},\"codeObjOverrides\":{}}}]"))
     watchCodeEnabled: bool = False
-    watchCodeFiles: list[str] = Field(default_factory=list)
     watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
+    watchCodeFiles: list[str] = Field(default_factory=list)
     watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
-    windowSpaceIdsBySlug: dict[str, list[ID]] = Field(default_factory=dict)
+    watchCodeBaselineByPath: dict[str, list[str] | None] = Field(default_factory=dict)
+    entryCodeBlockId: ID | None = None
+    sectionPathSlugsById: dict[ID, str] = Field(default_factory=dict)
+    sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)
+    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
     windowSpaceSlugsById: dict[ID, str] = Field(default_factory=dict)
+    windowSpaceIdsBySlug: dict[str, list[ID]] = Field(default_factory=dict)
     windowSpaces: dict[ID, WindowSpaceConfig] = Field(default_factory=dict)
+    sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
+    activeIds: list[ID] = Field(default_factory=list)
+    edges: list[Edge] = Field(default_factory=list)
+    agenticEdges: list[AgenticEdge] = Field(default_factory=list)
+    stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
+
+class ProjectStateSummary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfig: ProjectConfig
+    sections: list[ProjectStateItem] | None = None
+    singletonSections: SingletonSections
+    parentSectionMap: dict[str, str | None]
+    requiredDecodedImages: list[str] | None = None
+    genCodeBinding: CodeFileBinding | None = None
+
+class SingleConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    sections: dict[str, Core]
+    sectionImpls: dict[str, BaseSectionImpl | CallableSectionImpl | DictSectionImpl | ListRootSectionImpl | GroupSectionImpl | StateMachineStartSectionImpl | StateMachineGateSectionImpl | StateMachineEndSectionImpl | ChartSectionImpl | TextBlockSectionImpl | PromptSectionImpl | GlobalVariablesSectionImpl | CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl | TerminalSectionImpl | ChatSectionImpl | BrowserSectionImpl | TaskBoardSectionImpl | SpreadsheetSectionImpl]
+    sectionCapabilities: dict[str, SectionCapabilities]
+    sectionVariants: dict[str, Variant]
+    codeObjs: dict[str, Core]
+    codeObjImpls: dict[str, BaseCodeObjImpl | CodeCallableCodeObjImpl | CodeParamCodeObjImpl | TextParamCodeObjImpl | DateParamCodeObjImpl | TimeParamCodeObjImpl | ButtonParamCodeObjImpl | SliderParamCodeObjImpl | RotaryParamCodeObjImpl | SwitchParamCodeObjImpl | ColorPickerParamCodeObjImpl | DropdownParamCodeObjImpl | PasswordParamCodeObjImpl | TextAreaParamCodeObjImpl | DropzoneParamCodeObjImpl | NestedParamCodeObjImpl]
+    codeObjVariants: dict[str, Variant]
+    projectConfig: ProjectConfig
+    singletonSections: SingletonSections
+    parentSectionMap: dict[str, str | None]
+    shownParamIds: dict[str, ShownParamIDs]
+    requiredDecodedImages: list[str] | None = None
+    genCodeBinding: CodeFileBinding | None = None
+    projectChatWindowing: ProjectChatWindowingState
+    artifactGroups: dict[str, Any]
+
+class EmitStreamDeltaRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str
+    sectionId: str
+    chatId: str
+    chunk: LLMStreamingResponseChunk
+
+class ProjectStateUpdateContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectState: SingleConfig
+    completedOpIds: list[str] | None = None
+    pendingOpIds: list[str] | None = None
+
+class ProjectStateUpdateMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    messageType: WebsocketMessageType
+    content: ProjectStateUpdateContent
+

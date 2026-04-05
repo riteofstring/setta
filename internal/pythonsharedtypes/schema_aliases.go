@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
-	"unicode"
 
 	"setta/internal/sharedtypes"
 )
@@ -20,12 +20,50 @@ const (
 	datamodelGeneratorModule       = "datamodel_code_generator"
 )
 
+var cachedPythonSharedProjectionDocument = sync.OnceValues(buildPythonSharedProjectionDocument)
+var cachedPythonSharedProjectionSchemas = sync.OnceValues(buildPythonSharedProjectionSchemas)
 var cachedPythonSharedSchemaModule = sync.OnceValues(buildPythonSharedSchemaModule)
+
+func pythonSharedProjectionDocument() (map[string]any, error) {
+	return cachedPythonSharedProjectionDocument()
+}
+
+func pythonSharedProjectionSchemas() (map[string]any, error) {
+	return cachedPythonSharedProjectionSchemas()
+}
 
 func pythonSharedSchemaModule() (string, error) { return cachedPythonSharedSchemaModule() }
 
+func buildPythonSharedProjectionDocument() (map[string]any, error) {
+	return sharedtypes.BuildOpenAPIProjectionDocument()
+}
+
+func buildPythonSharedProjectionSchemas() (map[string]any, error) {
+	document, err := pythonSharedProjectionDocument()
+	if err != nil {
+		return nil, err
+	}
+	componentsValue, ok := document["components"]
+	if !ok {
+		return nil, fmt.Errorf("python shared types: OpenAPI projection is missing components")
+	}
+	components, ok := componentsValue.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("python shared types: OpenAPI projection components has unsupported shape %T", componentsValue)
+	}
+	schemasValue, ok := components["schemas"]
+	if !ok {
+		return nil, fmt.Errorf("python shared types: OpenAPI projection is missing component schemas")
+	}
+	schemas, ok := schemasValue.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("python shared types: OpenAPI projection component schemas has unsupported shape %T", schemasValue)
+	}
+	return schemas, nil
+}
+
 func buildPythonSharedSchemaModule() (string, error) {
-	document, err := sharedtypes.BuildOpenAPIProjectionDocument()
+	document, err := pythonSharedProjectionDocument()
 	if err != nil {
 		return "", err
 	}
@@ -115,6 +153,10 @@ func pythonSharedSchemaDeclarations(
 	if err != nil {
 		return nil, nil, err
 	}
+	schemasByName, err := pythonSharedProjectionSchemas()
+	if err != nil {
+		return nil, nil, err
+	}
 	imports := map[string]struct{}{}
 	blocks := []string{}
 	sawDeclaration := false
@@ -154,19 +196,17 @@ func pythonSharedSchemaDeclarations(
 
 			ownerType, ok := sharedtypes.TypeByContractName(declarationName)
 			if ok && ownerType != nil && ownerType.Kind() == reflect.Struct {
-				updatedBlock, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
+				updatedBlock, extraImports, err := renderGoBackedDatamodelClassBlock(
 					declarationName,
-					block,
 					ownerType,
 					defaultSourcesByType,
+					schemasByName,
 				)
 				if err != nil {
 					return nil, nil, err
 				}
 				declarationImports = extraImports
-				if changed {
-					block = updatedBlock
-				}
+				block = updatedBlock
 			}
 		}
 		sawDeclaration = true
@@ -176,38 +216,67 @@ func pythonSharedSchemaDeclarations(
 	return blocks, sortedImportNames(imports), nil
 }
 
-func applyPythonFieldMetadataToDatamodelClassBlock(
+func renderGoBackedDatamodelClassBlock(
 	contractName string,
-	block string,
 	ownerType reflect.Type,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, map[string]struct{}, bool, error) {
-	lines := strings.Split(block, "\n")
-	fieldsByJSONName, err := datamodelFieldsByJSONName(ownerType)
+	schemasByName map[string]any,
+) (string, map[string]struct{}, error) {
+	rawSchema, ok := schemasByName[contractName]
+	if !ok {
+		return "", nil, fmt.Errorf("python shared types: missing projected schema for %s", contractName)
+	}
+	schema, ok := rawSchema.(map[string]any)
+	if !ok {
+		return "", nil, fmt.Errorf("python shared types: projected schema %s has unsupported shape %T", contractName, rawSchema)
+	}
+	properties, err := projectedSchemaProperties(schema)
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, fmt.Errorf("python shared types: %s: %w", contractName, err)
 	}
 
 	imports := map[string]struct{}{}
-	changed := false
-	for index := 0; index < len(lines); {
-		fieldName, currentTypeExpr, end, ok, err := parseDatamodelField(lines, index)
+	lines := []string{
+		fmt.Sprintf("class %s(BaseModel):", contractName),
+		"    model_config = ConfigDict(",
+		`        extra="forbid",`,
+		"    )",
+	}
+	for _, field := range reflect.VisibleFields(ownerType) {
+		if !field.IsExported() || field.Anonymous || field.Tag.Get("json") == "-" {
+			continue
+		}
+		jsonName, err := fieldJSONName(field)
 		if err != nil {
-			return "", nil, false, fmt.Errorf(
+			return "", nil, fmt.Errorf(
 				"python shared types: %s: %w",
 				contractName,
 				err,
 			)
 		}
-		if !ok {
-			index++
-			continue
-		}
-
-		field, exists := fieldsByJSONName[fieldName]
+		propertySchema, exists := properties[jsonName]
 		if !exists {
-			index = end
-			continue
+			return "", nil, fmt.Errorf(
+				"python shared types: %s.%s: missing projected property %q",
+				contractName,
+				field.Name,
+				jsonName,
+			)
+		}
+		currentTypeExpr, err := pythonProjectedSchemaTypeExpr(propertySchema)
+		if err != nil {
+			return "", nil, fmt.Errorf(
+				"python shared types: %s.%s: %w",
+				contractName,
+				field.Name,
+				err,
+			)
+		}
+		if discriminatorValue := strings.TrimSpace(field.Tag.Get("shared_discriminator")); discriminatorValue != "" {
+			currentTypeExpr = fmt.Sprintf("Literal[%q]", discriminatorValue)
+		}
+		if shouldStripProjectedNullability(field) {
+			currentTypeExpr = stripProjectedNoneType(currentTypeExpr)
 		}
 		renderedLine, fieldImports, err := buildModelFieldLine(
 			contractName,
@@ -217,106 +286,278 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 			defaultSourcesByType,
 		)
 		if err != nil {
-			return "", nil, false, err
+			return "", nil, err
 		}
 		mergeImportSet(imports, fieldImports)
-
-		if strings.Join(lines[index:end], "\n") == renderedLine {
-			index = end
-			continue
-		}
-		lines = append(
-			append(append([]string(nil), lines[:index]...), renderedLine),
-			lines[end:]...,
-		)
-		changed = true
-		index++
+		lines = append(lines, renderedLine)
 	}
 
-	return strings.Join(lines, "\n"), imports, changed, nil
+	return strings.Join(lines, "\n"), imports, nil
 }
 
-func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.StructField, error) {
-	fieldsByJSONName := make(map[string]reflect.StructField, ownerType.NumField())
-	for _, field := range reflect.VisibleFields(ownerType) {
-		if !field.IsExported() || field.Anonymous || field.Tag.Get("json") == "-" {
-			continue
-		}
-		jsonName, err := fieldJSONName(field)
-		if err != nil {
-			return nil, fmt.Errorf("python shared types: %s.%s: %w", ownerType, field.Name, err)
-		}
-		fieldsByJSONName[jsonName] = field
-	}
-	return fieldsByJSONName, nil
-}
-
-func parseDatamodelField(lines []string, start int) (string, string, int, bool, error) {
-	if start >= len(lines) {
-		return "", "", start, false, nil
-	}
-	fieldName, rhs, ok := strings.Cut(strings.TrimSpace(lines[start]), ": ")
-	fieldName = strings.TrimSpace(fieldName)
-	if !ok || !isPythonIdentifier(fieldName) {
-		return "", "", start, false, nil
-	}
-	parts := []string{rhs}
-	end := start + 1
-	for end < len(lines) {
-		nextName, _, nextIsField := strings.Cut(strings.TrimSpace(lines[end]), ": ")
-		if nextIsField && isPythonIdentifier(strings.TrimSpace(nextName)) {
-			break
-		}
-		parts = append(parts, strings.TrimSpace(lines[end]))
-		end++
-	}
-	typeExpr := trimDatamodelFieldDefault(strings.Join(parts, "\n"))
-	typeExpr = strings.Join(strings.Fields(typeExpr), " ")
-	if typeExpr == "" {
-		return "", "", start, false, fmt.Errorf("datamodel field %s has empty type expression", fieldName)
-	}
-	return fieldName, typeExpr, end, true, nil
-}
-
-func trimDatamodelFieldDefault(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-
-	depth := 0
-	for index, char := range value {
-		switch char {
-		case '[', '{', '(':
-			depth++
-		case ']', '}', ')':
-			if depth > 0 {
-				depth--
-			}
-		case '=':
-			if depth == 0 {
-				return strings.TrimSpace(value[:index])
-			}
-		}
-	}
-	return value
-}
-
-func isPythonIdentifier(value string) bool {
-	if value == "" {
+func shouldStripProjectedNullability(field reflect.StructField) bool {
+	if field.Type.Kind() == reflect.Pointer {
 		return false
 	}
-	for index, char := range value {
-		switch {
-		case char == '_':
+	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
+	switch field.Type.Kind() {
+	case reflect.Slice:
+		return defaultTag == "factory:list" || defaultTag == "go_value"
+	case reflect.Map:
+		return defaultTag == "factory:dict" || defaultTag == "go_value"
+	default:
+		return false
+	}
+}
+
+func stripProjectedNoneType(typeExpr string) string {
+	typeExpr = strings.TrimSpace(typeExpr)
+	typeExpr = strings.TrimSuffix(typeExpr, " | None")
+	typeExpr = strings.TrimSuffix(typeExpr, "| None")
+	return strings.TrimSpace(typeExpr)
+}
+
+func projectedSchemaProperties(schema map[string]any) (map[string]any, error) {
+	rawProperties, ok := schema["properties"]
+	if !ok {
+		return nil, fmt.Errorf("projected model schema is missing properties")
+	}
+	properties, ok := rawProperties.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("projected model schema properties have unsupported shape %T", rawProperties)
+	}
+	return properties, nil
+}
+
+func pythonProjectedSchemaTypeExpr(schema any) (string, error) {
+	switch typed := schema.(type) {
+	case bool:
+		return "Any", nil
+	case map[string]any:
+		if refName := projectedSchemaRefName(typed); refName != "" {
+			return refName, nil
+		}
+		if enumValues, ok := typed["enum"]; ok {
+			return pythonProjectedEnumTypeExpr(enumValues)
+		}
+		if anyOf, ok := typed["anyOf"]; ok {
+			return pythonProjectedUnionTypeExpr(anyOf)
+		}
+		if oneOf, ok := typed["oneOf"]; ok {
+			return pythonProjectedUnionTypeExpr(oneOf)
+		}
+		types, ok, err := projectedSchemaTypes(typed["type"])
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return pythonProjectedTypeExprFromTypes(types, typed)
+		}
+		if additionalProperties, ok := typed["additionalProperties"]; ok {
+			return pythonProjectedMapTypeExpr(additionalProperties)
+		}
+		if _, ok := typed["properties"]; ok {
+			return "dict[str, Any]", nil
+		}
+		return "Any", nil
+	default:
+		return "", fmt.Errorf("unsupported projected schema shape %T", schema)
+	}
+}
+
+func pythonProjectedUnionTypeExpr(raw any) (string, error) {
+	members, ok := raw.([]any)
+	if !ok {
+		return "", fmt.Errorf("projected union members have unsupported shape %T", raw)
+	}
+	parts := make([]string, 0, len(members))
+	seen := map[string]struct{}{}
+	for _, member := range members {
+		expr, err := pythonProjectedSchemaTypeExpr(member)
+		if err != nil {
+			return "", err
+		}
+		expr = strings.TrimSpace(expr)
+		if expr == "" {
 			continue
-		case unicode.IsLetter(char):
+		}
+		if _, exists := seen[expr]; exists {
 			continue
-		case unicode.IsDigit(char) && index > 0:
-			continue
+		}
+		seen[expr] = struct{}{}
+		parts = append(parts, expr)
+	}
+	if len(parts) == 0 {
+		return "Any", nil
+	}
+	if len(parts) == 1 {
+		return parts[0], nil
+	}
+	return strings.Join(parts, " | "), nil
+}
+
+func pythonProjectedEnumTypeExpr(raw any) (string, error) {
+	values, ok := raw.([]any)
+	if !ok {
+		return "", fmt.Errorf("projected enum values have unsupported shape %T", raw)
+	}
+	if len(values) == 0 {
+		return "Any", nil
+	}
+	literals := make([]string, 0, len(values))
+	for _, value := range values {
+		switch typed := value.(type) {
+		case string:
+			literals = append(literals, strconv.Quote(typed))
+		case float64:
+			literals = append(literals, strconv.FormatFloat(typed, 'f', -1, 64))
+		case bool:
+			if typed {
+				literals = append(literals, "True")
+			} else {
+				literals = append(literals, "False")
+			}
+		case nil:
+			literals = append(literals, "None")
 		default:
-			return false
+			return "", fmt.Errorf("unsupported projected enum value %T", value)
 		}
 	}
-	return true
+	return "Literal[" + strings.Join(literals, ", ") + "]", nil
+}
+
+func projectedSchemaTypes(value any) ([]string, bool, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, false, nil
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return nil, false, nil
+		}
+		return []string{trimmed}, true, nil
+	case []any:
+		types := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			typeName, ok := entry.(string)
+			if !ok {
+				return nil, false, fmt.Errorf("projected schema type list contains %T", entry)
+			}
+			typeName = strings.TrimSpace(typeName)
+			if typeName == "" {
+				continue
+			}
+			types = append(types, typeName)
+		}
+		if len(types) == 0 {
+			return nil, false, nil
+		}
+		return types, true, nil
+	default:
+		return nil, false, fmt.Errorf("projected schema type has unsupported shape %T", value)
+	}
+}
+
+func pythonProjectedTypeExprFromTypes(types []string, schema map[string]any) (string, error) {
+	hasNull := false
+	parts := make([]string, 0, len(types))
+	seen := map[string]struct{}{}
+	for _, typeName := range types {
+		if typeName == "null" {
+			hasNull = true
+			continue
+		}
+		expr, err := pythonProjectedBaseTypeExpr(typeName, schema)
+		if err != nil {
+			return "", err
+		}
+		if _, exists := seen[expr]; exists {
+			continue
+		}
+		seen[expr] = struct{}{}
+		parts = append(parts, expr)
+	}
+	if len(parts) == 0 {
+		if hasNull {
+			return "None", nil
+		}
+		return "Any", nil
+	}
+	if hasNull {
+		parts = append(parts, "None")
+	}
+	if len(parts) == 1 {
+		return parts[0], nil
+	}
+	return strings.Join(parts, " | "), nil
+}
+
+func pythonProjectedBaseTypeExpr(typeName string, schema map[string]any) (string, error) {
+	switch strings.TrimSpace(typeName) {
+	case "string":
+		if strings.TrimSpace(stringValue(schema["format"])) == "date-time" {
+			return "datetime", nil
+		}
+		return "str", nil
+	case "integer":
+		return "int", nil
+	case "number":
+		return "float", nil
+	case "boolean":
+		return "bool", nil
+	case "object":
+		if additionalProperties, ok := schema["additionalProperties"]; ok {
+			return pythonProjectedMapTypeExpr(additionalProperties)
+		}
+		if _, ok := schema["properties"]; ok {
+			return "dict[str, Any]", nil
+		}
+		return "dict[str, Any]", nil
+	case "array":
+		itemExpr := "Any"
+		if items, ok := schema["items"]; ok {
+			var err error
+			itemExpr, err = pythonProjectedSchemaTypeExpr(items)
+			if err != nil {
+				return "", err
+			}
+		}
+		return "list[" + itemExpr + "]", nil
+	case "null":
+		return "None", nil
+	default:
+		return "", fmt.Errorf("unsupported projected schema type %q", typeName)
+	}
+}
+
+func pythonProjectedMapTypeExpr(additionalProperties any) (string, error) {
+	switch typed := additionalProperties.(type) {
+	case nil:
+		return "dict[str, Any]", nil
+	case bool:
+		if typed {
+			return "dict[str, Any]", nil
+		}
+		return "dict[str, Any]", nil
+	default:
+		valueExpr, err := pythonProjectedSchemaTypeExpr(additionalProperties)
+		if err != nil {
+			return "", err
+		}
+		return "dict[str, " + valueExpr + "]", nil
+	}
+}
+
+func projectedSchemaRefName(schema map[string]any) string {
+	ref, _ := schema["$ref"].(string)
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return ""
+	}
+	return strings.TrimPrefix(ref, "#/components/schemas/")
+}
+
+func stringValue(value any) string {
+	text, _ := value.(string)
+	return text
 }
