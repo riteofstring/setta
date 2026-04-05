@@ -42,11 +42,13 @@ type openAPIOperationOption func(*openAPIOperation)
 type openAPIRouter interface {
 	chi.Router
 	OpenAPICollector() *openAPICollector
+	OpenAPIDocumentOnly() bool
 }
 
 type contractRouter struct {
 	chi.Router
-	collector *openAPICollector
+	collector    *openAPICollector
+	documentOnly bool
 }
 
 type openAPICollector struct {
@@ -96,19 +98,24 @@ func newOpenAPICollector(document *huma.OpenAPI) *openAPICollector {
 }
 
 func wrapRouterWithOpenAPI(router chi.Router, document *huma.OpenAPI) chi.Router {
-	return wrapOpenAPIRouter(router, newOpenAPICollector(document))
+	return wrapOpenAPIRouter(router, newOpenAPICollector(document), false)
 }
 
-func wrapOpenAPIRouter(router chi.Router, collector *openAPICollector) chi.Router {
+func wrapRouterWithOpenAPIDocumentOnly(router chi.Router, document *huma.OpenAPI) chi.Router {
+	return wrapOpenAPIRouter(router, newOpenAPICollector(document), true)
+}
+
+func wrapOpenAPIRouter(router chi.Router, collector *openAPICollector, documentOnly bool) chi.Router {
 	if router == nil || collector == nil {
 		return router
 	}
-	if existing, ok := router.(openAPIRouter); ok && existing.OpenAPICollector() == collector {
+	if existing, ok := router.(openAPIRouter); ok && existing.OpenAPICollector() == collector && existing.OpenAPIDocumentOnly() == documentOnly {
 		return router
 	}
 	return &contractRouter{
-		Router:    router,
-		collector: collector,
+		Router:       router,
+		collector:    collector,
+		documentOnly: documentOnly,
 	}
 }
 
@@ -116,19 +123,23 @@ func (r *contractRouter) OpenAPICollector() *openAPICollector {
 	return r.collector
 }
 
+func (r *contractRouter) OpenAPIDocumentOnly() bool {
+	return r.documentOnly
+}
+
 func (r *contractRouter) With(middlewares ...func(http.Handler) http.Handler) chi.Router {
-	return wrapOpenAPIRouter(r.Router.With(middlewares...), r.collector)
+	return wrapOpenAPIRouter(r.Router.With(middlewares...), r.collector, r.documentOnly)
 }
 
 func (r *contractRouter) Group(fn func(chi.Router)) chi.Router {
 	return r.Router.Group(func(inner chi.Router) {
-		fn(wrapOpenAPIRouter(inner, r.collector))
+		fn(wrapOpenAPIRouter(inner, r.collector, r.documentOnly))
 	})
 }
 
 func (r *contractRouter) Route(pattern string, fn func(chi.Router)) chi.Router {
 	return r.Router.Route(pattern, func(inner chi.Router) {
-		fn(wrapOpenAPIRouter(inner, r.collector))
+		fn(wrapOpenAPIRouter(inner, r.collector, r.documentOnly))
 	})
 }
 
@@ -259,7 +270,9 @@ func registerOpenAPIOperationAtPaths[Req, Resp any](
 	handler http.HandlerFunc,
 	options ...openAPIOperationOption,
 ) {
-	router.MethodFunc(method, runtimePath, handler)
+	if !openAPIDocumentOnlyFromRouter(router) {
+		router.MethodFunc(method, runtimePath, handler)
+	}
 
 	collector := openAPICollectorFromRouter(router)
 	if collector == nil {
@@ -296,6 +309,16 @@ func openAPICollectorFromRouter(router chi.Router) *openAPICollector {
 		return wrapped.OpenAPICollector()
 	}
 	return nil
+}
+
+func openAPIDocumentOnlyFromRouter(router chi.Router) bool {
+	if router == nil {
+		return false
+	}
+	if wrapped, ok := router.(openAPIRouter); ok {
+		return wrapped.OpenAPIDocumentOnly()
+	}
+	return false
 }
 
 func routerWithoutOpenAPI(router chi.Router) chi.Router {

@@ -1666,7 +1666,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && !documentOnly {
 		if strings.TrimSpace(deps.WorkspaceRoot) == "" {
 			return fmt.Errorf("workspace root is required in ide mode")
 		}

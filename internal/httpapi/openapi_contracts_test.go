@@ -775,16 +775,14 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 	)
 }
 
-func TestNewOpenAPIProjectRouteDependenciesRegisterProjectRoutes(t *testing.T) {
+func TestDocumentOnlyOpenAPIRouterRegistersProjectRoutesWithoutRuntimeDependencies(t *testing.T) {
 	document := newOpenAPIDocument()
-	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
-	deps, err := newOpenAPIProjectRouteDependencies(modes.NewPolicy(config.ModeIDE), t.TempDir())
-	if err != nil {
-		t.Fatalf("new openapi project route dependencies: %v", err)
-	}
+	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
 
-	if err := RegisterProjectRoutes(router, deps); err != nil {
-		t.Fatalf("register project routes with openapi dependencies: %v", err)
+	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	}); err != nil {
+		t.Fatalf("register project routes with document-only openapi router: %v", err)
 	}
 
 	setCode := document.Paths[RouteSetCode].Post
@@ -808,13 +806,29 @@ func TestNewOpenAPIProjectRouteDependenciesRegisterProjectRoutes(t *testing.T) {
 	}
 }
 
-func TestNewOpenAPILauncherManagementRouteDependenciesRegisterRoutes(t *testing.T) {
+func TestRuntimeOpenAPIRouterStillRequiresProjectRouteDependencies(t *testing.T) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
-	deps := newOpenAPILauncherManagementRouteDependencies(modes.NewPolicy(config.ModeIDE), "/setta-home")
 
-	if err := RegisterLauncherManagementRoutes(router, deps); err != nil {
-		t.Fatalf("register launcher management routes with openapi dependencies: %v", err)
+	err := RegisterProjectRoutes(router, ProjectRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	})
+	if err == nil {
+		t.Fatal("expected ide project route dependency validation error")
+	}
+	if got := err.Error(); got != "workspace root is required in ide mode" {
+		t.Fatalf("register project routes error = %q, want %q", got, "workspace root is required in ide mode")
+	}
+}
+
+func TestDocumentOnlyOpenAPIRouterRegistersLauncherManagementRoutesWithoutRuntimeDependencies(t *testing.T) {
+	document := newOpenAPIDocument()
+	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
+
+	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	}); err != nil {
+		t.Fatalf("register launcher management routes with document-only openapi router: %v", err)
 	}
 
 	getLauncherStatus := document.Paths[RouteGetLauncherStatus].Get
@@ -831,6 +845,21 @@ func TestNewOpenAPILauncherManagementRouteDependenciesRegisterRoutes(t *testing.
 	}
 	if updateLauncher.OperationID != "updateLauncher" {
 		t.Fatalf("update launcher operation id = %q, want %q", updateLauncher.OperationID, "updateLauncher")
+	}
+}
+
+func TestRuntimeOpenAPIRouterStillRequiresLauncherManagementDependencies(t *testing.T) {
+	document := newOpenAPIDocument()
+	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+
+	err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	})
+	if err == nil {
+		t.Fatal("expected launcher management dependency validation error")
+	}
+	if got := err.Error(); got != "default setta home is required in ide mode" {
+		t.Fatalf("register launcher management routes error = %q, want %q", got, "default setta home is required in ide mode")
 	}
 }
 

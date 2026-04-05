@@ -82,10 +82,6 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	ideMode, shareMode, appMode, launcherMode := modes.NewPolicy(config.ModeIDE), modes.NewPolicy(config.ModeShare), modes.NewPolicy(config.ModeApp), modes.NewPolicy(config.ModeLauncher)
 	websocketHub, projectStateRuntime, deploymentRuntime := &realtime.WebsocketHub{}, &projectstate.Runtime{}, &deployments.Runtime{}
 	attachmentService := &chatattachments.Service{}
-	projectDeps, err := newOpenAPIProjectRouteDependencies(ideMode, "/workspace")
-	if err != nil {
-		return err
-	}
 
 	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
 		Server: config.Server{Mode: config.ModeIDE},
@@ -157,7 +153,9 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 			Home:             launcher.NewHomeService(launcher.HomeServiceOptions{}),
 			OpenWorkspace:    &launcher.OpenWorkspaceService{},
 		},
-		LauncherManagement: newOpenAPILauncherManagementRouteDependencies(ideMode, settaHome),
+		LauncherManagement: LauncherManagementRouteDependencies{
+			ModePolicy: ideMode,
+		},
 		WorkspaceLaunch: WorkspaceLaunchRouteDependencies{
 			ModePolicy: ideMode,
 			Auth:       &auth.Service{},
@@ -202,7 +200,9 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 			ModePolicy: ideMode,
 			Git:        (*gitread.Service)(nil),
 		},
-		Project: projectDeps,
+		Project: ProjectRouteDependencies{
+			ModePolicy: ideMode,
+		},
 		AppDefinition: AppDefinitionRouteDependencies{
 			ModePolicy:   ideMode,
 			ProjectState: projectStateRuntime,
@@ -279,7 +279,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
-	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
 	if err := registerFrontendHTTPOpenAPIDocumentRoutes(router); err != nil {
 		return nil, err
 	}

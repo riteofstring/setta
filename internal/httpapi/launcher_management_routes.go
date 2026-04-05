@@ -119,11 +119,13 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 	if !deps.ModePolicy.IsIDE() {
 		return nil
 	}
-	if strings.TrimSpace(deps.DefaultSettaHome) == "" {
-		return fmt.Errorf("default setta home is required in ide mode")
-	}
-	if deps.Manager == nil {
-		return fmt.Errorf("launcher management service is required in ide mode")
+	if !openAPIDocumentOnlyFromRouter(router) {
+		if strings.TrimSpace(deps.DefaultSettaHome) == "" {
+			return fmt.Errorf("default setta home is required in ide mode")
+		}
+		if deps.Manager == nil {
+			return fmt.Errorf("launcher management service is required in ide mode")
+		}
 	}
 
 	registerOpenAPIGet[LauncherStatusResponse](
