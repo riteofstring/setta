@@ -3300,6 +3300,78 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-08 10:27 EDT - Ralph item 311
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded gate-closure subtask that item `310` required: retry the
+  pending item `308` visual gate on the fresh `run-028` runtime pair, and stop
+  for tooling replan instead of opening another product hypothesis if CDP was
+  still not trustworthy.
+- Landed:
+  - no product code changed on this pass
+  - refreshed current runtime facts before trusting any rerun:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/worktree-ai.log`
+      -> frontend `3076`, backend `8076`, debug port `9297`, bootstrap
+      `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/main-ai.log`
+      -> frontend `3087`, backend `8087`, debug port `9309`, bootstrap
+      `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
+  - reading:
+    - the fresh worktree debug port on `run-028` is `9297`, not the stale
+      prompt value `9298`
+    - the bootstrap URLs had rotated, so the first rerun was not actually
+      using the current runtime pair
+- Verification:
+  - initial canonical automated rerun with stale `run-028` runtime inputs:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<stale run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<stale run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: failed; output again stopped after:
+      - `settings-graph-probe-phase-start reference: bootstrap page`
+      - `settings-graph-probe-phase-start reference: open settings`
+  - canonical automated rerun with refreshed `run-028` runtime inputs:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: passed (`1 passed`, `45.1s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `17.40ms`, max `66.7ms`, `44` samples, root DOM
+        `7628`, target section DOM `132`, editable controls `99`, visible
+        section count `46`
+      - worktree canary: average `19.77ms`, max `99.2ms`, `43` samples, root
+        DOM `135`, target section DOM `132`, editable controls `2`, visible
+        section count `1`
+    - fresh canary motion attribution:
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.2ms` total,
+        `0.1ms` max, still dominant
+      - `interactionMiscStateSync`: `1`, `0ms` total
+      - `interactionReactFlowStateSync`: `1`, `0ms` total
+      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms`
+        total
+      - `pixiViewportPresent`: `0`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+  - fresh-context CDP visual verification:
+    - verifier 1 could reach both `/settings` surfaces and reported:
+      - worktree `3076` `/settings` mounted the settings surface
+      - read-only `main` `3087` `/settings` mounted the settings surface
+      - `rotaryParamCodeObjDefault` appeared in the `All Settings` list on
+        both
+      - no obvious blank-shell, spinner, or renderer crash was observed
+    - verifier 1 then timed out on a target-section click after about `64s`,
+      so it did not finish a bounded graph-surface visual compare
+    - verifier 2 in a separate fresh context reported
+      `chrome-devtools-mcp was inaccessible from this session`, so no second
+      smoke confirmation completed
+- Result:
+  - the fresh automated oracle is healthy on `run-028` once runtime facts come
+    from `dev-runtime-info`, so the stale-input false blocker is closed
+  - the required CDP visual gate for item `308` is still not closed on a
+    trustworthy fresh-context session, even though both surfaces appear mounted
+    and not blank
+  - per item `310`'s explicit instruction, stop here for tooling replan
+    instead of spending another recovery-only iteration or opening a new
+    product hypothesis
+- LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-08 09:59 EDT - Ralph item 309
 
 - Canonical target section: `rotaryParamCodeObjDefault`

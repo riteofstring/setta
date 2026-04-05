@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 10:18 EDT
+Last updated: 2026-04-08 10:27 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,72 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `311` spent the next fresh pass exactly where item `310` left it:
+    re-close item `308`'s pending visual gate on the fresh `run-028` runtime
+    pair, then stop for tooling replan if CDP was still not trustworthy.
+    - no product code changed on this pass
+    - initial canonical automated rerun using the loop prompt's stale runtime
+      values falsely re-created item `310`'s hang shape:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<stale run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<stale run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - output again stopped after:
+        - `settings-graph-probe-phase-start reference: bootstrap page`
+        - `settings-graph-probe-phase-start reference: open settings`
+    - refreshed runtime facts before retrying:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/worktree-ai.log`
+        -> frontend `3076`, backend `8076`, debug port `9297`, bootstrap
+        `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-028/main-ai.log`
+        -> frontend `3087`, backend `8087`, debug port `9309`, bootstrap
+        `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
+      - reading:
+        - the fresh worktree debug port on `run-028` is `9297`, not the stale
+          prompt value `9298`
+        - the bootstrap URLs had rotated, so the first rerun was not using the
+          current runtime pair
+    - canonical automated oracle on the refreshed `run-028` runtime pair:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh run-028 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-028 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - result: passed (`1 passed`, `45.1s`)
+      - fresh normalized motion-perf output:
+        - legacy `main`: average `17.40ms`, max `66.7ms`, `44` samples, root
+          DOM `7628`, target section DOM `132`, editable controls `99`,
+          visible section count `46`
+        - worktree canary: average `19.77ms`, max `99.2ms`, `43` samples, root
+          DOM `135`, target section DOM `132`, editable controls `2`, visible
+          section count `1`
+      - fresh canary motion attribution on the passing rerun:
+        - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.2ms` total,
+          `0.1ms` max, still dominant
+        - `interactionMiscStateSync`: `1`, `0ms` total
+        - `interactionReactFlowStateSync`: `1`, `0ms` total
+        - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms`
+          total
+        - `pixiViewportPresent`: `0`
+        - `reactFlowViewportPublish`: `0`
+        - `reactFlowTransformSubscriptionCallback`: `0`
+        - `reactFlowTransformFollowerCallback`: `0`
+        - `viewportPersistenceDispatch`: `0`
+    - fresh-context CDP verification remained untrustworthy on the same
+      `run-028` pair:
+      - verifier 1 could reach both `/settings` surfaces and reported:
+        - worktree `3076` `/settings` mounted the settings surface
+        - read-only `main` `3087` `/settings` mounted the settings surface
+        - `rotaryParamCodeObjDefault` appeared in the `All Settings` list on
+          both
+        - no obvious blank-shell, spinner, or renderer crash was observed
+      - verifier 1 then timed out on a target-section click after about `64s`,
+        so it did not finish a bounded graph-surface visual compare
+      - verifier 2 in a separate fresh context reported
+        `chrome-devtools-mcp was inaccessible from this session`, so no second
+        smoke confirmation completed
+    - reading:
+      - the automated oracle is healthy again on the fresh `run-028` runtime
+        pair once runtime facts are refreshed from `dev-runtime-info`
+      - the pending blocker is no longer stale runtime input; it is still
+        inconsistent fresh-context CDP availability / interaction stability for
+        the required visual gate
+      - per item `310`'s explicit instruction, stop here for tooling replan
+        instead of spending another recovery-only iteration or opening a new
+        product hypothesis
   - item `310` spent one fresh loop-managed retry on item `308`'s pending
     visual gate and is still blocked after the one allowed in-pass recovery on
     the current `run-027` lifecycle:
