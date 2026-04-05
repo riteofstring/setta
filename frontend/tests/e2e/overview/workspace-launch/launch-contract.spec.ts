@@ -31,16 +31,13 @@ test("create launch intent rejects missing workspace root", async ({ page }) => 
   const returnUrl = page.url();
 
   const response = await page.evaluate(async (nextReturnUrl: string) => {
-    const { createWorkspaceLaunchIntent } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
-    return await callOpenAPI(
-      createWorkspaceLaunchIntent({
-        body: {
-          launchRequest: {},
-          returnUrl: nextReturnUrl,
-        },
-      }),
+    const { route_create_workspace_launch_intent } = await import(
+      "/src/utils/generatedEndpoints"
     );
+    return await route_create_workspace_launch_intent({
+      launchRequest: {},
+      returnUrl: nextReturnUrl,
+    });
   }, returnUrl);
 
   expect(response.status).toBe(200);

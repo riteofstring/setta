@@ -4,7 +4,7 @@ import { useNodeInternals, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   SectionTypeEnum,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -14,10 +14,11 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
-type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
+type WorkflowEdge =
+  ProjectStateSingleConfig["projectConfig"]["stateMachineEdges"][number];
 
 function getSectionTypeById(
-  state: SingleConfig,
+  state: ProjectStateSingleConfig,
   sectionId: string,
 ): SectionTypeEnum | null {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
