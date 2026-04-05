@@ -16,6 +16,7 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
+	"setta/internal/chatsections"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -32,13 +33,13 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/settingsstate"
+	"setta/internal/shareartifacts"
 	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
@@ -46,16 +47,7 @@ import (
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
-type frontendHTTPOpenAPIFileBrowserService struct{}
-type frontendHTTPOpenAPIPluginService struct{}
-type frontendHTTPOpenAPIExternalAgentChecker struct{}
-type frontendHTTPOpenAPIProjectShellService struct{}
-type frontendHTTPOpenAPIProjectNotificationService struct{}
 type frontendHTTPOpenAPILSPAdminService struct{}
-type frontendHTTPOpenAPIGitService struct{}
-type frontendHTTPOpenAPIArtifactService struct{}
-type frontendHTTPOpenAPIShareArtifactService struct{}
-type frontendHTTPOpenAPIProjectChatSectionChatIDService struct{}
 type frontendHTTPOpenAPIProjectCodeUpdateService struct{}
 type frontendHTTPOpenAPIProjectRenameRefactorService struct{}
 
@@ -89,86 +81,6 @@ func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pytho
 	}
 }
 
-func (frontendHTTPOpenAPIFileBrowserService) Root(context.Context) filebrowser.RootResponse {
-	return filebrowser.RootResponse{}
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) CreateFile(context.Context, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) CheckIfFileExists(context.Context, string) (bool, error) {
-	return false, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) CheckWorkspaceInitialized(context.Context, filebrowser.CheckWorkspaceInitializedRequest) (bool, error) {
-	return false, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) ListFolder(context.Context, filebrowser.ListFolderRequest) (filebrowser.ListFolderResponse, error) {
-	return filebrowser.ListFolderResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) WorkspacePythonSignal(context.Context, string) (filebrowser.WorkspacePythonSignalResponse, error) {
-	return filebrowser.WorkspacePythonSignalResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) BuildDownloadURLs(context.Context, filebrowser.FileBrowserDownloadURLRequest, func(string) string) ([]filebrowser.FileBrowserDownloadURLEntry, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) ReadFileContent(context.Context, filebrowser.FileContentRequest) (filebrowser.FileContentResponse, error) {
-	return filebrowser.FileContentResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) StatFile(context.Context, string) (filebrowser.FileStatResponse, error) {
-	return filebrowser.FileStatResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) WriteFileContent(context.Context, filebrowser.WriteFileContentRequest) (filebrowser.WriteFileContentResponse, error) {
-	return filebrowser.WriteFileContentResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) Transfer(context.Context, filebrowser.TransferRequest) (filebrowser.TransferResponse, error) {
-	return filebrowser.TransferResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIFileBrowserService) Download(context.Context, string) (filebrowser.DownloadResult, error) {
-	return filebrowser.DownloadResult{}, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) ImportFiles(context.Context, artifacts.ImportFilesRequest) ([]artifacts.ImportFilesResponseItem, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) LoadCachedImages(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) LoadCachedChartData(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.ChartDataArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) LoadCachedBrushStrokes(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) LoadCachedDrawAreaLayerItemTransforms(context.Context, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) Update(context.Context, artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIArtifactService) Delete(context.Context, artifacts.DeleteRequest) ([]string, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIProjectChatSectionChatIDService) GetChatID(context.Context, string, string) (*string, error) {
-	return nil, nil
-}
-
 func (frontendHTTPOpenAPIProjectCodeUpdateService) SetCode(context.Context, string, string, string) error {
 	return nil
 }
@@ -187,178 +99,6 @@ func (frontendHTTPOpenAPIProjectRenameRefactorService) AcceptRenameRefactor(cont
 
 func (frontendHTTPOpenAPIProjectRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
 	return nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) LoadCachedImages(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) LoadCachedChartData(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.ChartDataArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) LoadCachedBrushStrokes(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) LoadCachedDrawAreaLayerItemTransforms(context.Context, string, artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) Update(context.Context, string, artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIShareArtifactService) Delete(context.Context, string, artifacts.DeleteRequest) ([]string, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIGitService) Status(context.Context) (gitread.StatusResponse, error) {
-	return gitread.StatusResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIGitService) Diff(context.Context, gitread.DiffRequest) (gitread.DiffResponse, error) {
-	return gitread.DiffResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIGitService) Log(context.Context, gitread.LogRequest) (gitread.LogResponse, error) {
-	return gitread.LogResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIGitService) CommitDetails(context.Context, gitread.CommitDetailsRequest) (gitread.CommitDetailsResponse, error) {
-	return gitread.CommitDetailsResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIGitService) CommitFileDiff(context.Context, gitread.CommitFileDiffRequest) (gitread.CommitFileDiffResponse, error) {
-	return gitread.CommitFileDiffResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) ResolveAssetPath(string, string) (string, error) {
-	return "", nil
-}
-
-func (frontendHTTPOpenAPIPluginService) ResolveRegisteredStaticAssetPath(string) (string, bool, error) {
-	return "", false, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) LookupRegisteredBackendRoute(string, string) (plugins.BackendRouteLookup, error) {
-	return plugins.BackendRouteLookup{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) DispatchRegisteredBackendRoute(context.Context, plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
-	return plugins.BackendHTTPResponse{}, false, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) InvokeRegisteredListenerEndpoint(context.Context, plugins.BackendListenerEndpointRequest) (any, bool, error) {
-	return nil, false, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	return plugins.PluginRuntimeResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) GetBackendUISettings(string) ([]plugins.PluginRegisteredUISetting, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) ReadBackendUISettingValue(context.Context, plugins.BackendUISettingReadOptions) (any, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) WriteBackendUISettingValue(context.Context, plugins.BackendUISettingWriteOptions) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Rescan() (plugins.DiscoverySnapshot, error) {
-	return plugins.DiscoverySnapshot{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Install(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
-	return plugins.PluginInstallResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Link(plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
-	return plugins.PluginInstallResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Uninstall(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
-	return plugins.PluginUninstallResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Update(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
-	return plugins.PluginUpdateResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Rollback(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
-	return plugins.PluginRollbackResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Enable(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
-	return plugins.PluginEnableDisableResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Disable(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
-	return plugins.PluginEnableDisableResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	return plugins.PluginConfigWriteResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) WriteLockfile() (plugins.PluginLockWriteResponse, error) {
-	return plugins.PluginLockWriteResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) ApplyLockfile(context.Context, bool) (plugins.PluginLockApplyResponse, error) {
-	return plugins.PluginLockApplyResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIPluginService) Restart(context.Context) (plugins.PluginRestartResponse, error) {
-	return plugins.PluginRestartResponse{}, nil
-}
-
-func (frontendHTTPOpenAPIExternalAgentChecker) Check(externalagentconfigs.Config) (externalagentconfigs.Status, error) {
-	return externalagentconfigs.Status{}, nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) LoadAllProjectMetadata(context.Context) (projectshell.AllProjectMetadata, error) {
-	return projectshell.AllProjectMetadata{}, nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) LoadProjectConfig(context.Context, string) (projectview.SingleConfig, error) {
-	return projectview.SingleConfig{}, nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) SaveProject(context.Context, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) CreateProjectConfig(context.Context, string) (string, error) {
-	return "", nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) SaveAsNewProjectConfig(context.Context, string, string, bool) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) DeleteProjectConfigs(context.Context, []string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) SetDefaultProjectConfig(context.Context, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectShellService) SetProjectConfigName(context.Context, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectNotificationService) GetNotifications(context.Context, string) ([]notifications.Notification, error) {
-	return nil, nil
-}
-
-func (frontendHTTPOpenAPIProjectNotificationService) DeleteNotification(context.Context, string) (bool, error) {
-	return false, nil
 }
 
 func (frontendHTTPOpenAPILSPAdminService) Restart(context.Context, projectstate.Document) error {
@@ -477,7 +217,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	if err := RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
 		ModePolicy:   modes.NewPolicy(config.ModeIDE),
 		Configs:      &externalagentconfigs.Service{},
-		Preflight:    frontendHTTPOpenAPIExternalAgentChecker{},
+		Preflight:    (*externalagentconfigs.SystemChecker)(nil),
 		WebsocketHub: &realtime.WebsocketHub{},
 	}); err != nil {
 		return nil, fmt.Errorf("register external agent config routes: %w", err)
@@ -521,8 +261,8 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}
 	if err := RegisterArtifactRoutes(router, ArtifactRouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
-		Artifacts:      frontendHTTPOpenAPIArtifactService{},
-		ShareArtifacts: frontendHTTPOpenAPIShareArtifactService{},
+		Artifacts:      (*artifacts.Service)(nil),
+		ShareArtifacts: (*shareartifacts.Service)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register artifact routes: %w", err)
 	}
@@ -531,7 +271,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		WorkspaceRoot:                  "/workspace",
 		ProjectState:                   &projectstate.Runtime{},
 		SettingsState:                  &settingsstate.Runtime{},
-		ChatSectionChatIDs:             frontendHTTPOpenAPIProjectChatSectionChatIDService{},
+		ChatSectionChatIDs:             (*chatsections.Service)(nil),
 		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error { return nil }),
 		CodeUpdates:                    frontendHTTPOpenAPIProjectCodeUpdateService{},
@@ -541,7 +281,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}
 	if err := RegisterGitRoutes(router, GitRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Git:        frontendHTTPOpenAPIGitService{},
+		Git:        (*gitread.Service)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register git routes: %w", err)
 	}
@@ -586,7 +326,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	if err := RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
 		DeploymentRoot: "/deployment",
-		Browser:        frontendHTTPOpenAPIFileBrowserService{},
+		Browser:        (*filebrowser.Service)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register file browser routes: %w", err)
 	}
@@ -601,7 +341,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Service:    frontendHTTPOpenAPIPluginService{},
+		Service:    (*plugins.Service)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register plugin routes: %w", err)
 	}
@@ -625,8 +365,8 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}
 	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
 		ModePolicy:    modes.NewPolicy(config.ModeIDE),
-		Shell:         frontendHTTPOpenAPIProjectShellService{},
-		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
+		Shell:         (*projectshell.Service)(nil),
+		Notifications: (*notifications.Service)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register project shell routes: %w", err)
 	}

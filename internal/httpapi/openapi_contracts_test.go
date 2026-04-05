@@ -15,6 +15,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/appgenskills"
+	"setta/internal/artifacts"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
@@ -22,17 +23,23 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/filebrowser"
+	"setta/internal/gitread"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
+	"setta/internal/notifications"
 	"setta/internal/pathreveal"
+	"setta/internal/plugins"
+	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runchains"
 	"setta/internal/runs"
+	"setta/internal/shareartifacts"
 	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
@@ -207,7 +214,7 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	if err := RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
 		ModePolicy:   modes.NewPolicy(config.ModeIDE),
 		Configs:      &externalagentconfigs.Service{},
-		Preflight:    frontendHTTPOpenAPIExternalAgentChecker{},
+		Preflight:    (*externalagentconfigs.SystemChecker)(nil),
 		WebsocketHub: &realtime.WebsocketHub{},
 	}); err != nil {
 		t.Fatalf("register external agent config routes: %v", err)
@@ -251,14 +258,14 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if err := RegisterArtifactRoutes(router, ArtifactRouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
-		Artifacts:      frontendHTTPOpenAPIArtifactService{},
-		ShareArtifacts: frontendHTTPOpenAPIShareArtifactService{},
+		Artifacts:      (*artifacts.Service)(nil),
+		ShareArtifacts: (*shareartifacts.Service)(nil),
 	}); err != nil {
 		t.Fatalf("register artifact routes: %v", err)
 	}
 	if err := RegisterGitRoutes(router, GitRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Git:        frontendHTTPOpenAPIGitService{},
+		Git:        (*gitread.Service)(nil),
 	}); err != nil {
 		t.Fatalf("register git routes: %v", err)
 	}
@@ -303,7 +310,7 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	if err := RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
 		DeploymentRoot: "/deployment",
-		Browser:        frontendHTTPOpenAPIFileBrowserService{},
+		Browser:        (*filebrowser.Service)(nil),
 	}); err != nil {
 		t.Fatalf("register file browser routes: %v", err)
 	}
@@ -318,7 +325,7 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Service:    frontendHTTPOpenAPIPluginService{},
+		Service:    (*plugins.Service)(nil),
 	}); err != nil {
 		t.Fatalf("register plugin routes: %v", err)
 	}
@@ -342,8 +349,8 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
 		ModePolicy:    modes.NewPolicy(config.ModeIDE),
-		Shell:         frontendHTTPOpenAPIProjectShellService{},
-		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
+		Shell:         (*projectshell.Service)(nil),
+		Notifications: (*notifications.Service)(nil),
 	}); err != nil {
 		t.Fatalf("register project shell routes: %v", err)
 	}
