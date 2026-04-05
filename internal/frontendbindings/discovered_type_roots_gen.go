@@ -10,7 +10,6 @@ import (
 	artifacts "setta/internal/artifacts"
 	detachedruns "setta/internal/detachedruns"
 	externalagentconfigs "setta/internal/externalagentconfigs"
-	gitread "setta/internal/gitread"
 	llmconfig "setta/internal/llmconfig"
 	lspcompletion "setta/internal/lspcompletion"
 	plugins "setta/internal/plugins"
@@ -514,22 +513,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(transcriptionprofiles.Profile{}),
 		reflect.TypeOf(lspcompletion.CodeMirrorCompletion{}),
 		reflect.TypeOf(projectshell.AllProjectMetadata{}),
-		reflect.TypeOf(gitread.Commit{}),
-		reflect.TypeOf(gitread.LogRequest{}),
-		reflect.TypeOf(gitread.LogResponse{}),
-		reflect.TypeOf(gitread.CommitChangedFile{}),
-		reflect.TypeOf(gitread.CommitDetailsRequest{}),
-		reflect.TypeOf(gitread.CommitDetailsResponse{}),
-		reflect.TypeOf(gitread.CommitFileDiffRequest{}),
-		reflect.TypeOf(gitread.CommitFileDiffResponse{}),
-		reflect.TypeOf(gitread.DiffMode("")),
-		reflect.TypeOf(gitread.ErrorKind("")),
-		reflect.TypeOf(gitread.RepoInfo{}),
-		reflect.TypeOf(gitread.StatusEntry{}),
-		reflect.TypeOf(gitread.GitWorktreeEntry{}),
-		reflect.TypeOf(gitread.StatusResponse{}),
-		reflect.TypeOf(gitread.DiffRequest{}),
-		reflect.TypeOf(gitread.DiffResponse{}),
 	}
 }
 

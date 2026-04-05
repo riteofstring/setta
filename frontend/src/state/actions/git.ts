@@ -4,6 +4,13 @@ import {
   getGitDiff,
   getGitLog,
   getGitStatus,
+  type GitreadCommitDetailsResponse as CommitDetailsResponse,
+  type GitreadCommitFileDiffResponse as CommitFileDiffResponse,
+  type GitreadDiffResponse as DiffResponse,
+  type GitreadDiffRequest,
+  type GitreadLogResponse as LogResponse,
+  type GitreadStatusEntry as StatusEntry,
+  type GitreadStatusResponse as StatusResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
@@ -15,19 +22,12 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  type CommitDetailsResponse,
-  type CommitFileDiffResponse,
-  type DiffMode,
-  type DiffResponse,
-  type LogResponse,
-  type StatusEntry,
-  type StatusResponse,
-} from "utils/generatedTypes";
-import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,
   createEmptyGitGraphRowComputationState,
 } from "utils/gitGraph";
+
+type DiffMode = GitreadDiffRequest["mode"];
 let statusRequestId = 0;
 let diffRequestId = 0;
 let logRequestId = 0;
@@ -143,7 +143,7 @@ export async function refreshGitStatus(): Promise<void> {
   }
   if (res200(res)) {
     const diffAvailabilityByPath = buildGitDiffAvailabilityByPath(
-      res.data.entries,
+      res.data.entries ?? [],
     );
     useGitStore.setState((state) => ({
       ...state,
@@ -373,7 +373,7 @@ async function refreshGitGraph({
   }
   if (res200(res)) {
     const responseData = res.data;
-    const commits = responseData.commits;
+    const commits = responseData.commits ?? [];
     const seenCommitHashes = new Set(commits.map((commit) => commit.hash));
     const { rows, rowComputationState } = computeGitGraphRowsWithState(commits);
     useGitStore.setState((state) => {
@@ -502,10 +502,11 @@ export async function loadMoreGitGraphCommits({
       }
       const existingResponse = state.graph.response;
       if (!existingResponse) {
+        const nextCommits = nextPage.commits ?? [];
         const initialSeenCommitHashes = new Set(
-          nextPage.commits.map((commit) => commit.hash),
+          nextCommits.map((commit) => commit.hash),
         );
-        const initialRows = computeGitGraphRowsWithState(nextPage.commits);
+        const initialRows = computeGitGraphRowsWithState(nextCommits);
         return {
           ...state,
           graph: {
@@ -525,15 +526,18 @@ export async function loadMoreGitGraphCommits({
         };
       }
       const nextSeenCommitHashes = new Set(state.graph.seenCommitHashes);
-      const appendedCommits: typeof nextPage.commits = [];
-      for (const commit of nextPage.commits) {
+      const nextCommits = nextPage.commits ?? [];
+      const appendedCommits: typeof nextCommits = [];
+      for (const commit of nextCommits) {
         if (nextSeenCommitHashes.has(commit.hash)) {
           continue;
         }
         nextSeenCommitHashes.add(commit.hash);
         appendedCommits.push(commit);
       }
-      const mergedCommits = existingResponse.commits.concat(appendedCommits);
+      const mergedCommits = (existingResponse.commits ?? []).concat(
+        appendedCommits,
+      );
       let appendedRows: typeof state.graph.rows = [];
       let nextRowComputationState = state.graph.rowComputationState;
       if (appendedCommits.length > 0) {

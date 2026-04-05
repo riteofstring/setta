@@ -3,6 +3,10 @@ import {
   gitFileStatusVisuals,
   type GitFileStatusCategory,
 } from "components/Git/gitFileStatusVisuals";
+import type {
+  GitreadGitWorktreeEntry as GitWorktreeEntry,
+  GitreadStatusEntry as StatusEntry,
+} from "openapi/http";
 import { useEffect, useMemo } from "react";
 import {
   openGitDiffOverlay,
@@ -11,7 +15,6 @@ import {
 } from "state/actions/git";
 import { useGitStore } from "state/git";
 import { useShareCapabilities } from "state/hooks/share";
-import type { GitWorktreeEntry, StatusEntry } from "utils/generatedTypes";
 
 export function GitPane({
   showGraphButton = true,
@@ -49,7 +52,7 @@ export function GitPane({
           untracked.push(entry);
           break;
         default:
-          entry.kind satisfies never;
+          break;
       }
     }
     return { conflicts, staged, unstaged, untracked };

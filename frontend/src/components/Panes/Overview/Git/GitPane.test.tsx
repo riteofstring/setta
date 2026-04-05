@@ -1,8 +1,8 @@
+import type { GitreadStatusResponse as StatusResponse } from "openapi/http";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGitStore } from "state/git";
-import type { StatusResponse } from "utils/generatedTypes";
 import { GitPane } from "./GitPane";
 
 let mockCanEditLayout = true;

@@ -4,16 +4,14 @@ import {
   getGitDiff,
   getGitLog,
   getGitStatus,
+  type GitreadCommit as Commit,
+  type GitreadCommitDetailsResponse as CommitDetailsResponse,
+  type GitreadLogResponse as LogResponse,
+  type GitreadStatusResponse as StatusResponse,
 } from "openapi/http";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
-import {
-  type Commit,
-  type CommitDetailsResponse,
-  type LogResponse,
-  type StatusResponse,
-} from "utils/generatedTypes";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -135,14 +133,15 @@ function setGraphOverlayState({
   filterText?: string;
   loadMoreError?: string | null;
 }): void {
-  const rowResult = computeGitGraphRowsWithState(response.commits);
+  const commits = response.commits ?? [];
+  const rowResult = computeGitGraphRowsWithState(commits);
   useGitStore.setState((state) => ({
     ...state,
     graph: {
       projectConfigId,
       allRefs: true,
       response,
-      seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
+      seenCommitHashes: new Set(commits.map((commit) => commit.hash)),
       rows: rowResult.rows,
       rowComputationState: rowResult.rowComputationState,
       filterText,

@@ -1,4 +1,7 @@
-import type { CommitChangedFile, StatusEntry } from "utils/generatedTypes";
+import type {
+  GitreadCommitChangedFile as CommitChangedFile,
+  GitreadStatusEntry as StatusEntry,
+} from "openapi/http";
 
 export type GitFileStatusCategory =
   | "added"

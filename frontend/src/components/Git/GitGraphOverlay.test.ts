@@ -1,4 +1,4 @@
-import type { Commit } from "utils/generatedTypes";
+import type { GitreadCommit as Commit } from "openapi/http";
 import { describe, expect, it } from "vitest";
 
 import {

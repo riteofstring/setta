@@ -1,14 +1,16 @@
 import type {
-  CommitDetailsResponse,
-  CommitFileDiffResponse,
-  DiffMode,
-  DiffResponse,
-  LogResponse,
-  StatusResponse,
-} from "utils/generatedTypes";
+  GitreadCommitDetailsResponse as CommitDetailsResponse,
+  GitreadCommitFileDiffResponse as CommitFileDiffResponse,
+  GitreadDiffResponse as DiffResponse,
+  GitreadDiffRequest,
+  GitreadLogResponse as LogResponse,
+  GitreadStatusResponse as StatusResponse,
+} from "openapi/http";
 import type { GitGraphRow, GitGraphRowComputationState } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
+
+type DiffMode = GitreadDiffRequest["mode"];
 
 type GitDiffOverlayState = {
   path: string;
