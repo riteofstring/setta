@@ -101,7 +101,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     // size/position resolution from separate raw inputs.
     expect(
       getSettingsGraphSubstrateCanarySceneBoundsForSections([
-        snapshot.sections[1],
+        snapshot.sections[1]!,
       ]),
     ).toEqual({
       x: 400,

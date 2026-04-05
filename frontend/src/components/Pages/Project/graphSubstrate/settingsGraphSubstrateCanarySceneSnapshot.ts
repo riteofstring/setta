@@ -1,20 +1,17 @@
-import type {
-  SectionElementSize,
-  SectionElementSizes,
-} from "state/hooks/sectionElementSizes";
-import type { Position } from "utils/generatedTypes";
+import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
+import {
+  resolveSettingsGraphSubstrateCanarySectionGeometry,
+  type SettingsGraphSubstrateCanarySectionPositionOverride,
+} from "./settingsGraphSubstrateCanarySectionGeometry";
 import type { GraphRect } from "./viewportTransform";
 
-export type SettingsGraphSubstrateCanarySectionPositionOverride = {
-  sectionId: string;
-  position: Position;
-} | null;
+export type { SettingsGraphSubstrateCanarySectionPositionOverride };
 
 export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
-    renderedPosition: Position;
-    resolvedSize: SectionElementSize | null;
+    renderedPosition: GraphSubstrateCanarySection["position"];
+    resolvedSize: SectionElementSizes[string] | null;
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
@@ -38,13 +35,15 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   draggingSectionId: string | null = null,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
   const sceneSections = sections.map((section) => {
+    const geometry = resolveSettingsGraphSubstrateCanarySectionGeometry(
+      section,
+      sectionElementSizes,
+      sectionPositionOverride,
+    );
     const sceneSection: SettingsGraphSubstrateCanarySceneSection = {
       ...section,
-      renderedPosition: getRenderedSectionPosition(
-        section,
-        sectionPositionOverride,
-      ),
-      resolvedSize: getResolvedSectionSize(section, sectionElementSizes),
+      renderedPosition: geometry.renderedPosition,
+      resolvedSize: geometry.resolvedSize,
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
     return sceneSection;
@@ -105,37 +104,4 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
     width: maxX - minX,
     height: maxY - minY,
   };
-}
-
-function getRenderedSectionPosition(
-  section: GraphSubstrateCanarySection,
-  sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
-) {
-  if (sectionPositionOverride?.sectionId === section.sectionId) {
-    return sectionPositionOverride.position;
-  }
-  return section.position;
-}
-
-function getResolvedSectionSize(
-  section: GraphSubstrateCanarySection,
-  sectionElementSizes: SectionElementSizes,
-) {
-  const observedSize = sectionElementSizes[section.sectionId];
-  if (
-    typeof observedSize?.width === "number" &&
-    observedSize.width > 0 &&
-    typeof observedSize.height === "number" &&
-    observedSize.height > 0
-  ) {
-    return observedSize;
-  }
-
-  const width = section.width ?? 0;
-  const height = section.height ?? 0;
-  if (width > 0 && height > 0) {
-    return { width, height };
-  }
-
-  return null;
 }

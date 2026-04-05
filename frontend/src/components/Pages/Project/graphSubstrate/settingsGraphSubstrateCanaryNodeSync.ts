@@ -30,16 +30,18 @@ export function syncSettingsGraphSubstrateCanaryNodes(
       nextNodeInternals = new Map(nodeInternals);
     }
 
-    nextNodeInternals.set(section.sectionId, {
+    const nextNode: Node = {
       id: section.sectionId,
       position,
       width,
       height,
       zIndex: section.zIndex,
       tempZIndex: section.tempZIndex,
-      type: currentNode?.type,
-      style: currentNode?.style,
-    });
+      ...(currentNode?.type ? { type: currentNode.type } : {}),
+      ...(currentNode?.style ? { style: currentNode.style } : {}),
+    };
+
+    nextNodeInternals.set(section.sectionId, nextNode);
   }
 
   return nextNodeInternals ?? nodeInternals;

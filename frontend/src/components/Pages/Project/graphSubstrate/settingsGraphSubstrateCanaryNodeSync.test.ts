@@ -4,7 +4,7 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs the authoritative canary scene snapshot into shared node internals", () => {
+  it("syncs locked layout size authority and unlocked measured-size authority into shared node internals", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -21,8 +21,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       ],
     ]);
 
-    // Live measured size should stay authoritative once the section registry
-    // has a fresher size than the persisted layout snapshot.
+    // Locked sections should keep layout-size authority while unlocked
+    // sections can still use fresher measured DOM sizes.
     const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -32,7 +32,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           height: 160,
           zIndex: 4,
           tempZIndex: 4,
-          positionAndSizeLocked: false,
+          positionAndSizeLocked: true,
         },
         {
           sectionId: "section-b",
@@ -60,8 +60,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
     expect(nextNodeInternals.get("section-a")).toEqual({
       id: "section-a",
       position: { x: 500, y: 300 },
-      width: 360,
-      height: 210,
+      width: 240,
+      height: 160,
       zIndex: 4,
       tempZIndex: 1004,
       type: "Code",

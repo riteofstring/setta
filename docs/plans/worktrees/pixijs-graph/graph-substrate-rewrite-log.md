@@ -7610,3 +7610,29 @@ LOOP_TERMINAL_MARKER: none
   - explicit user approval is still required before adding Pixi to the frontend
   - once approved, use the surface-runtime boundary plus the shared chrome appearance and frame-structure contracts to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 - LOOP_TERMINAL_MARKER: none
+- Ralph item `197` | 2026-04-05 17:45 EDT
+  - Subtask: centralize canary section geometry resolution and keep locked section layout size authoritative over fresher DOM measurements.
+  - Why:
+    - items `195` and `196` already finished the useful chrome prep; another DOM-only chrome helper slice would have repeated the same refactor shape without touching the active geometry blocker
+    - `positionAndSizeLocked` is an existing authoritative product signal, so it is a robust place to cut some DOM-measurement authority instead of adding heuristic size rules
+  - Production:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+  - Tests:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+    - updated `settingsGraphSubstrateCanaryBounds.test.ts`, `settingsGraphSubstrateCanaryNodeSync.test.ts`, and `settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`5 files`, `14 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanarySectionGeometry|settingsGraphSubstrateCanarySceneSnapshot|settingsGraphSubstrateCanaryBounds|settingsGraphSubstrateCanaryNodeSync|settingsGraphSubstrateCanarySceneRuntime"` -> no matches
+    - broad Playwright regression lane rerun on refreshed run-028 tokens -> passed (`1 passed`, `37.4s`); both sides ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+  - CDP:
+    - first fresh-context compare briefly hit `reference_unhealthy` on read-only main (`Unable to load app` / failed server-mode check)
+    - direct `curl` sanity showed `3087` and `8087` were reachable, so one bounded fresh-page retry was justified
+    - retry succeeded; no blocking gross graph-surface drift was observed between worktree `3076` and read-only main `3087` on direct `/settings`
+  - Result:
+    - the canary now has one explicit geometry resolver seam that future scene-owned drawing can consume
+    - locked sections no longer let later DOM measurement override explicit layout size, while unlocked sections keep the old measured-size-first behavior
+  - Next:
+    - if Pixi dependency approval lands, use the surface-runtime boundary + chrome seams + geometry resolver to insert the first scene-owned static layer
+    - otherwise keep moving authority toward robust existing state instead of reopening parity/chrome-helper lanes
+LOOP_TERMINAL_MARKER: none
