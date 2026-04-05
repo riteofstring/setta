@@ -15,12 +15,6 @@ import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeM
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
-import {
-  codeAreaCompletion,
-  genCodePrefixCompletion,
-  genCodeSuffixCompletion,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import React, {
   useCallback,
   useEffect,
@@ -60,6 +54,11 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
+import {
+  route_code_area_completion,
+  route_gen_code_prefix_completion,
+  route_gen_code_suffix_completion,
+} from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type GenPythonDocParts = {
@@ -872,16 +871,12 @@ function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
       return [];
     }
     const projectConfigId = getCurrProjectConfigId();
-    const res = await callOpenAPI(
-      codeAreaCompletion({
-        body: {
-          projectConfigId,
-          sectionId,
-          fullText,
-          position,
-        },
-      }),
-    );
+    const res = await route_code_area_completion({
+      projectConfigId,
+      sectionId,
+      fullText,
+      position,
+    });
 
     if (res200(res)) {
       return res.data;
@@ -907,15 +902,11 @@ function getGenPythonCodeAreaCompletionsFn(
     const projectConfigId = getCurrProjectConfigId();
     if (position < docParts.generatedStart) {
       const prefixPosition = Math.min(position, docParts.prefix.length);
-      const res = await callOpenAPI(
-        genCodePrefixCompletion({
-          body: {
-            projectConfigId,
-            fullText: docParts.prefix,
-            position: prefixPosition,
-          },
-        }),
-      );
+      const res = await route_gen_code_prefix_completion({
+        projectConfigId,
+        fullText: docParts.prefix,
+        position: prefixPosition,
+      });
       if (res200(res)) {
         return res.data;
       }
@@ -926,15 +917,11 @@ function getGenPythonCodeAreaCompletionsFn(
         0,
         position - docParts.generatedEnd - docParts.suffixBoundaryLength,
       );
-      const res = await callOpenAPI(
-        genCodeSuffixCompletion({
-          body: {
-            projectConfigId,
-            fullText: docParts.suffix,
-            position: suffixPosition,
-          },
-        }),
-      );
+      const res = await route_gen_code_suffix_completion({
+        projectConfigId,
+        fullText: docParts.suffix,
+        position: suffixPosition,
+      });
       if (res200(res)) {
         return res.data;
       }

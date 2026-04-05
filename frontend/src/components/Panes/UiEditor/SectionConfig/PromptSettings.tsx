@@ -19,7 +19,7 @@ import {
   route_set_prompt_template,
   route_set_prompt_template_link,
 } from "utils/generatedEndpoints";
-import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { resolvePromptSectionSource } from "utils/promptSectionSource";
 
 type PromptSettingsProps = {
@@ -82,7 +82,10 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
     setTemplateText(resolvedSource.templateText);
   }, [resolvedSource.templateText]);
 
-  const promptFormatOptions = useMemo(() => Object.values(FormatEnum), []);
+  const promptFormatOptions = useMemo(
+    () => Object.values(PromptFormatEnum),
+    [],
+  );
 
   const templateGroups = useMemo(
     () => [
@@ -153,7 +156,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
   );
 
   const updatePromptFormat = useCallback(
-    (nextFormat: FormatEnum) => {
+    (nextFormat: PromptFormatEnum) => {
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"PromptSection">(state, sectionId, {
@@ -196,7 +199,7 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
 
   const handleFormatChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const nextFormat = event.target.value as FormatEnum;
+      const nextFormat = event.target.value as PromptFormatEnum;
       if (isDisabled || isLinked || nextFormat === format) {
         return;
       }

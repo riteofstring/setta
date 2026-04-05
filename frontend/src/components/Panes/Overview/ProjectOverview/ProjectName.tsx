@@ -1,7 +1,5 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { setProjectConfigName } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +8,7 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
+import { route_set_project_config_name } from "utils/generatedEndpoints";
 import { validateProjectNameInput } from "utils/nameValidation";
 
 const editing =
@@ -52,7 +51,6 @@ function ProjectNameOnly() {
   if (errorMessage) {
     errorClassName = "border-red-400 text-red-600 dark:text-red-300";
   }
-  function ignoreHover() {}
 
   return (
     <>
@@ -66,8 +64,6 @@ function ProjectNameOnly() {
           onChange={onChange}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
-          onMouseEnter={ignoreHover}
-          onMouseLeave={ignoreHover}
           blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
         />
       </div>
@@ -111,14 +107,10 @@ function useEditableProjectName() {
       setServerError(null);
       return false;
     }
-    const res = await callOpenAPI(
-      setProjectConfigName({
-        body: {
-          projectConfigId,
-          newName: normalized,
-        },
-      }),
-    );
+    const res = await route_set_project_config_name({
+      projectConfigId,
+      newName: normalized,
+    });
     if (res200(res)) {
       setServerError(null);
       return true;

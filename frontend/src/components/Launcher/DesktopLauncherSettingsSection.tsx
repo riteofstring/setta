@@ -1,26 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { res200 } from "utils/endpointUtils";
 import {
-  getLauncherStatus,
-  removeLauncher,
-  repairLauncher,
-  setupLauncher,
-  updateLauncher,
-  type GetLauncherStatusResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-
-type LauncherRequestBase = NonNullable<
-  Parameters<typeof removeLauncher>[0]
->["body"];
-type SetupLauncherRequest = NonNullable<
-  Parameters<typeof setupLauncher>[0]
->["body"];
-type UpdateLauncherRequest = NonNullable<
-  Parameters<typeof updateLauncher>[0]
->["body"];
-type LauncherStatusResponse = GetLauncherStatusResponse;
+  route_get_launcher_status,
+  route_remove_launcher,
+  route_repair_launcher,
+  route_setup_launcher,
+  route_update_launcher,
+} from "utils/generatedEndpoints";
+import {
+  type LauncherRequestBaseInput,
+  type LauncherStatusResponse,
+  type LauncherUpdateResponse,
+  type SetupLauncherRequestInput,
+  type UpdateLauncherRequestInput,
+} from "utils/generatedTypes";
 
 type LauncherActionState =
   | "refresh"
@@ -46,11 +40,6 @@ type LauncherControlsState = {
   launcherSetupButtonLabel: string;
 };
 
-type LauncherStatusRouteResponse =
-  ResponseDataAndStatus<LauncherStatusResponse>;
-type LauncherUpdateRouteResponse =
-  ResponseDataAndStatus<LauncherUpdateResponse>;
-
 type DesktopLauncherSettingsSectionProps = {
   settaHome?: string | null;
   requireSettaHome?: boolean;
@@ -72,18 +61,27 @@ export function normalizeLauncherScopeSettaHome(
 
 function buildLauncherRequestBase(
   settaHome: string | null,
-): LauncherRequestBase {
+): LauncherRequestBaseInput {
   return { settaHome };
+}
+
+function normalizeSetupWorkspaceBehavior(
+  workspaceBehavior: LauncherStatusResponse["workspaceBehavior"],
+): "last-used-or-prompt" | "always-prompt" | undefined {
+  if (workspaceBehavior === "always_prompt") {
+    return "always-prompt";
+  }
+  if (workspaceBehavior === "last_used_or_prompt") {
+    return "last-used-or-prompt";
+  }
+  return undefined;
 }
 
 export function buildSetupLauncherRequest(
   settaHome: string | null,
   launcherStatus: LauncherStatusResponse | null,
-): SetupLauncherRequest {
-  const request: SetupLauncherRequest = {};
-  if (settaHome !== null) {
-    request.settaHome = settaHome;
-  }
+): SetupLauncherRequestInput {
+  const request: SetupLauncherRequestInput = { settaHome };
   if (!launcherStatus || launcherStatus.installed !== true) {
     return request;
   }
@@ -97,8 +95,11 @@ export function buildSetupLauncherRequest(
   if (launcherStatus.openMode) {
     request.openMode = launcherStatus.openMode;
   }
-  if (launcherStatus.workspaceBehavior) {
-    request.workspaceBehavior = launcherStatus.workspaceBehavior;
+  const workspaceBehavior = normalizeSetupWorkspaceBehavior(
+    launcherStatus.workspaceBehavior,
+  );
+  if (workspaceBehavior) {
+    request.workspaceBehavior = workspaceBehavior;
   }
   if (launcherStatus.artifactOptions) {
     request.artifactOptions = { ...launcherStatus.artifactOptions };
@@ -108,7 +109,7 @@ export function buildSetupLauncherRequest(
 
 function buildUpdateLauncherRequest(
   settaHome: string | null,
-): UpdateLauncherRequest {
+): UpdateLauncherRequestInput {
   return { settaHome };
 }
 
@@ -262,11 +263,7 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response: LauncherStatusRouteResponse = await callOpenAPI(
-        getLauncherStatus({
-          query: { setta_home: normalizedSettaHome ?? undefined },
-        }),
-      );
+      const response = await route_get_launcher_status(normalizedSettaHome);
       if (!res200(response) || !response.data) {
         return null;
       }
@@ -332,10 +329,8 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await callOpenAPI(
-      setupLauncher({
-        body: buildSetupLauncherRequest(normalizedSettaHome, launcherStatus),
-      }),
+    const response = await route_setup_launcher(
+      buildSetupLauncherRequest(normalizedSettaHome, launcherStatus),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -363,10 +358,8 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await callOpenAPI(
-      repairLauncher({
-        body: buildLauncherRequestBase(normalizedSettaHome),
-      }),
+    const response = await route_repair_launcher(
+      buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -394,10 +387,8 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await callOpenAPI(
-      removeLauncher({
-        body: buildLauncherRequestBase(normalizedSettaHome),
-      }),
+    const response = await route_remove_launcher(
+      buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
@@ -463,10 +454,8 @@ export function DesktopLauncherSettingsSection({
     }
 
     setUpdateStage("downloading");
-    const response: LauncherUpdateRouteResponse = await callOpenAPI(
-      updateLauncher({
-        body: buildUpdateLauncherRequest(normalizedSettaHome),
-      }),
+    const response = await route_update_launcher(
+      buildUpdateLauncherRequest(normalizedSettaHome),
     );
     if (!res200(response) || !response.data) {
       setUpdateStage("failed");

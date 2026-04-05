@@ -283,12 +283,13 @@ function updateTopLevelLayout(
   zIndex: number | null,
 ) {
   const existing = state.projectConfig.topLevelSections[sectionId];
+  const node = useNodeInternals.getState().x.get(sectionId);
   const nextLayout = {
     x: position.x,
     y: position.y,
     zIndex: zIndex ?? existing?.zIndex ?? 0,
-    w: existing?.w ?? null,
-    h: existing?.h ?? null,
+    w: node?.width ?? null,
+    h: node?.height ?? null,
   };
   state.projectConfig.topLevelSections[sectionId] = nextLayout;
   const { activeViewModeId, viewModes } = state.projectConfig;
