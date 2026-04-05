@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 03:21 EDT
+Last updated: 2026-04-07 03:45 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `247` narrowed the geometry-authority lane again by stopping unresolved `sizeAuthority: "none"` node sizes from auto-promoting into implicit shared-node authority or persisting back into top-level layout snapshots.
+
+  - Why this pass stopped here:
+    - item `246` explicitly left the remaining measured-size authority frontier on the `sharedNode` / unresolved path after the `sectionModel` authority cleanup
+    - `resolveTopLevelSectionNodeSize(...)` still treated any positive current-node size as a `sharedNode` seed even when that node was explicitly marked `sizeAuthority: "none"`, and `getPersistedTopLevelSectionLayoutSize(...)` still wrote those unresolved measured sizes back into layout `w/h`
+    - this pass stayed bounded to the unresolved `none` path only; explicit `sharedNode` carry-forward semantics remain for the next geometry slice
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened for this slice
+  - Product/test change:
+    - updated [`frontend/src/state/actions/topLevelSectionSizeAuthority.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/topLevelSectionSizeAuthority.ts)
+      - current-node size now seeds canary/shared geometry only when the node is explicitly marked `sizeAuthority: "sharedNode"`
+      - unresolved `sizeAuthority: "none"` nodes now fall back to `sectionModel` geometry when available, or stay unresolved instead of being reclassified as `sharedNode`
+    - updated [`frontend/src/state/actions/sectionInfos.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sectionInfos.ts)
+      - `getPersistedTopLevelSectionLayoutSize(...)` now refuses to persist `sizeAuthority: "none"` node sizes as authoritative layout `w/h`
+    - updated focused tests in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx), [`frontend/src/state/actions/sectionInfos.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sectionInfos.test.ts), and [`frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts)
+      - explicit shared-node fallback tests now declare `sizeAuthority: "sharedNode"` instead of relying on implicit promotion
+      - new regressions lock the unresolved `none` path so it no longer upgrades into shared-node authority or layout persistence
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/state/actions/topLevelSectionSizeAuthority.ts src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`5 files`, `63 tests`)
+    - CDP visual gate:
+      - done
+      - the first fresh-context CDP sub-agent reported a blocked `chrome-devtools-mcp` handshake, so this iteration used the one allowed worktree recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - runtime refresh after recovery reported frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap session `62b3e9`, and debug port `9297`
+      - a fresh-context retrying CDP sub-agent then opened `http://127.0.0.1:3075/settings`, confirmed `All Settings` was active, found `rotaryParamCodeObjDefault` in the live worktree surface, and reported no obvious gross visual regression such as a blank card, detached shell/body, or missing graph surface
+      - the read-only `main` URL `http://127.0.0.1:3087/settings` only exposed a minimal shell labeled `main` during that retry, so it was not used as a visual acceptance gate for this slice
+  - Lane status:
+    - unresolved measured-size fallback no longer auto-promotes into implicit shared-node authority through current-node hydration
+    - unresolved `sizeAuthority: "none"` measurements no longer persist back into authoritative top-level layout snapshots
+    - the remaining measured-size authority frontier is now explicit `sharedNode` carry-forward, not the already-closed unresolved `none` path
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next geometry slice to the explicit `sharedNode` carry-forward path
+    - decide whether the remaining `sharedNode` node-internals writes in the canary/runtime path should stay as the long-lived seed for controller refreshes and layout writes, or whether that path can be tightened further without reopening the closed unresolved `none` leak
 
 - Ralph item `246` narrowed the geometry-authority lane by making `sectionModel` sizes authoritative once positive model geometry already exists, so those sections no longer resubscribe to measured DOM size churn or let measured fallback override their resolved scene size.
 

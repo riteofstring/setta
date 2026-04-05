@@ -69,15 +69,18 @@ export function resolveTopLevelSectionNodeSize({
 
   const currentNodeWidth = currentNode?.width ?? null;
   const currentNodeHeight = currentNode?.height ?? null;
-  if (hasPositiveTopLevelSectionNodeSize(currentNodeWidth, currentNodeHeight)) {
-    if (currentNode?.sizeAuthority === "sectionModel" && hasSectionModelSize) {
-      return {
-        height: sectionModelHeight,
-        sizeAuthority: "sectionModel",
-        width: sectionModelWidth,
-      };
-    }
+  if (currentNode?.sizeAuthority === "sectionModel" && hasSectionModelSize) {
+    return {
+      height: sectionModelHeight,
+      sizeAuthority: "sectionModel",
+      width: sectionModelWidth,
+    };
+  }
 
+  if (
+    currentNode?.sizeAuthority === "sharedNode" &&
+    hasPositiveTopLevelSectionNodeSize(currentNodeWidth, currentNodeHeight)
+  ) {
     return {
       height: currentNodeHeight,
       sizeAuthority: "sharedNode",

@@ -9679,3 +9679,34 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next product slice to the remaining `sharedNode` / unresolved measured-size path
     - retry live visual verification only when `chrome-devtools-mcp` is actually available again
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 03:45 EDT, Ralph item `247`
+  - Summary: stopped unresolved `sizeAuthority: "none"` node sizes from auto-promoting into implicit shared-node authority and from persisting back into top-level layout snapshots.
+  - Files:
+    - `frontend/src/state/actions/topLevelSectionSizeAuthority.ts`
+    - `frontend/src/state/actions/sectionInfos.ts`
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+    - `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened for this authority slice
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/state/actions/topLevelSectionSizeAuthority.ts src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/moveSections.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`5 files`, `63 tests`)
+    - fresh-context CDP sub-agent attempt 1 -> blocked; `chrome-devtools-mcp` handshake timed out
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree on frontend `3075`, backend `8075`, bootstrap session `62b3e9`, debug port `9297`
+    - runtime refresh: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-013/worktree-ai.log` -> confirmed the recovered runtime values
+    - fresh-context CDP sub-agent attempt 2 -> done; opened `http://127.0.0.1:3075/settings`, confirmed `All Settings` plus `rotaryParamCodeObjDefault`, and reported no obvious gross visual regression such as a blank card, detached shell/body, or missing graph surface
+    - reference note: `http://127.0.0.1:3087/settings` only exposed a minimal shell labeled `main` during the retry, so it was not used as an acceptance oracle for this slice
+  - Result:
+    - unresolved `sizeAuthority: "none"` node sizes no longer get reclassified into `sharedNode` authority during current-node hydration
+    - unresolved measured fallback no longer persists back into authoritative top-level layout `w/h`
+    - the remaining measured-size authority frontier is now explicit `sharedNode` carry-forward rather than the already-closed unresolved `none` leak
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next geometry slice to the explicit `sharedNode` carry-forward path
+    - decide whether the remaining `sharedNode` node-internals writes in the canary/runtime path can be tightened further without regressing controller refreshes or reopening layout persistence leaks
+  - LOOP_TERMINAL_MARKER: none

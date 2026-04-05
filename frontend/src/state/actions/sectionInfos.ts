@@ -1368,7 +1368,10 @@ export function getAuthoritativeTopLevelSectionNodeSize(
 export function getPersistedTopLevelSectionLayoutSize(
   currentNode: Pick<Node, "height" | "sizeAuthority" | "width"> | undefined,
 ) {
-  if (currentNode?.sizeAuthority === "sectionModel") {
+  if (
+    currentNode?.sizeAuthority === "sectionModel" ||
+    currentNode?.sizeAuthority === "none"
+  ) {
     return {
       w: null,
       h: null,

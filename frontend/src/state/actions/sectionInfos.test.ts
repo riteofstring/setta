@@ -804,6 +804,7 @@ describe("createNodesMapFromProjectConfigChildren", () => {
             position: { x: 5, y: 10 },
             width: 320,
             height: 240,
+            sizeAuthority: "sharedNode",
             zIndex: 5,
             tempZIndex: 5,
           },
@@ -815,6 +816,7 @@ describe("createNodesMapFromProjectConfigChildren", () => {
       position: { x: layout.x, y: layout.y },
       width: 320,
       height: 240,
+      sizeAuthority: "sharedNode",
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
     });

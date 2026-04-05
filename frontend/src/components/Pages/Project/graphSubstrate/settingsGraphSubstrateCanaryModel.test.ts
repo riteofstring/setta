@@ -274,6 +274,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
           {
             width: 280,
             height: 190,
+            sizeAuthority: "sharedNode",
           },
         ],
       ]),
@@ -291,6 +292,53 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         tempZIndex: 1,
         textBlockMetaControlStyle: false,
         width: 280,
+        zIndex: 1,
+      },
+    ]);
+  });
+
+  it("does not promote unresolved current-node size into shared-node authority when section-model geometry exists", () => {
+    const sections = resolveSettingsGraphSubstrateCanarySections(
+      [
+        {
+          configuredHeight: "auto",
+          configuredWidth: 500,
+          height: null,
+          position: { x: 120, y: 100 },
+          positionAndSizeLocked: false,
+          sectionId: "section-a",
+          sectionTypeName: SectionTypeEnum.Code,
+          styleColor: null,
+          tempZIndex: 1,
+          textBlockMetaControlStyle: false,
+          width: null,
+          zIndex: 1,
+        },
+      ],
+      new Map([
+        [
+          "section-a",
+          {
+            width: 280,
+            height: 190,
+            sizeAuthority: "none",
+          },
+        ],
+      ]),
+    );
+
+    expect(sections).toEqual([
+      {
+        height: 58.2,
+        position: { x: 120, y: 100 },
+        positionAndSizeLocked: false,
+        sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
+        sizeAuthority: "sectionModel",
+        styleColor: null,
+        tempZIndex: 1,
+        textBlockMetaControlStyle: false,
+        width: 500,
         zIndex: 1,
       },
     ]);

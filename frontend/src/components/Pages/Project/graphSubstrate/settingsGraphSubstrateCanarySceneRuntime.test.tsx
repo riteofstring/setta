@@ -613,6 +613,82 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("drops unresolved measured size after a controller refresh instead of promoting it into shared-node authority", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection({ sizeAuthority: "none" })]}
+        />,
+      );
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 280, height: 190 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: 190,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        sizeAuthority: "none",
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: 280,
+        zIndex: 2,
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection({ sizeAuthority: "none" })]}
+        />,
+      );
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.getState().reset();
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: null,
+        sections: [
+          {
+            height: null,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: null,
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: null,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: null,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        sizeAuthority: "none",
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: null,
+        zIndex: 2,
+      });
+    });
+  });
+
   it("drops the carried-forward scene bounds once the section leaves the active canary scene", async () => {
     await act(async () => {
       root.render(
