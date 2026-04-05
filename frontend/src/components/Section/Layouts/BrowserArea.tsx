@@ -19,18 +19,8 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
-  getFileBrowserDownloadUrls,
-  getFileBrowserRoot,
-  getFolderContents,
-  setBrowserAreaViewMode,
-  setBrowserSavedSearches,
-  type FilebrowserFileBrowserDownloadUrlEntry,
-  type FilebrowserFolderContentItem as FolderContentItem,
-  type FilebrowserListFolderResponse as ListFolderResponse,
-  type FilebrowserRootResponse as RootResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
+  type DragEventHandler,
+  type ReactNode,
   Suspense,
   lazy,
   useCallback,
@@ -38,8 +28,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEventHandler,
-  type ReactNode,
 } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import {
@@ -76,14 +64,10 @@ import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
-import { isAbsoluteBrowserPath } from "utils/browserPaths";
+import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   filterFileBrowserFolderItems,
@@ -99,9 +83,17 @@ import {
   getFileBrowserFolderPathLabel,
 } from "utils/fileBrowserTypes";
 import {
+  route_get_file_browser_download_urls,
+  route_get_file_browser_root,
+  route_get_folder_contents,
+  route_set_browser_area_view_mode,
+  route_set_browser_saved_searches,
+} from "utils/generatedEndpoints";
+import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
+  FolderContentItem,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -109,6 +101,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import { clamp } from "utils/utils";
+
 const artifactTypes = [
   { type: "image" as const, label: "Image", icon: <IoImageOutline /> },
   { type: "video" as const, label: "Video", icon: <IoVideocam /> },
@@ -116,10 +109,11 @@ const artifactTypes = [
   { type: "text" as const, label: "Text", icon: <FiFileText /> },
   { type: "data" as const, label: "Other", icon: <MdDataArray /> },
 ];
+
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
-const FILE_URL_REFRESH_BUFFER_MS = 30000;
+const FILE_URL_REFRESH_BUFFER_MS = 30_000;
 const FILE_URL_REQUEST_CHUNK_SIZE = 120;
-const TEXT_PREVIEW_CHAR_LIMIT = 4000;
+const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
 const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 const FILTER_RECURSIVE_MIN_CHARS = 2;
@@ -135,32 +129,32 @@ const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
   );
   return { default: module.FileBrowserSpreadsheetEditor };
 });
+
 type BrowserFileAttachment = {
   id: string;
   name: string;
   mimeType: string | null;
   size: number | null;
 };
+
 type OpenableBrowserItem = {
   name: string;
   fullPath: string;
   type: string;
 };
-type FileUrlEntry = Pick<
-  FilebrowserFileBrowserDownloadUrlEntry,
-  "url" | "expiresAt"
->;
-type GetFileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
-  Array<FilebrowserFileBrowserDownloadUrlEntry>
->;
-type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
-type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
+
+type FileUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
+
 type FileTextPreview = {
   text: string;
   truncated: boolean;
   isLoading: boolean;
   error: string | null;
 };
+
 type BrowserPreviewKind =
   | "image"
   | "pdf"
@@ -171,10 +165,9 @@ type BrowserPreviewKind =
   | "archive"
   | "folder"
   | "other";
-type PreviewIcon = React.ComponentType<{
-  className?: string;
-  size?: number;
-}>;
+
+type PreviewIcon = React.ComponentType<{ className?: string; size?: number }>;
+
 const PREVIEW_KIND_ICON_MAP: Record<BrowserPreviewKind, PreviewIcon> = {
   image: IoImageOutline,
   pdf: FiFileText,
@@ -186,6 +179,7 @@ const PREVIEW_KIND_ICON_MAP: Record<BrowserPreviewKind, PreviewIcon> = {
   folder: TbFolder,
   other: FiFileText,
 };
+
 const PREVIEW_KIND_ICON_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   image: "text-setta-200 dark:text-setta-600",
   pdf: "text-rose-500/80 dark:text-rose-300",
@@ -197,6 +191,7 @@ const PREVIEW_KIND_ICON_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   folder: "text-setta-300 dark:text-setta-600",
   other: "text-setta-300 dark:text-setta-600",
 };
+
 const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   image: "",
   pdf: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
@@ -211,6 +206,7 @@ const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   folder: "",
   other: "bg-setta-200 text-setta-700 dark:bg-setta-700/40 dark:text-setta-200",
 };
+
 function extractExtension(value: string | undefined): string | null {
   if (!value) {
     return null;
@@ -225,6 +221,7 @@ function extractExtension(value: string | undefined): string | null {
   }
   return baseName.slice(dotIndex).toLowerCase();
 }
+
 function getExtensionBadge(value: string | undefined): string | null {
   const extension = extractExtension(value);
   if (!extension) {
@@ -236,9 +233,11 @@ function getExtensionBadge(value: string | undefined): string | null {
   }
   return label.length > 6 ? label.slice(0, 6) : label;
 }
+
 function normalizeFolderPrefix(value: string): string {
   return value.replace(/\\/g, "/").replace(/\/+$/, "");
 }
+
 function toBrowserAttachment(item: FolderContentItem): BrowserFileAttachment {
   return {
     id: item.fullPath,
@@ -247,6 +246,7 @@ function toBrowserAttachment(item: FolderContentItem): BrowserFileAttachment {
     size: item.size ?? null,
   };
 }
+
 function getBrowserPreviewKind(item: FolderContentItem): BrowserPreviewKind {
   if (item.type.toLowerCase() === "folder") {
     return "folder";
@@ -256,15 +256,18 @@ function getBrowserPreviewKind(item: FolderContentItem): BrowserPreviewKind {
   }
   return getAttachmentPreviewKind(toBrowserAttachment(item));
 }
+
 function isFileUrlStale(entry: FileUrlEntry, now: number): boolean {
   return entry.expiresAt * 1000 - FILE_URL_REFRESH_BUFFER_MS <= now;
 }
+
 function getFileSizeLabel(item: FolderContentItem): string | null {
   if (item.size === undefined) {
     return null;
   }
   return formatBytes(item.size);
 }
+
 function BrowserThumbnailContent({
   previewKind,
   thumbnailUrl,
@@ -306,6 +309,7 @@ function BrowserThumbnailContent({
     </>
   );
 }
+
 export function BrowserArea({ sectionId }: { sectionId: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { width, hideColumn, viewMode, folder, savedSearches, isFrozen } =
@@ -371,6 +375,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
       ),
   });
   const filesColumnWidth = "var(--browser-column-width, 72%)";
+
   return (
     <div
       className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
@@ -396,6 +401,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
     </div>
   );
 }
+
 function TypesColumn({
   width,
   columnWidth,
@@ -530,6 +536,7 @@ function TypesColumn({
     </article>
   );
 }
+
 function ViewSelectorButton({
   view,
   setView,
@@ -555,6 +562,7 @@ function ViewSelectorButton({
     </button>
   );
 }
+
 function ViewSelector({
   view,
   setView,
@@ -591,6 +599,7 @@ function ViewSelector({
     </div>
   );
 }
+
 function ThumbnailItem({
   size = "96px",
   thumbnailUrl,
@@ -654,6 +663,7 @@ function ThumbnailItem({
     </div>
   );
 }
+
 function ViewSwitch({
   view,
   items,
@@ -706,6 +716,7 @@ function ViewSwitch({
     },
     [],
   );
+
   const renderPreview = useCallback(
     (item: MediaCarouselItem<FolderContentItem>) => {
       const data = item.data;
@@ -892,7 +903,6 @@ function ViewSwitch({
         >
           <FileBrowserPane
             useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            allowOutsideWorkspaceRoot
             showFilter={false}
             showPathNavigation={false}
             onFolderOpen={(node) => onOpenFolder(node.fullPath)}
@@ -910,6 +920,7 @@ function ViewSwitch({
           />
         </div>
       );
+
     case BrowserAreaViewModeEnum.thumbnail:
       return (
         <div
@@ -989,6 +1000,7 @@ function ViewSwitch({
           </div>
         </div>
       );
+
     case BrowserAreaViewModeEnum.carousel:
       return (
         <div
@@ -1083,10 +1095,12 @@ function ViewSwitch({
           />
         </div>
       );
+
     default:
       return view satisfies never;
   }
 }
+
 function ItemsColumn({
   sectionId,
   viewMode,
@@ -1184,6 +1198,7 @@ function ItemsColumn({
     }
     return filterFileBrowserFolderItems(items, filterText);
   }, [filterQuery.kind, filterText, isListView, items, recursiveFilterResults]);
+
   const filteredVisibleItems = useMemo(
     () => filterFileBrowserItemsByTypeFilters(visibleItems, typeFilters),
     [typeFilters, visibleItems],
@@ -1211,6 +1226,7 @@ function ItemsColumn({
     rootInfo?.pathSeparator ?? browserStatePathSeparator ?? undefined;
   folderCompletionOptionsRef.current.ignorePatterns =
     rootInfo?.ignorePatterns ?? browserStateIgnorePatterns ?? undefined;
+
   const folderCompletionSource = useMemo(
     () =>
       createDynamicFolderPathCompletionSource(
@@ -1218,29 +1234,36 @@ function ItemsColumn({
       ),
     [],
   );
+
   const shouldShowFolderPaths = filterQuery.kind !== "none";
   const showSearchPathTooltips = shouldShowFolderPaths && isTooltipKeyHeld;
+
   useEffect(() => {
     if (isListView) {
       setIsTooltipKeyHeld(false);
       return;
     }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.code === "KeyQ") {
         setIsTooltipKeyHeld(true);
       }
     }
+
     function handleKeyUp(event: KeyboardEvent) {
       if (event.code === "KeyQ") {
         setIsTooltipKeyHeld(false);
       }
     }
+
     function handleWindowBlur() {
       setIsTooltipKeyHeld(false);
     }
+
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleWindowBlur);
+
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
@@ -1254,14 +1277,31 @@ function ItemsColumn({
     return normalizeFolderPrefix(rootInfo.rootPath);
   }, [rootInfo?.rootPath]);
   const normalizedEffectiveFolderForPrefix = useMemo(() => {
-    return normalizeFolderPrefix(effectiveFolder);
-  }, [effectiveFolder]);
+    if (!rootInfo?.rootPath) {
+      return normalizeFolderPrefix(effectiveFolder);
+    }
+    const resolved = resolvePathWithinRoot(effectiveFolder, rootInfo.rootPath);
+    if (!resolved) {
+      return normalizeFolderPrefix(effectiveFolder);
+    }
+    return normalizeFolderPrefix(resolved);
+  }, [effectiveFolder, rootInfo?.rootPath]);
   const getItemSubLabel = useCallback(
     (item: FolderContentItem): string | null => {
       if (!shouldShowFolderPaths) {
         return null;
       }
-      const folderPath = getFileBrowserFolderPathLabel(item.fullPath);
+      if (!rootInfo?.rootPath) {
+        return null;
+      }
+      const resolvedItemPath = resolvePathWithinRoot(
+        item.fullPath,
+        rootInfo.rootPath,
+      );
+      if (!resolvedItemPath) {
+        return null;
+      }
+      const folderPath = getFileBrowserFolderPathLabel(resolvedItemPath);
       if (!folderPath) {
         return null;
       }
@@ -1295,12 +1335,23 @@ function ItemsColumn({
       shouldShowFolderPaths,
     ],
   );
+
   const getItemTooltip = useCallback(
     (item: FolderContentItem): string | null => {
       if (!showSearchPathTooltips) {
         return null;
       }
-      const normalizedItemPath = normalizeFolderPrefix(item.fullPath);
+      if (!rootInfo?.rootPath) {
+        return item.fullPath;
+      }
+      const resolvedItemPath = resolvePathWithinRoot(
+        item.fullPath,
+        rootInfo.rootPath,
+      );
+      if (!resolvedItemPath) {
+        return item.fullPath;
+      }
+      const normalizedItemPath = normalizeFolderPrefix(resolvedItemPath);
       if (
         normalizedEffectiveFolderForPrefix &&
         normalizedItemPath.startsWith(`${normalizedEffectiveFolderForPrefix}/`)
@@ -1328,6 +1379,7 @@ function ItemsColumn({
       showSearchPathTooltips,
     ],
   );
+
   useEffect(() => {
     if (rootInfo) {
       return;
@@ -1349,6 +1401,7 @@ function ItemsColumn({
     browserStateRootPath,
     rootInfo,
   ]);
+
   useEffect(() => {
     if (!rootInfo) {
       return;
@@ -1371,6 +1424,7 @@ function ItemsColumn({
         : prev,
     );
   }, [browserStateIgnorePatterns, browserStatePathSeparator, rootInfo]);
+
   useEffect(() => {
     const trimmed = folder.trim();
     if (!trimmed) {
@@ -1378,12 +1432,15 @@ function ItemsColumn({
     }
     setLocalFolder(trimmed);
   }, [folder]);
+
   useEffect(() => {
     fileUrlMapRef.current = fileUrlMap;
   }, [fileUrlMap]);
+
   useEffect(() => {
     historyStateRef.current = historyState;
   }, [historyState]);
+
   useEffect(() => {
     if (!effectiveFolder) {
       return;
@@ -1406,6 +1463,7 @@ function ItemsColumn({
       return { entries: nextEntries, index: nextEntries.length - 1 };
     });
   }, [effectiveFolder, isListView]);
+
   const ensureFileUrlPromise = useCallback((path: string) => {
     const existing = fileUrlPromises.current.get(path);
     if (existing) {
@@ -1419,6 +1477,7 @@ function ItemsColumn({
     fileUrlPromiseResolvers.current.set(path, resolvePromise);
     return promise;
   }, []);
+
   const settleFileUrlPromises = useCallback(
     (paths: string[], entries: Record<string, FileUrlEntry>) => {
       for (const path of paths) {
@@ -1433,13 +1492,9 @@ function ItemsColumn({
     },
     [],
   );
+
   const requestFileUrls = useCallback(
-    async (
-      paths: string[],
-      options: {
-        force?: boolean;
-      } = {},
-    ) => {
+    async (paths: string[], options: { force?: boolean } = {}) => {
       if (paths.length === 0) {
         return {};
       }
@@ -1465,13 +1520,9 @@ function ItemsColumn({
       const aggregated: Record<string, FileUrlEntry> = {};
       const chunks = _.chunk(pending, FILE_URL_REQUEST_CHUNK_SIZE);
       for (const chunk of chunks) {
-        const res = (await callOpenAPI(
-          getFileBrowserDownloadUrls({
-            body: {
-              paths: chunk,
-            },
-          } as Parameters<typeof getFileBrowserDownloadUrls>[0]),
-        )) as GetFileBrowserDownloadURLsRouteResponse;
+        const res = await route_get_file_browser_download_urls({
+          paths: chunk,
+        });
         for (const path of chunk) {
           fileUrlRequests.current.delete(path);
         }
@@ -1498,13 +1549,9 @@ function ItemsColumn({
     },
     [ensureFileUrlPromise, settleFileUrlPromises],
   );
+
   const getFileUrlEntry = useCallback(
-    async (
-      path: string,
-      options: {
-        force?: boolean;
-      } = {},
-    ) => {
+    async (path: string, options: { force?: boolean } = {}) => {
       const now = Date.now();
       const existing = fileUrlMapRef.current[path];
       if (!options.force && existing && !isFileUrlStale(existing, now)) {
@@ -1522,6 +1569,7 @@ function ItemsColumn({
     },
     [requestFileUrls],
   );
+
   const requestTextPreview = useCallback(
     async (item: FolderContentItem) => {
       if (item.size && item.size > TEXT_PREVIEW_MAX_BYTES) {
@@ -1607,48 +1655,45 @@ function ItemsColumn({
     },
     [getFileUrlEntry, textPreviewMap],
   );
+
   const loadFolderContents = useCallback(
-    async (folderPath: string): Promise<ListFolderResponse | null> => {
+    async (folderPath: string) => {
       const trimmed = folderPath.trim();
       if (!trimmed) {
         setItems([]);
-        return null;
+        return;
       }
       if (!rootInfo?.rootPath) {
         setItems([]);
-        return null;
+        return;
+      }
+      const safeFolder = resolvePathWithinRoot(trimmed, rootInfo.rootPath);
+      if (!safeFolder) {
+        setItems([]);
+        return;
       }
       const requestId = folderRequestIdRef.current + 1;
       folderRequestIdRef.current = requestId;
-      const res = (await callOpenAPI(
-        getFolderContents({
-          body: {
-            folderPath: trimmed,
-            baseFolderPath: rootInfo.rootPath,
-            ignorePatterns: rootInfo?.ignorePatterns ?? null,
-            includeSize: true,
-            missingFolderBehavior: "empty",
-          },
-        } as Parameters<typeof getFolderContents>[0]),
-      )) as GetFolderContentsRouteResponse;
+      const res = await route_get_folder_contents({
+        folderPath: safeFolder,
+        ignorePatterns: rootInfo?.ignorePatterns ?? null,
+        includeSize: true,
+        missingFolderBehavior: "empty",
+      });
       if (folderRequestIdRef.current !== requestId) {
-        return null;
+        return;
       }
       if (res200(res)) {
-        setItems(res.data.items);
-        folderContentsCacheRef.current.set(res.data.folderPath, res.data.items);
-        if (res.data.folderPath !== trimmed) {
-          setLocalFolder(res.data.folderPath);
-        }
-        return res.data;
+        setItems(res.data);
+        folderContentsCacheRef.current.set(safeFolder, res.data);
       } else {
         setItems([]);
-        folderContentsCacheRef.current.delete(trimmed);
-        return null;
+        folderContentsCacheRef.current.delete(safeFolder);
       }
     },
     [rootInfo?.ignorePatterns, rootInfo?.rootPath],
   );
+
   function setView(newView: BrowserAreaViewMode) {
     setValue(newView);
     dispatchOptimisticProjectStateUpdate({
@@ -1658,18 +1703,15 @@ function ItemsColumn({
         });
       },
       send: (frontendOpId) =>
-        callOpenAPI(
-          setBrowserAreaViewMode({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              viewMode: newView,
-              frontendOpId,
-            },
-          } as Parameters<typeof setBrowserAreaViewMode>[0]),
-        ),
+        route_set_browser_area_view_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          viewMode: newView,
+          frontendOpId,
+        }),
     });
   }
+
   const setFolder = useCallback(
     async (newFolder: string) => {
       const trimmed = newFolder.trim();
@@ -1679,23 +1721,19 @@ function ItemsColumn({
         return;
       }
       setLocalFolder(trimmed);
-      if (!rootInfo?.rootPath) {
+      const safeFolder = rootInfo?.rootPath
+        ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
+        : null;
+      if (safeFolder || !rootInfo?.rootPath) {
         useBrowserSectionFileBrowserState.setState({
-          rootPath: trimmed,
+          rootPath: safeFolder ?? trimmed,
         });
-        await loadFolderContents(trimmed);
-        return;
       }
-      const response = await loadFolderContents(trimmed);
-      if (!response) {
-        return;
-      }
-      useBrowserSectionFileBrowserState.setState({
-        rootPath: response.folderPath,
-      });
+      await loadFolderContents(trimmed);
     },
     [loadFolderContents, rootInfo?.rootPath],
   );
+
   useEffect(() => {
     if (value !== BrowserAreaViewModeEnum.carousel) {
       setSelectedCarouselId(null);
@@ -1719,6 +1757,7 @@ function ItemsColumn({
       setSelectedCarouselId(preferred.fullPath);
     }
   }, [filteredVisibleItems, selectedCarouselId, value]);
+
   useEffect(() => {
     if (isListView) {
       return;
@@ -1732,6 +1771,7 @@ function ItemsColumn({
     }
     void requestFileUrls(imagePaths);
   }, [filteredVisibleItems, isListView, requestFileUrls]);
+
   useEffect(() => {
     if (value !== BrowserAreaViewModeEnum.carousel) {
       return;
@@ -1744,12 +1784,14 @@ function ItemsColumn({
     }
     void requestTextPreview(selectedCarouselItem);
   }, [requestTextPreview, selectedCarouselItem, value]);
+
   const handleOpenFolder = useCallback(
     (path: string) => {
       void setFolder(path);
     },
     [setFolder],
   );
+
   const handleOpenFile = useCallback(
     (item: OpenableBrowserItem) => {
       if (item.type.toLowerCase() === "folder") {
@@ -1856,10 +1898,12 @@ function ItemsColumn({
       currentPath: effectiveFolder,
     });
   }, [effectiveFolder, rootInfo?.rootPath]);
+
   const canGoBack = historyState.index > 0;
   const canGoForward =
     historyState.index >= 0 &&
     historyState.index < historyState.entries.length - 1;
+
   const handleGoBack = useCallback(() => {
     const current = historyStateRef.current;
     if (current.index <= 0) {
@@ -1874,6 +1918,7 @@ function ItemsColumn({
     setHistoryState({ entries: current.entries, index: nextIndex });
     void setFolder(nextFolder);
   }, [setFolder]);
+
   const handleGoForward = useCallback(() => {
     const current = historyStateRef.current;
     if (current.index < 0 || current.index >= current.entries.length - 1) {
@@ -1894,6 +1939,7 @@ function ItemsColumn({
     }
     void setFolder(parentFolderPath);
   }, [parentFolderPath, setFolder]);
+
   useEffect(() => {
     if (rootInfo) {
       return;
@@ -1901,9 +1947,7 @@ function ItemsColumn({
     const requestId = rootRequestIdRef.current + 1;
     rootRequestIdRef.current = requestId;
     const loadRoot = async () => {
-      const res = (await callOpenAPI(
-        getFileBrowserRoot(),
-      )) as GetFileBrowserRootRouteResponse;
+      const res = await route_get_file_browser_root();
       if (!res200(res)) {
         return;
       }
@@ -1922,12 +1966,14 @@ function ItemsColumn({
     };
     void loadRoot();
   }, [rootInfo]);
+
   useEffect(() => {
     if (isListView) {
       return;
     }
     void loadFolderContents(effectiveFolder);
   }, [effectiveFolder, isListView, loadFolderContents]);
+
   useEffect(() => {
     if (isListView) {
       setRecursiveFilterResults(null);
@@ -1957,25 +2003,31 @@ function ItemsColumn({
       recursiveFilterRequestIdRef.current += 1;
       return;
     }
+
     const trimmed = effectiveFolder.trim();
     if (!trimmed) {
       setRecursiveFilterResults([]);
       recursiveFilterRequestIdRef.current += 1;
       return;
     }
-    if (!isAbsoluteBrowserPath(trimmed)) {
+    const safeFolder = resolvePathWithinRoot(trimmed, rootInfo.rootPath);
+    if (!safeFolder) {
       setRecursiveFilterResults([]);
       recursiveFilterRequestIdRef.current += 1;
       return;
     }
+
     const requestId = recursiveFilterRequestIdRef.current + 1;
     recursiveFilterRequestIdRef.current = requestId;
+
     const initial = filterFileBrowserFolderItems(items, filterText);
     const seen = new Set<string>(initial.map((item) => item.fullPath));
     const results: FolderContentItem[] = [...initial];
     setRecursiveFilterResults(results);
-    const queue: string[] = [trimmed];
+
+    const queue: string[] = [safeFolder];
     const visited = new Set<string>();
+
     const crawl = async () => {
       while (
         queue.length > 0 &&
@@ -1991,32 +2043,31 @@ function ItemsColumn({
           continue;
         }
         visited.add(folder);
+
         let listing = folderContentsCacheRef.current.get(folder);
         if (!listing) {
-          const res = (await callOpenAPI(
-            getFolderContents({
-              body: {
-                folderPath: folder,
-                ignorePatterns: rootInfo.ignorePatterns ?? null,
-                includeSize: true,
-                missingFolderBehavior: "empty",
-              },
-            } as Parameters<typeof getFolderContents>[0]),
-          )) as GetFolderContentsRouteResponse;
+          const res = await route_get_folder_contents({
+            folderPath: folder,
+            ignorePatterns: rootInfo.ignorePatterns ?? null,
+            includeSize: true,
+            missingFolderBehavior: "empty",
+          });
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
           }
           if (!res200(res)) {
             continue;
           }
-          listing = res.data.items;
-          folderContentsCacheRef.current.set(res.data.folderPath, listing);
+          listing = res.data;
+          folderContentsCacheRef.current.set(folder, listing);
         }
+
         for (const entry of listing) {
           if (entry.type.toLowerCase() === "folder") {
             queue.push(entry.fullPath);
           }
         }
+
         const matches = filterFileBrowserFolderItems(listing, filterText);
         let didAdd = false;
         for (const match of matches) {
@@ -2035,6 +2086,7 @@ function ItemsColumn({
         }
       }
     };
+
     void crawl();
   }, [
     effectiveFolder,
@@ -2046,18 +2098,23 @@ function ItemsColumn({
     rootInfo?.rootPath,
     searchScope,
   ]);
+
   useEffect(() => {
     const trimmed = effectiveFolder.trim();
     if (!trimmed) {
       return;
     }
-    if (rootInfo?.rootPath && !isAbsoluteBrowserPath(trimmed)) {
+    const safeFolder = rootInfo?.rootPath
+      ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
+      : trimmed;
+    if (rootInfo?.rootPath && !safeFolder) {
       return;
     }
     useBrowserSectionFileBrowserState.setState({
-      rootPath: trimmed,
+      rootPath: safeFolder,
     });
   }, [effectiveFolder, rootInfo?.rootPath]);
+
   const handleSaveSearch = useCallback(
     (query: string) => {
       if (!canSaveSearch) {
@@ -2091,6 +2148,7 @@ function ItemsColumn({
       if (alreadySaved) {
         return;
       }
+
       const newSearch: BrowserSavedSearch = {
         id: createNewId(),
         name: trimmed,
@@ -2108,20 +2166,17 @@ function ItemsColumn({
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setBrowserSavedSearches({
-              body: {
-                projectConfigId: getCurrProjectConfigId(),
-                sectionId,
-                savedSearches: nextSavedSearches,
-                frontendOpId,
-              },
-            } as Parameters<typeof setBrowserSavedSearches>[0]),
-          ),
+          route_set_browser_saved_searches({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            savedSearches: nextSavedSearches,
+            frontendOpId,
+          }),
       });
     },
     [canSaveSearch, savedSearches, searchScope, sectionId, typeFilters],
   );
+
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
       <div className="-mt-[4.5px] mb-1 flex flex-col gap-2">
@@ -2184,6 +2239,7 @@ function ItemsColumn({
     </div>
   );
 }
+
 function FilterToggleRow({
   label,
   checked,
@@ -2223,6 +2279,7 @@ function FilterToggleRow({
     </li>
   );
 }
+
 function FolderHistoryControls({
   canGoBack,
   canGoForward,
@@ -2239,7 +2296,10 @@ function FolderHistoryControls({
   const disabledClassName =
     "cursor-default opacity-40 hover:bg-transparent dark:hover:bg-transparent";
   const backClassName = `${baseClassName} ${canGoBack ? "" : disabledClassName}`;
-  const forwardClassName = `${baseClassName} ${canGoForward ? "" : disabledClassName}`;
+  const forwardClassName = `${baseClassName} ${
+    canGoForward ? "" : disabledClassName
+  }`;
+
   return (
     <div className="flex shrink-0 items-center gap-1">
       <button
