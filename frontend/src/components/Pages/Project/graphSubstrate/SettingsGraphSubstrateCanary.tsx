@@ -23,20 +23,15 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
-import { useObservedSectionElementSizes } from "state/hooks/observedSectionElementSizes";
 import { useTabScope } from "utils/focusManager";
 import { isMacOs } from "utils/utils";
 import { selectSettingsGraphSubstrateCanarySections } from "./settingsGraphSubstrateCanaryModel";
-import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
   createSettingsGraphSubstrateCanaryPaneInteractionController,
   type SettingsGraphSubstrateCanaryPaneInteractionController,
 } from "./settingsGraphSubstrateCanaryPaneInteractionController";
-import {
-  resolveSettingsGraphSubstrateCanarySceneSnapshot,
-  type SettingsGraphSubstrateCanarySceneSection,
-  type SettingsGraphSubstrateCanarySectionPositionOverride,
-} from "./settingsGraphSubstrateCanarySceneSnapshot";
+import { type SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import {
   createSettingsGraphSubstrateCanarySectionDragController,
   type SettingsGraphSubstrateCanarySectionDragController,
@@ -74,12 +69,7 @@ export function SettingsGraphSubstrateCanary() {
   // after backend-originated viewport writes update the rendered surface.
   const toolbarZoomViewportBaseRef = useRef<GraphViewport | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
-  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
-    null,
-  );
   const [isViewportPanning, setIsViewportPanning] = useState(false);
-  const [sectionPositionOverride, setSectionPositionOverride] =
-    useState<SettingsGraphSubstrateCanarySectionPositionOverride>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
   useTabScope({
     scopeId: "canvas",
@@ -92,11 +82,14 @@ export function SettingsGraphSubstrateCanary() {
     (state) => selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     _.isEqual,
   );
-  const canarySectionIds = useMemo(
-    () => sections.map((section) => section.sectionId),
-    [sections],
-  );
-  const observedElementSizes = useObservedSectionElementSizes(canarySectionIds);
+  const {
+    draggingSectionId,
+    sceneSnapshot,
+    sectionById,
+    sectionPositionOverride,
+    setDraggingSectionId,
+    setSectionPositionOverride,
+  } = useSettingsGraphSubstrateCanarySceneState(sections);
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
@@ -200,9 +193,6 @@ export function SettingsGraphSubstrateCanary() {
     };
   }, []);
 
-  const sectionById = useMemo(() => {
-    return new Map(sections.map((section) => [section.sectionId, section]));
-  }, [sections]);
   const sectionByIdRef = useRef(sectionById);
   sectionByIdRef.current = sectionById;
 
@@ -227,13 +217,6 @@ export function SettingsGraphSubstrateCanary() {
     );
   }, [fallbackViewport, sharedProjectViewport, sharedReactFlowViewport]);
 
-  const sceneSnapshot = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySceneSnapshot(
-      sections,
-      observedElementSizes,
-      sectionPositionOverride,
-    );
-  }, [observedElementSizes, sectionPositionOverride, sections]);
   const sceneBounds = sceneSnapshot.sceneBounds;
   const effectivePaneWidths = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
@@ -436,18 +419,6 @@ export function SettingsGraphSubstrateCanary() {
       wrapperDimensions,
     };
   }, [resolvedViewport, sceneSnapshot, wrapperDimensions]);
-
-  useEffect(() => {
-    const nodeInternals = useNodeInternals.getState().x;
-    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
-      nodeInternals,
-      sceneSnapshot,
-    );
-    if (nextNodeInternals === nodeInternals) {
-      return;
-    }
-    useNodeInternals.setState({ x: nextNodeInternals });
-  }, [sceneSnapshot]);
 
   function applyControlledViewportChange(
     buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,

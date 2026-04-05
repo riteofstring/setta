@@ -2185,6 +2185,60 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 177
+
+- Item: Move canary scene-snapshot composition and transient drag-position ownership behind a dedicated scene-state hook, then recheck the broad normalized regression lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `176` already closed the controller-boundary lane, so another controller-only extraction would have repeated the same refactor shape
+    - `SettingsGraphSubstrateCanary.tsx` still owned render-facing drag-position state, shared observed-size wiring, scene-snapshot composition, and node-internals sync inline
+    - bundling those geometry responsibilities behind one scene-state boundary is a real geometry-authority step instead of a forwarding hop
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts`
+      - owns shared observed-size wiring, transient drag-position override state, scene-snapshot composition, section lookup, and node-internals sync from the same snapshot
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+      - covers observed sizes feeding snapshot and node sync together, plus transient drag overrides updating rendered position without mutating authoritative layout position
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now consumes the scene-state hook instead of owning `draggingSectionId`, `sectionPositionOverride`, observed-size wiring, `sceneSnapshot`, and the node-sync effect inline
+  - What this slice established:
+    - `SettingsGraphSubstrateCanary.tsx` no longer directly composes the scene snapshot or mirrors it into shared node internals; those geometry responsibilities now live behind one hook boundary
+    - transient drag-position ownership now lives with the scene snapshot rather than as render-component-local state
+    - the trusted broad normalized pan+zoom title-edit lane remains green after the geometry slice:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the spec `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the refreshed run-007 surfaces
+    - the required CDP visual confirmation is also green on the same broad lane:
+      - the fresh-context sub-agent reused worktree tab `http://127.0.0.1:3076/settings` and main tab `http://127.0.0.1:3087/settings`
+      - after `All Settings` normalization and fit view, the `rotaryParamCodeObjDefault` title/body region stayed attached with no gross drift; only minor camera/oracle noise remained
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`7 files`, `31 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-007/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-007/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via the live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `1.1m`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: reused the already-live worktree/main tabs in the connected browser profile; after `All Settings` normalization and fit view, `rotaryParamCodeObjDefault` stayed visually attached with only minor camera/oracle noise
+- Lane status:
+  - the geometry-authority lane advanced in product code again without reopening controller-only churn
+  - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage only
+- Next action:
+  - deepen the same scene-state boundary by removing the canary selector's dependency on shared node-internals/temp-z reads so the snapshot owns active z-order as well as drag position and resolved size
+  - rerun the same broad normalized Playwright lane plus CDP confirmation after that next product slice
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 161
 
 - Item: Close the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane by promoting the deterministic backend/state post-move path into a trusted Playwright oracle and rechecking it through fresh-context CDP.
