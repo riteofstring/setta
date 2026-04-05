@@ -380,4 +380,59 @@ describe("top-level layout persistence", () => {
       }),
     );
   });
+
+  it("does not re-send a mixed persisted size when the current node has only one dimension", async () => {
+    const route_set_top_level_section_layout = (
+      await import("utils/generatedEndpoints")
+    ).route_set_top_level_section_layout as unknown as vi.Mock;
+
+    useProjectState.setState((state) => {
+      state.projectConfig.topLevelSections[sectionId] = {
+        x: 0,
+        y: 0,
+        zIndex: 1,
+        w: 320,
+        h: 240,
+      };
+    });
+    useNodeInternals.setState((state) => ({
+      x: new Map([
+        ...state.x,
+        [
+          sectionId,
+          {
+            ...state.x.get(sectionId)!,
+            width: 320,
+            height: null,
+          },
+        ],
+      ]),
+    }));
+
+    debounced_route_set_top_level_section_layout();
+    vi.runAllTimers();
+
+    expect(
+      useProjectState.getState().projectConfig.topLevelSections[sectionId],
+    ).toEqual({
+      x: 0,
+      y: 0,
+      zIndex: 1,
+      w: null,
+      h: null,
+    });
+    expect(route_set_top_level_section_layout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topLevelSections: expect.objectContaining({
+          [sectionId]: {
+            x: 0,
+            y: 0,
+            zIndex: 1,
+            w: null,
+            h: null,
+          },
+        }),
+      }),
+    );
+  });
 });

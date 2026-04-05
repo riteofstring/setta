@@ -1356,6 +1356,23 @@ export function getAuthoritativeTopLevelSectionNodeSize(
   };
 }
 
+export function getPersistedTopLevelSectionLayoutSize(
+  currentNode: Pick<Node, "height" | "width"> | undefined,
+) {
+  const width = currentNode?.width ?? null;
+  const height = currentNode?.height ?? null;
+  if (hasPositiveTopLevelSectionNodeSize(width, height)) {
+    return {
+      w: width,
+      h: height,
+    };
+  }
+  return {
+    w: null,
+    h: null,
+  };
+}
+
 function hasPositiveTopLevelSectionNodeSize(
   width: number | null | undefined,
   height: number | null | undefined,
@@ -1596,14 +1613,15 @@ export function createTopLevelSectionLayoutDict(
     if (c.id in sections) {
       // need this filter because some sections might be temporary
       const existing = topLevelSections[c.id];
+      const persistedSize = getPersistedTopLevelSectionLayoutSize(c);
       topLevelSections[c.id] = {
         x: c.position.x,
         y: c.position.y,
         zIndex: c.zIndex ?? existing?.zIndex ?? 0,
         // Preserve existing layouts only for sections missing from node internals.
         // Once a live node reports no size, keep that lack of authority explicit.
-        w: c.width ?? null,
-        h: c.height ?? null,
+        w: persistedSize.w,
+        h: persistedSize.h,
       };
     }
   }

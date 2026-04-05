@@ -8755,3 +8755,55 @@ LOOP_TERMINAL_MARKER: none
     - keep product work on the shell-ownership lane only if the next affordance can be verified without another hover-only proof path, or return to the first scene-owned static layer once dependency approval arrives
     - do not spend a third pass re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `222` | 2026-04-06 15:53 EDT
+  - Subtask: enforce pair-only top-level layout persistence so writer paths cannot re-store split `w/h` geometry after the reader/model started rejecting it.
+  - Why:
+    - item `221` made shared size hydration pair-only, but `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)` still wrote `w` and `h` independently from live node internals
+    - that meant a partial live measurement could recreate the same mixed persisted geometry the reader/model now correctly resolves to `null`
+    - this closes the explicit writer seam called out in the previous handoff instead of reopening oracle-only or seam-lift work
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - added `getPersistedTopLevelSectionLayoutSize(...)` so top-level layout persistence now accepts only one paired positive size or `null/null`
+      - `createTopLevelSectionLayoutDict(...)` now uses that helper instead of copying `width` and `height` independently
+    - updated `frontend/src/state/actions/sections/moveSections.ts`
+      - `updateTopLevelLayout(...)` now uses the same pair-only helper so pane moves cannot re-store a split pair
+  - Tests:
+    - updated `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - added coverage proving a node with only one dimension persists `w/h` as `null/null`
+    - updated `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+      - added coverage proving the debounced top-level layout sender no longer re-sends a mixed persisted size
+    - updated `frontend/src/state/actions/sections/moveSections.test.ts`
+      - added coverage proving pane moves clear mixed partial size instead of persisting a split pair
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair`
+    - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sections/moveSections.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/moveSections.test.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/moveSections.test.ts` -> passed (`3 files`, `16 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionInfos\\.ts|moveSections\\.ts|topLevelLayoutSnapshot\\.test\\.ts|topLevelLayoutPersistence\\.test\\.ts|moveSections\\.test\\.ts|settings-view-modes\\.spec\\.ts' || true` -> not a useful gate; output remains dominated by broad pre-existing errors in those legacy files/test scaffolds
+  - Runtime verification:
+    - first targeted live-runtime Playwright rerun on the original `3076/8076` runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-004 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair' --reporter=line --timeout=30000`
+      - result: blocked before the test body by the same headless `ensureAppReady(...)` timeout (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+    - allowed worktree recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: worktree restarted on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log, so `curl` was used to confirm `3075`
+    - retry on the recovered `3075/8075` runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair' --reporter=line --timeout=30000`
+      - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure is still harness-health noise rather than slice-specific behavior
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened `http://127.0.0.1:3075/settings`
+      - clicked `All Settings`
+      - confirmed `rotaryParamCodeObjDefault` with non-zero rect `x=60`, `y=366`, `w=1269`, `h=20`
+      - confirmed the enclosing attached substrate shell with non-zero rect `ASIDE x=0`, `y=36`, `w=1360`, `h=441`
+      - result: pass
+  - Result:
+    - the shared top-level layout writers now match the pair-only size-authority rule already enforced by the reader/model layer
+    - split persisted `w/h` pairs are no longer recreated by layout snapshots or pane moves
+    - the writer seam named in item `221` is now closed; the next real frontier is back in canary-local bounds/measurement timing
+  - Next:
+    - move to the remaining canary-local geometry timing seam, starting with `settingsGraphSubstrateCanaryBounds.ts` / related scene-bounds authority
+    - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop; the harness failure repeated before the spec body even after the one allowed restart
+LOOP_TERMINAL_MARKER: none

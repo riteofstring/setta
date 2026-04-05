@@ -1658,6 +1658,96 @@ test("settings graph substrate canary does not synthesize mixed size authority f
   }
 });
 
+test("settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialPaneState = await getLocalPaneState(page);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const targetSectionId = findSectionIdByName(
+    initialState,
+    "rotaryParamCodeObjDefault",
+  );
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => fitGraphViewportToSection(page, targetSectionId))
+      .toBe(true);
+
+    const baselineSectionSize = await getCanarySceneSectionSize(
+      page,
+      targetSectionId,
+    );
+    expect(baselineSectionSize).not.toBeNull();
+    if (!baselineSectionSize?.resolvedSize) {
+      throw new Error("Missing baseline canary scene section size.");
+    }
+
+    await setCanarySectionPartialMixedSizeState(page, targetSectionId, {
+      layoutWidth: baselineSectionSize.resolvedSize.width,
+      nodeHeight: baselineSectionSize.resolvedSize.height,
+    });
+
+    await expect
+      .poll(() => getActiveTopLevelSectionLayoutSize(page, targetSectionId))
+      .toEqual({
+        h: null,
+        w: baselineSectionSize.resolvedSize.width,
+      });
+
+    await persistActiveTopLevelLayoutSnapshot(page);
+
+    await expect
+      .poll(() => getActiveTopLevelSectionLayoutSize(page, targetSectionId))
+      .toEqual({
+        h: null,
+        w: null,
+      });
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone", async ({
   page,
 }) => {
@@ -5393,6 +5483,28 @@ async function getActiveTopLevelSectionLayout(
   }, sectionId);
 }
 
+async function getActiveTopLevelSectionLayoutSize(
+  page: Page,
+  sectionId: string,
+): Promise<{ h: number | null; w: number | null } | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const { getActiveViewModeTopLevelSections } = await import(
+      "/src/state/actions/sectionInfos"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const layout = getActiveViewModeTopLevelSections(
+      useProjectState.getState(),
+    )[targetSectionId];
+    if (!layout) {
+      return null;
+    }
+    return {
+      h: layout.h ?? null,
+      w: layout.w ?? null,
+    };
+  }, sectionId);
+}
+
 async function getCanarySceneSectionSize(
   page: Page,
   sectionId: string,
@@ -5576,6 +5688,15 @@ async function setCanarySectionPartialMixedSizeState(
       nextNodeHeight: nodeHeight,
     },
   );
+}
+
+async function persistActiveTopLevelLayoutSnapshot(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { debounced_route_set_top_level_section_layout } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    debounced_route_set_top_level_section_layout();
+  });
 }
 
 function getExpectedCanarySectionOrder(

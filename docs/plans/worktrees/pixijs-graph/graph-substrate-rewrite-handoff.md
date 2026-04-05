@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 15:35 EDT
+Last updated: 2026-04-06 15:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,60 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `222` closes the writer-side split-size persistence seam, so top-level layout snapshots and pane moves can no longer re-store a mixed partial `w/h` pair after item `221` taught the reader/model to reject those hybrids.
+  - Why this slice was needed:
+    - item `221` moved the shared reader/model to a strict pair-only size rule, but the two production writer paths named in the handoff still persisted `w` and `h` independently from live node internals
+    - that meant a partial live node measurement could recreate the exact split `layout.w` / `layout.h` state that the reader now correctly resolves to `null`
+    - this closes the specific writer seam the prior slice pointed at, rather than reopening parity or seam-lift churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production/test change:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - added `getPersistedTopLevelSectionLayoutSize(...)`, which persists either one paired positive size or `null/null`
+      - `createTopLevelSectionLayoutDict(...)` now uses that helper instead of copying `width` and `height` independently from node internals
+    - updated `frontend/src/state/actions/sections/moveSections.ts`
+      - `updateTopLevelLayout(...)` now uses the same pair-only helper, so pane moves cannot re-store a split size pair
+    - updated focused tests:
+      - `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+      - `frontend/src/state/actions/sections/moveSections.test.ts`
+      - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - What this slice established:
+    - the shared top-level layout writers now match the pair-only geometry-authority model already enforced by the reader/model layer
+    - a live node with only one dimension no longer rewrites persisted top-level layout into a split pair
+    - the specific writer seam called out in item `221` is now closed; the next geometry-authority blocker is back in canary-local bounds/measurement timing, not layout snapshot persistence
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sections/moveSections.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/moveSections.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts src/state/actions/sections/moveSections.test.ts`
+      - result: passed (`3 files`, `16 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionInfos\\.ts|moveSections\\.ts|topLevelLayoutSnapshot\\.test\\.ts|topLevelLayoutPersistence\\.test\\.ts|moveSections\\.test\\.ts|settings-view-modes\\.spec\\.ts' || true`
+      - result: not a useful green gate here; the output is still dominated by broad pre-existing errors in `sectionInfos.ts`, `moveSections.ts`, and older test scaffolding outside this slice
+    - targeted live-runtime Playwright reruns:
+      - first attempt on the original `3076/8076` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-004 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair' --reporter=line --timeout=30000`
+        - result: blocked before the test body by the same headless `ensureAppReady(...)` failure (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+      - allowed worktree recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: worktree restarted on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log, so `curl` was used to confirm `3075`
+      - retry on the recovered `3075/8075` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary top-level layout persistence clears mixed partial node size instead of storing a split pair' --reporter=line --timeout=30000`
+        - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure remains harness-health noise rather than slice-specific behavior
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, opened the recovered worktree page at `http://127.0.0.1:3075/settings`, clicked `All Settings`, and visually confirmed the live canary
+      - note: `rotaryParamCodeObjDefault` had a non-zero rect (`x=60`, `y=366`, `w=1269`, `h=20`)
+      - note: the enclosing attached substrate shell also had a non-zero rect (`ASIDE x=0`, `y=36`, `w=1360`, `h=441`), so the canary remained mounted and attached after the writer fix
+  - Lane status:
+    - this closes the explicit writer-side split-size persistence seam that item `221` left open
+    - the headless Playwright harness is still unhealthy on this worktree even after the one allowed restart, so do not spend the next iteration on another `ensureAppReady(...)` recovery loop by itself
+  - Next frontier:
+    - return to the remaining canary-local geometry timing dependency, starting with `settingsGraphSubstrateCanaryBounds.ts` / related scene-bounds authority, because the layout snapshot writer seam is now closed
+    - if a future slice still needs live Playwright, treat stale runtime-log frontend ports as oracle noise and do only one bounded runtime recovery before moving back to product work
 
 - Ralph item `221` makes shared top-level size hydration pair-only, so the canary/shared reader can no longer fabricate a "valid" section size by mixing one dimension from persisted layout and the other from live node state.
   - Why this slice was needed:

@@ -421,6 +421,48 @@ describe("moveSectionsWithBackend", () => {
     });
   });
 
+  it("clears mixed partial size when moving an existing top-level node in the pane", () => {
+    seedExistingTopLevelCodeSection({
+      layout: { x: 10, y: 20, zIndex: 1, w: 320, h: 240 },
+      node: {
+        position: { x: 10, y: 20 },
+        width: 552,
+        height: null,
+        zIndex: 7,
+        tempZIndex: 7,
+      },
+    });
+
+    moveSectionsWithBackend({
+      sectionIds: [codeSectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [codeSectionId]: { x: 60, y: 80 },
+      },
+    });
+
+    const state = useProjectState.getState();
+    expect(state.projectConfig.topLevelSections[codeSectionId]).toEqual({
+      x: 60,
+      y: 80,
+      zIndex: 7,
+      w: null,
+      h: null,
+    });
+    expect(
+      state.projectConfig.viewModes[viewModeId]?.topLevelSections?.[
+        codeSectionId
+      ],
+    ).toEqual({
+      x: 60,
+      y: 80,
+      zIndex: 7,
+      w: null,
+      h: null,
+    });
+  });
+
   it("does not move attached terminals as top-level nodes", () => {
     const codeCore: Core = {
       id: codeSectionId,

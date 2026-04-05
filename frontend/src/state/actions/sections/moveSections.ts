@@ -14,6 +14,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  getPersistedTopLevelSectionLayoutSize,
   isBaseCodeSectionType,
   setCurrEffectiveSectionImplValue,
   setSectionChildren,
@@ -284,12 +285,13 @@ function updateTopLevelLayout(
 ) {
   const existing = state.projectConfig.topLevelSections[sectionId];
   const node = useNodeInternals.getState().x.get(sectionId);
+  const persistedSize = getPersistedTopLevelSectionLayoutSize(node);
   const nextLayout = {
     x: position.x,
     y: position.y,
     zIndex: zIndex ?? existing?.zIndex ?? 0,
-    w: node?.width ?? null,
-    h: node?.height ?? null,
+    w: persistedSize.w,
+    h: persistedSize.h,
   };
   state.projectConfig.topLevelSections[sectionId] = nextLayout;
   const { activeViewModeId, viewModes } = state.projectConfig;

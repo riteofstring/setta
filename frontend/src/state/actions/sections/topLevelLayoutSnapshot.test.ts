@@ -105,4 +105,46 @@ describe("top-level layout snapshots", () => {
     });
     expect(snapshot[sectionB]).toEqual(existingLayouts[sectionB]);
   });
+
+  it("clears mixed partial size when a current node reports only one dimension", () => {
+    const sectionA = "section-a";
+    const sections = {
+      [sectionA]: createCore({
+        id: sectionA,
+        name: "Chat",
+        variants: ["variant-a"],
+        defaultVariant: "variant-a",
+      }),
+    };
+    const existingLayouts = {
+      [sectionA]: { x: 0, y: 0, zIndex: 0, w: 320, h: 240 },
+    };
+    const nodeInternals = new Map<string, Node>([
+      [
+        sectionA,
+        {
+          id: sectionA,
+          position: { x: 10, y: 20 },
+          width: 240,
+          height: null,
+          zIndex: 5,
+          tempZIndex: 5,
+        },
+      ],
+    ]);
+
+    const snapshot = createTopLevelSectionLayoutDict(
+      sections,
+      nodeInternals,
+      existingLayouts,
+    );
+
+    expect(snapshot[sectionA]).toEqual({
+      x: 10,
+      y: 20,
+      zIndex: 5,
+      w: null,
+      h: null,
+    });
+  });
 });
