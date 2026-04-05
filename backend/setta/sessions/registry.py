@@ -279,70 +279,113 @@ class SessionRegistry:
     def _read_metadata_path(
         self, path: Path, *, prune_invalid: bool
     ) -> SessionMetadata | None:
-        raw_text: str
+        raw_text = self._read_metadata_text(path)
+        if raw_text is None:
+            return None
+        raw = self._parse_metadata_text(
+            path,
+            raw_text,
+            prune_invalid=prune_invalid,
+        )
+        if raw is None:
+            return None
+        metadata = self._validate_metadata(
+            path,
+            raw,
+            prune_invalid=prune_invalid,
+        )
+        if metadata is None:
+            return None
+        if self._has_absolute_secret_path(metadata):
+            return metadata
+        self._handle_invalid_secret_path(path, metadata, prune_invalid=prune_invalid)
+        return None
+
+    def _read_metadata_text(self, path: Path) -> str | None:
         try:
-            raw_text = path.read_text(encoding="utf-8")
+            return path.read_text(encoding="utf-8")
         except OSError:
-            if self._is_recently_modified(path, seconds=2.0):
-                logger.debug(
-                    "Failed to read session metadata at %s (transient).",
-                    path,
-                    exc_info=True,
-                )
-            else:
-                logger.warning(
-                    "Failed to read session metadata at %s; skipping.",
-                    path,
-                    exc_info=True,
-                )
+            self._log_metadata_read_failure(path)
             return None
 
-        raw: dict
+    def _parse_metadata_text(
+        self, path: Path, raw_text: str, *, prune_invalid: bool
+    ) -> dict | None:
         try:
-            raw = json.loads(raw_text)
+            return json.loads(raw_text)
         except json.JSONDecodeError:
-            if self._is_recently_modified(path, seconds=2.0):
-                logger.debug(
-                    "Failed to parse session metadata JSON at %s (transient).",
-                    path,
-                    exc_info=True,
-                )
-            else:
-                if prune_invalid:
-                    self._prune_invalid_session_dir(path, reason="invalid session.json")
-                else:
-                    logger.warning(
-                        "Failed to parse session metadata JSON at %s; skipping.",
-                        path,
-                        exc_info=True,
-                    )
+            self._handle_invalid_metadata_json(path, prune_invalid=prune_invalid)
             return None
+
+    def _validate_metadata(
+        self, path: Path, raw: dict, *, prune_invalid: bool
+    ) -> SessionMetadata | None:
         try:
-            metadata = SessionMetadata.model_validate(raw)
+            return SessionMetadata.model_validate(raw)
         except ValidationError:
-            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
-                self._prune_invalid_session_dir(path, reason="invalid metadata schema")
-            else:
-                logger.warning(
-                    "Invalid session metadata at %s; skipping.",
-                    path,
-                    exc_info=True,
-                )
+            self._handle_invalid_metadata_schema(path, prune_invalid=prune_invalid)
             return None
-        secret_path = Path(metadata.secretPath)
-        if not secret_path.is_absolute():
-            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
-                self._prune_invalid_session_dir(
-                    path, reason="secretPath must be absolute"
-                )
-            else:
-                logger.warning(
-                    "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
-                    metadata.id,
-                    path,
-                )
-            return None
-        return metadata
+
+    def _is_transient_metadata_path(self, path: Path) -> bool:
+        return self._is_recently_modified(path, seconds=2.0)
+
+    def _log_metadata_read_failure(self, path: Path) -> None:
+        if self._is_transient_metadata_path(path):
+            logger.debug(
+                "Failed to read session metadata at %s (transient).",
+                path,
+                exc_info=True,
+            )
+            return
+        logger.warning(
+            "Failed to read session metadata at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _handle_invalid_metadata_json(self, path: Path, *, prune_invalid: bool) -> None:
+        if self._is_transient_metadata_path(path):
+            logger.debug(
+                "Failed to parse session metadata JSON at %s (transient).",
+                path,
+                exc_info=True,
+            )
+            return
+        if prune_invalid:
+            self._prune_invalid_session_dir(path, reason="invalid session.json")
+            return
+        logger.warning(
+            "Failed to parse session metadata JSON at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _handle_invalid_metadata_schema(
+        self, path: Path, *, prune_invalid: bool
+    ) -> None:
+        if prune_invalid and not self._is_transient_metadata_path(path):
+            self._prune_invalid_session_dir(path, reason="invalid metadata schema")
+            return
+        logger.warning(
+            "Invalid session metadata at %s; skipping.",
+            path,
+            exc_info=True,
+        )
+
+    def _has_absolute_secret_path(self, metadata: SessionMetadata) -> bool:
+        return Path(metadata.secretPath).is_absolute()
+
+    def _handle_invalid_secret_path(
+        self, path: Path, metadata: SessionMetadata, *, prune_invalid: bool
+    ) -> None:
+        if prune_invalid and not self._is_transient_metadata_path(path):
+            self._prune_invalid_session_dir(path, reason="secretPath must be absolute")
+            return
+        logger.warning(
+            "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
+            metadata.id,
+            path,
+        )
 
     def _is_session_stale(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:
