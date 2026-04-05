@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 17:22 EDT
+Last updated: 2026-04-07 17:40 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,9 +62,10 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification blocker:
-  - item `281` landed the next sync-fan-out reduction slice in code, but the fresh live worktree runtime is currently `worktree_unhealthy`
-  - after one bounded `aireset` recovery, direct live Playwright on `http://127.0.0.1:3075/settings` timed out waiting for `[data-testid="graph-substrate-canary"]`, and two fresh-context CDP checks could not confirm a populated `rotaryParamCodeObjDefault` body
-  - do not continue default product slices until the live `All Settings` canary mounts again on the restarted worktree runtime
+  - item `281` is no longer blocked on a live canary mount failure: after one bounded `aireset` recovery, the canonical `rotaryParamCodeObjDefault` Playwright lane passed again on the restarted runtime at `http://127.0.0.1:3075/settings`
+  - the concrete blocker was stale runtime metadata, not a fresh renderer regression: [`scripts/dev-runtime-info.sh`](/Users/jeff/Documents/_projects/setta.pixijs-graph/scripts/dev-runtime-info.sh) used to combine the current backend/session from `setta status` with a frontend URL from an unrelated older lifecycle log block
+  - the helper now reports `frontendUrl` only when the provided runtime log matches the current Setta session; on stale log paths it returns `null` instead of an incorrect old frontend URL
+  - fresh-context CDP remained transport-flaky during manual restart follow-up, so treat those timeouts as tooling noise unless a fresh loop lifecycle reproduces them on the same healthy Playwright lane
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -90,25 +91,25 @@ This section overrides older "next frontier" notes below when choosing the next 
   - the combined viewport-visible plus screen-space mount gate proves the canary can eliminate wide-view DOM body ownership without blanking the focused section body or reopening the motion lane
   - the normalized motion lane on `rotaryParamCodeObjDefault` is now clean enough to treat as regression coverage rather than as an open blocker
   - item `281` confirms semantically identical rerenders were still paying extra scene-sync fan-out in the seeded probe
-  - the immediate next iteration should resolve why the fresh live worktree no longer mounts the canary before trusting additional product measurements from that runtime
+  - with the stale-runtime-info blocker fixed and the restarted live Playwright lane green again, the immediate next iteration should return to product work on remaining redraw invalidation, especially the full drawable clear/redraw path in the Pixi shell layer
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- recover or narrow the restarted live worktree runtime until the `All Settings` canary mounts again on `http://127.0.0.1:3075/settings`, then rerun the existing canonical `rotaryParamCodeObjDefault` verification lane
+- land one bounded production slice that reduces unnecessary full drawable redraw or Pixi shell invalidation on the recovered `All Settings` canary without regressing the existing canonical `rotaryParamCodeObjDefault` lane
 
 Recommended product target:
 
-- first classify the live runtime as a real renderer regression versus a post-`aireset` session/bootstrap health issue
+- keep item `281` as the landed scene-sync reduction slice and use the recovered live runtime only as confirmation, not as an open blocker lane
+- target the next measurable cost in [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx), where the shell layer still clears and redraws the full drawable list per sync
 - reuse the same canonical target and existing normalized probe; do not open a new section-specific lane
-- once the live canary is healthy again, keep item `281` as the landed sync-fan-out slice and only then continue with the next redraw-invalidations frontier
 
 Recommended deliverables for the next iteration:
 
-- one explicit health classification for the fresh worktree runtime (`worktree_unhealthy` versus recovered)
-- one successful rerun of the existing live canonical probe, or a narrowed diagnosis of why `graph-substrate-canary` never mounts after `aireset`
-- one bounded CDP follow-up only after the live canary is mounted again
+- one bounded production code slice that measurably reduces Pixi shell redraw work on the normalized `All Settings` canary
+- one successful rerun of the existing canonical `rotaryParamCodeObjDefault` probe on the recovered live runtime
+- one bounded CDP follow-up only if the DevTools transport is healthy in that fresh loop session
 
 Recommended canonical target:
 
@@ -122,10 +123,42 @@ Do not use the next iteration for:
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless a live regression now contradicts item `280`
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
 - another shell-only visual contract slice
-- another sync/redraw product slice before the restarted live runtime is healthy again
+- more runtime-log hygiene unless a fresh lifecycle pass shows the new session-aware helper is still insufficient
 - another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
 
 ## Current status
+
+- Ralph item `282` fixed the stale runtime-info path that was misclassifying the restarted worktree as unhealthy, and then reran the canonical `rotaryParamCodeObjDefault` Playwright lane successfully on the recovered `3075/8075` runtime.
+
+  - Why this pass completed:
+    - item `281` explicitly handed the next pass to live-runtime recovery before any more redraw-invalidations work
+    - the concrete blocker turned out to be tooling drift, not another renderer regression: the helper mixed a fresh `setta status` backend/session with a stale frontend URL from the old loop lifecycle log
+    - the same canonical `All Settings` probe passed again on the restarted runtime once the fresh token and actual restarted frontend/backend pair were used
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new section-specific parity lane; it recovered the existing live lane and fixed the helper that feeds future runtime values into the loop
+  - Product/test change:
+    - updated [`scripts/dev-runtime-info.sh`](/Users/jeff/Documents/_projects/setta.pixijs-graph/scripts/dev-runtime-info.sh) so `frontendUrl` is now derived only from the runtime-log block that matches the current Setta session (or current backend when no session id is available), which prevents stale loop lifecycle logs from returning the wrong frontend URL after a manual restart
+    - added [`tests/start/test_dev_runtime_info.py`](/Users/jeff/Documents/_projects/setta.pixijs-graph/tests/start/test_dev_runtime_info.py) to cover both the stale-log mismatch case and the multi-restart current-session case
+  - Verification:
+    - `source activate.sh && pytest tests/start/test_dev_runtime_info.py -q` -> passed (`2 passed`)
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-016/worktree-ai.log` -> passed; current backend/session stayed at `http://127.0.0.1:8075` while stale `frontendUrl` was suppressed to `null` instead of the old `3076` value
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000` -> passed (`1 passed`, `53.7s`)
+    - Live Playwright snapshots on the recovered runtime:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - CDP follow-up:
+      - fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - pre-restart CDP confirmed the canary modules loaded but timed out before yielding a trustworthy rendered `All Settings` view
+      - post-restart bounded CDP retry on `http://127.0.0.1:3075/settings` still failed at the transport layer: `list_pages` never returned within `120s`, so the visual check could not complete
+      - final classification for this slice: treat CDP failures here as tooling noise, not as evidence that the recovered live canary is unhealthy
+  - Lane status:
+    - the live `All Settings` canary is recovered on the canonical Playwright lane, so item `281` should no longer block redraw-invalidations work
+    - the session-aware runtime-info helper now prevents stale lifecycle logs from feeding the wrong frontend URL into future loop iterations
+    - the next iteration should return to the product frontier and reduce unnecessary Pixi shell redraw work instead of reopening live-runtime recovery by default
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `281` stabilized the canary scene snapshot and skipped no-op scene-store writes for semantically identical rerenders, which dropped the seeded normalized `All Settings` lane from `4` scene syncs to `2` without changing mounted bodies or Pixi drawable counts.
 

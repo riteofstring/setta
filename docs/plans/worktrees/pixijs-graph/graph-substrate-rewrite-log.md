@@ -10744,3 +10744,34 @@ LOOP_TERMINAL_MARKER: none
     - recover or narrow why the restarted live worktree no longer mounts `graph-substrate-canary` on `All Settings`
     - rerun the existing live canonical probe on `rotaryParamCodeObjDefault` before continuing with more redraw-invalidation work
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 17:40 EDT, Ralph item `282`
+  - Summary: fixed the stale runtime-info helper that was mixing an old frontend URL with the current backend/session after manual restarts, then reran the canonical `rotaryParamCodeObjDefault` Playwright lane successfully on the recovered `3075/8075` runtime.
+  - Files:
+    - `scripts/dev-runtime-info.sh`
+    - `tests/start/test_dev_runtime_info.py`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass did not open a new section-specific parity lane; it recovered the existing live lane and fixed the helper that feeds future runtime values into the loop
+  - Verification:
+    - `source activate.sh && pytest tests/start/test_dev_runtime_info.py -q` -> passed (`2 passed`)
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-016/worktree-ai.log` -> passed; returned current backend/session at `http://127.0.0.1:8075` while suppressing stale `frontendUrl` to `null`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000` -> passed (`1 passed`, `53.7s`)
+    - Playwright snapshots from the recovered runtime:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - fresh-context CDP sub-agents -> read `docs/guides/browser-mcp-quickstart.md`, but CDP remained tool-limited in this pass:
+      - pre-restart check on `http://127.0.0.1:3076/settings` loaded the canary modules but timed out before a trustworthy rendered `All Settings` snapshot
+      - post-restart check on `http://127.0.0.1:3075/settings` failed at the transport layer because `list_pages` never returned within `120s`
+  - Result:
+    - the earlier `worktree_unhealthy` classification from item `281` is cleared for the canonical Playwright lane on the recovered runtime
+    - future loop iterations will no longer receive a stale frontend URL from `dev-runtime-info.sh` when the provided lifecycle log does not match the current Setta session
+    - CDP remains transport-flaky on manual restarts in this pass, but that is tooling noise rather than evidence of a fresh canary regression
+  - Next:
+    - return to the product frontier and land one bounded Pixi shell redraw-invalidations slice on the existing `rotaryParamCodeObjDefault` lane
+    - only revisit runtime-info or CDP recovery if a fresh loop lifecycle still reproduces stale runtime metadata or transport timeouts on the same healthy Playwright lane
+  - LOOP_TERMINAL_MARKER: none

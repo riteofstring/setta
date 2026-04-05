@@ -137,12 +137,10 @@ if [[ "${STATUS_PAYLOAD}" != __SETTA_JSON_B64__* ]]; then
 fi
 
 CDP_PORT_JSON="$("${SCRIPT_DIR}/cdp-port.sh" --workspace "${WORKTREE_ROOT}" --json)"
-FRONTEND_URL="$(extract_frontend_url_from_log "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
 LOG_BACKEND_URL="$(extract_backend_url_from_log "${RUNTIME_LOG_PATH}" 2>/dev/null || true)"
 
 SETTA_STATUS_PAYLOAD="${STATUS_PAYLOAD}" \
 CDP_PORT_JSON="${CDP_PORT_JSON}" \
-FRONTEND_URL="${FRONTEND_URL}" \
 LOG_BACKEND_URL="${LOG_BACKEND_URL}" \
 RUNTIME_LOG_PATH="${RUNTIME_LOG_PATH}" \
 WORKTREE_ROOT="${WORKTREE_ROOT}" \
@@ -150,7 +148,49 @@ python - <<'PY'
 import base64
 import json
 import os
+import re
 import sys
+from pathlib import Path
+
+
+LOCAL_URL_RE = re.compile(r"Local:\s*(http://\S+)")
+READY_URL_RE = re.compile(r"Ready:\s*(http://\S+)")
+SESSION_ID_RE = re.compile(r"Setta running \(session ([^)]+)\)")
+
+
+def frontend_url_for_current_runtime(
+    log_path: str | None,
+    session_id: str | None,
+    backend_url: str | None,
+) -> tuple[str | None, str | None]:
+    if not log_path:
+        return None, None
+
+    try:
+        log_lines = Path(log_path).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None, None
+
+    current_frontend_url: str | None = None
+    for line in log_lines:
+        local_match = LOCAL_URL_RE.search(line)
+        if local_match:
+            current_frontend_url = local_match.group(1)
+
+        session_match = SESSION_ID_RE.search(line)
+        if session_id and session_match and session_match.group(1) == session_id:
+            return current_frontend_url, "runtime_log_current_session"
+
+        ready_match = READY_URL_RE.search(line)
+        if (
+            not session_id
+            and backend_url
+            and ready_match
+            and ready_match.group(1) == backend_url
+        ):
+            return current_frontend_url, "runtime_log_current_backend"
+
+    return None, None
 
 status_payload = os.environ["SETTA_STATUS_PAYLOAD"]
 cdp_payload = json.loads(os.environ["CDP_PORT_JSON"])
@@ -165,14 +205,18 @@ if host and port:
 if not backend_url:
     backend_url = os.environ.get("LOG_BACKEND_URL") or None
 
+frontend_url, frontend_url_source = frontend_url_for_current_runtime(
+    os.environ.get("RUNTIME_LOG_PATH") or None,
+    session.get("id"),
+    backend_url,
+)
+
 print(
     json.dumps(
         {
             "workspaceRoot": os.environ["WORKTREE_ROOT"],
-            "frontendUrl": os.environ.get("FRONTEND_URL") or None,
-            "frontendUrlSource": "runtime_log"
-            if os.environ.get("FRONTEND_URL")
-            else None,
+            "frontendUrl": frontend_url,
+            "frontendUrlSource": frontend_url_source,
             "backendUrl": backend_url,
             "backendUrlSource": "setta_status" if host and port else "runtime_log",
             "bootstrapUrl": status.get("bootstrapUrlFragment")
