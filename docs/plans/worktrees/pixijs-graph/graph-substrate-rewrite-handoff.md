@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 00:54 EDT
+Last updated: 2026-04-06 01:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,67 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `217` moves outer shell border/frame-tone ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns the visible card frame while the DOM body keeps only a transparent border for box-model stability.
+  - Why this slice was needed:
+    - item `216` already moved active outline ownership to the shell boundary, and the next smallest real shell-only affordance was the outer border/frame tone rather than another support-only parity pass
+    - simply deleting the DOM shell border risked geometry drift, so this slice preserves the DOM shell border width as transparent while the shell renders the visible frame tone
+    - this keeps product work on the shell-ownership lane without reopening broad DOM chrome extraction or parity-only churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` compare target for broad graph-surface checks on this shell-ownership lane
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx`
+      - renders the canary shell-owned border/frame tone from the shared chrome frame-structure contract
+      - reuses section-style theme vars so shell-owned frame tone stays aligned with themed sections too
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now renders the shell-owned border layer ahead of the existing shell-owned outline layer
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - passes `forceTransparentBorder={true}` so the DOM body keeps border width without drawing a duplicate visible tone
+    - updated `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - threads `forceTransparentBorder` through the normal top-level section path and the joined terminal-group path
+      - updates the memo comparator so the new prop is not ignored at the boundary
+    - updated `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - threads `forceTransparentBorder` into the shared shell class-name resolver
+      - tightens the memo comparator so shell-affordance props are compared explicitly
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `getSectionChromeStaticShellBorderClassName(...)` for renderer-neutral shell-owned border tone mapping
+      - added `forceTransparentBorder` handling so the DOM shell can preserve layout without owning the visible tone
+    - updated focused tests:
+      - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - What this slice established:
+    - the canary shell boundary now owns both the active outline and the outer shell border/frame tone
+    - the DOM body still preserves its border width, so the section box model stays stable while the visible border tone no longer duplicates under the shell
+    - the worktree canary shows one visible outer shell border/frame tone instead of a duplicate shell/body border stack
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`2 files`, `19 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SectionContainer(Core)?\\.tsx|sectionChrome(\\.test)?\\.ts|settingsGraphSubstrateCanary(DomSectionBody|SectionBorder|SectionShell|SectionsLayer)(\\.test)?\\.tsx|settings-view-modes\\.spec\\.ts" || true`
+      - result: no matches
+    - bounded worktree self-recovery for CDP/bootstrap:
+      - initial fresh-context CDP compare on the stale `3076/8076` runtime hit a rejected worktree bootstrap token, so the loop used its one allowed lifecycle retry
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: worktree restarted cleanly with session `d9e74d`, backend `8075`, fresh bootstrap url, and debug port `9297`; `curl`/`lsof` confirmed the relaunched frontend on `3075`
+    - targeted live-runtime Playwright rerun after self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<run-002-recovery worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone' --reporter=line`
+      - result: passed (`1 passed`, `43.7s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md` and compared `/settings` at worktree `3075` and read-only `main` `3087`
+      - note: both sides reached mounted settings surfaces, `All Settings` was visible, and the worktree showed the same shell framing pattern with one outer shell-owned border/frame tone and no obvious duplicate border tone
+      - caveat: this was a screenshot-level active-viewport comparison, not a pixel diff or offscreen-section audit
+  - Lane status:
+    - this closes the outer shell border/frame-tone slice at the canary shell boundary
+    - do not reopen stale `3076/8076` bootstrap noise from this pass; use the refreshed runtime or a fresh next-iteration bootstrap instead
+  - Next frontier:
+    - keep product work on the same shell-ownership lane by moving the next smallest shell-only affordance, preferably the top drag handle at `SettingsGraphSubstrateCanarySectionShell`, while DOM bodies stay DOM-backed
+    - if that top-handle move proves too coupled for one slice, choose one other single shell-only chrome affordance rather than reopening parity/support work
 
 - Ralph item `216` moves active-outline ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns one real visible shell affordance beyond the substrate-owned background while the DOM body suppresses the duplicate outline.
   - Why this slice was needed:

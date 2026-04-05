@@ -13,13 +13,18 @@ const { mockSectionContainer } = vi.hoisted(() => ({
     ({
       sectionId,
       forceHideOutline,
+      forceTransparentBorder,
     }: {
       sectionId: string;
       isTopLevel: boolean;
       forceHideOutline?: boolean;
+      forceTransparentBorder?: boolean;
     }) => (
       <div
         data-force-hide-outline={forceHideOutline ? "true" : "false"}
+        data-force-transparent-border={
+          forceTransparentBorder ? "true" : "false"
+        }
         data-testid={`section-content-${sectionId}`}
       >
         {sectionId}
@@ -202,6 +207,28 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(outline?.className).toContain("outline-blue-600");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceHideOutline: true,
+      sectionId: "section-a",
+    });
+  });
+
+  it("renders the shell-owned border while keeping the DOM shell border transparent", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[createSceneSection()]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    const border = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section-border"]',
+    );
+    expect(border?.dataset.borderTone).toBe("default");
+    expect(border?.className).toContain("border-white");
+    expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      forceTransparentBorder: true,
       sectionId: "section-a",
     });
   });

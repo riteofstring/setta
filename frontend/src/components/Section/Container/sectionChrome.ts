@@ -8,6 +8,7 @@ type SectionContainerShellClassNameOptions = {
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
   forceHideOutline?: boolean;
+  forceTransparentBorder?: boolean;
   hideBorder?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
   isJoinedAttachedTerminalChild?: boolean;
@@ -178,6 +179,26 @@ export function getSectionChromeStaticOutlineClassName({
   return isSectionChromeOutlineToneActive(outlineTone)
     ? getSectionChromeOutlineClassName(outlineTone)
     : "outline-transparent";
+}
+
+export function getSectionChromeStaticShellBorderClassName({
+  shellBorderTone,
+  hasSectionStyleTheme,
+}: {
+  shellBorderTone: SectionChromeShellBorderTone;
+  hasSectionStyleTheme: boolean;
+}) {
+  if (shellBorderTone === "transparent") {
+    return "border-transparent dark:border-transparent";
+  }
+
+  if (hasSectionStyleTheme) {
+    return "border-[color:var(--setta-section-style-border)]";
+  }
+
+  return shellBorderTone === "locked"
+    ? "border-setta-400/90 dark:border-setta-800"
+    : "border-white dark:border-setta-700";
 }
 
 function getSectionChromeScopeHighlightClassName(
@@ -433,6 +454,7 @@ export function getSectionContainerShellClassName({
   hasSectionStyleTheme,
   positionAndSizeLocked,
   forceHideOutline = false,
+  forceTransparentBorder = false,
   hideBorder = false,
   joinedCorners = "none",
   isJoinedAttachedTerminalChild = false,
@@ -450,7 +472,7 @@ export function getSectionContainerShellClassName({
     hideFrameBorder: false,
   });
   const sectionStyleChromeClassName = hasSectionStyleTheme
-    ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
+    ? "!bg-[color:var(--setta-section-style-bg)]"
     : "";
   const sectionStyleOutlineClassName = hasSectionStyleTheme
     ? isSectionChromeOutlineToneActive(outlineTone)
@@ -477,12 +499,12 @@ export function getSectionContainerShellClassName({
     : "";
   const scopeHighlightClassName =
     getSectionChromeScopeHighlightClassName(scopeHighlight);
-  const borderColorClassName =
-    frameStructure.shellBorderTone === "transparent"
-      ? "!border-transparent dark:!border-transparent"
-      : frameStructure.shellBorderTone === "locked"
-        ? "border-setta-400/90 dark:border-setta-800"
-        : "border-white dark:border-setta-700";
+  const borderColorClassName = forceTransparentBorder
+    ? "!border-transparent dark:!border-transparent"
+    : getSectionChromeStaticShellBorderClassName({
+        shellBorderTone: frameStructure.shellBorderTone,
+        hasSectionStyleTheme,
+      });
   const borderWidthClassName = frameStructure.shellBorderVisible
     ? "border"
     : "border-0";

@@ -27,6 +27,7 @@ type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
   forceHideOutline?: boolean;
+  forceTransparentBorder?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
@@ -36,6 +37,7 @@ function _SectionContainerCore({
   sectionId,
   isUserView,
   forceHideOutline = false,
+  forceTransparentBorder = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
@@ -109,6 +111,7 @@ function _SectionContainerCore({
     hasSectionStyleTheme,
     positionAndSizeLocked,
     forceHideOutline,
+    forceTransparentBorder,
     joinedCorners,
     isJoinedAttachedTerminalChild,
     omitAgenticHandleScopeClass,
@@ -171,5 +174,13 @@ function _SectionContainerCore({
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  (previousProps, nextProps) =>
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.isUserView === nextProps.isUserView &&
+    previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
+    previousProps.hideAgenticEdgeHandles === nextProps.hideAgenticEdgeHandles &&
+    previousProps.omitAgenticHandleScopeClass ===
+      nextProps.omitAgenticHandleScopeClass &&
+    previousProps.joinedCorners === nextProps.joinedCorners,
 );

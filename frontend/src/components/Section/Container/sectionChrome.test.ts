@@ -2,6 +2,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   getSectionChromeStaticOutlineClassName,
+  getSectionChromeStaticShellBorderClassName,
   getSectionChromeSurfaceDomAdapter,
   getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
@@ -176,6 +177,27 @@ describe("sectionChrome", () => {
         hasSectionStyleTheme: false,
       }),
     ).toBe("outline-transparent");
+  });
+
+  it("maps shell border tones to shell-owned static border classes", () => {
+    expect(
+      getSectionChromeStaticShellBorderClassName({
+        shellBorderTone: "default",
+        hasSectionStyleTheme: false,
+      }),
+    ).toBe("border-white dark:border-setta-700");
+    expect(
+      getSectionChromeStaticShellBorderClassName({
+        shellBorderTone: "locked",
+        hasSectionStyleTheme: false,
+      }),
+    ).toBe("border-setta-400/90 dark:border-setta-800");
+    expect(
+      getSectionChromeStaticShellBorderClassName({
+        shellBorderTone: "default",
+        hasSectionStyleTheme: true,
+      }),
+    ).toBe("border-[color:var(--setta-section-style-border)]");
   });
 
   it("maps surface decorations to the DOM adapter props without re-deriving section state", () => {

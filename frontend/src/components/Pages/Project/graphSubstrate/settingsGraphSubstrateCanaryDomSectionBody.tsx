@@ -11,6 +11,7 @@ function _SettingsGraphSubstrateCanaryDomSectionBody({
       sectionId={sectionId}
       isTopLevel={true}
       forceHideOutline={true}
+      forceTransparentBorder={true}
     />
   );
 }

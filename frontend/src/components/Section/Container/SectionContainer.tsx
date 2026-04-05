@@ -28,11 +28,13 @@ function _SectionContainer({
   isTopLevel = false,
   dragListeners,
   forceHideOutline = false,
+  forceTransparentBorder = false,
 }: {
   sectionId: string;
   isTopLevel?: boolean;
   dragListeners?: any;
   forceHideOutline?: boolean;
+  forceTransparentBorder?: boolean;
 }) {
   const {
     visibility,
@@ -130,6 +132,7 @@ function _SectionContainer({
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
+                forceTransparentBorder={forceTransparentBorder}
                 hideAgenticEdgeHandles={true}
                 omitAgenticHandleScopeClass={true}
                 joinedCorners="code-terminal-parent"
@@ -149,6 +152,7 @@ function _SectionContainer({
                   sectionId={sectionId}
                   isUserView={isUserView}
                   forceHideOutline={forceHideOutline}
+                  forceTransparentBorder={forceTransparentBorder}
                 />
               )}
               {isCode ? (
@@ -176,5 +180,6 @@ export const SectionContainer = React.memo(
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isTopLevel === nextProps.isTopLevel &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
 );

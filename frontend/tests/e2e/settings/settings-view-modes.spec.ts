@@ -1488,6 +1488,107 @@ test("settings graph substrate canary restores the persisted shared viewport on 
   }
 });
 
+test("settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialPaneState = await getLocalPaneState(page);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const targetSectionId = findSectionIdByName(
+    initialState,
+    "rotaryParamCodeObjDefault",
+  );
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => fitGraphViewportToSection(page, targetSectionId))
+      .toBe(true);
+
+    const canarySection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+    );
+    await expect(canarySection).toBeVisible();
+
+    const shellBorder = canarySection.getByTestId(
+      "graph-substrate-canary-section-border",
+    );
+    await expect(shellBorder).toBeVisible();
+    await expect(shellBorder).toHaveAttribute("data-border-tone", "default");
+
+    const shellBorderStyle = await shellBorder.evaluate((node) => {
+      const computedStyle = window.getComputedStyle(node as HTMLElement);
+      return {
+        borderTopColor: computedStyle.borderTopColor,
+        borderTopStyle: computedStyle.borderTopStyle,
+        borderTopWidth: computedStyle.borderTopWidth,
+      };
+    });
+    expect(shellBorderStyle.borderTopWidth).not.toBe("0px");
+    expect(shellBorderStyle.borderTopStyle).not.toBe("none");
+    expect(shellBorderStyle.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(shellBorderStyle.borderTopColor).not.toBe("transparent");
+
+    const domShell = canarySection.locator(
+      `section[data-section-id="${targetSectionId}"][data-section-type]`,
+    );
+    await expect(domShell).toBeVisible();
+
+    const domShellStyle = await domShell.evaluate((node) => {
+      const computedStyle = window.getComputedStyle(node as HTMLElement);
+      return {
+        borderTopColor: computedStyle.borderTopColor,
+        borderTopWidth: computedStyle.borderTopWidth,
+      };
+    });
+    expect(domShellStyle.borderTopWidth).not.toBe("0px");
+    expect(["rgba(0, 0, 0, 0)", "transparent"]).toContain(
+      domShellStyle.borderTopColor,
+    );
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+    await setLocalPaneState(page, initialPaneState);
+  }
+});
+
 test("settings graph substrate canary does not persist a provisional initial viewport", async ({
   page,
 }) => {
