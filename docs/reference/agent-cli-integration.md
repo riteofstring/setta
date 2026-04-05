@@ -1,7 +1,7 @@
 # Agent CLI Integration (Setta)
 
 This doc describes a CLI-first workflow for agents that can run shell commands
-(Codex, Claude Code). The goal is a stable, machine-readable contract
+(Codex, Claude Code, OpenCode). The goal is a stable, machine-readable contract
 without MCP.
 
 ## Recommended flow (single command)
