@@ -280,17 +280,13 @@ func discriminatedObjectFamilyTraitDeclarations(
 			))
 		}
 		if strings.TrimSpace(trait.GuardName) != "" {
-			inputType := trait.GuardInput
-			if strings.TrimSpace(inputType) == "" {
-				inputType = baseUnionName
-			}
 			returnType := trait.UnionName
 			if strings.TrimSpace(returnType) == "" {
 				returnType = baseUnionName
 			}
 			declarations = append(declarations, typeGuardDeclaration(
 				trait.GuardName,
-				inputType,
+				baseUnionName,
 				returnType,
 				trait.SetName,
 			))
@@ -313,11 +309,9 @@ func discriminatedObjectFamilyMembers(
 		return nil, fmt.Errorf("%s does not expose frontend enum values", family.EnumType.String())
 	}
 	enumExprsByValue := make(map[string]string, len(enumValues))
-	order := make([]string, 0, len(enumValues))
 	enumTypeName := frontendBindingTypeName(family.EnumType)
 	for _, enumValue := range enumValues {
 		enumExprsByValue[enumValue.Value] = enumTypeName + "Enum." + enumValue.Name
-		order = append(order, enumValue.Value)
 	}
 
 	membersByValue := make(map[string]reflect.Type, len(enumValues))
@@ -358,15 +352,14 @@ func discriminatedObjectFamilyMembers(
 	}
 
 	members := make([]discriminatedObjectFamilyMember, 0, len(membersByValue))
-	for _, value := range order {
-		memberType, ok := membersByValue[value]
+	for _, enumValue := range enumValues {
+		memberType, ok := membersByValue[enumValue.Value]
 		if !ok {
 			continue
 		}
-		enumExpr := enumExprsByValue[value]
 		members = append(members, discriminatedObjectFamilyMember{
 			Type:     memberType,
-			EnumExpr: enumExpr,
+			EnumExpr: enumExprsByValue[enumValue.Value],
 		})
 	}
 	return members, nil

@@ -9,7 +9,6 @@ type DiscriminatedObjectTraitSpec struct {
 	Predicate   func(reflect.Type) bool
 	SetName     string
 	GuardName   string
-	GuardInput  string
 }
 
 type DiscriminatedObjectFamily struct {

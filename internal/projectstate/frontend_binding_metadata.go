@@ -36,22 +36,18 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 		},
 		Traits: []frontendbindingmeta.DiscriminatedObjectTraitSpec{
 			{
-				UnionName:   "BaseParentSectionImplUnion",
-				LocalUnion:  true,
-				IncludeBase: false,
-				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildSectionFieldsType),
-				SetName:     "BaseParentSectionImplTypeSet",
-				GuardName:   "isBaseParentSectionImpl",
-				GuardInput:  "BaseSectionImplUnion",
+				UnionName:  "BaseParentSectionImplUnion",
+				LocalUnion: true,
+				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildSectionFieldsType),
+				SetName:    "BaseParentSectionImplTypeSet",
+				GuardName:  "isBaseParentSectionImpl",
 			},
 			{
-				UnionName:   "BaseSectionWithParamsImplUnion",
-				LocalUnion:  true,
-				IncludeBase: false,
-				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingSectionWithParamsLeadingFieldsType),
-				SetName:     "BaseSectionWithParamsImplTypeSet",
-				GuardName:   "isBaseSectionWithParamsImpl",
-				GuardInput:  "BaseSectionImplUnion",
+				UnionName:  "BaseSectionWithParamsImplUnion",
+				LocalUnion: true,
+				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingSectionWithParamsLeadingFieldsType),
+				SetName:    "BaseSectionWithParamsImplTypeSet",
+				GuardName:  "isBaseSectionWithParamsImpl",
 			},
 		},
 	}
@@ -77,7 +73,6 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingBaseValueParamCodeObjImplType),
 				SetName:     "BaseChildlessCodeObjImplTypeSet",
 				GuardName:   "isBaseChildlessCodeObjImpl",
-				GuardInput:  "BaseCodeObjImplUnion",
 			},
 			{
 				UnionName:   "BaseParamCodeObjImplUnion",
@@ -86,16 +81,13 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingParamCodeObjFieldsType),
 				SetName:     "BaseParamCodeObjImplTypeSet",
 				GuardName:   "isBaseParamCodeObjImpl",
-				GuardInput:  "BaseCodeObjImplUnion",
 			},
 			{
-				UnionName:   "BaseParentCodeObjImplUnion",
-				LocalUnion:  true,
-				IncludeBase: false,
-				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildCodeObjFieldsType),
-				SetName:     "BaseParentCodeObjImplTypeSet",
-				GuardName:   "isBaseParentCodeObjImpl",
-				GuardInput:  "BaseCodeObjImplUnion",
+				UnionName:  "BaseParentCodeObjImplUnion",
+				LocalUnion: true,
+				Predicate:  frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildCodeObjFieldsType),
+				SetName:    "BaseParentCodeObjImplTypeSet",
+				GuardName:  "isBaseParentCodeObjImpl",
 			},
 		},
 	}
@@ -104,11 +96,9 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 func frontendBindingEmbedsAnonymousFieldPredicate(target reflect.Type) func(reflect.Type) bool {
 	return func(t reflect.Type) bool { return frontendBindingContractTypeEmbedsAnonymousField(t, target) }
 }
-
 func frontendBindingConcreteTypeValueWithSuffix(suffix string) func(reflect.Type) (string, bool) {
 	return func(t reflect.Type) (string, bool) { return frontendBindingNamedConcreteTypeValue(t, suffix) }
 }
-
 func frontendBindingNamedConcreteTypeValue(t reflect.Type, suffix string) (string, bool) {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
@@ -116,16 +106,14 @@ func frontendBindingNamedConcreteTypeValue(t reflect.Type, suffix string) (strin
 	if t == nil || t.Kind() != reflect.Struct {
 		return "", false
 	}
-	name := strings.TrimSpace(t.Name())
-	if !strings.HasPrefix(name, "Frontend") || strings.HasPrefix(name, "FrontendBase") {
+	name := t.Name()
+	if !strings.HasPrefix(name, "Frontend") ||
+		strings.HasPrefix(name, "FrontendBase") ||
+		!strings.HasSuffix(name, suffix) {
 		return "", false
 	}
-	name = strings.TrimPrefix(name, "Frontend")
-	if !strings.HasSuffix(name, suffix) {
-		return "", false
-	}
-	value := strings.TrimSuffix(name, suffix)
-	if strings.TrimSpace(value) == "" || strings.HasPrefix(value, "UserDefault") {
+	value := strings.TrimSuffix(strings.TrimPrefix(name, "Frontend"), suffix)
+	if value == "" || strings.HasPrefix(value, "UserDefault") {
 		return "", false
 	}
 	return value, true
