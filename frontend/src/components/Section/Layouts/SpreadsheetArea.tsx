@@ -15,8 +15,8 @@ import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { route_set_spreadsheet_file_path } from "utils/generatedEndpoints";
 import {
-  NotificationTypeEnum,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
   SpreadsheetGridDensityEnum,
 } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
@@ -140,7 +140,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
         ) {
           addTemporaryNotification(
             "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.",
-            NotificationTypeEnum.warning,
+            SettaNotificationTypeEnum.warning,
           );
           return;
         }
@@ -153,7 +153,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
       if (!isSpreadsheetPath(nativeFile.name)) {
         addTemporaryNotification(
           "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.",
-          NotificationTypeEnum.warning,
+          SettaNotificationTypeEnum.warning,
         );
         return;
       }
@@ -162,7 +162,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
         if (importResult.status !== "ok") {
           addTemporaryNotification(
             importResult.error,
-            NotificationTypeEnum.error,
+            SettaNotificationTypeEnum.error,
           );
           return;
         }

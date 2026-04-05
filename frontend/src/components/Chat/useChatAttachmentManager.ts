@@ -35,7 +35,7 @@ import {
   ArtifactTypeEnum,
   ChatFileAttachment,
   FileArtifact,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
 type UseChatAttachmentManagerArgs = {
@@ -110,7 +110,7 @@ export function useChatAttachmentManager({
   }, [initialAttachments]);
 
   const notifyAttachmentWarning = useCallback((message: string) => {
-    addTemporaryNotification(message, NotificationTypeEnum.warning);
+    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
     setAttachmentWarning(message);
     if (warningTimeoutRef.current !== null) {
       window.clearTimeout(warningTimeoutRef.current);

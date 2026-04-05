@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
-  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -26,7 +25,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { route_set_prompt_template } from "utils/generatedEndpoints";
-import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { PromptFormatEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { resolvePromptSectionSource } from "utils/promptSectionSource";
 
 type PromptViewMode = "template" | "preview";
@@ -36,7 +35,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
   const {
     projectConfigId,
     promptTemplateId,
-    sectionVariantId,
     template,
     format,
     isFrozen,
@@ -51,7 +49,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     return {
       projectConfigId: state.projectConfig.id,
       promptTemplateId: impl.promptTemplateId ?? null,
-      sectionVariantId: getCurrSectionVariantId(state, sectionId),
       template: impl.template,
       format: impl.format,
       isFrozen: impl.isFrozen,
@@ -79,7 +76,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         });
       });
     },
-    sectionVariantId,
   );
   const resolvedSource = useMemo(
     () =>
@@ -145,7 +141,8 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
-    language: resolvedSource.format === FormatEnum.Jinja ? "markdown" : null,
+    language:
+      resolvedSource.format === PromptFormatEnum.Jinja ? "markdown" : null,
     tabToAutocomplete: true,
     indentWithTab: true,
     isDisabled: isReadOnly,
