@@ -14,21 +14,25 @@ import {
   createProjectConfig,
   createSectionSize,
   createStateMachineStartSectionImpl,
+  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-vi.mock("openapi/http", async () => {
-  const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
   return {
     ...actual,
-    createStateMachineEdge: vi.fn(),
-    deleteStateMachineEdges: vi.fn(),
-    setStateMachineEdges: vi.fn(),
-    updateStateMachineEdge: vi.fn(),
+    route_create_state_machine_edge: vi.fn(),
+    route_delete_state_machine_edges: vi.fn(),
+    route_set_state_machine_edges: vi.fn(),
+    route_update_state_machine_edge: vi.fn(),
   };
 });
+
 const projectConfigId = "project-1";
 const machineGroupId = "workflow-main";
 const otherMachineGroupId = "workflow-other";
@@ -44,6 +48,7 @@ const startImplId = "impl-start";
 const gateImplId = "impl-gate";
 const chatImplId = "impl-chat";
 const endImplId = "impl-end";
+
 function createStateMachineEndImpl(id: string, machineGroup: string) {
   return {
     type: SectionTypeEnum.StateMachineEnd,
@@ -64,6 +69,7 @@ function createStateMachineEndImpl(id: string, machineGroup: string) {
     label: "End",
   };
 }
+
 function createStateMachineGateImpl(id: string, machineGroup: string) {
   return {
     type: SectionTypeEnum.StateMachineGate,
@@ -88,24 +94,29 @@ function createStateMachineGateImpl(id: string, machineGroup: string) {
     },
   };
 }
+
 function seedWorkflowSections() {
-  const startImpl = createStateMachineStartSectionImpl({
-    id: startImplId,
-    machineGroupId,
-    label: "Start",
-  });
+  const startImpl = createStateMachineStartSectionImpl(
+    {},
+    {
+      id: startImplId,
+      machineGroupId,
+      label: "Start",
+    },
+  );
   const gateImpl = createStateMachineGateImpl(gateImplId, machineGroupId);
-  const chatImpl = createChatSectionImpl({
-    ...{ chatId: "chat-a" },
-    ...{
+  const chatImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
+    {
       id: chatImplId,
       chatId: "chat-a",
       managed: true,
       engineConfigId: "engine-a",
       thinking: false,
     },
-  });
+  );
   const endImpl = createStateMachineEndImpl(endImplId, machineGroupId);
+
   const startVariant = createVariant({
     id: startVariantId,
     name: "Start Variant",
@@ -130,6 +141,7 @@ function seedWorkflowSections() {
     impl: endImplId,
     nonPresetImpls: [],
   });
+
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: projectConfigId,
@@ -181,6 +193,7 @@ function seedWorkflowSections() {
     state.previewSectionVariantMap = {};
   });
 }
+
 function createConnection(source: string, target: string): Connection {
   return {
     source,
@@ -189,6 +202,7 @@ function createConnection(source: string, target: string): Connection {
     targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
   };
 }
+
 function createSharedChatTargetConnection(
   source: string,
   target: string,
@@ -200,6 +214,7 @@ function createSharedChatTargetConnection(
     targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
   };
 }
+
 describe("state machine edge creation", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -207,20 +222,25 @@ describe("state machine edge creation", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
+
   afterEach(() => {
     resetProjectStores();
   });
+
   it("creates a start-to-chat workflow edge with a default reset action", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     createStateMachineEdgeFromConnection(
       createConnection(startSectionId, chatSectionId),
     );
+
     const edges = useProjectState.getState().projectConfig.stateMachineEdges;
     expect(edges).toHaveLength(1);
     expect(edges[0]).toEqual(
@@ -240,16 +260,19 @@ describe("state machine edge creation", () => {
         }),
       }),
     );
-    expect(createStateMachineEdge).toHaveBeenCalledTimes(1);
+    expect(route_create_state_machine_edge).toHaveBeenCalledTimes(1);
   });
+
   it("uses effective machine-group settings instead of stale raw impl values", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     useProjectState.setState((state) => {
       const startImpl = state.sectionImpls[startImplId];
       if (!startImpl || startImpl.type !== SectionTypeEnum.StateMachineStart) {
@@ -259,9 +282,11 @@ describe("state machine edge creation", () => {
       state.sections[startSectionId].sharedModifier.machineGroupId =
         machineGroupId;
     });
+
     createStateMachineEdgeFromConnection(
       createConnection(startSectionId, chatSectionId),
     );
+
     const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
     expect(edge).toEqual(
       expect.objectContaining({
@@ -270,20 +295,23 @@ describe("state machine edge creation", () => {
         targetSectionId: chatSectionId,
       }),
     );
-    expect(createStateMachineEdge).toHaveBeenCalledWith(
+    expect(route_create_state_machine_edge).toHaveBeenCalledWith(
       expect.objectContaining({
         machineGroupId,
       }),
     );
   });
+
   it("derives a unique machine group from an existing chat workflow edge", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     useProjectState.setState((state) => {
       state.projectConfig.stateMachineEdges = [
         {
@@ -315,9 +343,11 @@ describe("state machine edge creation", () => {
         },
       ];
     });
+
     createStateMachineEdgeFromConnection(
       createConnection(chatSectionId, endSectionId),
     );
+
     const edges = useProjectState.getState().projectConfig.stateMachineEdges;
     expect(edges).toHaveLength(2);
     expect(edges[1]).toEqual(
@@ -333,20 +363,26 @@ describe("state machine edge creation", () => {
       }),
     );
   });
+
   it("accepts a shared chat target handle and stores canonical workflow ports", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const connection = createSharedChatTargetConnection(
       startSectionId,
       chatSectionId,
     );
+
     expect(isValidStateMachineEdgeConnection(connection)).toBe(true);
+
     createStateMachineEdgeFromConnection(connection);
+
     const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
     expect(edge).toEqual(
       expect.objectContaining({
@@ -357,22 +393,28 @@ describe("state machine edge creation", () => {
       }),
     );
   });
+
   it("normalizes reverse drags from workflow targets back to source-to-target edges", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     const reverseConnection: Connection = {
       source: endSectionId,
       sourceHandle: STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart,
       target: startSectionId,
       targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.source,
     };
+
     expect(isValidStateMachineEdgeConnection(reverseConnection)).toBe(true);
+
     createStateMachineEdgeFromConnection(reverseConnection);
+
     const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
     expect(edge).toEqual(
       expect.objectContaining({
@@ -383,14 +425,17 @@ describe("state machine edge creation", () => {
       }),
     );
   });
+
   it("merges workflow machine groups when connecting a gate to an end node", async () => {
-    const createStateMachineEdge = (await import("openapi/http"))
-      .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
+
     useProjectState.setState((state) => {
       const gateImpl = state.sectionImpls[gateImplId];
       const endImpl = state.sectionImpls[endImplId];
@@ -425,9 +470,12 @@ describe("state machine edge creation", () => {
         },
       ];
     });
+
     const connection = createConnection(gateSectionId, endSectionId);
     expect(isValidStateMachineEdgeConnection(connection)).toBe(true);
+
     createStateMachineEdgeFromConnection(connection);
+
     const currentState = useProjectState.getState();
     expect(currentState.projectConfig.stateMachineEdges).toEqual(
       expect.arrayContaining([
@@ -447,7 +495,7 @@ describe("state machine edge creation", () => {
       type: SectionTypeEnum.StateMachineEnd,
       machineGroupId,
     });
-    expect(createStateMachineEdge).toHaveBeenCalledWith(
+    expect(route_create_state_machine_edge).toHaveBeenCalledWith(
       expect.objectContaining({
         machineGroupId,
         sourceSectionId: gateSectionId,
@@ -455,6 +503,7 @@ describe("state machine edge creation", () => {
       }),
     );
   });
+
   it("rejects non-workflow handles and unresolved chat-only machine groups", () => {
     expect(
       isValidStateMachineEdgeConnection({
@@ -464,6 +513,7 @@ describe("state machine edge creation", () => {
         targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
       }),
     ).toBe(false);
+
     expect(
       isValidStateMachineEdgeConnection(
         createConnection(chatSectionId, chatSectionId),

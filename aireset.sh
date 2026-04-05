@@ -51,6 +51,10 @@ if [[ -n "${SETTA_FILES_LOCATION_OVERRIDE}" && -z "${SETTA_FILES_ROOT_OVERRIDE}"
   unset SETTA_FILES_LOCATION
 fi
 
+# Ensure aireset is a real restart for the current worktree instead of layering
+# a fresh launch on top of an existing browser/session pair.
+"${SCRIPT_DIR}/scripts/kill-setta.sh"
+
 RESET_WORKSPACE_ARGS=(--workspace "${WORKTREE_ROOT}")
 if (( ${#RESET_ARGS[@]} > 0 )); then
   "${SCRIPT_DIR}/scripts/reset-setta-state.sh" "${RESET_WORKSPACE_ARGS[@]}" "${RESET_ARGS[@]}"

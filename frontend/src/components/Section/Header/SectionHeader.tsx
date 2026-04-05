@@ -22,14 +22,19 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
-  LSPDiagnostic,
   SectionTypeEnum,
+  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
+import {
+  getSectionChromeTitleDomAdapter,
+  resolveSectionChromeTitleDecorations,
+} from "../Container/sectionChrome";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -41,6 +46,15 @@ import { SectionTitle } from "./SectionTitle";
 import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
 import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
 
+export type SectionHeaderLayoutRenderProps = {
+  actions: React.ReactNode;
+  leadingControls: React.ReactNode;
+  title: React.ReactNode;
+};
+
+type SectionHeaderLayoutRenderer =
+  React.ComponentType<SectionHeaderLayoutRenderProps>;
+
 type SectionHeaderProps = {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -51,6 +65,7 @@ type SectionHeaderProps = {
   extraControls?: React.ReactNode;
   showSectionContainerControls?: boolean;
   trackMeasuredHeight?: boolean;
+  layoutRenderer?: SectionHeaderLayoutRenderer;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -67,6 +82,7 @@ function _SectionHeader({
   extraControls = null,
   showSectionContainerControls = true,
   trackMeasuredHeight = true,
+  layoutRenderer,
   headerProps,
 }: SectionHeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
@@ -114,12 +130,9 @@ function _SectionHeader({
     return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
   });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const showRunControls = useProjectState((state) => {
-    const capabilities = state.sectionCapabilities[sectionId];
-    return Boolean(
-      capabilities?.canRun || capabilities?.canSelectAsEntryCodeBlock,
-    );
-  });
+  const pythonCodegenEnabled = useProjectState((x) =>
+    projectConfigHasPythonCodegen(x.projectConfig),
+  );
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
@@ -177,6 +190,166 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   const headerClassName = headerProps?.className ?? "";
+  const LayoutRenderer = layoutRenderer ?? DefaultSectionHeaderLayoutDomAdapter;
+  const leadingControls = (
+    <>
+      <MenuButton
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+      {tagColor && (
+        <span
+          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+          style={{ backgroundColor: tagColor }}
+          title={`Color tag: ${tagColor}`}
+        />
+      )}
+    </>
+  );
+  const title = (
+    <MaybeCardTitle
+      sectionId={sectionId}
+      isInOtherProjectConfigs={isInOtherProjectConfigs}
+      sectionTypeName={sectionTypeName}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
+  );
+  const actions = (
+    <>
+      {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
+        <button
+          className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
+          onClick={() =>
+            void setCodeSectionDiagnosticsMuted(
+              sectionId,
+              !codeDiagnosticsMuted,
+            )
+          }
+          title={
+            codeDiagnosticsMuted ? "Unmute diagnostics" : "Mute diagnostics"
+          }
+          type="button"
+        >
+          {codeDiagnosticsMuted ? (
+            <TbBellOff className="text-[12px]" />
+          ) : (
+            <TbBell className="text-[12px]" />
+          )}
+        </button>
+      )}
+      {!isDeploymentMode && showCodeDiagnosticsPopover && (
+        <DiagnosticsPopover
+          diagnostics={codeSectionDiagnostics}
+          label={codeDiagnosticsLabel}
+          title="Problems"
+          suppressedCodes={suppressedCodes}
+          isMuted={codeDiagnosticsMuted}
+          onSetSuppressedCode={(code, suppress) => {
+            void setCodeSectionDiagnosticCodeSuppression(
+              sectionId,
+              code,
+              suppress,
+            );
+          }}
+          inlineSuppressionHint={inlineSuppressionHint}
+        />
+      )}
+      {!isDeploymentMode &&
+        sectionTypeName === SectionTypeEnum.GenPythonCode &&
+        genCodeDiagnostics.length > 0 && (
+          <DiagnosticsPopover
+            diagnostics={genCodeDiagnostics}
+            label={`Issues ${genCodeDiagnostics.length}`}
+            title="Generated code issues"
+          />
+        )}
+      {isSeriesElement && (
+        <StandardPopover
+          arrowClasses="fill-white dark:fill-setta-800"
+          contentClasses="z-20"
+          trigger={
+            <button className="nodrag flex inline-flex h-3 w-3 cursor-pointer items-center justify-center rounded-full bg-transparent px-1 py-1 text-setta-500 focus-visible:ring-2 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400">
+              <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
+            </button>
+          }
+        >
+          <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
+        </StandardPopover>
+      )}
+      {(sectionTypeName === SectionTypeEnum.Code ||
+        (pythonCodegenEnabled &&
+          sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+        <>
+          <RunButton sectionId={sectionId} />
+          <ToggleEntryCodeBlockButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+          />
+        </>
+      )}
+      {isBaseCodeSectionType(sectionTypeName) && (
+        <AttachedTerminalControls
+          sectionId={sectionId}
+          isUserView={isUserView}
+        />
+      )}
+      {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
+        <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
+      )}
+      {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
+        <button
+          aria-label={isFollowSelected ? "Stop following chat" : "Follow chat"}
+          aria-pressed={isFollowSelected}
+          className={followButtonClassName}
+          onClick={() => {
+            useAIFollow.setState((state) => {
+              const selected =
+                state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+                (state.selectedSectionIdsByProjectConfigId[projectConfigId] =
+                  []);
+              const existingIndex = selected.indexOf(sectionId);
+              if (existingIndex === -1) {
+                selected.push(sectionId);
+              } else {
+                selected.splice(existingIndex, 1);
+              }
+              if (state.mode !== "selected") {
+                state.mode = "selected";
+              }
+            });
+          }}
+          title={isFollowSelected ? "Stop following chat" : "Follow chat"}
+          type="button"
+          {...getFloatingBoxHandlers({
+            content: isFollowSelected ? "Stop following chat" : "Follow chat",
+          })}
+        >
+          <RiFocus2Line className="text-[12px]" />
+        </button>
+      )}
+      {extraControls}
+      {!isUserView && showSectionContainerControls && (
+        <LockPositionButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
+      {!isUserView && showSectionContainerControls && !isRoot && (
+        <MinimizeButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
+      {!isUserView && showSectionContainerControls && (
+        <DeleteOrHideButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
+    </>
+  );
 
   return (
     <header
@@ -192,159 +365,30 @@ function _SectionHeader({
           : headerProps?.style
       }
     >
-      <MenuButton
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        hasSectionStyleTheme={hasSectionStyleTheme}
+      <LayoutRenderer
+        actions={actions}
+        leadingControls={leadingControls}
+        title={title}
       />
-      {tagColor && (
-        <span
-          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-          style={{ backgroundColor: tagColor }}
-          title={`Color tag: ${tagColor}`}
-        />
-      )}
-      <MaybeCardTitle
-        sectionId={sectionId}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        sectionTypeName={sectionTypeName}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
-      <div className="z-10 ml-auto flex items-center">
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
-          <button
-            className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
-            onClick={() =>
-              void setCodeSectionDiagnosticsMuted(
-                sectionId,
-                !codeDiagnosticsMuted,
-              )
-            }
-            title={
-              codeDiagnosticsMuted ? "Unmute diagnostics" : "Mute diagnostics"
-            }
-            type="button"
-          >
-            {codeDiagnosticsMuted ? (
-              <TbBellOff className="text-[12px]" />
-            ) : (
-              <TbBell className="text-[12px]" />
-            )}
-          </button>
-        )}
-        {!isDeploymentMode && showCodeDiagnosticsPopover && (
-          <DiagnosticsPopover
-            diagnostics={codeSectionDiagnostics}
-            label={codeDiagnosticsLabel}
-            title="Problems"
-            suppressedCodes={suppressedCodes}
-            isMuted={codeDiagnosticsMuted}
-            onSetSuppressedCode={(code, suppress) => {
-              void setCodeSectionDiagnosticCodeSuppression(
-                sectionId,
-                code,
-                suppress,
-              );
-            }}
-            inlineSuppressionHint={inlineSuppressionHint}
-          />
-        )}
-        {!isDeploymentMode &&
-          sectionTypeName === SectionTypeEnum.GenPythonCode &&
-          genCodeDiagnostics.length > 0 && (
-            <DiagnosticsPopover
-              diagnostics={genCodeDiagnostics}
-              label={`Issues ${genCodeDiagnostics.length}`}
-              title="Generated code issues"
-            />
-          )}
-        {isSeriesElement && (
-          <StandardPopover
-            arrowClasses="fill-white dark:fill-setta-800"
-            contentClasses="z-20"
-            trigger={
-              <button className="nodrag flex inline-flex h-3 w-3 cursor-pointer items-center justify-center rounded-full bg-transparent px-1 py-1 text-setta-500 focus-visible:ring-2 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400">
-                <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
-              </button>
-            }
-          >
-            <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
-          </StandardPopover>
-        )}
-        {showRunControls && (
-          <>
-            <RunButton sectionId={sectionId} />
-            <ToggleEntryCodeBlockButton sectionId={sectionId} />
-          </>
-        )}
-        {isBaseCodeSectionType(sectionTypeName) && (
-          <AttachedTerminalControls
-            sectionId={sectionId}
-            isUserView={isUserView}
-          />
-        )}
-        {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
-          <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
-        )}
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
-          <button
-            aria-label={
-              isFollowSelected ? "Stop following chat" : "Follow chat"
-            }
-            aria-pressed={isFollowSelected}
-            className={followButtonClassName}
-            onClick={() => {
-              useAIFollow.setState((state) => {
-                const selected =
-                  state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
-                  (state.selectedSectionIdsByProjectConfigId[projectConfigId] =
-                    []);
-                const existingIndex = selected.indexOf(sectionId);
-                if (existingIndex === -1) {
-                  selected.push(sectionId);
-                } else {
-                  selected.splice(existingIndex, 1);
-                }
-                if (state.mode !== "selected") {
-                  state.mode = "selected";
-                }
-              });
-            }}
-            title={isFollowSelected ? "Stop following chat" : "Follow chat"}
-            type="button"
-            {...getFloatingBoxHandlers({
-              content: isFollowSelected ? "Stop following chat" : "Follow chat",
-            })}
-          >
-            <RiFocus2Line className="text-[12px]" />
-          </button>
-        )}
-        {extraControls}
-        {!isUserView && showSectionContainerControls && (
-          <LockPositionButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-        {!isUserView && showSectionContainerControls && !isRoot && (
-          <MinimizeButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-        {!isUserView && showSectionContainerControls && (
-          <DeleteOrHideButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-      </div>
     </header>
   );
 }
 
 export const SectionHeader = React.memo(_SectionHeader);
+
+export function DefaultSectionHeaderLayoutDomAdapter({
+  actions,
+  leadingControls,
+  title,
+}: SectionHeaderLayoutRenderProps) {
+  return (
+    <>
+      {leadingControls}
+      {title}
+      <div className="z-10 ml-auto flex items-center">{actions}</div>
+    </>
+  );
+}
 
 function DiagnosticsPopover({
   diagnostics,
@@ -355,13 +399,13 @@ function DiagnosticsPopover({
   onSetSuppressedCode,
   inlineSuppressionHint,
 }: {
-  diagnostics: Array<LSPDiagnostic>;
+  diagnostics: Array<SettaLspDiagnostic>;
   label: string;
   title: string;
-  suppressedCodes?: Array<NonNullable<LSPDiagnostic["code"]>>;
+  suppressedCodes?: Array<NonNullable<SettaLspDiagnostic["code"]>>;
   isMuted?: boolean;
   onSetSuppressedCode?: (
-    code: NonNullable<LSPDiagnostic["code"]>,
+    code: NonNullable<SettaLspDiagnostic["code"]>,
     suppress: boolean,
   ) => void;
   inlineSuppressionHint?: string | null;
@@ -373,7 +417,6 @@ function DiagnosticsPopover({
     <StandardPopover
       arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
       contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
-      repositionOnCanvasTransform
       trigger={
         <button
           className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}
@@ -442,7 +485,7 @@ function DiagnosticsPopover({
                           className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                           onClick={() =>
                             void suppressHandler?.(
-                              code as NonNullable<LSPDiagnostic["code"]>,
+                              code as NonNullable<SettaLspDiagnostic["code"]>,
                               true,
                             )
                           }
@@ -495,7 +538,7 @@ function DiagnosticsPopover({
   );
 }
 
-function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
+function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {
@@ -563,7 +606,7 @@ function MaybeCardTitle({
   ) : (
     <SectionTitle
       sectionId={sectionId}
-      titleProps={getTitleStyles({
+      titleProps={getSectionTitleProps({
         isActiveSection,
         isInOtherProjectConfigs,
         sectionTypeName,
@@ -635,7 +678,7 @@ function TextBlockCardTitle({
     !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
-        titleProps={getTitleStyles({
+        titleProps={getSectionTitleProps({
           isActiveSection,
           isInOtherProjectConfigs,
           sectionTypeName,
@@ -651,83 +694,27 @@ export function hasMarkdownHeadingText(markdown: string) {
   if (!match) {
     return false;
   }
-  return match[2].trim().length > 0;
+  const headingText = match[2];
+  return headingText !== undefined && headingText.trim().length > 0;
 }
 
-export function getTitleStyles({
+function getSectionTitleProps({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
+}: {
+  isActiveSection: boolean;
+  isInOtherProjectConfigs: boolean;
+  sectionTypeName: SectionType;
+  hasSectionStyleTheme: boolean;
 }) {
-  const editing = hasSectionStyleTheme
-    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
-    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
-
-  const notEditing = getNotEditingStyle({
-    isActiveSection,
-    isInOtherProjectConfigs,
-    sectionTypeName,
-    hasSectionStyleTheme,
-  });
-
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
-    return { fixed: notEditing };
-  }
-
-  const fixed = hasSectionStyleTheme
-    ? "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5"
-    : "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
-
-  return { editing, notEditing, fixed };
-}
-
-function getNotEditingStyle({
-  isActiveSection,
-  isInOtherProjectConfigs,
-  sectionTypeName,
-  hasSectionStyleTheme,
-}) {
-  let textColorClass = "";
-  let fontClass = "font-bold";
-
-  // Handle text color based on conditions
-  if (!hasSectionStyleTheme) {
-    if (isActiveSection) {
-      if (isInOtherProjectConfigs) {
-        textColorClass = "text-purple-800 dark:text-purple-200";
-      } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-        textColorClass = "text-green-800 dark:text-green-200";
-      } else if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-blue-400";
-      } else {
-        textColorClass = "text-blue-600 dark:text-blue-400";
-      }
-    } else {
-      if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-setta-300";
-      } else {
-        textColorClass = "text-setta-700 dark:text-setta-300";
-      }
-    }
-  }
-
-  // Handle text case for global variables
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
-    fontClass = "uppercase font-bold";
-  }
-
-  // Combine all the classes
-  const baseClasses =
-    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
-
-  return `${baseClasses} ${textColorClass} ${fontClass}`;
+  return getSectionChromeTitleDomAdapter(
+    resolveSectionChromeTitleDecorations({
+      isActiveSection,
+      isInOtherProjectConfigs,
+      sectionTypeName,
+      hasSectionStyleTheme,
+    }),
+  );
 }
