@@ -139,20 +139,27 @@ class TypeCheckingAwareNodeVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def should_traverse_python_subdir(*, base_dir: Path, dirname: str) -> bool:
+    if dirname in SKIP_DIR_NAMES:
+        return False
+    return not (base_dir / dirname / "pyvenv.cfg").is_file()
+
+
+def iter_python_filenames(*, base_dir: Path, filenames: list[str]) -> Iterator[Path]:
+    for filename in filenames:
+        if filename.endswith(".py"):
+            yield base_dir / filename
+
+
 def iter_python_files(root: Path) -> Iterator[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
         base_dir = Path(dirpath)
-        filtered_dirnames: list[str] = []
-        for dirname in dirnames:
-            if dirname in SKIP_DIR_NAMES:
-                continue
-            if (base_dir / dirname / "pyvenv.cfg").is_file():
-                continue
-            filtered_dirnames.append(dirname)
-        dirnames[:] = filtered_dirnames
-        for filename in filenames:
-            if filename.endswith(".py"):
-                yield Path(dirpath, filename)
+        dirnames[:] = [
+            dirname
+            for dirname in dirnames
+            if should_traverse_python_subdir(base_dir=base_dir, dirname=dirname)
+        ]
+        yield from iter_python_filenames(base_dir=base_dir, filenames=filenames)
 
 
 def module_name_from_path(path: Path, repo_root: Path) -> str:
@@ -249,6 +256,43 @@ class ModuleImportCollector(TypeCheckingAwareNodeVisitor):
                 )
             )
 
+    def _record_star_import(self, *, base_module: str) -> None:
+        if base_module in self._known_modules:
+            self.imported_modules.add(base_module)
+
+    def _record_submodule_import(
+        self,
+        *,
+        base_module: str,
+        alias: ast.alias,
+    ) -> bool:
+        maybe_submodule = f"{base_module}.{alias.name}"
+        if maybe_submodule not in self._known_modules:
+            return False
+        self.imported_modules.add(maybe_submodule)
+        self.import_bindings.append(
+            ImportBinding(
+                local_name=alias.asname or alias.name,
+                target_module=maybe_submodule,
+                target_name=None,
+                kind="module",
+            )
+        )
+        return True
+
+    def _record_symbol_import(self, *, base_module: str, alias: ast.alias) -> None:
+        if base_module not in self._known_modules:
+            return
+        self.imported_modules.add(base_module)
+        self.import_bindings.append(
+            ImportBinding(
+                local_name=alias.asname or alias.name,
+                target_module=base_module,
+                target_name=alias.name,
+                kind="symbol",
+            )
+        )
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         base_module = resolve_from_import(
             current_module=self._current_module,
@@ -260,31 +304,11 @@ class ModuleImportCollector(TypeCheckingAwareNodeVisitor):
             return
         for alias in node.names:
             if alias.name == "*":
-                if base_module in self._known_modules:
-                    self.imported_modules.add(base_module)
+                self._record_star_import(base_module=base_module)
                 continue
-            maybe_submodule = f"{base_module}.{alias.name}"
-            if maybe_submodule in self._known_modules:
-                self.imported_modules.add(maybe_submodule)
-                self.import_bindings.append(
-                    ImportBinding(
-                        local_name=alias.asname or alias.name,
-                        target_module=maybe_submodule,
-                        target_name=None,
-                        kind="module",
-                    )
-                )
+            if self._record_submodule_import(base_module=base_module, alias=alias):
                 continue
-            if base_module in self._known_modules:
-                self.imported_modules.add(base_module)
-                self.import_bindings.append(
-                    ImportBinding(
-                        local_name=alias.asname or alias.name,
-                        target_module=base_module,
-                        target_name=alias.name,
-                        kind="symbol",
-                    )
-                )
+            self._record_symbol_import(base_module=base_module, alias=alias)
 
 
 class ClassMemberReferenceCollector(TypeCheckingAwareNodeVisitor):
@@ -896,6 +920,36 @@ def analyze_repo(
     )
 
 
+def render_report_section(
+    *,
+    title: str,
+    items: list[object],
+    formatter,
+) -> list[str]:
+    lines = ["", title]
+    if not items:
+        lines.append("  (none)")
+        return lines
+    lines.extend(f"  - {formatter(item)}" for item in items)
+    return lines
+
+
+def format_top_level_definition(definition: TopLevelDefinition) -> str:
+    return (
+        f"{definition.module}.{definition.name} "
+        f"[{definition.kind}] "
+        f"({definition.path}:{definition.start_line})"
+    )
+
+
+def format_class_member(member: ClassMemberDefinition) -> str:
+    return (
+        f"{member.module}.{member.class_name}.{member.name} "
+        f"[{member.kind}] "
+        f"({member.path}:{member.start_line})"
+    )
+
+
 def render_text_report(report: AnalysisReport) -> str:
     lines = [
         "SDK unused-code report",
@@ -904,36 +958,28 @@ def render_text_report(report: AnalysisReport) -> str:
         f"Unreachable modules: {len(report.unreachable_modules)}",
         f"Unused top-level definitions: {len(report.unused_top_level)}",
         f"Potentially unused class members: {len(report.potential_unused_members)}",
-        "",
-        "High confidence: unreachable modules",
     ]
-    if not report.unreachable_modules:
-        lines.append("  (none)")
-    else:
-        for module_name in report.unreachable_modules:
-            lines.append(f"  - {module_name}")
-    lines.extend(["", "High confidence: unused top-level definitions"])
-    if not report.unused_top_level:
-        lines.append("  (none)")
-    else:
-        for definition in report.unused_top_level:
-            lines.append(
-                "  - "
-                f"{definition.module}.{definition.name} "
-                f"[{definition.kind}] "
-                f"({definition.path}:{definition.start_line})"
-            )
-    lines.extend(["", "Lower confidence: potentially unused class members"])
-    if not report.potential_unused_members:
-        lines.append("  (none)")
-    else:
-        for member in report.potential_unused_members:
-            lines.append(
-                "  - "
-                f"{member.module}.{member.class_name}.{member.name} "
-                f"[{member.kind}] "
-                f"({member.path}:{member.start_line})"
-            )
+    lines.extend(
+        render_report_section(
+            title="High confidence: unreachable modules",
+            items=report.unreachable_modules,
+            formatter=str,
+        )
+    )
+    lines.extend(
+        render_report_section(
+            title="High confidence: unused top-level definitions",
+            items=report.unused_top_level,
+            formatter=format_top_level_definition,
+        )
+    )
+    lines.extend(
+        render_report_section(
+            title="Lower confidence: potentially unused class members",
+            items=report.potential_unused_members,
+            formatter=format_class_member,
+        )
+    )
     return "\n".join(lines) + "\n"
 
 

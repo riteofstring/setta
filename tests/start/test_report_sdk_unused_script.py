@@ -270,3 +270,111 @@ def test_extract_exported_names_accepts_annotated_all_assignment() -> None:
     ).body[0]
 
     assert module.extract_exported_names(node) == {"Client", "Runner"}
+
+
+def test_iter_python_files_skips_cache_dirs_and_virtualenvs(tmp_path: Path) -> None:
+    module = _load_report_sdk_unused_module()
+    root = tmp_path / "backend" / "setta"
+    (root / "api").mkdir(parents=True, exist_ok=True)
+    (root / ".git").mkdir(parents=True, exist_ok=True)
+    (root / "__pycache__").mkdir(parents=True, exist_ok=True)
+    (root / "venv" / "pkg").mkdir(parents=True, exist_ok=True)
+    (root / "keep").mkdir(parents=True, exist_ok=True)
+
+    (root / "api" / "client.py").write_text("x = 1\n", encoding="utf-8")
+    (root / ".git" / "ignored.py").write_text("x = 1\n", encoding="utf-8")
+    (root / "__pycache__" / "ignored.py").write_text("x = 1\n", encoding="utf-8")
+    (root / "venv" / "pyvenv.cfg").write_text("home = /tmp\n", encoding="utf-8")
+    (root / "venv" / "pkg" / "ignored.py").write_text("x = 1\n", encoding="utf-8")
+    (root / "keep" / "live.py").write_text("x = 1\n", encoding="utf-8")
+
+    paths = sorted(path.relative_to(root) for path in module.iter_python_files(root))
+
+    assert paths == [Path("api/client.py"), Path("keep/live.py")]
+
+
+def test_import_from_records_star_submodule_and_symbol_bindings() -> None:
+    module = _load_report_sdk_unused_module()
+    collector = module.ModuleImportCollector(
+        current_module="setta.api.client",
+        current_is_package=False,
+        known_modules={"setta.pkg", "setta.pkg.helpers"},
+    )
+
+    collector.visit(
+        ast.parse(
+            "from setta.pkg import helpers as helpers_mod, symbol as alias\n"
+            "from setta.pkg import *\n"
+        )
+    )
+
+    assert collector.imported_modules == {"setta.pkg", "setta.pkg.helpers"}
+    assert [
+        (
+            binding.local_name,
+            binding.target_module,
+            binding.target_name,
+            binding.kind,
+        )
+        for binding in collector.import_bindings
+    ] == [
+        ("helpers_mod", "setta.pkg.helpers", None, "module"),
+        ("alias", "setta.pkg", "symbol", "symbol"),
+    ]
+
+
+def test_render_text_report_formats_structured_sections() -> None:
+    module = _load_report_sdk_unused_module()
+    report = module.AnalysisReport(
+        reachable_modules=["setta.api"],
+        unreachable_modules=["setta.utils.dead"],
+        unused_top_level=[
+            module.TopLevelDefinition(
+                module="setta.api.client",
+                name="_dead_helper",
+                kind="function",
+                path=Path("backend/setta/api/client.py"),
+                start_line=9,
+                end_line=10,
+            )
+        ],
+        potential_unused_members=[
+            module.ClassMemberDefinition(
+                module="setta.api.client",
+                class_name="Client",
+                name="_dead",
+                kind="method",
+                path=Path("backend/setta/api/client.py"),
+                start_line=14,
+                end_line=15,
+            )
+        ],
+    )
+
+    assert module.render_text_report(report) == (
+        "SDK unused-code report\n"
+        "\n"
+        "Reachable modules: 1\n"
+        "Unreachable modules: 1\n"
+        "Unused top-level definitions: 1\n"
+        "Potentially unused class members: 1\n"
+        "\n"
+        "High confidence: unreachable modules\n"
+        "  - setta.utils.dead\n"
+        "\n"
+        "High confidence: unused top-level definitions\n"
+        "  - setta.api.client._dead_helper [function] (backend/setta/api/client.py:9)\n"
+        "\n"
+        "Lower confidence: potentially unused class members\n"
+        "  - setta.api.client.Client._dead [method] (backend/setta/api/client.py:14)\n"
+    )
+
+
+def test_render_report_section_formats_empty_sections() -> None:
+    module = _load_report_sdk_unused_module()
+
+    assert module.render_report_section(
+        title="Example",
+        items=[],
+        formatter=str,
+    ) == ["", "Example", "  (none)"]
