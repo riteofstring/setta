@@ -5,7 +5,7 @@ import json
 import re
 import shutil
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -102,42 +102,58 @@ def redact_toml_text(content: str) -> str:
     return "\n".join(lines) + trailing_newline
 
 
+def write_sanitized_json_copy(source: Path, destination: Path) -> None:
+    payload = load_json_file(source)
+    if payload is None:
+        shutil.copy2(source, destination)
+        return
+    destination.write_text(
+        json.dumps(sanitize_value(payload), indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def iter_sanitized_jsonl_lines(source: Path) -> Iterator[str]:
+    for raw_line in source.read_text(encoding="utf-8").splitlines():
+        if not raw_line.strip():
+            continue
+        try:
+            payload = json.loads(raw_line)
+        except json.JSONDecodeError:
+            yield raw_line
+            continue
+        yield json.dumps(sanitize_value(payload), ensure_ascii=True)
+
+
+def write_sanitized_jsonl_copy(source: Path, destination: Path) -> None:
+    sanitized_lines = list(iter_sanitized_jsonl_lines(source))
+    destination.write_text(
+        "\n".join(sanitized_lines) + ("\n" if sanitized_lines else ""),
+        encoding="utf-8",
+    )
+
+
+def write_sanitized_toml_copy(source: Path, destination: Path) -> None:
+    destination.write_text(
+        redact_toml_text(source.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
+
+
+SANITIZED_COPY_WRITERS: dict[str, Callable[[Path, Path], None]] = {
+    ".json": write_sanitized_json_copy,
+    ".jsonl": write_sanitized_jsonl_copy,
+    ".toml": write_sanitized_toml_copy,
+}
+
+
 def write_sanitized_copy(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if source.suffix == ".json":
-        payload = load_json_file(source)
-        if payload is None:
-            shutil.copy2(source, destination)
-            return
-        sanitized = sanitize_value(payload)
-        destination.write_text(
-            json.dumps(sanitized, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
-        )
+    writer = SANITIZED_COPY_WRITERS.get(source.suffix)
+    if writer is None:
+        shutil.copy2(source, destination)
         return
-    if source.suffix == ".jsonl":
-        sanitized_lines: list[str] = []
-        for raw_line in source.read_text(encoding="utf-8").splitlines():
-            if not raw_line.strip():
-                continue
-            try:
-                payload = json.loads(raw_line)
-            except json.JSONDecodeError:
-                sanitized_lines.append(raw_line)
-                continue
-            sanitized_lines.append(
-                json.dumps(sanitize_value(payload), ensure_ascii=True)
-            )
-        destination.write_text(
-            "\n".join(sanitized_lines) + ("\n" if sanitized_lines else ""),
-            encoding="utf-8",
-        )
-        return
-    if source.suffix == ".toml":
-        destination.write_text(
-            redact_toml_text(source.read_text(encoding="utf-8")), encoding="utf-8"
-        )
-        return
-    shutil.copy2(source, destination)
+    writer(source, destination)
 
 
 def iter_json_object_lines(path: Path) -> Iterator[dict[str, Any]]:

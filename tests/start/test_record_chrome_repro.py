@@ -7,7 +7,9 @@ import threading
 import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import ModuleType
 
 from tests.start.dev_script_wiring_helpers import (
     parse_env_snapshot,
@@ -16,6 +18,15 @@ from tests.start.dev_script_wiring_helpers import (
     script_env,
     write_stub_executable,
 )
+
+
+def _load_collect_llm_artifacts_module() -> ModuleType:
+    script_path = repo_root() / "scripts" / "chrome_repro_collect_llm_artifacts.py"
+    spec = spec_from_file_location("chrome_repro_collect_llm_artifacts_script", script_path)
+    assert spec is not None and spec.loader is not None
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def pick_free_port() -> int:
@@ -584,6 +595,43 @@ def test_chrome_repro_collect_llm_artifacts_copies_redacted_external_agent_sessi
     assert not list(llm_artifacts_dir.rglob("shell_snapshots/*"))
     assert not list(llm_artifacts_dir.rglob("tmp/*"))
     assert not list(llm_artifacts_dir.rglob("memories/*"))
+
+
+def test_write_sanitized_copy_falls_back_to_copy_for_invalid_json(tmp_path: Path) -> None:
+    module = _load_collect_llm_artifacts_module()
+    source_path = tmp_path / "payload.json"
+    destination_path = tmp_path / "copied" / "payload.json"
+    source_path.write_text("{not valid json}\n", encoding="utf-8")
+
+    module.write_sanitized_copy(source_path, destination_path)
+
+    assert destination_path.read_text(encoding="utf-8") == "{not valid json}\n"
+
+
+def test_write_sanitized_copy_sanitizes_jsonl_lines(tmp_path: Path) -> None:
+    module = _load_collect_llm_artifacts_module()
+    source_path = tmp_path / "payload.jsonl"
+    destination_path = tmp_path / "copied" / "payload.jsonl"
+    source_path.write_text(
+        "\n".join(
+            [
+                "",
+                '{"message":"keep"}',
+                "{not valid json}",
+                '{"refresh_token":"secret"}',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    module.write_sanitized_copy(source_path, destination_path)
+
+    assert destination_path.read_text(encoding="utf-8").splitlines() == [
+        '{"message": "keep"}',
+        "{not valid json}",
+        '{"refresh_token": "<redacted>"}',
+    ]
 
 
 def test_chrome_repro_collect_llm_artifacts_merges_external_agent_run_updates(
