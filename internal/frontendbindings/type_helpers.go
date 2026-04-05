@@ -238,9 +238,77 @@ func mustTSLiteralValueFromGoValue(context string, value any) any {
 
 func mustTSLiteralObjectFromGoValue(context string, value any) map[string]any {
 	normalized := mustTSLiteralValueFromGoValue(context, value)
+	normalized = mergeTSLiteralValueFromGoValue(context, value, normalized)
 	object, ok := normalized.(map[string]any)
 	if !ok {
 		panic(context + ": Go default did not decode to an object")
+	}
+	return object
+}
+
+func mergeTSLiteralValueFromGoValue(context string, value any, normalized any) any {
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() {
+		return normalized
+	}
+	return mergeTSLiteralValueFromReflectValue(context, reflected, normalized)
+}
+
+func mergeTSLiteralValueFromReflectValue(
+	context string,
+	value reflect.Value,
+	normalized any,
+) any {
+	if !value.IsValid() {
+		return normalized
+	}
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return nil
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return normalized
+	}
+	object, ok := normalized.(map[string]any)
+	if !ok {
+		return normalized
+	}
+	return mergeTSLiteralObjectFromStructValue(context, value, object)
+}
+
+func mergeTSLiteralObjectFromStructValue(
+	context string,
+	value reflect.Value,
+	object map[string]any,
+) map[string]any {
+	valueType := value.Type()
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		field := valueType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		fieldValue := value.Field(fieldIndex)
+		if field.Anonymous {
+			merged := mergeTSLiteralValueFromReflectValue(context, fieldValue, object)
+			mergedObject, ok := merged.(map[string]any)
+			if ok {
+				object = mergedObject
+			}
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		fieldContext := context + "." + name
+		normalizedField, ok := object[name]
+		if !ok {
+			object[name] = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
+			continue
+		}
+		object[name] = mergeTSLiteralValueFromReflectValue(fieldContext, fieldValue, normalizedField)
 	}
 	return object
 }
@@ -670,7 +738,10 @@ func generatedUserDefaultReflectedProperties(
 }
 
 func generatedUserDefaultCodeParamCodeObjProperties(converter *typeConverter) ([]TypeProperty, error) {
-	defaults := projectstate.FrontendDefaultCodeParamCodeObjImpl()
+	defaults := mustTSLiteralObjectFromGoValue(
+		"frontend code param user default defaults",
+		projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+	)
 	registry, order, err := generatedUserDefaultCodeParamCodeObjPropertyRegistry(converter)
 	if err != nil {
 		return nil, err

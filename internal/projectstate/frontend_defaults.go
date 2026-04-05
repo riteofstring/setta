@@ -87,24 +87,16 @@ func FrontendDefaultDrawAreaLayerItem() DrawAreaLayerItem {
 	}
 }
 
-func FrontendDefaultLineChartSettings() map[string]any {
-	return map[string]any{
-		"type":               ChartTypeLine,
-		"xAxisColumn":        nil,
-		"secondYAxisColumns": []string{},
-		"xAxisLog":           false,
-		"y1AxisLog":          false,
-		"y2AxisLog":          false,
+func FrontendDefaultLineChartSettings() LineChartSettings {
+	return LineChartSettings{
+		Type:               ChartTypeLine,
+		SecondYAxisColumns: []string{},
 	}
 }
 
-func FrontendDefaultScatterChartSettings() map[string]any {
-	return map[string]any{
-		"type":           ChartTypeScatter,
-		"xAxisColumn":    nil,
-		"categoryColumn": nil,
-		"xAxisLog":       false,
-		"yAxisLog":       false,
+func FrontendDefaultScatterChartSettings() ScatterChartSettings {
+	return ScatterChartSettings{
+		Type: ChartTypeScatter,
 	}
 }
 
@@ -147,33 +139,53 @@ func FrontendDefaultWindowSpaceConfig() WindowSpaceConfig {
 	}
 }
 
-func FrontendDefaultClipboardProjectStateCore() map[string]any {
-	return map[string]any{
-		"sections":        map[string]any{},
-		"sectionImpls":    map[string]any{},
-		"sectionVariants": map[string]any{},
-		"codeObjs":        map[string]any{},
-		"codeObjImpls":    map[string]any{},
-		"codeObjVariants": map[string]any{},
+func FrontendDefaultClipboardProjectStateCore() ClipboardProjectStateCore {
+	return ClipboardProjectStateCore{
+		Sections:        map[string]Section{},
+		SectionImpls:    map[string]SectionImpl{},
+		SectionVariants: map[string]SectionVariant{},
+		CodeObjs:        map[string]CodeObject{},
+		CodeObjImpls:    map[string]CodeObjectImpl{},
+		CodeObjVariants: map[string]CodeObjectVariant{},
 	}
 }
 
-func FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap() map[string]any {
-	return map[string]any{
-		"core":              FrontendDefaultClipboardProjectStateCore(),
-		"sectionVariantMap": map[string]any{},
+func FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap() ClipboardProjectStateCoreWithSectionVariantMap {
+	return ClipboardProjectStateCoreWithSectionVariantMap{
+		Core:              FrontendDefaultClipboardProjectStateCore(),
+		SectionVariantMap: map[string]string{},
 	}
 }
 
-func FrontendDefaultSectionsClipboardData() map[string]any {
-	return map[string]any{
-		"type": ClipboardDataTypeSections,
-		"data": FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap(),
+func FrontendDefaultSectionsClipboardData() SectionsClipboardData {
+	return SectionsClipboardData{
+		Type: ClipboardDataTypeSections,
+		Data: FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap(),
 	}
 }
 
-func FrontendDefaultCodeParamCodeObjImpl() map[string]any {
-	return childlessParamImplBasePayload()
+func FrontendDefaultCodeParamCodeObjImpl() FrontendCodeParamCodeObjImpl {
+	return FrontendCodeParamCodeObjImpl{
+		FrontendBaseValueParamCodeObjImpl: FrontendBaseValueParamCodeObjImpl{
+			FrontendBaseParamCodeObjImpl: FrontendBaseParamCodeObjImpl{
+				FrontendBaseCodeObjImpl: FrontendBaseCodeObjImpl{
+					Type:        FrontendCodeObjTypeCodeParam,
+					ID:          "",
+					Name:        "",
+					Description: "",
+					IsPreset:    false,
+				},
+				FrontendParamCodeObjFields: FrontendParamCodeObjFields{
+					CoreNameType:     FrontendParamNameTypeText,
+					CoreNameEditable: false,
+					PassingStyle:     FrontendParameterPassingStyleDefault,
+					TypeAnnotation:   "",
+				},
+			},
+			DefaultVal: "",
+			Value:      "",
+		},
+	}
 }
 
 func FrontendDefaultSectionSize() SectionSize {
@@ -183,59 +195,39 @@ func FrontendDefaultSectionSize() SectionSize {
 	}
 }
 
-func FrontendDefaultStateMachineGateUIState() map[string]any {
-	return map[string]any{
-		"showDetails": false,
+func FrontendDefaultStateMachineGateUIState() StateMachineGateUIState {
+	return StateMachineGateUIState{}
+}
+
+func FrontendDefaultStateMachineSourceFilter() StateMachineSourceFilter {
+	return StateMachineSourceFilter{
+		Type: StateMachineSourceFilterTypeRunCompleted,
 	}
 }
 
-func FrontendDefaultStateMachineSourceFilter() map[string]any {
-	return map[string]any{
-		"type":         StateMachineSourceFilterTypeRunCompleted,
-		"signalName":   nil,
-		"payloadField": nil,
-		"equals":       nil,
+func FrontendDefaultStateMachineSourceActivationCountCondition() StateMachineSourceActivationCountCondition {
+	return StateMachineSourceActivationCountCondition{
+		Operator: StateMachineCountOperatorEQ,
+		Value:    0,
 	}
 }
 
-func FrontendDefaultStateMachineSourceActivationCountCondition() map[string]any {
-	return map[string]any{
-		"operator": StateMachineCountOperatorEQ,
-		"value":    0,
+func FrontendDefaultStateMachineTargetAction() StateMachineTargetAction {
+	return StateMachineTargetAction{
+		Type:           StateMachineTargetActionTypeSendPrompt,
+		PromptInputs:   map[string]string{},
+		ThreadStrategy: StateMachineThreadStrategyContinueCurrentThread,
 	}
 }
 
-func FrontendDefaultStateMachineTargetAction() map[string]any {
-	return map[string]any{
-		"type":             StateMachineTargetActionTypeSendPrompt,
-		"promptTemplateId": nil,
-		"promptSectionId":  nil,
-		"inlinePrompt":     nil,
-		"promptInputs":     map[string]string{},
-		"threadStrategy":   StateMachineThreadStrategyContinueCurrentThread,
-		"stopIfRunning":    false,
-		"engineConfigId":   nil,
-		"agentProfileId":   nil,
-		"permissionMode":   nil,
-		"searchEnabled":    nil,
-	}
-}
-
-func FrontendDefaultStateMachineEdge() map[string]any {
-	return map[string]any{
-		"id":                             "",
-		"machineGroupId":                 "",
-		"sourceSectionId":                "",
-		"sourcePortId":                   StateMachineEdgeSourcePortID,
-		"targetSectionId":                "",
-		"targetPortId":                   StateMachineEdgeTargetPortID,
-		"sourceFilter":                   nil,
-		"sourceActivationCountCondition": nil,
-		"targetAction":                   nil,
-		"style":                          nil,
-		"hidden":                         false,
-		"zIndex":                         0,
-		"selected":                       false,
+func FrontendDefaultStateMachineEdge() StateMachineEdge {
+	return StateMachineEdge{
+		ID:              "",
+		MachineGroupID:  "",
+		SourceSectionID: "",
+		SourcePortID:    StateMachineEdgeSourcePortID,
+		TargetSectionID: "",
+		TargetPortID:    StateMachineEdgeTargetPortID,
 	}
 }
 

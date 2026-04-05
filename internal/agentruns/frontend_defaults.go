@@ -1,9 +1,7 @@
 package agentruns
 
-func FrontendDefaultEngineConfigDefaults() map[string]any {
-	return map[string]any{
-		"thinking": nil,
-	}
+func FrontendDefaultEngineConfigDefaults() EngineConfigDefaults {
+	return EngineConfigDefaults{}
 }
 
 func FrontendDefaultRunEvent() map[string]any {
@@ -15,17 +13,17 @@ func FrontendDefaultRunEvent() map[string]any {
 	}
 }
 
-func FrontendDefaultRun() map[string]any {
-	return map[string]any{
-		"id":         "",
-		"profileId":  nil,
-		"status":     RunStatusQueued,
-		"startedAt":  nil,
-		"finishedAt": nil,
-		"inputs":     nil,
-		"outputs":    nil,
-		"toolCalls":  []map[string]any{},
-		"cost":       nil,
-		"events":     []RunEvent{},
+func FrontendDefaultRun() Run {
+	return Run{
+		ID:         "",
+		Status:     RunStatusQueued,
+		ToolCalls:  []map[string]any{},
+		Events:     []RunEvent{},
+		ProfileID:  nil,
+		StartedAt:  nil,
+		FinishedAt: nil,
+		Inputs:     nil,
+		Outputs:    nil,
+		Cost:       nil,
 	}
 }

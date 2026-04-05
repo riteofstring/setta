@@ -450,15 +450,25 @@ export function createEngineConfig(
     id: "",
     name: "",
     engineType: "setta_llm",
-    defaults: {},
+    settaLlmConfigId: null,
+    externalAgentConfigId: null,
+    defaults: {
+      thinking: null,
+    },
+    runtimeSupport: null,
   };
   return {
     ...mergeGeneratedOptions<EngineConfig>(defaults, options),
     defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
     runtimeSupport:
-      options.runtimeSupport === undefined || options.runtimeSupport === null
+      options.runtimeSupport === null
         ? null
-        : createEngineRuntimeSupport(options.runtimeSupport),
+        : (options.runtimeSupport ?? defaults.runtimeSupport) === null
+          ? null
+          : createEngineRuntimeSupport(
+              (options.runtimeSupport ??
+                defaults.runtimeSupport) as Partial<EngineRuntimeSupport>,
+            ),
   };
 }
 
@@ -2961,6 +2971,9 @@ export function createAgenticEdge(
       kind: "section_chat",
       contextMode: "reference_only",
       style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
     },
     options,
   );
@@ -4302,6 +4315,7 @@ export function createProjectConfig(
       name: "",
       showParamDisplayNames: false,
       allowJsonSourceKeyEdits: false,
+      previewImgColor: "",
       viewport: null,
       viewportInitialized: false,
       viewModes: {},
@@ -4405,6 +4419,7 @@ export function createSingleConfig(
         id: "",
         isEditingViewMode: false,
         name: "",
+        previewImgColor: "",
         runCapabilities: {
           canRunFromMain: false,
           effectiveEntrySectionId: null,
@@ -4442,6 +4457,7 @@ export function createSingleConfig(
         nextInstanceNumber: 1,
         order: [],
       },
+      artifactGroups: {},
     },
     options,
   );
@@ -4892,6 +4908,7 @@ export function createSettingsState(
       autosave: true,
       clearTerminalBeforeMarkingAsReady: true,
       completionGuardEnabled: false,
+      defaultTerminalShell: null,
       exportDbReadableOnSave: false,
       exportDbReadableWithVariantsOnSave: false,
       renameRefactorMode: "ALWAYS_ASK",
@@ -5620,6 +5637,8 @@ export function createConnection(
     {
       id: "",
       connectionType: "SERVER",
+      shareSessionId: "",
+      currentAddress: "",
     },
     options,
   );
@@ -5679,6 +5698,7 @@ export function createCurrentAddressUpdateMessage(
 ): CurrentAddressUpdateMessage {
   return mergeGeneratedOptions<CurrentAddressUpdateMessage>(
     {
+      id: null,
       messageType: "CurrentAddressUpdate",
       content: "",
     },
@@ -6749,6 +6769,7 @@ export function createProjectStateSingleConfigWithCompletedOpIDs(
   return mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
     {
       projectState: {
+        artifactGroups: {},
         codeObjImpls: {},
         codeObjVariants: {},
         codeObjs: {},
@@ -6771,6 +6792,7 @@ export function createProjectStateSingleConfigWithCompletedOpIDs(
           id: "",
           isEditingViewMode: false,
           name: "",
+          previewImgColor: "",
           runCapabilities: {
             canRunFromMain: false,
             effectiveEntrySectionId: null,

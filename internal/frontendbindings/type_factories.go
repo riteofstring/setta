@@ -131,18 +131,20 @@ func buildGenericNamedStructFieldExprTS(
 	defaultExpr string,
 	hasDefault bool,
 ) (string, bool) {
-	createFuncName, _, nullable, ok := frontendObjectCreateFunctionName(fieldType)
+	createFuncName, typeName, nullable, ok := frontendObjectCreateFunctionName(fieldType)
 	if !ok {
 		return "", false
 	}
 	if nullable {
 		if hasDefault {
+			mergedExpr := fmt.Sprintf("(%s ?? %s)", optionsExpr, defaultExpr)
 			return fmt.Sprintf(
-				"%s === null ? null : %s(%s ?? %s)",
+				"%s === null ? null : (%s === null ? null : %s(%s as Partial<%s>))",
 				optionsExpr,
+				mergedExpr,
 				createFuncName,
-				optionsExpr,
-				defaultExpr,
+				mergedExpr,
+				typeName,
 			), true
 		}
 		return fmt.Sprintf(
@@ -787,7 +789,10 @@ func generatedCodeParamCodeObjFactoryEntries(
 	}
 	return generatedOrdinaryFactoryEntries(
 		properties,
-		projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+		mustTSLiteralObjectFromGoValue(
+			"frontend code param factory defaults",
+			projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+		),
 		defaultsExpr,
 		generatedPropertyNameSet(userDefaultProperties),
 		map[string]generatedFactoryPropertyExprBuilder{

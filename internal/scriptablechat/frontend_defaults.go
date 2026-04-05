@@ -42,13 +42,12 @@ func FrontendDefaultSystemChatMessage() SystemChatMessage {
 	}
 }
 
-func FrontendDefaultAssistantChatMessage() map[string]any {
-	return map[string]any{
-		"id":          "",
-		"role":        ChatRoleAssistant,
-		"content":     []any{},
-		"attachments": []any{},
-		"tool_calls":  nil,
+func FrontendDefaultAssistantChatMessage() AssistantChatMessage {
+	return AssistantChatMessage{
+		ID:          "",
+		Role:        ChatRoleAssistant,
+		Content:     []map[string]any{},
+		Attachments: []ChatFileAttachment{},
 	}
 }
 
