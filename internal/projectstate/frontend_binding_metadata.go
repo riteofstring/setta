@@ -50,7 +50,6 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 			}
 			return FrontendDefaultCodeParamCodeObjImpl(), true, nil
 		},
-		BaseExtraLines: []string{"[key: string]: unknown;"},
 		Traits: []frontendbindingmeta.DiscriminatedObjectTraitSpec{
 			{
 				UnionName:         "BaseChildlessCodeObjImplUnion",

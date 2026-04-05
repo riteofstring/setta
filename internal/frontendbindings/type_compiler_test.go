@@ -97,17 +97,21 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	t.Parallel()
 
 	converter := newTypeConverter()
-	if err := converter.ensureDeclaration(reflect.TypeOf(projectstate.FrontendBaseSectionImpl{})); err != nil {
-		t.Fatalf("ensureDeclaration(FrontendBaseSectionImpl): %v", err)
+	for _, root := range CurrentAdditionalTypeRoots() {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v): %v", root, err)
+		}
 	}
-	if err := converter.ensureDeclaration(reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{})); err != nil {
-		t.Fatalf("ensureDeclaration(FrontendBaseCodeObjImpl): %v", err)
+	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	if err != nil {
+		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
 	}
+	declarations := append(converter.Declarations(), extraDeclarations...)
 
-	assertNoTypeDeclaration(t, converter.Declarations(), "BaseDictSectionImplUnion")
-	assertNoTypeDeclaration(t, converter.Declarations(), "isBaseDictSectionImpl")
-	assertNoTypeDeclaration(t, converter.Declarations(), "ControlCodeObjTypeSet")
-	assertNoTypeDeclaration(t, converter.Declarations(), "SectionParamCodeObjTypeSet")
+	assertNoTypeDeclaration(t, declarations, "BaseDictSectionImplUnion")
+	assertNoTypeDeclaration(t, declarations, "isBaseDictSectionImpl")
+	assertNoTypeDeclaration(t, declarations, "ControlCodeObjTypeSet")
+	assertNoTypeDeclaration(t, declarations, "SectionParamCodeObjTypeSet")
 
 	for _, declarationName := range []string{
 		"BaseParentSectionImplTypeSet",
@@ -115,7 +119,7 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 		"BaseParamCodeObjImplTypeSet",
 		"BaseParentCodeObjImplTypeSet",
 	} {
-		declaration := findTypeDeclaration(t, converter.Declarations(), declarationName)
+		declaration := findTypeDeclaration(t, declarations, declarationName)
 		if declaration.Kind != "set" {
 			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "set")
 		}
@@ -128,7 +132,7 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 		"isBaseSectionWithParamsImpl",
 		"isBaseParentCodeObjImpl",
 	} {
-		declaration := findTypeDeclaration(t, converter.Declarations(), declarationName)
+		declaration := findTypeDeclaration(t, declarations, declarationName)
 		if declaration.Kind != "type_guard" {
 			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "type_guard")
 		}
@@ -176,12 +180,24 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	t.Parallel()
 
 	converter := newTypeConverter()
-	typ := reflect.TypeOf(projectstate.FrontendChatSectionImpl{})
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	for _, root := range CurrentAdditionalTypeRoots() {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v): %v", root, err)
+		}
 	}
-
-	declaration := findTypeDeclaration(t, converter.Declarations(), "createChatSectionImpl")
+	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	if err != nil {
+		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
+	}
+	declarations, err := applySemanticSidecarCreateBodies(converter, converter.Declarations())
+	if err != nil {
+		t.Fatalf("applySemanticSidecarCreateBodies(): %v", err)
+	}
+	declaration := findTypeDeclaration(
+		t,
+		replaceStructuralDeclarationsWithOpenAPIAliases(append(declarations, extraDeclarations...)),
+		"createChatSectionImpl",
+	)
 	if declaration.Kind != "function" {
 		t.Fatalf("createChatSectionImpl kind = %q, want %q", declaration.Kind, "function")
 	}

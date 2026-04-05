@@ -1,7 +1,6 @@
 package frontendbindings
 
 import (
-	"fmt"
 	"strings"
 
 	"setta/internal/stringenumvalues"
@@ -41,39 +40,6 @@ func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration 
 		Kind:       "object",
 		Properties: properties,
 	}
-}
-
-func renderInlineAliasObject(properties []TypeProperty, extraLines ...string) string {
-	if len(properties) == 0 && len(extraLines) == 0 {
-		return "Record<string, never>"
-	}
-	lines := make([]string, 0, len(properties)+len(extraLines)+2)
-	lines = append(lines, "{")
-	for _, property := range properties {
-		optional := ""
-		if property.Optional {
-			optional = "?"
-		}
-		lines = append(lines, fmt.Sprintf("  %s%s: %s;", property.Name, optional, property.TypeExpr))
-	}
-	for _, line := range extraLines {
-		lines = append(lines, "  "+line)
-	}
-	lines = append(lines, "}")
-	return strings.Join(lines, "\n")
-}
-
-func aliasObjectDeclarationFromProperties(name string, properties []TypeProperty, extraLines ...string) TypeDeclaration {
-	return aliasDeclaration(name, renderInlineAliasObject(properties, extraLines...))
-}
-
-func aliasIntersectionDeclarationFromProperties(
-	name string,
-	baseExpr string,
-	properties []TypeProperty,
-	extraLines ...string,
-) TypeDeclaration {
-	return aliasDeclaration(name, baseExpr+" & "+renderInlineAliasObject(properties, extraLines...))
 }
 
 func unionAliasExpr(members ...string) string {

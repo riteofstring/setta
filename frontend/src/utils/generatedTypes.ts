@@ -575,112 +575,6 @@ export function createSectionSize(
   };
 }
 
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = gt.StateMachineGateType;
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-
-export const FormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type Format = gt.Format;
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = gt.TaskBoardViewMode;
-
-export type TaskBoardColumn = gt.TaskBoardColumn;
-
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  const defaults: TaskBoardColumn = {
-    color: "#3b82f6",
-    id: "",
-    name: "",
-    sortIndex: 0,
-  };
-  return {
-    ...mergeGeneratedOptions<TaskBoardColumn>(defaults, options),
-  };
-}
-
-export type TaskBoardTask = gt.TaskBoardTask;
-
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  const defaults: TaskBoardTask = {
-    columnId: null,
-    completed: false,
-    description: "",
-    dueDateIso: "",
-    id: "",
-    recurrence: "none",
-    recurrenceDays: [],
-    recurrenceMonths: [],
-    recurrenceYears: [],
-    sortIndex: 0,
-    title: "",
-  };
-  return {
-    ...mergeGeneratedOptions<TaskBoardTask>(defaults, options),
-  };
-}
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
-
-export type BaseSectionImplUnion = gt.BaseSectionImplUnion;
-
-const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  "ListRoot",
-  "Group",
-  "Code",
-  "GenPythonCode",
-  "GenPythonMetadata",
-]);
-
-export function isBaseParentSectionImpl(
-  x: BaseSectionImplUnion,
-): x is
-  | ListRootSectionImpl
-  | GroupSectionImpl
-  | CodeSectionImpl
-  | GenPythonCodeSectionImpl
-  | GenPythonMetadataSectionImpl {
-  return BaseParentSectionImplTypeSet.has(x.type);
-}
-
-const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  "Callable",
-  "Dict",
-  "GlobalVariables",
-]);
-
-export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImplUnion,
-): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
-}
-
 export type ChatSectionImpl = gt.ChatSectionImpl;
 
 export function createChatSectionImpl(
@@ -826,6 +720,23 @@ export function createStateMachineStartSectionImpl(
   };
 }
 
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = gt.StateMachineGateType;
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+
 type TextBlockSectionImpl = gt.TextBlockSectionImpl;
 
 export function createTextBlockSectionImpl(
@@ -861,6 +772,11 @@ export function createTextBlockSectionImpl(
     size: createSectionSize(options.size ?? defaults.size),
   };
 }
+
+export const FormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type Format = gt.Format;
 
 export type PromptSectionImpl = gt.PromptSectionImpl;
 
@@ -1080,6 +996,51 @@ export function createDictSectionImpl(
   };
 }
 
+export type TaskBoardTask = gt.TaskBoardTask;
+
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  const defaults: TaskBoardTask = {
+    columnId: null,
+    completed: false,
+    description: "",
+    dueDateIso: "",
+    id: "",
+    recurrence: "none",
+    recurrenceDays: [],
+    recurrenceMonths: [],
+    recurrenceYears: [],
+    sortIndex: 0,
+    title: "",
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardTask>(defaults, options),
+  };
+}
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = gt.TaskBoardViewMode;
+
+export type TaskBoardColumn = gt.TaskBoardColumn;
+
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  const defaults: TaskBoardColumn = {
+    color: "#3b82f6",
+    id: "",
+    name: "",
+    sortIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardColumn>(defaults, options),
+  };
+}
+
 type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
 
 export function createTaskBoardSectionImpl(
@@ -1151,6 +1112,12 @@ export function createChartSectionImpl(
   };
 }
 
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = gt.SpreadsheetGridDensity;
+
 type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
 
 export function createSpreadsheetSectionImpl(
@@ -1188,80 +1155,6 @@ export function createSpreadsheetSectionImpl(
 }
 
 type BaseCodeObjImpl = gt.BaseCodeObjImpl;
-
-export type BaseCodeObjImplUnion = gt.BaseCodeObjImplUnion;
-
-export type BaseChildlessCodeObjImplUnion = gt.BaseChildlessCodeObjImplUnion;
-
-const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  "CodeParam",
-  "TextParam",
-  "DateParam",
-  "TimeParam",
-  "SliderParam",
-  "RotaryParam",
-  "SwitchParam",
-  "ColorPickerParam",
-  "DropdownParam",
-  "PasswordParam",
-  "TextAreaParam",
-  "DropzoneParam",
-]);
-
-export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
-}
-
-const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  "CodeParam",
-  "TextParam",
-  "DateParam",
-  "TimeParam",
-  "ButtonParam",
-  "SliderParam",
-  "RotaryParam",
-  "SwitchParam",
-  "ColorPickerParam",
-  "DropdownParam",
-  "PasswordParam",
-  "TextAreaParam",
-  "DropzoneParam",
-  "NestedParam",
-]);
-
-export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
-}
-
-const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  "CodeCallable",
-  "NestedParam",
-]);
-
-export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is CodeCallableCodeObjImpl | NestedParamCodeObjImpl {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
-}
 
 type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
 
@@ -4234,6 +4127,113 @@ type ServerModeBoundaryPolicy = gt.ServerModeBoundaryPolicy;
 type ToolNameNormalization = gt.ToolNameNormalization;
 
 type TransportRoutes = gt.TransportRoutes;
+
+export type BaseCodeObjImplUnion = gt.BaseCodeObjImplUnion;
+
+export type BaseChildlessCodeObjImplUnion = gt.BaseChildlessCodeObjImplUnion;
+
+const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
+  "CodeParam",
+  "TextParam",
+  "DateParam",
+  "TimeParam",
+  "SliderParam",
+  "RotaryParam",
+  "SwitchParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "PasswordParam",
+  "TextAreaParam",
+  "DropzoneParam",
+]);
+
+export function isBaseChildlessCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseChildlessCodeObjImplUnion {
+  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+}
+
+const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
+  "CodeParam",
+  "TextParam",
+  "DateParam",
+  "TimeParam",
+  "ButtonParam",
+  "SliderParam",
+  "RotaryParam",
+  "SwitchParam",
+  "ColorPickerParam",
+  "DropdownParam",
+  "PasswordParam",
+  "TextAreaParam",
+  "DropzoneParam",
+  "NestedParam",
+]);
+
+export function isBaseParamCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl {
+  return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
+const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
+  "CodeCallable",
+  "NestedParam",
+]);
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is CodeCallableCodeObjImpl | NestedParamCodeObjImpl {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export type BaseSectionImplUnion = gt.BaseSectionImplUnion;
+
+const BaseParentSectionImplTypeSet = new Set<SectionType>([
+  "ListRoot",
+  "Group",
+  "Code",
+  "GenPythonCode",
+  "GenPythonMetadata",
+]);
+
+export function isBaseParentSectionImpl(
+  x: BaseSectionImplUnion,
+): x is
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl {
+  return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
+  "Callable",
+  "Dict",
+  "GlobalVariables",
+]);
+
+export function isBaseSectionWithParamsImpl(
+  x: BaseSectionImplUnion,
+): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
+  return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
 
 export const BootstrapProtocol = {
   backendOriginOverrideQueryParam: "__setta_backend_origin",

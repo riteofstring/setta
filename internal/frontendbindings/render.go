@@ -44,8 +44,16 @@ func Build() (GeneratedBindings, error) {
 		}
 	}
 
-	extraDeclarations := CurrentAdditionalDeclarations(converter)
-	declarations := append(converter.Declarations(), extraDeclarations...)
+	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	if err != nil {
+		return GeneratedBindings{}, err
+	}
+
+	declarations, err := applySemanticSidecarCreateBodies(converter, converter.Declarations())
+	if err != nil {
+		return GeneratedBindings{}, err
+	}
+	declarations = append(declarations, extraDeclarations...)
 	declarations = replaceStructuralDeclarationsWithOpenAPIAliases(declarations)
 	if err := validateTypeDeclarations(declarations); err != nil {
 		return GeneratedBindings{}, err

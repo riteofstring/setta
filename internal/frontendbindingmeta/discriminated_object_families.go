@@ -18,7 +18,6 @@ type DiscriminatedObjectFamily struct {
 	DiscriminatorField           string
 	ConcreteTypeSuffix           string
 	DefaultValueForDiscriminator func(string) (any, bool, error)
-	BaseExtraLines               []string
 	Traits                       []DiscriminatedObjectTraitSpec
 }
 

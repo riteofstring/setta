@@ -218,13 +218,6 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 	}
 	c.seen[t] = struct{}{}
 
-	if declarations, ok, err := discriminatedObjectFamilyDeclarations(c, t); err != nil {
-		return err
-	} else if ok {
-		c.declarations = append(c.declarations, declarations...)
-		return nil
-	}
-
 	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t); ok {
 		memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
 		if len(memberTypes) == 0 {
@@ -653,92 +646,6 @@ func buildGenericCreateFieldExprTS(
 		return builder.String(), true
 	}
 	return "", false
-}
-
-func mergeBaseAndConcreteObjectProperties(
-	baseProperties []TypeProperty,
-	concreteTypes []reflect.Type,
-	concreteByType map[reflect.Type][]TypeProperty,
-) ([]TypeProperty, map[reflect.Type][]TypeProperty) {
-	baseByName := make(map[string]TypeProperty, len(baseProperties))
-	for _, property := range baseProperties {
-		baseByName[property.Name] = property
-	}
-
-	mergedOrder := []string{}
-	mergedByName := map[string]*TypeProperty{}
-	typeExprsByName := map[string][]string{}
-	seenTypeExprsByName := map[string]map[string]struct{}{}
-	for _, concreteType := range concreteTypes {
-		properties := concreteByType[concreteType]
-		for _, property := range properties {
-			if _, ok := baseByName[property.Name]; ok {
-				continue
-			}
-			if _, ok := mergedByName[property.Name]; !ok {
-				property.Optional = true
-				copyProperty := property
-				mergedByName[property.Name] = &copyProperty
-				mergedOrder = append(mergedOrder, property.Name)
-			}
-			seenTypeExprs := seenTypeExprsByName[property.Name]
-			if seenTypeExprs == nil {
-				seenTypeExprs = map[string]struct{}{}
-				seenTypeExprsByName[property.Name] = seenTypeExprs
-			}
-			if _, ok := seenTypeExprs[property.TypeExpr]; ok {
-				continue
-			}
-			seenTypeExprs[property.TypeExpr] = struct{}{}
-			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
-		}
-	}
-
-	mergedBaseProperties := make([]TypeProperty, 0, len(baseProperties)+len(mergedOrder))
-	mergedBaseProperties = append(mergedBaseProperties, baseProperties...)
-	for _, name := range mergedOrder {
-		property := *mergedByName[name]
-		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
-		mergedBaseProperties = append(mergedBaseProperties, property)
-		baseByName[property.Name] = property
-	}
-
-	for _, concreteType := range concreteTypes {
-		properties := concreteByType[concreteType]
-		filtered := properties[:0]
-		for _, property := range properties {
-			baseProperty, ok := baseByName[property.Name]
-			if !ok ||
-				baseProperty.TypeExpr != property.TypeExpr ||
-				baseProperty.Optional != property.Optional {
-				filtered = append(filtered, property)
-			}
-		}
-		concreteByType[concreteType] = filtered
-	}
-
-	return mergedBaseProperties, concreteByType
-}
-
-func (c *typeConverter) mergedConcreteStructProperties(
-	baseType reflect.Type,
-	concreteTypes []reflect.Type,
-	typeExprOverridesByType map[reflect.Type]map[string]string,
-) ([]TypeProperty, map[reflect.Type][]TypeProperty, error) {
-	baseProperties, err := c.structProperties(baseType, nil, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	concreteByType := make(map[reflect.Type][]TypeProperty, len(concreteTypes))
-	for _, concreteType := range concreteTypes {
-		properties, err := c.structProperties(concreteType, typeExprOverridesByType[concreteType], nil, nil)
-		if err != nil {
-			return nil, nil, err
-		}
-		concreteByType[concreteType] = properties
-	}
-	mergedBaseProperties, mergedConcreteByType := mergeBaseAndConcreteObjectProperties(baseProperties, concreteTypes, concreteByType)
-	return mergedBaseProperties, mergedConcreteByType, nil
 }
 
 func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
