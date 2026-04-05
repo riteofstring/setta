@@ -596,12 +596,43 @@ func TestBuildContextRejectsInvalidInputTypesAndMismatchedEngineConfig(t *testin
 			wantMessage: "sectionId must be a string",
 		},
 		{
+			name: "allow unscoped type",
+			inputs: map[string]any{
+				"allowUnscoped": "yes",
+			},
+			wantMessage: "allowUnscoped must be a boolean",
+		},
+		{
 			name: "thinking type",
 			inputs: map[string]any{
 				"thinking":      "yes",
 				"allowUnscoped": true,
 			},
 			wantMessage: "thinking must be a boolean",
+		},
+		{
+			name: "prompt type",
+			inputs: map[string]any{
+				"prompt":        123,
+				"allowUnscoped": true,
+			},
+			wantMessage: "prompt must be a string",
+		},
+		{
+			name: "messages type",
+			inputs: map[string]any{
+				"messages":      "not-a-list",
+				"allowUnscoped": true,
+			},
+			wantMessage: "messages must be a list",
+		},
+		{
+			name: "engine config id type",
+			inputs: map[string]any{
+				"engineConfigId": 123,
+				"allowUnscoped":  true,
+			},
+			wantMessage: "engineConfigId must be a string",
 		},
 		{
 			name: "engine config mismatch",

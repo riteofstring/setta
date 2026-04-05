@@ -115,6 +115,14 @@ type runContext struct {
 	request                *ExecutionRequest
 }
 
+type parsedRunInputs struct {
+	projectConfigID string
+	chatID          string
+	sectionID       *string
+	allowUnscoped   bool
+	thinking        bool
+}
+
 func NewService(options ServiceOptions) (*Service, error) {
 	if options.ProjectState == nil {
 		return nil, ErrProjectStateRequired
@@ -447,89 +455,133 @@ func ResolveManagedLLMConfig(engine EngineConfig, configs llmconfig.AllConfigs) 
 	return llmConfig, nil
 }
 
-func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]any) (runContext, error) {
-	projectSnapshot := s.projectState.Snapshot().Document
-	if strings.TrimSpace(projectSnapshot.DefaultProjectID) == "" {
-		return runContext{}, fmt.Errorf("project state does not define a default project config")
+func invalidRunInputError(message string) error {
+	return fmt.Errorf("%w: %s", ErrInvalidRunInput, message)
+}
+
+func parseOptionalTrimmedStringInput(inputs map[string]any, fieldName string) (string, bool, error) {
+	rawValue, ok := inputs[fieldName]
+	if !ok {
+		return "", false, nil
 	}
-	projectConfigID := projectSnapshot.DefaultProjectID
-	if rawProjectConfigID, ok := inputs["projectConfigId"]; ok {
-		projectConfigIDValue, ok := rawProjectConfigID.(string)
-		if !ok {
-			return runContext{}, fmt.Errorf("%w: projectConfigId must be a string", ErrInvalidRunInput)
-		}
-		projectConfigID = strings.TrimSpace(projectConfigIDValue)
+	value, ok := rawValue.(string)
+	if !ok {
+		return "", false, invalidRunInputError(fieldName + " must be a string")
 	}
-	project, err := projectSnapshot.ProjectByID(projectConfigID)
-	if err != nil {
-		return runContext{}, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
+	return strings.TrimSpace(value), true, nil
+}
+
+func parseOptionalTrimmedStringPtrInput(inputs map[string]any, fieldName string) (*string, error) {
+	value, ok, err := parseOptionalTrimmedStringInput(inputs, fieldName)
+	if err != nil || !ok {
+		return nil, err
 	}
-	var chatID string
-	if rawChatID, ok := inputs["chatId"]; ok {
-		chatIDValue, ok := rawChatID.(string)
-		if !ok {
-			return runContext{}, fmt.Errorf("%w: chatId must be a string", ErrInvalidRunInput)
-		}
-		chatID = strings.TrimSpace(chatIDValue)
+	return &value, nil
+}
+
+func parseOptionalBoolInput(inputs map[string]any, fieldName string) (bool, bool, error) {
+	rawValue, ok := inputs[fieldName]
+	if !ok {
+		return false, false, nil
 	}
-	var sectionID *string
-	if rawSectionID, ok := inputs["sectionId"]; ok {
-		sectionIDValue, ok := rawSectionID.(string)
-		if !ok {
-			return runContext{}, fmt.Errorf("%w: sectionId must be a string", ErrInvalidRunInput)
-		}
-		trimmed := strings.TrimSpace(sectionIDValue)
-		sectionID = &trimmed
+	value, ok := rawValue.(bool)
+	if !ok {
+		return false, false, invalidRunInputError(fieldName + " must be a boolean")
 	}
-	allowUnscoped := false
-	if rawAllowUnscoped, ok := inputs["allowUnscoped"]; ok {
-		allowValue, ok := rawAllowUnscoped.(bool)
-		if !ok {
-			return runContext{}, fmt.Errorf("%w: allowUnscoped must be a boolean", ErrInvalidRunInput)
-		}
-		allowUnscoped = allowValue
-	}
-	if sectionID == nil && !allowUnscoped {
-		return runContext{}, fmt.Errorf("%w: sectionId is required unless allowUnscoped is true.", ErrInvalidRunInput)
-	}
-	if sectionID != nil && allowUnscoped {
-		return runContext{}, fmt.Errorf("%w: allowUnscoped requires sectionId to be omitted.", ErrInvalidRunInput)
-	}
-	if sectionID != nil {
-		if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
-			return runContext{}, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
-		}
-	}
-	thinking := false
-	if rawThinking, ok := inputs["thinking"]; ok {
-		thinkingValue, ok := rawThinking.(bool)
-		if !ok {
-			return runContext{}, fmt.Errorf("%w: thinking must be a boolean", ErrInvalidRunInput)
-		}
-		thinking = thinkingValue
-	}
-	if rawPrompt, ok := inputs["prompt"]; ok {
-		if _, ok := rawPrompt.(string); !ok {
-			return runContext{}, fmt.Errorf("%w: prompt must be a string", ErrInvalidRunInput)
-		}
+	return value, true, nil
+}
+
+func validateRunPayloadInputs(inputs map[string]any) error {
+	if _, _, err := parseOptionalTrimmedStringInput(inputs, "prompt"); err != nil {
+		return err
 	}
 	if rawMessages, ok := inputs["messages"]; ok {
 		if _, ok := rawMessages.([]any); !ok {
-			return runContext{}, fmt.Errorf("%w: messages must be a list", ErrInvalidRunInput)
+			return invalidRunInputError("messages must be a list")
 		}
 	}
-	engineConfigID := ""
-	if profile.EngineConfigID == nil {
-		return runContext{}, ErrProfileEngineConfigRequired
+	return nil
+}
+
+func parseRunInputs(inputs map[string]any, defaultProjectConfigID string) (parsedRunInputs, error) {
+	parsed := parsedRunInputs{
+		projectConfigID: defaultProjectConfigID,
 	}
-	engineConfigID = strings.TrimSpace(*profile.EngineConfigID)
-	if engineConfigID == "" {
-		return runContext{}, ErrProfileEngineConfigRequired
+	if value, ok, err := parseOptionalTrimmedStringInput(inputs, "projectConfigId"); err != nil {
+		return parsedRunInputs{}, err
+	} else if ok {
+		parsed.projectConfigID = value
 	}
-	engine, err := ResolveManagedEngine(s.engines, s.llm.Configs(), engineConfigID)
+	if value, ok, err := parseOptionalTrimmedStringInput(inputs, "chatId"); err != nil {
+		return parsedRunInputs{}, err
+	} else if ok {
+		parsed.chatID = value
+	}
+	sectionID, err := parseOptionalTrimmedStringPtrInput(inputs, "sectionId")
 	if err != nil {
-		return runContext{}, err
+		return parsedRunInputs{}, err
 	}
+	parsed.sectionID = sectionID
+	if value, ok, err := parseOptionalBoolInput(inputs, "allowUnscoped"); err != nil {
+		return parsedRunInputs{}, err
+	} else if ok {
+		parsed.allowUnscoped = value
+	}
+	if value, ok, err := parseOptionalBoolInput(inputs, "thinking"); err != nil {
+		return parsedRunInputs{}, err
+	} else if ok {
+		parsed.thinking = value
+	}
+	if err := validateRunPayloadInputs(inputs); err != nil {
+		return parsedRunInputs{}, err
+	}
+	if err := parsed.validateSectionRequirements(); err != nil {
+		return parsedRunInputs{}, err
+	}
+	return parsed, nil
+}
+
+func (parsed parsedRunInputs) validateSectionRequirements() error {
+	switch {
+	case parsed.sectionID == nil && !parsed.allowUnscoped:
+		return invalidRunInputError("sectionId is required unless allowUnscoped is true.")
+	case parsed.sectionID != nil && parsed.allowUnscoped:
+		return invalidRunInputError("allowUnscoped requires sectionId to be omitted.")
+	default:
+		return nil
+	}
+}
+
+func (parsed parsedRunInputs) validateProjectSection(project projectstate.Project) error {
+	if parsed.sectionID == nil {
+		return nil
+	}
+	if _, _, _, err := project.ResolveSection(*parsed.sectionID); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
+	}
+	return nil
+}
+
+func resolveProfileEngineConfigID(profile agentprofiles.Profile) (string, error) {
+	if profile.EngineConfigID == nil {
+		return "", ErrProfileEngineConfigRequired
+	}
+	engineConfigID := strings.TrimSpace(*profile.EngineConfigID)
+	if engineConfigID == "" {
+		return "", ErrProfileEngineConfigRequired
+	}
+	return engineConfigID, nil
+}
+
+func (s *Service) resolveProfileEngine(profile agentprofiles.Profile) (ResolvedEngine, error) {
+	engineConfigID, err := resolveProfileEngineConfigID(profile)
+	if err != nil {
+		return ResolvedEngine{}, err
+	}
+	return ResolveManagedEngine(s.engines, s.llm.Configs(), engineConfigID)
+}
+
+func normalizeRunPayloadInputs(inputs map[string]any, resolvedEngineConfigID string) (map[string]any, error) {
 	payloadInputs := cloneAnyMap(inputs)
 	if payloadInputs == nil {
 		payloadInputs = map[string]any{}
@@ -537,14 +589,42 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if rawEngineConfigID, ok := payloadInputs["engineConfigId"]; ok {
 		engineConfigIDValue, ok := rawEngineConfigID.(string)
 		if !ok {
-			return runContext{}, fmt.Errorf("%w: engineConfigId must be a string", ErrInvalidRunInput)
+			return nil, invalidRunInputError("engineConfigId must be a string")
 		}
-		if strings.TrimSpace(engineConfigIDValue) != engine.EngineConfig.ID {
-			return runContext{}, fmt.Errorf("%w: engineConfigId does not match resolved engine config", ErrInvalidRunInput)
+		if strings.TrimSpace(engineConfigIDValue) != resolvedEngineConfigID {
+			return nil, invalidRunInputError("engineConfigId does not match resolved engine config")
 		}
 	}
-	payloadInputs["engineConfigId"] = engine.EngineConfig.ID
+	payloadInputs["engineConfigId"] = resolvedEngineConfigID
+	return payloadInputs, nil
+}
+
+func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]any) (runContext, error) {
+	projectSnapshot := s.projectState.Snapshot().Document
+	if strings.TrimSpace(projectSnapshot.DefaultProjectID) == "" {
+		return runContext{}, fmt.Errorf("project state does not define a default project config")
+	}
+	parsedInputs, err := parseRunInputs(inputs, projectSnapshot.DefaultProjectID)
+	if err != nil {
+		return runContext{}, err
+	}
+	project, err := projectSnapshot.ProjectByID(parsedInputs.projectConfigID)
+	if err != nil {
+		return runContext{}, fmt.Errorf("%w: %v", ErrInvalidRunInput, err)
+	}
+	if err := parsedInputs.validateProjectSection(project); err != nil {
+		return runContext{}, err
+	}
+	engine, err := s.resolveProfileEngine(profile)
+	if err != nil {
+		return runContext{}, err
+	}
+	payloadInputs, err := normalizeRunPayloadInputs(inputs, engine.EngineConfig.ID)
+	if err != nil {
+		return runContext{}, err
+	}
 	run := NewRun(&profile.ID, payloadInputs, s.timeNow())
+	chatID := parsedInputs.chatID
 	if strings.TrimSpace(chatID) == "" {
 		chatID = run.ID
 	}
@@ -552,7 +632,7 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 	if err != nil {
 		return runContext{}, err
 	}
-	systemPrompt, err := buildSystemPrompt(s.basePrompt, profile, projectConfigID, s.temporaryIDs, completionGuardEnabled)
+	systemPrompt, err := buildSystemPrompt(s.basePrompt, profile, parsedInputs.projectConfigID, s.temporaryIDs, completionGuardEnabled)
 	if err != nil {
 		return runContext{}, err
 	}
@@ -560,10 +640,10 @@ func (s *Service) buildContext(profile agentprofiles.Profile, inputs map[string]
 		run:                    run,
 		profile:                profile,
 		engine:                 engine,
-		projectConfigID:        projectConfigID,
+		projectConfigID:        parsedInputs.projectConfigID,
 		chatID:                 chatID,
-		sectionID:              cloneStringPtr(sectionID),
-		thinking:               thinking,
+		sectionID:              cloneStringPtr(parsedInputs.sectionID),
+		thinking:               parsedInputs.thinking,
 		completionGuardEnabled: completionGuardEnabled,
 		systemPrompt:           systemPrompt,
 		inputs:                 payloadInputs,
