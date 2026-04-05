@@ -118,6 +118,47 @@ LOOP_TERMINAL_MARKER: none
     - if dependency approval is still unavailable, audit whether `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` should keep treating persisted `layout.w/h` as size authority or whether that boundary needs the next explicit split
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `203` | 2026-04-05 18:45 EDT
+  - Subtask: stop the canary model from seeding unlocked sections with persisted top-level `layout.w/h`.
+  - Why:
+    - items `200` through `202` already removed the shared stale-size fallbacks, but the canary model still copied persisted layout size into every visible section before live measurement ran
+    - that meant unlocked sections could still enter the scene/runtime with DOM-era size already acting as authority even though the downstream geometry/runtime path already has measured-size-or-null ownership
+    - this slice closes the next explicit canary-local size-authority boundary named by item `202` instead of reopening another parity or shared fallback lane
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - only `positionAndSizeLocked` sections now carry layout `w/h` into the canary section list
+      - unlocked sections now enter the canary with `width: null` and `height: null`
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - now proves unlocked sections keep layout position/z-order without layout-owned size while locked sections still keep layout size
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts` -> passed (`3 files`, `17 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanaryModel(\\.test)?\\.ts" || true` -> not a useful gate here because the current strict-type output still includes lightweight fixture-shape errors in `settingsGraphSubstrateCanaryModel.test.ts` outside the behavior changed in this slice
+  - Runtime verification:
+    - refreshed run-034 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-034/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-034/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-034 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-034 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `43.4s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.048ms`; worktree average frame duration was `16.667ms`
+      - visible section count stayed `46` on both sides; worktree recorded no long tasks and reference recorded one `56ms` long task
+    - Chrome DevTools MCP:
+      - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - both sides mounted the normalized `All Settings` graph surface and the canonical `rotaryParamCodeObjDefault` target was present on each side
+      - chat windows were minimized before the compare
+      - no blocking gross graph-surface drift was visible; the only visible difference was the expected worktree label outside the target graph surface
+  - Result:
+    - unlocked canary sections no longer re-enter the runtime with persisted layout size already treated as authority
+    - locked sections still keep layout-owned size authority, so the existing locked-size behavior remains intact
+    - this meaningfully narrows canary-local geometry authority instead of extending the earlier shared fallback cleanup pattern
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if approval is still unavailable, move to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of reopening another stale `w/h` fallback lane
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `199` | 2026-04-05 18:06 EDT
   - Subtask: stop canary node sync from preserving stale previously measured width/height after the current scene snapshot loses authoritative size.
   - Why:

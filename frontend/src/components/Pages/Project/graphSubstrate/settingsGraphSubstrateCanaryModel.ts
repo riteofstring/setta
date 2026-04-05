@@ -74,14 +74,18 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       continue;
     }
     const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+    const sizeAuthority = getCanaryLayoutSectionSizeAuthority(
+      layout,
+      impl.positionAndSizeLocked,
+    );
 
     candidates.push({
       sectionId,
       position: { x: layout.x, y: layout.y },
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
-      width: layout.w,
-      height: layout.h,
+      width: sizeAuthority.width,
+      height: sizeAuthority.height,
       positionAndSizeLocked: impl.positionAndSizeLocked,
     });
   }
@@ -109,4 +113,21 @@ export function selectSettingsGraphSubstrateCanarySections(
       };
     },
   );
+}
+
+function getCanaryLayoutSectionSizeAuthority(
+  layout: TopLevelLayout,
+  positionAndSizeLocked: boolean,
+) {
+  if (!positionAndSizeLocked) {
+    return {
+      width: null,
+      height: null,
+    };
+  }
+
+  return {
+    width: layout.w,
+    height: layout.h,
+  };
 }

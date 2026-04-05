@@ -88,7 +88,7 @@ function createProjectState(): ZustandProjectState {
       }),
       "impl-b": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
         id: "impl-b",
-        positionAndSizeLocked: false,
+        positionAndSizeLocked: true,
       }),
       "impl-hidden": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
         id: "impl-hidden",
@@ -148,7 +148,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     expect(selectSettingsGraphSubstrateCanaryLayoutSections(state)).toEqual([]);
   });
 
-  it("selects all visible canary sections in legacy display order while keeping layout dimensions authoritative", () => {
+  it("selects all visible canary sections in legacy display order while only keeping locked layout size authoritative", () => {
     const state = createProjectState();
 
     expect(selectSettingsGraphSubstrateCanarySections(state)).toEqual([
@@ -157,8 +157,8 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         position: { x: 500, y: 200 },
         zIndex: 2,
         tempZIndex: 2,
-        width: 240,
-        height: 160,
+        width: null,
+        height: null,
         positionAndSizeLocked: false,
       },
       {
@@ -168,7 +168,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         tempZIndex: 1,
         width: 320,
         height: 240,
-        positionAndSizeLocked: false,
+        positionAndSizeLocked: true,
       },
     ]);
   });
@@ -191,8 +191,8 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         position: { x: 760, y: 420 },
         zIndex: 8,
         tempZIndex: 8,
-        width: 240,
-        height: 160,
+        width: null,
+        height: null,
         positionAndSizeLocked: false,
       },
       {
@@ -202,7 +202,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         tempZIndex: 1,
         width: 320,
         height: 240,
-        positionAndSizeLocked: false,
+        positionAndSizeLocked: true,
       },
     ]);
   });

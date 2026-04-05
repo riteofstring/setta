@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 18:36 EDT
+Last updated: 2026-04-05 18:45 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,62 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `203` split canary-side size authority at the model boundary: unlocked sections no longer seed the graph substrate runtime from persisted top-level `layout.w/h`.
+  - Why this slice was needed:
+    - items `200` through `202` removed the shared stale-size fallbacks, but the canary model still copied persisted `layout.w/h` into every visible section before live measurement ran
+    - that meant unlocked sections could still re-enter the runtime with DOM-era layout size already treated as authority even though the downstream geometry/runtime path already supports measured-size-or-null ownership
+    - this was the next explicit authority split named by item `202`, not another forwarding hop or parity-only pass
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - added a model-local size-authority helper so only `positionAndSizeLocked` sections carry layout `w/h` into the canary section list
+      - unlocked sections now enter the canary scene/runtime with `width: null` and `height: null`
+    - updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - now proves unlocked sections keep layout position/z-order but no longer keep layout-owned size, while locked sections still do
+  - What this slice established:
+    - the canary model now seeds unlocked sections from position and z-order only, leaving size authority to the existing live-measurement path instead of persisted top-level layout state
+    - locked sections still preserve layout-owned size authority, so the earlier locked-size geometry/runtime rules remain intact
+    - the downstream runtime assumptions stayed green:
+      - focused Vitest rerun still passed for the model, section-geometry, and scene-runtime files (`17 tests`)
+    - the broad normalized `rotaryParamCodeObjDefault` regression lane stayed green on refreshed run-034 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.048ms`; worktree average frame duration was `16.667ms`
+      - visible section count stayed `46` on both sides
+      - worktree recorded no long tasks during the measurement window; reference recorded one `56ms` long task
+    - the required CDP visual gate is green on the same lane after normalization:
+      - a fresh-context sub-agent compared worktree `3076` against read-only `main` `3087`
+      - both sides mounted the expected `All Settings` surface, the canonical `rotaryParamCodeObjDefault` target existed on both, and chat chrome was minimized before the compare
+      - no blocking gross graph-surface drift was visible; the remaining difference was the expected worktree label outside the target graph surface
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+      - result: passed (`3 files`, `17 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanaryModel(\\.test)?\\.ts" || true`
+      - result: not a useful acceptance gate here; the current strict-type output still includes lightweight fixture-shape errors in `settingsGraphSubstrateCanaryModel.test.ts` outside the behavior changed in this slice
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-034/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-034/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-034 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-034 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `43.4s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: both normalized `/settings` sessions mounted the expected graph surface with no blocking gross drift around `rotaryParamCodeObjDefault`
+  - Lane status:
+    - this is canary-local geometry-authority product code, not another shared-state fallback cleanup or an oracle-only pass
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if explicit approval arrives to add Pixi, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if approval is still unavailable, move to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of reopening another stale `w/h` fallback lane
 
 - Ralph item `202` closed the remaining shared read-side top-level size hydration fallback named in item `201`: `createNodesMapFromProjectConfigChildren(...)` no longer revives persisted `layout.w/h` when a live node currently reports `null` dimensions.
   - Why this slice was needed:
@@ -6727,6 +6783,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `193`
-- Latest item: `2026-04-05 193`
+- Active history window: items `001` through `203`
+- Latest item: `2026-04-05 203`
 - Older history archives: none yet
