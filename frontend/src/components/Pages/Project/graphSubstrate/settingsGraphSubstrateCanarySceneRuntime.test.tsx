@@ -201,6 +201,80 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("keeps a section-model size seed until a fresher measured size arrives", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 78,
+              sizeAuthority: "sectionModel",
+              width: 550,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 550,
+          height: 78,
+        },
+        sections: [
+          {
+            height: 78,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 550, height: 78 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: 550,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(1);
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 620, height: 210 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 620,
+          height: 210,
+        },
+        sections: [
+          {
+            height: 78,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 620, height: 210 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: 550,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(2);
+    });
+  });
+
   it("keeps unlocked layout size authoritative and does not resubscribe to measured-size churn when layout geometry already exists", async () => {
     await act(async () => {
       root.render(

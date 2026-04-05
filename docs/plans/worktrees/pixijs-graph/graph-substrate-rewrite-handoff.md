@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 16:03 EDT
+Last updated: 2026-04-06 16:27 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,53 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `224` mirrors the backend top-level layout dimension fallback inside the canary section model, so settings sections now resolve `layout -> impl.size -> sectionSizingPolicy min` before local DOM measurement arrives.
+  - Why this slice was needed:
+    - item `223` stopped unresolved siblings from collapsing the whole scene, but the settings canary still entered `sizeAuthority: "none"` whenever the default settings layout only had `x/y`
+    - the backend already resolves missing top-level layout dimensions through `_resolve_layout_dimension_with_fallback(...)`, so the canary was lagging the standardized source-of-truth path that placement and smart-space logic already trust
+    - this is a bounded product fix on the active geometry-authority lane, not another harness-only or forwarding-only pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - added `sectionModel` authority and mirrored the backend fallback chain for missing section dimensions (`layout -> configured impl size -> sectionSizingPolicy min`)
+      - `selectSettingsGraphSubstrateCanaryLayoutSections(...)` now carries the effective section size settings the canary needs for that fallback
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - the controller now memoizes canary sections from `layoutSections + nodeInternals + sectionSizingPolicy`, so settings-policy changes are part of the same resolution path instead of being hidden in a node-internals selector closure
+    - updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - What this slice established:
+    - the canary can now seed `sizeAuthority: "sectionModel"` from typed section settings plus section sizing policy when layout/shared-node geometry is incomplete
+    - settings sections no longer start at `none` solely because the settings project default layout omits `w/h`
+    - fresher measured DOM size still overrides that section-model seed once the live registry publishes it
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `19 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanary(Model|Controller|SceneRuntime)(\\.test)?(\\.tsx?|\\.ts)?|settings-view-modes\\.spec\\.ts' || true`
+      - result: no matches
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the visual check used `http://127.0.0.1:3076/settings`, with `All Settings` active and the graph substrate canary visibly mounted
+      - note: `rotaryParamCodeObjDefault` stayed present/attached with a non-zero rect (`w≈55.2`, `h≈26.6`)
+    - Playwright:
+      - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` to expect the new section-model fallback instead of the older `null` result on the mixed-partial settings lane
+      - live Playwright was intentionally not reopened on this slice; the known headless `ensureAppReady(...)` failure remains tooling noise and the loop rules said not to spend another standalone recovery pass here
+  - Lane status:
+    - this closes the missing frontend counterpart to the backend layout-dimension fallback for canary section resolution
+    - the canary no longer depends on local measurement just to obtain the settings-section sizing-policy minimum when layout/shared-node geometry is incomplete
+    - shared top-level node hydration still uses the older pair-only `layout/currentNode` path, so the section-model authority chain is not yet unified across the shared node map
+  - Next frontier:
+    - move the same backend fallback chain into shared top-level node hydration or a shared helper so `createNodesMapFromProjectConfigChildren(...)` and the canary section resolver use one dimension-authority path
+    - do not spend the next iteration on standalone Playwright/lifecycle recovery unless that slice specifically needs live E2E beyond the current unit/runtime/CDP evidence
 
 - Ralph item `223` keeps canary scene bounds authoritative on the resolved subset, so one unresolved section no longer nulls the whole `All Settings` scene or leaves the viewport stuck on the provisional seed.
   - Why this slice was needed:

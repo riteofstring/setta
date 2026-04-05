@@ -1574,7 +1574,7 @@ test("settings graph substrate canary keeps shared node-internals size authorita
   }
 });
 
-test("settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state", async ({
+test("settings graph substrate canary falls back to section-model size when layout and shared node state are only partially populated", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -1627,8 +1627,14 @@ test("settings graph substrate canary does not synthesize mixed size authority f
       throw new Error("Missing baseline canary scene section size.");
     }
 
-    // Leave each source with only one dimension so the authority helper must
-    // reject the mixed pair instead of fabricating a valid section size.
+    const expectedModelHeight = await page.evaluate(async () => {
+      const { useSettings } = await import("/src/state/definitions.ts");
+      return useSettings.getState().sectionSizingPolicy.byType.Dict.minHeight;
+    });
+
+    // Leave the shared sources partially populated so the canary cannot accept
+    // a shared-node pair and must fall back through the section-model sizing
+    // path instead of returning null.
     await setCanarySectionPartialMixedSizeState(page, targetSectionId, {
       layoutWidth: baselineSectionSize.resolvedSize.width,
       nodeHeight: baselineSectionSize.resolvedSize.height,
@@ -1637,9 +1643,12 @@ test("settings graph substrate canary does not synthesize mixed size authority f
     await expect
       .poll(async () => await getCanarySceneSectionSize(page, targetSectionId))
       .toEqual({
-        height: null,
-        resolvedSize: null,
-        width: null,
+        height: expectedModelHeight,
+        resolvedSize: {
+          width: baselineSectionSize.resolvedSize.width,
+          height: expectedModelHeight,
+        },
+        width: baselineSectionSize.resolvedSize.width,
       });
   } finally {
     await setLocalPaneState(page, initialPaneState).catch(() => {});

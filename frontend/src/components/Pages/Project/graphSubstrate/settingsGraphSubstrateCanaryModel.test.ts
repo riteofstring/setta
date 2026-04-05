@@ -2,12 +2,16 @@ import type { ZustandProjectState } from "state/definitions";
 import {
   createCodeSectionImpl,
   createCore,
+  createDictSectionImpl,
   createProjectChatWindowingState,
   createProjectConfig,
   createProjectStateSingleConfig,
+  createSectionSize,
+  createSettingsState,
   createSingletonSections,
   createTopLevelSectionLayout,
   createUserDefaultCodeSectionImpl,
+  createUserDefaultDictSectionImpl,
   createVariant,
   createViewModeConfig,
   SectionTypeEnum,
@@ -250,6 +254,8 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     const sections = resolveSettingsGraphSubstrateCanarySections(
       [
         {
+          configuredHeight: "auto",
+          configuredWidth: 500,
           height: null,
           position: { x: 120, y: 100 },
           positionAndSizeLocked: false,
@@ -290,10 +296,12 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
   });
 
-  it("does not synthesize a shared-node size from partial layout and node-internals dimensions", () => {
+  it("does not synthesize shared-node size from partial layout and node-internals dimensions, and falls back to the section model instead", () => {
     const sections = resolveSettingsGraphSubstrateCanarySections(
       [
         {
+          configuredHeight: "auto",
+          configuredWidth: 500,
           height: null,
           position: { x: 120, y: 100 },
           positionAndSizeLocked: false,
@@ -319,17 +327,76 @@ describe("settingsGraphSubstrateCanaryModel", () => {
 
     expect(sections).toEqual([
       {
-        height: null,
+        height: 58.2,
         position: { x: 120, y: 100 },
         positionAndSizeLocked: false,
         sectionId: "section-a",
         sectionTypeName: SectionTypeEnum.Code,
-        sizeAuthority: "none",
+        sizeAuthority: "sectionModel",
         styleColor: null,
         tempZIndex: 1,
         textBlockMetaControlStyle: false,
-        width: null,
+        width: 280,
         zIndex: 1,
+      },
+    ]);
+  });
+
+  it("resolves a section-model size from section settings when layout and shared node sizes are missing", () => {
+    const state = createProjectState();
+    state.projectConfig.viewModes["all-settings"]!.topLevelSections[
+      "section-a"
+    ] = createTopLevelSectionLayout({
+      x: 500,
+      y: 200,
+      zIndex: 2,
+      w: null,
+      h: null,
+    });
+    state.sectionImpls["impl-a"] = createDictSectionImpl(
+      createUserDefaultDictSectionImpl(),
+      {
+        id: "impl-a",
+        positionAndSizeLocked: false,
+        size: createSectionSize({ width: 550 }),
+      },
+    );
+
+    expect(
+      selectSettingsGraphSubstrateCanarySections(
+        state,
+        createSettingsState().sectionSizingPolicy,
+      ),
+    ).toEqual([
+      {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
+        sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Dict,
+        position: { x: 500, y: 200 },
+        sizeAuthority: "sectionModel",
+        zIndex: 2,
+        styleColor: null,
+        tempZIndex: 2,
+        textBlockMetaControlStyle: false,
+        width: 550,
+        height: 78,
+        positionAndSizeLocked: false,
+      },
+      {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
+        sectionId: "section-b",
+        sectionTypeName: SectionTypeEnum.Code,
+        position: { x: 120, y: 100 },
+        sizeAuthority: "layout",
+        zIndex: 1,
+        styleColor: null,
+        tempZIndex: 1,
+        textBlockMetaControlStyle: false,
+        width: 320,
+        height: 240,
+        positionAndSizeLocked: true,
       },
     ]);
   });

@@ -2,6 +2,7 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useMemo,
   useRef,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -54,9 +55,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     selectSettingsGraphSubstrateCanaryLayoutSections,
     _.isEqual,
   );
-  const sections = useNodeInternals((state) => {
-    return resolveSettingsGraphSubstrateCanarySections(layoutSections, state.x);
-  }, _.isEqual);
+  const nodeInternals = useNodeInternals((state) => state.x, _.isEqual);
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
@@ -79,6 +78,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     panOnScroll,
     panOnScrollMode,
     panOnScrollSpeed,
+    sectionSizingPolicy,
     showGridLines,
     snapGrid,
     zoomOnPinch,
@@ -91,6 +91,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
       panOnScroll: state.gui.panOnScroll,
       panOnScrollMode: state.gui.panOnScrollMode,
       panOnScrollSpeed: state.gui.panOnScrollSpeed,
+      sectionSizingPolicy: state.sectionSizingPolicy,
       showGridLines: !!state.gui.showGridLines,
       snapGrid: state.gui.snapGrid,
       zoomOnPinch: state.gui.zoomOnPinch,
@@ -98,6 +99,13 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     }),
     _.isEqual,
   );
+  const sections = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanarySections(
+      layoutSections,
+      nodeInternals,
+      sectionSizingPolicy,
+    );
+  }, [layoutSections, nodeInternals, sectionSizingPolicy]);
   const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
     (state) => ({
       overviewTrueWidth: state.overviewTrueWidth,

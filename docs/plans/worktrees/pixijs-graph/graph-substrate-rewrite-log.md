@@ -75,6 +75,50 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-06 224
+
+- Item: mirror the backend layout-dimension fallback chain inside the settings graph substrate canary resolver so sections can seed authoritative geometry from section model data before local measurement.
+- Status: `done`
+- Details:
+  - Why:
+    - item `223` left the active geometry-authority seam in sections that still reached `sizeAuthority: "none"` and depended entirely on local DOM measurement timing
+    - the backend already has the standardized dimension fallback chain in `helpers_lvl2.py`, so the next bounded slice was to mirror that source-of-truth path in the frontend canary model instead of adding another heuristic or another harness-only pass
+    - a width-only `impl.size` pair is common on settings sections, so this slice also needed the section sizing policy minimums to complete a usable authoritative pair
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - added backend-mirrored dimension fallback resolution that prefers paired persisted layout size, then paired shared-node size, then section-model size assembled from `layout`, `impl.size`, and `sectionSizingPolicy` minimums
+      - added `configuredWidth` / `configuredHeight` capture on layout sections and introduced `sizeAuthority: "sectionModel"` for sections that can now resolve a full authoritative pair without waiting for local measurement
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+      - moved section resolution behind `useMemo(...)` and threaded `sectionSizingPolicy` through explicitly so canary section sizes react to store sizing changes instead of hiding that dependency inside the `useNodeInternals(...)` selector
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - added coverage proving partial layout/shared-node geometry now falls back to `sectionModel` authority instead of staying unresolved
+      - added coverage proving width-only `DictSectionImpl.size` resolves to a full authoritative pair using the sizing-policy minimum height
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - added coverage proving a `sectionModel` seed remains active until fresher measured geometry arrives
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - aligned the partial mixed-size expectation with the new `sectionModel` fallback semantics so the parity harness matches the product behavior when that lane is healthy again
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `19 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanary(Model|Controller|SceneRuntime)(\\.test)?(\\.tsx?|\\.ts)?|settings-view-modes\\.spec\\.ts' || true` -> passed (no matching targeted type errors)
+  - Runtime verification:
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened `http://127.0.0.1:3076/settings`
+      - confirmed `All Settings` was active, the graph substrate canary was mounted, and `rotaryParamCodeObjDefault` remained attached with non-zero geometry
+      - result: pass
+    - note:
+      - the Playwright spec expectation was updated to match the new authoritative fallback, but the live Playwright lane was intentionally not reopened in this iteration because the known headless `ensureAppReady(...)` shutdown remains a tooling blocker and this product slice already had a trustworthy CDP confirmation path
+  - Result:
+    - settings canary sections can now promote more cases from measurement-only fallback into authoritative geometry before the local DOM size registry catches up
+    - the active lane moved from another seam-lift toward the real geometry-authority frontier by reusing the backend fallback chain instead of inventing a parallel heuristic
+  - Next:
+    - move the same backend dimension-fallback chain into shared top-level node hydration or a shared helper so `createNodesMapFromProjectConfigChildren(...)` and the canary section resolver stop diverging on geometry authority
+    - keep the canonical compare lane on `rotaryParamCodeObjDefault` and do not reopen the standalone Playwright harness lane unless the next product slice genuinely requires it
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `220` | 2026-04-06 15:23 EDT
   - Subtask: move shared-node size authority up to the canary section model/controller boundary so the scene runtime no longer owns a second local node-internals fallback merge.
   - Why:

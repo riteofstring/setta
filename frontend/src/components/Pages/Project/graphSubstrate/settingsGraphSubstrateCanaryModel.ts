@@ -9,8 +9,15 @@ import {
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
 import {
+  getMinSectionHeight,
+  getMinSectionWidth,
+} from "state/hooks/sectionSizes";
+import {
+  createSettingsState,
   SectionTypeEnum,
   type Position,
+  type SectionSize,
+  type SectionSizingPolicy,
   type SectionType,
 } from "utils/generatedTypes";
 
@@ -21,6 +28,8 @@ export type GraphSubstrateCanaryLayoutSection = {
   tempZIndex: number;
   width: number | null;
   height: number | null;
+  configuredWidth: SectionSize["width"];
+  configuredHeight: SectionSize["height"];
   isActiveSection?: boolean;
   isInOtherProjectConfigs?: boolean;
   positionAndSizeLocked: boolean;
@@ -32,7 +41,10 @@ export type GraphSubstrateCanaryLayoutSection = {
 export type SettingsGraphSubstrateCanarySectionSizeAuthority =
   | "layout"
   | "sharedNode"
+  | "sectionModel"
   | "none";
+
+const DEFAULT_SECTION_SIZING_POLICY = createSettingsState().sectionSizingPolicy;
 
 export function resolveActiveViewModeName(
   projectState: Pick<ZustandProjectState, "projectConfig">,
@@ -89,6 +101,8 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       tempZIndex: layout.zIndex,
       width: layout.w,
       height: layout.h,
+      configuredWidth: impl.size.width,
+      configuredHeight: impl.size.height,
       isActiveSection: projectState.projectConfig.activeIds.includes(sectionId),
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
@@ -120,9 +134,12 @@ export type GraphSubstrateCanarySection = {
 
 export function selectSettingsGraphSubstrateCanarySections(
   projectState: ZustandProjectState,
+  sectionSizingPolicy: SectionSizingPolicy = DEFAULT_SECTION_SIZING_POLICY,
 ): Array<GraphSubstrateCanarySection> {
   return resolveSettingsGraphSubstrateCanarySections(
     selectSettingsGraphSubstrateCanaryLayoutSections(projectState),
+    new Map(),
+    sectionSizingPolicy,
   );
 }
 
@@ -132,16 +149,23 @@ export function resolveSettingsGraphSubstrateCanarySections(
     string,
     Pick<Node, "height" | "width"> | undefined
   > = new Map(),
+  sectionSizingPolicy: SectionSizingPolicy = DEFAULT_SECTION_SIZING_POLICY,
 ): Array<GraphSubstrateCanarySection> {
   return layoutSections.map((layoutSection) => {
+    const {
+      configuredHeight: _configuredHeight,
+      configuredWidth: _configuredWidth,
+      ...canarySection
+    } = layoutSection;
     const { height, sizeAuthority, width } =
       resolveSettingsGraphSubstrateCanarySectionSize(
         layoutSection,
         nodeInternals.get(layoutSection.sectionId),
+        sectionSizingPolicy,
       );
 
     return {
-      ...layoutSection,
+      ...canarySection,
       height,
       sizeAuthority,
       width,
@@ -167,8 +191,16 @@ export function getSettingsGraphSubstrateCanarySectionSizeAuthority(
 }
 
 function resolveSettingsGraphSubstrateCanarySectionSize(
-  layoutSection: Pick<GraphSubstrateCanaryLayoutSection, "height" | "width">,
+  layoutSection: Pick<
+    GraphSubstrateCanaryLayoutSection,
+    | "configuredHeight"
+    | "configuredWidth"
+    | "height"
+    | "sectionTypeName"
+    | "width"
+  >,
   currentNode: Pick<Node, "height" | "width"> | undefined,
+  sectionSizingPolicy: SectionSizingPolicy,
 ): {
   height: number | null;
   sizeAuthority: SettingsGraphSubstrateCanarySectionSizeAuthority;
@@ -199,11 +231,87 @@ function resolveSettingsGraphSubstrateCanarySectionSize(
     };
   }
 
+  const sectionModelWidth =
+    resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
+      axis: "width",
+      configuredValue: layoutSection.configuredWidth,
+      layoutValue: layoutSection.width,
+      sectionSizingPolicy,
+      sectionTypeName: layoutSection.sectionTypeName,
+    });
+  const sectionModelHeight =
+    resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
+      axis: "height",
+      configuredValue: layoutSection.configuredHeight,
+      layoutValue: layoutSection.height,
+      sectionSizingPolicy,
+      sectionTypeName: layoutSection.sectionTypeName,
+    });
+  if (hasPositiveSectionSize(sectionModelWidth, sectionModelHeight)) {
+    return {
+      height: sectionModelHeight,
+      sizeAuthority: "sectionModel",
+      width: sectionModelWidth,
+    };
+  }
+
   return {
     height: null,
     sizeAuthority: "none",
     width: null,
   };
+}
+
+function resolveSettingsGraphSubstrateCanarySectionDimensionWithFallback({
+  axis,
+  configuredValue,
+  layoutValue,
+  sectionSizingPolicy,
+  sectionTypeName,
+}: {
+  axis: "height" | "width";
+  configuredValue: SectionSize["height"] | SectionSize["width"];
+  layoutValue: number | null;
+  sectionSizingPolicy: SectionSizingPolicy;
+  sectionTypeName: SectionType | undefined;
+}) {
+  const positiveLayoutValue = coercePositiveSectionDimension(layoutValue);
+  if (positiveLayoutValue !== null) {
+    return positiveLayoutValue;
+  }
+
+  const positiveConfiguredValue = coercePositiveSectionDimension(
+    typeof configuredValue === "number" ? configuredValue : null,
+  );
+  if (positiveConfiguredValue !== null) {
+    return positiveConfiguredValue;
+  }
+
+  if (!sectionTypeName) {
+    return null;
+  }
+
+  if (axis === "width") {
+    return getMinSectionWidth({
+      sectionType: sectionTypeName,
+      sizingPolicy: sectionSizingPolicy,
+    });
+  }
+
+  return getMinSectionHeight({
+    sectionType: sectionTypeName,
+    sizingPolicy: sectionSizingPolicy,
+  });
+}
+
+function coercePositiveSectionDimension(
+  value: number | null | undefined,
+): number | null {
+  if (typeof value === "number" && value > 0) {
+    return value;
+  }
+
+  return null;
 }
 
 function hasPositiveSectionSize(
