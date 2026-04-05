@@ -426,5 +426,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreListenerRealtimeDelta{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesRequest{}),
 		reflect.TypeOf(pythonsdkcontracts.LocalCoreRenderRealtimeDependencyValuesResult{}),
+		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
+		reflect.TypeOf(realtime.BaseDependencyKeyUnion{}),
+		reflect.TypeOf(realtime.BaseDependencyValueUnion{}),
 	}
 }

@@ -23,8 +23,8 @@ type CurrentAddressUpdateMessage struct {
 
 type RealtimeUIChangeContent struct {
 	ProjectConfigID string          `json:"projectConfigId"`
-	DependencyKey   json.RawMessage `json:"dependencyKey" ts_type:"BaseDependencyKeyUnion"`
-	Value           json.RawMessage `json:"value" ts_type:"BaseDependencyValueUnion"`
+	DependencyKey   json.RawMessage `json:"dependencyKey" ts_type:"BaseDependencyKeyUnion" shared_schema_ref:"BaseDependencyKeyUnion"`
+	Value           json.RawMessage `json:"value" ts_type:"BaseDependencyValueUnion" shared_schema_ref:"BaseDependencyValueUnion"`
 }
 
 type RealtimeUIChangeMessage struct {
@@ -42,7 +42,7 @@ type RealtimeDependencyEventPayload struct {
 
 type RealtimeDependencyEventContent struct {
 	ProjectConfigID string                         `json:"projectConfigId"`
-	DependencyEvent RealtimeDependencyEventPayload `json:"dependencyEvent" ts_type:"DependencyEvent"`
+	DependencyEvent RealtimeDependencyEventPayload `json:"dependencyEvent" ts_type:"DependencyEvent" shared_schema_ref:"DependencyEvent"`
 }
 
 type RealtimeDependencyEventMessage struct {

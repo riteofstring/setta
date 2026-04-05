@@ -261,24 +261,50 @@ func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {
 }
 
 func explicitRegistryEntries(target registryTarget) []registryEntry {
-	if target.Package != "frontendbindings" || target.FuncName != "DiscoveredConvertibleTypes" {
+	switch {
+	case target.Package == "frontendbindings" && target.FuncName == "DiscoveredConvertibleTypes":
+		return []registryEntry{
+			{
+				PkgPath: "setta/internal/projectstate",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "FrontendTerminalSectionImpl",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+			{
+				PkgPath: "setta/internal/projectstate",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "FrontendCodeParamCodeObjImpl",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+		}
+	case target.Package == "sharedtypes" && target.FuncName == "discoveredAdditionalTypes":
+		return []registryEntry{
+			{
+				PkgPath: "setta/internal/artifacts",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "BaseArtifactUnion",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+			{
+				PkgPath: "setta/internal/realtime",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "BaseDependencyKeyUnion",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+			{
+				PkgPath: "setta/internal/realtime",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "BaseDependencyValueUnion",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+		}
+	default:
 		return nil
-	}
-	return []registryEntry{
-		{
-			PkgPath: "setta/internal/projectstate",
-			Type: gotypediscovery.DiscoveredType{
-				Name: "FrontendTerminalSectionImpl",
-				Kind: gotypediscovery.TypeKindStruct,
-			},
-		},
-		{
-			PkgPath: "setta/internal/projectstate",
-			Type: gotypediscovery.DiscoveredType{
-				Name: "FrontendCodeParamCodeObjImpl",
-				Kind: gotypediscovery.TypeKindStruct,
-			},
-		},
 	}
 }
 

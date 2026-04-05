@@ -140,13 +140,13 @@ func (MessageContentDelta) FrontendBindingUnionTypes() []reflect.Type {
 
 type MessageStartEvent struct {
 	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_start"`
-	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
+	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion" shared_schema_ref:"BaseChatMessageUnion"`
 }
 
 type MessageDeltaEvent struct {
 	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.delta"`
 	MessageID string             `json:"message_id"`
-	Content   []any              `json:"content" ts_type:"Array<MessageContentDelta> | null" ts_optional:"true"`
+	Content   []any              `json:"content" ts_type:"Array<MessageContentDelta> | null" ts_optional:"true" shared_schema_items_ref:"MessageContentDelta"`
 }
 
 type ToolCallDeltaEvent struct {
@@ -159,7 +159,7 @@ type ToolCallDeltaEvent struct {
 
 type ToolResultEvent struct {
 	Type   StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_result"`
-	Result map[string]any     `json:"result" ts_type:"ToolChatMessage"`
+	Result map[string]any     `json:"result" ts_type:"ToolChatMessage" shared_schema_ref:"ToolChatMessage"`
 }
 
 type ToolArgumentPreviewDeltaEvent struct {
@@ -180,7 +180,7 @@ type MessageStopEvent struct {
 
 type MessageFinalizedEvent struct {
 	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_finalized"`
-	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
+	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion" shared_schema_ref:"BaseChatMessageUnion"`
 }
 
 type LLMStreamingResponseChunk struct{}
@@ -199,7 +199,7 @@ func (LLMStreamingResponseChunk) FrontendBindingUnionTypes() []reflect.Type {
 
 type LLMStreamingResponseContent struct {
 	ChatID          string  `json:"chatId"`
-	Chunk           any     `json:"chunk" ts_type:"LLMStreamingResponseChunk"`
+	Chunk           any     `json:"chunk" ts_type:"LLMStreamingResponseChunk" shared_schema_ref:"LLMStreamingResponseChunk"`
 	SectionID       *string `json:"sectionId" ts_optional:"true"`
 	ProjectConfigID *string `json:"projectConfigId" ts_optional:"true"`
 }
@@ -389,7 +389,7 @@ type AgentRunUpdatedMessage struct {
 }
 
 type UpdateArtifactsContent struct {
-	Artifacts  []any  `json:"artifacts" ts_type:"Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>"`
+	Artifacts  []any  `json:"artifacts" ts_type:"Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>" shared_schema_items_ref:"BaseArtifactUnion"`
 	UpdateType string `json:"updateType" ts_type:"\"update\" | \"delete\""`
 }
 

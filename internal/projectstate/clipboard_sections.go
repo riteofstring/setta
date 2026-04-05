@@ -20,10 +20,10 @@ const ClipboardDataTypeSections ClipboardDataType = "Sections"
 
 type ClipboardProjectStateCore struct {
 	Sections        map[string]Section           `json:"sections,omitempty" ts_type:"Record<string, Core>" ts_optional:"false"`
-	SectionImpls    map[string]SectionImpl       `json:"sectionImpls,omitempty" ts_type:"Record<string, BaseSectionImplUnion>" ts_optional:"false"`
+	SectionImpls    map[string]SectionImpl       `json:"sectionImpls,omitempty" ts_type:"Record<string, BaseSectionImplUnion>" ts_optional:"false" shared_schema_map_value_ref:"BaseSectionImpl"`
 	SectionVariants map[string]SectionVariant    `json:"sectionVariants,omitempty" ts_type:"Record<string, Variant>" ts_optional:"false"`
 	CodeObjs        map[string]CodeObject        `json:"codeObjs,omitempty" ts_type:"Record<string, Core>" ts_optional:"false"`
-	CodeObjImpls    map[string]CodeObjectImpl    `json:"codeObjImpls,omitempty" ts_type:"Record<string, BaseCodeObjImplUnion>" ts_optional:"false"`
+	CodeObjImpls    map[string]CodeObjectImpl    `json:"codeObjImpls,omitempty" ts_type:"Record<string, BaseCodeObjImplUnion>" ts_optional:"false" shared_schema_map_value_ref:"BaseCodeObjImpl"`
 	CodeObjVariants map[string]CodeObjectVariant `json:"codeObjVariants,omitempty" ts_type:"Record<string, Variant>" ts_optional:"false"`
 }
 

@@ -317,6 +317,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(artifacts.BrushStrokeArtifact{}),
 		reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}),
 		reflect.TypeOf(artifacts.ErrorKind("")),
+		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
 		reflect.TypeOf(artifacts.ArtifactType("")),
 		reflect.TypeOf(artifacts.UploadScope("")),
 		reflect.TypeOf(artifacts.SaveConflictStrategy("")),

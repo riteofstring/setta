@@ -108,3 +108,88 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 		t.Fatalf("expected shared sidecar to include python_shared ProjectConfig default entry")
 	}
 }
+
+func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	baseArtifactUnion := document.Defs["BaseArtifactUnion"]
+	if baseArtifactUnion == nil {
+		t.Fatalf("expected BaseArtifactUnion schema in $defs")
+	}
+	if got := len(baseArtifactUnion.AnyOf); got != 5 {
+		t.Fatalf("BaseArtifactUnion anyOf count = %d, want 5", got)
+	}
+
+	singleConfigSchema := document.Defs["SingleConfig"]
+	if singleConfigSchema == nil {
+		t.Fatalf("expected SingleConfig schema in $defs")
+	}
+	sectionImplsValueSchema := singleConfigSchema.Properties["sectionImpls"].AdditionalProperties
+	if sectionImplsValueSchema == nil {
+		t.Fatalf("expected SingleConfig.sectionImpls additionalProperties schema")
+	}
+	if got := len(sectionImplsValueSchema.AnyOf); got < 2 {
+		t.Fatalf("SingleConfig.sectionImpls anyOf count = %d, want at least 2", got)
+	}
+	if got := sectionImplsValueSchema.AnyOf[0].Ref; got != "#/$defs/BaseSectionImpl" {
+		t.Fatalf("SingleConfig.sectionImpls first anyOf ref = %q, want %q", got, "#/$defs/BaseSectionImpl")
+	}
+	codeObjImplsValueSchema := singleConfigSchema.Properties["codeObjImpls"].AdditionalProperties
+	if codeObjImplsValueSchema == nil {
+		t.Fatalf("expected SingleConfig.codeObjImpls additionalProperties schema")
+	}
+	if got := len(codeObjImplsValueSchema.AnyOf); got < 2 {
+		t.Fatalf("SingleConfig.codeObjImpls anyOf count = %d, want at least 2", got)
+	}
+	if got := codeObjImplsValueSchema.AnyOf[0].Ref; got != "#/$defs/BaseCodeObjImpl" {
+		t.Fatalf("SingleConfig.codeObjImpls first anyOf ref = %q, want %q", got, "#/$defs/BaseCodeObjImpl")
+	}
+
+	chatStateSchema := document.Defs["ChatSectionState"]
+	if chatStateSchema == nil {
+		t.Fatalf("expected ChatSectionState schema in $defs")
+	}
+	if got := chatStateSchema.Properties["messages"].Items.Ref; got != "#/$defs/BaseChatMessageUnion" {
+		t.Fatalf("ChatSectionState.messages items ref = %q, want %q", got, "#/$defs/BaseChatMessageUnion")
+	}
+
+	realtimeUIChangeSchema := document.Defs["RealtimeUIChangeContent"]
+	if realtimeUIChangeSchema == nil {
+		t.Fatalf("expected RealtimeUIChangeContent schema in $defs")
+	}
+	dependencyKeySchema := realtimeUIChangeSchema.Properties["dependencyKey"]
+	if dependencyKeySchema == nil || len(dependencyKeySchema.AnyOf) != 2 {
+		t.Fatalf("expected RealtimeUIChangeContent.dependencyKey anyOf schema")
+	}
+	if got := dependencyKeySchema.AnyOf[0].Ref; got != "#/$defs/BaseDependencyKeyUnion" {
+		t.Fatalf("RealtimeUIChangeContent.dependencyKey first anyOf ref = %q, want %q", got, "#/$defs/BaseDependencyKeyUnion")
+	}
+	dependencyValueSchema := realtimeUIChangeSchema.Properties["value"]
+	if dependencyValueSchema == nil || len(dependencyValueSchema.AnyOf) != 2 {
+		t.Fatalf("expected RealtimeUIChangeContent.value anyOf schema")
+	}
+	if got := dependencyValueSchema.AnyOf[0].Ref; got != "#/$defs/BaseDependencyValueUnion" {
+		t.Fatalf("RealtimeUIChangeContent.value first anyOf ref = %q, want %q", got, "#/$defs/BaseDependencyValueUnion")
+	}
+
+	streamingSchema := document.Defs["LLMStreamingResponseContent"]
+	if streamingSchema == nil {
+		t.Fatalf("expected LLMStreamingResponseContent schema in $defs")
+	}
+	if got := streamingSchema.Properties["chunk"].Ref; got != "#/$defs/LLMStreamingResponseChunk" {
+		t.Fatalf("LLMStreamingResponseContent.chunk ref = %q, want %q", got, "#/$defs/LLMStreamingResponseChunk")
+	}
+
+	updateArtifactsSchema := document.Defs["UpdateArtifactsContent"]
+	if updateArtifactsSchema == nil {
+		t.Fatalf("expected UpdateArtifactsContent schema in $defs")
+	}
+	if got := updateArtifactsSchema.Properties["artifacts"].Items.Ref; got != "#/$defs/BaseArtifactUnion" {
+		t.Fatalf("UpdateArtifactsContent.artifacts items ref = %q, want %q", got, "#/$defs/BaseArtifactUnion")
+	}
+}

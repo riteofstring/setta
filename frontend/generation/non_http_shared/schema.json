@@ -2036,6 +2036,26 @@
         "cross"
       ]
     },
+    "BaseArtifactUnion": {
+      "title": "BaseArtifactUnion",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageArtifact"
+        },
+        {
+          "$ref": "#/$defs/BrushStrokeArtifact"
+        },
+        {
+          "$ref": "#/$defs/DrawAreaLayerItemTransformArtifact"
+        },
+        {
+          "$ref": "#/$defs/ChartDataArtifact"
+        },
+        {
+          "$ref": "#/$defs/FileArtifact"
+        }
+      ]
+    },
     "BaseChartSettingsUnion": {
       "title": "BaseChartSettingsUnion",
       "anyOf": [
@@ -2109,6 +2129,31 @@
         "isPreset"
       ],
       "additionalProperties": false
+    },
+    "BaseDependencyKeyUnion": {
+      "title": "BaseDependencyKeyUnion",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SectionDependencyKey"
+        },
+        {
+          "$ref": "#/$defs/SectionParamDependencyKey"
+        }
+      ]
+    },
+    "BaseDependencyValueUnion": {
+      "title": "BaseDependencyValueUnion",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LiteralDependencyValue"
+        },
+        {
+          "$ref": "#/$defs/FileReadDependencyValue"
+        },
+        {
+          "$ref": "#/$defs/BinaryDependencyValue"
+        }
+      ]
     },
     "BaseParamCodeObjImpl": {
       "type": "object",
@@ -3684,8 +3729,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/$defs/BaseChatMessageUnion"
           }
         },
         "createdAt": {
@@ -4018,8 +4062,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/$defs/BaseChatMessageUnion"
           }
         },
         "inputText": {
@@ -4051,8 +4094,7 @@
                   "array"
                 ],
                 "items": {
-                  "type": "object",
-                  "additionalProperties": true
+                  "$ref": "#/$defs/BaseChatMessageUnion"
                 }
               },
               "createdAt": {
@@ -4454,149 +4496,68 @@
         "sectionImpls": {
           "type": "object",
           "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BaseSectionImpl"
               },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "code",
-                  "terminal",
-                  "draw",
-                  "generated"
-                ]
+              {
+                "$ref": "#/$defs/CallableSectionImpl"
               },
-              "payload": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+              {
+                "$ref": "#/$defs/DictSectionImpl"
               },
-              "code": {
-                "type": [
-                  "null",
-                  "object"
-                ],
-                "properties": {
-                  "language": {
-                    "type": "string",
-                    "enum": [
-                      "python",
-                      "bash",
-                      "javascript",
-                      "typescript",
-                      "json",
-                      "yaml",
-                      "toml",
-                      "markdown",
-                      "plaintext"
-                    ]
-                  },
-                  "binding": {
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "path": {
-                        "type": "string"
-                      },
-                      "accessMode": {
-                        "type": "string",
-                        "enum": [
-                          "read_write",
-                          "read_only",
-                          "write_only"
-                        ]
-                      },
-                      "autoBinding": {
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "path"
-                    ],
-                    "additionalProperties": false
-                  },
-                  "attachedTerminalSectionId": {
-                    "type": "string"
-                  },
-                  "children": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "required": [
-                  "language"
-                ],
-                "additionalProperties": false
+              {
+                "$ref": "#/$defs/ListRootSectionImpl"
               },
-              "terminal": {
-                "type": [
-                  "null",
-                  "object"
-                ],
-                "properties": {
-                  "sessionMode": {
-                    "type": "string",
-                    "enum": [
-                      "",
-                      "managed_console"
-                    ]
-                  }
-                },
-                "additionalProperties": false
+              {
+                "$ref": "#/$defs/GroupSectionImpl"
               },
-              "draw": {
-                "type": [
-                  "null",
-                  "object"
-                ],
-                "properties": {
-                  "renderedImagePath": {
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": false
+              {
+                "$ref": "#/$defs/StateMachineStartSectionImpl"
               },
-              "generated": {
-                "type": [
-                  "null",
-                  "object"
-                ],
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "python_code",
-                      "python_metadata",
-                      "plugin"
-                    ]
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "additionalProperties": false
+              {
+                "$ref": "#/$defs/StateMachineGateSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/StateMachineEndSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/ChartSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TextBlockSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/PromptSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GlobalVariablesSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/CodeSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GenPythonCodeSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/ChatSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/BrowserSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TaskBoardSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/SpreadsheetSectionImpl"
               }
-            },
-            "required": [
-              "id",
-              "kind"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "sectionVariants": {
@@ -4701,31 +4662,56 @@
         "codeObjImpls": {
           "type": "object",
           "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string"
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BaseCodeObjImpl"
               },
-              "type": {
-                "type": "string"
+              {
+                "$ref": "#/$defs/CodeCallableCodeObjImpl"
               },
-              "payload": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+              {
+                "$ref": "#/$defs/CodeParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TextParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DateParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TimeParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/ButtonParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/SliderParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/RotaryParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/SwitchParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DropdownParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/PasswordParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/NestedParamCodeObjImpl"
               }
-            },
-            "required": [
-              "id",
-              "type"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "codeObjVariants": {
@@ -4843,149 +4829,68 @@
             "sectionImpls": {
               "type": "object",
               "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BaseSectionImpl"
                   },
-                  "kind": {
-                    "type": "string",
-                    "enum": [
-                      "code",
-                      "terminal",
-                      "draw",
-                      "generated"
-                    ]
+                  {
+                    "$ref": "#/$defs/CallableSectionImpl"
                   },
-                  "payload": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 255
-                    }
+                  {
+                    "$ref": "#/$defs/DictSectionImpl"
                   },
-                  "code": {
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "language": {
-                        "type": "string",
-                        "enum": [
-                          "python",
-                          "bash",
-                          "javascript",
-                          "typescript",
-                          "json",
-                          "yaml",
-                          "toml",
-                          "markdown",
-                          "plaintext"
-                        ]
-                      },
-                      "binding": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "accessMode": {
-                            "type": "string",
-                            "enum": [
-                              "read_write",
-                              "read_only",
-                              "write_only"
-                            ]
-                          },
-                          "autoBinding": {
-                            "type": "boolean"
-                          }
-                        },
-                        "required": [
-                          "path"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "attachedTerminalSectionId": {
-                        "type": "string"
-                      },
-                      "children": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "required": [
-                      "language"
-                    ],
-                    "additionalProperties": false
+                  {
+                    "$ref": "#/$defs/ListRootSectionImpl"
                   },
-                  "terminal": {
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "sessionMode": {
-                        "type": "string",
-                        "enum": [
-                          "",
-                          "managed_console"
-                        ]
-                      }
-                    },
-                    "additionalProperties": false
+                  {
+                    "$ref": "#/$defs/GroupSectionImpl"
                   },
-                  "draw": {
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "renderedImagePath": {
-                        "type": "string"
-                      }
-                    },
-                    "additionalProperties": false
+                  {
+                    "$ref": "#/$defs/StateMachineStartSectionImpl"
                   },
-                  "generated": {
-                    "type": [
-                      "null",
-                      "object"
-                    ],
-                    "properties": {
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "python_code",
-                          "python_metadata",
-                          "plugin"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "kind"
-                    ],
-                    "additionalProperties": false
+                  {
+                    "$ref": "#/$defs/StateMachineGateSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/StateMachineEndSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ChartSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextBlockSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/PromptSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GlobalVariablesSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/CodeSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GenPythonCodeSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TerminalSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ChatSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/BrowserSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TaskBoardSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SpreadsheetSectionImpl"
                   }
-                },
-                "required": [
-                  "id",
-                  "kind"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             "sectionVariants": {
@@ -5090,31 +4995,56 @@
             "codeObjImpls": {
               "type": "object",
               "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "type": "string"
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BaseCodeObjImpl"
                   },
-                  "type": {
-                    "type": "string"
+                  {
+                    "$ref": "#/$defs/CodeCallableCodeObjImpl"
                   },
-                  "payload": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 255
-                    }
+                  {
+                    "$ref": "#/$defs/CodeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DateParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TimeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ButtonParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SliderParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/RotaryParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SwitchParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DropdownParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/PasswordParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/NestedParamCodeObjImpl"
                   }
-                },
-                "required": [
-                  "id",
-                  "type"
-                ],
-                "additionalProperties": false
+                ]
               }
             },
             "codeObjVariants": {
@@ -10252,7 +10182,9 @@
         "chatId": {
           "type": "string"
         },
-        "chunk": true,
+        "chunk": {
+          "$ref": "#/$defs/LLMStreamingResponseChunk"
+        },
         "sectionId": {
           "type": [
             "null",
@@ -10319,7 +10251,9 @@
             "chatId": {
               "type": "string"
             },
-            "chunk": true,
+            "chunk": {
+              "$ref": "#/$defs/LLMStreamingResponseChunk"
+            },
             "sectionId": {
               "type": [
                 "null",
@@ -11269,27 +11203,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "Section",
-                  "SectionParam"
-                ]
-              },
-              "sectionId": {
-                "type": "string"
-              },
-              "codeObjId": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "sectionId"
-            ],
-            "additionalProperties": false
+            "$ref": "#/$defs/BaseDependencyKeyUnion"
           }
         },
         "hasRealtimeWildcard": {
@@ -11348,27 +11262,7 @@
                 "array"
               ],
               "items": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "Section",
-                      "SectionParam"
-                    ]
-                  },
-                  "sectionId": {
-                    "type": "string"
-                  },
-                  "codeObjId": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "type",
-                  "sectionId"
-                ],
-                "additionalProperties": false
+                "$ref": "#/$defs/BaseDependencyKeyUnion"
               }
             },
             "hasRealtimeWildcard": {
@@ -14226,7 +14120,9 @@
             "null",
             "array"
           ],
-          "items": true
+          "items": {
+            "$ref": "#/$defs/MessageContentDelta"
+          }
         }
       },
       "title": "MessageDeltaEvent",
@@ -14253,8 +14149,7 @@
           ]
         },
         "message": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/BaseChatMessageUnion"
         }
       },
       "title": "MessageFinalizedEvent",
@@ -14331,8 +14226,7 @@
           ]
         },
         "message": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/BaseChatMessageUnion"
         }
       },
       "title": "MessageStartEvent",
@@ -15899,149 +15793,68 @@
                 "sectionImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseSectionImpl"
                       },
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "code",
-                          "terminal",
-                          "draw",
-                          "generated"
-                        ]
+                      {
+                        "$ref": "#/$defs/CallableSectionImpl"
                       },
-                      "payload": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 255
-                        }
+                      {
+                        "$ref": "#/$defs/DictSectionImpl"
                       },
-                      "code": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "language": {
-                            "type": "string",
-                            "enum": [
-                              "python",
-                              "bash",
-                              "javascript",
-                              "typescript",
-                              "json",
-                              "yaml",
-                              "toml",
-                              "markdown",
-                              "plaintext"
-                            ]
-                          },
-                          "binding": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "path": {
-                                "type": "string"
-                              },
-                              "accessMode": {
-                                "type": "string",
-                                "enum": [
-                                  "read_write",
-                                  "read_only",
-                                  "write_only"
-                                ]
-                              },
-                              "autoBinding": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "path"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "attachedTerminalSectionId": {
-                            "type": "string"
-                          },
-                          "children": {
-                            "type": [
-                              "null",
-                              "array"
-                            ],
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "language"
-                        ],
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/ListRootSectionImpl"
                       },
-                      "terminal": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "sessionMode": {
-                            "type": "string",
-                            "enum": [
-                              "",
-                              "managed_console"
-                            ]
-                          }
-                        },
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/GroupSectionImpl"
                       },
-                      "draw": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "renderedImagePath": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/StateMachineStartSectionImpl"
                       },
-                      "generated": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "enum": [
-                              "python_code",
-                              "python_metadata",
-                              "plugin"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "kind"
-                        ],
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/StateMachineGateSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/StateMachineEndSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChartSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextBlockSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PromptSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GlobalVariablesSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonCodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TerminalSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChatSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/BrowserSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TaskBoardSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SpreadsheetSectionImpl"
                       }
-                    },
-                    "required": [
-                      "id",
-                      "kind"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "sectionVariants": {
@@ -16146,31 +15959,56 @@
                 "codeObjImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseCodeObjImpl"
                       },
-                      "type": {
-                        "type": "string"
+                      {
+                        "$ref": "#/$defs/CodeCallableCodeObjImpl"
                       },
-                      "payload": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 255
-                        }
+                      {
+                        "$ref": "#/$defs/CodeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DateParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TimeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ButtonParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SliderParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/RotaryParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SwitchParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropdownParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PasswordParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/NestedParamCodeObjImpl"
                       }
-                    },
-                    "required": [
-                      "id",
-                      "type"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "codeObjVariants": {
@@ -21902,15 +21740,68 @@
             "sectionImpls": {
               "type": "object",
               "additionalProperties": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BaseSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/CallableSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DictSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ListRootSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GroupSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/StateMachineStartSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/StateMachineGateSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/StateMachineEndSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ChartSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextBlockSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/PromptSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GlobalVariablesSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/CodeSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GenPythonCodeSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TerminalSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ChatSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/BrowserSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TaskBoardSectionImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SpreadsheetSectionImpl"
+                  }
+                ]
               }
             },
             "sectionCapabilities": {
@@ -22067,15 +21958,56 @@
             "codeObjImpls": {
               "type": "object",
               "additionalProperties": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BaseCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/CodeCallableCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/CodeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DateParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TimeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ButtonParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SliderParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/RotaryParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/SwitchParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DropdownParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/PasswordParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/$defs/NestedParamCodeObjImpl"
+                  }
+                ]
               }
             },
             "codeObjVariants": {
@@ -23438,15 +23370,68 @@
                 "sectionImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 255
-                    }
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CallableSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DictSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ListRootSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GroupSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/StateMachineStartSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/StateMachineGateSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/StateMachineEndSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChartSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextBlockSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PromptSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GlobalVariablesSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonCodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TerminalSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChatSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/BrowserSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TaskBoardSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SpreadsheetSectionImpl"
+                      }
+                    ]
                   }
                 },
                 "sectionCapabilities": {
@@ -23603,15 +23588,56 @@
                 "codeObjImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 255
-                    }
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CodeCallableCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CodeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DateParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TimeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ButtonParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SliderParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/RotaryParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SwitchParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropdownParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PasswordParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/NestedParamCodeObjImpl"
+                      }
+                    ]
                   }
                 },
                 "codeObjVariants": {
@@ -25262,40 +25288,7 @@
           "type": "string"
         },
         "dependencyEvent": {
-          "type": "object",
-          "properties": {
-            "dependencyKey": {
-              "type": [
-                "null",
-                "array"
-              ],
-              "items": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255
-              }
-            },
-            "payload": {
-              "type": [
-                "null",
-                "array"
-              ],
-              "items": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255
-              }
-            },
-            "timestampMs": {
-              "type": "integer"
-            }
-          },
-          "required": [
-            "dependencyKey",
-            "payload",
-            "timestampMs"
-          ],
-          "additionalProperties": false
+          "$ref": "#/$defs/DependencyEvent"
         }
       },
       "title": "RealtimeDependencyEventContent",
@@ -25330,40 +25323,7 @@
               "type": "string"
             },
             "dependencyEvent": {
-              "type": "object",
-              "properties": {
-                "dependencyKey": {
-                  "type": [
-                    "null",
-                    "array"
-                  ],
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 255
-                  }
-                },
-                "payload": {
-                  "type": [
-                    "null",
-                    "array"
-                  ],
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 255
-                  }
-                },
-                "timestampMs": {
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "dependencyKey",
-                "payload",
-                "timestampMs"
-              ],
-              "additionalProperties": false
+              "$ref": "#/$defs/DependencyEvent"
             }
           },
           "required": [
@@ -25387,26 +25347,24 @@
           "type": "string"
         },
         "dependencyKey": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 255
-          }
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BaseDependencyKeyUnion"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "value": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 255
-          }
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BaseDependencyValueUnion"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "title": "RealtimeUIChangeContent",
@@ -25442,26 +25400,24 @@
               "type": "string"
             },
             "dependencyKey": {
-              "type": [
-                "null",
-                "array"
-              ],
-              "items": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255
-              }
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BaseDependencyKeyUnion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "value": {
-              "type": [
-                "null",
-                "array"
-              ],
-              "items": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 255
-              }
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BaseDependencyValueUnion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -29283,149 +29239,68 @@
                 "sectionImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseSectionImpl"
                       },
-                      "kind": {
-                        "type": "string",
-                        "enum": [
-                          "code",
-                          "terminal",
-                          "draw",
-                          "generated"
-                        ]
+                      {
+                        "$ref": "#/$defs/CallableSectionImpl"
                       },
-                      "payload": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 255
-                        }
+                      {
+                        "$ref": "#/$defs/DictSectionImpl"
                       },
-                      "code": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "language": {
-                            "type": "string",
-                            "enum": [
-                              "python",
-                              "bash",
-                              "javascript",
-                              "typescript",
-                              "json",
-                              "yaml",
-                              "toml",
-                              "markdown",
-                              "plaintext"
-                            ]
-                          },
-                          "binding": {
-                            "type": [
-                              "null",
-                              "object"
-                            ],
-                            "properties": {
-                              "path": {
-                                "type": "string"
-                              },
-                              "accessMode": {
-                                "type": "string",
-                                "enum": [
-                                  "read_write",
-                                  "read_only",
-                                  "write_only"
-                                ]
-                              },
-                              "autoBinding": {
-                                "type": "boolean"
-                              }
-                            },
-                            "required": [
-                              "path"
-                            ],
-                            "additionalProperties": false
-                          },
-                          "attachedTerminalSectionId": {
-                            "type": "string"
-                          },
-                          "children": {
-                            "type": [
-                              "null",
-                              "array"
-                            ],
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "required": [
-                          "language"
-                        ],
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/ListRootSectionImpl"
                       },
-                      "terminal": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "sessionMode": {
-                            "type": "string",
-                            "enum": [
-                              "",
-                              "managed_console"
-                            ]
-                          }
-                        },
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/GroupSectionImpl"
                       },
-                      "draw": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "renderedImagePath": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/StateMachineStartSectionImpl"
                       },
-                      "generated": {
-                        "type": [
-                          "null",
-                          "object"
-                        ],
-                        "properties": {
-                          "kind": {
-                            "type": "string",
-                            "enum": [
-                              "python_code",
-                              "python_metadata",
-                              "plugin"
-                            ]
-                          }
-                        },
-                        "required": [
-                          "kind"
-                        ],
-                        "additionalProperties": false
+                      {
+                        "$ref": "#/$defs/StateMachineGateSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/StateMachineEndSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChartSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextBlockSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PromptSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GlobalVariablesSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/CodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonCodeSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TerminalSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ChatSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/BrowserSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TaskBoardSectionImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SpreadsheetSectionImpl"
                       }
-                    },
-                    "required": [
-                      "id",
-                      "kind"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "sectionVariants": {
@@ -29530,31 +29405,56 @@
                 "codeObjImpls": {
                   "type": "object",
                   "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/BaseCodeObjImpl"
                       },
-                      "type": {
-                        "type": "string"
+                      {
+                        "$ref": "#/$defs/CodeCallableCodeObjImpl"
                       },
-                      "payload": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 255
-                        }
+                      {
+                        "$ref": "#/$defs/CodeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DateParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TimeParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ButtonParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SliderParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/RotaryParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/SwitchParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropdownParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/PasswordParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+                      },
+                      {
+                        "$ref": "#/$defs/NestedParamCodeObjImpl"
                       }
-                    },
-                    "required": [
-                      "id",
-                      "type"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "codeObjVariants": {
@@ -32358,15 +32258,68 @@
         "sectionImpls": {
           "type": "object",
           "additionalProperties": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 255
-            }
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BaseSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/CallableSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/DictSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/ListRootSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GroupSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/StateMachineStartSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/StateMachineGateSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/StateMachineEndSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/ChartSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TextBlockSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/PromptSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GlobalVariablesSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/CodeSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GenPythonCodeSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/GenPythonMetadataSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TerminalSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/ChatSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/BrowserSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/TaskBoardSectionImpl"
+              },
+              {
+                "$ref": "#/$defs/SpreadsheetSectionImpl"
+              }
+            ]
           }
         },
         "sectionCapabilities": {
@@ -32523,15 +32476,56 @@
         "codeObjImpls": {
           "type": "object",
           "additionalProperties": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 255
-            }
+            "anyOf": [
+              {
+                "$ref": "#/$defs/BaseCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/CodeCallableCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/CodeParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TextParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DateParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TimeParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/ButtonParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/SliderParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/RotaryParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/SwitchParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/ColorPickerParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DropdownParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/PasswordParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/TextAreaParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/DropzoneParamCodeObjImpl"
+              },
+              {
+                "$ref": "#/$defs/NestedParamCodeObjImpl"
+              }
+            ]
           }
         },
         "codeObjVariants": {
@@ -36153,8 +36147,7 @@
           ]
         },
         "result": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/ToolChatMessage"
         }
       },
       "title": "ToolResultEvent",
@@ -37239,7 +37232,9 @@
             "null",
             "array"
           ],
-          "items": true
+          "items": {
+            "$ref": "#/$defs/BaseArtifactUnion"
+          }
         },
         "updateType": {
           "type": "string"
@@ -37298,7 +37293,9 @@
                 "null",
                 "array"
               ],
-              "items": true
+              "items": {
+                "$ref": "#/$defs/BaseArtifactUnion"
+              }
             },
             "updateType": {
               "type": "string"
@@ -37328,39 +37325,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "enum": [
-                  "Image",
-                  "BrushStroke",
-                  "DrawAreaLayerItemTransform",
-                  "ChartData",
-                  "File"
-                ]
-              },
-              "id": {
-                "type": "string"
-              },
-              "value": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
-              }
-            },
-            "required": [
-              "type",
-              "id",
-              "value"
-            ],
-            "additionalProperties": false
+            "$ref": "#/$defs/BaseArtifactUnion"
           }
         },
         "conflictStrategy": {

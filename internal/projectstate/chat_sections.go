@@ -36,14 +36,14 @@ type ChatSectionSettings struct {
 }
 
 type ChatSectionBranch struct {
-	Messages            []map[string]any `json:"messages" ts_type:"Array<BaseChatMessageUnion>"`
+	Messages            []map[string]any `json:"messages" ts_type:"Array<BaseChatMessageUnion>" shared_schema_items_ref:"BaseChatMessageUnion"`
 	CreatedAt           int              `json:"createdAt" py_default:"0"`
 	ParentBranchID      *string          `json:"parentBranchId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" ts_optional:"true"`
 	BranchFromMessageID *string          `json:"branchFromMessageId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" ts_optional:"true"`
 }
 
 type ChatSectionState struct {
-	Messages           []map[string]any             `json:"messages" ts_type:"Array<BaseChatMessageUnion>"`
+	Messages           []map[string]any             `json:"messages" ts_type:"Array<BaseChatMessageUnion>" shared_schema_items_ref:"BaseChatMessageUnion"`
 	InputText          string                       `json:"inputText" py_default:"\"\""`
 	WaitingForResponse bool                         `json:"waitingForResponse" py_default:"False"`
 	ToolCallArguments  map[string]string            `json:"toolCallArguments" py_default:"Field(default_factory=dict)"`

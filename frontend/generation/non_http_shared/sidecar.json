@@ -182,6 +182,11 @@
       "schemaRef": "#/$defs/BackgroundVariant"
     },
     {
+      "name": "BaseArtifactUnion",
+      "kind": "model",
+      "schemaRef": "#/$defs/BaseArtifactUnion"
+    },
+    {
       "name": "BaseChartSettingsUnion",
       "kind": "model",
       "schemaRef": "#/$defs/BaseChartSettingsUnion"
@@ -195,6 +200,16 @@
       "name": "BaseCodeObjImpl",
       "kind": "model",
       "schemaRef": "#/$defs/BaseCodeObjImpl"
+    },
+    {
+      "name": "BaseDependencyKeyUnion",
+      "kind": "model",
+      "schemaRef": "#/$defs/BaseDependencyKeyUnion"
+    },
+    {
+      "name": "BaseDependencyValueUnion",
+      "kind": "model",
+      "schemaRef": "#/$defs/BaseDependencyValueUnion"
     },
     {
       "name": "BaseParamCodeObjImpl",

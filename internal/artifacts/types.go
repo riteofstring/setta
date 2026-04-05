@@ -64,7 +64,7 @@ type RawArtifact struct {
 }
 
 type UpdateRequest struct {
-	Artifacts        []RawArtifact         `json:"artifacts"`
+	Artifacts        []RawArtifact         `json:"artifacts" shared_schema_items_ref:"BaseArtifactUnion"`
 	ConflictStrategy *SaveConflictStrategy `json:"conflictStrategy"`
 	UploadScope      UploadScope           `json:"uploadScope"`
 }

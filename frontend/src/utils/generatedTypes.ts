@@ -3669,15 +3669,6 @@ export function createDrawAreaLayerItemTransformArtifact(
   };
 }
 
-export const ArtifactTypeEnum = {
-  Image: "Image",
-  BrushStroke: "BrushStroke",
-  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
-  ChartData: "ChartData",
-  File: "File",
-} as const;
-export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
-
 export type ContentRef = {
   contentId: string;
   byteLength: number;
@@ -3736,16 +3727,25 @@ export function createChartDataArtifact(
   };
 }
 
-export type JSONArtifact = {
-  type: ArtifactType;
-  id: string;
-  value: JSONValue;
-};
-
 export type FileArtifact = {
   type: typeof ArtifactTypeEnum.File;
   id: string;
   value: ContentRef;
+};
+
+export const ArtifactTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
+  ChartData: "ChartData",
+  File: "File",
+} as const;
+export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
+
+export type JSONArtifact = {
+  type: ArtifactType;
+  id: string;
+  value: JSONValue;
 };
 
 export const ProjectCodegenLanguageEnum = {

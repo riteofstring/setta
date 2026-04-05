@@ -96,11 +96,11 @@ var (
 
 type SingleConfig struct {
 	Sections              map[string]Core                        `json:"sections"`
-	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls" ts_type:"Record<string, BaseSectionImplUnion>"`
+	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls" ts_type:"Record<string, BaseSectionImplUnion>" shared_schema_map_value_ref:"BaseSectionImpl"`
 	SectionCapabilities   map[string]SectionCapabilities         `json:"sectionCapabilities"`
 	SectionVariants       map[string]Variant                     `json:"sectionVariants"`
 	CodeObjs              map[string]Core                        `json:"codeObjs"`
-	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls" ts_type:"Record<string, BaseCodeObjImplUnion>"`
+	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls" ts_type:"Record<string, BaseCodeObjImplUnion>" shared_schema_map_value_ref:"BaseCodeObjImpl"`
 	CodeObjVariants       map[string]Variant                     `json:"codeObjVariants"`
 	ProjectConfig         ProjectConfig                          `json:"projectConfig"`
 	SingletonSections     SingletonSections                      `json:"singletonSections"`

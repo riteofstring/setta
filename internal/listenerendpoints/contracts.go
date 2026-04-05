@@ -27,7 +27,7 @@ const (
 type ListenerCreateChatRequestPayload struct {
 	ProjectConfigID *string        `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID"`
 	EngineConfigID  *string        `json:"engineConfigId,omitempty" py_type:"ID | None" py_import:"from setta.types.id import ID"`
-	FirstMessage    map[string]any `json:"firstMessage" py_type:"BaseChatMessageUnion" py_import:"from setta.types.chat import BaseChatMessageUnion"`
+	FirstMessage    map[string]any `json:"firstMessage" py_type:"BaseChatMessageUnion" py_import:"from setta.types.chat import BaseChatMessageUnion" shared_schema_ref:"BaseChatMessageUnion"`
 }
 
 type ListenerGetChatRequestPayload struct {
@@ -38,7 +38,7 @@ type ListenerGetChatRequestPayload struct {
 type ListenerAppendChatMessagesRequestPayload struct {
 	ProjectConfigID *string          `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID"`
 	ChatID          string           `json:"chatId" py_type:"ID" py_import:"from setta.types.id import ID"`
-	Messages        []map[string]any `json:"messages" py_type:"list[BaseChatMessageUnion]" py_import:"from setta.types.chat import BaseChatMessageUnion"`
+	Messages        []map[string]any `json:"messages" py_type:"list[BaseChatMessageUnion]" py_import:"from setta.types.chat import BaseChatMessageUnion" shared_schema_items_ref:"BaseChatMessageUnion"`
 }
 
 type ListenerDeleteChatRequestPayload struct {
@@ -71,7 +71,7 @@ type ListenerEmitChatStreamDeltaRequestPayload struct {
 	ProjectConfigID *string `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID"`
 	SectionID       string  `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID"`
 	ChatID          string  `json:"chatId" py_type:"ID" py_import:"from setta.types.id import ID"`
-	Chunk           any     `json:"chunk" py_type:"LLMStreamingResponseChunk" py_import:"from setta.types.chat import LLMStreamingResponseChunk"`
+	Chunk           any     `json:"chunk" py_type:"LLMStreamingResponseChunk" py_import:"from setta.types.chat import LLMStreamingResponseChunk" shared_schema_ref:"LLMStreamingResponseChunk"`
 }
 
 type ListenerRunMCPToolsRequestPayload struct {
@@ -79,7 +79,7 @@ type ListenerRunMCPToolsRequestPayload struct {
 	ChatID                string           `json:"chatId" py_type:"ID" py_import:"from setta.types.id import ID"`
 	SectionID             string           `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID"`
 	FrontendAffinityToken *string          `json:"frontendAffinityToken,omitempty" py_type:"str | None"`
-	ToolCalls             []map[string]any `json:"toolCalls" py_type:"list[ToolCall]" py_import:"from setta.types.generated.go_shared_types import ToolCall"`
+	ToolCalls             []map[string]any `json:"toolCalls" py_type:"list[ToolCall]" py_import:"from setta.types.generated.go_shared_types import ToolCall" shared_schema_items_ref:"ToolCall"`
 }
 
 type ListenerSetChatSectionStateRequestPayload struct {

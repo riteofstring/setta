@@ -14,7 +14,7 @@ type ListenerCoverageDependency struct {
 
 type ListenerCoverageSnapshot struct {
 	ProjectID           string                       `json:"projectConfigId"`
-	Dependencies        []ListenerCoverageDependency `json:"dependencies" ts_type:"Array<BaseDependencyKeyUnion>"`
+	Dependencies        []ListenerCoverageDependency `json:"dependencies" ts_type:"Array<BaseDependencyKeyUnion>" shared_schema_items_ref:"BaseDependencyKeyUnion"`
 	HasRealtimeWildcard bool                         `json:"hasRealtimeWildcard"`
 }
 
