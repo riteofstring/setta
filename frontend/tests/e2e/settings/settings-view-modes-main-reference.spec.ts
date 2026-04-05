@@ -8278,6 +8278,458 @@ test("settings graph parity probe keeps shared title editing working after norma
   }
 });
 
+test("settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.slow();
+  test.fail(
+    true,
+    "Known sectionSizingPolicy drift: after the shared fit/pan/zoom path the canary lands visibly farther right/down than read-only main.",
+  );
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const sectionSizingPolicyName = "sectionSizingPolicy";
+  const worktreeSectionSizingPolicyId = findSectionIdByName(
+    worktreeInitialState,
+    sectionSizingPolicyName,
+  );
+  const referenceSectionSizingPolicyId = findSectionIdByName(
+    referenceInitialState,
+    sectionSizingPolicyName,
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const panDelta = { x: 120, y: 80 };
+  const referenceOriginalTitle =
+    referenceInitialState.projectState.sections[referenceSectionSizingPolicyId]
+      ?.name ?? sectionSizingPolicyName;
+  const worktreeOriginalTitle =
+    worktreeInitialState.projectState.sections[worktreeSectionSizingPolicyId]
+      ?.name ?? sectionSizingPolicyName;
+
+  async function captureSectionSizingPolicyTitleEditAfterPanAndZoom(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    nextTitle: string;
+    originalTitle: string;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    side: "reference" | "worktree";
+    targetPage: Page;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: sectionSizingPolicyName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const titleText = sectionLocator.locator("header p").first();
+    const titleInput = sectionLocator.locator("header input").first();
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+    await expect(sectionLocator).toBeVisible();
+    await expect(titleText).toBeVisible();
+    await expect(titleText).toHaveText(args.originalTitle);
+
+    const beforeMotion = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (!beforeMotion.rect || !beforeMotion.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} section sizing policy title-edit motion baseline metrics for ${args.originalTitle}.`,
+      );
+    }
+
+    const panStart = await findSettingsGraphPanePoint(args.targetPage, {
+      panDelta,
+      sectionId: args.sectionId,
+    });
+    await args.targetPage.mouse.move(panStart.x, panStart.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      panStart.x + panDelta.x,
+      panStart.y + panDelta.y,
+      {
+        steps: 10,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const afterPan = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!afterPan.rect || !afterPan.transform) {
+          return 0;
+        }
+        return Math.max(
+          Math.hypot(
+            afterPan.rect.x - beforeMotion.rect.x,
+            afterPan.rect.y - beforeMotion.rect.y,
+          ),
+          Math.hypot(
+            afterPan.transform.x - beforeMotion.transform.x,
+            afterPan.transform.y - beforeMotion.transform.y,
+          ),
+        );
+      })
+      .toBeGreaterThan(60);
+
+    const afterPan = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (!afterPan.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} section sizing policy title-edit post-pan metrics for ${args.originalTitle}.`,
+      );
+    }
+
+    await args.targetPage.getByRole("button", { name: "zoom in" }).click();
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).transform?.zoom ?? 0
+        );
+      })
+      .toBeGreaterThan(afterPan.transform.zoom * 1.08);
+
+    await expect(titleText).toBeVisible();
+
+    const afterMotion = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (
+      afterMotion.centerOffsetFromRootCenter === null ||
+      !afterMotion.rect ||
+      !afterMotion.titleRect ||
+      !afterMotion.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} section sizing policy title-edit post-motion metrics for ${args.originalTitle}.`,
+      );
+    }
+
+    await titleText.dblclick();
+    await expect(titleInput).toBeVisible();
+    await expect(titleInput).toBeFocused();
+    await titleInput.fill(args.nextTitle);
+    await titleInput.press("Enter");
+
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectStateFromBackendOrigin(
+          args.targetPage,
+          args.backendOrigin,
+          args.frontendOrigin,
+          args.projectConfigId,
+        );
+        return latestState.projectState.sections[args.sectionId]?.name ?? null;
+      })
+      .toBe(args.nextTitle);
+    await expect(titleText).toHaveText(args.nextTitle);
+    await expect
+      .poll(async () => {
+        const metrics = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        return {
+          hasRect: metrics.rect !== null,
+          surfaceKind: metrics.surfaceKind,
+        };
+      })
+      .toEqual({
+        hasRect: true,
+        surfaceKind: args.expectedSurfaceKind,
+      });
+
+    return {
+      afterMotion: {
+        centerOffsetFromRootCenter: afterMotion.centerOffsetFromRootCenter,
+        rect: afterMotion.rect,
+        titleRect: afterMotion.titleRect,
+        transform: afterMotion.transform,
+      },
+      paneState: await getLocalPaneState(args.targetPage),
+      zoomDelta: afterMotion.transform.zoom - afterPan.transform.zoom,
+    };
+  }
+
+  try {
+    const referenceResult =
+      await captureSectionSizingPolicyTitleEditAfterPanAndZoom({
+        activeViewModeId: referenceAllSettingsViewModeId,
+        backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+        expectedSurfaceKind: "legacy",
+        frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+        initialState: referenceInitialState,
+        nextTitle: `${referenceOriginalTitle} main motion parity`,
+        originalTitle: referenceOriginalTitle,
+        pageTab: referencePage.getByRole("button", {
+          exact: true,
+          name: "All Settings",
+        }),
+        projectConfigId: referenceProjectConfigId,
+        sectionId: referenceSectionSizingPolicyId,
+        side: "reference",
+        targetPage: referencePage,
+      });
+    const worktreeResult =
+      await captureSectionSizingPolicyTitleEditAfterPanAndZoom({
+        activeViewModeId: worktreeAllSettingsViewModeId,
+        backendOrigin: WORKTREE_BACKEND_ORIGIN,
+        expectedSurfaceKind: "canary",
+        frontendOrigin: WORKTREE_BASE_URL,
+        initialState: worktreeInitialState,
+        nextTitle: `${worktreeOriginalTitle} canary motion parity`,
+        originalTitle: worktreeOriginalTitle,
+        pageTab: page.getByRole("button", {
+          exact: true,
+          name: "All Settings",
+        }),
+        projectConfigId: worktreeProjectConfigId,
+        sectionId: worktreeSectionSizingPolicyId,
+        side: "worktree",
+        targetPage: page,
+      });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.centerOffsetFromRootCenter -
+          referenceResult.afterMotion.centerOffsetFromRootCenter,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.transform.x -
+          referenceResult.afterMotion.transform.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.transform.y -
+          referenceResult.afterMotion.transform.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.transform.zoom -
+          referenceResult.afterMotion.transform.zoom,
+      ),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(worktreeResult.zoomDelta - referenceResult.zoomDelta),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.rect.x - referenceResult.afterMotion.rect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.rect.y - referenceResult.afterMotion.rect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.rect.width -
+          referenceResult.afterMotion.rect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.rect.height -
+          referenceResult.afterMotion.rect.height,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.titleRect.x -
+          referenceResult.afterMotion.titleRect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.titleRect.y -
+          referenceResult.afterMotion.titleRect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.titleRect.width -
+          referenceResult.afterMotion.titleRect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMotion.titleRect.height -
+          referenceResult.afterMotion.titleRect.height,
+      ),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreSectionNameForPage({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      name: worktreeOriginalTitle,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeSectionSizingPolicyId,
+    }).catch(() => {});
+    await restoreSectionNameForPage({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      name: referenceOriginalTitle,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceSectionSizingPolicyId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary", async ({
   context,
   page,

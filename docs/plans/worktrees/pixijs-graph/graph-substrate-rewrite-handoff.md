@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 02:57 EDT
+Last updated: 2026-04-05 03:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,54 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `151` opened `sectionSizingPolicy` as a new named normalized Gate 1 / Gate 2 lane, then turned it into a trusted expected-fail repro after the current live worktree/read-only-main compare exposed real post-fit/zoom drift.
+  - Why this slice was needed:
+    - item `150` closed the normalized dropzone toolbar-zoom lane, so the next valid step had to move to a different named section instead of reopening the same lane or doing another support-only normalization pass
+    - `sectionSizingPolicy` was already the stale alternate landing in the older Browser pan history, remained visibly shared on both runtimes, and still lacked one explicit trusted lane on the current live surfaces
+    - a named post-motion title-edit probe is in the trusted lane matrix, so this was the narrowest way to ask whether `sectionSizingPolicy` still hides real renderer drift on the current canary
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added a canonical `sectionSizingPolicy` normalized pan-plus-toolbar-zoom-plus-title-edit lane
+      - reused the hardened restore-plus-preflight flow from the newer named lanes instead of relying on the older shared-section selector
+      - marked the new lane `test.fail(true, ...)` after the first live rerun and CDP compare confirmed a stable real mismatch
+  - What this slice established:
+    - the current live `sectionSizingPolicy` ids on run-011 are:
+      - worktree canary `3f5f71ad-6fb7-49a6-9c8c-669962becc20`
+      - read-only main legacy `f8fce99c-7fda-49fe-8999-6614b9d8f389`
+    - the authoritative `All Settings` layouts are not identical before fit:
+      - worktree top-level layout `x=600 y=600 w=552 h=352`
+      - read-only main top-level layout `x=720 y=680 w=552 h=352`
+      - raw layout diff `x=+120 y=+80`
+    - the first targeted Playwright rerun failed on the named lane with a post-motion `transform.x` delta of about `170.751`
+    - rerunning the same lane after marking it expected-fail passed as a stable checked repro on the live run-011 surfaces (`1 passed`, `43.1s`)
+    - the fresh-context CDP sub-agent confirmed this is real visual drift, not just a noisy transform assertion:
+      - after normalized `All Settings` plus shared fit view and one toolbar `zoom in`, the worktree viewport ended at `matrix(0.132118, 0, 0, 0.132118, 940.265, 74.7273)`
+      - read-only main ended at `matrix(0.12, 0, 0, 0.12, 710.88, -144.84)`
+      - the `sectionSizingPolicy` title rect was about `(1020.7, 190.7)` on worktree versus `(798.4, -26.6)` on main
+      - the worktree section column stayed visibly farther right/down than main, and that drift was already present in the settled fit-plus-zoom state before the sub-agent could replay the freeform blank-pane pan
+    - treat this lane as a product-side fit/landing/zoom drift, not as another pan-target oracle issue
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-011 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-011/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-011/main-ai.log`
+    - live section-layout cross-check:
+      - `node - <<'NODE' ... sectionSizingPolicy ... /api/loadProjectConfig ... /api/getLatestProjectState ... All Settings topLevelSections ... NODE`
+      - result: worktree `x=600 y=600`, reference `x=720 y=680`, diff `x=120 y=80`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-011/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-011/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); process.stdout.write(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); process.stdout.write(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed as expected failure (`1 passed`, `43.1s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared the normalized `sectionSizingPolicy` lane on the live worktree `3076` and read-only main `3087` surfaces
+    - CDP visual check: done (fresh-context sub-agent; after the shared fit-plus-zoom path, the canary `sectionSizingPolicy` lane remained visibly farther right/down than read-only main, so this is a real drift lane rather than an oracle/setup miss)
+  - Lane status:
+    - keep the new `sectionSizingPolicy` pan-plus-zoom-plus-title-edit lane as the canonical expected-fail repro for the current drift
+    - do not spend the next iteration on more lane-selection or blank-pane-target support work for this section; the blocker is now product-side
+  - Next frontier:
+    - investigate and fix why the `sectionSizingPolicy` targeted fit/zoom landing leaves the canary farther right/down than read-only main, then rerun this expected-fail lane until it turns into a normal pass
 
 - Ralph item `150` normalized the named `dropzoneParamCodeObjDefault` toolbar-zoom lane by aligning the effective section `paramFilter` on both runtimes before compare, which turned the lane into a normal pass and superseded item `149`'s renderer-drift conclusion.
   - Why this slice was needed:
