@@ -2185,6 +2185,77 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 180
+
+- Item: Move canary section-size publication onto the shared section-ref boundary and remove the canary-local observed-size hook from scene-state composition.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `179` left one explicit geometry-authority seam unresolved: `useSettingsGraphSubstrateCanarySceneState(...)` still stood up its own `useObservedSectionElementSizes(...)` path before scene bounds and node sync could resolve
+    - that local observer meant the canary still owned size measurement separately from the shared section-ref boundary even though graph rendering, minimap, and node-internals mirroring already depended on the shared scene snapshot
+    - replacing the local observer with shared section-shell size publication is a real ownership move, not another controller extraction or forwarding hop
+  - Production/test change:
+    - added `frontend/src/state/actions/sectionElementSizes.ts`
+      - centralizes shared section-shell size registry writes/removals
+    - added `frontend/src/state/hooks/sectionElementSizes.ts`
+      - exposes shared selected section sizes plus the shared shell measurement helper
+    - updated `frontend/src/state/definitions.ts`
+      - adds `useSectionElementSizeRegistry` as shared per-project geometry state
+    - updated `frontend/src/state/hooks/sectionRef.ts`
+      - `useSectionRefAndInit(...)` now publishes positive `selfOnly` shell measurements into the shared registry and disconnects that observer on cleanup
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts`
+      - scene snapshot composition now reads shared section sizes instead of owning `useObservedSectionElementSizes(...)`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - resolves `resolvedSize` from the shared section-size registry type
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - keeps the bounds helper aligned with the shared section-size contract
+    - deleted the old canary-local observer hook/tests:
+      - `frontend/src/state/hooks/observedSectionElementSizes.ts`
+      - `frontend/src/state/hooks/observedSectionElementSizes.test.tsx`
+    - added/updated focused tests:
+      - `frontend/src/state/hooks/sectionElementSizes.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+  - What this slice established:
+    - canary scene-snapshot size authority now comes from the shared section-ref boundary instead of a canary-local observer path
+    - scene bounds and node-internals sync continue to resolve from the same shared scene snapshot contract after the size-authority move
+    - the required CDP visual confirmation stayed green on the canonical broad lane:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - after normalizing live worktree `3076/settings` and read-only main `3087/settings` to `All Settings` plus fit view, the canary stayed visually attached with no gross graph-surface drift versus `main`
+      - only minor oracle noise remained: a small horizontal framing delta and a slightly tighter/straighter section stack in worktree
+    - the broad Playwright regression lane did not produce renderer evidence on run `010`:
+      - two targeted reruns hit the same compare-pane normalization blocker at `graphSubstrateParityProbe.ts:682`
+      - failure shape was stable: `overview-pane-fullscreen-button` stayed visible (`Expected: 0`, `Received: 1`) after `normalizeSettingsGraphComparePaneState(...)`
+      - one intermediate retry also hit an expired-bootstrap `401`, but the fresh-token rerun returned to the same pane-state blocker
+      - treat this as repeated verification-side pane-state mismatch, not renderer drift from the shared size-registry change
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/state/definitions.ts src/state/actions/sectionElementSizes.ts src/state/hooks/sectionRef.ts src/state/hooks/sectionElementSizes.ts src/state/hooks/sectionElementSizes.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/state/hooks/sectionElementSizes.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - result: passed (`5 files`, `17 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-010/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-010/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via the live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed twice on the same preflight blocker (`overview-pane-fullscreen-button` remained visible after pane normalization); one intermediate retry also hit expired bootstrap `401`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: worktree/main stayed visually aligned enough on the graph surface around `rotaryParamCodeObjDefault`; no gross detach or drift
+- Lane status:
+  - the geometry-authority lane advanced in product code again; the canary-local size observer path is gone
+  - the broad normalized `rotaryParamCodeObjDefault` lane is now blocked by repeated compare-pane normalization failure, so the next iteration should pivot to that blocker instead of taking another unrelated geometry slice
+- Next action:
+  - resolve or explicitly close the repeated Playwright compare-pane normalization blocker by making `normalizeSettingsGraphComparePaneState(...)` reliably clear visible overview/uiEditor pane chrome before the broad lane runs
+  - once that blocker is cleared, rerun the same `rotaryParamCodeObjDefault` broad lane plus CDP confirmation as regression coverage before reopening product work
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 179
 
 - Item: Move canary minimap geometry authority onto the shared scene snapshot and prove the normalized `rotaryParamCodeObjDefault` regression lane still stays visually attached.

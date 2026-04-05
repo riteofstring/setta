@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNodeInternals } from "state/definitions";
-import { useObservedSectionElementSizes } from "state/hooks/observedSectionElementSizes";
+import { useSectionElementSizes } from "state/hooks/sectionElementSizes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
@@ -36,20 +36,20 @@ export function useSettingsGraphSubstrateCanarySceneState(
     () => sections.map((section) => section.sectionId),
     [sections],
   );
-  const observedElementSizes = useObservedSectionElementSizes(canarySectionIds);
+  const sectionElementSizes = useSectionElementSizes(canarySectionIds);
   const sectionById = useMemo(() => {
     return new Map(sections.map((section) => [section.sectionId, section]));
   }, [sections]);
   const sceneSnapshot = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySceneSnapshot(
       sections,
-      observedElementSizes,
+      sectionElementSizes,
       sectionPositionOverride,
       draggingSectionId,
     );
   }, [
     draggingSectionId,
-    observedElementSizes,
+    sectionElementSizes,
     sectionPositionOverride,
     sections,
   ]);

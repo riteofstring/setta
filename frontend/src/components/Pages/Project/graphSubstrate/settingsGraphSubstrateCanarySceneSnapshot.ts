@@ -1,7 +1,7 @@
 import type {
-  ObservedSectionElementSize,
-  ObservedSectionElementSizes,
-} from "state/hooks/observedSectionElementSizes";
+  SectionElementSize,
+  SectionElementSizes,
+} from "state/hooks/sectionElementSizes";
 import type { Position } from "utils/generatedTypes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import type { GraphRect } from "./viewportTransform";
@@ -14,7 +14,7 @@ export type SettingsGraphSubstrateCanarySectionPositionOverride = {
 export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
     renderedPosition: Position;
-    resolvedSize: ObservedSectionElementSize | null;
+    resolvedSize: SectionElementSize | null;
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
@@ -33,7 +33,7 @@ export function createEmptySettingsGraphSubstrateCanarySceneSnapshot(): Settings
 
 export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
-  observedElementSizes: ObservedSectionElementSizes,
+  sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
   draggingSectionId: string | null = null,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
@@ -44,7 +44,7 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
         section,
         sectionPositionOverride,
       ),
-      resolvedSize: getResolvedSectionSize(section, observedElementSizes),
+      resolvedSize: getResolvedSectionSize(section, sectionElementSizes),
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
     return sceneSection;
@@ -119,7 +119,7 @@ function getRenderedSectionPosition(
 
 function getResolvedSectionSize(
   section: GraphSubstrateCanarySection,
-  observedElementSizes: ObservedSectionElementSizes,
+  sectionElementSizes: SectionElementSizes,
 ) {
   const width = section.width ?? 0;
   const height = section.height ?? 0;
@@ -127,7 +127,7 @@ function getResolvedSectionSize(
     return { width, height };
   }
 
-  const observedSize = observedElementSizes[section.sectionId];
+  const observedSize = sectionElementSizes[section.sectionId];
   if (
     typeof observedSize?.width === "number" &&
     observedSize.width > 0 &&

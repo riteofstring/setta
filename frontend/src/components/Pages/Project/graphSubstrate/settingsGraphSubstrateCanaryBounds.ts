@@ -1,4 +1,4 @@
-import type { ObservedSectionElementSizes } from "state/hooks/observedSectionElementSizes";
+import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import {
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
@@ -8,12 +8,12 @@ import type { GraphRect } from "./viewportTransform";
 
 export function getSettingsGraphSubstrateCanarySceneBounds(
   sections: Array<GraphSubstrateCanarySection>,
-  observedElementSizes: ObservedSectionElementSizes,
+  sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
 ): GraphRect | null {
   return resolveSettingsGraphSubstrateCanarySceneSnapshot(
     sections,
-    observedElementSizes,
+    sectionElementSizes,
     sectionPositionOverride,
   ).sceneBounds;
 }

@@ -2,7 +2,10 @@
 
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useNodeInternals, useSectionRefs } from "state/definitions";
+import {
+  useNodeInternals,
+  useSectionElementSizeRegistry,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,15 +16,6 @@ import type {
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
-
-type ResizeObserverController = {
-  trigger: (elements: Array<HTMLElement>) => Promise<void>;
-};
-
-type MeasuredElementController = {
-  element: HTMLElement;
-  setSize: (nextSize: { width: number; height: number }) => void;
-};
 
 function SceneStateProbe({
   draggingSectionId,
@@ -54,12 +48,10 @@ function SceneStateProbe({
 describe("useSettingsGraphSubstrateCanarySceneState", () => {
   let host: HTMLDivElement;
   let root: Root;
-  let resizeObserverController: ResizeObserverController;
 
   beforeEach(() => {
     resetProjectStores();
     useNodeInternals.setState({ x: new Map() });
-    resizeObserverController = installResizeObserverMock();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -85,13 +77,9 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
       );
     });
 
-    const sectionElement = createMeasuredElement({
-      width: 280,
-      height: 190,
-    });
     act(() => {
-      useSectionRefs.setState((state) => {
-        state.selfOnly["section-a"] = sectionElement.element;
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 280, height: 190 },
       });
     });
 
@@ -123,8 +111,6 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
         useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
       ),
     ).toEqual(readSceneSnapshot(host));
-
-    await resizeObserverController.trigger([sectionElement.element]);
 
     await vi.waitFor(() => {
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
@@ -351,69 +337,4 @@ function readSceneSnapshot(hostElement: HTMLDivElement) {
   return JSON.parse(sceneAttribute) as ReturnType<
     typeof serializeSceneSnapshot
   >;
-}
-
-function installResizeObserverMock(): ResizeObserverController {
-  const callbacks = new Set<ResizeObserverCallback>();
-
-  vi.stubGlobal(
-    "ResizeObserver",
-    class ResizeObserverMock {
-      private callback: ResizeObserverCallback;
-
-      constructor(callback: ResizeObserverCallback) {
-        this.callback = callback;
-        callbacks.add(callback);
-      }
-
-      observe() {}
-
-      unobserve() {}
-
-      disconnect() {
-        callbacks.delete(this.callback);
-      }
-    },
-  );
-
-  return {
-    trigger: async (elements) => {
-      const entries = elements.map((element) => {
-        return { target: element } as ResizeObserverEntry;
-      });
-      await act(async () => {
-        callbacks.forEach((callback) =>
-          callback(entries, {} as ResizeObserver),
-        );
-      });
-    },
-  };
-}
-
-function createMeasuredElement(initialSize: {
-  width: number;
-  height: number;
-}): MeasuredElementController {
-  const element = document.createElement("section");
-  let size = initialSize;
-
-  Object.defineProperty(element, "offsetWidth", {
-    configurable: true,
-    get() {
-      return size.width;
-    },
-  });
-  Object.defineProperty(element, "offsetHeight", {
-    configurable: true,
-    get() {
-      return size.height;
-    },
-  });
-
-  return {
-    element,
-    setSize: (nextSize) => {
-      size = nextSize;
-    },
-  };
 }
