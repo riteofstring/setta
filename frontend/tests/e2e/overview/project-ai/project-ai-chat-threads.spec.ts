@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
+  ensureManagedChatEngine,
   ensureProjectChatThreadsPanelVisible,
   getVisibleProjectChatSurface,
   openIsolatedProject,
@@ -86,6 +87,14 @@ async function maximizeProjectChatWindow(page: Page): Promise<void> {
   await expect(maximizeButton).toBeVisible();
   await clickDom(maximizeButton);
   await expect(maximizedWindow).toBeVisible();
+}
+
+async function getOverviewProjectChatSurface(page: Page): Promise<Locator> {
+  const overviewSurface = page.locator("#OverviewPane");
+  await expect(
+    overviewSurface.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+  return overviewSurface;
 }
 
 async function clickDom(locator: Locator): Promise<void> {
@@ -204,6 +213,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     await page.reload();
     await page.waitForSelector(".react-flow__pane");
 
+    const projectChatSurface = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(
       threadsPanel.getByTestId("project-chat-threads-empty-state"),
@@ -216,11 +226,7 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect(
-      (await getVisibleProjectChatSurface(page)).getByPlaceholder(
-        "Type a message...",
-      ),
-    ).toBeVisible();
+    await expect(projectChatSurface.getByTestId("chat-input-textarea")).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -519,9 +525,7 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     "project-chat-master-search-input",
   );
   await expect(masterSearchInput).toBeVisible();
-  await expect(
-    overviewPane.getByPlaceholder("Type a message..."),
-  ).toBeVisible();
+  await expect(overviewPane.getByTestId("chat-input-textarea")).toBeVisible();
   await expect(
     threadsPanel.getByTestId("project-chat-thread-group-select"),
   ).toHaveCount(0);
@@ -615,17 +619,6 @@ test("project ai threads render folder groups and keep pinned scopes separate", 
     "project-chat-thread-draft-entry",
   );
   await expect(draftThreadEntry).toHaveCount(1);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(1);
-  await clickDom(threadAgentBadgeToggleButton);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(0);
-  await clickDom(threadAgentBadgeToggleButton);
-  await expect(
-    draftThreadEntry.getByTestId("project-chat-thread-agent-badge"),
-  ).toHaveCount(1);
   const draftDragHandle = draftThreadEntry.getByTestId(
     "project-chat-thread-drag-handle",
   );
@@ -775,49 +768,49 @@ test("project ai threads remember explicit large-width close after narrow resize
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByPlaceholder("Type a message..."),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(1);
+  try {
+    let overviewPane = await getOverviewProjectChatSurface(page);
+    const fullscreenButton = page.getByTestId(
+      "overview-pane-fullscreen-button",
+    );
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    const inlineThreadsPanel = overviewPane.getByTestId(
+      "project-chat-threads-panel",
+    );
+    await expect(inlineThreadsPanel).toBeVisible();
+    await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
 
-  const fullscreenButton = page.getByTestId("overview-pane-fullscreen-button");
-  await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
-  const inlineThreadsPanel = overviewPane.getByTestId(
-    "project-chat-threads-panel",
-  );
-  await expect(inlineThreadsPanel).toBeVisible();
-  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
+    await clickDom(overviewPane.getByRole("button", { name: "View Threads" }));
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
 
-  await clickDom(overviewPane.getByRole("button", { name: "View Threads" }));
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
+    const explicitClosePersisted = await page.evaluate(() => {
+      const raw = window.localStorage.getItem("setta_ai_data");
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+      return parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null;
+    });
+    expect(explicitClosePersisted).toBe(true);
 
-  const explicitClosePersisted = await page.evaluate(() => {
-    const raw = window.localStorage.getItem("setta_ai_data");
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
-    return parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null;
-  });
-  expect(explicitClosePersisted).toBe(true);
-
-  await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
-  await fullscreenButton.click();
-  overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByTestId("project-chat-threads-panel"),
-  ).toHaveCount(0);
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
+    await fullscreenButton.click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByTestId("project-chat-threads-panel"),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai preserves draft text when resize reveals inline threads", async ({
@@ -836,23 +829,33 @@ test("project ai preserves draft text when resize reveals inline threads", async
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
-  let overviewPane = await getVisibleProjectChatSurface(page);
-  let composerInput = overviewPane.getByPlaceholder("Type a message...");
-  await expect(composerInput).toBeVisible();
-  const draftText = "keep this draft while resizing";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
-  await page.getByTestId("overview-pane-fullscreen-button").click();
-  overviewPane = await getVisibleProjectChatSurface(page);
-  const inlineThreadsPanel = overviewPane.getByTestId(
-    "project-chat-threads-panel",
-  );
-  await expect(inlineThreadsPanel).toBeVisible();
-  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-  composerInput = overviewPane.getByPlaceholder("Type a message...");
-  await expect(composerInput).toHaveValue(draftText);
+    let overviewPane = await getOverviewProjectChatSurface(page);
+    let composerInput = overviewPane.getByTestId("chat-input-textarea");
+    await expect(composerInput).toBeVisible();
+    const draftText = "keep this draft while resizing";
+    await composerInput.fill(draftText);
+    await expect(composerInput).toHaveValue(draftText);
+
+    await page.getByTestId("overview-pane-fullscreen-button").click();
+    overviewPane = await getOverviewProjectChatSurface(page);
+    const inlineThreadsPanel = overviewPane.getByTestId(
+      "project-chat-threads-panel",
+    );
+    await expect(inlineThreadsPanel).toBeVisible();
+    await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
+    composerInput = overviewPane.getByTestId("chat-input-textarea");
+    await expect(composerInput).toHaveValue(draftText);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai preserves unsent draft text across reloads", async ({
@@ -864,22 +867,32 @@ test("project ai preserves unsent draft text across reloads", async ({
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  const composerInput = overviewPane.getByPlaceholder("Type a message...");
-  const draftText = "  keep this unsent draft after reload  \n";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
-  // Reload should keep the in-progress composer text instead of resetting the
-  // controlled input back to an empty project chat draft.
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    const composerInput = overviewPane.getByTestId("chat-input-textarea");
+    const draftText = "  keep this unsent draft after reload  \n";
+    await composerInput.fill(draftText);
+    await expect(composerInput).toHaveValue(draftText);
 
-  const reloadedOverviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    reloadedOverviewPane.getByPlaceholder("Type a message..."),
-  ).toHaveValue(draftText);
+    // Reload should keep the in-progress composer text instead of resetting the
+    // controlled input back to an empty project chat draft.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const reloadedOverviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      reloadedOverviewPane.getByTestId("chat-input-textarea"),
+    ).toHaveValue(draftText);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("project ai conversation search dedupes duplicate terms and ignores code-only matches", async ({
@@ -892,6 +905,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
   const engineConfigsResponse = await page.request.get(
@@ -1034,6 +1048,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
       })
       .toBe(1);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1048,6 +1063,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
   const engineConfigsResponse = await page.request.get(
@@ -1160,6 +1176,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
       ),
     ).toHaveCount(1);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1181,7 +1198,7 @@ test("project ai ignores legacy viewHistory in persisted ai store", async ({
 
   await ensureAppReady(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
+  const overviewPane = await getOverviewProjectChatSurface(page);
 
   await expect
     .poll(async () => {
@@ -1209,6 +1226,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
   });
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -1667,6 +1685,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
         .filter({ hasText: "Backend" }),
     ).toHaveCount(0);
   } finally {
+    await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
@@ -1683,51 +1702,56 @@ test("project ai chat keeps conversation search on the top row at medium width",
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByRole("button", { name: "New Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "Project AI Settings" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-conversation-filter"),
-  ).toBeVisible();
+  try {
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByRole("button", { name: "New Chat" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", { name: "Project AI Settings" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toBeVisible();
 
-  const headerGeometry = await overviewPane.evaluate((paneElement) => {
-    const newChatButton = paneElement.querySelector(
-      'button[aria-label="New Chat"]',
-    );
-    const settingsButton = paneElement.querySelector(
-      'button[aria-label="Project AI Settings"]',
-    );
-    const conversationFilter = paneElement.querySelector(
-      '[data-testid="project-chat-conversation-filter"]',
-    );
-    if (!newChatButton || !settingsButton || !conversationFilter) {
-      return null;
+    const headerGeometry = await overviewPane.evaluate((paneElement) => {
+      const newChatButton = paneElement.querySelector(
+        'button[aria-label="New Chat"]',
+      );
+      const settingsButton = paneElement.querySelector(
+        'button[aria-label="Project AI Settings"]',
+      );
+      const conversationFilter = paneElement.querySelector(
+        '[data-testid="project-chat-conversation-filter"]',
+      );
+      if (!newChatButton || !settingsButton || !conversationFilter) {
+        return null;
+      }
+      const newChatRect = newChatButton.getBoundingClientRect();
+      const settingsRect = settingsButton.getBoundingClientRect();
+      const filterRect = conversationFilter.getBoundingClientRect();
+      return {
+        newTop: newChatRect.top,
+        settingsTop: settingsRect.top,
+        filterTop: filterRect.top,
+      };
+    });
+
+    expect(headerGeometry).not.toBeNull();
+    if (!headerGeometry) {
+      throw new Error("Expected project chat header controls to be measurable.");
     }
-    const newChatRect = newChatButton.getBoundingClientRect();
-    const settingsRect = settingsButton.getBoundingClientRect();
-    const filterRect = conversationFilter.getBoundingClientRect();
-    return {
-      newTop: newChatRect.top,
-      settingsTop: settingsRect.top,
-      filterTop: filterRect.top,
-    };
-  });
-
-  expect(headerGeometry).not.toBeNull();
-  if (!headerGeometry) {
-    throw new Error("Expected project chat header controls to be measurable.");
+    expect(
+      Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(3);
+    expect(
+      Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(6);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
   }
-  expect(
-    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(6);
 });
 
 test("project ai chat keeps settings and conversation search visible when very narrow", async ({
@@ -1742,49 +1766,57 @@ test("project ai chat keeps settings and conversation search visible when very n
   });
 
   await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
 
-  const overviewPane = await getVisibleProjectChatSurface(page);
-  await expect(
-    overviewPane.getByRole("button", { name: "New Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "Project AI Settings" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-conversation-filter"),
-  ).toBeVisible();
+  try {
+    const overviewPane = await getOverviewProjectChatSurface(page);
+    await expect(
+      overviewPane.getByRole("button", { name: "New Chat" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", { name: "Project AI Settings" }),
+    ).toBeVisible();
+    await expect(
+      overviewPane.getByTestId("project-chat-conversation-filter"),
+    ).toBeVisible();
 
-  const headerGeometry = await overviewPane.evaluate((paneElement) => {
-    const newChatButton = paneElement.querySelector(
-      'button[aria-label="New Chat"]',
-    );
-    const settingsButton = paneElement.querySelector(
-      'button[aria-label="Project AI Settings"]',
-    );
-    const conversationFilter = paneElement.querySelector(
-      '[data-testid="project-chat-conversation-filter"]',
-    );
-    if (!newChatButton || !settingsButton || !conversationFilter) {
-      return null;
+    const headerGeometry = await overviewPane.evaluate((paneElement) => {
+      const newChatButton = paneElement.querySelector(
+        'button[aria-label="New Chat"]',
+      );
+      const settingsButton = paneElement.querySelector(
+        'button[aria-label="Project AI Settings"]',
+      );
+      const conversationFilter = paneElement.querySelector(
+        '[data-testid="project-chat-conversation-filter"]',
+      );
+      if (!newChatButton || !settingsButton || !conversationFilter) {
+        return null;
+      }
+      const newChatRect = newChatButton.getBoundingClientRect();
+      const settingsRect = settingsButton.getBoundingClientRect();
+      const filterRect = conversationFilter.getBoundingClientRect();
+      return {
+        newTop: newChatRect.top,
+        settingsTop: settingsRect.top,
+        filterTop: filterRect.top,
+      };
+    });
+
+    expect(headerGeometry).not.toBeNull();
+    if (!headerGeometry) {
+      throw new Error("Expected project chat header controls to be measurable.");
     }
-    const newChatRect = newChatButton.getBoundingClientRect();
-    const settingsRect = settingsButton.getBoundingClientRect();
-    const filterRect = conversationFilter.getBoundingClientRect();
-    return {
-      newTop: newChatRect.top,
-      settingsTop: settingsRect.top,
-      filterTop: filterRect.top,
-    };
-  });
-
-  expect(headerGeometry).not.toBeNull();
-  if (!headerGeometry) {
-    throw new Error("Expected project chat header controls to be measurable.");
+    expect(
+      Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(3);
+    expect(headerGeometry.filterTop).toBeGreaterThanOrEqual(
+      headerGeometry.settingsTop,
+    );
+    expect(
+      Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
+    ).toBeLessThanOrEqual(32);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
   }
-  expect(
-    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(12);
 });

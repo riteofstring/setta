@@ -1,7 +1,7 @@
 import {
   AgentRun,
-  AgentRunStatusEnum,
   BaseChatMessageUnion,
+  RunStatusEnum,
 } from "utils/generatedTypes";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
@@ -213,7 +213,7 @@ function collectChatRunSummaries(
       continue;
     }
     const lastUpdatedMs = getRunLastUpdatedMs(run);
-    const waitingForResponse = run.status === AgentRunStatusEnum.running;
+    const waitingForResponse = run.status === RunStatusEnum.running;
     const existing = grouped.get(runChatId);
     if (!existing) {
       grouped.set(runChatId, {
