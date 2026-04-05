@@ -88,6 +88,7 @@ func buildPythonSharedSchemaModule() (datamodelModule, error) {
 		"--input-file-type", "openapi",
 		"--schema-version", "3.1",
 		"--output-model-type", "pydantic_v2.BaseModel",
+		"--output-datetime-class", "datetime",
 		"--target-python-version", pythonSharedAliasTargetVersion,
 		"--disable-timestamp",
 		"--use-double-quotes",
@@ -257,10 +258,21 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 		if !exists {
 			continue
 		}
+		end := datamodelFieldDeclarationEnd(lines, index)
+		currentTypeExpr, err := datamodelFieldTypeExpr(lines[index:end])
+		if err != nil {
+			return "", nil, false, fmt.Errorf(
+				"python shared types: %s.%s: %w",
+				contractName,
+				field.Name,
+				err,
+			)
+		}
 		renderedField, fieldImports, err := buildModelFieldSpec(
 			contractName,
 			ownerType,
 			field,
+			currentTypeExpr,
 			knownContractNames,
 			defaultSourcesByType,
 		)
@@ -270,8 +282,7 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 		mergeImportSet(imports, fieldImports)
 
 		renderedLine := strings.TrimSuffix(renderFieldLine(renderedField), "\n")
-		end := datamodelFieldDeclarationEnd(lines, index)
-		if end == index+1 && lines[index] == renderedLine {
+		if strings.Join(lines[index:end], "\n") == renderedLine {
 			continue
 		}
 		lines = append(
@@ -309,6 +320,65 @@ func datamodelFieldDeclarationEnd(lines []string, start int) int {
 		end++
 	}
 	return end
+}
+
+func datamodelFieldTypeExpr(lines []string) (string, error) {
+	if len(lines) == 0 {
+		return "", fmt.Errorf("empty datamodel field declaration")
+	}
+	firstLine := strings.TrimSpace(lines[0])
+	fieldName, rhs, ok := strings.Cut(firstLine, ": ")
+	if !ok || !isPythonIdentifier(strings.TrimSpace(fieldName)) {
+		return "", fmt.Errorf("malformed datamodel field declaration %q", firstLine)
+	}
+	parts := []string{rhs}
+	for _, line := range lines[1:] {
+		parts = append(parts, strings.TrimSpace(line))
+	}
+	typeExpr := trimDatamodelFieldDefault(strings.Join(parts, "\n"))
+	typeExpr = strings.Join(strings.Fields(typeExpr), " ")
+	if typeExpr == "" {
+		return "", fmt.Errorf("datamodel field %s has empty type expression", fieldName)
+	}
+	return typeExpr, nil
+}
+
+func trimDatamodelFieldDefault(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	brackets := 0
+	braces := 0
+	parens := 0
+	for index, char := range value {
+		switch char {
+		case '[':
+			brackets++
+		case ']':
+			if brackets > 0 {
+				brackets--
+			}
+		case '{':
+			braces++
+		case '}':
+			if braces > 0 {
+				braces--
+			}
+		case '(':
+			parens++
+		case ')':
+			if parens > 0 {
+				parens--
+			}
+		case '=':
+			if brackets == 0 && braces == 0 && parens == 0 {
+				return strings.TrimSpace(value[:index])
+			}
+		}
+	}
+	return value
 }
 
 func parseDatamodelModule(module string) (datamodelModule, error) {

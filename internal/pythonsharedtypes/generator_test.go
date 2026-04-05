@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	binarypayload "setta/internal/binary"
-	"setta/internal/pythonsdkcontracts"
-	"setta/internal/realtime"
+	"setta/internal/projectview"
+	"setta/internal/scriptablechat"
 )
 
 func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
@@ -30,6 +29,7 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 		"omitEmptyExample",
 		ownerType,
 		field,
+		"str",
 		map[string]struct{}{"omitEmptyExample": {}},
 		map[reflect.Type]reflect.Value{},
 	)
@@ -48,66 +48,56 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 	}
 }
 
-func TestPythonTypeExprUsesWrapperOverrideNamesForNestedOwnerFields(t *testing.T) {
+func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	t.Helper()
 
-	typeExpr, err := pythonTypeExpr(reflect.TypeOf(binarypayload.ContentRef{}), "")
-	if err != nil {
-		t.Fatalf("pythonTypeExpr(...) error = %v", err)
-	}
-	if typeExpr != "ContentRef" {
-		t.Fatalf("typeExpr = %q, want %q", typeExpr, "ContentRef")
-	}
-}
-
-func TestPythonTypeExprPreservesNamedStringEnumsForNestedOwnerFields(t *testing.T) {
-	t.Helper()
-
-	typeExpr, err := pythonTypeExpr(reflect.TypeOf(realtime.DependencyValueType("")), "")
-	if err != nil {
-		t.Fatalf("pythonTypeExpr(...) error = %v", err)
-	}
-	if typeExpr != "DependencyValueType" {
-		t.Fatalf("typeExpr = %q, want %q", typeExpr, "DependencyValueType")
-	}
-}
-
-func TestPythonTypeExprWithImportsUsesSDKContractModuleForExternalTypes(t *testing.T) {
-	t.Helper()
-
-	spec, err := pythonTypeExprWithImports(
-		reflect.TypeOf(pythonsdkcontracts.ListenerSnapshot{}),
-		"",
-		nil,
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
+	field := fieldByNameForTest(t, ownerType, "Name")
+	resolvedField, imports, err := buildModelFieldSpec(
+		pythonSharedContractNameForType(ownerType),
+		ownerType,
+		field,
+		schemaFieldTypeExprForOwnerField(t, ownerType, "name"),
+		knownSchemaContractNamesForTest(t),
+		map[reflect.Type]reflect.Value{},
 	)
 	if err != nil {
-		t.Fatalf("pythonTypeExprWithImports(...) error = %v", err)
+		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
 	}
-	if spec.TypeExpr != "ListenerSnapshot" {
-		t.Fatalf("spec.TypeExpr = %q, want %q", spec.TypeExpr, "ListenerSnapshot")
+	if resolvedField.TypeExpr != "str" {
+		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "str")
 	}
-	importLine := "from setta.sdk_contracts.generated import ListenerSnapshot"
-	if _, ok := spec.Imports[importLine]; !ok {
-		t.Fatalf("expected import %q, got %#v", importLine, spec.Imports)
+	if resolvedField.DefaultExpr != "Field(default_factory=generate_memorable_string)" {
+		t.Fatalf("field.DefaultExpr = %q", resolvedField.DefaultExpr)
+	}
+	importLine := "from setta.utils.generate_memorable_string import generate_memorable_string"
+	if _, ok := imports[importLine]; !ok {
+		t.Fatalf("expected import %q, got %#v", importLine, imports)
 	}
 }
 
-func TestPythonTypeExprWithImportsSkipsExternalImportWhenTypeIsGeneratedLocally(t *testing.T) {
+func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 	t.Helper()
 
-	spec, err := pythonTypeExprWithImports(
-		reflect.TypeOf(pythonsdkcontracts.ListenerSnapshot{}),
-		"",
-		map[string]struct{}{"ListenerSnapshot": {}},
+	ownerType := reflect.TypeOf(scriptablechat.SystemChatMessage{})
+	field := fieldByNameForTest(t, ownerType, "ID")
+	resolvedField, imports, err := buildModelFieldSpec(
+		pythonSharedContractNameForType(ownerType),
+		ownerType,
+		field,
+		schemaFieldTypeExprForOwnerField(t, ownerType, "id"),
+		knownSchemaContractNamesForTest(t),
+		map[reflect.Type]reflect.Value{},
 	)
 	if err != nil {
-		t.Fatalf("pythonTypeExprWithImports(...) error = %v", err)
+		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
 	}
-	if spec.TypeExpr != "ListenerSnapshot" {
-		t.Fatalf("spec.TypeExpr = %q, want %q", spec.TypeExpr, "ListenerSnapshot")
+	if resolvedField.TypeExpr != "ID" {
+		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "ID")
 	}
-	if len(spec.Imports) != 0 {
-		t.Fatalf("expected no imports, got %#v", spec.Imports)
+	importLine := "from setta.types.id import ID, create_new_id"
+	if _, ok := imports[importLine]; !ok {
+		t.Fatalf("expected import %q, got %#v", importLine, imports)
 	}
 }
 
@@ -262,4 +252,59 @@ func TestBuildProducesSyntacticallyValidPythonModule(t *testing.T) {
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("python syntax check failed: %v\n%s", err, strings.TrimSpace(string(output)))
 	}
+}
+
+func fieldByNameForTest(t *testing.T, ownerType reflect.Type, fieldName string) reflect.StructField {
+	t.Helper()
+	field, ok := ownerType.FieldByName(fieldName)
+	if !ok {
+		t.Fatalf("expected field %s on %s", fieldName, ownerType)
+	}
+	return field
+}
+
+func knownSchemaContractNamesForTest(t *testing.T) map[string]struct{} {
+	t.Helper()
+	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
+	}
+	knownContractNames := map[string]struct{}{}
+	for _, declaration := range module.Declarations {
+		name := strings.TrimSpace(declaration.Name)
+		if name == "" {
+			continue
+		}
+		knownContractNames[name] = struct{}{}
+	}
+	return knownContractNames
+}
+
+func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fieldName string) string {
+	t.Helper()
+	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
+	}
+	contractName := pythonSharedContractNameForType(ownerType)
+	for _, declaration := range module.Declarations {
+		if declaration.Name != contractName || declaration.Kind != datamodelDeclarationKindClass {
+			continue
+		}
+		lines := strings.Split(declaration.Block, "\n")
+		for index := 0; index < len(lines); index++ {
+			name, _, ok := datamodelClassFieldTypeExpr(strings.TrimSpace(lines[index]))
+			if !ok || name != fieldName {
+				continue
+			}
+			end := datamodelFieldDeclarationEnd(lines, index)
+			typeExpr, err := datamodelFieldTypeExpr(lines[index:end])
+			if err != nil {
+				t.Fatalf("datamodelFieldTypeExpr(%s.%s) error = %v", contractName, fieldName, err)
+			}
+			return typeExpr
+		}
+	}
+	t.Fatalf("field %q not found in datamodel declaration %s", fieldName, contractName)
+	return ""
 }

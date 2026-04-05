@@ -7,10 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
-
-	"setta/internal/sharedtypes"
 )
 
 type GeneratedTypes struct {
@@ -21,12 +18,6 @@ type fieldSpec struct {
 	Name        string
 	TypeExpr    string
 	DefaultExpr string
-}
-
-var timeType = reflect.TypeOf(time.Time{})
-var rawJSONType = reflect.TypeOf(json.RawMessage{})
-var pythonExternalTypeModules = map[string]string{
-	"setta/internal/pythonsdkcontracts": "setta.sdk_contracts.generated",
 }
 
 func Build() (GeneratedTypes, error) {
@@ -70,6 +61,9 @@ func pythonFieldRequiresStandardFieldPatch(field reflect.StructField) bool {
 		return true
 	}
 	if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
+		return true
+	}
+	if strings.HasPrefix(strings.TrimSpace(field.Tag.Get("py_default")), "Field(") {
 		return true
 	}
 	return false
@@ -159,6 +153,7 @@ func buildModelFieldSpec(
 	contractName string,
 	ownerType reflect.Type,
 	field reflect.StructField,
+	currentTypeExpr string,
 	knownContractNames map[string]struct{},
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (fieldSpec, map[string]struct{}, error) {
@@ -171,7 +166,11 @@ func buildModelFieldSpec(
 			err,
 		)
 	}
-	typeSpec, err := pythonFieldTypeSpec(field, knownContractNames)
+	typeExpr, fieldImports, err := pythonPatchedFieldTypeExpr(
+		field,
+		currentTypeExpr,
+		knownContractNames,
+	)
 	if err != nil {
 		return fieldSpec{}, nil, fmt.Errorf(
 			"python shared types: %s.%s: %w",
@@ -181,17 +180,10 @@ func buildModelFieldSpec(
 		)
 	}
 
-	fieldImports := map[string]struct{}{}
-	mergeImportSet(fieldImports, typeSpec.Imports)
-	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
-	if importTag != "" {
-		mergePythonImportTagLines(fieldImports, importTag, knownContractNames)
-	}
-
 	defaultExpr, err := pythonDefaultExpr(
 		ownerType,
 		field,
-		typeSpec.TypeExpr,
+		typeExpr,
 		defaultSourcesByType,
 	)
 	if err != nil {
@@ -202,7 +194,6 @@ func buildModelFieldSpec(
 			err,
 		)
 	}
-	typeExpr := typeSpec.TypeExpr
 	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
 		typeExpr += " | None"
 	}
@@ -323,15 +314,6 @@ func localPythonContractReplacement(
 	return baseName
 }
 
-func pythonTypeNameIsBuiltin(name string) bool {
-	switch name {
-	case "", "Any", "None", "bool", "bytes", "datetime", "dict", "float", "int", "list", "str":
-		return true
-	default:
-		return false
-	}
-}
-
 func referencedTypeNames(typeExpr string) []string {
 	names := make([]string, 0)
 	seen := map[string]struct{}{}
@@ -403,216 +385,26 @@ func fieldAllowsMissing(field reflect.StructField) bool {
 	return false
 }
 
-type pythonTypeSpec struct {
-	TypeExpr string
-	Imports  map[string]struct{}
-}
-
-func pythonFieldTypeSpec(
+func pythonPatchedFieldTypeExpr(
 	field reflect.StructField,
+	currentTypeExpr string,
 	knownContractNames map[string]struct{},
-) (pythonTypeSpec, error) {
-	if spec, ok, err := pythonTypeSpecFromSharedSchemaOverride(field, knownContractNames); ok || err != nil {
-		return spec, err
+) (string, map[string]struct{}, error) {
+	imports := map[string]struct{}{}
+	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
+	if importTag != "" {
+		mergePythonImportTagLines(imports, importTag, knownContractNames)
 	}
-	return pythonTypeExprWithImports(
-		field.Type,
-		strings.TrimSpace(field.Tag.Get("py_type")),
-		knownContractNames,
-	)
-}
-
-func pythonTypeSpecFromSharedSchemaOverride(
-	field reflect.StructField,
-	knownContractNames map[string]struct{},
-) (pythonTypeSpec, bool, error) {
-	if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
-		return pythonTypeSpec{}, false, nil
-	}
-
-	override, ok, err := sharedtypes.SchemaFieldOverrideForField(field)
-	if err != nil || !ok {
-		return pythonTypeSpec{}, ok, err
-	}
-
-	switch {
-	case override.Ref != "":
-		typeName := strings.TrimSpace(override.Ref)
-		if typeName == "" {
-			return pythonTypeSpec{}, true, fmt.Errorf("shared schema ref contract name is required")
-		}
-		return pythonTypeSpec{TypeExpr: typeName}, true, nil
-	case override.ItemsRef != "":
-		switch field.Type.Kind() {
-		case reflect.Slice, reflect.Array:
-		default:
-			return pythonTypeSpec{}, true, fmt.Errorf(
-				"shared schema items ref requires slice or array field, got %s",
-				field.Type,
-			)
-		}
-		typeName := strings.TrimSpace(override.ItemsRef)
-		if typeName == "" {
-			return pythonTypeSpec{}, true, fmt.Errorf("shared schema items ref contract name is required")
-		}
-		return pythonTypeSpec{TypeExpr: "list[" + typeName + "]"}, true, nil
-	case override.MapValueRef != "":
-		return pythonTypeSpec{}, false, nil
-	default:
-		return pythonTypeSpec{}, false, nil
-	}
-}
-
-func pythonTypeExpr(fieldType reflect.Type, override string) (string, error) {
-	spec, err := pythonTypeExprWithImports(fieldType, override, nil)
-	if err != nil {
-		return "", err
-	}
-	return spec.TypeExpr, nil
-}
-
-func pythonTypeExprWithImports(
-	fieldType reflect.Type,
-	override string,
-	knownContractNames map[string]struct{},
-) (pythonTypeSpec, error) {
+	override := strings.TrimSpace(field.Tag.Get("py_type"))
 	override = normalizedPythonTypeOverride(override, knownContractNames)
-	if spec, ok := overridePythonTypeSpec(override); ok {
-		return spec, nil
+	if override != "" {
+		return override, imports, nil
 	}
-	if spec, ok, err := pythonSpecialTypeSpec(fieldType, knownContractNames); ok || err != nil {
-		return spec, err
+	currentTypeExpr = strings.TrimSpace(currentTypeExpr)
+	if currentTypeExpr == "" {
+		return "", nil, fmt.Errorf("missing datamodel type expression")
 	}
-	if spec, ok := pythonPrimitiveTypeSpec(fieldType); ok {
-		return spec, nil
-	}
-	return pythonCompositeTypeSpec(fieldType, knownContractNames)
-}
-
-func overridePythonTypeSpec(override string) (pythonTypeSpec, bool) {
-	override = strings.TrimSpace(override)
-	if override == "" {
-		return pythonTypeSpec{}, false
-	}
-	return pythonTypeSpec{TypeExpr: override}, true
-}
-
-func pythonSpecialTypeSpec(
-	fieldType reflect.Type,
-	knownContractNames map[string]struct{},
-) (pythonTypeSpec, bool, error) {
-	if fieldType == timeType {
-		return pythonTypeSpec{TypeExpr: "datetime"}, true, nil
-	}
-	if fieldType == rawJSONType {
-		return pythonTypeSpec{TypeExpr: "Any"}, true, nil
-	}
-
-	publicTypeName := pythonSharedContractNameForType(fieldType)
-	if modulePath, ok := pythonExternalTypeModules[fieldType.PkgPath()]; ok &&
-		fieldType.Name() != "" {
-		if _, sameModule := knownContractNames[publicTypeName]; sameModule {
-			return pythonTypeSpec{TypeExpr: publicTypeName}, true, nil
-		}
-		importLine := fmt.Sprintf("from %s import %s", modulePath, publicTypeName)
-		return pythonTypeSpec{
-			TypeExpr: publicTypeName,
-			Imports: map[string]struct{}{
-				importLine: {},
-			},
-		}, true, nil
-	}
-
-	if fieldType.Kind() == reflect.String && fieldType.Name() != "" {
-		name, ok, err := pythonSharedEnumContractName(fieldType)
-		if err != nil {
-			return pythonTypeSpec{}, false, err
-		}
-		if ok {
-			return pythonTypeSpec{TypeExpr: name}, true, nil
-		}
-	}
-	return pythonTypeSpec{}, false, nil
-}
-
-func pythonPrimitiveTypeSpec(fieldType reflect.Type) (pythonTypeSpec, bool) {
-	switch fieldType.Kind() {
-	case reflect.String:
-		return pythonTypeSpec{TypeExpr: "str"}, true
-	case reflect.Bool:
-		return pythonTypeSpec{TypeExpr: "bool"}, true
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return pythonTypeSpec{TypeExpr: "int"}, true
-	case reflect.Float32, reflect.Float64:
-		return pythonTypeSpec{TypeExpr: "float"}, true
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		if fieldType.Kind() == reflect.Uint8 {
-			return pythonTypeSpec{TypeExpr: "bytes"}, true
-		}
-		return pythonTypeSpec{TypeExpr: "int"}, true
-	case reflect.Interface:
-		return pythonTypeSpec{TypeExpr: "Any"}, true
-	default:
-		return pythonTypeSpec{}, false
-	}
-}
-
-func pythonCompositeTypeSpec(
-	fieldType reflect.Type,
-	knownContractNames map[string]struct{},
-) (pythonTypeSpec, error) {
-	switch fieldType.Kind() {
-	case reflect.Pointer:
-		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
-		if err != nil {
-			return pythonTypeSpec{}, err
-		}
-		return pythonTypeSpec{
-			TypeExpr: elemSpec.TypeExpr + " | None",
-			Imports:  elemSpec.Imports,
-		}, nil
-	case reflect.Slice:
-		if fieldType.Elem().Kind() == reflect.Uint8 {
-			return pythonTypeSpec{TypeExpr: "bytes"}, nil
-		}
-		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
-		if err != nil {
-			return pythonTypeSpec{}, err
-		}
-		return pythonTypeSpec{
-			TypeExpr: "list[" + elemSpec.TypeExpr + "]",
-			Imports:  elemSpec.Imports,
-		}, nil
-	case reflect.Array:
-		elemSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
-		if err != nil {
-			return pythonTypeSpec{}, err
-		}
-		return pythonTypeSpec{
-			TypeExpr: "list[" + elemSpec.TypeExpr + "]",
-			Imports:  elemSpec.Imports,
-		}, nil
-	case reflect.Map:
-		keySpec, err := pythonTypeExprWithImports(fieldType.Key(), "", knownContractNames)
-		if err != nil {
-			return pythonTypeSpec{}, err
-		}
-		valueSpec, err := pythonTypeExprWithImports(fieldType.Elem(), "", knownContractNames)
-		if err != nil {
-			return pythonTypeSpec{}, err
-		}
-		imports := map[string]struct{}{}
-		mergeImportSet(imports, keySpec.Imports)
-		mergeImportSet(imports, valueSpec.Imports)
-		return pythonTypeSpec{
-			TypeExpr: "dict[" + keySpec.TypeExpr + ", " + valueSpec.TypeExpr + "]",
-			Imports:  imports,
-		}, nil
-	case reflect.Struct:
-		return pythonTypeSpec{TypeExpr: pythonSharedContractNameForType(fieldType)}, nil
-	default:
-		return pythonTypeSpec{}, fmt.Errorf("unsupported type %s", fieldType)
-	}
+	return currentTypeExpr, imports, nil
 }
 
 func pythonDefaultExpr(
