@@ -4,7 +4,6 @@ import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
-  resolveSelectableLLMConfigId,
 } from "components/Chat/llmConfigUtils";
 import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
@@ -13,14 +12,6 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import {
-  getAgenticSummaryCacheStatus,
-  setChatSectionChatId,
-  setChatSectionSettings,
-  type AgenticsummarycacheAgenticSummaryCacheStatus as AgenticSummaryCacheStatus,
-  type SetChatSectionSettingsData,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAgenticEdgeFromSections,
@@ -45,48 +36,46 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_get_agentic_summary_cache_status,
+  route_set_chat_section_chat_id,
+  route_set_chat_section_settings,
+} from "utils/generatedEndpoints";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
+  AgenticSummaryCacheStatus,
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+
 type ChatAreaSettingsProps = {
   sectionId: string;
 };
-type ChatSectionSettingsPayload = Pick<
-  SetChatSectionSettingsData["body"],
-  | "managed"
-  | "engineConfigId"
-  | "transcriptionProfileId"
-  | "agentProfileId"
-  | "thinking"
-  | "permissionMode"
-  | "searchEnabled"
-  | "dictationMode"
->;
+
+type ChatSectionSettingsPayload = {
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  thinking: boolean;
+  permissionMode: "minimal" | "yolo" | "config_toml_custom";
+  searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
+};
+
 type SectionOption = {
   id: string;
   name: string;
   type: SectionTypeEnum;
 };
-type AgenticSummaryCacheStatusRouteResponse =
-  ResponseDataAndStatus<AgenticSummaryCacheStatus>;
+
 type LinkedChatTargetFilterArgs = {
   sectionOptions: Array<SectionOption>;
   sectionVariantMap: Record<string, string>;
-  sectionVariants: Record<
-    string,
-    {
-      impl: string;
-    }
-  >;
+  sectionVariants: Record<string, { impl: string }>;
   sectionImpls: Record<
     string,
     {
@@ -96,24 +85,20 @@ type LinkedChatTargetFilterArgs = {
       agentProfileId?: string | null;
     }
   >;
-  agentProfiles: Array<{
-    id: string;
-    engineConfigId: string | null;
-  }>;
+  agentProfiles: Array<{ id: string; engineConfigId: string | null }>;
   engineConfigs: Array<{
     id: string;
     engineType: EngineTypeEnum;
     settaLlmConfigId?: string | null;
     externalAgentConfigId?: string | null;
   }>;
-  externalAgentConfigs: Array<{
-    id: string;
-  }>;
+  externalAgentConfigs: Array<{ id: string }>;
   allLLMConfigs: {
     configs: Record<string, unknown>;
     default_config_id?: string | null;
   };
 };
+
 export function filterExecutableLinkedChatTargets({
   sectionOptions,
   sectionVariantMap,
@@ -173,6 +158,7 @@ export function filterExecutableLinkedChatTargets({
     return true;
   });
 }
+
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -187,6 +173,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     isDeploymentMode,
     allowLLM,
   });
+
   const {
     managed,
     engineConfigId,
@@ -234,6 +221,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       }),
       _.isEqual,
     );
+
   const {
     apiKeys,
     allLLMConfigs,
@@ -252,6 +240,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }),
     _.isEqual,
   );
+
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
@@ -338,11 +327,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectableLLMConfigId = useMemo(
-    () =>
-      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
-    [availableConfigGroups, selectedLLMConfigId],
-  );
+
   const sectionLabelsById = useMemo(() => {
     const labels: Record<string, string> = {};
     for (const [id, core] of Object.entries(sections)) {
@@ -351,6 +336,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     return labels;
   }, [sections]);
+
   const sectionOptions = useMemo(() => {
     const options: Array<{
       id: string;
@@ -380,14 +366,17 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     return _.sortBy(options, (entry) => entry.name.toLowerCase());
   }, [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections]);
+
   const nonChatSectionItems = useMemo<AllItemsType<string>>(() => {
     const items = sectionOptions
       .filter((entry) => entry.type !== SectionTypeEnum.Chat)
       .map((entry) => ({ id: entry.id, name: entry.name }));
     return [{ group: "Sections", items }];
   }, [sectionOptions]);
+
   const contextItems = nonChatSectionItems;
   const scopeItems = nonChatSectionItems;
+
   const agentItems = useMemo<AllItemsType<string>>(() => {
     const items = filterExecutableLinkedChatTargets({
       sectionOptions,
@@ -410,6 +399,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     sectionVariantMap,
     sectionVariants,
   ]);
+
   const contextModeOptions = useMemo(
     () => [
       {
@@ -421,6 +411,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ],
     [],
   );
+
   const contextEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -455,10 +446,12 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       ),
     [agenticEdges, sectionId],
   );
+
   const agenticScope = useMemo(
     () => resolveAgenticScopeFromEdges(agenticEdges, sectionId),
     [agenticEdges, sectionId],
   );
+
   const buildScopeEntries = useCallback(
     (ids: Iterable<string>) => {
       const entries = Array.from(ids).map((id) => ({
@@ -469,17 +462,21 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [sectionLabelsById],
   );
+
   const scopeReadEntries = useMemo(() => {
     return buildScopeEntries(agenticScope.readSectionIds);
   }, [agenticScope, buildScopeEntries]);
+
   const scopeWriteEntries = useMemo(
     () => buildScopeEntries(agenticScope.writeSectionIds),
     [agenticScope, buildScopeEntries],
   );
+
   const scopeContextEntries = useMemo(
     () => buildScopeEntries(agenticScope.contextSectionIds),
     [agenticScope, buildScopeEntries],
   );
+
   const [summaryCacheStatus, setSummaryCacheStatus] =
     useState<AgenticSummaryCacheStatus | null>(null);
   const [summaryCacheStatusLoading, setSummaryCacheStatusLoading] =
@@ -487,6 +484,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const [summaryCacheStatusError, setSummaryCacheStatusError] = useState<
     string | null
   >(null);
+
   const fetchSummaryCacheStatus = useCallback(async () => {
     if (summaryContextEdgeCount === 0) {
       setSummaryCacheStatus(null);
@@ -495,14 +493,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }
     setSummaryCacheStatusLoading(true);
     try {
-      const response = (await callOpenAPI(
-        getAgenticSummaryCacheStatus({
-          body: {
-            projectConfigId,
-            chatSectionId: sectionId,
-          },
-        } as Parameters<typeof getAgenticSummaryCacheStatus>[0]),
-      )) as AgenticSummaryCacheStatusRouteResponse;
+      const response = await route_get_agentic_summary_cache_status({
+        projectConfigId,
+        chatSectionId: sectionId,
+      });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
         const status =
@@ -525,9 +519,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       setSummaryCacheStatusLoading(false);
     }
   }, [projectConfigId, sectionId, summaryContextEdgeCount]);
+
   useEffect(() => {
     void fetchSummaryCacheStatus();
   }, [fetchSummaryCacheStatus]);
+
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
       if (isDisabled) {
@@ -547,27 +543,24 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           });
         },
         send: (frontendOpId) =>
-          callOpenAPI(
-            setChatSectionSettings({
-              body: {
-                projectConfigId,
-                sectionId,
-                managed: nextSettings.managed,
-                engineConfigId: nextSettings.engineConfigId,
-                transcriptionProfileId: nextSettings.transcriptionProfileId,
-                agentProfileId: nextSettings.agentProfileId,
-                thinking: nextSettings.thinking,
-                permissionMode: nextSettings.permissionMode,
-                searchEnabled: nextSettings.searchEnabled,
-                dictationMode: nextSettings.dictationMode,
-                frontendOpId,
-              },
-            } as Parameters<typeof setChatSectionSettings>[0]),
-          ),
+          route_set_chat_section_settings({
+            projectConfigId,
+            sectionId,
+            managed: nextSettings.managed,
+            engineConfigId: nextSettings.engineConfigId,
+            transcriptionProfileId: nextSettings.transcriptionProfileId,
+            agentProfileId: nextSettings.agentProfileId,
+            thinking: nextSettings.thinking,
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
+            dictationMode: nextSettings.dictationMode,
+            frontendOpId,
+          }),
       });
     },
     [isDisabled, projectConfigId, sectionId],
   );
+
   const handleManagedChange = useCallback(
     (value: boolean) => {
       updateSettings({
@@ -592,6 +585,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const handleChatModeChange = useCallback(
     (value: string | null) => {
       if (isChatModeControlDisabled) {
@@ -610,6 +604,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isChatModeControlDisabled, sectionId],
   );
+
   const handleThinkingChange = useCallback(
     (value: boolean) => {
       updateSettings({
@@ -634,6 +629,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const handleLLMConfigChange = useCallback(
     (value: string | null) => {
       if (isDisabled) {
@@ -653,6 +649,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isDisabled, selectedEngineConfig],
   );
+
   const handleAgentProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
@@ -677,6 +674,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const handleTranscriptionProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
@@ -701,6 +699,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const handleDictationModeChange = useCallback(
     (value: string | null) => {
       const nextMode =
@@ -728,7 +727,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const canEditLinks = canEditStructure;
+
   const handleAddContextSection = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -742,6 +743,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
+
   const handleAddScopeSection = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -755,6 +757,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
+
   const handleAddAgentLink = useCallback(
     (value: string | null) => {
       if (!value || !canEditLinks) {
@@ -768,6 +771,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [canEditLinks, sectionId],
   );
+
   const handleNewChat = useCallback(() => {
     if (isDisabled || !managed || !canManageManagedChatThreads) {
       return;
@@ -779,15 +783,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         });
       },
       send: () =>
-        callOpenAPI(
-          setChatSectionChatId({
-            body: {
-              projectConfigId,
-              sectionId,
-              chatId: null,
-            },
-          } as Parameters<typeof setChatSectionChatId>[0]),
-        ),
+        route_set_chat_section_chat_id({
+          projectConfigId,
+          sectionId,
+          chatId: null,
+        }),
     });
   }, [
     canManageManagedChatThreads,
@@ -796,6 +796,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     projectConfigId,
     sectionId,
   ]);
+
   const handleEngineChange = useCallback(
     (value: string | null) => {
       const nextEngineId = value ?? null;
@@ -826,12 +827,13 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+
   const configPlaceholder = noConfigsAvailable
     ? "Add an LLM config or API key"
     : "Select an LLM";
   const highlightMissingConfig =
     engineType === EngineTypeEnum.setta_llm &&
-    !selectableLLMConfigId &&
+    !selectedLLMConfigId &&
     !noConfigsAvailable;
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
@@ -841,6 +843,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     agenticScope.writeSectionIds.size > 0 ||
     agenticScope.contextSectionIds.size > 0 ||
     agenticScope.peerChatSectionIds.size > 0;
+
   return (
     <div className="flex w-full flex-col gap-2">
       <div
@@ -928,7 +931,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 </p>
                 <IdNameCombobox
                   allItems={availableConfigGroups}
-                  value={selectableLLMConfigId}
+                  value={selectedLLMConfigId}
                   small={false}
                   onSelectedItemChange={handleLLMConfigChange}
                   placeholder={configPlaceholder}

@@ -1,23 +1,20 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { ungroupGroups } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_ungroup_groups } from "utils/generatedEndpoints";
+
 export function UngroupButton({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   function onClick() {
     if (!canEditStructure) {
       return;
     }
-    callOpenAPI(
-      ungroupGroups({
-        body: {
-          projectConfigId: getCurrProjectConfigId(),
-          groupIds: [sectionId],
-        },
-      } as Parameters<typeof ungroupGroups>[0]),
-    );
+    route_ungroup_groups({
+      projectConfigId: getCurrProjectConfigId(),
+      groupIds: [sectionId],
+    });
   }
+
   return (
     <MenuItem onClick={onClick} disabled={!canEditStructure}>
       Ungroup
