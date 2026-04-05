@@ -6860,3 +6860,66 @@ LOOP_TERMINAL_MARKER: none
   - inspect the canary-side `presentation delay` contributor from the saved trace and land one bounded product change against that hotspot on the same `rotaryParamCodeObjDefault` lane
   - rerun this exact performance probe plus CDP visual/perf confirmation after that product change
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 183
+
+- Item: Isolate the canary section-wrapper tree behind a memoized layer and rerun the canonical normalized performance lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `182` already narrowed the hotspot to canary-side presentation work on the same `rotaryParamCodeObjDefault` lane, so the next pass needed one product change instead of another probe-only rerun
+    - `SettingsGraphSubstrateCanary.tsx` still rerendered the entire section-wrapper map on every viewport tick even though pan/zoom only changes the parent viewport transform
+    - section-wrapper rerender isolation is a bounded product fix on the active lane, not another controller extraction or seam-forwarding hop
+  - Production/test/report change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - owns section-wrapper rendering plus drag pointer wiring behind a memoized boundary keyed on scene snapshot and drag state instead of viewport state
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now delegates section-wrapper rendering to the new memoized layer while the parent keeps viewport motion
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - proves parent viewport-only rerenders do not re-execute the section-wrapper subtree while drag-state changes still do
+    - added `perf/reports/frontend/2026-04-05_settings-graph-substrate-section-layer-rerender-isolation.md`
+      - records the before/after metrics on the same normalized lane
+  - What this slice established:
+    - viewport-only canary updates no longer remap the section-wrapper subtree on every wheel tick
+    - the same deterministic `rotaryParamCodeObjDefault` perf lane improved materially on the worktree canary:
+      - baseline canary: `17.00ms` average frame duration, `50.1ms` max, `1` long task (`60ms`)
+      - after section-layer isolation: `16.62ms` average frame duration, `33.3ms` max, `0` long tasks
+      - simultaneous legacy rerun: `16.66ms` average frame duration, `33.2ms` max, `0` long tasks
+      - both sides ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual confirmation is also green on the same normalized lane:
+      - fresh-context sub-agent compared worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings`
+      - after the shared fit-view normalization around `rotaryParamCodeObjDefault`, no gross graph-surface drift/regression was seen; only small viewport/canvas placement noise remained
+      - fresh bootstrap tabs were rejected, but already-open worktree/main sessions were usable for the compare
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+    - result: passed (`2 files`, `6 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-013/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-013/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via the live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `46.0s`)
+  - static verification:
+    - `git diff --check`
+    - result: passed
+    - `pnpm -C frontend exec eslint src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - result: failed due local toolchain issue (`frontend/eslint.config.js` imports `@eslint/js`, but the package is not currently resolvable in this environment)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: no gross drift/regression versus `main` on normalized live `All Settings` around `rotaryParamCodeObjDefault`
+- Lane status:
+  - the first product fix against the saved normal-zoom presentation hotspot is now landed and measured
+  - the baseline `60ms` long-task spike is gone, so the next pass should target a new measured product hotspot instead of reproving this same one
+- Next action:
+  - inspect whether the remaining viewport transform path still rerenders the canary root on every pan/zoom tick and, if so, move that path behind a deeper boundary or imperative DOM write
+  - keep the same normalized `rotaryParamCodeObjDefault` performance probe plus CDP compare as the regression gate
+- LOOP_TERMINAL_MARKER: none
