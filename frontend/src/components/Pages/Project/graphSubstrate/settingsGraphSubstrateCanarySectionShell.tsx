@@ -4,6 +4,7 @@ import React, {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import { SettingsGraphSubstrateCanarySectionOutline } from "./settingsGraphSubstrateCanarySectionOutline";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
   children: ReactNode;
@@ -49,6 +50,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
         zIndex: section.tempZIndex,
       }}
       data-id={section.sectionId}
+      data-section-id={section.sectionId}
       data-dragging={draggingSectionId === section.sectionId ? "true" : "false"}
       data-testid="graph-substrate-canary-section"
       onPointerDownCapture={(event) => handleSectionPointerDown(section, event)}
@@ -56,6 +58,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
       onPointerUpCapture={(event) => finishSectionDrag(event, true)}
       onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
     >
+      <SettingsGraphSubstrateCanarySectionOutline section={section} />
       {children}
     </div>
   );

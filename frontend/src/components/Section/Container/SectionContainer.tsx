@@ -25,12 +25,14 @@ import { getOutlineColor } from "./utils";
 
 function _SectionContainer({
   sectionId,
-  isTopLevel,
+  isTopLevel = false,
   dragListeners,
+  forceHideOutline = false,
 }: {
   sectionId: string;
-  isTopLevel: boolean;
+  isTopLevel?: boolean;
   dragListeners?: any;
+  forceHideOutline?: boolean;
 }) {
   const {
     visibility,
@@ -42,7 +44,6 @@ function _SectionContainer({
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
-    sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -114,8 +115,9 @@ function _SectionContainer({
         <>
           {!isGroup && isJoinedAttachedTerminalGroup ? (
             <div
-              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline ${forceHideOutline ? "outline-0" : "outline-4"} ${getOutlineColor(
                 {
+                  jsonSourceMissing: false,
                   isActiveSection: isJoinedGroupActive,
                   isGlobalVariables: false,
                   isInOtherProjectConfigs,
@@ -146,6 +148,7 @@ function _SectionContainer({
                 <SectionContainerCore
                   sectionId={sectionId}
                   isUserView={isUserView}
+                  forceHideOutline={forceHideOutline}
                 />
               )}
               {isCode ? (
@@ -167,6 +170,11 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(
+  _SectionContainer,
+  (previousProps, nextProps) =>
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.isTopLevel === nextProps.isTopLevel &&
+    previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
 );

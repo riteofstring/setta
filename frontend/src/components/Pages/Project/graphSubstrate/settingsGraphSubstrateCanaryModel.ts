@@ -6,7 +6,11 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
-import type { Position } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  type Position,
+  type SectionType,
+} from "utils/generatedTypes";
 
 export type GraphSubstrateCanaryLayoutSection = {
   sectionId: string;
@@ -15,7 +19,12 @@ export type GraphSubstrateCanaryLayoutSection = {
   tempZIndex: number;
   width: number | null;
   height: number | null;
+  isActiveSection?: boolean;
+  isInOtherProjectConfigs?: boolean;
   positionAndSizeLocked: boolean;
+  sectionTypeName?: SectionType;
+  styleColor?: string | null;
+  textBlockMetaControlStyle?: boolean;
 };
 
 export function resolveActiveViewModeName(
@@ -73,7 +82,13 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       tempZIndex: layout.zIndex,
       width: layout.w,
       height: layout.h,
+      isActiveSection: projectState.projectConfig.activeIds.includes(sectionId),
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      sectionTypeName: impl.type,
+      styleColor: impl.styleColor,
+      textBlockMetaControlStyle:
+        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
     });
   }
 
@@ -87,7 +102,12 @@ export type GraphSubstrateCanarySection = {
   tempZIndex: number;
   width: number | null;
   height: number | null;
+  isActiveSection?: boolean;
+  isInOtherProjectConfigs?: boolean;
   positionAndSizeLocked: boolean;
+  sectionTypeName?: SectionType;
+  styleColor?: string | null;
+  textBlockMetaControlStyle?: boolean;
 };
 
 export function selectSettingsGraphSubstrateCanarySections(

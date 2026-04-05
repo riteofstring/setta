@@ -10,6 +10,7 @@ import {
   createUserDefaultCodeSectionImpl,
   createVariant,
   createViewModeConfig,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -166,19 +167,29 @@ describe("settingsGraphSubstrateCanaryModel", () => {
 
     expect(selectSettingsGraphSubstrateCanarySections(state)).toEqual([
       {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
         sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
         position: { x: 500, y: 200 },
         zIndex: 2,
+        styleColor: null,
         tempZIndex: 2,
+        textBlockMetaControlStyle: false,
         width: 240,
         height: 160,
         positionAndSizeLocked: false,
       },
       {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
         sectionId: "section-b",
+        sectionTypeName: SectionTypeEnum.Code,
         position: { x: 120, y: 100 },
         zIndex: 1,
+        styleColor: null,
         tempZIndex: 1,
+        textBlockMetaControlStyle: false,
         width: 320,
         height: 240,
         positionAndSizeLocked: true,
@@ -200,19 +211,29 @@ describe("settingsGraphSubstrateCanaryModel", () => {
 
     expect(selectSettingsGraphSubstrateCanarySections(state)).toEqual([
       {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
         sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
         position: { x: 760, y: 420 },
         zIndex: 8,
+        styleColor: null,
         tempZIndex: 8,
+        textBlockMetaControlStyle: false,
         width: 240,
         height: 160,
         positionAndSizeLocked: false,
       },
       {
+        isActiveSection: false,
+        isInOtherProjectConfigs: false,
         sectionId: "section-b",
+        sectionTypeName: SectionTypeEnum.Code,
         position: { x: 120, y: 100 },
         zIndex: 1,
+        styleColor: null,
         tempZIndex: 1,
+        textBlockMetaControlStyle: false,
         width: 320,
         height: 240,
         positionAndSizeLocked: true,

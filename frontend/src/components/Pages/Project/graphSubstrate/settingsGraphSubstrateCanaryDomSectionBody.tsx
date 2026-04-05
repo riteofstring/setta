@@ -6,7 +6,13 @@ function _SettingsGraphSubstrateCanaryDomSectionBody({
 }: {
   sectionId: string;
 }) {
-  return <SectionContainer sectionId={sectionId} isTopLevel={true} />;
+  return (
+    <SectionContainer
+      sectionId={sectionId}
+      isTopLevel={true}
+      forceHideOutline={true}
+    />
+  );
 }
 
 export const SettingsGraphSubstrateCanaryDomSectionBody = React.memo(

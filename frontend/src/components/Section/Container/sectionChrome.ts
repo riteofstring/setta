@@ -158,6 +158,28 @@ function getSectionChromeOutlineClassName(
   }
 }
 
+export function getSectionChromeStaticOutlineClassName({
+  outlineTone,
+  hasSectionStyleTheme,
+}: {
+  outlineTone: SectionChromeOutlineTone;
+  hasSectionStyleTheme: boolean;
+}) {
+  if (outlineTone === "missing-source") {
+    return getSectionChromeOutlineClassName(outlineTone);
+  }
+
+  if (hasSectionStyleTheme) {
+    return isSectionChromeOutlineToneActive(outlineTone)
+      ? "outline-[color:var(--setta-section-style-outline)]"
+      : "outline-transparent";
+  }
+
+  return isSectionChromeOutlineToneActive(outlineTone)
+    ? getSectionChromeOutlineClassName(outlineTone)
+    : "outline-transparent";
+}
+
 function getSectionChromeScopeHighlightClassName(
   scopeHighlight: SectionChromeScopeHighlight,
 ) {

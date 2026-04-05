@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 21:54 EDT
+Last updated: 2026-04-06 00:54 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,67 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `216` moves active-outline ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns one real visible shell affordance beyond the substrate-owned background while the DOM body suppresses the duplicate outline.
+  - Why this slice was needed:
+    - item `215` explicitly moved the loop back to the first scene-owned static-layer frontier instead of more viewport/parity churn
+    - the canary already had a shell/body boundary and the DOM section path already exposed `forceHideOutline`, so active outline was the smallest visible shell-only affordance that could move to the shell boundary without reopening another wide chrome extraction
+    - this keeps the active renderer frontier on `SettingsGraphSubstrateCanarySectionShell` while preserving DOM-backed section editing/content
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` compare target for broad graph-surface checks on this shell-ownership lane
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx`
+      - renders the canary shell-owned outline from the shared chrome contracts
+      - reads the same active-section UI state as the DOM body so shell outline selection stays in sync with current section activation
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now renders the shell-owned outline layer
+      - adds `data-section-id` on the shell wrapper so existing canary selectors and probes can address the shell directly
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - passes `forceHideOutline={true}` so the DOM section body no longer draws a duplicate outline under the shell-owned layer
+    - updated `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - threads `forceHideOutline` through the normal top-level section path and the joined terminal-group shell path
+      - fixes the `React.memo(...)` comparator so `forceHideOutline` is not ignored by the memo boundary
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `getSectionChromeStaticOutlineClassName(...)` so shell-owned outline rendering can reuse the same renderer-neutral outline tone contract as the DOM path
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - carries section chrome metadata (`sectionTypeName`, `styleColor`, `textBlockMetaControlStyle`, `isInOtherProjectConfigs`, `isActiveSection`) into canary sections so shell-owned affordances can consume the same source data without reopening DOM chrome internals
+    - updated focused tests:
+      - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - What this slice established:
+    - the canary shell boundary now owns the active outline instead of the DOM section body
+    - the DOM section body stays memoized and suppresses the duplicate outline while keeping the rest of the DOM-backed editing/content path unchanged
+    - the shell wrapper now exposes the expected `data-section-id` selector contract used by the canary Playwright helpers/tests
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`3 files`, `22 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SectionContainer\\.tsx|sectionChrome(\\.test)?\\.ts|settingsGraphSubstrateCanary(Model|DomSectionBody|SectionShell|SectionOutline|SectionsLayer)(\\.test)?\\.tsx?|settings-view-modes\\.spec\\.ts" || true`
+      - result: no matches
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.jHeYkb/run-001/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.jHeYkb/run-001/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `info=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.jHeYkb/run-001/worktree-ai.log) && token=$(printf '%s' "$info" | node -e 'const fs=require("node:fs"); const data=JSON.parse(fs.readFileSync(0,"utf8")); const match=data.bootstrapUrl.match(/#token=(.*)$/); if (!match) process.exit(1); process.stdout.write(match[1]);') && env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN="$token" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary blank pane click clears the active section durably' --reporter=line`
+      - result: passed (`1 passed`, `16.9s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md` and compared mounted `/settings` tabs on worktree `3076` and read-only `main` `3087`
+      - note: `All Settings` was active on both sides and the visible selected-section outline on the worktree canary was visually consistent with read-only `main`
+      - caveat: `rotaryParamCodeObjDefault` itself did not surface by name in the accessible snapshot tree during that CDP pass, so the visual confirmation stayed on the visible selected outline state rather than a named-section-by-name snapshot
+  - Lane status:
+    - this closes the first shell-owned active-outline slice at the canary shell boundary
+    - do not reopen viewport/hydration/parity-only work from item `215` unless the existing broad normalized lane regresses
+  - Next frontier:
+    - keep product work on the same shell-ownership lane by moving one more visible shell-only affordance, preferably the outer shell border/frame tone at `SettingsGraphSubstrateCanarySectionShell`, while DOM bodies stay DOM-backed
+    - if that border/frame move proves too wide for one slice without a new dependency, fall back to the next smallest shell-owned affordance such as the top drag handle instead of reopening support-only parity work
 
 - Ralph item `215` adds a focused live-reload regression proving the worktree canary restores a persisted shared viewport on `All Settings` after a full page reload.
   - Why this slice was needed:

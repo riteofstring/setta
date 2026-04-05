@@ -2380,6 +2380,9 @@ test("settings graph substrate canary blank pane click clears the active section
       .poll(async () => isCanarySectionActive(page, sectionId))
       .toBe(true);
     await expect
+      .poll(async () => isCanarySectionOutlineActive(page, sectionId))
+      .toBe(true);
+    await expect
       .poll(async () => {
         return (await getLatestProjectState(page, projectConfigId)).projectState
           .projectConfig.activeIds;
@@ -2391,6 +2394,9 @@ test("settings graph substrate canary blank pane click clears the active section
 
     await expect
       .poll(async () => isCanarySectionActive(page, sectionId))
+      .toBe(false);
+    await expect
+      .poll(async () => isCanarySectionOutlineActive(page, sectionId))
       .toBe(false);
     await expect
       .poll(async () => {
@@ -4952,6 +4958,24 @@ async function isCanarySectionActive(
       return false;
     }
     return section.getAttribute("data-section-active") === "true";
+  }, sectionId);
+}
+
+async function isCanarySectionOutlineActive(
+  page: Page,
+  sectionId: string,
+): Promise<boolean> {
+  return page.evaluate((id) => {
+    const outlineTone = document
+      .querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${id}"] [data-testid="graph-substrate-canary-section-outline"]`,
+      )
+      ?.getAttribute("data-outline-tone");
+    return (
+      outlineTone === "active" ||
+      outlineTone === "global-active" ||
+      outlineTone === "other-project-active"
+    );
   }, sectionId);
 }
 

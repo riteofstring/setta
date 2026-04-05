@@ -1,6 +1,7 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  getSectionChromeStaticOutlineClassName,
   getSectionChromeSurfaceDomAdapter,
   getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
@@ -154,6 +155,27 @@ describe("sectionChrome", () => {
     expect(className).toContain("outline-purple-600");
     expect(className).toContain("ring-amber-400/70");
     expect(className).toContain("setta-ai-gradient-border-active");
+  });
+
+  it("maps active and themed outline tones to shell-owned static outline classes", () => {
+    expect(
+      getSectionChromeStaticOutlineClassName({
+        outlineTone: "active",
+        hasSectionStyleTheme: false,
+      }),
+    ).toBe("outline-blue-600 dark:outline-blue-700");
+    expect(
+      getSectionChromeStaticOutlineClassName({
+        outlineTone: "other-project-active",
+        hasSectionStyleTheme: true,
+      }),
+    ).toBe("outline-[color:var(--setta-section-style-outline)]");
+    expect(
+      getSectionChromeStaticOutlineClassName({
+        outlineTone: "inactive",
+        hasSectionStyleTheme: false,
+      }),
+    ).toBe("outline-transparent");
   });
 
   it("maps surface decorations to the DOM adapter props without re-deriving section state", () => {

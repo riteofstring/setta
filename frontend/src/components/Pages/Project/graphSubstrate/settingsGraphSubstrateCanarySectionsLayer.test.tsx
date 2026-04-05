@@ -3,14 +3,27 @@
 import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
 
 const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
-    ({ sectionId }: { sectionId: string; isTopLevel: boolean }) => (
-      <div data-testid={`section-content-${sectionId}`}>{sectionId}</div>
+    ({
+      sectionId,
+      forceHideOutline,
+    }: {
+      sectionId: string;
+      isTopLevel: boolean;
+      forceHideOutline?: boolean;
+    }) => (
+      <div
+        data-force-hide-outline={forceHideOutline ? "true" : "false"}
+        data-testid={`section-content-${sectionId}`}
+      >
+        {sectionId}
+      </div>
     ),
   ),
 }));
@@ -166,6 +179,32 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(movedSection?.style.zIndex).toBe("8");
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
+
+  it("renders the active outline from the shell while suppressing the duplicate DOM outline", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              isActiveSection: true,
+            }),
+          ]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    const outline = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section-outline"]',
+    );
+    expect(outline?.dataset.outlineTone).toBe("active");
+    expect(outline?.className).toContain("outline-blue-600");
+    expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      forceHideOutline: true,
+      sectionId: "section-a",
+    });
+  });
 });
 
 function createSceneSection(
@@ -173,12 +212,17 @@ function createSceneSection(
 ): SettingsGraphSubstrateCanarySceneSection {
   return {
     height: 160,
+    isActiveSection: false,
+    isInOtherProjectConfigs: false,
     position: { x: 120, y: 80 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 120, y: 80 },
     resolvedSize: { width: 240, height: 160 },
     sectionId: "section-a",
+    sectionTypeName: SectionTypeEnum.Code,
+    styleColor: null,
     tempZIndex: 2,
+    textBlockMetaControlStyle: false,
     width: 240,
     zIndex: 2,
     ...overrides,
