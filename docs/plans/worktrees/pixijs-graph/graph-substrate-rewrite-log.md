@@ -9203,3 +9203,15 @@ LOOP_TERMINAL_MARKER: none
     - CDP visual check: done; fresh-context sub-agent confirmed the worktree `/settings` canary was mounted and healthy enough for a spot-check, `All Settings` was reachable, and no obvious gross header/title chrome drift was visible versus `main` in the shared viewport
   - Next: if Pixi approval is still unavailable, collapse the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly.
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-06 18:48 EDT, Ralph item `232`
+  - Summary: collapsed the `SectionHeader` trailing action strip behind a renderer-facing controls contract by adding `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and the default DOM controls adapter; the header now resolves the action-strip contract once instead of hard-coding diagnostics/run/follow/window/container controls inline.
+  - Files: `frontend/src/components/Section/Header/SectionHeader.tsx`, `frontend/src/components/Section/Header/SectionHeader.test.tsx`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Verification:
+    - `pnpm -C frontend exec prettier --write src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+    - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionHeader(\\.tsx|\\.test\\.tsx)|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx|SectionWindowSurface(\\.test)?\\.tsx' || true`
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-008 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000` -> timed out in `ensureAppReady(...)` with `browserContext.cookies: Target page, context or browser has been closed` before the spec body, so this remains harness noise rather than slice-specific evidence
+    - CDP visual check: done; a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, confirmed both worktree `http://127.0.0.1:3076/settings` and read-only `main` `http://127.0.0.1:3087/settings` were healthy enough for a spot-check, and found no obvious gross header-controls chrome drift on the named `rotaryParamCodeObjDefault` lane
+  - Next: if Pixi approval is still unavailable, collapse the remaining leading header controls behind one renderer-facing contract instead of leaving `MenuButton`/tag-color composition inline inside `SectionHeader`.
+  - LOOP_TERMINAL_MARKER: none

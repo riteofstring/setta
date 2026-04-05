@@ -308,6 +308,57 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-testid="window-controls"');
     expect(markup).toContain("Mute diagnostics");
   });
+
+  it("allows a custom controls renderer to own the trailing header action strip", () => {
+    useLspDiagnostics.setState({
+      codeSections: { [sectionId]: [baseDiagnostic] },
+      unmappedGenCode: [],
+    });
+    syncStoreInitialState(useLspDiagnostics);
+
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        isRoot={false}
+        hasSectionStyleTheme={false}
+        showSectionContainerControls={false}
+        extraControls={<span data-testid="window-controls">window</span>}
+        controlsRenderer={({
+          codeSectionDiagnostics,
+          extraControls,
+          sectionId: controlsSectionId,
+          sectionTypeName: controlsSectionTypeName,
+          showCodeDiagnosticsPopover,
+          showSectionContainerControls: showCanvasControls,
+        }) => (
+          <div
+            data-diagnostic-count={String(codeSectionDiagnostics.length)}
+            data-section-id={controlsSectionId}
+            data-section-type={controlsSectionTypeName}
+            data-show-canvas-controls={showCanvasControls ? "true" : "false"}
+            data-show-diagnostics-popover={
+              showCodeDiagnosticsPopover ? "true" : "false"
+            }
+            data-testid="custom-header-controls"
+          >
+            {extraControls}
+          </div>
+        )}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="custom-header-controls"');
+    expect(markup).toContain('data-section-id="section-1"');
+    expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
+    expect(markup).toContain('data-diagnostic-count="1"');
+    expect(markup).toContain('data-show-canvas-controls="false"');
+    expect(markup).toContain('data-show-diagnostics-popover="true"');
+    expect(markup).toContain('data-testid="window-controls"');
+    expect(markup).not.toContain("Mute diagnostics");
+  });
 });
 
 describe("SectionHeader follow button", () => {

@@ -55,6 +55,36 @@ export type SectionHeaderLayoutRenderProps = {
 type SectionHeaderLayoutRenderer =
   React.ComponentType<SectionHeaderLayoutRenderProps>;
 
+export type SectionHeaderControlsRenderProps = {
+  codeDiagnosticsLabel: string;
+  codeDiagnosticsMuted: boolean;
+  codeSectionDiagnostics: Array<SettaLspDiagnostic>;
+  extraControls: React.ReactNode;
+  genCodeDiagnostics: Array<SettaLspDiagnostic>;
+  hasSectionStyleTheme: boolean;
+  inlineSuppressionHint: string | null;
+  isDeploymentMode: boolean;
+  isFollowSelected: boolean;
+  isRoot: boolean;
+  isSeriesElement: boolean;
+  isUserView: boolean;
+  onSetSuppressedCode: (
+    code: NonNullable<SettaLspDiagnostic["code"]>,
+    suppress: boolean,
+  ) => void;
+  onToggleCodeDiagnosticsMuted: () => void;
+  onToggleFollowSelection: () => void;
+  pythonCodegenEnabled: boolean;
+  sectionId: string;
+  sectionTypeName: SectionType;
+  showCodeDiagnosticsPopover: boolean;
+  showSectionContainerControls: boolean;
+  suppressedCodes: Array<NonNullable<SettaLspDiagnostic["code"]>>;
+};
+
+type SectionHeaderControlsRenderer =
+  React.ComponentType<SectionHeaderControlsRenderProps>;
+
 type SectionHeaderProps = {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -65,6 +95,7 @@ type SectionHeaderProps = {
   extraControls?: React.ReactNode;
   showSectionContainerControls?: boolean;
   trackMeasuredHeight?: boolean;
+  controlsRenderer?: SectionHeaderControlsRenderer;
   layoutRenderer?: SectionHeaderLayoutRenderer;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
@@ -82,6 +113,7 @@ function _SectionHeader({
   extraControls = null,
   showSectionContainerControls = true,
   trackMeasuredHeight = true,
+  controlsRenderer,
   layoutRenderer,
   headerProps,
 }: SectionHeaderProps) {
@@ -139,13 +171,6 @@ function _SectionHeader({
     _.isEqual,
   );
   const isFollowSelected = selectedSectionIds.includes(sectionId);
-  let followButtonClassName =
-    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
-  if (isFollowSelected) {
-    followButtonClassName = `${followButtonClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
-  } else {
-    followButtonClassName = `${followButtonClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
-  }
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? [];
@@ -190,6 +215,8 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   const headerClassName = headerProps?.className ?? "";
+  const ControlsRenderer =
+    controlsRenderer ?? DefaultSectionHeaderControlsDomAdapter;
   const LayoutRenderer = layoutRenderer ?? DefaultSectionHeaderLayoutDomAdapter;
   const leadingControls = (
     <>
@@ -217,16 +244,126 @@ function _SectionHeader({
     />
   );
   const actions = (
+    <ControlsRenderer
+      codeDiagnosticsLabel={codeDiagnosticsLabel}
+      codeDiagnosticsMuted={codeDiagnosticsMuted}
+      codeSectionDiagnostics={codeSectionDiagnostics}
+      extraControls={extraControls}
+      genCodeDiagnostics={genCodeDiagnostics}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      inlineSuppressionHint={inlineSuppressionHint}
+      isDeploymentMode={isDeploymentMode}
+      isFollowSelected={isFollowSelected}
+      isRoot={isRoot}
+      isSeriesElement={isSeriesElement}
+      isUserView={isUserView}
+      onSetSuppressedCode={(code, suppress) => {
+        void setCodeSectionDiagnosticCodeSuppression(sectionId, code, suppress);
+      }}
+      onToggleCodeDiagnosticsMuted={() => {
+        void setCodeSectionDiagnosticsMuted(sectionId, !codeDiagnosticsMuted);
+      }}
+      onToggleFollowSelection={() => {
+        useAIFollow.setState((state) => {
+          const selected =
+            state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+            (state.selectedSectionIdsByProjectConfigId[projectConfigId] = []);
+          const existingIndex = selected.indexOf(sectionId);
+          if (existingIndex === -1) {
+            selected.push(sectionId);
+          } else {
+            selected.splice(existingIndex, 1);
+          }
+          if (state.mode !== "selected") {
+            state.mode = "selected";
+          }
+        });
+      }}
+      pythonCodegenEnabled={pythonCodegenEnabled}
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      showCodeDiagnosticsPopover={showCodeDiagnosticsPopover}
+      showSectionContainerControls={showSectionContainerControls}
+      suppressedCodes={suppressedCodes}
+    />
+  );
+
+  return (
+    <header
+      {...headerProps}
+      className={`section-title mx-2 flex flex-row items-center ${headerClassName}`}
+      ref={headerRef}
+      style={
+        hasSectionStyleTheme
+          ? {
+              color: "var(--setta-section-style-text)",
+              ...headerProps?.style,
+            }
+          : headerProps?.style
+      }
+    >
+      <LayoutRenderer
+        actions={actions}
+        leadingControls={leadingControls}
+        title={title}
+      />
+    </header>
+  );
+}
+
+export const SectionHeader = React.memo(_SectionHeader);
+
+export function DefaultSectionHeaderLayoutDomAdapter({
+  actions,
+  leadingControls,
+  title,
+}: SectionHeaderLayoutRenderProps) {
+  return (
+    <>
+      {leadingControls}
+      {title}
+      <div className="z-10 ml-auto flex items-center">{actions}</div>
+    </>
+  );
+}
+
+export function DefaultSectionHeaderControlsDomAdapter({
+  codeDiagnosticsLabel,
+  codeDiagnosticsMuted,
+  codeSectionDiagnostics,
+  extraControls,
+  genCodeDiagnostics,
+  hasSectionStyleTheme,
+  inlineSuppressionHint,
+  isDeploymentMode,
+  isFollowSelected,
+  isRoot,
+  isSeriesElement,
+  isUserView,
+  onSetSuppressedCode,
+  onToggleCodeDiagnosticsMuted,
+  onToggleFollowSelection,
+  pythonCodegenEnabled,
+  sectionId,
+  sectionTypeName,
+  showCodeDiagnosticsPopover,
+  showSectionContainerControls,
+  suppressedCodes,
+}: SectionHeaderControlsRenderProps) {
+  let followButtonClassName =
+    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
+  if (isFollowSelected) {
+    followButtonClassName = `${followButtonClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
+  } else {
+    followButtonClassName = `${followButtonClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
+  }
+
+  return (
     <>
       {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
         <button
           className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
-          onClick={() =>
-            void setCodeSectionDiagnosticsMuted(
-              sectionId,
-              !codeDiagnosticsMuted,
-            )
-          }
+          onClick={onToggleCodeDiagnosticsMuted}
           title={
             codeDiagnosticsMuted ? "Unmute diagnostics" : "Mute diagnostics"
           }
@@ -246,13 +383,7 @@ function _SectionHeader({
           title="Problems"
           suppressedCodes={suppressedCodes}
           isMuted={codeDiagnosticsMuted}
-          onSetSuppressedCode={(code, suppress) => {
-            void setCodeSectionDiagnosticCodeSuppression(
-              sectionId,
-              code,
-              suppress,
-            );
-          }}
+          onSetSuppressedCode={onSetSuppressedCode}
           inlineSuppressionHint={inlineSuppressionHint}
         />
       )}
@@ -303,23 +434,7 @@ function _SectionHeader({
           aria-label={isFollowSelected ? "Stop following chat" : "Follow chat"}
           aria-pressed={isFollowSelected}
           className={followButtonClassName}
-          onClick={() => {
-            useAIFollow.setState((state) => {
-              const selected =
-                state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
-                (state.selectedSectionIdsByProjectConfigId[projectConfigId] =
-                  []);
-              const existingIndex = selected.indexOf(sectionId);
-              if (existingIndex === -1) {
-                selected.push(sectionId);
-              } else {
-                selected.splice(existingIndex, 1);
-              }
-              if (state.mode !== "selected") {
-                state.mode = "selected";
-              }
-            });
-          }}
+          onClick={onToggleFollowSelection}
           title={isFollowSelected ? "Stop following chat" : "Follow chat"}
           type="button"
           {...getFloatingBoxHandlers({
@@ -348,44 +463,6 @@ function _SectionHeader({
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
       )}
-    </>
-  );
-
-  return (
-    <header
-      {...headerProps}
-      className={`section-title mx-2 flex flex-row items-center ${headerClassName}`}
-      ref={headerRef}
-      style={
-        hasSectionStyleTheme
-          ? {
-              color: "var(--setta-section-style-text)",
-              ...headerProps?.style,
-            }
-          : headerProps?.style
-      }
-    >
-      <LayoutRenderer
-        actions={actions}
-        leadingControls={leadingControls}
-        title={title}
-      />
-    </header>
-  );
-}
-
-export const SectionHeader = React.memo(_SectionHeader);
-
-export function DefaultSectionHeaderLayoutDomAdapter({
-  actions,
-  leadingControls,
-  title,
-}: SectionHeaderLayoutRenderProps) {
-  return (
-    <>
-      {leadingControls}
-      {title}
-      <div className="z-10 ml-auto flex items-center">{actions}</div>
     </>
   );
 }

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 18:39 EDT
+Last updated: 2026-04-06 18:48 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,52 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `232` collapses the `SectionHeader` trailing action strip behind one renderer-facing controls contract, so the generic header no longer hard-codes diagnostics/run/follow/window/container button composition inline at the same boundary a future scene-owned header would need to replace.
+  - Why this slice was needed:
+    - item `231` let the generic header choose one layout boundary for title/actions placement, but `SectionHeader` still assembled the entire trailing action strip inline before handing it to that layout seam
+    - without a controls contract at that composition boundary, a future scene-owned header would still need to reverse-engineer the default DOM diagnostics/run/follow/window/container button strip even after layout ownership moved behind `layoutRenderer`
+    - this remains a real implementation-choice seam inside `SectionHeader`; it is not another pure forwarding hop through the canary wrappers
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - updated `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - added `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and `DefaultSectionHeaderControlsDomAdapter`
+      - `SectionHeader` now resolves the trailing action-strip contract once and hands it to one controls renderer instead of hard-coding the diagnostics/popover/run/follow/window/container buttons inline
+    - updated `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      - added focused coverage proving a custom controls renderer can own the trailing action strip while still receiving the resolved section/header control contract
+    - existing focused consumers remained valid:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - What this slice established:
+    - the generic header now exposes separate renderer-facing seams for layout and the trailing action-strip implementation while preserving the current DOM controls by default
+    - future scene-owned header work can replace the trailing controls implementation without reopening the already-closed canary header-selection or header-layout lanes
+    - this keeps the DOM-backed canary visually stable while moving the remaining header ownership deeper toward the actual renderer boundary
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+      - result: passed (`3 files`, `21 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionHeader(\\.tsx|\\.test\\.tsx)|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx|SectionWindowSurface(\\.test)?\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-008 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; the run timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed` before the spec body produced product evidence
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree `http://127.0.0.1:3076/settings` mounted cleanly, `All Settings` was reachable, and the graph surface was interactive
+      - note: the read-only `main` reference at `http://127.0.0.1:3087/settings` was also healthy enough for a spot-check after an initial loading shell
+      - note: no obvious gross header-controls chrome drift was visible versus `main`; remaining differences looked like normal project-state/canvas-density drift rather than a seam regression
+  - Lane status:
+    - this closes the header-controls fallback slice that item `231` named when Pixi approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the repeated Playwright failure is still bootstrap/auth harness noise rather than product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, stop extending DOM-only header seams and use the shell-layer, body-surface, header-renderer, header-layout, and header-controls contracts to land the first scene-owned static shell/header/body surface while the DOM editor/body content stays intact
+    - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the remaining leading header controls behind one renderer-facing contract instead of leaving `MenuButton`/tag-color composition inline inside `SectionHeader`
 
 - Ralph item `231` collapses `SectionHeader` title/actions composition behind one renderer-facing layout contract, so the generic header no longer hard-codes menu/title/trailing-action placement inline at the same boundary a future scene-owned header would need to replace.
   - Why this slice was needed:
@@ -8148,118 +8194,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- `dropzoneParamCodeObjDefault` is now the next viable shared non-Browser body-heavy lane:
-  - fresh-context CDP confirmed `dropzoneParamCodeObjDefault` is visibly present on both worktree canary and read-only `main` legacy after normalized `All Settings -> clear viewport -> fit view`
-  - the stable shared visible anchor on that lane is `Mode`
-  - supersede the stale `chatSectionDefault` guidance from older items; item `131` already proved that the real shared chat control lane is `chatWindowing`, and item `132` closed that motion family
-  - do not spend the next pass rediscovering lane viability or reopening `chatWindowing`, `group`, `spreadsheet`, `draw`, `taskBoard`, or Browser default lanes
-- The next bounded slice should use `dropzoneParamCodeObjDefault` for one from-scratch normalized dynamic action across both surfaces:
-  - prefer one short blank-pane pan pulse or one short top-level drag that the current tool stack can complete end-to-end without synthetic drop ambiguity
-  - use the shared `Mode` control as the section-local anchor
-  - only add a new deterministic Playwright/main-reference guard after that exact `dropzoneParamCodeObjDefault` motion compare either exposes a stable mismatch or proves clean enough to lock down
-- The normalized modified-wheel zoom delta lane is now closed again for the current run-048 surfaces:
-  - the targeted main-reference Playwright probe passed on fresh run-048 runtime/bootstrap values
-  - the exact modified-wheel replay remains a known MCP tool boundary, so the live visual acceptance for this lane is the fallback shared `fit view -> toolbar zoom in` sanity check on the same normalized graph surface
-  - do not reopen this exact lane unless a future deterministic rerun fails or a fresh normalized compare shows a visible canary-only zoom artifact
-- The shared title-edit-after-normalized-pan-and-zoom lane is now closed for the current run-044 surfaces:
-  - item `125` reran the existing deterministic Playwright parity probe and paired it with a fresh-context CDP compare on the same shared fit -> pan -> zoom motion shape
-  - the remaining absolute post-motion viewport offset from the existing authenticated tabs did not produce canary-only title/body drift or edit failure, so do not reopen this exact lane unless a future deterministic rerun reproduces a real section-local mismatch
-- The Browser authoritative-move compression lane is closed by item `119`; do not reopen it unless a fresh normalized compare reproduces the old size/layout mismatch.
-- The attempted Browser body-motion lane remains closed after item `124`:
-  - item `120` already showed that the assumed Browser path-field and fallback view-toggle anchors were absent after the baseline normalized compare
-  - item `124` then retried the lane with the explicit normalization that item `120` had left open: targeted-fit `browserSectionDefault`, explicit active-section selection, and repeated `zoom in`
-  - even with that stronger normalization, both worktree canary and read-only `main` still exposed only config labels inside the Browser card and never mounted a real Browser path input, Browser view controls, or a file-explorer region
-  - do not spend another iteration on Browser body/control probes unless a future product slice first changes the live Browser card so those controls actually render on both tabs
-- The next bounded slice should therefore pick one different shared normalized Gate 1 / Gate 2 motion lane on `All Settings` whose target control/body anchor is already visibly present on both surfaces after `clear viewport -> fit view`.
-- Prefer a lane that can still expose a real renderer or interaction-state defect without more support churn:
-  - one short shared pan/drag/motion pulse on a different shared named section
-  - or one existing Playwright-backed lane whose live target control is visibly present after normalization
-- The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
-  - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
-  - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
-- The spreadsheet top-level drag body-anchor lane is now closed:
-  - item `091` already proves `spreadsheetSectionDefault` keeps its stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
-  - do not spend another iteration on more spreadsheet-specific drag/search guard tightening unless a fresh compare shows the actual input disappearing, drifting, or becoming non-interactive
-- The `groupSectionDefault` top-level drag body-anchor lane is now closed:
-  - item `095` proves `groupSectionDefault` keeps the same stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
-  - do not reopen this lane from raw restored tab state alone; the fresh-context CDP compare showed that saved live tabs can reopen on offscreen/wrong-chrome graph state, so only a normalized compare or failing deterministic probe should count as renderer evidence here
-- The `spreadsheetSectionDefault` body-search pan/zoom guard is now normalized and closed for the current stale-active-state question:
-  - it targets the section-scoped args filter by stable id after a named-section fit
-  - do not reopen that lane with `⌘ + K` placeholder assertions unless a future compare proves the actual input disappears
-- Use the same graph-surface-only normalization on worktree and read-only `main`:
-  - close or minimize non-target pane/chat chrome
-  - normalize to active `All Settings`
-  - clear viewport to `null`
-  - trigger one shared `fit view`
-  - if selection chrome is visible and not the target of the compare, clear it on both sides with one shared blank-surface click before judging the graph surface
-- Prefer one short shared dynamic action on the normalized graph surface, such as:
-  - a small drag-pan pulse
-  - one short top-level section drag
-- The next bounded slice should prefer one different existing deterministic dynamic lane on a non-Browser shared section, ideally:
-  - another shared motion/edit lane whose target control is already visible after normalized `clear viewport -> fit view`
-  - or one fresh normalized graph-surface compare that isolates the first remaining canary-only renderer defect instead of reopening already-closed lane families
-- Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
-- Because item `092` did not expose a canary-only landing defect, the next pass should avoid another entry-state oracle slice by default and return to one materially different dynamic graph-surface action that could still expose a real renderer bug.
-- Prefer the next dynamic lane on a different shared action or a concrete production renderer defect; the spreadsheet and `groupSectionDefault` body-anchor drag lanes now have enough coverage for the current gate.
-- Keep using the graph-surface-only normalization when you need live CDP context:
-  - close or minimize non-target pane/chat chrome
-  - normalize to `All Settings`
-  - clear viewport to `null`
-  - trigger one shared `fit view`
-- The `UIPage` seam-lift lane is complete:
-  - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
-  - do not spend another iteration pushing this seam through more pure-forwarding layers
-- The initial-fit / bounds-input lane is complete for the current normal-zoom `All Settings` gate:
-  - item `018` reused the selector’s size contract in the bounds helper and the latest CDP compare no longer shows a material “too tight” framing difference versus `main`
-  - do not spend another iteration on pure bounds math unless a new controlled compare reopens that specific defect
-- The fresh-storage initial-entry fit lane is also complete:
-  - the latest controlled CDP compare showed identical initial transforms and visible graph bounds on worktree and `main`
-  - do not reopen that lane unless a future fresh-storage compare shows the canary blank/off-screen again
-- The fast-switch viewport-persistence lane is complete:
-  - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
-  - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
-- The provisional-viewport persistence lane is also complete for the checked `viewport: null` canary entry:
-  - item `023` stopped the canary from saving its fallback/auto-fit seed back into `All Settings` before the user owns the camera
-  - do not reopen that lane unless a controlled null-viewport compare shows the debounce path still reintroducing a provisional transform
-- The graph-background parity lane is also complete:
-  - item `024` restored the shared dotted grid on the canary path, and the latest normalized compare shows `backgroundCount = 1` on both worktree and `main`
-  - do not reopen that lane unless a later controlled compare shows the background layer missing again
-- The graph-surface height / bottom-anchor lane is also complete:
-  - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
-  - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
-- The toolbar zoom-control anchor lane is also complete:
-  - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
-  - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
-- The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
-  - the stale-browser lifecycle blocker is closed: this pass used worktree frontend `3076`, backend `8076`, and the recovered CDP browser on `9297`
-  - use the next iteration for the normalized `All Settings` graph-surface-only compare itself, not more lifecycle/auth cleanup
-  - if the read-only `main` reference still shows websocket or oracle noise during that fresh `9297` compare, treat it as reference/oracle debt rather than a reopened worktree renderer regression unless the clean worktree surface regresses too
-  - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
-  - item `075` now locks one more normalization precondition: clear durable active-section state before the named-section fit so selection/list chrome cannot masquerade as graph-surface drift
-  - the widened `drawSectionDefault` post-drop frontmost lane should not be reopened with direct CDP mouse drag unless the tool path itself changes:
-    - this pass left `data-dragging` stuck `true` after mouse up and never committed the drop layout on the worktree side
-    - reuse the existing Playwright drag/frontmost guard if this lane needs trustworthy evidence again, and pair it with CDP only for post-state inspection or screenshots
-  - the spreadsheet body-input lane should now be treated as a named-section wide-card lane rather than a placeholder-state oracle:
-    - the current deterministic guard widens `spreadsheetSectionDefault`, pans/zooms it, and types through the stable args-filter input id
-    - if live CDP work returns to this lane, judge the presence/position/usability of the real filter input and body anchor, not whether the active-state shortcut placeholder text matches between sessions
-  - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
-  - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
-  - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
-  - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
-  - the exact `groupSectionDefault` shared wide-card pan pulse is also now closed; do not reopen it unless a fresh compare reintroduces drift
-  - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
-  - the targeted wide-card `groupSectionDefault` Playwright drag oracle is now available; reuse it if a future compare needs trustworthy top-level drag evidence, but do not spend another iteration extending that support lane by itself
-  - the widened `drawSectionDefault` pane-pan lane is now closed:
-    - item `103` proves `drawSectionDefault` keeps its stable `sectionId-args-filter` anchor attached through one normalized short pane pan on worktree canary and read-only `main` legacy
-    - do not reopen this lane unless a later fresh compare shows the draw-section anchor detaching, disappearing, or drifting after the same normalized pane-pan path
-  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` or `drawSectionDefault` pane-pan repetition:
-    - a shared body-heavy dynamic pulse that CDP can complete end-to-end without relying on a synthetic mouse-drop commit
-    - or a post-state CDP inspection paired with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context
-    - isolate any remaining interaction-state drift or body/chrome detachment that only appears once motion starts
-  - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
-- Lifecycle/bootstrap debugging is no longer the default frontier:
-  - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
-  - do not resume ad hoc bounds hypotheses without fresh visual evidence
+- `rotaryParamCodeObjDefault` remains the named `All Settings` spot-check target for the current renderer-ownership lane.
+- Explicit approval to add a new frontend dependency still has not arrived, so keep using the bounded DOM-backed fallback lane instead of attempting the first scene-owned Pixi shell/header/body surface.
+- The header-controls slice is now closed:
+  - `SectionHeader` no longer hard-codes the trailing diagnostics/run/follow/window/container action strip inline; one `controlsRenderer` contract now owns that strip through `DefaultSectionHeaderControlsDomAdapter`
+  - the repeated headless Playwright failure is unchanged `ensureAppReady(...)` harness noise, not product evidence, and should not trigger another standalone recovery/debugging iteration while the runtime and CDP spot-check remain healthy
+- The next bounded fallback slice, if approval is still unavailable, is the remaining leading header controls ownership:
+  - collapse the leading header controls behind one renderer-facing contract instead of leaving `MenuButton` and tag-color composition inline inside `SectionHeader`
+  - keep `rotaryParamCodeObjDefault` as the same named spot-check target and reuse the same narrow title-edit Playwright/CDP verification shape
+- If explicit approval arrives to add the frontend dependency, stop extending DOM-only header seams and use the accumulated shell-layer, body-surface, header-renderer, header-layout, and header-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact.
+- Do not reopen geometry-authority, parity-harness, or lifecycle-only lanes by default:
+  - the current worktree and reference runtimes were healthy enough for CDP on `3076/8076/9297` and `3087/8087/9309`
+  - the failing headless Playwright path still dies before the spec body with `browserContext.cookies: Target page, context or browser has been closed`, so another iteration spent only on auth/bootstrap cleanup would be churn
 
 ## Explicit deferrals
 
@@ -8282,6 +8228,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `226`
-- Latest item: `2026-04-06 226`
+- Active history window: items `001` through `232`
+- Latest item: `2026-04-06 232`
 - Older history archives: none yet
