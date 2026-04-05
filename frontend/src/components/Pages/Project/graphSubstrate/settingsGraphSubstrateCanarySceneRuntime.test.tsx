@@ -323,6 +323,68 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("drops the canary-local shared-node seed once section-model geometry becomes authoritative", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 180,
+              sizeAuthority: "sharedNode",
+              width: 260,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(
+        useSettingsGraphSubstrateCanarySceneStore
+          .getState()
+          .sectionSeedNodes.get("section-a"),
+      ).toEqual({
+        width: 260,
+        height: 180,
+        sizeAuthority: "sharedNode",
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 78,
+              sizeAuthority: "sectionModel",
+              width: 550,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      const state = useSettingsGraphSubstrateCanarySceneStore.getState();
+      expect(state.sectionSeedNodes.has("section-a")).toBe(false);
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: 78,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        sizeAuthority: "sectionModel",
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: 550,
+        zIndex: 2,
+      });
+    });
+  });
+
   it("keeps unlocked layout size authoritative and does not resubscribe to measured-size churn when layout geometry already exists", async () => {
     await act(async () => {
       root.render(

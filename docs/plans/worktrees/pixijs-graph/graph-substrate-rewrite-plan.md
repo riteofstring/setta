@@ -240,12 +240,23 @@ From this point:
 
 The loop has now also spent several iterations on standalone lifecycle / CDP recovery after the broad normalized `rotaryParamCodeObjDefault` lane already stayed green. That support work was justified once, but repeating it as the default next slice would be the same kind of churn the earlier replan was meant to stop.
 
+Progress review checkpoint after loop iteration `31`:
+
+- runs `022` through `029` were still meaningful rewrite progress because they removed measured-DOM authority from the controller bootstrap, node-sync, scene-snapshot, shared-node observation, and shared-node seed-precedence paths
+- runs `030` and `031` were diminishing returns on the same stale-seed-pruning slice because both passes repeated lifecycle / CDP recovery after focused tests were already green and neither pass produced new product evidence beyond `debugPortPid: null` / no listening DevTools sidecar
+- that exhausts the default recovery budget for this exact slice; the next pass must be a bounded commit-or-stop verification attempt rather than another general recovery iteration
+
 From this point:
 
 - allow at most one bounded CDP/lifecycle retry per new product slice, or when the live worktree/reference runtime is genuinely unhealthy
 - do not spend standalone iterations on parity or transport cleanup for a lane that already has repeated green deterministic evidence unless the runtime itself is down
 - treat the current DOM-backed canary as the viewable baseline to preserve while the next architectural milestone lands
 - treat the first visible Pixi shell baseline as landed; do not keep peeling shell affordances one by one unless the next pass also tightens geometry authority underneath that shell
+- on the pending stale-seed-pruning slice from items `264` / `265`, spend at most one fresh outer-loop iteration on lifecycle bootstrap plus immediate CDP preflight; if the sidecar is healthy, run only the bounded canary-health gate and commit the slice
+- if that fresh bootstrap still leaves `debugPortPid: null` or no reachable DevTools target, stop the automation for a tooling replan instead of spending a third lifecycle-only iteration on the same slice
+- do not stack new geometry-authority code on top of the unverified stale-seed-pruning slice
+
+Fresh outer-loop run `001` on 2026-04-07 restored the worktree DevTools sidecar and cleared that commit-or-stop lane in item `267`, so the stale-seed-pruning slice is no longer the blocker. The next passes should go back to the product frontier: remove the remaining measured-DOM authority paths under the now-verified shell baseline instead of reopening tooling-only recovery work on the completed slice.
 
 ## Branching decision
 
@@ -269,3 +280,4 @@ The first visible Pixi insertion is now in place, so pivot from shell-chrome bui
 6. Narrow the next slice to the remaining measured paths on the broad `rotaryParamCodeObjDefault` lane: keep `layout` and `sectionModel` sizes on non-measured paths, and leave DOM measurement only where no stronger `sharedNode` / unresolved size authority exists yet.
 7. Keep the broad normalized `rotaryParamCodeObjDefault` lane plus the current shell-owned Playwright/CDP checks as regression coverage; do not open another affordance-specific shell visual lane by default.
 8. Do not spend more iterations on `settings-view-modes.spec.ts` cleanup-only `finally -> /setViewport` timeouts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy or a future product slice fails before cleanup.
+9. The stale-seed-pruning lane from items `264` / `265` cleared in item `267`; do not reopen it unless a later regression shows stale `sharedNode` seeds surviving after non-`sharedNode` authority takes over.

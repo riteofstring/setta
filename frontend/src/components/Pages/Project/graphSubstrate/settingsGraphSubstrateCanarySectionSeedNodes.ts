@@ -21,6 +21,14 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
 
   for (const section of sceneSnapshot.sections) {
     if (section.sizeAuthority !== "sharedNode") {
+      if (!seedNodes.has(section.sectionId)) {
+        continue;
+      }
+
+      if (!nextSeedNodes) {
+        nextSeedNodes = new Map(seedNodes);
+      }
+      nextSeedNodes.delete(section.sectionId);
       continue;
     }
 

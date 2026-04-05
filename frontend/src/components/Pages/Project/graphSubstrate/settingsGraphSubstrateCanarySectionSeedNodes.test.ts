@@ -80,7 +80,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     });
   });
 
-  it("leaves non-shared scene sections on the existing seed path", () => {
+  it("drops a stale shared-node seed when layout authority takes over", () => {
     const seedNodes = new Map<
       string,
       | {
@@ -112,6 +112,59 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
             height: 78,
             resolvedSize: { width: 550, height: 78 },
             sceneBoundsSize: { width: 550, height: 78 },
+            sizeAuthority: "layout",
+            zIndex: 2,
+            tempZIndex: 2,
+            positionAndSizeLocked: false,
+          },
+        ],
+      },
+    );
+
+    expect(nextSeedNodes).not.toBe(seedNodes);
+    expect(nextSeedNodes.has("section-a")).toBe(false);
+  });
+
+  it("drops a stale shared-node seed once the current scene resolves non-shared authority", () => {
+    const seedNodes = new Map<
+      string,
+      | {
+          height: number;
+          sizeAuthority: "sharedNode";
+          width: number;
+        }
+      | undefined
+    >([
+      [
+        "section-a",
+        {
+          width: 260,
+          height: 180,
+          sizeAuthority: "sharedNode",
+        },
+      ],
+      [
+        "section-b",
+        {
+          width: 420,
+          height: 315,
+          sizeAuthority: "sharedNode",
+        },
+      ],
+    ]);
+
+    const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
+      seedNodes,
+      {
+        sections: [
+          {
+            sectionId: "section-a",
+            position: { x: 120, y: 80 },
+            renderedPosition: { x: 120, y: 80 },
+            width: 550,
+            height: 78,
+            resolvedSize: { width: 550, height: 78 },
+            sceneBoundsSize: { width: 550, height: 78 },
             sizeAuthority: "sectionModel",
             zIndex: 2,
             tempZIndex: 2,
@@ -121,6 +174,12 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
       },
     );
 
-    expect(nextSeedNodes).toBe(seedNodes);
+    expect(nextSeedNodes).not.toBe(seedNodes);
+    expect(nextSeedNodes.has("section-a")).toBe(false);
+    expect(nextSeedNodes.get("section-b")).toEqual({
+      width: 420,
+      height: 315,
+      sizeAuthority: "sharedNode",
+    });
   });
 });

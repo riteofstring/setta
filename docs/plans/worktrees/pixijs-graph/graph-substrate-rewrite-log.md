@@ -9322,7 +9322,6 @@ LOOP_TERMINAL_MARKER: none
     - CDP visual check: done; fresh-context sub-agent confirmed the worktree `/settings` canary was mounted and healthy enough for a spot-check, `All Settings` was reachable, and no obvious gross header/title chrome drift was visible versus `main` in the shared viewport
   - Next: if Pixi approval is still unavailable, collapse the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly.
   - LOOP_TERMINAL_MARKER: none
-
 - 2026-04-06 18:48 EDT, Ralph item `232`
 
   - Summary: collapsed the `SectionHeader` trailing action strip behind a renderer-facing controls contract by adding `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and the default DOM controls adapter; the header now resolves the action-strip contract once instead of hard-coding diagnostics/run/follow/window/container controls inline.
@@ -10173,4 +10172,145 @@ LOOP_TERMINAL_MARKER: none
     - this exact seed-precedence slice is complete; do not reopen it unless a downstream caller reintroduces `resolvedSize` as the steady-state shared-node seed source
   - Next:
     - inspect whether `sectionSeedNodes` can now become explicit bootstrap-only state by dropping or pruning entries once controller/shared-node geometry has been promoted into the resolved section input, instead of carrying a parallel steady-state authority path
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 07:32 EDT, Ralph item `264`
+  - Summary: pruned stale shared-node seeds when the current scene resolved layout/section-model authority so the canary-local cache stops acting as a hidden steady-state size source.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `17 tests`)
+    - fresh-context CDP sub-agent -> blocked before inspection; it could not complete the DevTools attach/snapshot flow
+    - allowed recovery attempt 1: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: relaunched on frontend `3075`, backend `8075`, session `a0acf0`, bootstrap rooted at `8075`, and debug port `9297`, but the launcher stayed attached to live dev logs in this shell; interrupting it also stopped the restarted session
+    - runtime refresh after `aireset`:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-030/worktree-ai.log` -> failed (`Failed to read connect-info JSON`)
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` -> failed (`No matching Setta sessions found.`)
+    - allowed recovery attempt 2: `nohup env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh >/tmp/pixijs-graph-ai-recovery.log 2>&1 &`
+      - result: `/tmp/pixijs-graph-ai-recovery.log` stayed empty and the same runtime refresh still reported no matching live Setta session
+  - Result:
+    - the seed cache now deletes stale non-`sharedNode` entries in code, so layout/section-model authority can take over without a parallel cached `sharedNode` size path surviving underneath
+    - the slice is not committed because the required CDP canary-health gate never ran and the worktree ended the iteration without a live session
+    - the active blocker is worktree lifecycle recovery, not the next geometry-authority code seam
+  - Next:
+    - restart the current worktree lifecycle cleanly in the next iteration, refresh runtime values from the live session, rerun the bounded CDP canary-health check for this exact slice, and commit if the graph surface is healthy
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 07:39 EDT, Ralph item `265`
+  - Summary: reran verification for the stale-seed pruning slice, but the canary-health CDP gate stayed blocked because the worktree never restored a listening Chrome DevTools sidecar.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `17 tests`)
+    - fresh-context CDP sub-agent -> `worktree_unhealthy`; backend `8075` and the bootstrap URL were live, but the Chrome/CDP sidecar was unreachable and it could not inspect the settings surface
+    - runtime refresh before recovery:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-031/worktree-ai.log`
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: backend `8075`, frontend `3075`, session `b2e5e5`, bootstrap rooted at `8075`, debug port `9297`, but `debugPortPid` was `null`
+    - allowed recovery attempt 1:
+      - `nohup env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh >/tmp/pixijs-graph-loop-aireset.log 2>&1 &`
+      - result: `/tmp/pixijs-graph-loop-aireset.log` stayed empty, `lsof -nP -iTCP:9297 -sTCP:LISTEN` still found no listener, and refreshed runtime info still showed the same session with `debugPortPid: null`
+    - allowed recovery attempt 2:
+      - `nohup env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh >/tmp/pixijs-graph-loop-ai.log 2>&1 &`
+      - result: `/tmp/pixijs-graph-loop-ai.log` stayed empty, `lsof -nP -iTCP:9297 -sTCP:LISTEN` still found no listener, and refreshed runtime info still showed the same session with `debugPortPid: null`
+  - Result:
+    - the stale-seed pruning code and focused tests are still ready
+    - the active blocker is lifecycle/CDP sidecar availability, not another product seam
+    - this slice remains uncommitted until the bounded canary-health CDP gate can run
+  - Next:
+    - restart the worktree lifecycle from the outer loop, refresh runtime values, rerun the bounded canary-health CDP check for this exact slice, and commit if the graph surface is healthy
+  - LOOP_TERMINAL_MARKER: none
+ 
+- 2026-04-07 07:43 EDT, Progress review checkpoint after loop iteration `31`
+  - Decision: `replan_and_continue`
+  - Evidence of real forward progress:
+    - runs `022` through `029` committed a coherent sequence of geometry-authority slices under the current plan: controller bootstrap seeds no longer widen authority, unresolved local fallback no longer escapes through node sync, scene bounds now use explicit `sceneBoundsSize`, shared-node observation stops once authoritative geometry exists, and shared-node seed precedence stays on stored/controller size outside the explicit unresolved bootstrap gap
+    - those changes stay aligned with the active rewrite frontier in the plan: remove DOM-measured size feedback as steady-state scene authority while preserving only a bounded local render/bootstrap fallback
+  - Diminishing-return evidence:
+    - runs `030` and `031` both retried the same stale-seed-pruning verification lane after focused Prettier/Vitest checks were already green
+    - both runs ended with the same lifecycle-side blocker rather than new product evidence: backend/frontend were present but the worktree DevTools sidecar never came up (`debugPortPid: null` / no listener on `9297`)
+    - a third default recovery iteration on the same slice would be churn rather than rewrite progress
+  - Durable replan:
+    - the next loop may spend one bounded pass on fresh outer-loop lifecycle bootstrap plus immediate CDP preflight for the existing stale-seed-pruning slice only
+    - if that bootstrap restores a healthy DevTools sidecar, rerun only the bounded canary-health gate and commit the pending slice
+    - if the fresh bootstrap still leaves DevTools unavailable, stop the automation for tooling replan instead of repeating another lifecycle-only iteration
+    - do not stack new geometry-authority code on top of the unverified stale-seed-pruning change until it is either committed or explicitly abandoned
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 07:51 EDT, Ralph item `266`
+  - Summary: spent the one allowed fresh-bootstrap commit-or-stop pass for the stale-seed-pruning slice, and the worktree still came up without a live DevTools sidecar.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the intended check remained the bounded worktree canary-health gate only
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-032/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `431eea`, bootstrap URL rooted at `8075`, debug port `9297`, but `debugPortPid` was still `null`
+    - sidecar listener check:
+      - `lsof -nP -iTCP:9297 -sTCP:LISTEN`
+      - result: no listener
+    - stale metadata check:
+      - `cat /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json`
+      - `ps -p 1793 -o pid=,ppid=,stat=,etime=,command=`
+      - result: the runtime file still referenced stale PID `1793` with `updatedAt 2026-04-07T11:30:34.360082+00:00`, and `ps` confirmed that process no longer existed
+    - CDP visual gate:
+      - not run; this was the authorized fresh-bootstrap retry, and it still did not expose a reachable DevTools sidecar, so the canary-health check could not start
+      - final classification: `worktree_unhealthy`
+  - Result:
+    - the stale-seed pruning code from item `264` remains ready and test-green, but it is still uncommitted because the required CDP gate could not run
+    - the repeated blocker is now confirmed as tooling/lifecycle state rather than the next geometry-authority seam
+    - this lane should stop here for tooling replan instead of spending another lifecycle-only pass on the same slice
+  - Next:
+    - replan the worktree tooling/bootstrap path so fresh `ai` sessions actually launch a DevTools sidecar and refresh `devtools-runtime.json`
+    - once that is fixed, rerun only the bounded canary-health CDP check for the stale-seed-pruning slice and commit it if the graph surface is healthy
+  - LOOP_TERMINAL_MARKER: replan_required
+
+- 2026-04-07 12:48 EDT, Ralph item `267`
+  - Summary: cleared the stale-seed-pruning commit-or-stop lane after the fresh outer-loop bootstrap restored a healthy worktree DevTools sidecar and the bounded canary-health CDP gate passed.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on the bounded worktree canary-health gate; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-001/worktree-ai.log` -> frontend `3075`, backend `8075`, session `077d6e`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 10562`
+    - `./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json` -> `debugPort 9297`, source `process_scan`, `pid 10562`
+    - `lsof -nP -iTCP:9297 -sTCP:LISTEN` -> listener present on `127.0.0.1:9297`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `17 tests`)
+    - fresh-context CDP sub-agent -> pass; reached `http://127.0.0.1:3075/settings`, observed `All Settings` plus a populated settings panel with many draggable rows in the snapshot, and the screenshot showed the mounted settings/graph surface with the left toolbar, overview header, tabs (`Core`, `Param Defaults`, `All Settings`), and populated content instead of a blank or detached canvas
+  - Result:
+    - the canary-local seed cache now drops stale `sharedNode` entries once layout or section-model authority takes over, so the cache no longer carries a parallel steady-state size path underneath the resolved scene
+    - the previously repeated DevTools-sidecar blocker is not active on this fresh run; the bounded CDP canary-health gate completed successfully
+    - this stale-seed-pruning slice is complete and can be committed
+  - Next:
+    - resume the geometry-authority cleanup under the shell baseline, starting with the remaining measured paths in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`
+    - keep `rotaryParamCodeObjDefault` as the broad regression anchor and use the existing canary-health/parity checks as regression coverage instead of opening new section-specific visual lanes by default
   - LOOP_TERMINAL_MARKER: none
