@@ -11,25 +11,14 @@ import (
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
 
-type enumValueSpec struct {
-	Name  string
-	Value string
-}
-
-type contractSpec struct {
-	Name       string
-	Type       reflect.Type
-	EnumValues []enumValueSpec
-}
-
 type generationContext struct {
 	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
 var (
-	pythonSharedEnumSpecsOnce sync.Once
-	pythonSharedEnumSpecs     map[reflect.Type]contractSpec
-	pythonSharedEnumSpecsErr  error
+	pythonSharedEnumNamesOnce sync.Once
+	pythonSharedEnumNames     map[reflect.Type]string
+	pythonSharedEnumNamesErr  error
 )
 
 func buildGenerationContext() (generationContext, error) {
@@ -125,58 +114,32 @@ func coerceDefaultSourceValue(
 	)
 }
 
-func enumContractSpecFromSidecarEntry(
-	name string,
-	typ reflect.Type,
-	enumValues []sharedtypes.EnumValueEntry,
-) (contractSpec, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return contractSpec{}, fmt.Errorf("python shared types: sidecar enum has empty name")
-	}
-	resolvedEnumValues := make([]enumValueSpec, 0, len(enumValues))
-	for _, value := range enumValues {
-		resolvedEnumValues = append(resolvedEnumValues, enumValueSpec{
-			Name:  value.Name,
-			Value: value.Value,
-		})
-	}
-	if len(resolvedEnumValues) == 0 {
-		return contractSpec{}, fmt.Errorf("python shared types: sidecar enum %s has no enum values", name)
-	}
-	return contractSpec{
-		Name:       name,
-		Type:       typ,
-		EnumValues: resolvedEnumValues,
-	}, nil
-}
-
-func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
+func pythonSharedEnumContractName(t reflect.Type) (string, bool, error) {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t == nil {
-		return contractSpec{}, false, nil
+		return "", false, nil
 	}
-	specs, err := pythonSharedEnumContractSpecs()
+	names, err := pythonSharedEnumContractNames()
 	if err != nil {
-		return contractSpec{}, false, err
+		return "", false, err
 	}
-	spec, ok := specs[t]
+	name, ok := names[t]
 	if !ok {
-		return contractSpec{}, false, nil
+		return "", false, nil
 	}
-	return spec, true, nil
+	return name, true, nil
 }
 
-func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
-	pythonSharedEnumSpecsOnce.Do(func() {
+func pythonSharedEnumContractNames() (map[reflect.Type]string, error) {
+	pythonSharedEnumNamesOnce.Do(func() {
 		sidecar, err := sharedtypes.BuildSemanticSidecar()
 		if err != nil {
-			pythonSharedEnumSpecsErr = err
+			pythonSharedEnumNamesErr = err
 			return
 		}
-		specs := map[reflect.Type]contractSpec{}
+		names := map[reflect.Type]string{}
 		for _, entry := range sidecar.Contracts {
 			if strings.TrimSpace(entry.Kind) != "enum" {
 				continue
@@ -189,19 +152,14 @@ func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
 			if !ok {
 				continue
 			}
-			spec, err := enumContractSpecFromSidecarEntry(name, typ, entry.EnumValues)
-			if err != nil {
-				pythonSharedEnumSpecsErr = err
-				return
-			}
-			specs[typ] = spec
+			names[typ] = name
 		}
-		pythonSharedEnumSpecs = specs
+		pythonSharedEnumNames = names
 	})
-	if pythonSharedEnumSpecsErr != nil {
-		return nil, pythonSharedEnumSpecsErr
+	if pythonSharedEnumNamesErr != nil {
+		return nil, pythonSharedEnumNamesErr
 	}
-	return pythonSharedEnumSpecs, nil
+	return pythonSharedEnumNames, nil
 }
 
 func pythonSharedDefaultValueForField(

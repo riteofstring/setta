@@ -28,14 +28,6 @@ var rawJSONType = reflect.TypeOf(json.RawMessage{})
 var pythonExternalTypeModules = map[string]string{
 	"setta/internal/pythonsdkcontracts": "setta.sdk_contracts.generated",
 }
-var pythonKeywords = map[string]struct{}{
-	"False": {}, "None": {}, "True": {}, "and": {}, "as": {}, "assert": {},
-	"async": {}, "await": {}, "break": {}, "class": {}, "continue": {}, "def": {},
-	"del": {}, "elif": {}, "else": {}, "except": {}, "finally": {}, "for": {},
-	"from": {}, "global": {}, "if": {}, "import": {}, "in": {}, "is": {},
-	"lambda": {}, "nonlocal": {}, "not": {}, "or": {}, "pass": {}, "raise": {},
-	"return": {}, "try": {}, "while": {}, "with": {}, "yield": {},
-}
 
 func Build() (GeneratedTypes, error) {
 	ctx, err := buildGenerationContext()
@@ -531,12 +523,12 @@ func pythonSpecialTypeSpec(
 	}
 
 	if fieldType.Kind() == reflect.String && fieldType.Name() != "" {
-		spec, ok, err := enumContractSpecIfConvertible(fieldType)
+		name, ok, err := pythonSharedEnumContractName(fieldType)
 		if err != nil {
 			return pythonTypeSpec{}, false, err
 		}
 		if ok {
-			return pythonTypeSpec{TypeExpr: spec.Name}, true, nil
+			return pythonTypeSpec{TypeExpr: name}, true, nil
 		}
 	}
 	return pythonTypeSpec{}, false, nil
@@ -760,11 +752,4 @@ func sortedImportNames(imports map[string]struct{}) []string {
 	}
 	sort.Strings(names)
 	return names
-}
-
-func pythonEnumMemberName(name string) string {
-	if _, ok := pythonKeywords[name]; ok {
-		return name + "_"
-	}
-	return name
 }

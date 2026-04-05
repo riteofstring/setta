@@ -299,20 +299,14 @@ func applyPythonDefaultsToDatamodelClassBlock(
 			continue
 		}
 
-		defaultExpr := ""
-		switch {
-		case strings.TrimSpace(field.Tag.Get("py_default")) != "":
-			defaultExpr, err = pythonDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
-			if err != nil {
-				return "", false, fmt.Errorf(
-					"python shared types: %s.%s: %w",
-					ownerType,
-					field.Name,
-					err,
-				)
-			}
-		case field.Type.Kind() == reflect.Pointer || fieldAllowsMissing(field):
-			defaultExpr = "None"
+		defaultExpr, err := resolvedDatamodelFieldDefaultExpr(
+			ownerType,
+			field,
+			typeExpr,
+			defaultSourcesByType,
+		)
+		if err != nil {
+			return "", false, err
 		}
 		if defaultExpr == "" {
 			continue
@@ -332,6 +326,30 @@ func applyPythonDefaultsToDatamodelClassBlock(
 	}
 
 	return strings.Join(lines, "\n"), changed, nil
+}
+
+func resolvedDatamodelFieldDefaultExpr(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	typeExpr string,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (string, error) {
+	if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
+		defaultExpr, err := pythonDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
+		if err != nil {
+			return "", fmt.Errorf(
+				"python shared types: %s.%s: %w",
+				ownerType,
+				field.Name,
+				err,
+			)
+		}
+		return defaultExpr, nil
+	}
+	if field.Type.Kind() == reflect.Pointer || fieldAllowsMissing(field) {
+		return "None", nil
+	}
+	return "", nil
 }
 
 func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.StructField, error) {
@@ -454,7 +472,7 @@ func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
 			Block: strings.Join(blockLines, "\n"),
 		}, nil
 	case strings.HasPrefix(header, "type "):
-		name, _, err := parseDatamodelTypeAliasBlock(blockLines)
+		name, err := parseDatamodelTypeAliasName(header)
 		if err != nil {
 			return datamodelDeclaration{}, err
 		}
@@ -515,81 +533,18 @@ func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
 	return fieldName, typeExpr, true
 }
 
-func parseDatamodelTypeAliasBlock(lines []string) (string, string, error) {
-	if len(lines) == 0 {
-		return "", "", fmt.Errorf("python shared types: empty datamodel alias block")
-	}
-	header := strings.TrimSpace(strings.TrimPrefix(lines[0], "type "))
+func parseDatamodelTypeAliasName(header string) (string, error) {
+	header = strings.TrimSpace(strings.TrimPrefix(header, "type "))
 	name, rhs, ok := strings.Cut(header, " = ")
 	if !ok {
-		return "", "", fmt.Errorf("python shared types: malformed datamodel alias header %q", lines[0])
+		return "", fmt.Errorf("python shared types: malformed datamodel alias header %q", header)
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return "", "", fmt.Errorf("python shared types: datamodel alias has empty name")
+		return "", fmt.Errorf("python shared types: datamodel alias has empty name")
 	}
-
-	parts := make([]string, 0, len(lines))
-	parts = append(parts, strings.TrimSpace(rhs))
-	for _, line := range lines[1:] {
-		parts = append(parts, strings.TrimSpace(line))
+	if strings.TrimSpace(rhs) == "" {
+		return "", fmt.Errorf("python shared types: datamodel alias %s is missing an expression", name)
 	}
-	expr, err := normalizeDatamodelAliasExpr(strings.Join(parts, " "))
-	if err != nil {
-		return "", "", fmt.Errorf("python shared types: alias %s: %w", name, err)
-	}
-	return name, expr, nil
-}
-
-func normalizeDatamodelAliasExpr(expr string) (string, error) {
-	expr = strings.TrimSpace(expr)
-	if strings.HasPrefix(expr, "Annotated[") {
-		inner := strings.TrimSpace(strings.TrimPrefix(expr, "Annotated["))
-		if !strings.HasSuffix(inner, "]") {
-			return "", fmt.Errorf("annotated alias is missing a closing bracket")
-		}
-		firstArg, err := firstTopLevelDelimitedSegment(strings.TrimSuffix(inner, "]"))
-		if err != nil {
-			return "", err
-		}
-		expr = firstArg
-	}
-	expr = strings.TrimSpace(strings.TrimSuffix(expr, ","))
-	if expr == "" {
-		return "", fmt.Errorf("alias expression is empty")
-	}
-	return strings.Join(strings.Fields(expr), " "), nil
-}
-
-func firstTopLevelDelimitedSegment(expr string) (string, error) {
-	depthParens := 0
-	depthBrackets := 0
-	depthBraces := 0
-	for index, char := range expr {
-		switch char {
-		case '(':
-			depthParens++
-		case ')':
-			depthParens--
-		case '[':
-			depthBrackets++
-		case ']':
-			depthBrackets--
-		case '{':
-			depthBraces++
-		case '}':
-			depthBraces--
-		case ',':
-			if depthParens == 0 && depthBrackets == 0 && depthBraces == 0 {
-				return strings.TrimSpace(expr[:index]), nil
-			}
-		}
-		if depthParens < 0 || depthBrackets < 0 || depthBraces < 0 {
-			return "", fmt.Errorf("unbalanced alias expression %q", expr)
-		}
-	}
-	if depthParens != 0 || depthBrackets != 0 || depthBraces != 0 {
-		return "", fmt.Errorf("unbalanced alias expression %q", expr)
-	}
-	return strings.TrimSpace(expr), nil
+	return name, nil
 }

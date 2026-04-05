@@ -11,30 +11,16 @@ import (
 	"setta/internal/sharedtypes"
 )
 
-func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T) {
-	spec, ok, err := enumContractSpecIfConvertible(reflect.TypeOf(projectstate.FrontendSectionType("")))
+func TestPythonSharedEnumContractNameNormalizesOwnerFrontendNames(t *testing.T) {
+	name, ok, err := pythonSharedEnumContractName(reflect.TypeOf(projectstate.FrontendSectionType("")))
 	if err != nil {
-		t.Fatalf("enumContractSpecIfConvertible() error = %v", err)
+		t.Fatalf("pythonSharedEnumContractName() error = %v", err)
 	}
 	if !ok {
 		t.Fatalf("expected owner frontend enum to be convertible")
 	}
-	if spec.Name != "SectionType" {
-		t.Fatalf("spec.Name = %q, want %q", spec.Name, "SectionType")
-	}
-	if len(spec.EnumValues) == 0 {
-		t.Fatalf("expected owner enum values to be populated")
-	}
-	if spec.EnumValues[0].Value != "Callable" {
-		t.Fatalf("first enum value = %q, want %q", spec.EnumValues[0].Value, "Callable")
-	}
-	textBlockIndex := pythonEnumValueIndex(spec.EnumValues, "TextBlock")
-	promptIndex := pythonEnumValueIndex(spec.EnumValues, "Prompt")
-	if textBlockIndex == -1 || promptIndex == -1 {
-		t.Fatalf("expected TextBlock and Prompt enum values, got %#v", spec.EnumValues)
-	}
-	if textBlockIndex > promptIndex {
-		t.Fatalf("expected TextBlock before Prompt, got %#v", spec.EnumValues)
+	if name != "SectionType" {
+		t.Fatalf("name = %q, want %q", name, "SectionType")
 	}
 }
 
@@ -205,13 +191,4 @@ func fieldSpecForTypeField(t *testing.T, ownerType reflect.Type, fieldName strin
 	}
 	t.Fatalf("field %q not found on %s", fieldName, ownerType)
 	return fieldSpec{}
-}
-
-func pythonEnumValueIndex(values []enumValueSpec, target string) int {
-	for index, value := range values {
-		if value.Value == target {
-			return index
-		}
-	}
-	return -1
 }
