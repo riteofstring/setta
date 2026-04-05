@@ -1,25 +1,9 @@
 package pythonsharedtypes
 
 import (
-	"reflect"
 	"strings"
 	"testing"
-
-	"setta/internal/projectstate"
 )
-
-func TestPythonSharedEnumContractNameNormalizesOwnerFrontendNames(t *testing.T) {
-	name, ok, err := pythonSharedEnumContractName(reflect.TypeOf(projectstate.FrontendSectionType("")))
-	if err != nil {
-		t.Fatalf("pythonSharedEnumContractName() error = %v", err)
-	}
-	if !ok {
-		t.Fatalf("expected owner frontend enum to be convertible")
-	}
-	if name != "SectionType" {
-		t.Fatalf("name = %q, want %q", name, "SectionType")
-	}
-}
 
 func TestBuildUsesSchemaGeneratedGoValueDefaultsForProjectConfig(t *testing.T) {
 	generated, err := Build()

@@ -4,18 +4,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 
 	"setta/internal/sharedtypes"
 )
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
-
-var (
-	pythonSharedEnumNamesOnce sync.Once
-	pythonSharedEnumNames     map[reflect.Type]string
-	pythonSharedEnumNamesErr  error
-)
 
 func defaultSourcesFromSidecar(
 	sidecar sharedtypes.SemanticSidecar,
@@ -90,54 +83,6 @@ func coerceDefaultSourceValue(
 		reflectValue.Type(),
 		targetType,
 	)
-}
-
-func pythonSharedEnumContractName(t reflect.Type) (string, bool, error) {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t == nil {
-		return "", false, nil
-	}
-	names, err := pythonSharedEnumContractNames()
-	if err != nil {
-		return "", false, err
-	}
-	name, ok := names[t]
-	if !ok {
-		return "", false, nil
-	}
-	return name, true, nil
-}
-
-func pythonSharedEnumContractNames() (map[reflect.Type]string, error) {
-	pythonSharedEnumNamesOnce.Do(func() {
-		sidecar, err := sharedtypes.BuildSemanticSidecar()
-		if err != nil {
-			pythonSharedEnumNamesErr = err
-			return
-		}
-		names := map[reflect.Type]string{}
-		for _, entry := range sidecar.Contracts {
-			if strings.TrimSpace(entry.Kind) != "enum" {
-				continue
-			}
-			name := strings.TrimSpace(entry.Name)
-			if name == "" {
-				continue
-			}
-			typ, ok := sharedtypes.TypeByContractName(name)
-			if !ok {
-				continue
-			}
-			names[typ] = name
-		}
-		pythonSharedEnumNames = names
-	})
-	if pythonSharedEnumNamesErr != nil {
-		return nil, pythonSharedEnumNamesErr
-	}
-	return pythonSharedEnumNames, nil
 }
 
 func pythonSharedDefaultValueForField(
