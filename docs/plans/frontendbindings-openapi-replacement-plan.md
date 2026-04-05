@@ -284,9 +284,21 @@ Rules:
   constants/value exports
 - prefer moving semantics to owner packages over adding more hooks to
   `frontendbindings`
+- do not add tautological tests that only restate explicit owner metadata,
+  enumerated member lists, or handwritten tables introduced by the same change
+- judge progress by net handwritten exception surface across
+  `internal/frontendbindings`, `internal/frontendbindingmeta`, touched
+  owner-side frontend metadata files, and `internal/httpapi/openapi_document_*`
+  rather than claiming a win from moving explicit metadata into another package
+- any new explicit member enumeration must delete more handwritten exception
+  logic than it adds in the same commit
 - do not do another scorched-earth rewrite of the whole package now that the
   architecture is mostly corrected
 - do not broaden the scope just to chase zero handwritten lines
+- stop when cleanup clearly plateaus: if three consecutive iterations cannot
+  delete a whole helper/path/file, cut total tracked handwritten exception LOC
+  materially, or remove a duplicated metadata path without adding a new
+  explicit enumeration elsewhere, end the loop instead of churning
 
 Good deletions:
 
@@ -346,6 +358,14 @@ Always run:
 - `./gcf.sh`
 - `./check_quality.sh`
 
+Plateau rule:
+
+- treat a net reduction of at least 20 tracked handwritten lines as the minimum
+  material LOC win for a keep-going iteration unless it deletes a whole
+  helper/path/file or deletes a real duplicated metadata path outright
+- if that bar is not met for three consecutive iterations, stop and reassess
+  instead of continuing tiny cleanups indefinitely
+
 ## Acceptance Criteria
 
 The plan is complete only when all of these are true:
@@ -360,5 +380,6 @@ The plan is complete only when all of these are true:
   frontend contract generation
 - the remaining explicit metadata/default surface is small, owner-backed, and
   justified by real reflection or protocol gaps
+- no tautological owner-metadata tests were added as part of the cleanup
 - no `map[string]any` or TS-shaped handwritten tables have been reintroduced as
   a substitute for generation

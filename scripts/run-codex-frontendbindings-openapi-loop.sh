@@ -206,6 +206,9 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Treat `internal/httpapi/openapi_document_builder.go` growth as suspicious by default; do not grow doc-only fake-service scaffolding without same-commit legacy deletion.
 - [ ] After HTTP migration is complete, minimize the remaining handwritten exception surface in `internal/frontendbindings` instead of stopping immediately.
 - [ ] Reduce or justify the remaining synthetic enum logic, explicit type overrides, and owner-metadata hooks.
+- [ ] Do not add tautological owner-metadata tests or explicit-list assertion tests.
+- [ ] Track net handwritten exception surface across `internal/frontendbindings`, `internal/frontendbindingmeta`, owner metadata files, and `internal/httpapi/openapi_document_*`.
+- [ ] Stop when three consecutive iterations fail to achieve a material net reduction.
 - [ ] Keep owner-provided defaults typed and semantic; do not reintroduce `map[string]any` or TS-shaped default tables.
 - [ ] Keep the repo clean: regenerate, test, run `./gcf.sh`, run `./check_quality.sh`, and commit every non-stop iteration.
 EOF
@@ -290,6 +293,16 @@ Non-negotiable rules:
   custom HTTP generator path.
 - Do not rebuild a new bespoke endpoint compiler under another name.
 - Do not add tautological generator tests.
+- Do not add tautological owner-metadata tests or tests that only restate an
+  explicit member list, enum list, or metadata table written in the same
+  change.
+- Do not claim progress when explicit metadata is merely moved from
+  \`internal/frontendbindings\` to \`internal/frontendbindingmeta\`, owner
+  packages, or \`internal/httpapi/openapi_document_*\` without a net reduction
+  in handwritten exception surface.
+- Any new explicit member enumeration such as \`MemberTypes\` must delete more
+  handwritten exception logic than it adds in the same commit, and must not be
+  paired with a tautological test that only reasserts the list.
 
 Execution workflow for every iteration:
 - Start with a fresh audit against the checklist.
@@ -305,6 +318,11 @@ Execution workflow for every iteration:
   \`internal/frontendbindings/type_factories.go\`,
   \`internal/frontendbindings/discriminated_object_families.go\`, and
   \`internal/httpapi/openapi_document_builder.go\`.
+- When HTTP/OpenAPI violations are complete, also audit the net handwritten
+  exception surface across \`internal/frontendbindingmeta\`, touched owner-side
+  frontend metadata files, and \`internal/httpapi/openapi_document_*\`. Do not
+  score a win by shrinking one file if another handwritten metadata file grows
+  enough to offset it.
 - Pick the highest-leverage remaining violation on the HTTP/OpenAPI path or on
   the post-migration exception path.
 - Prefer deleting old HTTP generator code over adapting it. After HTTP is
@@ -315,6 +333,16 @@ Execution workflow for every iteration:
 - Every non-stop iteration must remove at least one named route family from the
   legacy HTTP path or at least one named handwritten exception surface from the
   remaining non-HTTP path.
+- Every non-stop iteration after HTTP migration must produce a material net
+  reduction across the tracked handwritten exception surface. "Material" means
+  at least one of:
+  - deleting an entire helper, path, or file
+  - reducing the total tracked handwritten exception LOC by at least 20 lines
+  - deleting a real duplicated metadata path without adding a new explicit
+    enumeration elsewhere
+- If three consecutive audited iterations cannot meet that material-reduction
+  bar without violating the other rules, stop instead of churning. Make no repo
+  changes, leave the worktree clean, and emit the stop sentinel.
 - When the change touches generation or generated outputs, regenerate before
   finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
@@ -346,6 +374,9 @@ Practical guidance:
   - which HTTP families remain, or confirm none remain
   - which exception surface was removed or reduced this iteration
   - whether \`openapi_document_builder.go\` grew or shrank
+  - the net before/after handwritten exception LOC across all touched tracked
+    files, including \`internal/frontendbindingmeta\`, owner-side frontend
+    metadata files, and \`internal/httpapi/openapi_document_*\`
   - before/after line counts for any touched files among
     \`type_enum_metadata.go\`, \`type_helpers.go\`, \`owner_type_metadata.go\`,
     \`type_factories.go\`, \`discriminated_object_families.go\`, and
