@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 08:15 EDT
+Last updated: 2026-04-05 08:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,33 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `168` closed the stale `spreadsheetSectionDefault` normalized motion/editing frontier on the current run-028 surfaces with fresh Playwright and CDP evidence, so the loop does not keep reopening that same body-heavy lane by default.
+  - Why this slice was needed:
+    - item `167` explicitly handed the next product-side Gate 1 / Gate 2 question to the existing `spreadsheetSectionDefault` motion/editing lane
+    - the recent loop had been repeating section-by-section parity closures, so the next honest step was to decide whether this named spreadsheet lane still exposed a live canary-only artifact on the current surfaces or could be retired as stale guidance
+    - closing this lane on run-028 prevents another no-op replay of the same motion/editing shape in the next iteration
+  - Production/test change:
+    - none; this slice intentionally reused the existing named spreadsheet parity probe to decide whether the current frontier was still real
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the current run-028 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `spreadsheetSectionDefault` stay attached and editable through the shared motion/editing path
+    - the fresh-context CDP sub-agent confirmed the same named lane without surfacing renderer drift:
+      - both `3076/settings` and `3087/settings` were aligned on `All Settings`
+      - after one shared fit path, one short pane pan, and one toolbar `zoom in`, the spreadsheet body search input still looked attached on both sides
+      - stale bootstrap tabs, workspace-label chrome, and surrounding non-target UI clutter were treated as oracle noise
+  - Verification:
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `42.9s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - visually compared worktree `3076/settings` and read-only `main` `3087/settings` on the named spreadsheet lane
+    - CDP visual check: done (fresh-context sub-agent; after shared fit view plus a short pane pan and one toolbar zoom-in, the spreadsheet body search input stayed visually attached on both sides, with only stale bootstrap tabs/workspace-label chrome treated as oracle noise)
+  - Lane status:
+    - close `spreadsheetSectionDefault` as a clean current run-028 normalized motion/editing lane
+    - do not reopen this spreadsheet lane by default unless a future deterministic rerun or normalized CDP compare shows the actual body search input drifting, disappearing, or becoming non-interactive
+  - Next frontier:
+    - do not spend the next iteration on another section-by-section replay of the same motion/editing shape; pick the next genuinely new renderer-facing Gate 1 / Gate 2 question or return `REPLAN_REQUIRED` if the only remaining options are more probe churn
 
 - Ralph item `167` opened and closed the canonical `dictSectionDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation.
   - Why this slice was needed:
