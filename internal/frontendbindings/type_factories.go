@@ -29,7 +29,7 @@ func buildGoBackedCreateBodyTS(
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	defaultsObject := filteredCreateDefaultsObject(context, defaultValue, properties)
+	defaultsObject, orderedKeys := filteredCreateDefaultsObject(context, defaultValue, properties)
 	fieldSpecs, err := buildGenericCreateFieldSpecs(
 		structType,
 		properties,
@@ -43,7 +43,7 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
 	builder.WriteString(" = ")
-	writeTSObjectLiteral(&builder, "  ", defaultsObject, orderedTypePropertyNames(properties))
+	builder.WriteString(renderTSObjectLiteralExpr(defaultsObject, orderedKeys, "  "))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions<")
@@ -64,9 +64,10 @@ func filteredCreateDefaultsObject(
 	context string,
 	defaultValue any,
 	properties []TypeProperty,
-) map[string]any {
-	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+) (map[string]any, []string) {
+	defaultsObject, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
 	filtered := make(map[string]any, len(properties))
+	orderedKeys := make([]string, 0, len(properties))
 	for _, property := range properties {
 		value, ok := defaultsObject[property.Name]
 		if !ok {
@@ -76,8 +77,9 @@ func filteredCreateDefaultsObject(
 			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
 		}
 		filtered[property.Name] = value
+		orderedKeys = append(orderedKeys, property.Name)
 	}
-	return filtered
+	return filtered, orderedKeys
 }
 
 func buildGenericCreateFieldSpecs(
@@ -319,30 +321,18 @@ func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
 }
 
-func orderedTypePropertyNames(properties []TypeProperty) []string {
-	names := make([]string, 0, len(properties))
-	for _, property := range properties {
-		names = append(names, property.Name)
-	}
-	return names
-}
-
 func buildGeneratedImplFactoryBodyTS(
 	context string,
 	implType string,
 	defaultValue any,
 ) string {
-	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
-	orderedKeys := goJSONFieldOrder(defaultValue)
-	if len(orderedKeys) > 0 {
-		validateTSLiteralObjectKeys(context, defaultsObject, orderedKeys)
-	}
+	defaultsObject, orderedKeys := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
 	var builder strings.Builder
 	builder.WriteString("  return mergeGeneratedOptions<")
 	builder.WriteString(implType)
 	builder.WriteString(">(\n")
 	builder.WriteString("    ")
-	writeTSObjectLiteral(&builder, "    ", defaultsObject, orderedKeys)
+	builder.WriteString(renderTSObjectLiteralExpr(defaultsObject, orderedKeys, "    "))
 	builder.WriteString(",\n")
 	builder.WriteString("    options,\n")
 	builder.WriteString("  );")

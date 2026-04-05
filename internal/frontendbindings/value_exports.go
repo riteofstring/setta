@@ -50,9 +50,7 @@ func discoveredValueDeclaration(
 func renderTSLiteralExprFromGoValue(context string, value any) string {
 	normalized := mustTSLiteralValueFromGoValue(context, value)
 	if object, ok := normalized.(map[string]any); ok {
-		var builder strings.Builder
-		writeTSObjectLiteral(&builder, "", object, goJSONFieldOrder(value))
-		return builder.String()
+		return renderTSObjectLiteralExpr(object, goJSONFieldOrder(value), "")
 	}
 	return renderTSLiteralExpr(normalized)
 }

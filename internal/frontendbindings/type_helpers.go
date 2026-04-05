@@ -58,6 +58,15 @@ func mustTSLiteralObjectFromGoValue(context string, value any) map[string]any {
 	return object
 }
 
+func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[string]any, []string) {
+	object := mustTSLiteralObjectFromGoValue(context, value)
+	orderedKeys := goJSONFieldOrder(value)
+	if len(orderedKeys) > 0 {
+		validateTSLiteralObjectKeys(context, object, orderedKeys)
+	}
+	return object, orderedKeys
+}
+
 func mergeTSLiteralValueFromGoValue(context string, value any, normalized any) any {
 	reflected := reflect.ValueOf(value)
 	if !reflected.IsValid() {
@@ -237,6 +246,12 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 func renderTSLiteralExpr(value any) string {
 	var builder strings.Builder
 	writeTSLiteralValue(&builder, "", value)
+	return builder.String()
+}
+
+func renderTSObjectLiteralExpr(object map[string]any, orderedKeys []string, indent string) string {
+	var builder strings.Builder
+	writeTSObjectLiteral(&builder, indent, object, orderedKeys)
 	return builder.String()
 }
 
