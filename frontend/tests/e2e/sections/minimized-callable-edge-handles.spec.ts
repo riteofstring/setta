@@ -113,32 +113,32 @@ test.describe.serial("minimized callable edge handles", () => {
         projectConfigId,
         operations: [
           {
-            routeName: "route_set_section_edge_inputs",
-            payload: {
+            operationName: "setSectionEdgeInputs",
+            body: {
               sectionId: sectionA,
               edgeInputParams: [aParam],
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_section_edge_inputs",
-            payload: {
+            operationName: "setSectionEdgeInputs",
+            body: {
               sectionId: sectionB,
               edgeInputParams: [bParam1, bParam2],
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_section_edge_outputs",
-            payload: {
+            operationName: "setSectionEdgeOutputs",
+            body: {
               sectionId: sectionA,
               edgeOutputPorts: [{ id: aOutPortId, accessor: "out" }],
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_section_edge_outputs",
-            payload: {
+            operationName: "setSectionEdgeOutputs",
+            body: {
               sectionId: sectionB,
               edgeOutputPorts: [
                 { id: bOutPortId1, accessor: "out_1" },
@@ -148,8 +148,8 @@ test.describe.serial("minimized callable edge handles", () => {
             },
           },
           {
-            routeName: "route_create_edge",
-            payload: {
+            operationName: "createEdge",
+            body: {
               sourceSectionId: sectionA,
               sourceVariantId: aVariantId,
               sourcePortId: aOutPortId,
@@ -160,8 +160,8 @@ test.describe.serial("minimized callable edge handles", () => {
             },
           },
           {
-            routeName: "route_create_edge",
-            payload: {
+            operationName: "createEdge",
+            body: {
               sourceSectionId: sectionA,
               sourceVariantId: aVariantId,
               sourcePortId: aOutPortId,
@@ -172,8 +172,8 @@ test.describe.serial("minimized callable edge handles", () => {
             },
           },
           {
-            routeName: "route_create_edge",
-            payload: {
+            operationName: "createEdge",
+            body: {
               sourceSectionId: sectionB,
               sourceVariantId: bVariantId,
               sourcePortId: bOutPortId1,
@@ -184,8 +184,8 @@ test.describe.serial("minimized callable edge handles", () => {
             },
           },
           {
-            routeName: "route_create_edge",
-            payload: {
+            operationName: "createEdge",
+            body: {
               sourceSectionId: sectionB,
               sourceVariantId: bVariantId,
               sourcePortId: bOutPortId2,
@@ -196,16 +196,16 @@ test.describe.serial("minimized callable edge handles", () => {
             },
           },
           {
-            routeName: "route_create_agentic_edge",
-            payload: {
+            operationName: "createAgenticEdge",
+            body: {
               sourceSectionId: chatSection,
               targetSectionId: sectionB,
               kind: "chat_section",
             },
           },
           {
-            routeName: "route_create_agentic_edge",
-            payload: {
+            operationName: "createAgenticEdge",
+            body: {
               sourceSectionId: sectionB,
               targetSectionId: chatSection,
               kind: "section_chat",

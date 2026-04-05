@@ -414,16 +414,15 @@ async function seedProjectChatWindowThreads(
 ): Promise<void> {
   await flushProjectChatWindowingWrites(page);
   await page.evaluate(async (nextFixtures) => {
+    const {
+      setChatSectionChatId,
+      setProjectChatWindowChatId,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
     const { useAIStore, useProjectState } = await import(
       "/src/state/definitions.ts"
     );
     const { getDefaultChatDetails } = await import("/src/state/actions/ai.ts");
-    const { route_set_chat_section_chat_id } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
-    const { route_set_project_chat_window_chat_id } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
     const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
 
     for (const fixture of nextFixtures) {
@@ -435,18 +434,26 @@ async function seedProjectChatWindowThreads(
         window?.mode === ChatWindowModeEnum.section_mode &&
         window.sectionIdOrNull
       ) {
-        await route_set_chat_section_chat_id({
-          projectConfigId: useProjectState.getState().projectConfig.id,
-          sectionId: window.sectionIdOrNull,
-          chatId: fixture.chatId,
-        });
+        await callOpenAPI(
+          setChatSectionChatId({
+            body: {
+              projectConfigId: useProjectState.getState().projectConfig.id,
+              sectionId: window.sectionIdOrNull,
+              chatId: fixture.chatId,
+            },
+          } as Parameters<typeof setChatSectionChatId>[0]),
+        );
         continue;
       }
-      const response = await route_set_project_chat_window_chat_id({
-        projectConfigId: useProjectState.getState().projectConfig.id,
-        instanceId: fixture.instanceId,
-        chatId: fixture.chatId,
-      });
+      const response = await callOpenAPI(
+        setProjectChatWindowChatId({
+          body: {
+            projectConfigId: useProjectState.getState().projectConfig.id,
+            instanceId: fixture.instanceId,
+            chatId: fixture.chatId,
+          },
+        } as Parameters<typeof setProjectChatWindowChatId>[0]),
+      );
       if (response.status !== 200 || !response.data) {
         throw new Error(
           `Failed to seed project chat window ${fixture.instanceId}: ${response.status}`,
@@ -614,13 +621,12 @@ async function clearProjectChatWindowingState(
   projectConfigId: string,
 ): Promise<void> {
   await page.evaluate(async (nextProjectConfigId) => {
+    const {
+      setProjectChatWindowChatId,
+      setProjectChatWindowingState,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
     const { useProjectState } = await import("/src/state/definitions.ts");
-    const { route_set_project_chat_windowing_state } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
-    const { route_set_project_chat_window_chat_id } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
     const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
     const { createProjectChatWindowingState } = await import(
       "/src/utils/generatedTypes.ts"
@@ -633,16 +639,24 @@ async function clearProjectChatWindowingState(
       ) {
         continue;
       }
-      await route_set_project_chat_window_chat_id({
-        projectConfigId: nextProjectConfigId,
-        instanceId: instance.instanceId,
-        chatId: null,
-      });
+      await callOpenAPI(
+        setProjectChatWindowChatId({
+          body: {
+            projectConfigId: nextProjectConfigId,
+            instanceId: instance.instanceId,
+            chatId: null,
+          },
+        } as Parameters<typeof setProjectChatWindowChatId>[0]),
+      );
     }
-    const response = await route_set_project_chat_windowing_state({
-      projectConfigId: nextProjectConfigId,
-      state: createProjectChatWindowingState(),
-    });
+    const response = await callOpenAPI(
+      setProjectChatWindowingState({
+        body: {
+          projectConfigId: nextProjectConfigId,
+          state: createProjectChatWindowingState(),
+        },
+      } as Parameters<typeof setProjectChatWindowingState>[0]),
+    );
     if (response.status !== 200 || !response.data) {
       throw new Error(
         `Failed to clear project chat windowing state: ${response.status}`,
@@ -4586,14 +4600,17 @@ test.describe.serial("standalone project surface routes", () => {
           sectionId: string;
           chatId: string;
         }) => {
-          const { route_set_chat_section_chat_id } = await import(
-            "/src/utils/generatedEndpoints.ts"
+          const { setChatSectionChatId } = await import("/src/openapi/http");
+          const { callOpenAPI } = await import("/src/openapi/http/result");
+          await callOpenAPI(
+            setChatSectionChatId({
+              body: {
+                projectConfigId,
+                sectionId,
+                chatId,
+              },
+            } as Parameters<typeof setChatSectionChatId>[0]),
           );
-          await route_set_chat_section_chat_id({
-            projectConfigId,
-            sectionId,
-            chatId,
-          });
         },
         {
           projectConfigId: projectContext.projectConfigId,

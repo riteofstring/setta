@@ -83,12 +83,15 @@ test("deployment terminals still use the Go websocket route shape", async ({
     expect(terminalId).toBeTruthy();
 
     const latestProjectState = await page.evaluate(async (projectConfigId) => {
-      const { route_get_latest_project_state } = await import(
-        "/src/utils/generatedEndpoints.ts"
+      const { getLatestProjectState } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const response = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
       );
-      const response = await route_get_latest_project_state({
-        projectConfigId,
-      });
       if (response.status !== 200 || !response.data) {
         throw new Error(
           `Failed to load latest project state for ${projectConfigId}: ${response.status}`,

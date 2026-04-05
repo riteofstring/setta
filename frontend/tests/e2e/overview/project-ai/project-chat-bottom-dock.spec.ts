@@ -2308,13 +2308,16 @@ test("project chat windows reopen canvas-bound sections as centered floating win
 
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
-        const { route_delete_sections } = await import(
-          "/src/utils/generatedEndpoints.ts"
+        const { deleteSections } = await import("/src/openapi/http");
+        const { callOpenAPI } = await import("/src/openapi/http/result");
+        await callOpenAPI(
+          deleteSections({
+            body: {
+              projectConfigId,
+              sectionIds: [targetSectionId],
+            },
+          } as Parameters<typeof deleteSections>[0]),
         );
-        await route_delete_sections({
-          projectConfigId,
-          sectionIds: [targetSectionId],
-        });
       },
       {
         projectConfigId: projectContext.projectConfigId,
@@ -2332,17 +2335,29 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       .getByTestId("view-mode-tab-button")
       .count();
     const createdViewModeId = await page.evaluate(async (projectConfigId) => {
-      const { route_create_view_mode, route_toggle_view_mode_tab } =
-        await import("/src/utils/generatedEndpoints.ts");
-      const response = await route_create_view_mode({ projectConfigId });
+      const { createViewMode, toggleViewModeTab } = await import(
+        "/src/openapi/http"
+      );
+      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const response = await callOpenAPI(
+        createViewMode({
+          body: {
+            projectConfigId,
+          },
+        } as Parameters<typeof createViewMode>[0]),
+      );
       const viewModeId = response.data;
       if (!viewModeId) {
         throw new Error("Expected created view mode id.");
       }
-      await route_toggle_view_mode_tab({
-        projectConfigId,
-        viewModeId,
-      });
+      await callOpenAPI(
+        toggleViewModeTab({
+          body: {
+            projectConfigId,
+            viewModeId,
+          },
+        } as Parameters<typeof toggleViewModeTab>[0]),
+      );
       return viewModeId;
     }, projectContext.projectConfigId);
     await expect(page.getByTestId("view-mode-tab-button")).toHaveCount(
@@ -2350,13 +2365,16 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     );
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
-        const { route_set_active_view_mode } = await import(
-          "/src/utils/generatedEndpoints.ts"
+        const { setActiveViewMode } = await import("/src/openapi/http");
+        const { callOpenAPI } = await import("/src/openapi/http/result");
+        await callOpenAPI(
+          setActiveViewMode({
+            body: {
+              projectConfigId,
+              activeViewModeId,
+            },
+          } as Parameters<typeof setActiveViewMode>[0]),
         );
-        await route_set_active_view_mode({
-          projectConfigId,
-          activeViewModeId,
-        });
       },
       {
         projectConfigId: projectContext.projectConfigId,

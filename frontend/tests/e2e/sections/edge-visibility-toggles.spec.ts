@@ -106,24 +106,24 @@ test.describe.serial("edge visibility toggles", () => {
         projectConfigId,
         operations: [
           {
-            routeName: "route_set_section_edge_inputs",
-            payload: {
+            operationName: "setSectionEdgeInputs",
+            body: {
               sectionId: sectionB,
               edgeInputParams: [bParam],
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_section_edge_outputs",
-            payload: {
+            operationName: "setSectionEdgeOutputs",
+            body: {
               sectionId: sectionA,
               edgeOutputPorts: [{ id: aOutPortId, accessor: "out" }],
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_create_edge",
-            payload: {
+            operationName: "createEdge",
+            body: {
               sourceSectionId: sectionA,
               sourceVariantId: aVariantId,
               sourcePortId: aOutPortId,
@@ -134,8 +134,8 @@ test.describe.serial("edge visibility toggles", () => {
             },
           },
           {
-            routeName: "route_create_agentic_edge",
-            payload: {
+            operationName: "createAgenticEdge",
+            body: {
               sourceSectionId: chatSection,
               targetSectionId: sectionB,
               kind: "chat_section",

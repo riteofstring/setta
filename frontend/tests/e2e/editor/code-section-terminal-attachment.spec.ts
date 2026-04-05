@@ -2367,11 +2367,10 @@ async function setSectionSize(
     async ({ id, nextSize }) => {
       const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
         await import("/src/state/actions/sectionInfos");
+      const { setSectionSizes } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { setSelfParentSiblingChildrenWidths } = await import(
         "/src/state/actions/sections/sectionSizes"
-      );
-      const { route_set_section_sizes } = await import(
-        "/src/utils/generatedEndpoints"
       );
       let updatedSectionSizes = {};
       dispatchOptimisticProjectStateUpdate({
@@ -2383,11 +2382,15 @@ async function setSectionSize(
           );
         },
         send: (frontendOpId) =>
-          route_set_section_sizes({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionSizes: updatedSectionSizes,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            setSectionSizes({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionSizes: updatedSectionSizes,
+                frontendOpId,
+              },
+            } as Parameters<typeof setSectionSizes>[0]),
+          ),
       });
     },
     { id: sectionId, nextSize: size },

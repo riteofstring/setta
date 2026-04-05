@@ -118,12 +118,13 @@ async function createChildSectionsViaIncrementerFromFrontend(
   },
 ): Promise<void> {
   await page.evaluate(async (input) => {
+    const {
+      createChildSectionsViaIncrementer,
+      getLatestProjectState,
+    } = await import("/src/openapi/http");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
     const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
       await import("/src/state/actions/sectionInfos");
-    const {
-      route_create_child_sections_via_incrementer,
-      route_get_latest_project_state,
-    } = await import("/src/utils/generatedEndpoints");
 
     if (getCurrProjectConfigId() !== input.projectConfigId) {
       throw new Error(
@@ -131,20 +132,28 @@ async function createChildSectionsViaIncrementerFromFrontend(
       );
     }
 
-    const response = await route_create_child_sections_via_incrementer({
-      projectConfigId: input.projectConfigId,
-      calledBy: input.sectionId,
-      implType: input.implType,
-      numChildren: input.numChildren,
-    });
+    const response = await callOpenAPI(
+      createChildSectionsViaIncrementer({
+        body: {
+          projectConfigId: input.projectConfigId,
+          calledBy: input.sectionId,
+          implType: input.implType,
+          numChildren: input.numChildren,
+        },
+      } as Parameters<typeof createChildSectionsViaIncrementer>[0]),
+    );
     if (response.status !== 200) {
       throw new Error(
         `Failed to create incrementer children for ${input.sectionId}: ${response.status}`,
       );
     }
-    const latestProjectStateResponse = await route_get_latest_project_state({
-      projectConfigId: input.projectConfigId,
-    });
+    const latestProjectStateResponse = await callOpenAPI(
+      getLatestProjectState({
+        body: {
+          projectConfigId: input.projectConfigId,
+        },
+      } as Parameters<typeof getLatestProjectState>[0]),
+    );
     if (
       latestProjectStateResponse.status !== 200 ||
       !latestProjectStateResponse.data
@@ -435,24 +444,24 @@ test.describe.serial("section types data authoring", () => {
         projectConfigId: projectContext.projectConfigId,
         operations: [
           {
-            routeName: "route_set_text_block_text",
-            payload: {
+            operationName: "setTextBlockText",
+            body: {
               sectionId,
               text: "# Heading\n\nBody text",
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_text_block_format",
-            payload: {
+            operationName: "setTextBlockFormat",
+            body: {
               sectionId,
               format: "Markdown",
               frontendOpId: null,
             },
           },
           {
-            routeName: "route_set_text_block_display_mode",
-            payload: {
+            operationName: "setTextBlockDisplayMode",
+            body: {
               sectionId,
               textDisplayMode: "Render",
               frontendOpId: null,
@@ -1120,8 +1129,8 @@ test.describe.serial("section types data authoring", () => {
         projectConfigId: projectContext.projectConfigId,
         operations: [
           {
-            routeName: "route_set_spreadsheet_file_path",
-            payload: {
+            operationName: "setSpreadsheetFilePath",
+            body: {
               sectionId: spreadsheetSectionId,
               filePath: csvPath,
               activeSheet: null,

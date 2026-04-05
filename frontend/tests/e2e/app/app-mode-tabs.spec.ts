@@ -21,14 +21,15 @@ async function syncAppDefinitionStateWithExpectedRootKey(
   await expect
     .poll(async () => {
       return await page.evaluate(async ({ expectedKey }) => {
-        const { route_get_app_definition } = await import(
-          "/src/utils/generatedEndpoints.ts"
-        );
+        const { getAppDefinition } = await import("/src/openapi/http");
+        const { callOpenAPI } = await import("/src/openapi/http/result");
         const { res200 } = await import("/src/utils/endpointUtils.ts");
         const { useAppDefinition, useAppPreview } = await import(
           "/src/state/definitions.ts"
         );
-        const res = await route_get_app_definition({});
+        const res = await callOpenAPI(
+          getAppDefinition({} as Parameters<typeof getAppDefinition>[0]),
+        );
         if (!res200(res)) {
           return false;
         }

@@ -62,8 +62,8 @@ test("group section children can move via UI drag-and-drop", async ({
       projectConfigId: projectContext.projectConfigId,
       operations: [
         {
-          routeName: "route_move_sections",
-          payload: {
+          operationName: "moveSections",
+          body: {
             sectionIds: [childAId],
             newParentId: groupId,
             newIndex: 0,
@@ -72,8 +72,8 @@ test("group section children can move via UI drag-and-drop", async ({
           },
         },
         {
-          routeName: "route_move_sections",
-          payload: {
+          operationName: "moveSections",
+          body: {
             sectionIds: [childBId],
             newParentId: groupId,
             newIndex: 1,
@@ -342,8 +342,8 @@ async function placeSections(
   await applyProjectMutationsFromFrontend(page, {
     projectConfigId,
     operations: Object.entries(positionsById).map(([sectionId, position]) => ({
-      routeName: "route_move_sections" as const,
-      payload: {
+      operationName: "moveSections",
+      body: {
         sectionIds: [sectionId],
         newParentId: null,
         newIndex: null,

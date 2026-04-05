@@ -95,8 +95,8 @@ async function addKwargs(
   await applyProjectMutationsFromFrontend(page, {
     projectConfigId,
     operations: Array.from({ length: count }, () => ({
-      routeName: "route_add_kwarg" as const,
-      payload: {
+      operationName: "addKwarg",
+      body: {
         sectionId,
       },
     })),

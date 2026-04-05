@@ -93,8 +93,8 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
         const column = index % columns;
         const row = Math.floor(index / columns) % rows;
         return {
-          routeName: "route_create_top_level_section" as const,
-          payload: {
+          operationName: "createTopLevelSection",
+          body: {
             implType: "Plugin",
             controlCodeObjType: null,
             implOverrides: {

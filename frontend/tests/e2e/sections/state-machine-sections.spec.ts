@@ -2103,8 +2103,8 @@ async function setStateMachineSectionSettings(
     projectConfigId,
     operations: [
       {
-        routeName: "route_set_state_machine_section_settings",
-        payload: {
+        operationName: "setStateMachineSectionSettings",
+        body: {
           sectionId,
           machineGroupId: payload.machineGroupId,
           label: payload.label,
@@ -2154,8 +2154,8 @@ async function createStateMachineEdge(
     projectConfigId,
     operations: [
       {
-        routeName: "route_create_state_machine_edge",
-        payload: {
+        operationName: "createStateMachineEdge",
+        body: {
           ...payload,
           frontendOpId: null,
         },
@@ -2176,8 +2176,8 @@ async function deleteStateMachineEdgesFromFrontend(
     projectConfigId,
     operations: [
       {
-        routeName: "route_delete_state_machine_edges",
-        payload: {
+        operationName: "deleteStateMachineEdges",
+        body: {
           edgeIds,
           frontendOpId: null,
         },
@@ -2198,8 +2198,8 @@ async function setPromptTemplateFromFrontend(
     projectConfigId: payload.projectConfigId,
     operations: [
       {
-        routeName: "route_set_prompt_template",
-        payload: {
+        operationName: "setPromptTemplate",
+        body: {
           sectionId: payload.sectionId,
           template: payload.template,
           frontendOpId: null,

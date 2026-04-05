@@ -136,8 +136,8 @@ async function placeSections(
   await applyProjectMutationsFromFrontend(page, {
     projectConfigId,
     operations: Object.entries(positionsById).map(([sectionId, position]) => ({
-      routeName: "route_move_sections" as const,
-      payload: {
+      operationName: "moveSections",
+      body: {
         sectionIds: [sectionId],
         newParentId: null,
         newIndex: null,

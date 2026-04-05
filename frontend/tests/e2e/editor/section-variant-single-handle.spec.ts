@@ -24,29 +24,37 @@ async function createSectionVariantFromFrontend(
       projectConfigId: targetProjectConfigId,
       sectionId: targetSectionId,
     }) => {
+      const {
+        createNewSectionVariant,
+        getLatestProjectState,
+      } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
-      const {
-        route_create_new_section_variant,
-        route_get_latest_project_state,
-      } = await import("/src/utils/generatedEndpoints");
-
-      const createResponse = await route_create_new_section_variant({
-        projectConfigId: targetProjectConfigId,
-        sectionId: targetSectionId,
-        frontendOpId: null,
-      });
+      const createResponse = await callOpenAPI(
+        createNewSectionVariant({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            sectionId: targetSectionId,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof createNewSectionVariant>[0]),
+      );
       if (!res200(createResponse)) {
         throw new Error(
           `create_new_section_variant failed: ${createResponse.status}`,
         );
       }
 
-      const latestResponse = await route_get_latest_project_state({
-        projectConfigId: targetProjectConfigId,
-      });
+      const latestResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: targetProjectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
       if (!res200(latestResponse)) {
         throw new Error(
           `get_latest_project_state failed: ${latestResponse.status}`,
@@ -74,26 +82,36 @@ async function setSectionVariantFromFrontend(
       sectionId: targetSectionId,
       variantId: targetVariantId,
     }) => {
+      const {
+        getLatestProjectState,
+        setSectionVariant,
+      } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
-      const { route_get_latest_project_state, route_set_section_variant } =
-        await import("/src/utils/generatedEndpoints");
-
-      const setResponse = await route_set_section_variant({
-        projectConfigId: targetProjectConfigId,
-        sectionId: targetSectionId,
-        variantId: targetVariantId,
-        frontendOpId: null,
-      });
+      const setResponse = await callOpenAPI(
+        setSectionVariant({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            sectionId: targetSectionId,
+            variantId: targetVariantId,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setSectionVariant>[0]),
+      );
       if (!res200(setResponse)) {
         throw new Error(`set_section_variant failed: ${setResponse.status}`);
       }
 
-      const latestResponse = await route_get_latest_project_state({
-        projectConfigId: targetProjectConfigId,
-      });
+      const latestResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: targetProjectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
       if (!res200(latestResponse)) {
         throw new Error(
           `get_latest_project_state failed: ${latestResponse.status}`,
@@ -320,43 +338,10 @@ test.describe.serial("section variants single-item handle", () => {
       await expect(node).toBeVisible();
       await node.click();
 
-      const blankVariantId = await page.evaluate(
-        async ({ projectConfigId, sectionId }) => {
-          const { res200 } = await import("/src/utils/endpointUtils");
-          const { processProjectStateUpdateFromBackend } = await import(
-            "/src/state/actions/sectionInfos"
-          );
-          const {
-            route_create_new_section_variant,
-            route_get_latest_project_state,
-          } = await import("/src/utils/generatedEndpoints");
-
-          const createResponse = await route_create_new_section_variant({
-            projectConfigId,
-            sectionId,
-            frontendOpId: null,
-          });
-          if (!res200(createResponse)) {
-            throw new Error(
-              `create_new_section_variant failed: ${createResponse.status}`,
-            );
-          }
-
-          const latestResponse = await route_get_latest_project_state({
-            projectConfigId,
-          });
-          if (!res200(latestResponse)) {
-            throw new Error(
-              `get_latest_project_state failed: ${latestResponse.status}`,
-            );
-          }
-          processProjectStateUpdateFromBackend(latestResponse.data);
-          return createResponse.data.variantId;
-        },
-        {
-          projectConfigId: projectContext.projectConfigId,
-          sectionId,
-        },
+      const blankVariantId = await createSectionVariantFromFrontend(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
       );
 
       await setCallableFromFrontend(page, {
@@ -367,42 +352,11 @@ test.describe.serial("section variants single-item handle", () => {
       });
 
       await expect(node).toContainText("sorted");
-      await page.evaluate(
-        async ({ projectConfigId, sectionId, variantId }) => {
-          const { res200 } = await import("/src/utils/endpointUtils");
-          const { processProjectStateUpdateFromBackend } = await import(
-            "/src/state/actions/sectionInfos"
-          );
-          const { route_get_latest_project_state, route_set_section_variant } =
-            await import("/src/utils/generatedEndpoints");
-
-          const setResponse = await route_set_section_variant({
-            projectConfigId,
-            sectionId,
-            variantId,
-            frontendOpId: null,
-          });
-          if (!res200(setResponse)) {
-            throw new Error(
-              `set_section_variant failed: ${setResponse.status}`,
-            );
-          }
-
-          const latestResponse = await route_get_latest_project_state({
-            projectConfigId,
-          });
-          if (!res200(latestResponse)) {
-            throw new Error(
-              `get_latest_project_state failed: ${latestResponse.status}`,
-            );
-          }
-          processProjectStateUpdateFromBackend(latestResponse.data);
-        },
-        {
-          projectConfigId: projectContext.projectConfigId,
-          sectionId,
-          variantId: blankVariantId,
-        },
+      await setSectionVariantFromFrontend(
+        page,
+        projectContext.projectConfigId,
+        sectionId,
+        blankVariantId,
       );
 
       await expect(page.locator("#root")).not.toContainText(
@@ -445,51 +399,16 @@ test.describe.serial("section variants single-item handle", () => {
         throw new Error("Missing original variant id for callable section.");
       }
 
-      const { blankVariantIds } = await page.evaluate(
-        async ({ projectConfigId, sectionId }) => {
-          const { res200 } = await import("/src/utils/endpointUtils");
-          const { processProjectStateUpdateFromBackend } = await import(
-            "/src/state/actions/sectionInfos"
-          );
-          const {
-            route_create_new_section_variant,
-            route_get_latest_project_state,
-          } = await import("/src/utils/generatedEndpoints");
-
-          const createdVariantIds: string[] = [];
-          for (let i = 0; i < 3; i += 1) {
-            const createResponse = await route_create_new_section_variant({
-              projectConfigId,
-              sectionId,
-              frontendOpId: null,
-            });
-            if (!res200(createResponse)) {
-              throw new Error(
-                `create_new_section_variant failed: ${createResponse.status}`,
-              );
-            }
-            createdVariantIds.push(createResponse.data.variantId);
-          }
-
-          const latestResponse = await route_get_latest_project_state({
-            projectConfigId,
-          });
-          if (!res200(latestResponse)) {
-            throw new Error(
-              `get_latest_project_state failed: ${latestResponse.status}`,
-            );
-          }
-          processProjectStateUpdateFromBackend(latestResponse.data);
-
-          return {
-            blankVariantIds: createdVariantIds,
-          };
-        },
-        {
-          projectConfigId: projectContext.projectConfigId,
-          sectionId,
-        },
-      );
+      const blankVariantIds: string[] = [];
+      for (let i = 0; i < 3; i += 1) {
+        blankVariantIds.push(
+          await createSectionVariantFromFrontend(
+            page,
+            projectContext.projectConfigId,
+            sectionId,
+          ),
+        );
+      }
 
       await setCallableFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
@@ -502,44 +421,11 @@ test.describe.serial("section variants single-item handle", () => {
       await expect(node).toContainText("iterable");
 
       for (const variantId of [...blankVariantIds, originalVariantId]) {
-        await page.evaluate(
-          async ({ projectConfigId, sectionId, variantId }) => {
-            const { res200 } = await import("/src/utils/endpointUtils");
-            const { processProjectStateUpdateFromBackend } = await import(
-              "/src/state/actions/sectionInfos"
-            );
-            const {
-              route_get_latest_project_state,
-              route_set_section_variant,
-            } = await import("/src/utils/generatedEndpoints");
-
-            const setResponse = await route_set_section_variant({
-              projectConfigId,
-              sectionId,
-              variantId,
-              frontendOpId: null,
-            });
-            if (!res200(setResponse)) {
-              throw new Error(
-                `set_section_variant failed: ${setResponse.status}`,
-              );
-            }
-
-            const latestResponse = await route_get_latest_project_state({
-              projectConfigId,
-            });
-            if (!res200(latestResponse)) {
-              throw new Error(
-                `get_latest_project_state failed: ${latestResponse.status}`,
-              );
-            }
-            processProjectStateUpdateFromBackend(latestResponse.data);
-          },
-          {
-            projectConfigId: projectContext.projectConfigId,
-            sectionId,
-            variantId,
-          },
+        await setSectionVariantFromFrontend(
+          page,
+          projectContext.projectConfigId,
+          sectionId,
+          variantId,
         );
         await expect(page.locator("#root")).not.toContainText(
           "Unhandled Thrown Error!",

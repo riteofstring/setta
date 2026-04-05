@@ -216,29 +216,38 @@ async function createSectionVariantFromFrontend(
       targetProjectConfigId: string;
       targetSectionId: string;
     }) => {
+      const {
+        createNewSectionVariant,
+        getLatestProjectState,
+      } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
-      const {
-        route_create_new_section_variant,
-        route_get_latest_project_state,
-      } = await import("/src/utils/generatedEndpoints");
 
-      const createResponse = await route_create_new_section_variant({
-        projectConfigId: targetProjectConfigId,
-        sectionId: targetSectionId,
-        frontendOpId: null,
-      });
+      const createResponse = await callOpenAPI(
+        createNewSectionVariant({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            sectionId: targetSectionId,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof createNewSectionVariant>[0]),
+      );
       if (!res200(createResponse)) {
         throw new Error(
           `create_new_section_variant failed: ${createResponse.status}`,
         );
       }
 
-      const latestResponse = await route_get_latest_project_state({
-        projectConfigId: targetProjectConfigId,
-      });
+      const latestResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: targetProjectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
       if (!res200(latestResponse)) {
         throw new Error(
           `get_latest_project_state failed: ${latestResponse.status}`,
@@ -270,17 +279,20 @@ async function setSectionVariantFromFrontend(
       targetSectionId: string;
       targetVariantId: string;
     }) => {
+      const { setSectionVariant } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
-      const { route_set_section_variant } = await import(
-        "/src/utils/generatedEndpoints"
-      );
 
-      const response = await route_set_section_variant({
-        projectConfigId: targetProjectConfigId,
-        sectionId: targetSectionId,
-        variantId: targetVariantId,
-        frontendOpId: null,
-      });
+      const response = await callOpenAPI(
+        setSectionVariant({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            sectionId: targetSectionId,
+            variantId: targetVariantId,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setSectionVariant>[0]),
+      );
       if (!res200(response)) {
         throw new Error(`set_section_variant failed: ${response.status}`);
       }
@@ -401,27 +413,38 @@ async function setGenCodePrefixFromFrontend(
 ): Promise<void> {
   await page.evaluate(
     async ({ targetProjectConfigId, nextPrefix }) => {
+      const {
+        getLatestProjectState,
+        setGenCodePrefix,
+      } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
-      const { route_get_latest_project_state, route_set_gen_code_prefix } =
-        await import("/src/utils/generatedEndpoints");
 
-      const response = await route_set_gen_code_prefix({
-        projectConfigId: targetProjectConfigId,
-        genCodePrefix: nextPrefix,
-        frontendOpId: null,
-      });
+      const response = await callOpenAPI(
+        setGenCodePrefix({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            genCodePrefix: nextPrefix,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setGenCodePrefix>[0]),
+      );
       if (!res200(response)) {
         throw new Error(
-          `Failed frontend test mutation route_set_gen_code_prefix for ${targetProjectConfigId}: ${response.status}`,
+          `Failed frontend test mutation setGenCodePrefix for ${targetProjectConfigId}: ${response.status}`,
         );
       }
 
-      const latestProjectStateResponse = await route_get_latest_project_state({
-        projectConfigId: targetProjectConfigId,
-      });
+      const latestProjectStateResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: targetProjectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
       if (!res200(latestProjectStateResponse)) {
         throw new Error(
           `Failed to hydrate latest project state for ${targetProjectConfigId}: ${latestProjectStateResponse.status}`,
@@ -440,27 +463,38 @@ async function setGenCodeSuffixFromFrontend(
 ): Promise<void> {
   await page.evaluate(
     async ({ targetProjectConfigId, nextSuffix }) => {
+      const {
+        getLatestProjectState,
+        setGenCodeSuffix,
+      } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
-      const { route_get_latest_project_state, route_set_gen_code_suffix } =
-        await import("/src/utils/generatedEndpoints");
 
-      const response = await route_set_gen_code_suffix({
-        projectConfigId: targetProjectConfigId,
-        genCodeSuffix: nextSuffix,
-        frontendOpId: null,
-      });
+      const response = await callOpenAPI(
+        setGenCodeSuffix({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            genCodeSuffix: nextSuffix,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setGenCodeSuffix>[0]),
+      );
       if (!res200(response)) {
         throw new Error(
-          `Failed frontend test mutation route_set_gen_code_suffix for ${targetProjectConfigId}: ${response.status}`,
+          `Failed frontend test mutation setGenCodeSuffix for ${targetProjectConfigId}: ${response.status}`,
         );
       }
 
-      const latestProjectStateResponse = await route_get_latest_project_state({
-        projectConfigId: targetProjectConfigId,
-      });
+      const latestProjectStateResponse = await callOpenAPI(
+        getLatestProjectState({
+          body: {
+            projectConfigId: targetProjectConfigId,
+          },
+        } as Parameters<typeof getLatestProjectState>[0]),
+      );
       if (!res200(latestProjectStateResponse)) {
         throw new Error(
           `Failed to hydrate latest project state for ${targetProjectConfigId}: ${latestProjectStateResponse.status}`,
@@ -583,11 +617,10 @@ async function setParamValueFromFrontend(
       targetParamInfoId,
       nextValue,
     }) => {
+      const { setParamEnteredValue } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { res200 } = await import("/src/utils/endpointUtils");
       const { useProjectState } = await import("/src/state/definitions");
-      const { route_set_param_entered_value } = await import(
-        "/src/utils/generatedEndpoints"
-      );
       const sectionVariantId =
         useProjectState.getState().projectConfig.sectionVariantMap[
           targetSectionId
@@ -598,17 +631,21 @@ async function setParamValueFromFrontend(
         );
       }
 
-      const response = await route_set_param_entered_value({
-        projectConfigId: targetProjectConfigId,
-        sectionId: targetSectionId,
-        sectionVariantId,
-        paramInfoId: targetParamInfoId,
-        value: nextValue,
-        frontendOpId: null,
-      });
+      const response = await callOpenAPI(
+        setParamEnteredValue({
+          body: {
+            projectConfigId: targetProjectConfigId,
+            sectionId: targetSectionId,
+            sectionVariantId,
+            paramInfoId: targetParamInfoId,
+            value: nextValue,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setParamEnteredValue>[0]),
+      );
       if (!res200(response)) {
         throw new Error(
-          `Failed frontend test mutation route_set_param_entered_value for ${targetProjectConfigId}: ${response.status}`,
+          `Failed frontend test mutation setParamEnteredValue for ${targetProjectConfigId}: ${response.status}`,
         );
       }
     },
