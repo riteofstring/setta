@@ -71,9 +71,6 @@ func buildFrontendBindingTypeNames() map[reflect.Type]string {
 		})
 		for _, t := range group {
 			candidate := frontendBindingCollisionTypeName(t, baseName, knownWords)
-			if other, ok := reserved[candidate]; ok && other != t {
-				candidate = frontendBindingFallbackCollisionTypeName(t, baseName, knownWords)
-			}
 			names[t] = candidate
 			reserved[candidate] = t
 		}
@@ -259,21 +256,6 @@ func frontendBindingCollisionTypeName(
 	return prefix + baseName
 }
 
-func frontendBindingFallbackCollisionTypeName(
-	t reflect.Type,
-	baseName string,
-	knownWords []frontendBindingKnownWord,
-) string {
-	prefix := frontendBindingPackagePrefixFromFullPath(t.PkgPath(), knownWords)
-	if prefix == "" {
-		return baseName
-	}
-	if strings.HasSuffix(prefix, baseName) {
-		return prefix
-	}
-	return prefix + baseName
-}
-
 func frontendBindingPackagePrefix(
 	t reflect.Type,
 	baseName string,
@@ -287,22 +269,6 @@ func frontendBindingPackagePrefix(
 		}
 	}
 	return ""
-}
-
-func frontendBindingPackagePrefixFromFullPath(
-	packagePath string,
-	knownWords []frontendBindingKnownWord,
-) string {
-	segments := strings.Split(strings.TrimSpace(packagePath), "/")
-	filtered := make([]string, 0, len(segments))
-	for _, segment := range segments {
-		segment = strings.TrimSpace(segment)
-		if segment == "" || segment == "setta" || segment == "internal" {
-			continue
-		}
-		filtered = append(filtered, frontendBindingPascalizePackageStem(segment, knownWords))
-	}
-	return strings.Join(filtered, "")
 }
 
 func frontendBindingPackageStems(packageName string, baseName string) []string {
