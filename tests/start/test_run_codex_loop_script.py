@@ -2074,3 +2074,367 @@ exit 0
     assert "status=success" in status_text
     assert "loop_status=REPLAN_REQUIRED" in status_text
     assert "loop_terminal_marker=replan_required" in status_text
+
+
+def test_run_codex_loop_runs_periodic_progress_review_and_accepts_replan(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    output_dir = tmp_path / "output"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Periodic review prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: 2",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    iteration_count_path = tmp_path / "iteration-count.txt"
+    review_count_path = tmp_path / "review-count.txt"
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+last_message=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      last_message="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+prompt_body="$(cat)"
+if [[ "${{prompt_body}}" == *"Progress review checkpoint."* ]]; then
+  review_count=0
+  if [[ -f "{review_count_path}" ]]; then
+    review_count="$(cat "{review_count_path}")"
+  fi
+  review_count="$((review_count + 1))"
+  printf '%s\\n' "${{review_count}}" > "{review_count_path}"
+  printf '\\n## Review\\n- tightened the next frontier\\n' >> "{handoff_path}"
+  printf '\\n## Review adjustment\\n- pivot to the narrower frontier\\n' >> "{plan_path}"
+  printf '\\n- progress review tightened the next frontier\\n' >> "{history_path}"
+  cat <<'EOF' > "${{last_message}}"
+PROGRESS_REVIEW_DECISION: replan_and_continue
+PROGRESS_REVIEW_SUMMARY: the last stretch needed a narrower next frontier
+PROGRESS_REVIEW_NEXT_ACTION: continue from the updated plan and handoff
+EOF
+  cat "${{last_message}}"
+  exit 0
+fi
+
+iteration_count=0
+if [[ -f "{iteration_count_path}" ]]; then
+  iteration_count="$(cat "{iteration_count_path}")"
+fi
+iteration_count="$((iteration_count + 1))"
+printf '%s\\n' "${{iteration_count}}" > "{iteration_count_path}"
+printf '\\n## Latest iteration\\n- Status: subtask %s complete\\n' "${{iteration_count}}" >> "{handoff_path}"
+printf '\\n- iteration %s complete\\n' "${{iteration_count}}" >> "{history_path}"
+cat <<'EOF' > "${{last_message}}"
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: completed one bounded step
+LOOP_NEXT_ACTION: continue to the next bounded step
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+cat "${{last_message}}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "2",
+            "--progress-review-every",
+            "2",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert iteration_count_path.read_text(encoding="utf-8").strip() == "2"
+    assert review_count_path.read_text(encoding="utf-8").strip() == "1"
+    assert "Progress review replan_and_continue" in result.stdout
+    assert "Review adjustment" in plan_path.read_text(encoding="utf-8")
+
+    review_status_path = output_dir / "progress-review-001" / "status.txt"
+    assert review_status_path.exists()
+    review_status_text = review_status_path.read_text(encoding="utf-8")
+    assert "status=success" in review_status_text
+    assert "decision=replan_and_continue" in review_status_text
+    assert "trigger_successful_iterations=2" in review_status_text
+
+
+def test_run_codex_loop_stops_when_periodic_progress_review_requests_stop(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    output_dir = tmp_path / "output"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Periodic review prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: until_done",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    iteration_count_path = tmp_path / "iteration-count.txt"
+    review_count_path = tmp_path / "review-count.txt"
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+last_message=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      last_message="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+prompt_body="$(cat)"
+if [[ "${{prompt_body}}" == *"Progress review checkpoint."* ]]; then
+  review_count=0
+  if [[ -f "{review_count_path}" ]]; then
+    review_count="$(cat "{review_count_path}")"
+  fi
+  review_count="$((review_count + 1))"
+  printf '%s\\n' "${{review_count}}" > "{review_count_path}"
+  printf '\\n## Review\\n- stop the current automatic lane\\n' >> "{handoff_path}"
+  printf '\\n- progress review stopped the current automatic lane\\n' >> "{history_path}"
+  cat <<'EOF' > "${{last_message}}"
+PROGRESS_REVIEW_DECISION: stop
+PROGRESS_REVIEW_SUMMARY: the current lane reached diminishing returns
+PROGRESS_REVIEW_NEXT_ACTION: inspect the updated handoff before more autonomous work
+EOF
+  cat "${{last_message}}"
+  exit 0
+fi
+
+iteration_count=0
+if [[ -f "{iteration_count_path}" ]]; then
+  iteration_count="$(cat "{iteration_count_path}")"
+fi
+iteration_count="$((iteration_count + 1))"
+printf '%s\\n' "${{iteration_count}}" > "{iteration_count_path}"
+printf '\\n## Latest iteration\\n- Status: one more subtask complete\\n' >> "{handoff_path}"
+printf '\\n- iteration %s complete\\n' "${{iteration_count}}" >> "{history_path}"
+cat <<'EOF' > "${{last_message}}"
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: completed one bounded step
+LOOP_NEXT_ACTION: continue to the next bounded step
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+cat "${{last_message}}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "until_done",
+            "--progress-review-every",
+            "1",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert iteration_count_path.read_text(encoding="utf-8").strip() == "1"
+    assert review_count_path.read_text(encoding="utf-8").strip() == "1"
+    assert "Progress review stopped the loop" in result.stdout
+    assert not (output_dir / "run-002").exists()
+
+    review_status_path = output_dir / "progress-review-001" / "status.txt"
+    assert review_status_path.exists()
+    review_status_text = review_status_path.read_text(encoding="utf-8")
+    assert "status=success" in review_status_text
+    assert "decision=stop" in review_status_text

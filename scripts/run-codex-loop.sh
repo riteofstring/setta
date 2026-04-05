@@ -52,6 +52,9 @@ Options:
                              Default: config or until_done
   --new-session-every N      Start a fresh Codex session every N iterations.
                              Default: config or 1
+  --progress-review-every N  Run a separate Codex progress review after every
+                             N successful iterations. 0 disables the review.
+                             Default: config or 10
   --codex-inactivity-timeout-seconds N
                              Kill and retry a Codex iteration after N seconds
                              without transcript activity. 0 disables the
@@ -327,6 +330,10 @@ run_codex_iteration() {
 
   while kill -0 "${codex_pid}" >/dev/null 2>&1; do
     sleep "${poll_seconds}"
+
+    if ! kill -0 "${codex_pid}" >/dev/null 2>&1; then
+      break
+    fi
 
     if [[ "${inactivity_timeout_seconds}" -le 0 ]]; then
       continue
@@ -1692,6 +1699,101 @@ LOOP_TERMINAL_MARKER: <none|task_done|replan_required>
 EOF
 }
 
+recent_run_dirs_for_review() {
+  local review_window_size="$1"
+  local run_paths=()
+
+  shopt -s nullglob
+  run_paths=("${output_dir}"/run-*)
+  shopt -u nullglob
+
+  if [[ ${#run_paths[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  printf '%s\n' "${run_paths[@]}" | sort | tail -n "${review_window_size}"
+}
+
+build_progress_review_prompt() {
+  local prompt_path="$1"
+  local current_iteration="$2"
+  local successful_iteration_count="$3"
+  local review_window_size="$4"
+  local recent_run_dirs=()
+  local run_dir_path=""
+
+  while IFS= read -r run_dir_path; do
+    if [[ -n "${run_dir_path}" ]]; then
+      recent_run_dirs+=("${run_dir_path}")
+    fi
+  done < <(recent_run_dirs_for_review "${review_window_size}")
+
+  cat > "${prompt_path}" <<EOF
+Progress review checkpoint.
+
+You are pausing an automated Codex loop to assess whether the recent trajectory is still worthwhile.
+
+Context:
+- repository root: ${ROOT_DIR}
+- working directory: ${workdir}
+- config file: ${config_file}
+- plan file: ${plan_file}
+- handoff file: ${handoff_file}
+- history file: ${history_file}
+- loop output directory: ${output_dir}
+- current loop iteration: ${current_iteration}
+- successful iterations completed in this loop: ${successful_iteration_count}
+- review cadence: every ${review_window_size} successful iterations
+
+Read these files first:
+- ${config_file}
+- ${plan_file}
+- ${handoff_file}
+
+Use the append-only history file only as needed for recent evidence:
+- ${history_file}
+
+Inspect these recent run directories first (newest last):
+EOF
+
+  if [[ ${#recent_run_dirs[@]} -eq 0 ]]; then
+    cat >> "${prompt_path}" <<'EOF'
+- no prior run directories were found
+EOF
+  else
+    for run_dir_path in "${recent_run_dirs[@]}"; do
+      cat >> "${prompt_path}" <<EOF
+- ${run_dir_path}
+  - ${run_dir_path}/status.txt
+  - ${run_dir_path}/last-message.txt
+  - ${run_dir_path}/transcript.log
+EOF
+    done
+  fi
+
+  cat >> "${prompt_path}" <<'EOF'
+
+Task:
+1. Decide whether the recent stretch shows meaningful forward progress toward the current plan.
+2. Identify real red herrings, repeated rabbit holes, or diminishing returns when they are present.
+3. If the loop should keep going but needs a sharper direction, update the durable plan/handoff/history files before responding.
+4. If the current direction should stop because it is no longer worth pursuing automatically, update the handoff/history files before responding.
+5. Do not start another Ralph loop, and do not make unrelated code changes.
+
+Decision rules:
+- Use `continue` only when the current trajectory still looks worthwhile.
+- Use `replan_and_continue` when the loop should keep going, but only after a meaningful durable-plan adjustment.
+- Use `stop` when the current direction has reached diminishing returns or needs a human decision before more autonomous work.
+
+If you choose `replan_and_continue` or `stop`, the durable files must reflect that decision before you answer.
+
+End your response with exactly these lines:
+PROGRESS_REVIEW_DECISION: <continue|replan_and_continue|stop>
+PROGRESS_REVIEW_SUMMARY: <one sentence>
+PROGRESS_REVIEW_NEXT_ACTION: <one sentence>
+EOF
+}
+
 extract_thread_id() {
   local transcript_file="$1"
   local thread_line=""
@@ -1757,6 +1859,141 @@ write_status_file() {
   done
 }
 
+PROGRESS_REVIEW_DECISION=""
+PROGRESS_REVIEW_SUMMARY=""
+PROGRESS_REVIEW_NEXT_ACTION=""
+
+run_progress_review() {
+  local review_dir="$1"
+  local current_iteration="$2"
+  local successful_iteration_count="$3"
+  local review_window_size="$4"
+  local review_prompt="${review_dir}/progress-review-prompt.txt"
+  local review_last_message="${review_dir}/progress-review-last-message.txt"
+  local review_transcript="${review_dir}/progress-review-transcript.log"
+  local review_status_file="${review_dir}/status.txt"
+  local before_plan_cksum=""
+  local before_handoff_cksum=""
+  local before_history_size=""
+  local after_plan_cksum=""
+  local after_handoff_cksum=""
+  local after_history_size=""
+  local review_exit_code="0"
+  local restore_errexit="0"
+
+  mkdir -p "${review_dir}"
+  build_progress_review_prompt "${review_prompt}" "${current_iteration}" "${successful_iteration_count}" "${review_window_size}"
+
+  before_plan_cksum="$(file_cksum_value "${plan_file}")"
+  before_handoff_cksum="$(file_cksum_value "${handoff_file}")"
+  before_history_size="$(file_size_bytes "${history_file}")"
+
+  PROGRESS_REVIEW_DECISION=""
+  PROGRESS_REVIEW_SUMMARY=""
+  PROGRESS_REVIEW_NEXT_ACTION=""
+
+  codex_args=(
+    exec
+    --color
+    never
+    --cd
+    "${workdir}"
+    --output-last-message
+    "${review_last_message}"
+    --ephemeral
+  )
+
+  if [[ -n "${model}" ]]; then
+    codex_args+=(--model "${model}")
+  fi
+  if [[ "${yolo_mode}" == "1" ]]; then
+    codex_args+=(--dangerously-bypass-approvals-and-sandbox)
+  fi
+  if [[ ${#codex_extra_args[@]} -gt 0 ]]; then
+    codex_args+=("${codex_extra_args[@]}")
+  fi
+  codex_args+=(-)
+
+  if [[ $- == *e* ]]; then
+    restore_errexit="1"
+    set +e
+  fi
+  run_codex_iteration "${review_prompt}" "${review_transcript}" "${review_last_message}" "${codex_inactivity_timeout_seconds}"
+  review_exit_code="$?"
+  if [[ "${restore_errexit}" == "1" ]]; then
+    set -e
+  fi
+
+  if [[ "${review_exit_code}" -ne 0 ]]; then
+    write_status_file "${review_status_file}" \
+      "status=failure" \
+      "exit_code=${review_exit_code}"
+    return 1
+  fi
+
+  PROGRESS_REVIEW_DECISION="$(sanitize_single_line "$(extract_loop_field "${review_last_message}" "PROGRESS_REVIEW_DECISION")")"
+  PROGRESS_REVIEW_SUMMARY="$(sanitize_single_line "$(extract_loop_field "${review_last_message}" "PROGRESS_REVIEW_SUMMARY")")"
+  PROGRESS_REVIEW_NEXT_ACTION="$(sanitize_single_line "$(extract_loop_field "${review_last_message}" "PROGRESS_REVIEW_NEXT_ACTION")")"
+
+  if [[ -z "${PROGRESS_REVIEW_DECISION}" ]] && [[ -f "${review_transcript}" ]]; then
+    PROGRESS_REVIEW_DECISION="$(sanitize_single_line "$(extract_loop_field "${review_transcript}" "PROGRESS_REVIEW_DECISION")")"
+    PROGRESS_REVIEW_SUMMARY="$(sanitize_single_line "$(extract_loop_field "${review_transcript}" "PROGRESS_REVIEW_SUMMARY")")"
+    PROGRESS_REVIEW_NEXT_ACTION="$(sanitize_single_line "$(extract_loop_field "${review_transcript}" "PROGRESS_REVIEW_NEXT_ACTION")")"
+  fi
+
+  if [[ "${PROGRESS_REVIEW_DECISION}" != "continue" ]] \
+    && [[ "${PROGRESS_REVIEW_DECISION}" != "replan_and_continue" ]] \
+    && [[ "${PROGRESS_REVIEW_DECISION}" != "stop" ]]; then
+    write_status_file "${review_status_file}" \
+      "status=invalid-output" \
+      "decision=${PROGRESS_REVIEW_DECISION}"
+    return 1
+  fi
+
+  after_plan_cksum="$(file_cksum_value "${plan_file}")"
+  after_handoff_cksum="$(file_cksum_value "${handoff_file}")"
+  after_history_size="$(file_size_bytes "${history_file}")"
+
+  if [[ "${PROGRESS_REVIEW_DECISION}" == "replan_and_continue" ]] \
+    || [[ "${PROGRESS_REVIEW_DECISION}" == "stop" ]]; then
+    if [[ "${after_history_size}" -le "${before_history_size}" ]]; then
+      write_status_file "${review_status_file}" \
+        "status=missing-history-update" \
+        "decision=${PROGRESS_REVIEW_DECISION}" \
+        "summary=${PROGRESS_REVIEW_SUMMARY}"
+      return 1
+    fi
+    if [[ "${before_plan_cksum}" == "${after_plan_cksum}" ]] \
+      && [[ "${before_handoff_cksum}" == "${after_handoff_cksum}" ]]; then
+      write_status_file "${review_status_file}" \
+        "status=missing-durable-update" \
+        "decision=${PROGRESS_REVIEW_DECISION}" \
+        "summary=${PROGRESS_REVIEW_SUMMARY}"
+      return 1
+    fi
+  fi
+
+  write_status_file "${review_status_file}" \
+    "status=success" \
+    "decision=${PROGRESS_REVIEW_DECISION}" \
+    "summary=${PROGRESS_REVIEW_SUMMARY}" \
+    "next_action=${PROGRESS_REVIEW_NEXT_ACTION}" \
+    "before_plan_cksum=${before_plan_cksum}" \
+    "after_plan_cksum=${after_plan_cksum}" \
+    "before_handoff_cksum=${before_handoff_cksum}" \
+    "after_handoff_cksum=${after_handoff_cksum}" \
+    "before_history_size=${before_history_size}" \
+    "after_history_size=${after_history_size}" \
+    "trigger_iteration=${current_iteration}" \
+    "trigger_successful_iterations=${successful_iteration_count}"
+
+  if [[ "${PROGRESS_REVIEW_DECISION}" == "stop" ]]; then
+    return 2
+  fi
+
+  return 0
+}
+
 SELF_EXEC_ARGS=()
 
 build_self_exec_args() {
@@ -1770,6 +2007,7 @@ build_self_exec_args() {
     --verify-command "${verify_command}"
     --iterations "${iterations}"
     --new-session-every "${new_session_every}"
+    --progress-review-every "${progress_review_every}"
     --codex-inactivity-timeout-seconds "${codex_inactivity_timeout_seconds}"
     --output-dir "${output_dir}"
     --workdir "${workdir}"
@@ -1943,6 +2181,7 @@ verify_command=""
 pre_session_command=""
 iterations=""
 new_session_every=""
+progress_review_every=""
 output_dir=""
 workdir=""
 worktree_lifecycle=""
@@ -2018,6 +2257,11 @@ while [[ $# -gt 0 ]]; do
     --new-session-every)
       require_value "$1" "${2:-}"
       new_session_every="$2"
+      shift 2
+      ;;
+    --progress-review-every)
+      require_value "$1" "${2:-}"
+      progress_review_every="$2"
       shift 2
       ;;
     --codex-inactivity-timeout-seconds)
@@ -2110,6 +2354,7 @@ config_verify_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_valu
 config_pre_session_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "pre_session_command")")")"
 config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "iterations")")")"
 config_new_session_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "new_session_every")")")"
+config_progress_review_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "progress_review_every")")")"
 config_codex_inactivity_timeout_seconds="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "codex_inactivity_timeout_seconds")")")"
 config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "workdir")")")"
 config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
@@ -2183,6 +2428,14 @@ if [[ -z "${codex_inactivity_timeout_seconds}" ]]; then
     codex_inactivity_timeout_seconds="${config_codex_inactivity_timeout_seconds}"
   else
     codex_inactivity_timeout_seconds="1800"
+  fi
+fi
+
+if [[ -z "${progress_review_every}" ]]; then
+  if [[ -n "${config_progress_review_every}" ]]; then
+    progress_review_every="${config_progress_review_every}"
+  else
+    progress_review_every="10"
   fi
 fi
 
@@ -2303,6 +2556,11 @@ if [[ ! "${new_session_every}" =~ ^[0-9]+$ ]] || [[ "${new_session_every}" -lt 1
   exit 1
 fi
 
+if [[ ! "${progress_review_every}" =~ ^[0-9]+$ ]]; then
+  echo "--progress-review-every must be a non-negative integer" >&2
+  exit 1
+fi
+
 if [[ ! "${codex_inactivity_timeout_seconds}" =~ ^[0-9]+$ ]]; then
   echo "--codex-inactivity-timeout-seconds must be a non-negative integer" >&2
   exit 1
@@ -2401,6 +2659,7 @@ fi
 echo "Output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: ${new_session_every}"
+echo "Progress review every: ${progress_review_every}"
 echo "Codex inactivity timeout seconds: ${codex_inactivity_timeout_seconds}"
 echo "Workdir: ${workdir}"
 echo "Config file: ${config_file}"
@@ -2450,6 +2709,9 @@ echo "Worktree session: $(workspace_session_state "${workdir}")"
 if [[ -n "${main_worktree_root}" ]]; then
   echo "Main session: $(workspace_session_state "${main_worktree_root}")"
 fi
+
+successful_iteration_count="0"
+progress_review_count="0"
 
 for ((iteration = 1; ; iteration += 1)); do
   if [[ "${iterations_mode}" == "bounded" ]] && [[ "${iteration}" -gt "${iterations}" ]]; then
@@ -2865,28 +3127,67 @@ for ((iteration = 1; ; iteration += 1)); do
     echo "[$iteration/$iterations] Warning: reported commit ${loop_commit} does not match HEAD ${after_head}" >&2
   fi
 
+  successful_iteration_count="$((successful_iteration_count + 1))"
   cleanup_completed_iteration
 
+  continue_loop_after_iteration="0"
+  continue_message=""
+  stop_message=""
+
   if [[ "${loop_status}" == "TASK_DONE" ]]; then
-    echo "[$iteration/$iterations] Task complete. Stop here and start the next fresh conversation from the updated docs."
-    break
-  fi
-
-  if [[ "${loop_status}" == "REPLAN_REQUIRED" ]]; then
-    echo "[$iteration/$iterations] Replan required. Stop here and inspect the updated docs before starting another conversation."
-    break
-  fi
-
-  if [[ "${loop_status}" == "BLOCKED" ]]; then
+    stop_message="[$iteration/$iterations] Task complete. Stop here and start the next fresh conversation from the updated docs."
+  elif [[ "${loop_status}" == "REPLAN_REQUIRED" ]]; then
+    stop_message="[$iteration/$iterations] Replan required. Stop here and inspect the updated docs before starting another conversation."
+  elif [[ "${loop_status}" == "BLOCKED" ]]; then
     if [[ "${loop_recovery}" == "restart_worktree_lifecycle" ]] && [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
-      echo "[$iteration/$iterations] Recoverable blocker requested fresh worktree bootstrap. Continue to the next iteration."
-      continue
+      continue_loop_after_iteration="1"
+      continue_message="[$iteration/$iterations] Recoverable blocker requested fresh worktree bootstrap. Continue to the next iteration."
+    elif [[ "${loop_recovery}" == "retry_next_iteration" ]]; then
+      continue_loop_after_iteration="1"
+      continue_message="[$iteration/$iterations] Recoverable blocker requested another fresh iteration. Continue to the next iteration."
+    else
+      stop_message="[$iteration/$iterations] Blocked. Stop here and inspect the blocker before starting another conversation."
     fi
-    if [[ "${loop_recovery}" == "retry_next_iteration" ]]; then
-      echo "[$iteration/$iterations] Recoverable blocker requested another fresh iteration. Continue to the next iteration."
-      continue
-    fi
-    echo "[$iteration/$iterations] Blocked. Stop here and inspect the blocker before starting another conversation."
-    break
+  else
+    continue_loop_after_iteration="1"
   fi
+
+  if [[ "${continue_loop_after_iteration}" == "1" ]] \
+    && [[ "${progress_review_every}" -gt 0 ]] \
+    && [[ $((successful_iteration_count % progress_review_every)) -eq 0 ]]; then
+    progress_review_count="$((progress_review_count + 1))"
+    progress_review_dir="$(printf '%s/progress-review-%03d' "${output_dir}" "${progress_review_count}")"
+    echo "[$iteration/$iterations] Running progress review after ${successful_iteration_count} successful iterations."
+
+    set +e
+    run_progress_review "${progress_review_dir}" "${iteration}" "${successful_iteration_count}" "${progress_review_every}"
+    progress_review_exit_code="$?"
+    set -e
+
+    if [[ "${progress_review_exit_code}" -eq 1 ]]; then
+      echo "[$iteration/$iterations] Progress review failed; refusing to continue blindly." >&2
+      exit 1
+    fi
+
+    echo "[$iteration/$iterations] Progress review ${PROGRESS_REVIEW_DECISION}: ${PROGRESS_REVIEW_SUMMARY}"
+
+    if [[ "${progress_review_exit_code}" -eq 2 ]]; then
+      echo "[$iteration/$iterations] Progress review stopped the loop. ${PROGRESS_REVIEW_NEXT_ACTION}"
+      break
+    fi
+
+    if [[ "${PROGRESS_REVIEW_DECISION}" == "replan_and_continue" ]]; then
+      echo "[$iteration/$iterations] Progress review updated the durable plan and will continue. ${PROGRESS_REVIEW_NEXT_ACTION}"
+    fi
+  fi
+
+  if [[ "${continue_loop_after_iteration}" == "1" ]]; then
+    if [[ -n "${continue_message}" ]]; then
+      echo "${continue_message}"
+    fi
+    continue
+  fi
+
+  echo "${stop_message}"
+  break
 done
