@@ -6,7 +6,7 @@ import {
   Plugin,
   Tooltip,
 } from "chart.js";
-import { ChartDataArtifact, LineChartSettings } from "utils/generatedTypes";
+import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
 import {
   getAxisType,
   getOnLegendClickSetDatasetHidden,
@@ -84,21 +84,15 @@ type LineChartData = ChartData<
 
 export function updateLineChartWithNewData(
   chart: Chart,
-  data: ChartDataArtifact["value"],
+  data: ChartDataType,
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: LineChartSettings,
 ): LineChartData {
   const datasets: LineChartData["datasets"] = [];
-  const secondYAxisColumns = Array.isArray(chartSettings.secondYAxisColumns)
-    ? chartSettings.secondYAxisColumns
-    : [];
 
   let labels: LineChartData["labels"];
   for (const [columnName, values] of Object.entries(data)) {
-    if (!Array.isArray(values)) {
-      continue;
-    }
     if (columnName === chartSettings.xAxisColumn) {
       labels = values;
       continue;
@@ -106,7 +100,9 @@ export function updateLineChartWithNewData(
     datasets.push({
       label: columnName,
       data: values,
-      yAxisID: secondYAxisColumns.includes(columnName) ? "y2" : "y1",
+      yAxisID: chartSettings.secondYAxisColumns.includes(columnName)
+        ? "y2"
+        : "y1",
       hidden: datasetHidden[columnName],
     });
   }
@@ -115,9 +111,7 @@ export function updateLineChartWithNewData(
     // The xAxisColumn can be made empty in the side pane.
     // In this case, none of the columns are used for the x axis.
     // So we use row count.
-    const numRows = Array.isArray(datasets[0].data)
-      ? datasets[0].data.length
-      : 0;
+    const numRows = datasets[0].data.length;
     labels = [...Array(numRows).keys()];
   }
 
@@ -132,7 +126,7 @@ export function updateLineChartWithNewData(
   }
   if (scaleOptions?.y2) {
     scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
-    scaleOptions.y2.display = secondYAxisColumns.length > 0;
+    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
   }
 
   if (labels) {
