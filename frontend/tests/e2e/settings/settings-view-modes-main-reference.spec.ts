@@ -5413,10 +5413,6 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
   page,
 }) => {
   test.slow();
-  test.fail(
-    true,
-    "Known canary drift: the dropzone card stays vertically expanded after fit view and toolbar zoom even though the Mode row remains locally attached.",
-  );
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -5473,6 +5469,16 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const initialWorktreeDropzoneParamFilter = await getSectionParamFilterForPage(
+    page,
+    worktreeDropzoneSectionId,
+  );
+  const initialReferenceDropzoneParamFilter =
+    await getSectionParamFilterForPage(
+      referencePage,
+      referenceDropzoneSectionId,
+    );
+  const normalizedDropzoneParamFilter = initialReferenceDropzoneParamFilter;
 
   async function captureDropzoneToolbarZoom(args: {
     activeViewModeId: string;
@@ -5484,6 +5490,7 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
     projectConfigId: string;
     sectionId: string;
     side: "reference" | "worktree";
+    targetParamFilter: string;
     targetPage: Page;
   }) {
     await restoreInitialViewModeLayout({
@@ -5493,6 +5500,14 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
       initialState: args.initialState,
       page: args.targetPage,
       projectConfigId: args.projectConfigId,
+    });
+    await setSectionParamFilterForPage({
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      sectionId: args.sectionId,
+      value: args.targetParamFilter,
     });
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
@@ -5669,6 +5684,7 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceDropzoneSectionId,
       side: "reference",
+      targetParamFilter: normalizedDropzoneParamFilter,
       targetPage: referencePage,
     });
     const worktreeResult = await captureDropzoneToolbarZoom({
@@ -5684,6 +5700,7 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeDropzoneSectionId,
       side: "worktree",
+      targetParamFilter: normalizedDropzoneParamFilter,
       targetPage: page,
     });
 
@@ -5749,6 +5766,22 @@ test("settings graph parity probe keeps the dropzone mode row attached after fit
       ),
     ).toBeLessThan(6);
   } finally {
+    await setSectionParamFilterForPage({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeDropzoneSectionId,
+      value: initialWorktreeDropzoneParamFilter,
+    }).catch(() => {});
+    await setSectionParamFilterForPage({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceDropzoneSectionId,
+      value: initialReferenceDropzoneParamFilter,
+    }).catch(() => {});
     await restoreCurrentPageState({
       backendOrigin: WORKTREE_BACKEND_ORIGIN,
       frontendOrigin: WORKTREE_BASE_URL,
@@ -8799,6 +8832,68 @@ async function restoreSectionNameForPage(args: {
     args.projectConfigId,
   );
   await applyProjectStateUpdate(args.page, restoredState);
+}
+
+async function getSectionParamFilterForPage(
+  page: Page,
+  sectionId: string,
+): Promise<string> {
+  return page.evaluate(async (targetSectionId) => {
+    const { getCurrEffectiveSectionImplWithTypeGuard } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const { isBaseSectionWithParamsImpl } = await import(
+      "/src/utils/generatedTypes.ts"
+    );
+    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      useProjectState.getState(),
+      targetSectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return paramsImpl.paramFilter;
+  }, sectionId);
+}
+
+async function setSectionParamFilterForPage(args: {
+  backendOrigin: string;
+  frontendOrigin: string;
+  page: Page;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+}): Promise<void> {
+  const currentValue = await getSectionParamFilterForPage(
+    args.page,
+    args.sectionId,
+  );
+  if (currentValue === args.value) {
+    return;
+  }
+
+  await postBackendForPage(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    "/setSectionParamFilter",
+    {
+      projectConfigId: args.projectConfigId,
+      sectionId: args.sectionId,
+      value: args.value,
+    },
+  );
+  const restoredState = await getLatestProjectStateFromBackendOrigin(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    args.projectConfigId,
+  );
+  await applyProjectStateUpdate(args.page, restoredState);
+  await expect
+    .poll(async () => {
+      return getSectionParamFilterForPage(args.page, args.sectionId);
+    })
+    .toBe(args.value);
 }
 
 async function restoreCurrentPageState(args: {

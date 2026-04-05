@@ -5290,3 +5290,42 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - land a production fix for the dropzone card height / vertical-placement drift on the named `dropzoneParamCodeObjDefault` lane, then rerun this expected-fail probe until it turns into a normal pass
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-05 02:57 EDT - Ralph item 150
+
+- Item: Normalize the named `dropzoneParamCodeObjDefault` toolbar-zoom lane by aligning the effective section `paramFilter` between worktree and read-only main, then rerun and close the lane if the stale expected fail disappears.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `149` left the dropzone toolbar-zoom lane as the active renderer blocker, but fresh live probes showed the two runtimes were not rendering the same effective dropzone section state on that lane
+    - the raw `shownParamIds` still looked similar enough to hide the problem, so the next honest step was one bounded normalization pass rather than another speculative production refactor
+    - this was support work only because it directly answered whether the named dropzone lane still represented a real renderer question
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added helpers to read the live effective section `paramFilter` and to set/restore it through `/setSectionParamFilter`
+      - forced both the worktree and read-only main dropzone sections to the same effective filter before the shared restore-plus-preflight-plus-fit-plus-toolbar-zoom path
+      - restored each side's original filter in `finally`
+      - removed the stale `test.fail(true, ...)` marker after the normalized lane turned into a clean pass
+  - What this slice established:
+    - the checked run-010 dropzone ids remained worktree `b821cb16-8e9a-413a-b02b-832f79257ab7` and reference `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - the item `149` mismatch was oracle contamination, not product drift:
+      - worktree effective `paramFilter` was `""`
+      - read-only main effective `paramFilter` was `"Mode"`
+      - the difference came from the effective section state, so item `149` was comparing different rendered dropzone bodies
+    - once both sides were normalized to the same effective filter, the named toolbar-zoom lane passed on the live run-010 surfaces (`1 passed`, `30.4s`)
+    - treat item `149`'s card-height / vertical-offset mismatch and paired CDP readout as invalid renderer evidence for this lane
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - refreshed run-010 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `worktree_bootstrap_url=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/worktree-ai.log | node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(0,"utf8")); process.stdout.write(x.bootstrapUrl)'); main_bootstrap_url=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/main-ai.log | node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(0,"utf8")); process.stdout.write(x.bootstrapUrl)'); env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN="${worktree_bootstrap_url##*#token=}" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'dropzone mode row attached'`
+    - result: passed (`1 passed`, `30.4s`)
+- Lane status:
+  - close the normalized `dropzoneParamCodeObjDefault` toolbar-zoom lane as clean on the current run-010 surfaces
+  - do not pursue the item `149` production fix; it was based on mismatched effective section state rather than a real canary-only renderer defect
+  - do not reopen the older unsupported dropzone drag/pan lane
+- Next action:
+  - move to one different named Gate 1 / Gate 2 lane or production renderer slice that still lacks a trusted normalized result; the dropzone toolbar-zoom lane is no longer the blocker
+- LOOP_TERMINAL_MARKER: none

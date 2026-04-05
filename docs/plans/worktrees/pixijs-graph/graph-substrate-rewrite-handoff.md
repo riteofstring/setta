@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 02:16 EDT
+Last updated: 2026-04-05 02:57 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,42 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `150` normalized the named `dropzoneParamCodeObjDefault` toolbar-zoom lane by aligning the effective section `paramFilter` on both runtimes before compare, which turned the lane into a normal pass and superseded item `149`'s renderer-drift conclusion.
+  - Why this slice was needed:
+    - item `149` treated the dropzone mismatch as product-side card geometry drift, but the latest live probes showed that the two runtimes were not rendering the same effective section config on that lane
+    - the shared top-level `shownParamIds` and visible lane shape were misleadingly similar, so the next honest step was one bounded normalization pass on the named lane rather than a speculative production fix
+    - this was the narrowest support slice that directly unblocked whether `dropzoneParamCodeObjDefault` still represented a real renderer issue
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added helpers to read the effective section `paramFilter` from live frontend state and to set/restore it via `/setSectionParamFilter`
+      - captured the original worktree/reference filter values for the named dropzone section, forced both sides to the reference filter before the shared restore-plus-preflight-plus-fit path, and restored the original filters in `finally`
+      - removed the stale `test.fail(true, ...)` marker after the normalized lane rerun passed
+  - What this slice established:
+    - the checked run-010 worktree/reference dropzone ids remain:
+      - worktree canary `b821cb16-8e9a-413a-b02b-832f79257ab7`
+      - read-only main legacy `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - the previous item `149` mismatch was oracle contamination, not renderer drift:
+      - worktree effective dropzone `paramFilter` was `""`
+      - read-only main effective dropzone `paramFilter` was `"Mode"`
+      - the difference came from the effective section state, so the two runtimes were not actually rendering the same dropzone surface during item `149`
+    - once the lane forced both sides to the same effective `paramFilter`, the named toolbar-zoom parity probe passed on the live run-010 surfaces (`1 passed`, `30.4s`)
+    - treat item `149`'s card-height / vertical-placement mismatch and its paired CDP readout as invalid renderer evidence for this lane; they were captured under mismatched section state
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-010 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_bootstrap_url=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/worktree-ai.log | node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(0,"utf8")); process.stdout.write(x.bootstrapUrl)'); main_bootstrap_url=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-010/main-ai.log | node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(0,"utf8")); process.stdout.write(x.bootstrapUrl)'); env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN="${worktree_bootstrap_url##*#token=}" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'dropzone mode row attached'`
+      - result: passed (`1 passed`, `30.4s`)
+  - Lane status:
+    - close the normalized `dropzoneParamCodeObjDefault` toolbar-zoom lane as clean on the current run-010 surfaces
+    - do not land the item `149` production fix; that supposed drift was produced by mismatched effective section state
+    - do not reopen this lane unless a future compare fails after explicitly aligning the same named section state on both runtimes
+  - Next frontier:
+    - move to a different named Gate 1 / Gate 2 lane or renderer-facing section that still lacks a trusted normalized result; the dropzone toolbar-zoom lane no longer blocks the rewrite plan
 
 - Ralph item `149` added a trusted expected-fail live parity repro for the named `dropzoneParamCodeObjDefault` toolbar-zoom lane, anchored on the `Mode` row, and verified that the current canary drift is section-geometry expansion rather than row detachment.
   - Why this slice was needed:
@@ -4265,6 +4301,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `148`
-- Latest item: `2026-04-05 148`
+- Active history window: items `001` through `150`
+- Latest item: `2026-04-05 150`
 - Older history archives: none yet
