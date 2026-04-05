@@ -5955,3 +5955,50 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - return to the normalized `All Settings` motion lane sequence by opening the next named blank-pane pan lane on `dropzoneParamCodeObjDefault`
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 165
+
+- Item: Open and close the canonical `dropzoneParamCodeObjDefault` normalized blank-pane pan lane with a trusted Playwright probe plus fresh-context CDP confirmation after one bounded lifecycle recovery.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `163` had already closed `taskBoardSectionDefault` for blank-pane pan, and item `164` explicitly handed the motion sequence back to `dropzoneParamCodeObjDefault` as the next named section that still only had drag/zoom-style coverage
+    - `dropzoneParamCodeObjDefault` already had trusted toolbar-zoom and drag/post-move lanes, but it still lacked any named blank-pane pan evidence on normalized `All Settings`
+    - the next bounded step needed to close that exact motion-family gap instead of reopening finished drag or zoom lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the dropzone args filter editable after normalized pane pan on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `dropzoneParamCodeObjDefault`, reuses the section's param-filter normalization, runs shared compare preflight, applies the same short blank-pane pan, compares args-filter anchor drift plus viewport transform deltas, and verifies the filter still edits afterward
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the recovered surfaces (`3077`/`8077` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `dropzoneParamCodeObjDefault` pane pan staying within thresholds
+    - the pre-recovery verification attempts surfaced lifecycle-only issues rather than renderer drift:
+      - Playwright bootstrap tokens are single-use for global setup, so reruns needed freshly minted tokens
+      - after the required headless `./aireset.sh` recovery, `dev-runtime-info.sh` still echoed a stale `3076` frontend URL from the old runtime log even though the recovered worktree frontend was live on `3077`; treat that mixed helper read as lifecycle noise and trust the recovered live `3077`/`8077` pair
+    - the post-recovery fresh-context CDP retry confirmed the same named lane without renderer drift:
+      - both sides were normalized to `All Settings` with compare pane state `overviewVisible=false`, `overviewTrueWidth=420`, `snapToGrid=false`, `uiEditorVisible=false`, `uiEditorTrueWidth=260`
+      - one blank-pane pan of `{ x: 120, y: 80 }` changed the viewport transform by the same delta on both sides (`x +120`, `y +80`, `zoom 0`)
+      - the dropzone args filter stayed attached and editable on both sides, with relative filter-position drift `0,0`
+      - the section moved about `144.22px` in screen space, which matches a normal pan instead of a detach or section-local renderer glitch
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh recovered worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the dropzone args filter editable after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `28.4s`)
+  - bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: recovered the worktree onto backend `8077` and frontend `3077`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - first retry reported chrome-devtools transport unavailable, which triggered the allowed one-time lifecycle recovery
+    - post-recovery retry compared worktree `3077/settings` and read-only `main` `3087/settings` on normalized `All Settings`
+  - CDP visual check:
+    - result: done
+    - note: post-recovery direct CDP compare on `dropzoneParamCodeObjDefault` found matched `+120,+80` pane-pan deltas and an attached/editable args filter on both sides
+- Lane status:
+  - close `dropzoneParamCodeObjDefault` as a clean normalized blank-pane pan lane
+  - do not reopen the single-use bootstrap-token 401s or the stale `3076` frontend helper read after recovery as renderer drift on this lane
+- Next action:
+  - open the next named normalized blank-pane pan lane on `chartSectionDefault`, which still only has drag/zoom-style coverage on `All Settings`
+- LOOP_TERMINAL_MARKER: none
