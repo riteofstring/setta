@@ -66,8 +66,6 @@ echo "uv $*" >> "{command_log}"
 def test_init_env_applies_release_age_cutoff_when_repo_policy_exists(
     tmp_path: Path,
 ) -> None:
-    # Repo-local policy should enforce the checked-in Python release-age guard
-    # before syncing the environment.
     sandbox_root = tmp_path / "init_env_policy_sandbox"
     bin_dir = sandbox_root / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -121,11 +119,11 @@ echo "python3 $*" >> "{command_log}"
     ]
 
 
-def test_dev_install_runs_python_bootstrap_before_frozen_frontend_and_sidecars(
+def test_dev_install_bootstraps_go_before_frontend_and_sidecars(
     tmp_path: Path,
 ) -> None:
-    # The default dev installer should bootstrap Python first, then keep the
-    # frontend and sidecar dependency installs frozen.
+    # The default dev installer should ensure the pinned Go toolchain exists,
+    # then install frontend deps, sidecars, and cleanup without pulling Python.
     sandbox_root = tmp_path / "dev_install_sandbox"
     frontend_dir = sandbox_root / "frontend"
     scripts_dir = sandbox_root / "scripts"
@@ -134,13 +132,25 @@ def test_dev_install_runs_python_bootstrap_before_frozen_frontend_and_sidecars(
     scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
+    toolchain_ready = sandbox_root / "toolchain-ready"
 
     _copy_repo_file(sandbox_root=sandbox_root, relative_path="dev_install.sh")
     write_stub_executable(
-        sandbox_root / "init_env.sh",
+        scripts_dir / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-echo init-env >> "{command_log}"
+echo "go $*" >> "{command_log}"
+if [[ "$1" == "version" && ! -f "{toolchain_ready}" ]]; then
+  exit 1
+fi
+""",
+    )
+    write_stub_executable(
+        scripts_dir / "install_go_toolchain.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo install-go-toolchain >> "{command_log}"
+touch "{toolchain_ready}"
 """,
     )
     write_stub_executable(
@@ -176,8 +186,51 @@ echo "pnpm $*" >> "{command_log}"
 
     assert result.returncode == 0, result.stderr
     assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "init-env",
+        "go version",
+        "install-go-toolchain",
+        "go version",
         "pnpm install --frozen-lockfile",
         "install-sidecars",
         "cleanup",
+    ]
+
+
+def test_dev_install_python_runs_init_env_before_default_dev_install(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = tmp_path / "dev_install_python_sandbox"
+    scripts_dir = sandbox_root / "scripts"
+    sandbox_root.mkdir(parents=True, exist_ok=True)
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    command_log = sandbox_root / "command-log.txt"
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="dev_install_python.sh")
+    write_stub_executable(
+        sandbox_root / "init_env.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo init-env >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "dev_install.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo dev-install >> "{command_log}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "dev_install_python.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "dev-install",
     ]

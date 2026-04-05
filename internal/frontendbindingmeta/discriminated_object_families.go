@@ -1,0 +1,20 @@
+package frontendbindingmeta
+
+import "reflect"
+
+type DiscriminatedObjectTraitSpec struct {
+	UnionName   string
+	LocalUnion  bool
+	IncludeBase bool
+	Predicate   func(reflect.Type) bool
+}
+
+type DiscriminatedObjectFamily struct {
+	BaseType                     reflect.Type
+	EnumType                     reflect.Type
+	DiscriminatorField           string
+	DiscriminatorValue           func(reflect.Type) (string, bool)
+	DefaultValueForDiscriminator func(string) (any, bool, error)
+	BaseExtraLines               []string
+	Traits                       []DiscriminatedObjectTraitSpec
+}
