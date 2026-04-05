@@ -282,15 +282,18 @@ func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fiel
 			continue
 		}
 		lines := strings.Split(declaration.Block, "\n")
-		for index := 0; index < len(lines); index++ {
-			name, _, ok := datamodelClassFieldTypeExpr(strings.TrimSpace(lines[index]))
-			if !ok || name != fieldName {
+		for index := 0; index < len(lines); {
+			name, typeExpr, end, ok, err := parseDatamodelField(lines, index)
+			if err != nil {
+				t.Fatalf("parseDatamodelField(%s.%s) error = %v", contractName, fieldName, err)
+			}
+			if !ok {
+				index++
 				continue
 			}
-			end := datamodelFieldDeclarationEnd(lines, index)
-			typeExpr, err := datamodelFieldTypeExpr(lines[index:end])
-			if err != nil {
-				t.Fatalf("datamodelFieldTypeExpr(%s.%s) error = %v", contractName, fieldName, err)
+			if name != fieldName {
+				index = end
+				continue
 			}
 			return typeExpr
 		}

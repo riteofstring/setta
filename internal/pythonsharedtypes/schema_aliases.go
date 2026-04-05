@@ -194,27 +194,24 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 
 	imports := map[string]struct{}{}
 	changed := false
-	for index := 0; index < len(lines); index++ {
-		line := lines[index]
-		trimmed := strings.TrimSpace(line)
-		fieldName, _, ok := datamodelClassFieldTypeExpr(trimmed)
+	for index := 0; index < len(lines); {
+		fieldName, currentTypeExpr, end, ok, err := parseDatamodelField(lines, index)
+		if err != nil {
+			return "", nil, false, fmt.Errorf(
+				"python shared types: %s: %w",
+				contractName,
+				err,
+			)
+		}
 		if !ok {
+			index++
 			continue
 		}
 
 		field, exists := fieldsByJSONName[fieldName]
 		if !exists {
+			index = end
 			continue
-		}
-		end := datamodelFieldDeclarationEnd(lines, index)
-		currentTypeExpr, err := datamodelFieldTypeExpr(lines[index:end])
-		if err != nil {
-			return "", nil, false, fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				contractName,
-				field.Name,
-				err,
-			)
 		}
 		renderedField, fieldImports, err := buildModelFieldSpec(
 			contractName,
@@ -230,6 +227,7 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 
 		renderedLine := strings.TrimSuffix(renderFieldLine(renderedField), "\n")
 		if strings.Join(lines[index:end], "\n") == renderedLine {
+			index = end
 			continue
 		}
 		lines = append(
@@ -237,6 +235,7 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 			lines[end:]...,
 		)
 		changed = true
+		index++
 	}
 
 	return strings.Join(lines, "\n"), imports, changed, nil
@@ -257,37 +256,31 @@ func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.Struc
 	return fieldsByJSONName, nil
 }
 
-func datamodelFieldDeclarationEnd(lines []string, start int) int {
-	end := start + 1
-	for end < len(lines) {
-		trimmed := strings.TrimSpace(lines[end])
-		if _, _, ok := datamodelClassFieldTypeExpr(trimmed); ok {
-			break
-		}
-		end++
+func parseDatamodelField(lines []string, start int) (string, string, int, bool, error) {
+	if start >= len(lines) {
+		return "", "", start, false, nil
 	}
-	return end
-}
-
-func datamodelFieldTypeExpr(lines []string) (string, error) {
-	if len(lines) == 0 {
-		return "", fmt.Errorf("empty datamodel field declaration")
-	}
-	firstLine := strings.TrimSpace(lines[0])
-	fieldName, rhs, ok := strings.Cut(firstLine, ": ")
-	if !ok || !isPythonIdentifier(strings.TrimSpace(fieldName)) {
-		return "", fmt.Errorf("malformed datamodel field declaration %q", firstLine)
+	fieldName, rhs, ok := strings.Cut(strings.TrimSpace(lines[start]), ": ")
+	fieldName = strings.TrimSpace(fieldName)
+	if !ok || !isPythonIdentifier(fieldName) {
+		return "", "", start, false, nil
 	}
 	parts := []string{rhs}
-	for _, line := range lines[1:] {
-		parts = append(parts, strings.TrimSpace(line))
+	end := start + 1
+	for end < len(lines) {
+		nextName, _, nextIsField := strings.Cut(strings.TrimSpace(lines[end]), ": ")
+		if nextIsField && isPythonIdentifier(strings.TrimSpace(nextName)) {
+			break
+		}
+		parts = append(parts, strings.TrimSpace(lines[end]))
+		end++
 	}
 	typeExpr := trimDatamodelFieldDefault(strings.Join(parts, "\n"))
 	typeExpr = strings.Join(strings.Fields(typeExpr), " ")
 	if typeExpr == "" {
-		return "", fmt.Errorf("datamodel field %s has empty type expression", fieldName)
+		return "", "", start, false, fmt.Errorf("datamodel field %s has empty type expression", fieldName)
 	}
-	return typeExpr, nil
+	return fieldName, typeExpr, end, true, nil
 }
 
 func trimDatamodelFieldDefault(value string) string {
@@ -401,25 +394,6 @@ func splitDatamodelBlocks(module string) []string {
 	}
 	flush()
 	return blocks
-}
-
-func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
-	fieldName, rhs, ok := strings.Cut(line, ": ")
-	if !ok {
-		return "", "", false
-	}
-	fieldName = strings.TrimSpace(fieldName)
-	if !isPythonIdentifier(fieldName) {
-		return "", "", false
-	}
-	typeExpr := strings.TrimSpace(rhs)
-	if before, _, ok := strings.Cut(typeExpr, " = "); ok {
-		typeExpr = strings.TrimSpace(before)
-	}
-	if typeExpr == "" {
-		return "", "", false
-	}
-	return fieldName, typeExpr, true
 }
 
 func isPythonIdentifier(value string) bool {
