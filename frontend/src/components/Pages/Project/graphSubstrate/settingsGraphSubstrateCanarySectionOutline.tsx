@@ -1,65 +1,35 @@
-import {
-  getSectionChromeStaticOutlineClassName,
-  resolveSectionChromeFrameStructure,
-  resolveSectionChromeShellDecorations,
-} from "components/Section/Container/sectionChrome";
-import { useSectionChromeAppearance } from "components/Section/Container/sectionChromeAppearance";
+import { getSectionChromeStaticOutlineClassName } from "components/Section/Container/sectionChrome";
 import React from "react";
-import { useIsSectionUIActive } from "state/activeSectionUI";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type { SettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
 
 type SettingsGraphSubstrateCanarySectionOutlineProps = {
-  section: SettingsGraphSubstrateCanarySceneSection;
+  appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
 };
 
 function _SettingsGraphSubstrateCanarySectionOutline({
-  section,
+  appearance,
 }: SettingsGraphSubstrateCanarySectionOutlineProps) {
-  const sectionTypeName = section.sectionTypeName ?? SectionTypeEnum.Code;
-  const isActiveSection =
-    useIsSectionUIActive(section.sectionId) || section.isActiveSection === true;
-  const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
-    useSectionChromeAppearance({
-      sectionId: section.sectionId,
-      sectionTypeName,
-      styleColor: section.styleColor ?? null,
-      textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
-    });
-  const shellDecorations = resolveSectionChromeShellDecorations({
-    isActiveSection,
-    isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
-    isInOtherProjectConfigs: section.isInOtherProjectConfigs ?? false,
-    showAiHighlight: false,
-    isReadScope: false,
-    isWriteScope: false,
-  });
-  const frameStructure = resolveSectionChromeFrameStructure({
-    positionAndSizeLocked: section.positionAndSizeLocked,
-    useMetaControlStyle,
-    hideBorder: false,
-    hideFrameBorder: false,
-  });
-
-  if (frameStructure.shellOutlineWidth === 0) {
+  if (appearance.frameStructure.shellOutlineWidth === 0) {
     return null;
   }
 
   const outlineWidthClassName =
-    frameStructure.shellOutlineWidth === 2 ? "outline-2" : "outline-4";
+    appearance.frameStructure.shellOutlineWidth === 2
+      ? "outline-2"
+      : "outline-4";
 
   return (
     <div
       aria-hidden="true"
-      className={`transition-radius pointer-events-none absolute inset-0 outline ${frameStructure.cornerStyle === "small" ? "rounded-sm" : "rounded-lg"} ${outlineWidthClassName} ${getSectionChromeStaticOutlineClassName(
+      className={`transition-radius pointer-events-none absolute inset-0 outline ${appearance.frameStructure.cornerStyle === "small" ? "rounded-sm" : "rounded-lg"} ${outlineWidthClassName} ${getSectionChromeStaticOutlineClassName(
         {
-          outlineTone: shellDecorations.outlineTone,
-          hasSectionStyleTheme,
+          outlineTone: appearance.shellDecorations.outlineTone,
+          hasSectionStyleTheme: appearance.hasSectionStyleTheme,
         },
       )}`}
-      data-outline-tone={shellDecorations.outlineTone}
+      data-outline-tone={appearance.shellDecorations.outlineTone}
       data-testid="graph-substrate-canary-section-outline"
-      style={sectionStyleVars}
+      style={appearance.sectionStyleVars}
     />
   );
 }

@@ -6,6 +6,7 @@ import React, {
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { SettingsGraphSubstrateCanarySectionBorder } from "./settingsGraphSubstrateCanarySectionBorder";
 import { SettingsGraphSubstrateCanarySectionOutline } from "./settingsGraphSubstrateCanarySectionOutline";
+import { useSettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
 import { SettingsGraphSubstrateCanarySectionTopDragHandle } from "./settingsGraphSubstrateCanarySectionTopDragHandle";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
@@ -31,6 +32,8 @@ function _SettingsGraphSubstrateCanarySectionShell({
   handleSectionPointerMove,
   section,
 }: SettingsGraphSubstrateCanarySectionShellProps) {
+  const shellAppearance =
+    useSettingsGraphSubstrateCanarySectionShellAppearance(section);
   let sectionCursor: CSSProperties["cursor"] = "grab";
   if (section.positionAndSizeLocked) {
     sectionCursor = "default";
@@ -60,9 +63,13 @@ function _SettingsGraphSubstrateCanarySectionShell({
       onPointerUpCapture={(event) => finishSectionDrag(event, true)}
       onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
     >
-      <SettingsGraphSubstrateCanarySectionBorder section={section} />
-      <SettingsGraphSubstrateCanarySectionOutline section={section} />
-      <SettingsGraphSubstrateCanarySectionTopDragHandle section={section} />
+      <SettingsGraphSubstrateCanarySectionBorder appearance={shellAppearance} />
+      <SettingsGraphSubstrateCanarySectionOutline
+        appearance={shellAppearance}
+      />
+      <SettingsGraphSubstrateCanarySectionTopDragHandle
+        appearance={shellAppearance}
+      />
       {children}
     </div>
   );

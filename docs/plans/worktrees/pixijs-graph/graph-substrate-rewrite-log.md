@@ -75,6 +75,48 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `226` | 2026-04-06 17:25 EDT
+  - Subtask: extract one renderer-facing canary shell appearance contract so the shell-owned DOM layers stop each resolving section chrome state independently.
+  - Why:
+    - item `225` already closed the active shared size-authority divergence, so repeating the same geometry-authority refactor shape again would have been churn
+    - Pixi still requires explicit approval, so the bounded fallback slice needed to deepen renderer ownership without adding a new dependency
+    - border, outline, and top-drag-handle still each owned their own active-section and section-style resolution path, which left the future scene-owned shell split across three DOM adapters
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.ts`
+      - introduced `resolveSettingsGraphSubstrateCanarySectionShellAppearance(...)` and a canary hook that resolves frame, shell, and surface decorations once per section
+      - memoizes the renderer-facing shell appearance object at the section-shell boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now resolves shell appearance once and passes that contract into the shell-owned DOM layers
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx`
+      - now renders from the shared shell appearance contract instead of subscribing to section chrome state directly
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx`
+      - now renders from the shared shell appearance contract instead of resolving active/theme/frame state inline
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx`
+      - now renders from the shared shell appearance contract instead of resolving surface appearance inline
+  - Tests:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts`
+      - covers active code-shell and unlocked meta-control shell appearance resolution
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`2 files`, `8 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanarySection(Shell|Border|Outline|TopDragHandle|ShellAppearance)\\.tsx?|settingsGraphSubstrateCanarySectionsLayer\\.tsx' || true` -> no matches
+  - Runtime verification:
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - checked worktree `http://127.0.0.1:3076/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - verified both mounted the `All Settings` surface with named target `rotaryParamCodeObjDefault`
+      - observed no obvious gross graph-surface drift after the shell-appearance extraction
+      - result: pass
+  - Result:
+    - the canary shell now exposes one renderer-facing appearance object that a future scene-owned static shell layer can consume directly
+    - shell-owned DOM layers are now render-only adapters over that contract instead of three separate section-chrome subscription sites
+    - this keeps the rewrite moving on renderer ownership without reopening geometry or parity churn
+  - Next:
+    - if approval arrives, install Pixi and use the new shell appearance contract to land the first scene-owned static shell layer while the DOM body stays in `SettingsGraphSubstrateCanaryDomSectionBody`
+    - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the border/outline/top-drag-handle trio behind one shell-layer adapter boundary
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-06 224
 
 - Item: mirror the backend layout-dimension fallback chain inside the settings graph substrate canary resolver so sections can seed authoritative geometry from section model data before local measurement.

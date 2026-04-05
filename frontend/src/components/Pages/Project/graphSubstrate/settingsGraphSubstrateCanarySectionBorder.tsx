@@ -1,37 +1,17 @@
-import {
-  getSectionChromeStaticShellBorderClassName,
-  resolveSectionChromeFrameStructure,
-} from "components/Section/Container/sectionChrome";
-import { useSectionChromeAppearance } from "components/Section/Container/sectionChromeAppearance";
+import { getSectionChromeStaticShellBorderClassName } from "components/Section/Container/sectionChrome";
 import React from "react";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type { SettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
 
 type SettingsGraphSubstrateCanarySectionBorderProps = {
-  section: SettingsGraphSubstrateCanarySceneSection;
+  appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
 };
 
 function _SettingsGraphSubstrateCanarySectionBorder({
-  section,
+  appearance,
 }: SettingsGraphSubstrateCanarySectionBorderProps) {
-  const sectionTypeName = section.sectionTypeName ?? SectionTypeEnum.Code;
-  const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
-    useSectionChromeAppearance({
-      sectionId: section.sectionId,
-      sectionTypeName,
-      styleColor: section.styleColor ?? null,
-      textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
-    });
-  const frameStructure = resolveSectionChromeFrameStructure({
-    positionAndSizeLocked: section.positionAndSizeLocked,
-    useMetaControlStyle,
-    hideBorder: false,
-    hideFrameBorder: false,
-  });
-
   if (
-    !frameStructure.shellBorderVisible ||
-    frameStructure.shellBorderTone === "transparent"
+    !appearance.frameStructure.shellBorderVisible ||
+    appearance.frameStructure.shellBorderTone === "transparent"
   ) {
     return null;
   }
@@ -39,15 +19,15 @@ function _SettingsGraphSubstrateCanarySectionBorder({
   return (
     <div
       aria-hidden="true"
-      className={`transition-radius pointer-events-none absolute inset-0 border ${frameStructure.cornerStyle === "small" ? "rounded-sm" : "rounded-lg"} ${getSectionChromeStaticShellBorderClassName(
+      className={`transition-radius pointer-events-none absolute inset-0 border ${appearance.frameStructure.cornerStyle === "small" ? "rounded-sm" : "rounded-lg"} ${getSectionChromeStaticShellBorderClassName(
         {
-          shellBorderTone: frameStructure.shellBorderTone,
-          hasSectionStyleTheme,
+          shellBorderTone: appearance.frameStructure.shellBorderTone,
+          hasSectionStyleTheme: appearance.hasSectionStyleTheme,
         },
       )}`}
-      data-border-tone={frameStructure.shellBorderTone}
+      data-border-tone={appearance.frameStructure.shellBorderTone}
       data-testid="graph-substrate-canary-section-border"
-      style={sectionStyleVars}
+      style={appearance.sectionStyleVars}
     />
   );
 }

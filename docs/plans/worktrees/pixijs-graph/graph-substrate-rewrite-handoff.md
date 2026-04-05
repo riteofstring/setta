@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 17:09 EDT
+Last updated: 2026-04-06 17:25 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,52 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `226` extracts one renderer-facing canary shell-appearance boundary so the DOM shell layers stop each owning their own section-chrome subscriptions and decoration resolution.
+  - Why this slice was needed:
+    - item `225` closed the shared size-authority divergence, so continuing the same geometry-authority refactor shape again would have been churn instead of moving the active renderer frontier
+    - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to deepen renderer ownership without introducing a new dependency
+    - the canary shell still computed section-chrome appearance separately inside the border, outline, and top-drag-handle layers, which meant a future scene-owned shell would still need to reverse-engineer three DOM-owned decoration paths
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.ts`
+      - introduced `resolveSettingsGraphSubstrateCanarySectionShellAppearance(...)` plus a canary hook that resolves shell/frame/surface decoration state once per section
+      - memoizes the renderer-facing shell appearance object at the section-shell boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now resolves shell appearance once and passes that contract to the shell-owned border, outline, and top-drag-handle layers
+    - updated shell-owned DOM layers:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx`
+      - these layers are now render-only adapters over the shared shell appearance contract instead of subscribing to section chrome state independently
+    - added focused test:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts`
+  - What this slice established:
+    - the canary shell now has one explicit appearance object that a future scene-owned static shell layer can consume directly
+    - border, outline, and top-drag-handle rendering no longer each own their own active-section and section-style resolution path
+    - this keeps product work on the renderer boundary without reopening parity churn or repeating the geometry-authority lane
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`2 files`, `8 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanarySection(Shell|Border|Outline|TopDragHandle|ShellAppearance)\\.tsx?|settingsGraphSubstrateCanarySectionsLayer\\.tsx' || true`
+      - result: no matches
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree canary mounted at `http://127.0.0.1:3076/settings`, the read-only `main` surface mounted at `http://127.0.0.1:3087/settings`, and both resolved to `All Settings`
+      - note: the named target `rotaryParamCodeObjDefault` was present on both sides and no obvious gross graph-surface drift was visible after the shell-appearance extraction
+  - Lane status:
+    - this closes the current fallback renderer-ownership slice that the post-approval handoff called for when Pixi cannot be added yet
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, install Pixi and use the new shell appearance contract to land the first scene-owned static shell layer while `SettingsGraphSubstrateCanaryDomSectionBody` stays DOM-backed
+    - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the border/outline/top-drag-handle DOM trio behind one shell-layer adapter boundary rather than reopening geometry or parity work
 
 - Ralph item `225` unifies shared top-level size hydration with the canary section-model fallback chain, and carries explicit size authority through node internals so section-model fallback does not get re-persisted as authoritative layout.
   - Why this slice was needed:
@@ -7977,6 +8023,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `218`
-- Latest item: `2026-04-06 218`
+- Active history window: items `001` through `226`
+- Latest item: `2026-04-06 226`
 - Older history archives: none yet
