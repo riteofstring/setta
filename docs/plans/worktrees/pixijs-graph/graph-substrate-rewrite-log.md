@@ -10560,3 +10560,28 @@ LOOP_TERMINAL_MARKER: none
     - audit the remaining `sectionSeedNodes` consumers and persistence path under the canary runtime, especially shell/minimap fallback and unmount persistence, to decide whether the seed cache can be narrowed further or replaced by a more authoritative scene-owned size source
     - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 15:16 EDT, Ralph item `276`
+  - Summary: cleared the canary-local `sectionSeedNodes` cache on runtime unmount so measured shared-node seed fallback no longer survives beyond the mounted canary lifecycle.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-010/worktree-ai.log` -> frontend `3075`, backend `8075`, session `357d72`, bootstrap rooted at `8075`, debug port `9298`, `debugPortPid 29734`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`1 file`, `14 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> passed (`1 passed`, `37.0s`)
+    - fresh-context CDP sub-agent -> read `docs/guides/browser-mcp-quickstart.md`, bootstrapped the live worktree, reached `http://127.0.0.1:3075/settings`, and confirmed mounted `Settings`, active `All Settings`, and a populated graph surface with real cards instead of a blank shell or spinner
+  - Result:
+    - canary-local measured seed fallback no longer persists across runtime unmount, which removes the remaining store-lifecycle carryover path left after item `275`
+    - the live worktree canary stayed healthy on the standard first-render probe plus bounded CDP health check after clearing the unmount cache
+    - the active frontier remains the instrumentation/baseline lane documented in the handoff, not another small visual-contract cleanup
+  - Next:
+    - add one read-only canary instrumentation seam that reports the live cost model during `All Settings` pan/zoom/drag, including mounted scene section count, section-body count, Pixi drawable count, Pixi redraw count, viewport shape, and unresolved seed fallback count if still relevant
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and capture one baseline report under `perf/reports/frontend/`
+  - LOOP_TERMINAL_MARKER: none

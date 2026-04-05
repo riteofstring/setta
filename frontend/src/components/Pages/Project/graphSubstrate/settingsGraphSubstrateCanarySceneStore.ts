@@ -31,8 +31,8 @@ export function updateSettingsGraphSubstrateCanarySceneSnapshot(
 }
 
 export function resetSettingsGraphSubstrateCanarySceneSnapshot() {
-  useSettingsGraphSubstrateCanarySceneStore.setState((state) => ({
+  useSettingsGraphSubstrateCanarySceneStore.setState(() => ({
     sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
-    sectionSeedNodes: state.sectionSeedNodes,
+    sectionSeedNodes: new Map(),
   }));
 }

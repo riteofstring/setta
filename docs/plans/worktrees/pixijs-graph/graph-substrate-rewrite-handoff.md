@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 15:04 EDT
+Last updated: 2026-04-07 15:16 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -39,7 +39,110 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or close it as unsupported/untrustworthy for the current tool stack
   - do not spend a third pass re-proving the same setup
 
+## Strategic reset
+
+- Stay with Pixi in this worktree.
+- Do not spend the next iteration evaluating `tldraw` or any other renderer swap.
+- Treat the current Pixi shell layer as a good seam, but not as proof that the hot path is solved.
+
+The active question for the next Ralph pass is:
+
+- what cost is still dominating after the shell-owned Pixi layer landed
+
+The next Ralph pass should not default back to:
+
+- more shell-only ownership cleanup
+- more shell-border / shell-handle acceptance churn
+- more abstract measured-authority cleanup that does not also clarify the actual runtime cost
+
+Unless a live regression forces otherwise, the next pass should begin with instrumentation and a baseline, then use that evidence to pick the next product slice.
+
+## Active frontier
+
+This section overrides older "next frontier" notes below when choosing the next iteration.
+
+- Current renderer stance:
+  - keep the hybrid path
+  - Pixi owns shared static shell/chrome where batching helps
+  - DOM still owns section bodies/editors/interactions until profiling proves a better split
+- Current likely remaining cost:
+  - section bodies are still DOM-backed through [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) and [`settingsGraphSubstrateCanarySectionBodyAdapter.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx)
+  - the canary still selects all renderable `All Settings` sections in [`settingsGraphSubstrateCanaryModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts)
+  - the scene runtime still snapshots/syncs the whole active section set in [`settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts)
+  - the Pixi shell layer still clears and redraws the full drawable list per sync in [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+- Working hypothesis:
+  - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
+  - the next useful evidence should show whether the remaining bottleneck is DOM body count, full-scene redraw count, or legacy ownership churn
+
+## Next iteration target
+
+Pick one bounded subtask:
+
+- add one read-only canary instrumentation seam that reports the cost model during live pan/zoom/drag
+
+Recommended instrumentation surface:
+
+- mounted scene section count
+- mounted section-body count
+- Pixi drawable count
+- Pixi sync/redraw count
+- current viewport zoom and visible viewport size
+- unresolved seed-cache fallback count if that still affects visible geometry
+
+Recommended deliverables for the next iteration:
+
+- production instrumentation code kept behind a narrow canary-facing helper or debug snapshot seam
+- focused Vitest coverage for the instrumentation payload
+- one targeted Playwright probe that reads the instrumentation on the checked `All Settings` canary
+- one baseline report under `perf/reports/frontend/`
+
+Recommended canonical target:
+
+- keep `rotaryParamCodeObjDefault` as the broad regression anchor for normalization and fit-view setup
+- use the whole `All Settings` canary as the measured scene for the instrumentation pass
+
+Do not use the next iteration for:
+
+- more `tldraw` investigation
+- another shell-only visual contract slice
+- another standalone lifecycle recovery pass unless the runtime is actually unhealthy
+- another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
+
 ## Current status
+
+- Ralph item `276` stopped the canary scene store from carrying canary-local `sectionSeedNodes` across runtime unmount, so measured shared-node seed fallback now dies with the mounted canary lifecycle instead of surviving into the next mount.
+
+  - Why this pass completed:
+    - item `275` left unmount persistence as the smallest remaining measured-DOM carryover path after controller resolution stopped treating the seed cache as authoritative
+    - `resetSettingsGraphSubstrateCanarySceneSnapshot()` still preserved `sectionSeedNodes`, which let canary-local measured fallback outlive the scene snapshot that produced it
+    - the bounded seam was the store reset contract plus the lifecycle test; this pass did not open a new parity lane or widen into shell/minimap redesign work
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts) so `resetSettingsGraphSubstrateCanarySceneSnapshot()` now clears `sectionSeedNodes` alongside the shared scene snapshot instead of preserving the prior map across unmount
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx) to lock the lifecycle contract where unmount clears the canary-local shared-node seed cache rather than retaining stale measured fallback
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-010/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `357d72`, bootstrap rooted at `8075`, debug port `9298`, `debugPortPid 29734`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`1 file`, `14 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `37.0s`)
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), bootstrapped the live worktree via the refreshed `8075` bootstrap URL, reached `http://127.0.0.1:3075/settings`, and confirmed mounted `Settings`, active `All Settings`, and a populated graph surface with real cards instead of a blank shell or spinner
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - canary-local measured seed fallback no longer persists beyond the current mounted runtime, which removes the remaining store-lifecycle carryover path left after item `275`
+    - the live worktree canary stayed healthy on the standard first-render probe and bounded CDP check after clearing the seed cache on unmount
+    - the active frontier above still stands: the next iteration should return to the instrumentation/baseline lane rather than reopen another small visual-contract cleanup by default
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `275` stopped the canary controller from treating canary-local `sectionSeedNodes` as section-size authority, so section resolution now reads only authoritative node internals and leaves the seed cache local to shell/minimap fallback.
 

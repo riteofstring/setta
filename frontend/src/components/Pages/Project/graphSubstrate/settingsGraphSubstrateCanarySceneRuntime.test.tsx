@@ -1018,7 +1018,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("resets the shared scene snapshot but keeps the canary-local shared-node seed cache when the runtime unmounts", async () => {
+  it("resets the shared scene snapshot and clears the canary-local shared-node seed cache when the runtime unmounts", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -1056,11 +1056,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
       sections: [],
       sectionsById: new Map(),
     });
-    expect(stateAfterUnmount.sectionSeedNodes.get("section-a")).toEqual({
-      width: 240,
-      height: 160,
-      sizeAuthority: "sharedNode",
-    });
+    expect(stateAfterUnmount.sectionSeedNodes.has("section-a")).toBe(false);
 
     root = createRoot(host);
   });
