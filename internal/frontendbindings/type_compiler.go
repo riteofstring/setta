@@ -58,13 +58,7 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 		if contractName == "" {
 			contractName = strings.TrimSpace(t.Name())
 		}
-		for candidate, candidateName := range frontendBindingGeneratedTypeNamesByType {
-			if candidate.PkgPath() == t.PkgPath() {
-				continue
-			}
-			if strings.TrimSpace(candidateName) != contractName && strings.TrimSpace(candidate.Name()) != contractName {
-				continue
-			}
+		if candidate, ok := frontendBindingTypesByName()[contractName]; ok && candidate.PkgPath() != t.PkgPath() {
 			return candidate
 		}
 	}
@@ -281,6 +275,19 @@ func (c *typeConverter) namedStructPropertySpec(
 	ownerType reflect.Type,
 	field reflect.StructField,
 ) (reflectedStructProperty, bool, error) {
+	fieldLabel := ownerType.Name() + "." + field.Name
+	parseBoolTag := func(tagName string) (bool, bool, error) {
+		value := strings.TrimSpace(field.Tag.Get(tagName))
+		if value == "" {
+			return false, false, nil
+		}
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, false, fmt.Errorf("%s: invalid %s value %q", fieldLabel, tagName, value)
+		}
+		return parsed, true, nil
+	}
+
 	jsonTag := strings.TrimSpace(field.Tag.Get("json"))
 	if jsonTag == "-" {
 		return reflectedStructProperty{}, false, nil
@@ -294,54 +301,27 @@ func (c *typeConverter) namedStructPropertySpec(
 		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
 	}
 	optional := false
-	for jsonOptions != "" {
-		option := jsonOptions
-		option, jsonOptions, _ = strings.Cut(option, ",")
+	for _, option := range strings.Split(jsonOptions, ",") {
 		if strings.TrimSpace(option) == "omitempty" {
 			optional = true
 		}
 	}
 
 	typeExpr := strings.TrimSpace(field.Tag.Get("ts_type"))
-	if tag := strings.TrimSpace(field.Tag.Get("ts_optional")); tag != "" {
-		override, err := strconv.ParseBool(tag)
-		if err != nil {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: invalid ts_optional value %q",
-				ownerType.Name(),
-				field.Name,
-				tag,
-			)
-		}
+	if override, ok, err := parseBoolTag("ts_optional"); err != nil {
+		return reflectedStructProperty{}, false, err
+	} else if ok {
 		optional = override
 	}
 	createExpr := strings.TrimSpace(field.Tag.Get("ts_create_expr"))
-	createMapValues := false
-	if tag := strings.TrimSpace(field.Tag.Get("ts_create_map_values")); tag != "" {
-		parsed, err := strconv.ParseBool(tag)
-		if err != nil {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: invalid ts_create_map_values value %q",
-				ownerType.Name(),
-				field.Name,
-				tag,
-			)
-		}
-		createMapValues = parsed
+	createMapValues, _, err := parseBoolTag("ts_create_map_values")
+	if err != nil {
+		return reflectedStructProperty{}, false, err
 	}
-	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {
-		skip, err := strconv.ParseBool(tag)
-		if err != nil {
-			return reflectedStructProperty{}, false, fmt.Errorf(
-				"%s.%s: invalid ts_skip value %q",
-				ownerType.Name(),
-				field.Name,
-				tag,
-			)
-		}
-		if skip {
-			return reflectedStructProperty{}, false, nil
-		}
+	if skip, ok, err := parseBoolTag("ts_skip"); err != nil {
+		return reflectedStructProperty{}, false, err
+	} else if ok && skip {
+		return reflectedStructProperty{}, false, nil
 	}
 
 	nullable := false
