@@ -124,3 +124,35 @@ def test_cleanup_unused_imports_preserves_future_annotations_import(
         '    value: "Later"\n\n'
         "Later = Any\n"
     )
+
+
+def test_collect_definitions_tracks_top_level_assignments_and_annotations(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    target_dir = repo_root / "backend" / "setta" / "types" / "generated"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    generated_path = target_dir / "go_shared_types.py"
+    generated_path.write_text(
+        "class Client:\n"
+        "    pass\n\n"
+        "def helper() -> None:\n"
+        "    return None\n\n"
+        "ANSWER = 42\n"
+        "typed_name: str = 'setta'\n",
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    definitions, module_local_refs = module.collect_definitions(target_dir, repo_root)
+
+    assert {
+        (definition.module, definition.name, definition.node_type)
+        for definition in definitions
+    } == {
+        ("setta.types.generated.go_shared_types", "Client", "ClassDef"),
+        ("setta.types.generated.go_shared_types", "helper", "FunctionDef"),
+        ("setta.types.generated.go_shared_types", "ANSWER", "Assign"),
+        ("setta.types.generated.go_shared_types", "typed_name", "AnnAssign"),
+    }
+    assert module_local_refs["setta.types.generated.go_shared_types"] == {"str"}

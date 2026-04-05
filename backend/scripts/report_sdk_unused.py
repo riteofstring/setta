@@ -187,25 +187,35 @@ def resolve_from_import(
     return ".".join(parent_parts)
 
 
+def assignment_target_names(stmt: ast.stmt) -> tuple[str, ...]:
+    if isinstance(stmt, ast.Assign):
+        return tuple(
+            target.id for target in stmt.targets if isinstance(target, ast.Name)
+        )
+    if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+        return (stmt.target.id,)
+    return ()
+
+
+def assignment_value_node(stmt: ast.stmt) -> ast.AST | None:
+    if isinstance(stmt, ast.Assign):
+        return stmt.value
+    if isinstance(stmt, ast.AnnAssign):
+        return stmt.value
+    return None
+
+
 def extract_exported_names(node: ast.AST) -> set[str]:
-    value: ast.AST | None = None
-    if isinstance(node, ast.Assign):
-        for target in node.targets:
-            if isinstance(target, ast.Name) and target.id == "__all__":
-                value = node.value
-                break
-    elif isinstance(node, ast.AnnAssign):
-        if isinstance(node.target, ast.Name) and node.target.id == "__all__":
-            value = node.value
-    if value is None:
+    if "__all__" not in assignment_target_names(node):
         return set()
+    value = assignment_value_node(node)
     if not isinstance(value, (ast.List, ast.Tuple)):
         return set()
-    names: set[str] = set()
-    for element in value.elts:
-        if isinstance(element, ast.Constant) and isinstance(element.value, str):
-            names.add(element.value)
-    return names
+    return {
+        element.value
+        for element in value.elts
+        if isinstance(element, ast.Constant) and isinstance(element.value, str)
+    }
 
 
 class ModuleImportCollector(TypeCheckingAwareNodeVisitor):
@@ -409,24 +419,6 @@ class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
             return
         if member_name in class_info.member_names:
             self.used_members.add((module_name, class_name, member_name))
-
-
-def assignment_target_names(stmt: ast.stmt) -> tuple[str, ...]:
-    if isinstance(stmt, ast.Assign):
-        return tuple(
-            target.id for target in stmt.targets if isinstance(target, ast.Name)
-        )
-    if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-        return (stmt.target.id,)
-    return ()
-
-
-def assignment_value_node(stmt: ast.stmt) -> ast.AST | None:
-    if isinstance(stmt, ast.Assign):
-        return stmt.value
-    if isinstance(stmt, ast.AnnAssign):
-        return stmt.value
-    return None
 
 
 def build_method_member_definition(

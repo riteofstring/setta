@@ -1,3 +1,4 @@
+import ast
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
@@ -260,3 +261,12 @@ def test_string_module_path_marks_symbol_as_used(
     assert ("setta.logging.context", "Filter") not in [
         (definition.module, definition.name) for definition in report.unused_top_level
     ]
+
+
+def test_extract_exported_names_accepts_annotated_all_assignment() -> None:
+    module = _load_report_sdk_unused_module()
+    node = ast.parse(
+        '__all__: tuple[str, ...] = ["Client", "Runner", 3]\n'
+    ).body[0]
+
+    assert module.extract_exported_names(node) == {"Client", "Runner"}

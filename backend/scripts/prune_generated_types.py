@@ -78,6 +78,37 @@ def extract_names_from_assign_target(target: ast.expr) -> list[str]:
     return result
 
 
+def definition_names_from_node(node: ast.stmt) -> tuple[str, ...]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return (node.name,)
+    if isinstance(node, ast.Assign):
+        return tuple(
+            name
+            for target in node.targets
+            for name in extract_names_from_assign_target(target)
+        )
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return (node.target.id,)
+    return ()
+
+
+def build_definition(
+    *,
+    module_name: str,
+    path: Path,
+    node: ast.stmt,
+    name: str,
+) -> Definition:
+    return Definition(
+        module=module_name,
+        name=name,
+        path=path,
+        start_line=node.lineno,
+        end_line=node.end_lineno or node.lineno,
+        node_type=type(node).__name__,
+    )
+
+
 def collect_definitions(
     target_dir: Path, repo_root: Path
 ) -> tuple[list[Definition], dict[str, set[str]]]:
@@ -92,44 +123,15 @@ def collect_definitions(
             raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
 
         for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                definitions.append(
-                    Definition(
-                        module=module_name,
-                        name=node.name,
-                        path=path,
-                        start_line=node.lineno,
-                        end_line=node.end_lineno or node.lineno,
-                        node_type=type(node).__name__,
-                    )
+            definitions.extend(
+                build_definition(
+                    module_name=module_name,
+                    path=path,
+                    node=node,
+                    name=name,
                 )
-            elif isinstance(node, ast.Assign):
-                assigned_names: list[str] = []
-                for target in node.targets:
-                    assigned_names.extend(extract_names_from_assign_target(target))
-                for name in assigned_names:
-                    definitions.append(
-                        Definition(
-                            module=module_name,
-                            name=name,
-                            path=path,
-                            start_line=node.lineno,
-                            end_line=node.end_lineno or node.lineno,
-                            node_type=type(node).__name__,
-                        )
-                    )
-            elif isinstance(node, ast.AnnAssign):
-                if isinstance(node.target, ast.Name):
-                    definitions.append(
-                        Definition(
-                            module=module_name,
-                            name=node.target.id,
-                            path=path,
-                            start_line=node.lineno,
-                            end_line=node.end_lineno or node.lineno,
-                            node_type=type(node).__name__,
-                        )
-                    )
+                for name in definition_names_from_node(node)
+            )
         ref_collector = _LocalReferenceCollector()
         ref_collector.visit(tree)
         module_local_refs[module_name] = ref_collector.names
