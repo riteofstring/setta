@@ -5863,6 +5863,253 @@ export type UISettingRevealContent = {
   requestId: string;
 };
 
+function generatedSafeParseUISettingRevealActivationStep(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): UISettingRevealActivationStep {
+  if (!generatedBindingRuntime.websocketSupportIsRecord(value)) {
+    if (fieldName === "") {
+      issues.push("Expected UISettingRevealActivationStep object.");
+    } else {
+      issues.push(fieldName + " must be an object.");
+    }
+    return {
+      type: "",
+      itemValue: "",
+    };
+  }
+  const record = value;
+  return {
+    type: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.type,
+      generatedSafeParseFieldPath(fieldName, "type"),
+      issues,
+    ),
+    itemValue: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.itemValue,
+      generatedSafeParseFieldPath(fieldName, "itemValue"),
+      issues,
+    ),
+  };
+}
+
+function generatedSafeParseUISettingRevealTarget(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): UISettingRevealTarget {
+  if (!generatedBindingRuntime.websocketSupportIsRecord(value)) {
+    if (fieldName === "") {
+      issues.push("Expected UISettingRevealTarget object.");
+    } else {
+      issues.push(fieldName + " must be an object.");
+    }
+    return {
+      settingId: "",
+      side: "",
+      overviewTabKey: null,
+      uiEditorTabName: null,
+      pluginId: null,
+      paneId: null,
+      strategy: "",
+      anchorId: null,
+      pluginRevealKey: null,
+      revealActivationSteps: [],
+    };
+  }
+  const record = value;
+  return {
+    settingId: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.settingId,
+      generatedSafeParseFieldPath(fieldName, "settingId"),
+      issues,
+    ),
+    side: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.side,
+      generatedSafeParseFieldPath(fieldName, "side"),
+      issues,
+    ),
+    overviewTabKey:
+      record.overviewTabKey === undefined || record.overviewTabKey === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.overviewTabKey,
+            generatedSafeParseFieldPath(fieldName, "overviewTabKey"),
+            issues,
+          ),
+    uiEditorTabName:
+      record.uiEditorTabName === undefined || record.uiEditorTabName === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.uiEditorTabName,
+            generatedSafeParseFieldPath(fieldName, "uiEditorTabName"),
+            issues,
+          ),
+    pluginId:
+      record.pluginId === undefined || record.pluginId === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.pluginId,
+            generatedSafeParseFieldPath(fieldName, "pluginId"),
+            issues,
+          ),
+    paneId:
+      record.paneId === undefined || record.paneId === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.paneId,
+            generatedSafeParseFieldPath(fieldName, "paneId"),
+            issues,
+          ),
+    strategy: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.strategy,
+      generatedSafeParseFieldPath(fieldName, "strategy"),
+      issues,
+    ),
+    anchorId:
+      record.anchorId === undefined || record.anchorId === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.anchorId,
+            generatedSafeParseFieldPath(fieldName, "anchorId"),
+            issues,
+          ),
+    pluginRevealKey:
+      record.pluginRevealKey === undefined || record.pluginRevealKey === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.pluginRevealKey,
+            generatedSafeParseFieldPath(fieldName, "pluginRevealKey"),
+            issues,
+          ),
+    revealActivationSteps: (() => {
+      const raw = record.revealActivationSteps;
+      if (raw === undefined) {
+        return [];
+      }
+      if (!Array.isArray(raw)) {
+        issues.push(
+          generatedSafeParseFieldPath(fieldName, "revealActivationSteps") +
+            " must be an array.",
+        );
+        return [];
+      }
+      return raw.map((entry, index) =>
+        generatedSafeParseUISettingRevealActivationStep(
+          entry,
+          generatedSafeParseFieldPath(fieldName, "revealActivationSteps") +
+            "[" +
+            index +
+            "]",
+          issues,
+        ),
+      );
+    })(),
+  };
+}
+
+function generatedSafeParseUISettingRevealContent(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): UISettingRevealContent {
+  if (!generatedBindingRuntime.websocketSupportIsRecord(value)) {
+    if (fieldName === "") {
+      issues.push("Expected UISettingRevealContent object.");
+    } else {
+      issues.push(fieldName + " must be an object.");
+    }
+    return {
+      projectConfigId: "",
+      chatId: null,
+      activeSectionId: null,
+      reveals: [],
+      durationMs: 3000,
+      requestId: "",
+    };
+  }
+  const record = value;
+  return {
+    projectConfigId: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.projectConfigId,
+      generatedSafeParseFieldPath(fieldName, "projectConfigId"),
+      issues,
+    ),
+    chatId:
+      record.chatId === undefined || record.chatId === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.chatId,
+            generatedSafeParseFieldPath(fieldName, "chatId"),
+            issues,
+          ),
+    activeSectionId:
+      record.activeSectionId === undefined || record.activeSectionId === null
+        ? null
+        : generatedBindingRuntime.websocketSupportReadRequiredString(
+            record.activeSectionId,
+            generatedSafeParseFieldPath(fieldName, "activeSectionId"),
+            issues,
+          ),
+    reveals: (() => {
+      const raw = record.reveals;
+      if (!Array.isArray(raw)) {
+        issues.push(
+          generatedSafeParseFieldPath(fieldName, "reveals") +
+            " must be an array.",
+        );
+        return [];
+      }
+      return raw.map((entry, index) =>
+        generatedSafeParseUISettingRevealTarget(
+          entry,
+          generatedSafeParseFieldPath(fieldName, "reveals") + "[" + index + "]",
+          issues,
+        ),
+      );
+    })(),
+    durationMs: (() => {
+      const raw = record.durationMs;
+      if (raw === undefined) {
+        return 3000;
+      }
+      if (typeof raw === "number" && Number.isFinite(raw)) {
+        return raw;
+      }
+      issues.push(
+        generatedSafeParseFieldPath(fieldName, "durationMs") +
+          " must be a finite number.",
+      );
+      return 3000;
+    })(),
+    requestId: generatedBindingRuntime.websocketSupportReadRequiredString(
+      record.requestId,
+      generatedSafeParseFieldPath(fieldName, "requestId"),
+      issues,
+    ),
+  };
+}
+
+export const UISettingRevealContentSchema = {
+  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {
+    const issues: Array<string> = [];
+    const data = generatedSafeParseUISettingRevealContent(value, "", issues);
+    if (issues.length > 0) {
+      return {
+        success: false,
+        error: {
+          issues,
+        },
+      };
+    }
+    return {
+      success: true,
+      data,
+    };
+  },
+};
+
 export type UISettingRevealResultStatus = {
   settingId: string;
   status: "revealed" | "failed";
@@ -9851,199 +10098,12 @@ type SafeParseFailure = {
 
 type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;
 
-function websocketSupportIsRecord(
-  value: unknown,
-): value is Record<string, unknown> {
-  return generatedBindingRuntime.websocketSupportIsRecord(value);
-}
-
-function websocketSupportReadRequiredString(
-  value: unknown,
+function generatedSafeParseFieldPath(
   fieldName: string,
-  issues: Array<string>,
+  propertyName: string,
 ): string {
-  return generatedBindingRuntime.websocketSupportReadRequiredString(
-    value,
-    fieldName,
-    issues,
-  );
+  return fieldName === "" ? propertyName : fieldName + "." + propertyName;
 }
-
-function websocketSupportReadOptionalString(
-  value: unknown,
-  fieldName: string,
-  issues: Array<string>,
-): string | null {
-  return generatedBindingRuntime.websocketSupportReadOptionalString(
-    value,
-    fieldName,
-    issues,
-  );
-}
-
-function websocketSupportReadDurationMs(
-  value: unknown,
-  issues: Array<string>,
-): number {
-  return generatedBindingRuntime.websocketSupportReadDurationMs(value, issues);
-}
-
-function websocketSupportReadActivationSteps(
-  value: unknown,
-  fieldName: string,
-  issues: Array<string>,
-): Array<UISettingRevealActivationStep> {
-  if (value === undefined) {
-    return [];
-  }
-  if (!Array.isArray(value)) {
-    issues.push(fieldName + " must be an array.");
-    return [];
-  }
-  const steps: Array<UISettingRevealActivationStep> = [];
-  value.forEach((entry, index) => {
-    if (!websocketSupportIsRecord(entry)) {
-      issues.push(fieldName + "[" + index + "] must be an object.");
-      return;
-    }
-    steps.push({
-      type: websocketSupportReadRequiredString(
-        entry.type,
-        fieldName + "[" + index + "].type",
-        issues,
-      ),
-      itemValue: websocketSupportReadRequiredString(
-        entry.itemValue,
-        fieldName + "[" + index + "].itemValue",
-        issues,
-      ),
-    });
-  });
-  return steps;
-}
-
-function websocketSupportReadRevealTargets(
-  value: unknown,
-  issues: Array<string>,
-): Array<UISettingRevealTarget> {
-  if (!Array.isArray(value)) {
-    issues.push("reveals must be an array.");
-    return [];
-  }
-  const targets: Array<UISettingRevealTarget> = [];
-  value.forEach((entry, index) => {
-    if (!websocketSupportIsRecord(entry)) {
-      issues.push("reveals[" + index + "] must be an object.");
-      return;
-    }
-    targets.push({
-      settingId: websocketSupportReadRequiredString(
-        entry.settingId,
-        "reveals[" + index + "].settingId",
-        issues,
-      ),
-      side: websocketSupportReadRequiredString(
-        entry.side,
-        "reveals[" + index + "].side",
-        issues,
-      ),
-      overviewTabKey: websocketSupportReadOptionalString(
-        entry.overviewTabKey,
-        "reveals[" + index + "].overviewTabKey",
-        issues,
-      ),
-      uiEditorTabName: websocketSupportReadOptionalString(
-        entry.uiEditorTabName,
-        "reveals[" + index + "].uiEditorTabName",
-        issues,
-      ),
-      pluginId: websocketSupportReadOptionalString(
-        entry.pluginId,
-        "reveals[" + index + "].pluginId",
-        issues,
-      ),
-      paneId: websocketSupportReadOptionalString(
-        entry.paneId,
-        "reveals[" + index + "].paneId",
-        issues,
-      ),
-      strategy: websocketSupportReadRequiredString(
-        entry.strategy,
-        "reveals[" + index + "].strategy",
-        issues,
-      ),
-      anchorId: websocketSupportReadOptionalString(
-        entry.anchorId,
-        "reveals[" + index + "].anchorId",
-        issues,
-      ),
-      pluginRevealKey: websocketSupportReadOptionalString(
-        entry.pluginRevealKey,
-        "reveals[" + index + "].pluginRevealKey",
-        issues,
-      ),
-      revealActivationSteps: websocketSupportReadActivationSteps(
-        entry.revealActivationSteps,
-        "reveals[" + index + "].revealActivationSteps",
-        issues,
-      ),
-    });
-  });
-  return targets;
-}
-
-export const UISettingRevealContentSchema = {
-  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {
-    if (!websocketSupportIsRecord(value)) {
-      return {
-        success: false,
-        error: {
-          issues: ["Expected UISettingRevealContent object."],
-        },
-      };
-    }
-
-    const issues: Array<string> = [];
-    const parsed: UISettingRevealContent = {
-      projectConfigId: websocketSupportReadRequiredString(
-        value.projectConfigId,
-        "projectConfigId",
-        issues,
-      ),
-      chatId: websocketSupportReadOptionalString(
-        value.chatId,
-        "chatId",
-        issues,
-      ),
-      activeSectionId: websocketSupportReadOptionalString(
-        value.activeSectionId,
-        "activeSectionId",
-        issues,
-      ),
-      reveals: websocketSupportReadRevealTargets(value.reveals, issues),
-      durationMs: websocketSupportReadDurationMs(value.durationMs, issues),
-      requestId: websocketSupportReadRequiredString(
-        value.requestId,
-        "requestId",
-        issues,
-      ),
-    };
-
-    if (issues.length > 0) {
-      return {
-        success: false,
-        error: {
-          issues,
-        },
-      };
-    }
-
-    return {
-      success: true,
-      data: parsed,
-    };
-  },
-};
 
 type GeneratedBootstrapProtocol = {
   workspaceHistoryStorageKey: string;

@@ -285,7 +285,7 @@ export function websocketSupportReadRequiredString(
   return "";
 }
 
-export function websocketSupportReadOptionalString(
+function websocketSupportReadOptionalString(
   value: unknown,
   fieldName: string,
   issues: Array<string>,
@@ -298,18 +298,4 @@ export function websocketSupportReadOptionalString(
   }
   issues.push(fieldName + " must be a string or null.");
   return null;
-}
-
-export function websocketSupportReadDurationMs(
-  value: unknown,
-  issues: Array<string>,
-): number {
-  if (value === undefined) {
-    return 3000;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  issues.push("durationMs must be a finite number.");
-  return 3000;
 }

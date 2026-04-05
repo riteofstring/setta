@@ -519,10 +519,11 @@ func (c *typeConverter) renderTupleTypeExprWithQualifier(
 }
 
 type tsFieldMetadataSpec struct {
-	TypeExpr   string
-	Optional   *bool
-	CreateExpr string
-	Skip       bool
+	TypeExpr      string
+	Optional      *bool
+	CreateExpr    string
+	ParseFallback string
+	Skip          bool
 }
 
 func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
@@ -542,6 +543,10 @@ func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_create_expr")); tag != "" {
 		spec.CreateExpr = tag
+	}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_parse_fallback")); tag != "" {
+		spec.ParseFallback = tag
 	}
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {

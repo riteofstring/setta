@@ -43,7 +43,7 @@ func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations = append(declarations, appGenerationSupportDeclarations()...)
 	declarations = append(declarations, nameValidationSupportDeclarations()...)
 	declarations = append(declarations, projectStateSupportDeclarations()...)
-	declarations = append(declarations, websocketSupportDeclarations()...)
+	declarations = append(declarations, safeParseSupportDeclarations()...)
 	declarations = append(declarations, bootstrapHandoffSupportDeclarations()...)
 	declarations = append(declarations, frontendConstantsSupportDeclarations()...)
 	declarations = append(declarations, uiEditorTabSupportDeclarations()...)

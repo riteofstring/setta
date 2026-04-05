@@ -668,8 +668,15 @@ func additionalFactoryDeclarations() []TypeDeclaration {
 }
 
 func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
+	declarations := []TypeDeclaration{}
 	if declaration, ok := generatedImplFactoryDeclaration(t); ok {
-		return []TypeDeclaration{declaration}, true
+		declarations = append(declarations, declaration)
 	}
-	return nil, false
+	if schemaDeclarations, ok := safeParseSchemaDeclarationsForType(t); ok {
+		declarations = append(declarations, schemaDeclarations...)
+	}
+	if len(declarations) == 0 {
+		return nil, false
+	}
+	return declarations, true
 }

@@ -209,7 +209,7 @@ type UISettingRevealContent struct {
 	ChatID          *string                 `json:"chatId,omitempty"`
 	ActiveSectionID *string                 `json:"activeSectionId,omitempty"`
 	Reveals         []UISettingRevealTarget `json:"reveals"`
-	DurationMS      int                     `json:"durationMs"`
+	DurationMS      int                     `json:"durationMs" ts_parse_fallback:"3000"`
 	RequestID       string                  `json:"requestId"`
 }
 
