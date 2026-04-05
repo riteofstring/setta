@@ -1,6 +1,9 @@
 import React, { type PointerEvent as ReactPointerEvent } from "react";
-import { SettingsGraphSubstrateCanaryDomSectionBody } from "./settingsGraphSubstrateCanaryDomSectionBody";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  resolveSettingsGraphSubstrateCanarySectionBody,
+  SettingsGraphSubstrateCanarySectionBodyDomAdapter,
+} from "./settingsGraphSubstrateCanarySectionBodyAdapter";
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
 import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
 
@@ -69,6 +72,10 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   return (
     <>
       {sceneSections.map((section) => {
+        const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+          sectionId: section.sectionId,
+          shellChromeOwner: "shell-layer",
+        });
         return (
           <SettingsGraphSubstrateCanarySectionShell
             key={section.sectionId}
@@ -78,8 +85,8 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             handleSectionPointerMove={handleSectionPointerMove}
             section={section}
           >
-            <SettingsGraphSubstrateCanaryDomSectionBody
-              sectionId={section.sectionId}
+            <SettingsGraphSubstrateCanarySectionBodyDomAdapter
+              sectionBody={sectionBody}
             />
           </SettingsGraphSubstrateCanarySectionShell>
         );

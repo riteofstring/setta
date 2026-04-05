@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 17:36 EDT
+Last updated: 2026-04-06 17:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,63 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `228` collapses the canary DOM section-body chrome-suppression trio behind one renderer-facing body adapter boundary, so the canary composition layer no longer names `SectionContainer` shell-suppression flags directly.
+  - Why this slice was needed:
+    - item `227` collapsed the shell chrome into one shell-layer contract, but the canary body path still hard-coded the DOM suppression trio (`forceHideOutline`, `forceTransparentBorder`, `forceHideTopDragHandle`) straight into `SectionContainer`
+    - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to keep moving renderer ownership forward without adding a dependency
+    - choosing shell ownership at the canary composition boundary is meaningful progress; it is not another shell-only forwarding hop or a return to geometry-authority work
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      - introduced `SettingsGraphSubstrateCanarySectionBody`, `resolveSettingsGraphSubstrateCanarySectionBody(...)`, and `SettingsGraphSubstrateCanarySectionBodyDomAdapter`
+      - the canary now chooses `shellChromeOwner` once and the DOM adapter translates that contract into the current `SectionContainer` suppression props
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - the sections layer now resolves one renderer-facing body contract per section with `shellChromeOwner: "shell-layer"` and renders the DOM adapter instead of a hard-coded DOM body wrapper
+    - removed `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryDomSectionBody.tsx`
+      - the old wrapper only forwarded the suppression trio into `SectionContainer`, so it is replaced by the new adapter boundary
+    - added focused test:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    - updated focused canary test:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+  - What this slice established:
+    - the canary sections layer now chooses shell ownership at a renderer-facing boundary instead of naming DOM suppression flags directly
+    - the DOM-backed body path can keep using `SectionContainer` today while future scene-owned shell work consumes the same body contract without inheriting the old boolean trio
+    - this continues the renderer-ownership fallback lane without reopening parity churn or the already-closed geometry-authority refactor shape
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`2 files`, `8 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanarySectionBodyAdapter(\\.test)?\\.tsx?|settingsGraphSubstrateCanarySectionsLayer\\.tsx|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - initial run on the pre-recovery loop runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-004 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned (border|top drag handle)' --reporter=line --timeout=30000`
+        - result: not a trustworthy gate; both cases timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed`
+      - allowed worktree recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: worktree restarted on backend `8075`, actual frontend `3075`, and debug port `9297`; `./scripts/dev-runtime-info.sh` stayed stale on frontend `3076`, so `curl` was used to confirm `3075`
+      - retry on the recovered runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned (border|top drag handle)' --reporter=line --timeout=30000`
+        - result: hit the same pre-body `ensureAppReady(...)` cookie/context shutdown, so the failure remains harness noise rather than slice-specific behavior
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the first CDP attempt correctly classified the pre-recovery worktree as `worktree_unhealthy` because `http://127.0.0.1:3076/settings` stayed on `Starting backend services`
+      - note: after the allowed recovery, a fresh-context sub-agent verified `http://127.0.0.1:3075/settings` with `All Settings` active and visible `rotaryParamCodeObjDefault`
+      - note: the shell-owned border/top drag handle treatment looked attached with no obvious gross drift on the recovered worktree slice
+      - note: read-only `main` at `http://127.0.0.1:3087/settings` was healthy; the side-by-side check stayed partial rather than strict because the exact target viewport was not aligned on the reference pass
+  - Lane status:
+    - this closes the body-adapter fallback slice that item `227` named when Pixi approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the repeated Playwright failure is still harness-health noise instead of product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer contract plus the new body adapter boundary to land the first scene-owned static shell layer while `SectionContainer` keeps the DOM body/editor path intact
+    - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the DOM body surface/background shell treatment behind one renderer-facing body-surface contract instead of exposing `SectionContainer`/`sectionChrome` details directly
 
 - Ralph item `227` collapses the canary shell chrome trio behind one renderer-facing shell-layer contract and one DOM adapter, so the canary shell no longer exposes separate border/outline/top-drag-handle renderer boundaries.
   - Why this slice was needed:

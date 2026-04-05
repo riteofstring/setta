@@ -12,6 +12,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
     ({
       sectionId,
+      isTopLevel,
       forceHideOutline,
       forceTransparentBorder,
       forceHideTopDragHandle,
@@ -24,6 +25,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
     }) => (
       <div
         data-force-hide-outline={forceHideOutline ? "true" : "false"}
+        data-is-top-level={isTopLevel ? "true" : "false"}
         data-force-transparent-border={
           forceTransparentBorder ? "true" : "false"
         }
@@ -212,6 +214,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(outline?.className).toContain("outline-blue-600");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceHideOutline: true,
+      isTopLevel: true,
       sectionId: "section-a",
     });
   });
@@ -234,6 +237,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(border?.className).toContain("border-white");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceTransparentBorder: true,
+      isTopLevel: true,
       sectionId: "section-a",
     });
   });
@@ -259,6 +263,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(topDragHandle?.dataset.resizeHandleTone).toBe("minimal");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceHideTopDragHandle: true,
+      isTopLevel: true,
       sectionId: "section-a",
     });
   });
