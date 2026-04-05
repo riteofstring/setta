@@ -11,19 +11,11 @@ import (
 	"time"
 
 	"setta/internal/frontendbindingmeta"
-	"setta/internal/httpapi"
-	"setta/internal/transcriptionsessions"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
-var discoveredTypeOverrides = mergedTypeOverrides()
-
-func mergedTypeOverrides() map[reflect.Type]reflect.Type {
-	overrides := DiscoveredTypeOverrides()
-	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*httpapi.TranscriptionSessionDeltaResponse)(nil)).Elem()
-	return overrides
-}
+var discoveredTypeOverrides = DiscoveredTypeOverrides()
 
 type tsLiteralField struct {
 	Name  string
