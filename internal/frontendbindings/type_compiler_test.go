@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"setta/internal/agentruns"
+	"setta/internal/frontendbindingmeta"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
@@ -134,7 +135,7 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	}
 }
 
-func TestLookupDiscriminatedObjectFamilyUsesPromotedProviderMethods(t *testing.T) {
+func TestLookupProviderUsesPromotedDiscriminatedObjectFamilyMethods(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -159,12 +160,13 @@ func TestLookupDiscriminatedObjectFamilyUsesPromotedProviderMethods(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			family, ok := lookupDiscriminatedObjectFamily(tc.typ)
+			provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](tc.typ)
 			if !ok {
-				t.Fatalf("lookupDiscriminatedObjectFamily(%v) did not find a family", tc.typ)
+				t.Fatalf("LookupProvider(%v) did not find a family", tc.typ)
 			}
-			if family.BaseType != tc.wantBase {
-				t.Fatalf("lookupDiscriminatedObjectFamily(%v) base = %v, want %v", tc.typ, family.BaseType, tc.wantBase)
+			family := provider.FrontendBindingDiscriminatedObjectFamily()
+			if got := canonicalFrontendBindingType(family.BaseType); got != tc.wantBase {
+				t.Fatalf("LookupProvider(%v) base = %v, want %v", tc.typ, got, tc.wantBase)
 			}
 		})
 	}

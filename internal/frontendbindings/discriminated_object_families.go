@@ -13,25 +13,18 @@ type discriminatedObjectFamilyMember struct {
 	EnumExpr string
 }
 
-func lookupDiscriminatedObjectFamily(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, bool) {
-	t = canonicalFrontendBindingType(t)
-	if t == nil {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, false
-	}
-	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](t); ok {
-		family := provider.FrontendBindingDiscriminatedObjectFamily()
-		family.BaseType = canonicalFrontendBindingType(family.BaseType)
-		if family.BaseType != nil {
-			return family, true
-		}
-	}
-	return frontendbindingmeta.DiscriminatedObjectFamily{}, false
-}
-
 func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool, error) {
 	t = canonicalFrontendBindingType(t)
-	family, ok := lookupDiscriminatedObjectFamily(t)
+	if t == nil {
+		return nil, false, nil
+	}
+	provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](t)
 	if !ok {
+		return nil, false, nil
+	}
+	family := provider.FrontendBindingDiscriminatedObjectFamily()
+	family.BaseType = canonicalFrontendBindingType(family.BaseType)
+	if family.BaseType == nil {
 		return nil, false, nil
 	}
 	members, err := discriminatedObjectFamilyMembers(family)
@@ -271,8 +264,12 @@ func discriminatedObjectFamilyMembers(
 		if candidate == nil || candidate == family.BaseType {
 			continue
 		}
-		candidateFamily, ok := lookupDiscriminatedObjectFamily(candidate)
-		if !ok || candidateFamily.BaseType != family.BaseType {
+		candidateProvider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](candidate)
+		if !ok {
+			continue
+		}
+		candidateFamily := candidateProvider.FrontendBindingDiscriminatedObjectFamily()
+		if canonicalFrontendBindingType(candidateFamily.BaseType) != family.BaseType {
 			continue
 		}
 		value, ok := family.DiscriminatorValue(candidate)
