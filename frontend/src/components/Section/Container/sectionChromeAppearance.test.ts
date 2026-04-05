@@ -13,6 +13,9 @@ describe("sectionChromeAppearance", () => {
     });
 
     expect(appearance.bgColor).toBe("bg-white dark:bg-setta-900");
+    expect(appearance.backgroundColor).toBe(
+      appearance.sectionStyleVars?.["--setta-section-style-bg"],
+    );
     expect(appearance.useMetaControlStyle).toBe(false);
     expect(appearance.hasSectionStyleTheme).toBe(true);
     expect(appearance.sectionStyleVars).toMatchObject({
@@ -56,8 +59,22 @@ describe("sectionChromeAppearance", () => {
     });
 
     expect(appearance.bgColor).toBe("bg-transparent");
+    expect(appearance.backgroundColor).toBeNull();
     expect(appearance.useMetaControlStyle).toBe(true);
     expect(appearance.hasSectionStyleTheme).toBe(false);
     expect(appearance.sectionStyleVars).toBeUndefined();
+  });
+
+  it("resolves a renderer-facing default surface fill color for unthemed sections", () => {
+    const appearance = resolveSectionChromeAppearance({
+      darkMode: true,
+      previewStyleColor: undefined,
+      sectionTypeName: SectionTypeEnum.Dict,
+      styleColor: null,
+      textBlockMetaControlStyle: false,
+    });
+
+    expect(appearance.bgColor).toBe("bg-setta-50 dark:bg-setta-860");
+    expect(appearance.backgroundColor).toBe("hsl(220, 25%, 8.5%)");
   });
 });

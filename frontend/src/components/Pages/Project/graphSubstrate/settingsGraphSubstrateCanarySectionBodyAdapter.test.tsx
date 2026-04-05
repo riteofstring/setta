@@ -19,6 +19,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       sectionId,
       forceHideOutline,
       forceTransparentBorder,
+      forceTransparentBackground,
       forceHideTopDragHandle,
       headerRenderer,
       isTopLevel,
@@ -31,6 +32,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         };
       };
       forceHideOutline?: boolean;
+      forceTransparentBackground?: boolean;
       forceHideTopDragHandle?: boolean;
       forceTransparentBorder?: boolean;
       headerRenderer?: unknown;
@@ -44,6 +46,9 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         }
         data-force-transparent-border={
           forceTransparentBorder ? "true" : "false"
+        }
+        data-force-transparent-background={
+          forceTransparentBackground ? "true" : "false"
         }
         data-is-top-level={isTopLevel ? "true" : "false"}
         data-surface-bg-color={bodySurfaceOverride?.bgColor ?? ""}
@@ -70,6 +75,10 @@ vi.mock("components/Section/Container/sectionChromeAppearance", () => ({
     sectionTypeName: string;
     textBlockMetaControlStyle: boolean;
   }) => ({
+    backgroundColor:
+      sectionTypeName === "MetaControl" || textBlockMetaControlStyle
+        ? null
+        : "#f4f7fb",
     bgColor:
       sectionTypeName === "MetaControl" || textBlockMetaControlStyle
         ? "bg-transparent"
@@ -125,7 +134,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       bodySurfaceOverride: {
-        bgColor: "bg-setta-50",
+        bgColor: "bg-transparent",
         surfaceDecorations: {
           layout: "section-grid",
           showTopDragHandle: false,
@@ -133,6 +142,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
       },
       forceHideOutline: true,
       forceHideTopDragHandle: true,
+      forceTransparentBackground: true,
       forceTransparentBorder: true,
       isTopLevel: true,
       headerRenderer: SettingsGraphSubstrateCanarySectionHeaderDomAdapter,
@@ -165,6 +175,9 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
     expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(
       "forceHideOutline",
     );
+    expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      forceTransparentBackground: false,
+    });
     expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(
       "forceHideTopDragHandle",
     );

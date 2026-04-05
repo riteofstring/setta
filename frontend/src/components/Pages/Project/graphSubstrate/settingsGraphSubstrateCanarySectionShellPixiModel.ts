@@ -33,6 +33,9 @@ type SettingsGraphSubstrateCanaryShellPixiColor = {
   color: string;
 };
 
+export type SettingsGraphSubstrateCanarySectionShellPixiFill =
+  SettingsGraphSubstrateCanaryShellPixiColor;
+
 export type SettingsGraphSubstrateCanarySectionShellPixiStroke = {
   alignment: number;
   alpha: number;
@@ -43,6 +46,7 @@ export type SettingsGraphSubstrateCanarySectionShellPixiStroke = {
 export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   border: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
   cornerRadius: number;
+  fill: SettingsGraphSubstrateCanarySectionShellPixiFill | null;
   outline: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
   screenHeight: number;
   screenWidth: number;
@@ -145,13 +149,16 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
     darkMode,
     viewport.zoom,
   );
+  const fill = resolveSectionShellPixiFill(
+    sectionChromeAppearance.backgroundColor,
+  );
   const outline = resolveSectionShellPixiOutlineStroke(
     shellAppearance,
     darkMode,
     viewport.zoom,
   );
 
-  if (!border && !outline) {
+  if (!border && !fill && !outline) {
     return null;
   }
 
@@ -161,12 +168,24 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
       (shellAppearance.frameStructure.cornerStyle === "small"
         ? SMALL_CORNER_RADIUS_PX
         : LARGE_CORNER_RADIUS_PX) * viewport.zoom,
+    fill,
     outline,
     screenHeight: screenSize.height,
     screenWidth: screenSize.width,
     screenX: screenPosition.x,
     screenY: screenPosition.y,
     sectionId: section.sectionId,
+  };
+}
+
+function resolveSectionShellPixiFill(backgroundColor: string | null) {
+  if (backgroundColor === null) {
+    return null;
+  }
+
+  return {
+    alpha: 1,
+    color: backgroundColor,
   };
 }
 

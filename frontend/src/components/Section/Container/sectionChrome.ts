@@ -19,6 +19,7 @@ type SectionContainerShellClassNameOptions = {
 
 type SectionSurfaceClassNameOptions = {
   bgColor: string;
+  forceTransparentBackground?: boolean;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
   shouldDisablePointerEvents?: boolean;
@@ -565,6 +566,7 @@ export function getSectionContainerShellClassName({
 
 export function getSectionSurfaceClassName({
   bgColor,
+  forceTransparentBackground = false,
   hasSectionStyleTheme,
   positionAndSizeLocked,
   shouldDisablePointerEvents = false,
@@ -583,8 +585,12 @@ export function getSectionSurfaceClassName({
   });
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
-  const sectionStyleChromeClassName = hasSectionStyleTheme
-    ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
+  const sectionStyleBackgroundClassName =
+    hasSectionStyleTheme && !forceTransparentBackground
+      ? "!bg-[color:var(--setta-section-style-bg)]"
+      : "";
+  const sectionStyleBorderClassName = hasSectionStyleTheme
+    ? "before:!border-[color:var(--setta-section-style-border)]"
     : "";
   const frameBorderClassName = frameStructure.surfaceFrameVisible
     ? "before:border"
@@ -595,6 +601,7 @@ export function getSectionSurfaceClassName({
   return joinClassNames(
     shouldDisablePointerEvents && "pointer-events-none select-none",
     bgColor,
+    forceTransparentBackground && "!bg-transparent dark:!bg-transparent",
     layoutClassNameToUse,
     "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
     frameBorderClassName,
@@ -603,6 +610,7 @@ export function getSectionSurfaceClassName({
     zIndexClassName,
     metaHoverZIndexClassName,
     frameClassName,
-    sectionStyleChromeClassName,
+    sectionStyleBackgroundClassName,
+    sectionStyleBorderClassName,
   );
 }

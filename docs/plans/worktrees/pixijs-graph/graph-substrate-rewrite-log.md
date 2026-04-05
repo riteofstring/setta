@@ -9454,3 +9454,40 @@ LOOP_TERMINAL_MARKER: none
     - keep the pending CDP spot-check explicit and move to the next real product frontier unless `chrome-devtools-mcp` is cheaply usable at the start of the next iteration
     - if CDP becomes available without another recovery-only pass, use the named `rotaryParamCodeObjDefault` target for the outstanding graph-surface spot-check
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 01:54 EDT, Ralph item `243`
+  - Summary: moved the first Pixi-owned shell slice deeper by making the root Pixi shell canvas own section surface fills via a new renderer-facing `backgroundColor` contract, added an explicit themed `forceTransparentBackground` DOM-surface override so the duplicate fill actually disappears, verified the focused Vitest suite green, and captured a narrow CDP spot-check showing no obvious duplicate DOM fill seam on the live worktree canary.
+  - Files:
+    - `frontend/src/components/Section/Container/sectionChromeAppearance.ts`
+    - `frontend/src/components/Section/Container/sectionChrome.ts`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - `frontend/src/components/Section/Container/sectionChromeAppearance.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/sectionChromeAppearance.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Utils/Resizable/CustomResizable.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`5 files`, `32 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionChrome\\.(ts|test\\.ts)|sectionChromeAppearance\\.(ts|test\\.ts)|SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx)|CustomResizable\\.tsx|settingsGraphSubstrateCanarySectionBodyAdapter\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionShellPixi(Model|Layer)\\.(ts|tsx|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx|settings-view-modes\\.spec\\.ts' || true` -> still reports pre-existing unrelated `CustomResizable.tsx` type errors; not treated as new slice-specific failures
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone'` -> timed out in cleanup at `postBackend(page, "/setViewport", ...)` in `finally`, matching the existing helper-noise shape already recorded on this lane
+    - fresh-context CDP sub-agent -> done; narrow worktree spot-check on live `All Settings` reported scene-owned background with no obvious duplicate DOM fill seam, with only a partial fallback visual comparison against the already-running read-only `main` shell because the provided `main` bootstrap token was rejected
+  - Result:
+    - the first Pixi-owned shell slice now owns section background fill in addition to border/outline for canary sections whose shell fill has a robust renderer-facing contract
+    - themed DOM section surfaces can now be forced transparent at the real surface boundary, so duplicate fill suppression no longer depends on `bgColor` alone
+    - the sanctioned shell-border helper still times out in cleanup, but that remains helper noise rather than new product evidence on this slice
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into the next non-editing shell/body/header visual
+    - do not spend a default iteration on this helper timeout alone unless a future product slice genuinely needs the lane tightened again
+  - LOOP_TERMINAL_MARKER: none

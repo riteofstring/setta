@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 01:35 EDT
+Last updated: 2026-04-07 01:54 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,54 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `243` moved the first Pixi-owned shell slice deeper by making the root Pixi layer own section surface fills wherever the shared chrome contract can provide an explicit renderer-facing background color, while forcing the DOM section surface transparent at the actual themed owner boundary.
+  - Why this pass stopped here:
+    - the plan and handoff explicitly said to stop spending default iterations on shell-lane verification churn and to keep moving the first scene-owned Pixi slice deeper into non-editing shell/body/header visuals
+    - the prior Pixi shell layer only owned border/outline strokes; the DOM section surface still painted the fill, so the first scene-owned shell slice was incomplete
+    - the first implementation attempt showed why the ownership seam had to move lower: `bgColor: "bg-transparent"` alone did not suppress themed DOM fills because `getSectionSurfaceClassName(...)` still applied `!bg-[color:var(--setta-section-style-bg)]`, so this slice added an explicit `forceTransparentBackground` surface override instead of relying on class-string substitution
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Product/test change:
+    - updated [`frontend/src/components/Section/Container/sectionChromeAppearance.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChromeAppearance.ts)
+      - added renderer-facing `backgroundColor` resolution alongside the existing DOM `bgColor` class contract
+      - uses exact theme/default palette colors for sections whose shell fill is well-defined and returns `null` when no robust fill contract exists yet (for example meta-control and browser surfaces)
+    - updated [`frontend/src/components/Section/Container/sectionChrome.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChrome.ts), [`frontend/src/components/Section/Container/SectionContainer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainer.tsx), [`frontend/src/components/Section/Container/SectionContainerCore.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainerCore.tsx), [`frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx), and [`frontend/src/components/Utils/Resizable/CustomResizable.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Utils/Resizable/CustomResizable.tsx)
+      - threaded a new `forceTransparentBackground` prop through the section surface stack
+      - suppresses the DOM surface fill even when themed `!bg-[color:var(--setta-section-style-bg)]` would otherwise override a transparent `bgColor`, while still preserving themed border vars
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx)
+      - the canary body adapter now makes the DOM body surface transparent only when the shell layer can actually own a Pixi fill
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts) and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+      - resolved Pixi fill drawables from the new shared `backgroundColor` contract
+      - now draws fill rectangles before the existing border/outline strokes in the root shell canvas
+    - updated focused tests in [`frontend/src/components/Section/Container/sectionChrome.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChrome.test.ts), [`frontend/src/components/Section/Container/sectionChromeAppearance.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChromeAppearance.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx), and [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts)
+      - added coverage for the new renderer-facing fill contract and the themed transparent-background override
+      - extended the sanctioned shell-owned border lane to assert the DOM shell background stays transparent while Pixi owns the visible fill
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/sectionChromeAppearance.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Utils/Resizable/CustomResizable.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`5 files`, `32 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionChrome\\.(ts|test\\.ts)|sectionChromeAppearance\\.(ts|test\\.ts)|SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx)|CustomResizable\\.tsx|settingsGraphSubstrateCanarySectionBodyAdapter\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionShellPixi(Model|Layer)\\.(ts|tsx|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx|settings-view-modes\\.spec\\.ts' || true`
+      - result: still reports pre-existing unrelated `CustomResizable.tsx` type issues; no new slice-specific signal was used as a gate here
+    - sanctioned Playwright helper:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone'`
+      - result: timed out in `finally` at `postBackend(page, "/setViewport", ...)` on [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts#L1848)
+      - interpretation: this is the same cleanup-side helper noise already recorded on this lane; the failure did not surface a new product assertion about the fill path
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent spot-checked the live worktree `All Settings` canary and reported that the shell background looked scene-owned with no obvious duplicate DOM fill seam
+      - the provided read-only `main` bootstrap token was rejected, so the reference side used the already-running `http://127.0.0.1:3087/settings` shell as a fallback visual anchor rather than a full bootstrap-first parity proof
+  - Lane status:
+    - the first Pixi-owned shell slice now owns section background fill in addition to the existing border/outline layer on canary sections with an explicit renderer-facing fill contract
+    - duplicate DOM fill suppression now happens at the actual themed surface boundary instead of relying on `bgColor` substitution alone
+    - the sanctioned shell-border helper still has unchanged cleanup-timeout noise, so this lane should not reopen default harness work unless a later product slice genuinely needs it
+  - Next frontier:
+    - keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage and move the next scene-owned slice into the next non-editing shell/body/header visual instead of more cleanup-only harness work
+    - if the sanctioned helper is touched again, do it only to support a future product change, not as a standalone retry loop
 
 - Ralph item `242` fixed the remaining shell-layer mount stall in the first Pixi-owned slice, reran the two sanctioned shell-owned acceptance tests green, and exhausted the one allowed headless lifecycle recovery without restoring a usable `chrome-devtools-mcp` visual spot-check.
   - Why this pass stopped here:

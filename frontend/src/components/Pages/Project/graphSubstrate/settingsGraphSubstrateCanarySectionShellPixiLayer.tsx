@@ -192,6 +192,20 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
 
   graphics.clear();
   for (const drawable of drawables) {
+    if (drawable.fill) {
+      graphics
+        .roundRect(
+          drawable.screenX,
+          drawable.screenY,
+          drawable.screenWidth,
+          drawable.screenHeight,
+          drawable.cornerRadius,
+        )
+        .fill({
+          alpha: drawable.fill.alpha,
+          color: drawable.fill.color,
+        });
+    }
     if (drawable.outline) {
       graphics
         .roundRect(

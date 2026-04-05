@@ -279,4 +279,21 @@ describe("sectionChrome", () => {
     expect(className).toContain("before:border-0");
     expect(className).toContain("rounded-none");
   });
+
+  it("forces themed section surfaces transparent when a renderer-owned fill takes over", () => {
+    const className = getSectionSurfaceClassName({
+      bgColor: "bg-white dark:bg-setta-900",
+      forceTransparentBackground: true,
+      hasSectionStyleTheme: true,
+      positionAndSizeLocked: false,
+    });
+
+    expect(className).toContain("!bg-transparent");
+    expect(className).not.toContain(
+      "!bg-[color:var(--setta-section-style-bg)]",
+    );
+    expect(className).toContain(
+      "before:!border-[color:var(--setta-section-style-border)]",
+    );
+  });
 });

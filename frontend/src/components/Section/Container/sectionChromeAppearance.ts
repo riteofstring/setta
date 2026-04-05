@@ -21,11 +21,58 @@ type UseSectionChromeAppearanceArgs = Pick<
 };
 
 export type SectionChromeAppearance = {
+  backgroundColor: string | null;
   bgColor: string;
   hasSectionStyleTheme: boolean;
   sectionStyleVars: React.CSSProperties | undefined;
   useMetaControlStyle: boolean;
 };
+
+const SETTA_50 = "hsl(222, 28%, 95%)";
+const SETTA_860 = "hsl(220, 25%, 8.5%)";
+const SETTA_900 = "hsl(220, 27%, 6%)";
+const SETTA_950 = "hsl(220, 25%, 3%)";
+const STONE_100 = "#f5f5f4";
+const STONE_900 = "#171717";
+
+function resolveSectionChromeBackgroundColor({
+  darkMode,
+  sectionTypeName,
+  sectionStyleBackgroundColor,
+  useMetaControlStyle,
+}: {
+  darkMode: boolean;
+  sectionTypeName: SectionType;
+  sectionStyleBackgroundColor: string | null;
+  useMetaControlStyle: boolean;
+}) {
+  if (sectionStyleBackgroundColor !== null) {
+    return sectionStyleBackgroundColor;
+  }
+
+  if (useMetaControlStyle) {
+    return null;
+  }
+
+  switch (sectionTypeName) {
+    case SectionTypeEnum.Code:
+    case SectionTypeEnum.GenPythonCode:
+    case SectionTypeEnum.GenPythonMetadata:
+      return darkMode ? SETTA_900 : "#ffffff";
+    case SectionTypeEnum.Terminal:
+      return SETTA_950;
+    case SectionTypeEnum.Browser:
+      return null;
+    case SectionTypeEnum.GlobalVariables:
+      return darkMode ? "#000000" : "#ffffff";
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return darkMode ? STONE_900 : STONE_100;
+    default:
+      return darkMode ? SETTA_860 : SETTA_50;
+  }
+}
 
 export function resolveSectionChromeAppearance({
   darkMode,
@@ -45,6 +92,12 @@ export function resolveSectionChromeAppearance({
       : null;
 
   return {
+    backgroundColor: resolveSectionChromeBackgroundColor({
+      darkMode,
+      sectionTypeName,
+      sectionStyleBackgroundColor: sectionStyleTheme?.bg ?? null,
+      useMetaControlStyle,
+    }),
     bgColor: useMetaControlStyle
       ? "bg-transparent"
       : getBgColor(sectionTypeName),

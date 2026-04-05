@@ -16,6 +16,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       isTopLevel,
       forceHideOutline,
       forceTransparentBorder,
+      forceTransparentBackground,
       forceHideTopDragHandle,
     }: {
       bodySurfaceOverride?: {
@@ -28,6 +29,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       sectionId: string;
       isTopLevel: boolean;
       forceHideOutline?: boolean;
+      forceTransparentBackground?: boolean;
       forceTransparentBorder?: boolean;
       forceHideTopDragHandle?: boolean;
     }) => (
@@ -36,6 +38,9 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         data-is-top-level={isTopLevel ? "true" : "false"}
         data-force-transparent-border={
           forceTransparentBorder ? "true" : "false"
+        }
+        data-force-transparent-background={
+          forceTransparentBackground ? "true" : "false"
         }
         data-force-hide-top-drag-handle={
           forceHideTopDragHandle ? "true" : "false"
@@ -252,11 +257,13 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(border).toBeNull();
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       bodySurfaceOverride: {
+        bgColor: "bg-transparent",
         surfaceDecorations: {
           layout: "section-grid",
           showTopDragHandle: false,
         },
       },
+      forceTransparentBackground: true,
       forceTransparentBorder: true,
       isTopLevel: true,
       sectionId: "section-a",

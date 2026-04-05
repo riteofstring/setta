@@ -78,7 +78,10 @@ function getSectionContainerChromeSuppression(
 
 function useSettingsGraphSubstrateCanarySectionBodySurface(
   sectionBody: SettingsGraphSubstrateCanarySectionBody,
-): SectionChromeBodySurface {
+): {
+  bodySurface: SectionChromeBodySurface;
+  shellLayerOwnsBackground: boolean;
+} {
   const sectionChromeAppearance = useSectionChromeAppearance({
     sectionId: sectionBody.sectionId,
     sectionTypeName: sectionBody.sectionTypeName,
@@ -86,21 +89,30 @@ function useSettingsGraphSubstrateCanarySectionBodySurface(
     textBlockMetaControlStyle: sectionBody.textBlockMetaControlStyle,
   });
 
-  return useMemo(
-    () =>
-      resolveSettingsGraphSubstrateCanarySectionBodySurface({
-        bgColor: sectionChromeAppearance.bgColor,
+  return useMemo(() => {
+    const shellLayerOwnsBackground =
+      sectionBody.shellChromeOwner === "shell-layer" &&
+      sectionChromeAppearance.backgroundColor !== null;
+
+    return {
+      bodySurface: resolveSettingsGraphSubstrateCanarySectionBodySurface({
+        bgColor: shellLayerOwnsBackground
+          ? "bg-transparent"
+          : sectionChromeAppearance.bgColor,
         positionAndSizeLocked: sectionBody.positionAndSizeLocked,
         sectionTypeName: sectionBody.sectionTypeName,
         useMetaControlStyle: sectionChromeAppearance.useMetaControlStyle,
       }),
-    [
-      sectionChromeAppearance.bgColor,
-      sectionChromeAppearance.useMetaControlStyle,
-      sectionBody.positionAndSizeLocked,
-      sectionBody.sectionTypeName,
-    ],
-  );
+      shellLayerOwnsBackground,
+    };
+  }, [
+    sectionBody.shellChromeOwner,
+    sectionChromeAppearance.bgColor,
+    sectionChromeAppearance.backgroundColor,
+    sectionChromeAppearance.useMetaControlStyle,
+    sectionBody.positionAndSizeLocked,
+    sectionBody.sectionTypeName,
+  ]);
 }
 
 type SettingsGraphSubstrateCanarySectionBodyDomAdapterProps = {
@@ -110,12 +122,13 @@ type SettingsGraphSubstrateCanarySectionBodyDomAdapterProps = {
 function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
   sectionBody,
 }: SettingsGraphSubstrateCanarySectionBodyDomAdapterProps) {
-  const bodySurfaceOverride =
+  const { bodySurface: bodySurfaceOverride, shellLayerOwnsBackground } =
     useSettingsGraphSubstrateCanarySectionBodySurface(sectionBody);
 
   return (
     <SectionContainer
       bodySurfaceOverride={bodySurfaceOverride}
+      forceTransparentBackground={shellLayerOwnsBackground}
       headerRenderer={SettingsGraphSubstrateCanarySectionHeaderDomAdapter}
       sectionId={sectionBody.sectionId}
       isTopLevel={true}

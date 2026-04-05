@@ -29,6 +29,7 @@ import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  forceTransparentBackground?: boolean;
   headerRenderer?:
     | React.ComponentType<SectionContainerHeaderRenderProps>
     | undefined;
@@ -44,6 +45,7 @@ type SectionContainerCoreProps = {
 
 function _SectionContainerCore({
   bodySurfaceOverride,
+  forceTransparentBackground = false,
   headerRenderer,
   sectionId,
   isUserView,
@@ -174,6 +176,7 @@ function _SectionContainerCore({
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         bodySurfaceOverride={bodySurfaceOverride}
+        forceTransparentBackground={forceTransparentBackground}
         headerRenderer={headerRenderer}
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
@@ -191,6 +194,8 @@ export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (previousProps, nextProps) =>
     previousProps.bodySurfaceOverride === nextProps.bodySurfaceOverride &&
+    previousProps.forceTransparentBackground ===
+      nextProps.forceTransparentBackground &&
     previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isUserView === nextProps.isUserView &&

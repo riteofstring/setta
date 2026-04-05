@@ -34,6 +34,9 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         width: 0.5,
       },
       cornerRadius: 4,
+      fill: {
+        color: appearance.backgroundColor,
+      },
       outline: {
         alignment: 0,
         color: appearance.sectionStyleVars?.["--setta-section-style-outline"],
@@ -78,6 +81,9 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       });
 
     expect(drawables).toHaveLength(1);
+    expect(drawables[0]?.fill).toMatchObject({
+      color: "hsl(220, 27%, 6%)",
+    });
     expect(drawables[0]?.border).toMatchObject({
       color: "hsl(219, 26%, 23%)",
       width: 1,

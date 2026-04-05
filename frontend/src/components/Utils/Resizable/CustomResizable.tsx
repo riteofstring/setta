@@ -55,6 +55,7 @@ const AUTO_CLAMP_TOLERANCE = 2;
 type CustomResizableProps = {
   sectionId: string;
   bgColor: string;
+  forceTransparentBackground?: boolean;
   isYouTube: boolean;
   surfaceDecorations: SectionChromeSurfaceDecorations;
   positionAndSizeLocked: boolean;
@@ -67,6 +68,7 @@ type CustomResizableProps = {
 export function CustomResizable({
   sectionId,
   bgColor,
+  forceTransparentBackground = false,
   isYouTube,
   surfaceDecorations,
   positionAndSizeLocked,
@@ -81,6 +83,7 @@ export function CustomResizable({
     <CustomResizableCore
       sectionId={sectionId}
       bgColor={bgColor}
+      forceTransparentBackground={forceTransparentBackground}
       isYouTube={isYouTube}
       surfaceDecorations={surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
@@ -101,6 +104,7 @@ export function CustomResizable({
 function CustomResizableCore({
   sectionId,
   bgColor,
+  forceTransparentBackground,
   isYouTube,
   surfaceDecorations,
   positionAndSizeLocked,
@@ -403,6 +407,7 @@ function CustomResizableCore({
       sectionId={sectionId}
       as={as}
       bgColor={bgColor}
+      forceTransparentBackground={forceTransparentBackground}
       isYouTube={isYouTube}
       surfaceDecorations={surfaceDecorations}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -434,6 +439,7 @@ function CustomResizableSuperCore({
   sectionId,
   as,
   bgColor,
+  forceTransparentBackground,
   isYouTube,
   surfaceDecorations,
   hasSectionStyleTheme,
@@ -487,6 +493,7 @@ function CustomResizableSuperCore({
     getSectionChromeSurfaceDomAdapter(surfaceDecorations);
   const inputClasses = getSectionSurfaceClassName({
     bgColor,
+    forceTransparentBackground,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     shouldDisablePointerEvents,

@@ -52,6 +52,7 @@ function _SectionContainer({
   sectionId,
   isTopLevel = false,
   bodySurfaceOverride,
+  forceTransparentBackground = false,
   headerRenderer,
   dragListeners,
   forceHideOutline = false,
@@ -59,6 +60,7 @@ function _SectionContainer({
   forceHideTopDragHandle = false,
 }: {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  forceTransparentBackground?: boolean;
   headerRenderer?:
     | React.ComponentType<SectionContainerHeaderRenderProps>
     | undefined;
@@ -163,6 +165,7 @@ function _SectionContainer({
               <AgenticEdgeHandles isUserView={isUserView} />
               <SectionContainerCore
                 bodySurfaceOverride={bodySurfaceOverride}
+                forceTransparentBackground={forceTransparentBackground}
                 headerRenderer={headerRenderer}
                 sectionId={sectionId}
                 isUserView={isUserView}
@@ -186,6 +189,7 @@ function _SectionContainer({
               {!isGroup && (
                 <SectionContainerCore
                   bodySurfaceOverride={bodySurfaceOverride}
+                  forceTransparentBackground={forceTransparentBackground}
                   headerRenderer={headerRenderer}
                   sectionId={sectionId}
                   isUserView={isUserView}
@@ -222,6 +226,8 @@ export const SectionContainer = React.memo(
       previousProps.bodySurfaceOverride,
       nextProps.bodySurfaceOverride,
     ) &&
+    previousProps.forceTransparentBackground ===
+      nextProps.forceTransparentBackground &&
     previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&

@@ -1832,11 +1832,15 @@ test("settings graph substrate canary renders the shell-owned border without a d
     const domShellStyle = await domShell.evaluate((node) => {
       const computedStyle = window.getComputedStyle(node as HTMLElement);
       return {
+        backgroundColor: computedStyle.backgroundColor,
         borderTopColor: computedStyle.borderTopColor,
         borderTopWidth: computedStyle.borderTopWidth,
       };
     });
     expect(domShellStyle.borderTopWidth).not.toBe("0px");
+    expect(["rgba(0, 0, 0, 0)", "transparent"]).toContain(
+      domShellStyle.backgroundColor,
+    );
     expect(["rgba(0, 0, 0, 0)", "transparent"]).toContain(
       domShellStyle.borderTopColor,
     );
