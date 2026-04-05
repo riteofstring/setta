@@ -67,75 +67,122 @@ var (
 
 const semanticDefaultProfileFrontend = "frontend"
 
-func ensureSemanticExportTypeDeclarations(converter *typeConverter) error {
-	manifest, err := loadSemanticSidecarManifest()
-	if err != nil {
-		return err
-	}
-	typesByName := frontendBindingTypesByName()
-	for _, export := range manifest.ExportedValues {
-		typeName := strings.TrimSpace(export.Type)
-		if typeName == "" {
-			return fmt.Errorf("frontend semantic sidecar export %s is missing type", export.Name)
-		}
-		typ, ok := typesByName[typeName]
-		if !ok {
-			continue
-		}
-		if err := converter.ensureDeclaration(typ); err != nil {
-			return fmt.Errorf("frontend semantic sidecar export %s type %s: %w", export.Name, typeName, err)
-		}
-	}
-	return nil
-}
-
-func semanticContractIsEnum(name string) (bool, error) {
-	manifest, err := loadSemanticSidecarManifest()
-	if err != nil {
-		return false, err
-	}
-	trimmedName := strings.TrimSpace(name)
-	for _, contract := range manifest.Contracts {
-		if strings.TrimSpace(contract.Name) != trimmedName {
-			continue
-		}
-		return strings.TrimSpace(contract.Kind) == "enum", nil
-	}
-	return false, nil
-}
-
-func semanticEnumDeclarations(converter *typeConverter) ([]TypeDeclaration, error) {
+func semanticContractDeclarations(converter *typeConverter) ([]TypeDeclaration, error) {
 	manifest, err := loadSemanticSidecarManifest()
 	if err != nil {
 		return nil, err
 	}
-	neededNames := map[string]struct{}{}
-	for seenType := range converter.seen {
-		name := strings.TrimSpace(frontendBindingTypeName(seenType))
-		if name != "" {
-			neededNames[name] = struct{}{}
-		}
-	}
-	for _, family := range manifest.DiscriminatedFamilies {
-		name := strings.TrimSpace(family.EnumType)
-		if name != "" {
-			neededNames[name] = struct{}{}
-		}
-	}
-	for _, export := range manifest.ExportedValues {
-		name := strings.TrimSpace(export.Type)
-		if name != "" {
-			neededNames[name] = struct{}{}
-		}
+
+	typesByName := frontendBindingTypesByName()
+	familyDefaultsByMemberName, err := semanticFamilyDefaultsByMemberName(manifest)
+	if err != nil {
+		return nil, err
 	}
 
 	declarations := []TypeDeclaration{}
 	for _, contract := range manifest.Contracts {
 		name := strings.TrimSpace(contract.Name)
-		if _, ok := neededNames[name]; !ok {
+		if name == "" {
 			continue
 		}
-		if strings.TrimSpace(contract.Kind) != "enum" {
+		if strings.TrimSpace(contract.Kind) == "enum" {
+			continue
+		}
+		declarations = append(declarations, aliasDeclaration(name, "gt."+name))
+
+		typ, ok := typesByName[name]
+		if !ok {
+			continue
+		}
+		typ = canonicalFrontendBindingType(typ)
+		if typ == nil || typ.Kind() != reflect.Struct {
+			continue
+		}
+
+		createDeclaration, err := semanticCreateFunctionDeclaration(
+			converter,
+			name,
+			typ,
+			familyDefaultsByMemberName[name],
+		)
+		if err != nil {
+			return nil, err
+		}
+		declarations = append(declarations, createDeclaration)
+	}
+	return declarations, nil
+}
+
+func semanticCreateFunctionDeclaration(
+	converter *typeConverter,
+	typeName string,
+	typ reflect.Type,
+	familyDefault json.RawMessage,
+) (TypeDeclaration, error) {
+	defaultValue, ok, err := semanticDefaultValueForType(typ, semanticDefaultProfileFrontend)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
+	if ok {
+		return converter.goBackedCreateFunctionDeclaration(typ, defaultValue)
+	}
+	if len(familyDefault) > 0 {
+		defaultValue, err := decodeSemanticDefaultValue(typ, familyDefault)
+		if err != nil {
+			return TypeDeclaration{}, fmt.Errorf(
+				"frontend semantic sidecar family default %s: %w",
+				typeName,
+				err,
+			)
+		}
+		return converter.goBackedCreateFunctionDeclaration(typ, defaultValue)
+	}
+	return exportedFunctionDeclaration(
+		"create"+typeName,
+		typeName,
+		"  return options as "+typeName+";",
+		TypeProperty{
+			Name:         "options",
+			TypeExpr:     "Partial<" + typeName + ">",
+			DefaultValue: "{}",
+		},
+	), nil
+}
+
+func semanticFamilyDefaultsByMemberName(
+	manifest semanticSidecarManifest,
+) (map[string]json.RawMessage, error) {
+	defaults := map[string]json.RawMessage{}
+	for _, family := range manifest.DiscriminatedFamilies {
+		baseType := strings.TrimSpace(family.BaseType)
+		for discriminatorValue, rawDefault := range family.DefaultValuesByDiscriminator {
+			memberTypeName, ok := memberTypeNameForDiscriminator(family.Members, discriminatorValue)
+			if !ok {
+				return nil, fmt.Errorf(
+					"frontend semantic sidecar family %s discriminator %q has no matching member",
+					baseType,
+					discriminatorValue,
+				)
+			}
+			if _, exists := defaults[memberTypeName]; exists {
+				continue
+			}
+			defaults[memberTypeName] = rawDefault
+		}
+	}
+	return defaults, nil
+}
+
+func semanticEnumDeclarations() ([]TypeDeclaration, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	declarations := []TypeDeclaration{}
+	for _, contract := range manifest.Contracts {
+		name := strings.TrimSpace(contract.Name)
+		if name == "" || strings.TrimSpace(contract.Kind) != "enum" {
 			continue
 		}
 		declarations = append(declarations, TypeDeclaration{
@@ -286,80 +333,6 @@ func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {
 		}
 
 	}
-	return declarations, nil
-}
-
-func applySemanticSidecarCreateBodies(
-	converter *typeConverter,
-	declarations []TypeDeclaration,
-) ([]TypeDeclaration, error) {
-	manifest, err := loadSemanticSidecarManifest()
-	if err != nil {
-		return nil, err
-	}
-
-	declarations = append([]TypeDeclaration(nil), declarations...)
-	objectDeclarationIndex := make(map[string]int, len(declarations))
-	for index, declaration := range declarations {
-		if declaration.Kind != "object" {
-			continue
-		}
-		objectDeclarationIndex[declaration.Name] = index
-	}
-
-	typesByName := frontendBindingTypesByName()
-	for _, family := range manifest.DiscriminatedFamilies {
-		baseType := strings.TrimSpace(family.BaseType)
-		for discriminatorValue, rawDefault := range family.DefaultValuesByDiscriminator {
-			memberTypeName, ok := memberTypeNameForDiscriminator(family.Members, discriminatorValue)
-			if !ok {
-				return nil, fmt.Errorf(
-					"frontend semantic sidecar family %s discriminator %q has no matching member",
-					baseType,
-					discriminatorValue,
-				)
-			}
-			index, ok := objectDeclarationIndex[memberTypeName]
-			if !ok {
-				return nil, fmt.Errorf(
-					"frontend semantic sidecar family %s member %s has no object declaration",
-					baseType,
-					memberTypeName,
-				)
-			}
-			if declarations[index].CreateBody != "" {
-				continue
-			}
-			memberType, ok := typesByName[memberTypeName]
-			if !ok {
-				return nil, fmt.Errorf(
-					"frontend semantic sidecar family %s member %s does not resolve to a Go type",
-					baseType,
-					memberTypeName,
-				)
-			}
-			defaultValue, err := decodeSemanticDefaultValue(memberType, rawDefault)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"frontend semantic sidecar family %s member %s default: %w",
-					baseType,
-					memberTypeName,
-					err,
-				)
-			}
-			createDeclaration, err := converter.goBackedCreateFunctionDeclaration(memberType, defaultValue)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"frontend semantic sidecar family %s member %s create helper: %w",
-					baseType,
-					memberTypeName,
-					err,
-				)
-			}
-			declarations[index].CreateBody = createDeclaration.FunctionBody
-		}
-	}
-
 	return declarations, nil
 }
 

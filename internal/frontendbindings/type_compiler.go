@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"setta/internal/frontendbindingmeta"
 )
 
 var frontendSDKMirrorOwnerTypesByName = newFrontendSDKMirrorOwnerTypesByName()
@@ -53,10 +51,7 @@ func marshalTSLiteralJSON(value any, multiline bool) ([]byte, error) {
 	return bytes.TrimSuffix(buffer.Bytes(), []byte("\n")), nil
 }
 
-type typeConverter struct {
-	declarations []TypeDeclaration
-	seen         map[reflect.Type]struct{}
-}
+type typeConverter struct{}
 
 type reflectedStructProperty struct {
 	Property                     TypeProperty
@@ -82,21 +77,7 @@ func newFrontendSDKMirrorOwnerTypesByName() map[string]reflect.Type {
 }
 
 func newTypeConverter() *typeConverter {
-	return &typeConverter{
-		seen: make(map[reflect.Type]struct{}),
-	}
-}
-
-func (c *typeConverter) AddRootType(root reflect.Type) error {
-	if root == nil {
-		return nil
-	}
-	_, err := c.renderTypeExpr(root)
-	return err
-}
-
-func (c *typeConverter) Declarations() []TypeDeclaration {
-	return c.declarations
+	return &typeConverter{}
 }
 
 func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
@@ -118,9 +99,6 @@ func (c *typeConverter) renderTypeExprWithQualifier(
 		return qualifier + "JSONValue", nil
 	}
 	if t.Name() != "" && t.PkgPath() != "" {
-		if err := c.ensureDeclaration(t); err != nil {
-			return "", err
-		}
 		return qualifier + frontendBindingTypeName(t), nil
 	}
 
@@ -174,142 +152,9 @@ func (c *typeConverter) renderTypeExprWithQualifier(
 		return "unknown", nil
 	default:
 		if t.Name() != "" && t.PkgPath() != "" {
-			if err := c.ensureDeclaration(t); err != nil {
-				return "", err
-			}
 			return qualifier + frontendBindingTypeName(t), nil
 		}
 		return "", fmt.Errorf("unsupported Go type for TS conversion: %s", t.String())
-	}
-}
-
-func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
-	t = canonicalFrontendBindingType(t)
-	if t == nil || t.PkgPath() == "" || t == timeType {
-		return nil
-	}
-	if _, ok := c.seen[t]; ok {
-		return nil
-	}
-	c.seen[t] = struct{}{}
-
-	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t); ok {
-		memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
-		if len(memberTypes) == 0 {
-			return fmt.Errorf("%s returned no frontend union members", t.String())
-		}
-		members := make([]string, 0, len(memberTypes))
-		seen := map[string]struct{}{}
-		for _, memberType := range memberTypes {
-			memberExpr, err := c.renderTypeExpr(memberType)
-			if err != nil {
-				return fmt.Errorf("%s union member %v: %w", t.String(), memberType, err)
-			}
-			if _, duplicate := seen[memberExpr]; duplicate {
-				continue
-			}
-			seen[memberExpr] = struct{}{}
-			members = append(members, memberExpr)
-		}
-		if len(members) == 0 {
-			return fmt.Errorf("%s returned no renderable frontend union members", t.String())
-		}
-		c.declarations = append(c.declarations, aliasUnionDeclaration(frontendBindingTypeName(t), members...))
-		return nil
-	}
-	if isEnum, err := semanticContractIsEnum(frontendBindingTypeName(t)); err != nil {
-		return err
-	} else if isEnum {
-		return nil
-	}
-
-	if defaultValue, ok, err := semanticDefaultValueForType(t, semanticDefaultProfileFrontend); err != nil {
-		return err
-	} else if ok {
-		declaration, err := c.reflectedObjectDeclaration(t, defaultValue)
-		if err != nil {
-			return err
-		}
-		c.declarations = append(c.declarations, declaration)
-		return nil
-	}
-
-	switch t.Kind() {
-	case reflect.Struct:
-		properties, err := c.structProperties(t, nil, nil, nil)
-		if err != nil {
-			return err
-		}
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       frontendBindingTypeName(t),
-			Kind:       "object",
-			Properties: properties,
-		})
-		return nil
-	case reflect.String:
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  frontendBindingTypeName(t),
-			Kind:  "alias",
-			Alias: "string",
-		})
-		return nil
-	case reflect.Bool:
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  frontendBindingTypeName(t),
-			Kind:  "alias",
-			Alias: "boolean",
-		})
-		return nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  frontendBindingTypeName(t),
-			Kind:  "alias",
-			Alias: "number",
-		})
-		return nil
-	case reflect.Slice, reflect.Array:
-		aliasExpr := ""
-		if t.Kind() == reflect.Array {
-			tuple, ok, err := c.renderTupleTypeExpr(t)
-			if err != nil {
-				return err
-			}
-			if ok {
-				aliasExpr = tuple
-			}
-		}
-		if aliasExpr == "" {
-			inner, err := c.renderTypeExpr(t.Elem())
-			if err != nil {
-				return err
-			}
-			aliasExpr = fmt.Sprintf("Array<%s>", inner)
-		}
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  frontendBindingTypeName(t),
-			Kind:  "alias",
-			Alias: aliasExpr,
-		})
-		return nil
-	case reflect.Map:
-		keyExpr, err := c.renderMapKeyExpr(t.Key())
-		if err != nil {
-			return err
-		}
-		valueExpr, err := c.renderTypeExpr(t.Elem())
-		if err != nil {
-			return err
-		}
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  frontendBindingTypeName(t),
-			Kind:  "alias",
-			Alias: fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr),
-		})
-		return nil
-	default:
-		return fmt.Errorf("unsupported named Go type for TS declaration: %s", t.String())
 	}
 }
 
@@ -338,36 +183,6 @@ func frontendBindingTypeName(t reflect.Type) string {
 		return name
 	}
 	return normalizedFrontendBindingTypeName(t.Name())
-}
-
-func (c *typeConverter) reflectedObjectDeclaration(
-	t reflect.Type,
-	defaultValue any,
-) (TypeDeclaration, error) {
-	propertySpecs, err := c.structPropertySpecs(t, nil, nil, nil)
-	if err != nil {
-		return TypeDeclaration{}, err
-	}
-	properties := make([]TypeProperty, 0, len(propertySpecs))
-	for _, propertySpec := range propertySpecs {
-		properties = append(properties, propertySpec.Property)
-	}
-	declarationName := frontendBindingTypeName(t)
-	if defaultValue == nil {
-		return TypeDeclaration{}, fmt.Errorf("%s has no Go default value", declarationName)
-	}
-	declaration := objectDeclaration(declarationName, properties...)
-	createBody, err := buildGoBackedCreateBodyTS(
-		"frontend create defaults "+declarationName,
-		declarationName,
-		defaultValue,
-		propertySpecs,
-	)
-	if err != nil {
-		return TypeDeclaration{}, err
-	}
-	declaration.CreateBody = createBody
-	return declaration, nil
 }
 
 func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {

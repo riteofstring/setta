@@ -43,96 +43,19 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-export type PluginInstallResponse = gt.PluginInstallResponse;
+export type AIFollowToolArgumentsUpdateContent =
+  gt.AIFollowToolArgumentsUpdateContent;
 
-export type PluginListEntry = gt.PluginListEntry;
-
-export function createPluginListEntry(
-  options: Partial<PluginListEntry> = {},
-): PluginListEntry {
-  return options as PluginListEntry;
+export function createAIFollowToolArgumentsUpdateContent(
+  options: Partial<AIFollowToolArgumentsUpdateContent> = {},
+): AIFollowToolArgumentsUpdateContent {
+  return options as AIFollowToolArgumentsUpdateContent;
 }
 
-export type PluginRestartCapability = gt.PluginRestartCapability;
-
-export type PluginListResponse = gt.PluginListResponse;
-
-export type PluginBlockedCapability = gt.PluginBlockedCapability;
-
-export type PluginStatusEntry = gt.PluginStatusEntry;
-
-export function createPluginStatusEntry(
-  options: Partial<PluginStatusEntry> = {},
-): PluginStatusEntry {
-  return options as PluginStatusEntry;
-}
-
-export type PluginStatusResponse = gt.PluginStatusResponse;
-
-export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
-
-export type PluginRestartResponse = gt.PluginRestartResponse;
+export type AIFollowToolResultUpdateContent =
+  gt.AIFollowToolResultUpdateContent;
 
 export type AgentProfile = gt.AgentProfile;
-
-type EngineConfigDefaults = gt.EngineConfigDefaults;
-
-function createEngineConfigDefaults(
-  options: Partial<EngineConfigDefaults> = {},
-): EngineConfigDefaults {
-  const defaults: EngineConfigDefaults = {
-    thinking: null,
-  };
-  return {
-    ...mergeGeneratedOptions<EngineConfigDefaults>(defaults, options),
-  };
-}
-
-type EngineRuntimeSupport = gt.EngineRuntimeSupport;
-
-function createEngineRuntimeSupport(
-  options: Partial<EngineRuntimeSupport> = {},
-): EngineRuntimeSupport {
-  const defaults: EngineRuntimeSupport = {
-    thinking: false,
-  };
-  return {
-    ...mergeGeneratedOptions<EngineRuntimeSupport>(defaults, options),
-  };
-}
-
-export type EngineConfig = gt.EngineConfig;
-
-export function createEngineConfig(
-  options: Partial<EngineConfig> = {},
-): EngineConfig {
-  const defaults: EngineConfig = {
-    defaults: {
-      thinking: null,
-    },
-    engineType: "setta_llm",
-    externalAgentConfigId: null,
-    id: "",
-    name: "",
-    runtimeSupport: null,
-    settaLlmConfigId: null,
-  };
-  return {
-    ...mergeGeneratedOptions<EngineConfig>(defaults, options),
-    defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
-    runtimeSupport:
-      options.runtimeSupport === null
-        ? null
-        : (options.runtimeSupport ?? defaults.runtimeSupport) === null
-          ? null
-          : createEngineRuntimeSupport(
-              options.runtimeSupport === null
-                ? null
-                : ((options.runtimeSupport ??
-                    defaults.runtimeSupport) as Partial<EngineRuntimeSupport>),
-            ),
-  };
-}
 
 export type AgentRun = gt.AgentRun;
 
@@ -154,12 +77,33 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   };
 }
 
-export type ExternalAgentConfig = gt.ExternalAgentConfig;
+export type AgenticEdge = gt.AgenticEdge;
 
-export type LLMConfig = gt.LLMConfig;
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  const defaults: AgenticEdge = {
+    contextMode: "reference_only",
+    hidden: false,
+    id: "",
+    kind: "section_chat",
+    selected: false,
+    sourceSectionId: "",
+    style: {},
+    targetSectionId: "",
+    zIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<AgenticEdge>(defaults, options),
+  };
+}
 
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
+type AgenticSummaryCacheStatus = gt.AgenticSummaryCacheStatus;
+
+export function createAgenticSummaryCacheStatus(
+  options: Partial<AgenticSummaryCacheStatus> = {},
+): AgenticSummaryCacheStatus {
+  return options as AgenticSummaryCacheStatus;
 }
 
 export type AllConfigs = gt.AllConfigs;
@@ -170,7 +114,7 @@ export function createAllConfigs(
   return options as AllConfigs;
 }
 
-export type AppRoute = gt.AppRoute;
+export type AllProjectMetadata = gt.AllProjectMetadata;
 
 export type AppDefinition = gt.AppDefinition;
 
@@ -180,102 +124,193 @@ export function createAppDefinition(
   return options as AppDefinition;
 }
 
-export type BrowserSavedSearchTypeFilters = gt.BrowserSavedSearchTypeFilters;
+export type AppRoute = gt.AppRoute;
 
-export type BrowserSavedSearch = gt.BrowserSavedSearch;
+export type AssistantChatMessage = gt.AssistantChatMessage;
 
-export type LineChartSettings = gt.LineChartSettings;
-
-export function createLineChartSettings(
-  options: Partial<LineChartSettings> = {},
-): LineChartSettings {
-  const defaults: LineChartSettings = {
-    secondYAxisColumns: [],
-    type: "line",
-    xAxisColumn: null,
-    xAxisLog: false,
-    y1AxisLog: false,
-    y2AxisLog: false,
+export function createAssistantChatMessage(
+  options: Partial<AssistantChatMessage> = {},
+): AssistantChatMessage {
+  const defaults: AssistantChatMessage = {
+    attachments: [],
+    content: [],
+    createdAt: 0,
+    id: "",
+    role: "assistant",
+    tool_calls: null,
   };
   return {
-    ...mergeGeneratedOptions<LineChartSettings>(defaults, options),
+    ...mergeGeneratedOptions<AssistantChatMessage>(defaults, options),
   };
 }
-
-export type ScatterChartSettings = gt.ScatterChartSettings;
 
 export type BaseChartSettingsUnion = gt.BaseChartSettingsUnion;
 
-export type ChatSectionBranch = gt.ChatSectionBranch;
+export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
 
-export type ChatSectionState = gt.ChatSectionState;
+type BaseCodeObjImpl = gt.BaseCodeObjImpl;
 
-export type CreateChildSectionsResult = gt.CreateChildSectionsResult;
+export type BaseDependencyKeyUnion = gt.BaseDependencyKeyUnion;
 
-export type SectionsClipboardData = gt.SectionsClipboardData;
+export type BaseDependencyValueUnion = gt.BaseDependencyValueUnion;
 
-export type Position = gt.Position;
+export type BinaryDependencyValue = gt.BinaryDependencyValue;
 
-type TypeErrorIgnoreState = gt.TypeErrorIgnoreState;
+export type BrowserSavedSearch = gt.BrowserSavedSearch;
 
-function createTypeErrorIgnoreState(
-  options: Partial<TypeErrorIgnoreState> = {},
-): TypeErrorIgnoreState {
-  const defaults: TypeErrorIgnoreState = {
-    callable: false,
-    params: {},
+export type BrowserSavedSearchTypeFilters = gt.BrowserSavedSearchTypeFilters;
+
+export type BrushStroke = gt.BrushStroke;
+
+export function createBrushStroke(
+  options: Partial<BrushStroke> = {},
+): BrushStroke {
+  const defaults: BrushStroke = {
+    globalCompositeOperation: "source-over",
+    lineCap: "round",
+    lineWidth: 1,
+    points: [],
+    strokeStyle: "",
   };
   return {
-    ...mergeGeneratedOptions<TypeErrorIgnoreState>(defaults, options),
+    ...mergeGeneratedOptions<BrushStroke>(defaults, options),
   };
 }
 
-type CodeSectionDiagnosticsIgnoreState = gt.CodeSectionDiagnosticsIgnoreState;
+export type BrushStrokeArtifact = gt.BrushStrokeArtifact;
 
-function createCodeSectionDiagnosticsIgnoreState(
-  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
-): CodeSectionDiagnosticsIgnoreState {
-  return options as CodeSectionDiagnosticsIgnoreState;
-}
-
-export type DrawAreaLayerItem = gt.DrawAreaLayerItem;
-
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  const defaults: DrawAreaLayerItem = {
-    dataPath: "",
-    transformId: "",
+export function createBrushStrokeArtifact(
+  options: Partial<BrushStrokeArtifact> = {},
+): BrushStrokeArtifact {
+  const defaults: BrushStrokeArtifact = {
+    id: "",
     type: "BrushStroke",
+    value: {
+      globalCompositeOperation: "source-over",
+      lineCap: "round",
+      lineWidth: 1,
+      points: [],
+      strokeStyle: "",
+    },
   };
   return {
-    ...mergeGeneratedOptions<DrawAreaLayerItem>(defaults, options),
+    ...mergeGeneratedOptions<BrushStrokeArtifact>(defaults, options),
+    id: options.id ?? createJsonArtifactId(),
+    value: options.value ?? createBrushStroke(),
   };
 }
 
-export type CodeFileBinding = gt.CodeFileBinding;
+export type BrushStrokeWithTransform = gt.BrushStrokeWithTransform;
 
-function createCodeFileBinding(
-  options: Partial<CodeFileBinding> = {},
-): CodeFileBinding {
-  return options as CodeFileBinding;
-}
+export type ButtonParamCodeObjImpl = gt.ButtonParamCodeObjImpl;
 
-export type SectionSize = gt.SectionSize;
+type CallableSectionImpl = gt.CallableSectionImpl;
 
-export function createSectionSize(
-  options: Partial<SectionSize> = {},
-): SectionSize {
-  const defaults: SectionSize = {
-    height: "auto",
-    width: "auto",
+export function createCallableSectionImpl(
+  options: Partial<CallableSectionImpl> = {},
+): CallableSectionImpl {
+  const defaults: CallableSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    callable: null,
+    codeObjVariantMap: {},
+    columnWidth: null,
+    configLanguage: "python",
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    hideParams: false,
+    hideUnpinnedParams: false,
+    id: "",
+    ignoreTypeErrors: {
+      callable: false,
+      params: {},
+    },
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    paramFilter: "",
+    pinnedParams: [],
+    positionAndSizeLocked: false,
+    selectedParams: [],
+    size: {
+      height: 150,
+      width: 250,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Callable",
   };
   return {
-    ...mergeGeneratedOptions<SectionSize>(defaults, options),
-    width: options.width ?? SectionSizeModeEnum.auto,
-    height: options.height ?? SectionSizeModeEnum.auto,
+    ...mergeGeneratedOptions<CallableSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+    ignoreTypeErrors: createTypeErrorIgnoreState(
+      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
+    ),
   };
 }
+
+export type CanvasPoint = gt.CanvasPoint;
+
+export type ChartDataArtifact = gt.ChartDataArtifact;
+
+export function createChartDataArtifact(
+  options: Partial<ChartDataArtifact> = {},
+): ChartDataArtifact {
+  const defaults: ChartDataArtifact = {
+    id: "",
+    type: "ChartData",
+    value: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ChartDataArtifact>(defaults, options),
+    id: options.id ?? createCsvArtifactId(),
+  };
+}
+
+type ChartSectionImpl = gt.ChartSectionImpl;
+
+export function createChartSectionImpl(
+  options: Partial<ChartSectionImpl> = {},
+): ChartSectionImpl {
+  const defaults: ChartSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    chartSettings: {
+      secondYAxisColumns: [],
+      type: "line",
+      xAxisLog: false,
+      y1AxisLog: false,
+      y2AxisLog: false,
+    },
+    dataPath: "",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 300,
+      width: 300,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Chart",
+  };
+  return {
+    ...mergeGeneratedOptions<ChartSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+export type ChatFileAttachment = gt.ChatFileAttachment;
+
+export type ChatSectionBranch = gt.ChatSectionBranch;
 
 export type ChatSectionImpl = gt.ChatSectionImpl;
 
@@ -322,177 +357,185 @@ export function createChatSectionImpl(
   };
 }
 
-type ListRootSectionImpl = gt.ListRootSectionImpl;
+export type ChatSectionState = gt.ChatSectionState;
 
-export function createListRootSectionImpl(
-  options: Partial<ListRootSectionImpl> = {},
-): ListRootSectionImpl {
-  const defaults: ListRootSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    children: [],
-    defaultChildSectionType: "Callable",
-    id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 150,
-      width: 250,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "ListRoot",
-    viewMode: "default",
+export type ChatSendEvent = gt.ChatSendEvent;
+
+export type ChatStopEvent = gt.ChatStopEvent;
+
+export type ChatWindowBounds = gt.ChatWindowBounds;
+
+function createChatWindowBounds(
+  options: Partial<ChatWindowBounds> = {},
+): ChatWindowBounds {
+  const defaults: ChatWindowBounds = {
+    height: 520,
+    width: 820,
+    x: 120,
+    y: 120,
   };
   return {
-    ...mergeGeneratedOptions<ListRootSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<ChatWindowBounds>(defaults, options),
   };
 }
 
-type GroupSectionImpl = gt.GroupSectionImpl;
+type ChatWindowDockMetrics = gt.ChatWindowDockMetrics;
 
-export function createGroupSectionImpl(
-  options: Partial<GroupSectionImpl> = {},
-): GroupSectionImpl {
-  const defaults: GroupSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    children: [],
-    defaultChildSectionType: "Callable",
-    id: "",
-    isFrozen: false,
-    isHorizontalOrientation: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    overflowMode: false,
-    positionAndSizeLocked: false,
-    size: {
-      height: 150,
-      width: 250,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "Group",
+function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
+  const defaults: ChatWindowDockMetrics = {
+    preferredWidthPx: null,
+    widthFraction: null,
   };
   return {
-    ...mergeGeneratedOptions<GroupSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<ChatWindowDockMetrics>(defaults, options),
   };
 }
 
-type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
+type CodeCallableCodeObjImpl = gt.CodeCallableCodeObjImpl;
 
-export function createStateMachineStartSectionImpl(
-  options: Partial<StateMachineStartSectionImpl> = {},
-): StateMachineStartSectionImpl {
-  const defaults: StateMachineStartSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    label: "Start",
-    machineGroupId: "",
-    maxIterations: null,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 96,
-      width: 240,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "StateMachineStart",
+export type CodeFileBinding = gt.CodeFileBinding;
+
+function createCodeFileBinding(
+  options: Partial<CodeFileBinding> = {},
+): CodeFileBinding {
+  return options as CodeFileBinding;
+}
+
+type CodeObjTypeValuePolicy = gt.CodeObjTypeValuePolicy;
+
+function createCodeObjTypeValuePolicy(
+  options: Partial<CodeObjTypeValuePolicy> = {},
+): CodeObjTypeValuePolicy {
+  const defaults: CodeObjTypeValuePolicy = {
+    representation: "expression",
   };
   return {
-    ...mergeGeneratedOptions<StateMachineStartSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<CodeObjTypeValuePolicy>(defaults, options),
   };
 }
 
-type TextBlockSectionImpl = gt.TextBlockSectionImpl;
+type CodeObjValueOverride = gt.CodeObjValueOverride;
 
-export function createTextBlockSectionImpl(
-  options: Partial<TextBlockSectionImpl> = {},
-): TextBlockSectionImpl {
-  const defaults: TextBlockSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    format: "Plaintext",
-    headingAsSectionName: false,
-    id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    masterFontSizePx: 14,
-    metaControlStyle: false,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 150,
-      width: 500,
-    },
-    styleColor: null,
-    tagColor: null,
-    text: "",
-    textDisplayMode: "Render",
-    type: "TextBlock",
+function createCodeObjValueOverride(
+  options: Partial<CodeObjValueOverride> = {},
+): CodeObjValueOverride {
+  const defaults: CodeObjValueOverride = {
+    representation: "expression",
   };
   return {
-    ...mergeGeneratedOptions<TextBlockSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<CodeObjValueOverride>(defaults, options),
   };
 }
 
-export type PromptSectionImpl = gt.PromptSectionImpl;
+type CodeObjValuePolicy = gt.CodeObjValuePolicy;
 
-export function createPromptSectionImpl(
-  options: Partial<PromptSectionImpl> = {},
-): PromptSectionImpl {
-  const defaults: PromptSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    format: "Jinja",
-    id: "",
-    inputs: {},
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    missingVariables: [],
-    name: "",
-    positionAndSizeLocked: false,
-    promptTemplateId: null,
-    renderError: null,
-    renderedText: "",
-    size: {
-      height: 150,
-      width: 300,
+export function createCodeObjValuePolicy(
+  options: Partial<CodeObjValuePolicy> = {},
+): CodeObjValuePolicy {
+  const defaults: CodeObjValuePolicy = {
+    codeObjOverrides: {},
+    typePolicies: {
+      ButtonParam: {
+        representation: "expression",
+      },
+      CodeCallable: {
+        representation: "expression",
+      },
+      CodeParam: {
+        representation: "expression",
+      },
+      ColorPickerParam: {
+        representation: "string",
+      },
+      DateParam: {
+        representation: "string",
+      },
+      DropdownParam: {
+        representation: "expression",
+      },
+      DropzoneParam: {
+        representation: "file_path",
+      },
+      NestedParam: {
+        representation: "expression",
+      },
+      PasswordParam: {
+        representation: "string",
+      },
+      RotaryParam: {
+        representation: "expression",
+      },
+      SliderParam: {
+        representation: "expression",
+      },
+      SwitchParam: {
+        representation: "expression",
+      },
+      TextAreaParam: {
+        representation: "string",
+      },
+      TextParam: {
+        representation: "string",
+      },
+      TimeParam: {
+        representation: "string",
+      },
     },
-    styleColor: null,
-    tagColor: null,
-    template: "",
-    type: "Prompt",
   };
   return {
-    ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<CodeObjValuePolicy>(defaults, options),
+    typePolicies: Object.fromEntries(
+      Object.entries({
+        ...(defaults.typePolicies ?? {}),
+        ...(options.typePolicies ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createCodeObjTypeValuePolicy(value as Partial<CodeObjTypeValuePolicy>),
+      ]),
+    ) as Record<CodeObjType, CodeObjTypeValuePolicy>,
+    codeObjOverrides: Object.fromEntries(
+      Object.entries({
+        ...(defaults.codeObjOverrides ?? {}),
+        ...(options.codeObjOverrides ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createCodeObjValueOverride(value as Partial<CodeObjValueOverride>),
+      ]),
+    ) as Record<string, CodeObjValueOverride>,
   };
+}
+
+type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
+
+export function createCodeParamCodeObjImpl(
+  options: Partial<CodeParamCodeObjImpl> = {},
+): CodeParamCodeObjImpl {
+  const defaults: CodeParamCodeObjImpl = {
+    coreNameEditable: false,
+    coreNameType: "TEXT",
+    defaultVal: "",
+    description: "",
+    id: "",
+    isPreset: false,
+    name: "",
+    passingStyle: "DEFAULT",
+    type: "CodeParam",
+    typeAnnotation: "",
+    value: "",
+  };
+  return {
+    ...mergeGeneratedOptions<CodeParamCodeObjImpl>(defaults, options),
+  };
+}
+
+type CodeSectionDiagnosticsIgnoreState = gt.CodeSectionDiagnosticsIgnoreState;
+
+function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
+  return options as CodeSectionDiagnosticsIgnoreState;
 }
 
 type CodeSectionImpl = gt.CodeSectionImpl;
@@ -548,83 +591,73 @@ export function createCodeSectionImpl(
   };
 }
 
-type TerminalSectionImpl = gt.TerminalSectionImpl;
+export type ColorPickerChoice = gt.ColorPickerChoice;
 
-export function createTerminalSectionImpl(
-  options: Partial<TerminalSectionImpl> = {},
-): TerminalSectionImpl {
-  const defaults: TerminalSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
+export type ColorPickerParamCodeObjImpl = gt.ColorPickerParamCodeObjImpl;
+
+export type Connection = gt.Connection;
+
+export function createConnection(
+  options: Partial<Connection> = {},
+): Connection {
+  const defaults: Connection = {
+    connectionType: "SERVER",
+    currentAddress: "",
     id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 150,
-      width: 250,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "Terminal",
+    shareSessionId: "",
   };
   return {
-    ...mergeGeneratedOptions<TerminalSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<Connection>(defaults, options),
   };
 }
 
-type CallableSectionImpl = gt.CallableSectionImpl;
+export type ContentRef = gt.ContentRef;
 
-export function createCallableSectionImpl(
-  options: Partial<CallableSectionImpl> = {},
-): CallableSectionImpl {
-  const defaults: CallableSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    callable: null,
-    codeObjVariantMap: {},
-    columnWidth: null,
-    configLanguage: "python",
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-    hideParams: false,
-    hideUnpinnedParams: false,
+export function createContentRef(
+  options: Partial<ContentRef> = {},
+): ContentRef {
+  return options as ContentRef;
+}
+
+export type Core = gt.Core;
+
+export function createCore(options: Partial<Core> = {}): Core {
+  const defaults: Core = {
+    defaultVariant: null,
+    displayName: "",
     id: "",
-    ignoreTypeErrors: {
-      callable: false,
-      params: {},
-    },
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
     name: "",
-    paramFilter: "",
-    pinnedParams: [],
-    positionAndSizeLocked: false,
-    selectedParams: [],
-    size: {
-      height: 150,
-      width: 250,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "Callable",
+    sharedModifier: {},
+    unsharedKeys: [],
+    variants: [],
   };
   return {
-    ...mergeGeneratedOptions<CallableSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
-    ignoreTypeErrors: createTypeErrorIgnoreState(
-      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
-    ),
+    ...mergeGeneratedOptions<Core>(defaults, options),
   };
 }
+
+export type CreateChildSectionsResult = gt.CreateChildSectionsResult;
+
+export type CreateTopLevelSectionResult = gt.CreateTopLevelSectionResult;
+
+export type CurrentAddressUpdateMessage = gt.CurrentAddressUpdateMessage;
+
+export function createCurrentAddressUpdateMessage(
+  options: Partial<CurrentAddressUpdateMessage> = {},
+): CurrentAddressUpdateMessage {
+  const defaults: CurrentAddressUpdateMessage = {
+    content: "",
+    id: null,
+    messageType: "CurrentAddressUpdate",
+  };
+  return {
+    ...mergeGeneratedOptions<CurrentAddressUpdateMessage>(defaults, options),
+  };
+}
+
+export type DateParamCodeObjImpl = gt.DateParamCodeObjImpl;
+
+export type DependencyEvent = gt.DependencyEvent;
 
 type DictSectionImpl = gt.DictSectionImpl;
 
@@ -676,229 +709,326 @@ export function createDictSectionImpl(
   };
 }
 
-export type TaskBoardTask = gt.TaskBoardTask;
+export type DrawAreaLayer = gt.DrawAreaLayer;
 
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  const defaults: TaskBoardTask = {
-    columnId: null,
-    completed: false,
-    description: "",
-    dueDateIso: "",
-    id: "",
-    recurrence: "none",
-    recurrenceDays: [],
-    recurrenceMonths: [],
-    recurrenceYears: [],
-    sortIndex: 0,
-    title: "",
-  };
-  return {
-    ...mergeGeneratedOptions<TaskBoardTask>(defaults, options),
-  };
-}
-
-export type TaskBoardColumn = gt.TaskBoardColumn;
-
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  const defaults: TaskBoardColumn = {
-    color: "#3b82f6",
-    id: "",
+export function createDrawAreaLayer(
+  options: Partial<DrawAreaLayer> = {},
+): DrawAreaLayer {
+  const defaults: DrawAreaLayer = {
+    elements: [],
+    layerOpacity: 1,
     name: "",
-    sortIndex: 0,
+    visible: true,
   };
   return {
-    ...mergeGeneratedOptions<TaskBoardColumn>(defaults, options),
+    ...mergeGeneratedOptions<DrawAreaLayer>(defaults, options),
+    name: options.name ?? createRandomName(),
   };
 }
 
-type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
+export type DrawAreaLayerItem = gt.DrawAreaLayerItem;
 
-export function createTaskBoardSectionImpl(
-  options: Partial<TaskBoardSectionImpl> = {},
-): TaskBoardSectionImpl {
-  const defaults: TaskBoardSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    columns: [],
-    id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 430,
-      width: 720,
-    },
-    styleColor: null,
-    tagColor: null,
-    tasks: [],
-    type: "TaskBoard",
-    viewMode: "kanban",
-  };
-  return {
-    ...mergeGeneratedOptions<TaskBoardSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
-  };
-}
-
-type ChartSectionImpl = gt.ChartSectionImpl;
-
-export function createChartSectionImpl(
-  options: Partial<ChartSectionImpl> = {},
-): ChartSectionImpl {
-  const defaults: ChartSectionImpl = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    chartSettings: {
-      secondYAxisColumns: [],
-      type: "line",
-      xAxisLog: false,
-      y1AxisLog: false,
-      y2AxisLog: false,
-    },
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  const defaults: DrawAreaLayerItem = {
     dataPath: "",
+    transformId: "",
+    type: "BrushStroke",
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayerItem>(defaults, options),
+  };
+}
+
+type DrawAreaLayerItemTransform = gt.DrawAreaLayerItemTransform;
+
+export function createDrawAreaLayerItemTransform(
+  options: Partial<DrawAreaLayerItemTransform> = {},
+): DrawAreaLayerItemTransform {
+  const defaults: DrawAreaLayerItemTransform = {
+    eraserStrokes: [],
+    transform: [1, 0, 0, 1, 0, 0],
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayerItemTransform>(defaults, options),
+  };
+}
+
+export type DrawAreaLayerItemTransformArtifact =
+  gt.DrawAreaLayerItemTransformArtifact;
+
+export function createDrawAreaLayerItemTransformArtifact(
+  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
+): DrawAreaLayerItemTransformArtifact {
+  const defaults: DrawAreaLayerItemTransformArtifact = {
     id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    positionAndSizeLocked: false,
-    size: {
-      height: 300,
-      width: 300,
+    type: "DrawAreaLayerItemTransform",
+    value: {
+      eraserStrokes: [],
+      transform: [1, 0, 0, 1, 0, 0],
     },
-    styleColor: null,
-    tagColor: null,
-    type: "Chart",
   };
   return {
-    ...mergeGeneratedOptions<ChartSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    ...mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
+      defaults,
+      options,
+    ),
+    id: options.id ?? createJsonArtifactId(),
+    value: options.value ?? createDrawAreaLayerItemTransform(),
   };
 }
 
-type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
-
-export function createSpreadsheetSectionImpl(
-  options: Partial<SpreadsheetSectionImpl> = {},
-): SpreadsheetSectionImpl {
-  const defaults: SpreadsheetSectionImpl = {
-    activeSheet: null,
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    autoReloadOnExternalChange: false,
-    density: "compact",
-    filePath: "",
-    id: "",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    name: "",
-    positionAndSizeLocked: false,
-    readOnly: false,
-    showRowNumbers: true,
-    size: {
-      height: 500,
-      width: 760,
-    },
-    styleColor: null,
-    tagColor: null,
-    type: "Spreadsheet",
-  };
-  return {
-    ...mergeGeneratedOptions<SpreadsheetSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
-  };
-}
-
-type BaseCodeObjImpl = gt.BaseCodeObjImpl;
-
-type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
-
-export function createCodeParamCodeObjImpl(
-  options: Partial<CodeParamCodeObjImpl> = {},
-): CodeParamCodeObjImpl {
-  const defaults: CodeParamCodeObjImpl = {
-    coreNameEditable: false,
-    coreNameType: "TEXT",
-    defaultVal: "",
-    description: "",
-    id: "",
-    isPreset: false,
-    name: "",
-    passingStyle: "DEFAULT",
-    type: "CodeParam",
-    typeAnnotation: "",
-    value: "",
-  };
-  return {
-    ...mergeGeneratedOptions<CodeParamCodeObjImpl>(defaults, options),
-  };
-}
-
-type CodeCallableCodeObjImpl = gt.CodeCallableCodeObjImpl;
-
-type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
-
-type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
-
-export type DateParamCodeObjImpl = gt.DateParamCodeObjImpl;
-
-export type TimeParamCodeObjImpl = gt.TimeParamCodeObjImpl;
-
-export type ButtonParamCodeObjImpl = gt.ButtonParamCodeObjImpl;
-
-export type SliderParamCodeObjImpl = gt.SliderParamCodeObjImpl;
-
-export type RotaryParamCodeObjImpl = gt.RotaryParamCodeObjImpl;
-
-type SwitchParamCodeObjImpl = gt.SwitchParamCodeObjImpl;
-
-export type ColorPickerParamCodeObjImpl = gt.ColorPickerParamCodeObjImpl;
+export type DrawAreaTransform = gt.DrawAreaTransform;
 
 export type DropdownParamCodeObjImpl = gt.DropdownParamCodeObjImpl;
 
-type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
-
-type TextAreaParamCodeObjImpl = gt.TextAreaParamCodeObjImpl;
-
 export type DropzoneParamCodeObjImpl = gt.DropzoneParamCodeObjImpl;
 
-type SectionSizingPolicyTypeEntry = gt.SectionSizingPolicyTypeEntry;
+export type Edge = gt.Edge;
 
-function createSectionSizingPolicyTypeEntry(
-  options: Partial<SectionSizingPolicyTypeEntry> = {},
-): SectionSizingPolicyTypeEntry {
-  return options as SectionSizingPolicyTypeEntry;
+export type EngineConfig = gt.EngineConfig;
+
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  const defaults: EngineConfig = {
+    defaults: {
+      thinking: null,
+    },
+    engineType: "setta_llm",
+    externalAgentConfigId: null,
+    id: "",
+    name: "",
+    runtimeSupport: null,
+    settaLlmConfigId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<EngineConfig>(defaults, options),
+    defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
+    runtimeSupport:
+      options.runtimeSupport === null
+        ? null
+        : (options.runtimeSupport ?? defaults.runtimeSupport) === null
+          ? null
+          : createEngineRuntimeSupport(
+              options.runtimeSupport === null
+                ? null
+                : ((options.runtimeSupport ??
+                    defaults.runtimeSupport) as Partial<EngineRuntimeSupport>),
+            ),
+  };
 }
 
-type SectionSizingPolicyCallableTypeEntry =
-  gt.SectionSizingPolicyCallableTypeEntry;
+type EngineConfigDefaults = gt.EngineConfigDefaults;
 
-function createSectionSizingPolicyCallableTypeEntry(
-  options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
-): SectionSizingPolicyCallableTypeEntry {
-  return options as SectionSizingPolicyCallableTypeEntry;
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  const defaults: EngineConfigDefaults = {
+    thinking: null,
+  };
+  return {
+    ...mergeGeneratedOptions<EngineConfigDefaults>(defaults, options),
+  };
 }
 
-export type MetaControlSizingPolicyTypeEntry =
-  gt.MetaControlSizingPolicyTypeEntry;
+type EngineRuntimeSupport = gt.EngineRuntimeSupport;
 
-function createMetaControlSizingPolicyTypeEntry(
-  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
-): MetaControlSizingPolicyTypeEntry {
-  return options as MetaControlSizingPolicyTypeEntry;
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  const defaults: EngineRuntimeSupport = {
+    thinking: false,
+  };
+  return {
+    ...mergeGeneratedOptions<EngineRuntimeSupport>(defaults, options),
+  };
+}
+
+export type ExternalAgentConfig = gt.ExternalAgentConfig;
+
+export type FileArtifact = gt.FileArtifact;
+
+type GenPythonCodeSectionImpl = gt.GenPythonCodeSectionImpl;
+
+type GenPythonMetadataSectionImpl = gt.GenPythonMetadataSectionImpl;
+
+type GlobalVariablesSectionImpl = gt.GlobalVariablesSectionImpl;
+
+type GroupSectionImpl = gt.GroupSectionImpl;
+
+export function createGroupSectionImpl(
+  options: Partial<GroupSectionImpl> = {},
+): GroupSectionImpl {
+  const defaults: GroupSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    children: [],
+    defaultChildSectionType: "Callable",
+    id: "",
+    isFrozen: false,
+    isHorizontalOrientation: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    overflowMode: false,
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 250,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Group",
+  };
+  return {
+    ...mergeGeneratedOptions<GroupSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+export type ImageArtifact = gt.ImageArtifact;
+
+export function createImageArtifact(
+  options: Partial<ImageArtifact> = {},
+): ImageArtifact {
+  const defaults: ImageArtifact = {
+    id: "",
+    type: "Image",
+    value: {
+      byteLength: 0,
+      contentId: "",
+      mimeType: "",
+      sha256: "",
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<ImageArtifact>(defaults, options),
+    id: options.id ?? createPngArtifactId(),
+    value: options.value ?? createContentRef(),
+  };
+}
+
+export type JSONArtifact = gt.JSONArtifact;
+
+export type LLMConfig = gt.LLMConfig;
+
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
+export type LLMStreamingResponseContent = gt.LLMStreamingResponseContent;
+
+export type LSPDiagnostic = gt.LSPDiagnostic;
+
+export type LSPDiagnosticsPayload = gt.LSPDiagnosticsPayload;
+
+export function createLSPDiagnosticsPayload(
+  options: Partial<LSPDiagnosticsPayload> = {},
+): LSPDiagnosticsPayload {
+  return options as LSPDiagnosticsPayload;
+}
+
+export type LineChartSettings = gt.LineChartSettings;
+
+export function createLineChartSettings(
+  options: Partial<LineChartSettings> = {},
+): LineChartSettings {
+  const defaults: LineChartSettings = {
+    secondYAxisColumns: [],
+    type: "line",
+    xAxisColumn: null,
+    xAxisLog: false,
+    y1AxisLog: false,
+    y2AxisLog: false,
+  };
+  return {
+    ...mergeGeneratedOptions<LineChartSettings>(defaults, options),
+  };
+}
+
+type ListRootSectionImpl = gt.ListRootSectionImpl;
+
+export function createListRootSectionImpl(
+  options: Partial<ListRootSectionImpl> = {},
+): ListRootSectionImpl {
+  const defaults: ListRootSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    children: [],
+    defaultChildSectionType: "Callable",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 250,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "ListRoot",
+    viewMode: "default",
+  };
+  return {
+    ...mergeGeneratedOptions<ListRootSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+export type ListenerCoverageSnapshot = gt.ListenerCoverageSnapshot;
+
+export function createListenerCoverageSnapshot(
+  options: Partial<ListenerCoverageSnapshot> = {},
+): ListenerCoverageSnapshot {
+  return options as ListenerCoverageSnapshot;
+}
+
+export type LiteralDependencyValue = gt.LiteralDependencyValue;
+
+export type MessageDeltaEvent = gt.MessageDeltaEvent;
+
+export type MessageFinalizedEvent = gt.MessageFinalizedEvent;
+
+export type MessageImageURLContent = gt.MessageImageURLContent;
+
+export type MessageStartEvent = gt.MessageStartEvent;
+
+export type MessageTextContent = gt.MessageTextContent;
+
+export function createMessageTextContent(
+  options: Partial<MessageTextContent> = {},
+): MessageTextContent {
+  const defaults: MessageTextContent = {
+    text: "",
+    type: "text",
+  };
+  return {
+    ...mergeGeneratedOptions<MessageTextContent>(defaults, options),
+  };
+}
+
+export type MessageThinkingContent = gt.MessageThinkingContent;
+
+export function createMessageThinkingContent(
+  options: Partial<MessageThinkingContent> = {},
+): MessageThinkingContent {
+  const defaults: MessageThinkingContent = {
+    signature: "",
+    summary: "",
+    thinking: "",
+    type: "thinking",
+  };
+  return {
+    ...mergeGeneratedOptions<MessageThinkingContent>(defaults, options),
+  };
 }
 
 type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
@@ -1048,246 +1178,694 @@ function createMetaControlSizingPolicyByType(
   };
 }
 
-type SectionSizingPolicyGlobals = gt.SectionSizingPolicyGlobals;
+export type MetaControlSizingPolicyTypeEntry =
+  gt.MetaControlSizingPolicyTypeEntry;
 
-function createSectionSizingPolicyGlobals(
-  options: Partial<SectionSizingPolicyGlobals> = {},
-): SectionSizingPolicyGlobals {
-  const defaults: SectionSizingPolicyGlobals = {
-    autoMaxHeight: 350,
-    infiniteMaxHeight: 100000,
-    infiniteMaxWidth: 100000,
-    minimizedHeight: 32,
-    pinnedParamsAreaMinHeight: 64,
-    unpinnedParamsAreaMinHeight: 36,
+function createMetaControlSizingPolicyTypeEntry(
+  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+): MetaControlSizingPolicyTypeEntry {
+  return options as MetaControlSizingPolicyTypeEntry;
+}
+
+export type NameValidationContract = gt.NameValidationContract;
+
+type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
+
+export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
+
+function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
+  const defaults: NormalizedFloatingWindowBounds = {
+    height: 1,
+    width: 1,
+    x: 0,
+    y: 0,
   };
   return {
-    ...mergeGeneratedOptions<SectionSizingPolicyGlobals>(defaults, options),
+    ...mergeGeneratedOptions<NormalizedFloatingWindowBounds>(defaults, options),
   };
 }
 
-type SectionSizingPolicyByType = gt.SectionSizingPolicyByType;
+type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
 
-function createSectionSizingPolicyByType(
-  options: Partial<SectionSizingPolicyByType> = {},
-): SectionSizingPolicyByType {
-  const defaults: SectionSizingPolicyByType = {
-    Browser: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 250,
-      minWidth: 200,
+export type PluginBlockedCapability = gt.PluginBlockedCapability;
+
+export type PluginInstallResponse = gt.PluginInstallResponse;
+
+export type PluginListEntry = gt.PluginListEntry;
+
+export function createPluginListEntry(
+  options: Partial<PluginListEntry> = {},
+): PluginListEntry {
+  return options as PluginListEntry;
+}
+
+export type PluginListResponse = gt.PluginListResponse;
+
+export type PluginRestartCapability = gt.PluginRestartCapability;
+
+export type PluginRestartResponse = gt.PluginRestartResponse;
+
+export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
+
+export type PluginStatusEntry = gt.PluginStatusEntry;
+
+export function createPluginStatusEntry(
+  options: Partial<PluginStatusEntry> = {},
+): PluginStatusEntry {
+  return options as PluginStatusEntry;
+}
+
+export type PluginStatusResponse = gt.PluginStatusResponse;
+
+export type Policy = gt.Policy;
+
+export function createPolicy(options: Partial<Policy> = {}): Policy {
+  return options as Policy;
+}
+
+export type Position = gt.Position;
+
+export type ProjectChatWindowInstance = gt.ProjectChatWindowInstance;
+
+export function createProjectChatWindowInstance(
+  options: Partial<ProjectChatWindowInstance> = {},
+): ProjectChatWindowInstance {
+  const defaults: ProjectChatWindowInstance = {
+    bounds: {
+      height: 520,
+      width: 820,
+      x: 120,
+      y: 120,
     },
-    Callable: {
-      hideParamsMinHeight: 90,
-      hideSearchMinHeight: 42,
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 104,
-      minWidth: 200,
+    chatId: null,
+    dockMetrics: {
+      preferredWidthPx: null,
+      widthFraction: null,
     },
-    Chart: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 300,
-      minWidth: 300,
+    instanceId: "",
+    isClosed: false,
+    isMaximized: false,
+    isMinimized: false,
+    lastFocusedAt: 0,
+    lastPlacementBeforeMaximize: null,
+    mode: "project_ai_mode",
+    placement: "bottom_docked",
+    sectionIdOrNull: null,
+    title: null,
+    zIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
+    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
+    dockMetrics: createChatWindowDockMetrics(
+      options.dockMetrics ?? defaults.dockMetrics,
+    ),
+  };
+}
+
+export type ProjectChatWindowingState = gt.ProjectChatWindowingState;
+
+export function createProjectChatWindowingState(
+  options: Partial<ProjectChatWindowingState> = {},
+): ProjectChatWindowingState {
+  const defaults: ProjectChatWindowingState = {
+    instancesById: {},
+    nextInstanceNumber: 1,
+    order: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowingState>(defaults, options),
+  };
+}
+
+export type ProjectCodegenPluginTarget = gt.ProjectCodegenPluginTarget;
+
+export function createProjectCodegenPluginTarget(
+  options: Partial<ProjectCodegenPluginTarget> = {},
+): ProjectCodegenPluginTarget {
+  const defaults: ProjectCodegenPluginTarget = {
+    language: "",
+    options: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectCodegenPluginTarget>(defaults, options),
+  };
+}
+
+export type ProjectCodegenPythonTarget = gt.ProjectCodegenPythonTarget;
+
+export function createProjectCodegenPythonTarget(
+  options: Partial<ProjectCodegenPythonTarget> = {},
+): ProjectCodegenPythonTarget {
+  const defaults: ProjectCodegenPythonTarget = {
+    codeObjValuePolicy: {
+      codeObjOverrides: {},
+      typePolicies: {
+        ButtonParam: {
+          representation: "expression",
+        },
+        CodeCallable: {
+          representation: "expression",
+        },
+        CodeParam: {
+          representation: "expression",
+        },
+        ColorPickerParam: {
+          representation: "string",
+        },
+        DateParam: {
+          representation: "string",
+        },
+        DropdownParam: {
+          representation: "expression",
+        },
+        DropzoneParam: {
+          representation: "file_path",
+        },
+        NestedParam: {
+          representation: "expression",
+        },
+        PasswordParam: {
+          representation: "string",
+        },
+        RotaryParam: {
+          representation: "expression",
+        },
+        SliderParam: {
+          representation: "expression",
+        },
+        SwitchParam: {
+          representation: "expression",
+        },
+        TextAreaParam: {
+          representation: "string",
+        },
+        TextParam: {
+          representation: "string",
+        },
+        TimeParam: {
+          representation: "string",
+        },
+      },
     },
-    Chat: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 200,
-      minWidth: 400,
-    },
-    Code: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 58.2,
-      minWidth: 200,
-    },
-    Dict: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 78,
-      minWidth: 200,
-    },
-    Draw: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 100,
-      minWidth: 402,
-    },
-    GenPythonCode: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 0,
-      minWidth: 200,
-    },
-    GenPythonMetadata: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 0,
-      minWidth: 200,
-    },
-    GlobalVariables: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 78,
-      minWidth: 200,
-    },
-    Group: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 0,
-      minWidth: 200,
-    },
-    IFrame: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 0,
-      minWidth: 200,
-    },
-    Image: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 100,
-      minWidth: 200,
-    },
-    ListRoot: {
-      maxHeight: 50,
-      maxWidth: 100000,
-      minHeight: 50,
-      minWidth: 200,
-    },
-    MetaControl: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 10,
-      minWidth: 100,
-    },
-    Plugin: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 80,
-      minWidth: 200,
-    },
-    Prompt: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 150,
-      minWidth: 300,
-    },
-    Social: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 50,
-      minWidth: 200,
-    },
-    Spreadsheet: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 260,
-      minWidth: 420,
-    },
-    StateMachineEnd: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 96,
-      minWidth: 240,
-    },
-    StateMachineGate: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 120,
-      minWidth: 240,
-    },
-    StateMachineStart: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 96,
-      minWidth: 240,
-    },
-    TaskBoard: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 240,
-      minWidth: 360,
-    },
-    Terminal: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 100,
-      minWidth: 200,
-    },
-    TextBlock: {
-      maxHeight: 100000,
-      maxWidth: 100000,
-      minHeight: 49,
-      minWidth: 100,
+    genCodePrefix: "",
+    genCodeSuffix: "state = SettaState()",
+    generateMetadata: false,
+    language: "python",
+    sectionPolicy: {
+      allowlist: [
+        "Callable",
+        "Dict",
+        "ListRoot",
+        "Group",
+        "GlobalVariables",
+        "TextBlock",
+        "Draw",
+        "MetaControl",
+        "TaskBoard",
+        "Spreadsheet",
+      ],
+      exclude: [],
+      metaControlAllowlist: [
+        "CodeParam",
+        "TextParam",
+        "DateParam",
+        "TimeParam",
+        "TextAreaParam",
+        "SliderParam",
+        "RotaryParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "ButtonParam",
+        "DropzoneParam",
+      ],
+      sectionOverrides: {},
+      typePolicies: {
+        Browser: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Callable: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Chart: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Chat: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        Code: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Dict: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Draw: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        GenPythonCode: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        GenPythonMetadata: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        GlobalVariables: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Group: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        IFrame: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Image: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        ListRoot: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        MetaControl: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Plugin: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Prompt: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Social: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Spreadsheet: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineEnd: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineGate: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineStart: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        TaskBoard: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Terminal: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        TextBlock: {
+          mode: "inherit",
+          representation: "expression",
+        },
+      },
     },
   };
   return {
-    ...mergeGeneratedOptions<SectionSizingPolicyByType>(defaults, options),
-    Callable: createSectionSizingPolicyCallableTypeEntry(
-      options.Callable ?? defaults.Callable,
+    ...mergeGeneratedOptions<ProjectCodegenPythonTarget>(defaults, options),
+    sectionPolicy: createSectionCodegenPolicy(
+      options.sectionPolicy ?? defaults.sectionPolicy,
     ),
-    Dict: createSectionSizingPolicyTypeEntry(options.Dict ?? defaults.Dict),
-    ListRoot: createSectionSizingPolicyTypeEntry(
-      options.ListRoot ?? defaults.ListRoot,
+    codeObjValuePolicy: createCodeObjValuePolicy(
+      options.codeObjValuePolicy ?? defaults.codeObjValuePolicy,
     ),
-    Group: createSectionSizingPolicyTypeEntry(options.Group ?? defaults.Group),
-    StateMachineStart: createSectionSizingPolicyTypeEntry(
-      options.StateMachineStart ?? defaults.StateMachineStart,
+  };
+}
+
+export type ProjectCodegenTarget = gt.ProjectCodegenTarget;
+
+export type ProjectConfig = gt.ProjectConfig;
+
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  const defaults: ProjectConfig = {
+    activeIds: [],
+    activeViewModeId: null,
+    agenticEdges: [],
+    allowJsonSourceKeyEdits: false,
+    codegenTargets: [],
+    edges: [],
+    entryCodeBlockId: null,
+    hasPythonCodegenTarget: false,
+    id: "",
+    isEditingViewMode: false,
+    name: "",
+    previewImgColor: "",
+    runCapabilities: {
+      canRunFromMain: false,
+      effectiveEntrySectionId: null,
+      mainRunDisabledReason: null,
+    },
+    sectionIdsByPathSlug: {},
+    sectionPathSlugsById: {},
+    sectionVariantMap: {},
+    showParamDisplayNames: false,
+    stateMachineEdges: [],
+    topLevelSections: {},
+    viewModes: {},
+    viewport: null,
+    viewportInitialized: false,
+    watchCodeBaselineByPath: {},
+    watchCodeEnabled: false,
+    watchCodeFiles: [],
+    watchCodeFolders: [],
+    watchCodeRegistry: {},
+    windowSpaceIdsBySlug: {},
+    windowSpaceSlugsById: {},
+    windowSpaces: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectConfig>(defaults, options),
+    viewport:
+      options.viewport === null
+        ? null
+        : (options.viewport ?? defaults.viewport) === null
+          ? null
+          : createViewport(
+              options.viewport === null
+                ? null
+                : ((options.viewport ??
+                    defaults.viewport) as Partial<Viewport>),
+            ),
+    runCapabilities: createProjectRunCapabilities(
+      options.runCapabilities ?? defaults.runCapabilities,
     ),
-    StateMachineGate: createSectionSizingPolicyTypeEntry(
-      options.StateMachineGate ?? defaults.StateMachineGate,
-    ),
-    StateMachineEnd: createSectionSizingPolicyTypeEntry(
-      options.StateMachineEnd ?? defaults.StateMachineEnd,
-    ),
-    Image: createSectionSizingPolicyTypeEntry(options.Image ?? defaults.Image),
-    Chart: createSectionSizingPolicyTypeEntry(options.Chart ?? defaults.Chart),
-    Draw: createSectionSizingPolicyTypeEntry(options.Draw ?? defaults.Draw),
-    Prompt: createSectionSizingPolicyTypeEntry(
-      options.Prompt ?? defaults.Prompt,
-    ),
-    TextBlock: createSectionSizingPolicyTypeEntry(
-      options.TextBlock ?? defaults.TextBlock,
-    ),
-    MetaControl: createSectionSizingPolicyTypeEntry(
-      options.MetaControl ?? defaults.MetaControl,
-    ),
-    Social: createSectionSizingPolicyTypeEntry(
-      options.Social ?? defaults.Social,
-    ),
-    GlobalVariables: createSectionSizingPolicyTypeEntry(
-      options.GlobalVariables ?? defaults.GlobalVariables,
-    ),
-    Code: createSectionSizingPolicyTypeEntry(options.Code ?? defaults.Code),
-    GenPythonCode: createSectionSizingPolicyTypeEntry(
-      options.GenPythonCode ?? defaults.GenPythonCode,
-    ),
-    GenPythonMetadata: createSectionSizingPolicyTypeEntry(
-      options.GenPythonMetadata ?? defaults.GenPythonMetadata,
-    ),
-    Terminal: createSectionSizingPolicyTypeEntry(
-      options.Terminal ?? defaults.Terminal,
-    ),
-    IFrame: createSectionSizingPolicyTypeEntry(
-      options.IFrame ?? defaults.IFrame,
-    ),
-    Chat: createSectionSizingPolicyTypeEntry(options.Chat ?? defaults.Chat),
-    Browser: createSectionSizingPolicyTypeEntry(
-      options.Browser ?? defaults.Browser,
-    ),
-    Plugin: createSectionSizingPolicyTypeEntry(
-      options.Plugin ?? defaults.Plugin,
-    ),
-    TaskBoard: createSectionSizingPolicyTypeEntry(
-      options.TaskBoard ?? defaults.TaskBoard,
-    ),
-    Spreadsheet: createSectionSizingPolicyTypeEntry(
-      options.Spreadsheet ?? defaults.Spreadsheet,
-    ),
+  };
+}
+
+export type ProjectConfigDiagnostics = gt.ProjectConfigDiagnostics;
+
+export function createProjectConfigDiagnostics(
+  options: Partial<ProjectConfigDiagnostics> = {},
+): ProjectConfigDiagnostics {
+  return options as ProjectConfigDiagnostics;
+}
+
+export type ProjectConfigMetadata = gt.ProjectConfigMetadata;
+
+type ProjectRunCapabilities = gt.ProjectRunCapabilities;
+
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  const defaults: ProjectRunCapabilities = {
+    canRunFromMain: false,
+    effectiveEntrySectionId: null,
+    mainRunDisabledReason: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectRunCapabilities>(defaults, options),
+  };
+}
+
+export type PromptSectionImpl = gt.PromptSectionImpl;
+
+export function createPromptSectionImpl(
+  options: Partial<PromptSectionImpl> = {},
+): PromptSectionImpl {
+  const defaults: PromptSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    format: "Jinja",
+    id: "",
+    inputs: {},
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    missingVariables: [],
+    name: "",
+    positionAndSizeLocked: false,
+    promptTemplateId: null,
+    renderError: null,
+    renderedText: "",
+    size: {
+      height: 150,
+      width: 300,
+    },
+    styleColor: null,
+    tagColor: null,
+    template: "",
+    type: "Prompt",
+  };
+  return {
+    ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
+
+export type RealtimeUIChangeMessage = gt.RealtimeUIChangeMessage;
+
+export type RenameRefactorBroadcastContent = gt.RenameRefactorBroadcastContent;
+
+export type RenameReferenceChangedValue = gt.RenameReferenceChangedValue;
+
+export type RotaryParamCodeObjImpl = gt.RotaryParamCodeObjImpl;
+
+export type ScatterChartSettings = gt.ScatterChartSettings;
+
+export type SectionCapabilities = gt.SectionCapabilities;
+
+export function createSectionCapabilities(
+  options: Partial<SectionCapabilities> = {},
+): SectionCapabilities {
+  const defaults: SectionCapabilities = {
+    canRun: false,
+    canSelectAsEntryCodeBlock: false,
+    entryCodeBlockValue: null,
+    runDisabledReason: null,
+    runRequestSectionId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<SectionCapabilities>(defaults, options),
+  };
+}
+
+type SectionCodegenOverride = gt.SectionCodegenOverride;
+
+function createSectionCodegenOverride(
+  options: Partial<SectionCodegenOverride> = {},
+): SectionCodegenOverride {
+  const defaults: SectionCodegenOverride = {
+    mode: "inherit",
+    representation: "expression",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionCodegenOverride>(defaults, options),
+  };
+}
+
+type SectionCodegenPolicy = gt.SectionCodegenPolicy;
+
+export function createSectionCodegenPolicy(
+  options: Partial<SectionCodegenPolicy> = {},
+): SectionCodegenPolicy {
+  const defaults: SectionCodegenPolicy = {
+    allowlist: [
+      "Callable",
+      "Dict",
+      "ListRoot",
+      "Group",
+      "GlobalVariables",
+      "TextBlock",
+      "Draw",
+      "MetaControl",
+      "TaskBoard",
+      "Spreadsheet",
+    ],
+    exclude: [],
+    metaControlAllowlist: [
+      "CodeParam",
+      "TextParam",
+      "DateParam",
+      "TimeParam",
+      "TextAreaParam",
+      "SliderParam",
+      "RotaryParam",
+      "SwitchParam",
+      "ColorPickerParam",
+      "DropdownParam",
+      "PasswordParam",
+      "ButtonParam",
+      "DropzoneParam",
+    ],
+    sectionOverrides: {},
+    typePolicies: {
+      Browser: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Callable: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Chart: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Chat: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      Code: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Dict: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Draw: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      GenPythonCode: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      GenPythonMetadata: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      GlobalVariables: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Group: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      IFrame: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Image: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      ListRoot: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      MetaControl: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Plugin: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Prompt: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Social: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Spreadsheet: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineEnd: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineGate: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineStart: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      TaskBoard: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Terminal: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      TextBlock: {
+        mode: "inherit",
+        representation: "expression",
+      },
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<SectionCodegenPolicy>(defaults, options),
+    typePolicies: Object.fromEntries(
+      Object.entries({
+        ...(defaults.typePolicies ?? {}),
+        ...(options.typePolicies ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createSectionTypeCodegenPolicy(
+          value as Partial<SectionTypeCodegenPolicy>,
+        ),
+      ]),
+    ) as Record<SectionType, SectionTypeCodegenPolicy>,
+    sectionOverrides: Object.fromEntries(
+      Object.entries({
+        ...(defaults.sectionOverrides ?? {}),
+        ...(options.sectionOverrides ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createSectionCodegenOverride(value as Partial<SectionCodegenOverride>),
+      ]),
+    ) as Record<string, SectionCodegenOverride>,
+  };
+}
+
+export type SectionDependencyKey = gt.SectionDependencyKey;
+
+export type SectionParamDependencyKey = gt.SectionParamDependencyKey;
+
+export type SectionSize = gt.SectionSize;
+
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
+  const defaults: SectionSize = {
+    height: "auto",
+    width: "auto",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionSize>(defaults, options),
+    width: options.width ?? SectionSizeModeEnum.auto,
+    height: options.height ?? SectionSizeModeEnum.auto,
   };
 }
 
@@ -1564,439 +2142,265 @@ function createSectionSizingPolicy(
   };
 }
 
-type GlobalVariablesSectionImpl = gt.GlobalVariablesSectionImpl;
+type SectionSizingPolicyByType = gt.SectionSizingPolicyByType;
 
-type GenPythonCodeSectionImpl = gt.GenPythonCodeSectionImpl;
-
-type GenPythonMetadataSectionImpl = gt.GenPythonMetadataSectionImpl;
-
-export type Viewport = gt.Viewport;
-
-function createViewport(options: Partial<Viewport> = {}): Viewport {
-  const defaults: Viewport = {
-    x: 0,
-    y: 0,
-    zoom: 1,
-  };
-  return {
-    ...mergeGeneratedOptions<Viewport>(defaults, options),
-  };
-}
-
-export type ViewportBounds = gt.ViewportBounds;
-
-export type TopLevelSectionLayout = gt.TopLevelSectionLayout;
-
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  const defaults: TopLevelSectionLayout = {
-    h: null,
-    w: null,
-    x: 0,
-    y: 0,
-    zIndex: 0,
-  };
-  return {
-    ...mergeGeneratedOptions<TopLevelSectionLayout>(defaults, options),
-  };
-}
-
-export type ViewMode = gt.ViewMode;
-
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  const defaults: ViewMode = {
-    id: "",
-    isTab: false,
-    isUserFacing: false,
-    name: "",
-    sortIndex: 0,
-    topLevelSections: {},
-    viewport: null,
-    viewportInitialized: false,
-    visibilityBySectionId: {},
-  };
-  return {
-    ...mergeGeneratedOptions<ViewMode>(defaults, options),
-    viewport:
-      options.viewport === null
-        ? null
-        : (options.viewport ?? defaults.viewport) === null
-          ? null
-          : createViewport(
-              options.viewport === null
-                ? null
-                : ((options.viewport ??
-                    defaults.viewport) as Partial<Viewport>),
-            ),
-  };
-}
-
-export type Edge = gt.Edge;
-
-export type AgenticEdge = gt.AgenticEdge;
-
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  const defaults: AgenticEdge = {
-    contextMode: "reference_only",
-    hidden: false,
-    id: "",
-    kind: "section_chat",
-    selected: false,
-    sourceSectionId: "",
-    style: {},
-    targetSectionId: "",
-    zIndex: 0,
-  };
-  return {
-    ...mergeGeneratedOptions<AgenticEdge>(defaults, options),
-  };
-}
-
-export type LSPDiagnostic = gt.LSPDiagnostic;
-
-export type ProjectConfigDiagnostics = gt.ProjectConfigDiagnostics;
-
-export function createProjectConfigDiagnostics(
-  options: Partial<ProjectConfigDiagnostics> = {},
-): ProjectConfigDiagnostics {
-  return options as ProjectConfigDiagnostics;
-}
-
-export type LSPDiagnosticsPayload = gt.LSPDiagnosticsPayload;
-
-export function createLSPDiagnosticsPayload(
-  options: Partial<LSPDiagnosticsPayload> = {},
-): LSPDiagnosticsPayload {
-  return options as LSPDiagnosticsPayload;
-}
-
-export type NameValidationContract = gt.NameValidationContract;
-
-export type ChatWindowBounds = gt.ChatWindowBounds;
-
-function createChatWindowBounds(
-  options: Partial<ChatWindowBounds> = {},
-): ChatWindowBounds {
-  const defaults: ChatWindowBounds = {
-    height: 520,
-    width: 820,
-    x: 120,
-    y: 120,
-  };
-  return {
-    ...mergeGeneratedOptions<ChatWindowBounds>(defaults, options),
-  };
-}
-
-type ChatWindowDockMetrics = gt.ChatWindowDockMetrics;
-
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  const defaults: ChatWindowDockMetrics = {
-    preferredWidthPx: null,
-    widthFraction: null,
-  };
-  return {
-    ...mergeGeneratedOptions<ChatWindowDockMetrics>(defaults, options),
-  };
-}
-
-export type ProjectChatWindowInstance = gt.ProjectChatWindowInstance;
-
-export function createProjectChatWindowInstance(
-  options: Partial<ProjectChatWindowInstance> = {},
-): ProjectChatWindowInstance {
-  const defaults: ProjectChatWindowInstance = {
-    bounds: {
-      height: 520,
-      width: 820,
-      x: 120,
-      y: 120,
+function createSectionSizingPolicyByType(
+  options: Partial<SectionSizingPolicyByType> = {},
+): SectionSizingPolicyByType {
+  const defaults: SectionSizingPolicyByType = {
+    Browser: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 250,
+      minWidth: 200,
     },
-    chatId: null,
-    dockMetrics: {
-      preferredWidthPx: null,
-      widthFraction: null,
+    Callable: {
+      hideParamsMinHeight: 90,
+      hideSearchMinHeight: 42,
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 104,
+      minWidth: 200,
     },
-    instanceId: "",
-    isClosed: false,
-    isMaximized: false,
-    isMinimized: false,
-    lastFocusedAt: 0,
-    lastPlacementBeforeMaximize: null,
-    mode: "project_ai_mode",
-    placement: "bottom_docked",
-    sectionIdOrNull: null,
-    title: null,
-    zIndex: 0,
+    Chart: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 300,
+      minWidth: 300,
+    },
+    Chat: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 200,
+      minWidth: 400,
+    },
+    Code: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 58.2,
+      minWidth: 200,
+    },
+    Dict: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 78,
+      minWidth: 200,
+    },
+    Draw: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 402,
+    },
+    GenPythonCode: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    GenPythonMetadata: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    GlobalVariables: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 78,
+      minWidth: 200,
+    },
+    Group: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    IFrame: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    Image: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 200,
+    },
+    ListRoot: {
+      maxHeight: 50,
+      maxWidth: 100000,
+      minHeight: 50,
+      minWidth: 200,
+    },
+    MetaControl: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 10,
+      minWidth: 100,
+    },
+    Plugin: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 80,
+      minWidth: 200,
+    },
+    Prompt: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 150,
+      minWidth: 300,
+    },
+    Social: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 50,
+      minWidth: 200,
+    },
+    Spreadsheet: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 260,
+      minWidth: 420,
+    },
+    StateMachineEnd: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 96,
+      minWidth: 240,
+    },
+    StateMachineGate: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 120,
+      minWidth: 240,
+    },
+    StateMachineStart: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 96,
+      minWidth: 240,
+    },
+    TaskBoard: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 240,
+      minWidth: 360,
+    },
+    Terminal: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 200,
+    },
+    TextBlock: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 49,
+      minWidth: 100,
+    },
   };
   return {
-    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
-    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
-    dockMetrics: createChatWindowDockMetrics(
-      options.dockMetrics ?? defaults.dockMetrics,
+    ...mergeGeneratedOptions<SectionSizingPolicyByType>(defaults, options),
+    Callable: createSectionSizingPolicyCallableTypeEntry(
+      options.Callable ?? defaults.Callable,
+    ),
+    Dict: createSectionSizingPolicyTypeEntry(options.Dict ?? defaults.Dict),
+    ListRoot: createSectionSizingPolicyTypeEntry(
+      options.ListRoot ?? defaults.ListRoot,
+    ),
+    Group: createSectionSizingPolicyTypeEntry(options.Group ?? defaults.Group),
+    StateMachineStart: createSectionSizingPolicyTypeEntry(
+      options.StateMachineStart ?? defaults.StateMachineStart,
+    ),
+    StateMachineGate: createSectionSizingPolicyTypeEntry(
+      options.StateMachineGate ?? defaults.StateMachineGate,
+    ),
+    StateMachineEnd: createSectionSizingPolicyTypeEntry(
+      options.StateMachineEnd ?? defaults.StateMachineEnd,
+    ),
+    Image: createSectionSizingPolicyTypeEntry(options.Image ?? defaults.Image),
+    Chart: createSectionSizingPolicyTypeEntry(options.Chart ?? defaults.Chart),
+    Draw: createSectionSizingPolicyTypeEntry(options.Draw ?? defaults.Draw),
+    Prompt: createSectionSizingPolicyTypeEntry(
+      options.Prompt ?? defaults.Prompt,
+    ),
+    TextBlock: createSectionSizingPolicyTypeEntry(
+      options.TextBlock ?? defaults.TextBlock,
+    ),
+    MetaControl: createSectionSizingPolicyTypeEntry(
+      options.MetaControl ?? defaults.MetaControl,
+    ),
+    Social: createSectionSizingPolicyTypeEntry(
+      options.Social ?? defaults.Social,
+    ),
+    GlobalVariables: createSectionSizingPolicyTypeEntry(
+      options.GlobalVariables ?? defaults.GlobalVariables,
+    ),
+    Code: createSectionSizingPolicyTypeEntry(options.Code ?? defaults.Code),
+    GenPythonCode: createSectionSizingPolicyTypeEntry(
+      options.GenPythonCode ?? defaults.GenPythonCode,
+    ),
+    GenPythonMetadata: createSectionSizingPolicyTypeEntry(
+      options.GenPythonMetadata ?? defaults.GenPythonMetadata,
+    ),
+    Terminal: createSectionSizingPolicyTypeEntry(
+      options.Terminal ?? defaults.Terminal,
+    ),
+    IFrame: createSectionSizingPolicyTypeEntry(
+      options.IFrame ?? defaults.IFrame,
+    ),
+    Chat: createSectionSizingPolicyTypeEntry(options.Chat ?? defaults.Chat),
+    Browser: createSectionSizingPolicyTypeEntry(
+      options.Browser ?? defaults.Browser,
+    ),
+    Plugin: createSectionSizingPolicyTypeEntry(
+      options.Plugin ?? defaults.Plugin,
+    ),
+    TaskBoard: createSectionSizingPolicyTypeEntry(
+      options.TaskBoard ?? defaults.TaskBoard,
+    ),
+    Spreadsheet: createSectionSizingPolicyTypeEntry(
+      options.Spreadsheet ?? defaults.Spreadsheet,
     ),
   };
 }
 
-export type ProjectChatWindowingState = gt.ProjectChatWindowingState;
+type SectionSizingPolicyCallableTypeEntry =
+  gt.SectionSizingPolicyCallableTypeEntry;
 
-export function createProjectChatWindowingState(
-  options: Partial<ProjectChatWindowingState> = {},
-): ProjectChatWindowingState {
-  const defaults: ProjectChatWindowingState = {
-    instancesById: {},
-    nextInstanceNumber: 1,
-    order: [],
+function createSectionSizingPolicyCallableTypeEntry(
+  options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
+): SectionSizingPolicyCallableTypeEntry {
+  return options as SectionSizingPolicyCallableTypeEntry;
+}
+
+type SectionSizingPolicyGlobals = gt.SectionSizingPolicyGlobals;
+
+function createSectionSizingPolicyGlobals(
+  options: Partial<SectionSizingPolicyGlobals> = {},
+): SectionSizingPolicyGlobals {
+  const defaults: SectionSizingPolicyGlobals = {
+    autoMaxHeight: 350,
+    infiniteMaxHeight: 100000,
+    infiniteMaxWidth: 100000,
+    minimizedHeight: 32,
+    pinnedParamsAreaMinHeight: 64,
+    unpinnedParamsAreaMinHeight: 36,
   };
   return {
-    ...mergeGeneratedOptions<ProjectChatWindowingState>(defaults, options),
+    ...mergeGeneratedOptions<SectionSizingPolicyGlobals>(defaults, options),
   };
 }
 
-export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
+type SectionSizingPolicyTypeEntry = gt.SectionSizingPolicyTypeEntry;
 
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  const defaults: NormalizedFloatingWindowBounds = {
-    height: 1,
-    width: 1,
-    x: 0,
-    y: 0,
-  };
-  return {
-    ...mergeGeneratedOptions<NormalizedFloatingWindowBounds>(defaults, options),
-  };
+function createSectionSizingPolicyTypeEntry(
+  options: Partial<SectionSizingPolicyTypeEntry> = {},
+): SectionSizingPolicyTypeEntry {
+  return options as SectionSizingPolicyTypeEntry;
 }
-
-type WindowSpaceWindow = gt.WindowSpaceWindow;
-
-export function createWindowSpaceWindow(
-  options: Partial<WindowSpaceWindow> = {},
-): WindowSpaceWindow {
-  const defaults: WindowSpaceWindow = {
-    chatId: null,
-    embeddedGitPaneVisible: false,
-    mode: "project_ai_mode",
-    normalizedBounds: {
-      height: 1,
-      width: 1,
-      x: 0,
-      y: 0,
-    },
-    sectionIdOrNull: null,
-    surfaceKind: "project_chat",
-    title: null,
-    zIndex: 0,
-  };
-  return {
-    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
-    normalizedBounds: createNormalizedFloatingWindowBounds(
-      options.normalizedBounds ?? defaults.normalizedBounds,
-    ),
-  };
-}
-
-export type WindowSpaceState = gt.WindowSpaceState;
-
-export function createWindowSpaceState(
-  options: Partial<WindowSpaceState> = {},
-): WindowSpaceState {
-  const defaults: WindowSpaceState = {
-    order: [],
-    windowsById: {},
-  };
-  return {
-    ...mergeGeneratedOptions<WindowSpaceState>(defaults, options),
-  };
-}
-
-export type WindowSpaceConfig = gt.WindowSpaceConfig;
-
-export function createWindowSpaceConfig(
-  options: Partial<WindowSpaceConfig> = {},
-): WindowSpaceConfig {
-  const defaults: WindowSpaceConfig = {
-    id: "",
-    name: "",
-    order: [],
-    sortIndex: 0,
-    windowsById: {},
-  };
-  return {
-    ...mergeGeneratedOptions<WindowSpaceConfig>(defaults, options),
-  };
-}
-
-export type ProjectConfigMetadata = gt.ProjectConfigMetadata;
-
-export type CreateTopLevelSectionResult = gt.CreateTopLevelSectionResult;
-
-export type WatchCodeFolder = gt.WatchCodeFolder;
-
-type AgenticSummaryCacheStatus = gt.AgenticSummaryCacheStatus;
-
-export function createAgenticSummaryCacheStatus(
-  options: Partial<AgenticSummaryCacheStatus> = {},
-): AgenticSummaryCacheStatus {
-  return options as AgenticSummaryCacheStatus;
-}
-
-export type CanvasPoint = gt.CanvasPoint;
-
-export type DrawAreaTransform = gt.DrawAreaTransform;
-
-export type BrushStroke = gt.BrushStroke;
-
-export function createBrushStroke(
-  options: Partial<BrushStroke> = {},
-): BrushStroke {
-  const defaults: BrushStroke = {
-    globalCompositeOperation: "source-over",
-    lineCap: "round",
-    lineWidth: 1,
-    points: [],
-    strokeStyle: "",
-  };
-  return {
-    ...mergeGeneratedOptions<BrushStroke>(defaults, options),
-  };
-}
-
-export type BrushStrokeWithTransform = gt.BrushStrokeWithTransform;
-
-type DrawAreaLayerItemTransform = gt.DrawAreaLayerItemTransform;
-
-export function createDrawAreaLayerItemTransform(
-  options: Partial<DrawAreaLayerItemTransform> = {},
-): DrawAreaLayerItemTransform {
-  const defaults: DrawAreaLayerItemTransform = {
-    eraserStrokes: [],
-    transform: [1, 0, 0, 1, 0, 0],
-  };
-  return {
-    ...mergeGeneratedOptions<DrawAreaLayerItemTransform>(defaults, options),
-  };
-}
-
-export type DrawAreaLayer = gt.DrawAreaLayer;
-
-export function createDrawAreaLayer(
-  options: Partial<DrawAreaLayer> = {},
-): DrawAreaLayer {
-  const defaults: DrawAreaLayer = {
-    elements: [],
-    layerOpacity: 1,
-    name: "",
-    visible: true,
-  };
-  return {
-    ...mergeGeneratedOptions<DrawAreaLayer>(defaults, options),
-    name: options.name ?? createRandomName(),
-  };
-}
-
-export type BrushStrokeArtifact = gt.BrushStrokeArtifact;
-
-export function createBrushStrokeArtifact(
-  options: Partial<BrushStrokeArtifact> = {},
-): BrushStrokeArtifact {
-  const defaults: BrushStrokeArtifact = {
-    id: "",
-    type: "BrushStroke",
-    value: {
-      globalCompositeOperation: "source-over",
-      lineCap: "round",
-      lineWidth: 1,
-      points: [],
-      strokeStyle: "",
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<BrushStrokeArtifact>(defaults, options),
-    id: options.id ?? createJsonArtifactId(),
-    value: options.value ?? createBrushStroke(),
-  };
-}
-
-export type DrawAreaLayerItemTransformArtifact =
-  gt.DrawAreaLayerItemTransformArtifact;
-
-export function createDrawAreaLayerItemTransformArtifact(
-  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
-): DrawAreaLayerItemTransformArtifact {
-  const defaults: DrawAreaLayerItemTransformArtifact = {
-    id: "",
-    type: "DrawAreaLayerItemTransform",
-    value: {
-      eraserStrokes: [],
-      transform: [1, 0, 0, 1, 0, 0],
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
-      defaults,
-      options,
-    ),
-    id: options.id ?? createJsonArtifactId(),
-    value: options.value ?? createDrawAreaLayerItemTransform(),
-  };
-}
-
-export type ContentRef = gt.ContentRef;
-
-export function createContentRef(
-  options: Partial<ContentRef> = {},
-): ContentRef {
-  return options as ContentRef;
-}
-
-export type ImageArtifact = gt.ImageArtifact;
-
-export function createImageArtifact(
-  options: Partial<ImageArtifact> = {},
-): ImageArtifact {
-  const defaults: ImageArtifact = {
-    id: "",
-    type: "Image",
-    value: {
-      byteLength: 0,
-      contentId: "",
-      mimeType: "",
-      sha256: "",
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<ImageArtifact>(defaults, options),
-    id: options.id ?? createPngArtifactId(),
-    value: options.value ?? createContentRef(),
-  };
-}
-
-export type ChartDataArtifact = gt.ChartDataArtifact;
-
-export function createChartDataArtifact(
-  options: Partial<ChartDataArtifact> = {},
-): ChartDataArtifact {
-  const defaults: ChartDataArtifact = {
-    id: "",
-    type: "ChartData",
-    value: {},
-  };
-  return {
-    ...mergeGeneratedOptions<ChartDataArtifact>(defaults, options),
-    id: options.id ?? createCsvArtifactId(),
-  };
-}
-
-export type FileArtifact = gt.FileArtifact;
-
-export type JSONArtifact = gt.JSONArtifact;
 
 type SectionTypeCodegenPolicy = gt.SectionTypeCodegenPolicy;
 
@@ -2012,743 +2416,104 @@ function createSectionTypeCodegenPolicy(
   };
 }
 
-type SectionCodegenOverride = gt.SectionCodegenOverride;
+export type SectionsClipboardData = gt.SectionsClipboardData;
 
-function createSectionCodegenOverride(
-  options: Partial<SectionCodegenOverride> = {},
-): SectionCodegenOverride {
-  const defaults: SectionCodegenOverride = {
-    mode: "inherit",
-    representation: "expression",
+export type ServerModeCapabilities = gt.ServerModeCapabilities;
+
+type SettingsBackend = gt.SettingsBackend;
+
+function createSettingsBackend(
+  options: Partial<SettingsBackend> = {},
+): SettingsBackend {
+  const defaults: SettingsBackend = {
+    autoRefetchCallableParamsOnLspMismatch: true,
+    autobackup: true,
+    autobackupFreq: 300,
+    autobackupKeepLastN: 10,
+    autosave: true,
+    clearTerminalBeforeMarkingAsReady: true,
+    completionGuardEnabled: false,
+    defaultTerminalShell: null,
+    exportDbReadableOnSave: false,
+    exportDbReadableWithVariantsOnSave: false,
+    renameRefactorMode: "ALWAYS_ASK",
+    runSnapshotMode: "ephemeral",
+    saveRenderedValues: false,
+    showDefaultConfigOnLoad: true,
   };
   return {
-    ...mergeGeneratedOptions<SectionCodegenOverride>(defaults, options),
-  };
-}
-
-type SectionCodegenPolicy = gt.SectionCodegenPolicy;
-
-export function createSectionCodegenPolicy(
-  options: Partial<SectionCodegenPolicy> = {},
-): SectionCodegenPolicy {
-  const defaults: SectionCodegenPolicy = {
-    allowlist: [
-      "Callable",
-      "Dict",
-      "ListRoot",
-      "Group",
-      "GlobalVariables",
-      "TextBlock",
-      "Draw",
-      "MetaControl",
-      "TaskBoard",
-      "Spreadsheet",
-    ],
-    exclude: [],
-    metaControlAllowlist: [
-      "CodeParam",
-      "TextParam",
-      "DateParam",
-      "TimeParam",
-      "TextAreaParam",
-      "SliderParam",
-      "RotaryParam",
-      "SwitchParam",
-      "ColorPickerParam",
-      "DropdownParam",
-      "PasswordParam",
-      "ButtonParam",
-      "DropzoneParam",
-    ],
-    sectionOverrides: {},
-    typePolicies: {
-      Browser: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Callable: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Chart: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Chat: {
-        mode: "inherit",
-        representation: "file_read",
-      },
-      Code: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Dict: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Draw: {
-        mode: "inherit",
-        representation: "file_read",
-      },
-      GenPythonCode: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      GenPythonMetadata: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      GlobalVariables: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Group: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      IFrame: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Image: {
-        mode: "inherit",
-        representation: "file_read",
-      },
-      ListRoot: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      MetaControl: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Plugin: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Prompt: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Social: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Spreadsheet: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      StateMachineEnd: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      StateMachineGate: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      StateMachineStart: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      TaskBoard: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      Terminal: {
-        mode: "inherit",
-        representation: "expression",
-      },
-      TextBlock: {
-        mode: "inherit",
-        representation: "expression",
-      },
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<SectionCodegenPolicy>(defaults, options),
-    typePolicies: Object.fromEntries(
-      Object.entries({
-        ...(defaults.typePolicies ?? {}),
-        ...(options.typePolicies ?? {}),
-      }).map(([key, value]) => [
-        key,
-        createSectionTypeCodegenPolicy(
-          value as Partial<SectionTypeCodegenPolicy>,
-        ),
-      ]),
-    ) as Record<SectionType, SectionTypeCodegenPolicy>,
-    sectionOverrides: Object.fromEntries(
-      Object.entries({
-        ...(defaults.sectionOverrides ?? {}),
-        ...(options.sectionOverrides ?? {}),
-      }).map(([key, value]) => [
-        key,
-        createSectionCodegenOverride(value as Partial<SectionCodegenOverride>),
-      ]),
-    ) as Record<string, SectionCodegenOverride>,
-  };
-}
-
-type CodeObjTypeValuePolicy = gt.CodeObjTypeValuePolicy;
-
-function createCodeObjTypeValuePolicy(
-  options: Partial<CodeObjTypeValuePolicy> = {},
-): CodeObjTypeValuePolicy {
-  const defaults: CodeObjTypeValuePolicy = {
-    representation: "expression",
-  };
-  return {
-    ...mergeGeneratedOptions<CodeObjTypeValuePolicy>(defaults, options),
-  };
-}
-
-type CodeObjValueOverride = gt.CodeObjValueOverride;
-
-function createCodeObjValueOverride(
-  options: Partial<CodeObjValueOverride> = {},
-): CodeObjValueOverride {
-  const defaults: CodeObjValueOverride = {
-    representation: "expression",
-  };
-  return {
-    ...mergeGeneratedOptions<CodeObjValueOverride>(defaults, options),
-  };
-}
-
-type CodeObjValuePolicy = gt.CodeObjValuePolicy;
-
-export function createCodeObjValuePolicy(
-  options: Partial<CodeObjValuePolicy> = {},
-): CodeObjValuePolicy {
-  const defaults: CodeObjValuePolicy = {
-    codeObjOverrides: {},
-    typePolicies: {
-      ButtonParam: {
-        representation: "expression",
-      },
-      CodeCallable: {
-        representation: "expression",
-      },
-      CodeParam: {
-        representation: "expression",
-      },
-      ColorPickerParam: {
-        representation: "string",
-      },
-      DateParam: {
-        representation: "string",
-      },
-      DropdownParam: {
-        representation: "expression",
-      },
-      DropzoneParam: {
-        representation: "file_path",
-      },
-      NestedParam: {
-        representation: "expression",
-      },
-      PasswordParam: {
-        representation: "string",
-      },
-      RotaryParam: {
-        representation: "expression",
-      },
-      SliderParam: {
-        representation: "expression",
-      },
-      SwitchParam: {
-        representation: "expression",
-      },
-      TextAreaParam: {
-        representation: "string",
-      },
-      TextParam: {
-        representation: "string",
-      },
-      TimeParam: {
-        representation: "string",
-      },
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<CodeObjValuePolicy>(defaults, options),
-    typePolicies: Object.fromEntries(
-      Object.entries({
-        ...(defaults.typePolicies ?? {}),
-        ...(options.typePolicies ?? {}),
-      }).map(([key, value]) => [
-        key,
-        createCodeObjTypeValuePolicy(value as Partial<CodeObjTypeValuePolicy>),
-      ]),
-    ) as Record<CodeObjType, CodeObjTypeValuePolicy>,
-    codeObjOverrides: Object.fromEntries(
-      Object.entries({
-        ...(defaults.codeObjOverrides ?? {}),
-        ...(options.codeObjOverrides ?? {}),
-      }).map(([key, value]) => [
-        key,
-        createCodeObjValueOverride(value as Partial<CodeObjValueOverride>),
-      ]),
-    ) as Record<string, CodeObjValueOverride>,
-  };
-}
-
-export type ProjectCodegenPythonTarget = gt.ProjectCodegenPythonTarget;
-
-export function createProjectCodegenPythonTarget(
-  options: Partial<ProjectCodegenPythonTarget> = {},
-): ProjectCodegenPythonTarget {
-  const defaults: ProjectCodegenPythonTarget = {
-    codeObjValuePolicy: {
-      codeObjOverrides: {},
-      typePolicies: {
-        ButtonParam: {
-          representation: "expression",
-        },
-        CodeCallable: {
-          representation: "expression",
-        },
-        CodeParam: {
-          representation: "expression",
-        },
-        ColorPickerParam: {
-          representation: "string",
-        },
-        DateParam: {
-          representation: "string",
-        },
-        DropdownParam: {
-          representation: "expression",
-        },
-        DropzoneParam: {
-          representation: "file_path",
-        },
-        NestedParam: {
-          representation: "expression",
-        },
-        PasswordParam: {
-          representation: "string",
-        },
-        RotaryParam: {
-          representation: "expression",
-        },
-        SliderParam: {
-          representation: "expression",
-        },
-        SwitchParam: {
-          representation: "expression",
-        },
-        TextAreaParam: {
-          representation: "string",
-        },
-        TextParam: {
-          representation: "string",
-        },
-        TimeParam: {
-          representation: "string",
-        },
-      },
-    },
-    genCodePrefix: "",
-    genCodeSuffix: "state = SettaState()",
-    generateMetadata: false,
-    language: "python",
-    sectionPolicy: {
-      allowlist: [
-        "Callable",
-        "Dict",
-        "ListRoot",
-        "Group",
-        "GlobalVariables",
-        "TextBlock",
-        "Draw",
-        "MetaControl",
-        "TaskBoard",
-        "Spreadsheet",
-      ],
-      exclude: [],
-      metaControlAllowlist: [
-        "CodeParam",
-        "TextParam",
-        "DateParam",
-        "TimeParam",
-        "TextAreaParam",
-        "SliderParam",
-        "RotaryParam",
-        "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-        "ButtonParam",
-        "DropzoneParam",
-      ],
-      sectionOverrides: {},
-      typePolicies: {
-        Browser: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Callable: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Chart: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Chat: {
-          mode: "inherit",
-          representation: "file_read",
-        },
-        Code: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Dict: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Draw: {
-          mode: "inherit",
-          representation: "file_read",
-        },
-        GenPythonCode: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        GenPythonMetadata: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        GlobalVariables: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Group: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        IFrame: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Image: {
-          mode: "inherit",
-          representation: "file_read",
-        },
-        ListRoot: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        MetaControl: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Plugin: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Prompt: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Social: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Spreadsheet: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        StateMachineEnd: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        StateMachineGate: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        StateMachineStart: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        TaskBoard: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        Terminal: {
-          mode: "inherit",
-          representation: "expression",
-        },
-        TextBlock: {
-          mode: "inherit",
-          representation: "expression",
-        },
-      },
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectCodegenPythonTarget>(defaults, options),
-    sectionPolicy: createSectionCodegenPolicy(
-      options.sectionPolicy ?? defaults.sectionPolicy,
-    ),
-    codeObjValuePolicy: createCodeObjValuePolicy(
-      options.codeObjValuePolicy ?? defaults.codeObjValuePolicy,
-    ),
-  };
-}
-
-export type ProjectCodegenPluginTarget = gt.ProjectCodegenPluginTarget;
-
-export function createProjectCodegenPluginTarget(
-  options: Partial<ProjectCodegenPluginTarget> = {},
-): ProjectCodegenPluginTarget {
-  const defaults: ProjectCodegenPluginTarget = {
-    language: "",
-    options: {},
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectCodegenPluginTarget>(defaults, options),
-  };
-}
-
-export type ProjectCodegenTarget = gt.ProjectCodegenTarget;
-
-export type Core = gt.Core;
-
-export function createCore(options: Partial<Core> = {}): Core {
-  const defaults: Core = {
-    defaultVariant: null,
-    displayName: "",
-    id: "",
-    name: "",
-    sharedModifier: {},
-    unsharedKeys: [],
-    variants: [],
-  };
-  return {
-    ...mergeGeneratedOptions<Core>(defaults, options),
-  };
-}
-
-export type SectionCapabilities = gt.SectionCapabilities;
-
-export function createSectionCapabilities(
-  options: Partial<SectionCapabilities> = {},
-): SectionCapabilities {
-  const defaults: SectionCapabilities = {
-    canRun: false,
-    canSelectAsEntryCodeBlock: false,
-    entryCodeBlockValue: null,
-    runDisabledReason: null,
-    runRequestSectionId: null,
-  };
-  return {
-    ...mergeGeneratedOptions<SectionCapabilities>(defaults, options),
-  };
-}
-
-export type Variant = gt.Variant;
-
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  const defaults: Variant = {
-    id: "",
-    impl: "",
-    isFrozen: false,
-    modifier: {},
-    name: "",
-    nonPresetImpls: [],
-  };
-  return {
-    ...mergeGeneratedOptions<Variant>(defaults, options),
-  };
-}
-
-type ProjectRunCapabilities = gt.ProjectRunCapabilities;
-
-export function createProjectRunCapabilities(
-  options: Partial<ProjectRunCapabilities> = {},
-): ProjectRunCapabilities {
-  const defaults: ProjectRunCapabilities = {
-    canRunFromMain: false,
-    effectiveEntrySectionId: null,
-    mainRunDisabledReason: null,
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectRunCapabilities>(defaults, options),
-  };
-}
-
-export type ProjectConfig = gt.ProjectConfig;
-
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  const defaults: ProjectConfig = {
-    activeIds: [],
-    activeViewModeId: null,
-    agenticEdges: [],
-    allowJsonSourceKeyEdits: false,
-    codegenTargets: [],
-    edges: [],
-    entryCodeBlockId: null,
-    hasPythonCodegenTarget: false,
-    id: "",
-    isEditingViewMode: false,
-    name: "",
-    previewImgColor: "",
-    runCapabilities: {
-      canRunFromMain: false,
-      effectiveEntrySectionId: null,
-      mainRunDisabledReason: null,
-    },
-    sectionIdsByPathSlug: {},
-    sectionPathSlugsById: {},
-    sectionVariantMap: {},
-    showParamDisplayNames: false,
-    stateMachineEdges: [],
-    topLevelSections: {},
-    viewModes: {},
-    viewport: null,
-    viewportInitialized: false,
-    watchCodeBaselineByPath: {},
-    watchCodeEnabled: false,
-    watchCodeFiles: [],
-    watchCodeFolders: [],
-    watchCodeRegistry: {},
-    windowSpaceIdsBySlug: {},
-    windowSpaceSlugsById: {},
-    windowSpaces: {},
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectConfig>(defaults, options),
-    viewport:
-      options.viewport === null
+    ...mergeGeneratedOptions<SettingsBackend>(defaults, options),
+    defaultTerminalShell:
+      options.defaultTerminalShell === null
         ? null
-        : (options.viewport ?? defaults.viewport) === null
-          ? null
-          : createViewport(
-              options.viewport === null
-                ? null
-                : ((options.viewport ??
-                    defaults.viewport) as Partial<Viewport>),
-            ),
-    runCapabilities: createProjectRunCapabilities(
-      options.runCapabilities ?? defaults.runCapabilities,
-    ),
+        : options.defaultTerminalShell ?? null,
   };
 }
 
-type SingletonSections = gt.SingletonSections;
+type SettingsGUI = gt.SettingsGUI;
 
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  const defaults: SingletonSections = {
-    GenPythonCode: null,
-    GenPythonMetadata: null,
-    GlobalVariables: null,
-  };
-  return {
-    ...mergeGeneratedOptions<SingletonSections>(defaults, options),
-  };
-}
-
-export type ShownParamIDs = gt.ShownParamIDs;
-
-export type SingleConfig = gt.SingleConfig;
-
-export function createSingleConfig(
-  options: Partial<SingleConfig> = {},
-): SingleConfig {
-  const defaults: SingleConfig = {
-    artifactGroups: {},
-    codeObjImpls: {},
-    codeObjVariants: {},
-    codeObjs: {},
-    genCodeBinding: null,
-    parentSectionMap: {},
-    projectChatWindowing: {
-      instancesById: {},
-      nextInstanceNumber: 1,
-      order: [],
-    },
-    projectConfig: {
-      activeIds: [],
-      activeViewModeId: null,
-      agenticEdges: [],
-      allowJsonSourceKeyEdits: false,
-      codegenTargets: [],
-      edges: [],
-      entryCodeBlockId: null,
-      hasPythonCodegenTarget: false,
-      id: "",
-      isEditingViewMode: false,
-      name: "",
-      previewImgColor: "",
-      runCapabilities: {
-        canRunFromMain: false,
-        effectiveEntrySectionId: null,
-        mainRunDisabledReason: null,
+function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
+  const defaults: SettingsGUI = {
+    defaultZoomLevel: 1,
+    gridColor: "#afbacf",
+    gridColorDarkMode: "#2b364a",
+    gridPattern: "dots",
+    gridPatternSize: 2,
+    leftSidePaneShiftsMap: true,
+    maxZoom: 10,
+    minZoom: 0.1,
+    panOnDrag: true,
+    panOnScroll: true,
+    panOnScrollMode: "free",
+    panOnScrollSpeed: 1,
+    sectionTagColorChoices: [
+      {
+        color: "#ef4444",
+        description: "Red",
       },
-      sectionIdsByPathSlug: {},
-      sectionPathSlugsById: {},
-      sectionVariantMap: {},
-      showParamDisplayNames: false,
-      stateMachineEdges: [],
-      topLevelSections: {},
-      viewModes: {},
-      viewport: null,
-      viewportInitialized: false,
-      watchCodeBaselineByPath: {},
-      watchCodeEnabled: false,
-      watchCodeFiles: [],
-      watchCodeFolders: [],
-      watchCodeRegistry: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaceSlugsById: {},
-      windowSpaces: {},
-    },
-    requiredDecodedImages: [],
-    sectionCapabilities: {},
-    sectionImpls: {},
-    sectionVariants: {},
-    sections: {},
-    shownParamIds: {},
-    singletonSections: {
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-      GlobalVariables: null,
-    },
+      {
+        color: "#f97316",
+        description: "Orange",
+      },
+      {
+        color: "#eab308",
+        description: "Yellow",
+      },
+      {
+        color: "#22c55e",
+        description: "Green",
+      },
+      {
+        color: "#06b6d4",
+        description: "Cyan",
+      },
+      {
+        color: "#3b82f6",
+        description: "Blue",
+      },
+      {
+        color: "#a855f7",
+        description: "Purple",
+      },
+      {
+        color: "#64748b",
+        description: "Slate",
+      },
+    ],
+    selectionMode: "partial",
+    showGridLines: true,
+    snapGrid: [15, 15],
+    transitionDuration: 50,
+    wireColor: "#41506c",
+    wireColorDarkMode: "#bac2d3",
+    zoomOnDoubleClick: false,
+    zoomOnPinch: true,
+    zoomOnScroll: true,
   };
   return {
-    ...mergeGeneratedOptions<SingleConfig>(defaults, options),
-    projectConfig: createProjectConfig(
-      options.projectConfig ?? defaults.projectConfig,
-    ),
-    singletonSections: createSingletonSections(
-      options.singletonSections ?? defaults.singletonSections,
-    ),
-    genCodeBinding:
-      options.genCodeBinding === null
-        ? null
-        : (options.genCodeBinding ?? defaults.genCodeBinding) === null
-          ? null
-          : createCodeFileBinding(
-              options.genCodeBinding === null
-                ? null
-                : ((options.genCodeBinding ??
-                    defaults.genCodeBinding) as Partial<CodeFileBinding>),
-            ),
-    projectChatWindowing: createProjectChatWindowingState(
-      options.projectChatWindowing ?? defaults.projectChatWindowing,
-    ),
+    ...mergeGeneratedOptions<SettingsGUI>(defaults, options),
   };
 }
-
-export type Template = gt.Template;
-
-export type ColorPickerChoice = gt.ColorPickerChoice;
 
 type SettingsShortcuts = gt.SettingsShortcuts;
 
@@ -2821,101 +2586,6 @@ function createSettingsShortcuts(
   };
   return {
     ...mergeGeneratedOptions<SettingsShortcuts>(defaults, options),
-  };
-}
-
-type SettingsGUI = gt.SettingsGUI;
-
-function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
-  const defaults: SettingsGUI = {
-    defaultZoomLevel: 1,
-    gridColor: "#afbacf",
-    gridColorDarkMode: "#2b364a",
-    gridPattern: "dots",
-    gridPatternSize: 2,
-    leftSidePaneShiftsMap: true,
-    maxZoom: 10,
-    minZoom: 0.1,
-    panOnDrag: true,
-    panOnScroll: true,
-    panOnScrollMode: "free",
-    panOnScrollSpeed: 1,
-    sectionTagColorChoices: [
-      {
-        color: "#ef4444",
-        description: "Red",
-      },
-      {
-        color: "#f97316",
-        description: "Orange",
-      },
-      {
-        color: "#eab308",
-        description: "Yellow",
-      },
-      {
-        color: "#22c55e",
-        description: "Green",
-      },
-      {
-        color: "#06b6d4",
-        description: "Cyan",
-      },
-      {
-        color: "#3b82f6",
-        description: "Blue",
-      },
-      {
-        color: "#a855f7",
-        description: "Purple",
-      },
-      {
-        color: "#64748b",
-        description: "Slate",
-      },
-    ],
-    selectionMode: "partial",
-    showGridLines: true,
-    snapGrid: [15, 15],
-    transitionDuration: 50,
-    wireColor: "#41506c",
-    wireColorDarkMode: "#bac2d3",
-    zoomOnDoubleClick: false,
-    zoomOnPinch: true,
-    zoomOnScroll: true,
-  };
-  return {
-    ...mergeGeneratedOptions<SettingsGUI>(defaults, options),
-  };
-}
-
-type SettingsBackend = gt.SettingsBackend;
-
-function createSettingsBackend(
-  options: Partial<SettingsBackend> = {},
-): SettingsBackend {
-  const defaults: SettingsBackend = {
-    autoRefetchCallableParamsOnLspMismatch: true,
-    autobackup: true,
-    autobackupFreq: 300,
-    autobackupKeepLastN: 10,
-    autosave: true,
-    clearTerminalBeforeMarkingAsReady: true,
-    completionGuardEnabled: false,
-    defaultTerminalShell: null,
-    exportDbReadableOnSave: false,
-    exportDbReadableWithVariantsOnSave: false,
-    renameRefactorMode: "ALWAYS_ASK",
-    runSnapshotMode: "ephemeral",
-    saveRenderedValues: false,
-    showDefaultConfigOnLoad: true,
-  };
-  return {
-    ...mergeGeneratedOptions<SettingsBackend>(defaults, options),
-    defaultTerminalShell:
-      options.defaultTerminalShell === null
-        ? null
-        : options.defaultTerminalShell ?? null,
   };
 }
 
@@ -3342,57 +3012,333 @@ export function createSettingsState(
   };
 }
 
-export type ChatFileAttachment = gt.ChatFileAttachment;
+export type ShownParamIDs = gt.ShownParamIDs;
 
-export type ChatSendEvent = gt.ChatSendEvent;
+export type SingleConfig = gt.SingleConfig;
 
-export type ChatStopEvent = gt.ChatStopEvent;
-
-export type MessageTextContent = gt.MessageTextContent;
-
-export function createMessageTextContent(
-  options: Partial<MessageTextContent> = {},
-): MessageTextContent {
-  const defaults: MessageTextContent = {
-    text: "",
-    type: "text",
+export function createSingleConfig(
+  options: Partial<SingleConfig> = {},
+): SingleConfig {
+  const defaults: SingleConfig = {
+    artifactGroups: {},
+    codeObjImpls: {},
+    codeObjVariants: {},
+    codeObjs: {},
+    genCodeBinding: null,
+    parentSectionMap: {},
+    projectChatWindowing: {
+      instancesById: {},
+      nextInstanceNumber: 1,
+      order: [],
+    },
+    projectConfig: {
+      activeIds: [],
+      activeViewModeId: null,
+      agenticEdges: [],
+      allowJsonSourceKeyEdits: false,
+      codegenTargets: [],
+      edges: [],
+      entryCodeBlockId: null,
+      hasPythonCodegenTarget: false,
+      id: "",
+      isEditingViewMode: false,
+      name: "",
+      previewImgColor: "",
+      runCapabilities: {
+        canRunFromMain: false,
+        effectiveEntrySectionId: null,
+        mainRunDisabledReason: null,
+      },
+      sectionIdsByPathSlug: {},
+      sectionPathSlugsById: {},
+      sectionVariantMap: {},
+      showParamDisplayNames: false,
+      stateMachineEdges: [],
+      topLevelSections: {},
+      viewModes: {},
+      viewport: null,
+      viewportInitialized: false,
+      watchCodeBaselineByPath: {},
+      watchCodeEnabled: false,
+      watchCodeFiles: [],
+      watchCodeFolders: [],
+      watchCodeRegistry: {},
+      windowSpaceIdsBySlug: {},
+      windowSpaceSlugsById: {},
+      windowSpaces: {},
+    },
+    requiredDecodedImages: [],
+    sectionCapabilities: {},
+    sectionImpls: {},
+    sectionVariants: {},
+    sections: {},
+    shownParamIds: {},
+    singletonSections: {
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+      GlobalVariables: null,
+    },
   };
   return {
-    ...mergeGeneratedOptions<MessageTextContent>(defaults, options),
+    ...mergeGeneratedOptions<SingleConfig>(defaults, options),
+    projectConfig: createProjectConfig(
+      options.projectConfig ?? defaults.projectConfig,
+    ),
+    singletonSections: createSingletonSections(
+      options.singletonSections ?? defaults.singletonSections,
+    ),
+    genCodeBinding:
+      options.genCodeBinding === null
+        ? null
+        : (options.genCodeBinding ?? defaults.genCodeBinding) === null
+          ? null
+          : createCodeFileBinding(
+              options.genCodeBinding === null
+                ? null
+                : ((options.genCodeBinding ??
+                    defaults.genCodeBinding) as Partial<CodeFileBinding>),
+            ),
+    projectChatWindowing: createProjectChatWindowingState(
+      options.projectChatWindowing ?? defaults.projectChatWindowing,
+    ),
   };
 }
 
-export type MessageImageURLContent = gt.MessageImageURLContent;
+type SingletonSections = gt.SingletonSections;
 
-export type MessageThinkingContent = gt.MessageThinkingContent;
-
-export function createMessageThinkingContent(
-  options: Partial<MessageThinkingContent> = {},
-): MessageThinkingContent {
-  const defaults: MessageThinkingContent = {
-    signature: "",
-    summary: "",
-    thinking: "",
-    type: "thinking",
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  const defaults: SingletonSections = {
+    GenPythonCode: null,
+    GenPythonMetadata: null,
+    GlobalVariables: null,
   };
   return {
-    ...mergeGeneratedOptions<MessageThinkingContent>(defaults, options),
+    ...mergeGeneratedOptions<SingletonSections>(defaults, options),
   };
 }
 
-type ToolCallFunction = gt.ToolCallFunction;
+export type SliderParamCodeObjImpl = gt.SliderParamCodeObjImpl;
 
-export function createToolCallFunction(
-  options: Partial<ToolCallFunction> = {},
-): ToolCallFunction {
-  const defaults: ToolCallFunction = {
-    arguments: {},
+type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
+
+export function createSpreadsheetSectionImpl(
+  options: Partial<SpreadsheetSectionImpl> = {},
+): SpreadsheetSectionImpl {
+  const defaults: SpreadsheetSectionImpl = {
+    activeSheet: null,
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    autoReloadOnExternalChange: false,
+    density: "compact",
+    filePath: "",
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
     name: "",
+    positionAndSizeLocked: false,
+    readOnly: false,
+    showRowNumbers: true,
+    size: {
+      height: 500,
+      width: 760,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Spreadsheet",
   };
   return {
-    ...mergeGeneratedOptions<ToolCallFunction>(defaults, options),
+    ...mergeGeneratedOptions<SpreadsheetSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
   };
 }
+
+type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
+
+export function createStateMachineStartSectionImpl(
+  options: Partial<StateMachineStartSectionImpl> = {},
+): StateMachineStartSectionImpl {
+  const defaults: StateMachineStartSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    label: "Start",
+    machineGroupId: "",
+    maxIterations: null,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 96,
+      width: 240,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "StateMachineStart",
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineStartSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+type SwitchParamCodeObjImpl = gt.SwitchParamCodeObjImpl;
+
+export type TaskBoardColumn = gt.TaskBoardColumn;
+
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  const defaults: TaskBoardColumn = {
+    color: "#3b82f6",
+    id: "",
+    name: "",
+    sortIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardColumn>(defaults, options),
+  };
+}
+
+type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
+
+export function createTaskBoardSectionImpl(
+  options: Partial<TaskBoardSectionImpl> = {},
+): TaskBoardSectionImpl {
+  const defaults: TaskBoardSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    columns: [],
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 430,
+      width: 720,
+    },
+    styleColor: null,
+    tagColor: null,
+    tasks: [],
+    type: "TaskBoard",
+    viewMode: "kanban",
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+export type TaskBoardTask = gt.TaskBoardTask;
+
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  const defaults: TaskBoardTask = {
+    columnId: null,
+    completed: false,
+    description: "",
+    dueDateIso: "",
+    id: "",
+    recurrence: "none",
+    recurrenceDays: [],
+    recurrenceMonths: [],
+    recurrenceYears: [],
+    sortIndex: 0,
+    title: "",
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardTask>(defaults, options),
+  };
+}
+
+export type Template = gt.Template;
+
+type TerminalSectionImpl = gt.TerminalSectionImpl;
+
+export function createTerminalSectionImpl(
+  options: Partial<TerminalSectionImpl> = {},
+): TerminalSectionImpl {
+  const defaults: TerminalSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 250,
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Terminal",
+  };
+  return {
+    ...mergeGeneratedOptions<TerminalSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+type TextAreaParamCodeObjImpl = gt.TextAreaParamCodeObjImpl;
+
+type TextBlockSectionImpl = gt.TextBlockSectionImpl;
+
+export function createTextBlockSectionImpl(
+  options: Partial<TextBlockSectionImpl> = {},
+): TextBlockSectionImpl {
+  const defaults: TextBlockSectionImpl = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    format: "Plaintext",
+    headingAsSectionName: false,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    masterFontSizePx: 14,
+    metaControlStyle: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 500,
+    },
+    styleColor: null,
+    tagColor: null,
+    text: "",
+    textDisplayMode: "Render",
+    type: "TextBlock",
+  };
+  return {
+    ...mergeGeneratedOptions<TextBlockSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
+}
+
+type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
+
+export type TimeParamCodeObjImpl = gt.TimeParamCodeObjImpl;
+
+export type ToolArgumentPreviewDeltaEvent = gt.ToolArgumentPreviewDeltaEvent;
 
 export type ToolCall = gt.ToolCall;
 
@@ -3411,38 +3357,19 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   };
 }
 
-export type AssistantChatMessage = gt.AssistantChatMessage;
+export type ToolCallDeltaEvent = gt.ToolCallDeltaEvent;
 
-export function createAssistantChatMessage(
-  options: Partial<AssistantChatMessage> = {},
-): AssistantChatMessage {
-  const defaults: AssistantChatMessage = {
-    attachments: [],
-    content: [],
-    createdAt: 0,
-    id: "",
-    role: "assistant",
-    tool_calls: null,
+type ToolCallFunction = gt.ToolCallFunction;
+
+export function createToolCallFunction(
+  options: Partial<ToolCallFunction> = {},
+): ToolCallFunction {
+  const defaults: ToolCallFunction = {
+    arguments: {},
+    name: "",
   };
   return {
-    ...mergeGeneratedOptions<AssistantChatMessage>(defaults, options),
-  };
-}
-
-type UserChatMessage = gt.UserChatMessage;
-
-export function createUserChatMessage(
-  options: Partial<UserChatMessage> = {},
-): UserChatMessage {
-  const defaults: UserChatMessage = {
-    attachments: [],
-    content: [],
-    createdAt: 0,
-    id: "",
-    role: "user",
-  };
-  return {
-    ...mergeGeneratedOptions<UserChatMessage>(defaults, options),
+    ...mergeGeneratedOptions<ToolCallFunction>(defaults, options),
   };
 }
 
@@ -3470,114 +3397,187 @@ export function createToolChatMessage(
   };
 }
 
-export type BaseChatMessageUnion = gt.BaseChatMessageUnion;
-
-export type SectionDependencyKey = gt.SectionDependencyKey;
-
-export type SectionParamDependencyKey = gt.SectionParamDependencyKey;
-
-export type LiteralDependencyValue = gt.LiteralDependencyValue;
-
-export type BinaryDependencyValue = gt.BinaryDependencyValue;
-
-export type BaseDependencyKeyUnion = gt.BaseDependencyKeyUnion;
-
-export type BaseDependencyValueUnion = gt.BaseDependencyValueUnion;
-
-export type DependencyEvent = gt.DependencyEvent;
-
-export type ListenerCoverageSnapshot = gt.ListenerCoverageSnapshot;
-
-export function createListenerCoverageSnapshot(
-  options: Partial<ListenerCoverageSnapshot> = {},
-): ListenerCoverageSnapshot {
-  return options as ListenerCoverageSnapshot;
-}
-
-export type AIFollowToolArgumentsUpdateContent =
-  gt.AIFollowToolArgumentsUpdateContent;
-
-export function createAIFollowToolArgumentsUpdateContent(
-  options: Partial<AIFollowToolArgumentsUpdateContent> = {},
-): AIFollowToolArgumentsUpdateContent {
-  return options as AIFollowToolArgumentsUpdateContent;
-}
-
-export type AIFollowToolResultUpdateContent =
-  gt.AIFollowToolResultUpdateContent;
-
-export type MessageStartEvent = gt.MessageStartEvent;
-
-export type MessageDeltaEvent = gt.MessageDeltaEvent;
-
-export type ToolCallDeltaEvent = gt.ToolCallDeltaEvent;
-
 export type ToolResultEvent = gt.ToolResultEvent;
 
-export type ToolArgumentPreviewDeltaEvent = gt.ToolArgumentPreviewDeltaEvent;
+export type TopLevelSectionLayout = gt.TopLevelSectionLayout;
 
-export type MessageFinalizedEvent = gt.MessageFinalizedEvent;
-
-export type LLMStreamingResponseContent = gt.LLMStreamingResponseContent;
-
-export type UISettingRevealTarget = gt.UISettingRevealTarget;
-
-export type UISettingRevealContent = gt.UISettingRevealContent;
-
-export type UISettingRevealResultStatus = gt.UISettingRevealResultStatus;
-
-export type UISettingRevealResultMessage = gt.UISettingRevealResultMessage;
-
-export type Connection = gt.Connection;
-
-export function createConnection(
-  options: Partial<Connection> = {},
-): Connection {
-  const defaults: Connection = {
-    connectionType: "SERVER",
-    currentAddress: "",
-    id: "",
-    shareSessionId: "",
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  const defaults: TopLevelSectionLayout = {
+    h: null,
+    w: null,
+    x: 0,
+    y: 0,
+    zIndex: 0,
   };
   return {
-    ...mergeGeneratedOptions<Connection>(defaults, options),
+    ...mergeGeneratedOptions<TopLevelSectionLayout>(defaults, options),
   };
 }
 
 export type TranscriptionProfile = gt.TranscriptionProfile;
 
-export type RenameReferenceChangedValue = gt.RenameReferenceChangedValue;
+type TypeErrorIgnoreState = gt.TypeErrorIgnoreState;
 
-export type RenameRefactorBroadcastContent = gt.RenameRefactorBroadcastContent;
-
-export type CurrentAddressUpdateMessage = gt.CurrentAddressUpdateMessage;
-
-export function createCurrentAddressUpdateMessage(
-  options: Partial<CurrentAddressUpdateMessage> = {},
-): CurrentAddressUpdateMessage {
-  const defaults: CurrentAddressUpdateMessage = {
-    content: "",
-    id: null,
-    messageType: "CurrentAddressUpdate",
+function createTypeErrorIgnoreState(
+  options: Partial<TypeErrorIgnoreState> = {},
+): TypeErrorIgnoreState {
+  const defaults: TypeErrorIgnoreState = {
+    callable: false,
+    params: {},
   };
   return {
-    ...mergeGeneratedOptions<CurrentAddressUpdateMessage>(defaults, options),
+    ...mergeGeneratedOptions<TypeErrorIgnoreState>(defaults, options),
   };
 }
 
-export type RealtimeUIChangeMessage = gt.RealtimeUIChangeMessage;
+export type UISettingRevealContent = gt.UISettingRevealContent;
 
-export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
+export type UISettingRevealResultMessage = gt.UISettingRevealResultMessage;
 
-export type AllProjectMetadata = gt.AllProjectMetadata;
+export type UISettingRevealResultStatus = gt.UISettingRevealResultStatus;
 
-export type Policy = gt.Policy;
+export type UISettingRevealTarget = gt.UISettingRevealTarget;
 
-export function createPolicy(options: Partial<Policy> = {}): Policy {
-  return options as Policy;
+type UserChatMessage = gt.UserChatMessage;
+
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
+  const defaults: UserChatMessage = {
+    attachments: [],
+    content: [],
+    createdAt: 0,
+    id: "",
+    role: "user",
+  };
+  return {
+    ...mergeGeneratedOptions<UserChatMessage>(defaults, options),
+  };
 }
 
-export type ServerModeCapabilities = gt.ServerModeCapabilities;
+export type Variant = gt.Variant;
+
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  const defaults: Variant = {
+    id: "",
+    impl: "",
+    isFrozen: false,
+    modifier: {},
+    name: "",
+    nonPresetImpls: [],
+  };
+  return {
+    ...mergeGeneratedOptions<Variant>(defaults, options),
+  };
+}
+
+export type ViewMode = gt.ViewMode;
+
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  const defaults: ViewMode = {
+    id: "",
+    isTab: false,
+    isUserFacing: false,
+    name: "",
+    sortIndex: 0,
+    topLevelSections: {},
+    viewport: null,
+    viewportInitialized: false,
+    visibilityBySectionId: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ViewMode>(defaults, options),
+    viewport:
+      options.viewport === null
+        ? null
+        : (options.viewport ?? defaults.viewport) === null
+          ? null
+          : createViewport(
+              options.viewport === null
+                ? null
+                : ((options.viewport ??
+                    defaults.viewport) as Partial<Viewport>),
+            ),
+  };
+}
+
+export type Viewport = gt.Viewport;
+
+function createViewport(options: Partial<Viewport> = {}): Viewport {
+  const defaults: Viewport = {
+    x: 0,
+    y: 0,
+    zoom: 1,
+  };
+  return {
+    ...mergeGeneratedOptions<Viewport>(defaults, options),
+  };
+}
+
+export type ViewportBounds = gt.ViewportBounds;
+
+export type WatchCodeFolder = gt.WatchCodeFolder;
+
+export type WindowSpaceConfig = gt.WindowSpaceConfig;
+
+export function createWindowSpaceConfig(
+  options: Partial<WindowSpaceConfig> = {},
+): WindowSpaceConfig {
+  const defaults: WindowSpaceConfig = {
+    id: "",
+    name: "",
+    order: [],
+    sortIndex: 0,
+    windowsById: {},
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceConfig>(defaults, options),
+  };
+}
+
+export type WindowSpaceState = gt.WindowSpaceState;
+
+export function createWindowSpaceState(
+  options: Partial<WindowSpaceState> = {},
+): WindowSpaceState {
+  const defaults: WindowSpaceState = {
+    order: [],
+    windowsById: {},
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceState>(defaults, options),
+  };
+}
+
+type WindowSpaceWindow = gt.WindowSpaceWindow;
+
+export function createWindowSpaceWindow(
+  options: Partial<WindowSpaceWindow> = {},
+): WindowSpaceWindow {
+  const defaults: WindowSpaceWindow = {
+    chatId: null,
+    embeddedGitPaneVisible: false,
+    mode: "project_ai_mode",
+    normalizedBounds: {
+      height: 1,
+      width: 1,
+      x: 0,
+      y: 0,
+    },
+    sectionIdOrNull: null,
+    surfaceKind: "project_chat",
+    title: null,
+    zIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
+    normalizedBounds: createNormalizedFloatingWindowBounds(
+      options.normalizedBounds ?? defaults.normalizedBounds,
+    ),
+  };
+}
 
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",

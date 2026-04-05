@@ -38,23 +38,15 @@ var tsReservedBindingKeywords = map[string]struct{}{
 
 func Build() (GeneratedBindings, error) {
 	converter := newTypeConverter()
-	for _, extraType := range CurrentAdditionalTypeRoots() {
-		if err := converter.AddRootType(extraType); err != nil {
-			return GeneratedBindings{}, err
-		}
-	}
-
-	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	contractDeclarations, err := semanticContractDeclarations(converter)
 	if err != nil {
 		return GeneratedBindings{}, err
 	}
-
-	declarations, err := applySemanticSidecarCreateBodies(converter, converter.Declarations())
+	extraDeclarations, err := CurrentAdditionalDeclarations()
 	if err != nil {
 		return GeneratedBindings{}, err
 	}
-	declarations = append(declarations, extraDeclarations...)
-	declarations = replaceStructuralDeclarationsWithOpenAPIAliases(declarations)
+	declarations := append(contractDeclarations, extraDeclarations...)
 	if err := validateTypeDeclarations(declarations); err != nil {
 		return GeneratedBindings{}, err
 	}
@@ -69,43 +61,6 @@ func Build() (GeneratedBindings, error) {
 	return GeneratedBindings{
 		TypesTS: typesTS,
 	}, nil
-}
-
-func replaceStructuralDeclarationsWithOpenAPIAliases(declarations []TypeDeclaration) []TypeDeclaration {
-	rewritten := make([]TypeDeclaration, 0, len(declarations)*2)
-	for _, declaration := range declarations {
-		switch declaration.Kind {
-		case "object":
-			rewritten = append(rewritten, aliasDeclaration(declaration.Name, "gt."+declaration.Name))
-			rewritten = append(rewritten, createFunctionDeclarationForAliasedObject(declaration))
-		case "alias":
-			if declaration.Name == "JSONValue" {
-				rewritten = append(rewritten, declaration)
-				continue
-			}
-			rewritten = append(rewritten, aliasDeclaration(declaration.Name, "gt."+declaration.Name))
-		default:
-			rewritten = append(rewritten, declaration)
-		}
-	}
-	return rewritten
-}
-
-func createFunctionDeclarationForAliasedObject(declaration TypeDeclaration) TypeDeclaration {
-	body := strings.TrimSpace(declaration.CreateBody)
-	if body == "" {
-		body = "return options as " + declaration.Name + ";"
-	}
-	return exportedFunctionDeclaration(
-		"create"+declaration.Name,
-		declaration.Name,
-		body,
-		TypeProperty{
-			Name:         "options",
-			TypeExpr:     "Partial<" + declaration.Name + ">",
-			DefaultValue: "{}",
-		},
-	)
 }
 
 func validateTypeDeclarations(declarations []TypeDeclaration) error {

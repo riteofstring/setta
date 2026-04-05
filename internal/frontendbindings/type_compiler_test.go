@@ -76,85 +76,51 @@ func TestSemanticDefaultValueForTypePreservesInitializedCollections(t *testing.T
 	}
 }
 
-func TestOwnerBackedReflectedObjectDeclarationUsesFieldCreateExprTagsInCreateBody(t *testing.T) {
+func TestGoBackedCreateFunctionUsesFieldCreateExprTagsInCreateBody(t *testing.T) {
 	t.Parallel()
 
-	converter := newTypeConverter()
-	typ := reflect.TypeOf(agentruns.RunEvent{})
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
-	}
-
-	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
-	if declaration.CreateBody == "" {
-		t.Fatalf("%s CreateBody is empty", declaration.Name)
-	}
-	if !strings.Contains(declaration.CreateBody, "timestamp: options.timestamp ?? \"\"") {
-		t.Fatalf("%s CreateBody missing timestamp tag override:\n%s", declaration.Name, declaration.CreateBody)
+	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(agentruns.RunEvent{}))
+	if !strings.Contains(declaration.FunctionBody, "timestamp: options.timestamp ?? \"\"") {
+		t.Fatalf("%s body missing timestamp tag override:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 }
 
-func TestOwnerBackedReflectedObjectDeclarationUsesNullableFieldCreateExprTagsInCreateBody(t *testing.T) {
+func TestGoBackedCreateFunctionUsesNullableFieldCreateExprTagsInCreateBody(t *testing.T) {
 	t.Parallel()
 
-	converter := newTypeConverter()
-	typ := reflect.TypeOf(settingsstate.FrontendSettingsBackend{})
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
-	}
-
-	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
-	if declaration.CreateBody == "" {
-		t.Fatalf("%s CreateBody is empty", declaration.Name)
-	}
+	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(settingsstate.FrontendSettingsBackend{}))
 	if !strings.Contains(
-		declaration.CreateBody,
+		declaration.FunctionBody,
 		"defaultTerminalShell: options.defaultTerminalShell === null ? null : (options.defaultTerminalShell ?? null)",
 	) {
-		t.Fatalf("%s CreateBody missing nullable ts_create_expr override:\n%s", declaration.Name, declaration.CreateBody)
+		t.Fatalf("%s body missing nullable ts_create_expr override:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 }
 
-func TestOwnerBackedReflectedObjectDeclarationUsesMapValueCreateTags(t *testing.T) {
+func TestGoBackedCreateFunctionUsesMapValueCreateTags(t *testing.T) {
 	t.Parallel()
 
-	converter := newTypeConverter()
-	typ := reflect.TypeOf(projectview.SectionCodegenPolicy{})
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(projectview.SectionCodegenPolicy{}))
+	if !strings.Contains(declaration.FunctionBody, "Object.fromEntries(") {
+		t.Fatalf("%s body missing map merge logic:\n%s", declaration.Name, declaration.FunctionBody)
 	}
-
-	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
-	if declaration.CreateBody == "" {
-		t.Fatalf("%s CreateBody is empty", declaration.Name)
-	}
-	if !strings.Contains(declaration.CreateBody, "Object.fromEntries(") {
-		t.Fatalf("%s CreateBody missing map merge logic:\n%s", declaration.Name, declaration.CreateBody)
-	}
-	if !strings.Contains(declaration.CreateBody, "createSectionTypeCodegenPolicy") {
-		t.Fatalf("%s CreateBody missing generated map value create call:\n%s", declaration.Name, declaration.CreateBody)
+	if !strings.Contains(declaration.FunctionBody, "createSectionTypeCodegenPolicy") {
+		t.Fatalf("%s body missing generated map value create call:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 }
 
 func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	t.Parallel()
 
-	converter := newTypeConverter()
-	for _, root := range CurrentAdditionalTypeRoots() {
-		if err := converter.AddRootType(root); err != nil {
-			t.Fatalf("AddRootType(%v): %v", root, err)
-		}
-	}
-	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	extraDeclarations, err := CurrentAdditionalDeclarations()
 	if err != nil {
 		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
 	}
-	declarations := append(converter.Declarations(), extraDeclarations...)
 
-	assertNoTypeDeclaration(t, declarations, "BaseDictSectionImplUnion")
-	assertNoTypeDeclaration(t, declarations, "isBaseDictSectionImpl")
-	assertNoTypeDeclaration(t, declarations, "ControlCodeObjTypeSet")
-	assertNoTypeDeclaration(t, declarations, "SectionParamCodeObjTypeSet")
+	assertNoTypeDeclaration(t, extraDeclarations, "BaseDictSectionImplUnion")
+	assertNoTypeDeclaration(t, extraDeclarations, "isBaseDictSectionImpl")
+	assertNoTypeDeclaration(t, extraDeclarations, "ControlCodeObjTypeSet")
+	assertNoTypeDeclaration(t, extraDeclarations, "SectionParamCodeObjTypeSet")
 
 	for _, declarationName := range []string{
 		"BaseParentSectionImplTypeSet",
@@ -162,7 +128,7 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 		"BaseParamCodeObjImplTypeSet",
 		"BaseParentCodeObjImplTypeSet",
 	} {
-		declaration := findTypeDeclaration(t, declarations, declarationName)
+		declaration := findTypeDeclaration(t, extraDeclarations, declarationName)
 		if declaration.Kind != "set" {
 			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "set")
 		}
@@ -175,7 +141,7 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 		"isBaseSectionWithParamsImpl",
 		"isBaseParentCodeObjImpl",
 	} {
-		declaration := findTypeDeclaration(t, declarations, declarationName)
+		declaration := findTypeDeclaration(t, extraDeclarations, declarationName)
 		if declaration.Kind != "type_guard" {
 			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "type_guard")
 		}
@@ -223,22 +189,17 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	t.Parallel()
 
 	converter := newTypeConverter()
-	for _, root := range CurrentAdditionalTypeRoots() {
-		if err := converter.AddRootType(root); err != nil {
-			t.Fatalf("AddRootType(%v): %v", root, err)
-		}
+	contractDeclarations, err := semanticContractDeclarations(converter)
+	if err != nil {
+		t.Fatalf("semanticContractDeclarations(): %v", err)
 	}
-	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	extraDeclarations, err := CurrentAdditionalDeclarations()
 	if err != nil {
 		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
 	}
-	declarations, err := applySemanticSidecarCreateBodies(converter, converter.Declarations())
-	if err != nil {
-		t.Fatalf("applySemanticSidecarCreateBodies(): %v", err)
-	}
 	declaration := findTypeDeclaration(
 		t,
-		replaceStructuralDeclarationsWithOpenAPIAliases(append(declarations, extraDeclarations...)),
+		append(contractDeclarations, extraDeclarations...),
 		"createChatSectionImpl",
 	)
 	if declaration.Kind != "function" {
@@ -252,20 +213,19 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	}
 }
 
-func TestUnionTypeProvidersGenerateAliasDeclarations(t *testing.T) {
+func TestSemanticContractDeclarationsAliasSharedContracts(t *testing.T) {
 	t.Parallel()
 
 	converter := newTypeConverter()
-	typ := reflect.TypeOf(projectview.ProjectCodegenTarget{})
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	declarations, err := semanticContractDeclarations(converter)
+	if err != nil {
+		t.Fatalf("semanticContractDeclarations(): %v", err)
 	}
-
-	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
+	declaration := findTypeDeclaration(t, declarations, frontendBindingTypeName(reflect.TypeOf(projectview.ProjectCodegenTarget{})))
 	if declaration.Kind != "alias" {
 		t.Fatalf("%s kind = %q, want %q", declaration.Name, declaration.Kind, "alias")
 	}
-	wantAlias := "ProjectCodegenPythonTarget\n  | ProjectCodegenPluginTarget"
+	wantAlias := "gt.ProjectCodegenTarget"
 	if declaration.Alias != wantAlias {
 		t.Fatalf("%s alias = %q, want %q", declaration.Name, declaration.Alias, wantAlias)
 	}
@@ -274,14 +234,13 @@ func TestUnionTypeProvidersGenerateAliasDeclarations(t *testing.T) {
 func TestEnumDeclarationsComeFromSemanticSidecar(t *testing.T) {
 	t.Parallel()
 
-	converter := newTypeConverter()
-	typ := reflect.TypeOf(projectstate.FrontendSectionType(""))
-	if err := converter.ensureDeclaration(typ); err != nil {
-		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	contractDeclarations, err := semanticContractDeclarations(newTypeConverter())
+	if err != nil {
+		t.Fatalf("semanticContractDeclarations(): %v", err)
 	}
-	assertNoTypeDeclaration(t, converter.Declarations(), "SectionType")
+	assertNoTypeDeclaration(t, contractDeclarations, "SectionType")
 
-	extraDeclarations, err := CurrentAdditionalDeclarations(converter)
+	extraDeclarations, err := CurrentAdditionalDeclarations()
 	if err != nil {
 		t.Fatalf("CurrentAdditionalDeclarations(): %v", err)
 	}
@@ -380,4 +339,25 @@ func assertNoTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name 
 			t.Fatalf("unexpected declaration %q found with kind %q", name, declaration.Kind)
 		}
 	}
+}
+
+func goBackedCreateDeclarationForTest(t *testing.T, typ reflect.Type) TypeDeclaration {
+	t.Helper()
+
+	defaultValue, ok, err := semanticDefaultValueForType(
+		canonicalFrontendBindingType(typ),
+		semanticDefaultProfileFrontend,
+	)
+	if err != nil {
+		t.Fatalf("semanticDefaultValueForType(%v): %v", typ, err)
+	}
+	if !ok {
+		t.Fatalf("semanticDefaultValueForType(%v) returned no default", typ)
+	}
+
+	declaration, err := newTypeConverter().goBackedCreateFunctionDeclaration(typ, defaultValue)
+	if err != nil {
+		t.Fatalf("goBackedCreateFunctionDeclaration(%v): %v", typ, err)
+	}
+	return declaration
 }

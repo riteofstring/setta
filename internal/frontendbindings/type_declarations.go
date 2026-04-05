@@ -35,14 +35,6 @@ type TypeProperty struct {
 	DefaultValue string
 }
 
-func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration {
-	return TypeDeclaration{
-		Name:       name,
-		Kind:       "object",
-		Properties: properties,
-	}
-}
-
 func unionAliasExpr(members ...string) string {
 	if len(members) == 0 {
 		return "never"

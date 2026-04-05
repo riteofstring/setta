@@ -1,18 +1,13 @@
 package frontendbindings
 
-import "reflect"
-
-func CurrentAdditionalDeclarations(converter *typeConverter) ([]TypeDeclaration, error) {
+func CurrentAdditionalDeclarations() ([]TypeDeclaration, error) {
 	declarations := []TypeDeclaration{
 		aliasDeclaration(
 			"JSONValue",
 			"gt.RawMessage",
 		),
 	}
-	if err := ensureSemanticExportTypeDeclarations(converter); err != nil {
-		return nil, err
-	}
-	enumDeclarations, err := semanticEnumDeclarations(converter)
+	enumDeclarations, err := semanticEnumDeclarations()
 	if err != nil {
 		return nil, err
 	}
@@ -28,8 +23,4 @@ func CurrentAdditionalDeclarations(converter *typeConverter) ([]TypeDeclaration,
 	}
 	declarations = append(declarations, valueDeclarations...)
 	return declarations, nil
-}
-
-func CurrentAdditionalTypeRoots() []reflect.Type {
-	return DiscoveredConvertibleTypes()
 }
