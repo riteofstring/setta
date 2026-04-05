@@ -21,7 +21,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       ],
     ]);
 
-    // Layout-resolved size should stay authoritative when it already exists.
+    // Live measured size should stay authoritative once the section registry
+    // has a fresher size than the persisted layout snapshot.
     const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -59,8 +60,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
     expect(nextNodeInternals.get("section-a")).toEqual({
       id: "section-a",
       position: { x: 500, y: 300 },
-      width: 240,
-      height: 160,
+      width: 360,
+      height: 210,
       zIndex: 4,
       tempZIndex: 1004,
       type: "Code",
@@ -85,8 +86,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         {
           id: "section-a",
           position: { x: 500, y: 300 },
-          width: 240,
-          height: 160,
+          width: 360,
+          height: 210,
           zIndex: 4,
           tempZIndex: 1004,
         },

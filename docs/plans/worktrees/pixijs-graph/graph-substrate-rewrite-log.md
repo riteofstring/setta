@@ -6986,3 +6986,68 @@ LOOP_TERMINAL_MARKER: none
   - inspect whether the remaining viewport transform path still rerenders the canary root on every pan/zoom tick and, if so, move that path behind a deeper boundary or imperative DOM write
   - keep the same normalized `rotaryParamCodeObjDefault` performance probe plus CDP compare as the regression gate
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 185
+
+- Item: Prefer the shared measured section size over stored layout size inside the canary scene snapshot and rerun the canonical normalized regression lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - after item `184`, the canonical `rotaryParamCodeObjDefault` perf lane was already healthy again, so the next real frontier was the plan's geometry-authority seam rather than another viewport-only hotspot pass
+    - `settingsGraphSubstrateCanarySceneSnapshot.ts` still preferred persisted layout width/height whenever they existed, which meant visible canary geometry could ignore fresher shared section measurements from the live section-size registry
+    - that kept fit bounds and shared node-internals partially anchored to stale layout geometry instead of one authoritative visible snapshot
+  - Production/test/report change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - now prefers the shared measured section size when the live registry has a positive width/height and falls back to persisted layout size only when measurement is unavailable
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - now locks the measured-size precedence while keeping drag-position override coverage
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+      - now proves fit-view bounds resolve from the fresher shared measured size instead of stale layout geometry
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - now proves shared node internals take the same measured snapshot size
+    - added `perf/reports/frontend/2026-04-05_settings-graph-substrate-measured-size-precedence.md`
+      - records the same normalized `rotaryParamCodeObjDefault` lane after this geometry-authority change
+  - What this slice established:
+    - the canary scene snapshot, fit bounds, and shared node-internals sync now resolve visible size from the same live shared registry when it exists
+    - the focused geometry/runtime tests are green:
+      - snapshot precedence, bounds resolution, node sync, scene-state integration, and viewport-runtime coverage all passed
+    - the same deterministic `rotaryParamCodeObjDefault` performance lane stayed healthy after the change:
+      - legacy rerun: `16.68ms` average frame duration, `35.0ms` max, `0` long tasks
+      - worktree canary: `16.24ms` average frame duration, `18.7ms` max, `0` long tasks
+      - both sides ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is green on the same normalized lane:
+      - fresh-context CDP compare reused the existing worktree/reference settings tabs, verified `All Settings`, and found no gross graph-surface drift around `rotaryParamCodeObjDefault`
+    - the prior item `184` visual blocker is closed:
+      - the sessions were healthy on refreshed `3076/8076` and `3087/8087`
+      - one intermediate CDP retry was blocked only by expired bootstrap tokens; a runtime-info refresh fixed that without another lifecycle restart
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - result: passed (`5 files`, `14 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-015/worktree-ai.log`
+    - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-015/main-ai.log`
+    - result: `main` frontend/backend healthy with refreshed bootstrap url
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `38.7s`)
+  - static verification:
+    - `git diff --check`
+    - result: passed
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: reused existing `3076/settings` and `3087/settings` tabs, verified `All Settings`, and found no gross graph-surface drift around `rotaryParamCodeObjDefault`
+- Lane status:
+  - visible canary size no longer waits on stale persisted layout when a fresher shared measurement already exists
+  - the canonical normalized perf lane remains green after tightening this geometry-authority seam
+- Next action:
+  - deepen the scene runtime boundary so scene-store publication and shared node-internals sync stop living inside `useSettingsGraphSubstrateCanarySceneState(...)` and instead hang off one deeper authoritative scene-runtime module
+  - keep the same normalized `rotaryParamCodeObjDefault` performance probe plus CDP compare as the regression gate
+- LOOP_TERMINAL_MARKER: none

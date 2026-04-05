@@ -121,12 +121,6 @@ function getResolvedSectionSize(
   section: GraphSubstrateCanarySection,
   sectionElementSizes: SectionElementSizes,
 ) {
-  const width = section.width ?? 0;
-  const height = section.height ?? 0;
-  if (width > 0 && height > 0) {
-    return { width, height };
-  }
-
   const observedSize = sectionElementSizes[section.sectionId];
   if (
     typeof observedSize?.width === "number" &&
@@ -135,6 +129,12 @@ function getResolvedSectionSize(
     observedSize.height > 0
   ) {
     return observedSize;
+  }
+
+  const width = section.width ?? 0;
+  const height = section.height ?? 0;
+  if (width > 0 && height > 0) {
+    return { width, height };
   }
 
   return null;

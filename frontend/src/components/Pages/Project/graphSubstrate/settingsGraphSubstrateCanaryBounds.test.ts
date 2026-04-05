@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 
 describe("settingsGraphSubstrateCanaryBounds", () => {
-  it("keeps authoritative layout size when the top-level layout already defines it", () => {
+  it("prefers the shared measured size when the visible section registry is fresher than layout", () => {
     const bounds = getSettingsGraphSubstrateCanarySceneBounds(
       [
         {
@@ -27,8 +27,8 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     expect(bounds).toEqual({
       x: 120,
       y: 1280,
-      width: 552,
-      height: 352,
+      width: 320,
+      height: 240,
     });
   });
 
