@@ -10535,3 +10535,28 @@ LOOP_TERMINAL_MARKER: none
     - continue the measured-geometry authority cleanup under the canary runtime by auditing whether the remaining shared-node seed bootstrap can be narrowed further or replaced by a more authoritative scene-owned size source
     - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 15:04 EDT, Ralph item `275`
+  - Summary: stopped the canary controller from using canary-local `sectionSeedNodes` as section-size authority, so controller section resolution now reads authoritative node internals only and leaves the seed cache local to shell/minimap fallback.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-009/worktree-ai.log` -> frontend `3075`, backend `8075`, session `0bb1a3`, bootstrap rooted at `8075`, debug port `9298`, `debugPortPid 29734`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx` -> passed (`1 file`, `6 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> passed (`1 passed`, `39.7s`)
+    - fresh-context CDP sub-agent -> read `docs/guides/browser-mcp-quickstart.md`, bootstrapped the live worktree, reached `http://127.0.0.1:3075/settings`, saw `All Settings`, and confirmed the graph substrate was populated with real cards/canvas instead of a blank shell or spinner
+  - Result:
+    - controller section resolution no longer treats the canary-local seed cache as authoritative geometry, which removes the last controller-owned measured-DOM feedback loop left after item `274`
+    - legitimate shared-node size still flows through the controller when authoritative node internals already carry that geometry
+    - the live worktree canary stayed healthy on the standard first-render probe plus bounded CDP health check for this pass
+  - Next:
+    - audit the remaining `sectionSeedNodes` consumers and persistence path under the canary runtime, especially shell/minimap fallback and unmount persistence, to decide whether the seed cache can be narrowed further or replaced by a more authoritative scene-owned size source
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none

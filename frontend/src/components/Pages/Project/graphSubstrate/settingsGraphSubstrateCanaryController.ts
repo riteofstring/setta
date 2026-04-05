@@ -12,6 +12,7 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import {
   useLocalStorage,
   useMisc,
+  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -20,7 +21,6 @@ import {
   resolveSettingsGraphSubstrateCanarySections,
   selectSettingsGraphSubstrateCanaryLayoutSections,
 } from "./settingsGraphSubstrateCanaryModel";
-import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -55,8 +55,23 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     selectSettingsGraphSubstrateCanaryLayoutSections,
     _.isEqual,
   );
-  const canarySectionSeedNodes = useSettingsGraphSubstrateCanarySceneStore(
-    (state) => state.sectionSeedNodes,
+  const canarySectionNodeInternals = useNodeInternals(
+    (state) =>
+      new Map(
+        layoutSections.map((section) => {
+          const currentNode = state.x.get(section.sectionId);
+          return [
+            section.sectionId,
+            currentNode
+              ? {
+                  height: currentNode.height,
+                  sizeAuthority: currentNode.sizeAuthority,
+                  width: currentNode.width,
+                }
+              : undefined,
+          ];
+        }),
+      ),
     _.isEqual,
   );
   const sharedProjectViewport = useProjectState((state) => {
@@ -105,10 +120,10 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
   const sections = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySections(
       layoutSections,
-      canarySectionSeedNodes,
+      canarySectionNodeInternals,
       sectionSizingPolicy,
     );
-  }, [canarySectionSeedNodes, layoutSections, sectionSizingPolicy]);
+  }, [canarySectionNodeInternals, layoutSections, sectionSizingPolicy]);
   const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
     (state) => ({
       overviewTrueWidth: state.overviewTrueWidth,

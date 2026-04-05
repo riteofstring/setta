@@ -31,6 +31,7 @@ const hoisted = vi.hoisted(() => ({
       viewportInitialized: true,
     },
   },
+  nodeInternals: new Map<string, Record<string, unknown> | undefined>(),
   layoutSections: [
     {
       sectionId: "layout-a",
@@ -40,7 +41,6 @@ const hoisted = vi.hoisted(() => ({
     nodeDragThreshold: 8,
     zoomActivationKeyPressed: true,
   },
-  sectionSeedNodes: new Map<string, Record<string, unknown> | undefined>(),
   sections: [
     {
       sectionId: "section-a",
@@ -128,6 +128,10 @@ vi.mock("state/definitions", () => ({
     (selector: (state: typeof hoisted.projectState) => unknown) =>
       selector(hoisted.projectState),
   ),
+  useNodeInternals: vi.fn(
+    (selector: (state: { x: typeof hoisted.nodeInternals }) => unknown) =>
+      selector({ x: hoisted.nodeInternals }),
+  ),
   useSettings: vi.fn(
     (selector: (state: typeof hoisted.settingsState) => unknown) =>
       selector(hoisted.settingsState),
@@ -142,16 +146,6 @@ vi.mock("./settingsGraphSubstrateCanaryModel", () => ({
   resolveSettingsGraphSubstrateCanarySections: vi.fn(() => hoisted.sections),
   selectSettingsGraphSubstrateCanaryLayoutSections: vi.fn(
     () => hoisted.layoutSections,
-  ),
-}));
-
-vi.mock("./settingsGraphSubstrateCanarySceneStore", () => ({
-  useSettingsGraphSubstrateCanarySceneStore: vi.fn(
-    (
-      selector: (state: {
-        sectionSeedNodes: typeof hoisted.sectionSeedNodes;
-      }) => unknown,
-    ) => selector({ sectionSeedNodes: hoisted.sectionSeedNodes }),
   ),
 }));
 
@@ -191,10 +185,10 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       zoom: 0.75,
     };
     hoisted.projectState.projectConfig.viewportInitialized = true;
+    hoisted.nodeInternals = new Map();
     hoisted.layoutSections = [{ sectionId: "layout-a" }];
     hoisted.reactFlowSelectorState.nodeDragThreshold = 8;
     hoisted.reactFlowSelectorState.zoomActivationKeyPressed = true;
-    hoisted.sectionSeedNodes = new Map();
     hoisted.sections = [{ sectionId: "section-a" }];
     hoisted.settingsState.gui.defaultZoomLevel = 1.25;
     hoisted.settingsState.gui.maxZoom = 4;
@@ -254,7 +248,9 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       .mock.calls[0]?.[0];
 
     expect(resolvedSectionsArgs?.[0]).toEqual(hoisted.layoutSections);
-    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.sectionSeedNodes);
+    expect(resolvedSectionsArgs?.[1]).toEqual(
+      new Map([["layout-a", undefined]]),
+    );
     expect(runtimeArgs).toEqual(
       expect.objectContaining({
         defaultZoomLevel: 1.25,
@@ -282,10 +278,10 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     );
   });
 
-  it("prefers the canary-local shared-node seed cache when recomputing sections", async () => {
-    hoisted.sectionSeedNodes = new Map([
+  it("uses authoritative shared node internals when recomputing sections", async () => {
+    hoisted.nodeInternals = new Map([
       [
-        "section-a",
+        "layout-a",
         {
           width: 420,
           height: 315,
@@ -301,7 +297,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     const resolvedSectionsArgs = vi.mocked(
       resolveSettingsGraphSubstrateCanarySections,
     ).mock.calls[0];
-    const sectionSeedNodes = resolvedSectionsArgs?.[1] as
+    const currentNodeInternals = resolvedSectionsArgs?.[1] as
       | ReadonlyMap<
           string,
           | {
@@ -313,15 +309,15 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
         >
       | undefined;
 
-    expect(sectionSeedNodes).toBeDefined();
-    expect(sectionSeedNodes?.get("section-a")).toEqual({
+    expect(currentNodeInternals).toBeDefined();
+    expect(currentNodeInternals?.get("layout-a")).toEqual({
       width: 420,
       height: 315,
       sizeAuthority: "sharedNode",
     });
   });
 
-  it("keeps first-mount section seeding on the canary-local cache when no shared seed has been established yet", async () => {
+  it("starts from empty authoritative node internals when no shared node size exists yet", async () => {
     await act(async () => {
       root.render(<ControllerProbe />);
     });
@@ -330,8 +326,9 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       resolveSettingsGraphSubstrateCanarySections,
     ).mock.calls[0];
 
-    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.sectionSeedNodes);
-    expect(resolvedSectionsArgs?.[1]).toEqual(new Map());
+    expect(resolvedSectionsArgs?.[1]).toEqual(
+      new Map([["layout-a", undefined]]),
+    );
   });
 
   it("routes pane background clicks through the controller-owned pane click handler", async () => {

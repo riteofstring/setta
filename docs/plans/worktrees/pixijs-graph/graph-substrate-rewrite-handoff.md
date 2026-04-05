@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 14:51 EDT
+Last updated: 2026-04-07 15:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,43 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `275` stopped the canary controller from treating canary-local `sectionSeedNodes` as section-size authority, so section resolution now reads only authoritative node internals and leaves the seed cache local to shell/minimap fallback.
+
+  - Why this pass completed:
+    - item `274` left the shared-node seed bootstrap as the only remaining measured-DOM loop, and the controller was still feeding `sectionSeedNodes` back into `resolveSettingsGraphSubstrateCanarySections(...)`
+    - that meant a canary-local measured seed could become controller-owned section size on the next render even though the shared scene snapshot, bounds, and node-sync paths were already cleaned up
+    - the smallest real seam was the controller boundary plus its focused coverage, not another shell/minimap consumer hop
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts) so the controller now selects authoritative node internals for the current canary layout-section ids via `useNodeInternals(...)` and passes that subset map into `resolveSettingsGraphSubstrateCanarySections(...)`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx) to lock the new contract where controller section resolution reads authoritative node internals, while unresolved first-mount sections start from empty authoritative entries instead of from the canary-local seed cache
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-009/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `0bb1a3`, bootstrap rooted at `8075`, debug port `9298`, `debugPortPid 29734`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+      - result: passed (`1 file`, `6 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `39.7s`)
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), restored auth through the live `8075` bootstrap URL, reached `http://127.0.0.1:3075/settings`, and observed mounted `Settings`, visible `All Settings`, and a populated graph substrate with real cards/canvas instead of a blank shell or spinner
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - controller section resolution no longer uses the canary-local seed cache as a size authority input, so measured DOM fallback stays local to shell/minimap rendering instead of feeding back through the controller boundary
+    - legitimate shared-node size still flows through the controller when authoritative node internals already carry that geometry
+    - the live worktree canary stayed healthy on the standard first-render probe plus bounded CDP health check for this pass
+  - Next frontier:
+    - audit the remaining `sectionSeedNodes` consumers and persistence path under the canary runtime, especially shell/minimap fallback and unmount persistence, to decide whether the seed cache can be narrowed further or replaced by a more authoritative scene-owned size source
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `274` removed measured DOM size from shared scene snapshot/bounds resolution and narrowed the live `useSectionElementSizes(...)` subscription to unresolved shared-node seed bootstrap only, so unresolved `none`/locked sections no longer resubscribe the shared scene runtime to local measurement churn.
 
