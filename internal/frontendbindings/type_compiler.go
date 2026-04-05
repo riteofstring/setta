@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+var frontendBindingOwnerPackagePrefixes = map[string]string{
+	"setta/internal/gitread": "Git",
+}
+
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
@@ -226,6 +230,13 @@ func frontendBindingTypeName(t reflect.Type) string {
 	}
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok && spec.DeclarationName != "" {
 		return spec.DeclarationName
+	}
+	if prefix := strings.TrimSpace(frontendBindingOwnerPackagePrefixes[t.PkgPath()]); prefix != "" {
+		name := t.Name()
+		if strings.HasPrefix(name, prefix) {
+			return name
+		}
+		return prefix + name
 	}
 	return t.Name()
 }

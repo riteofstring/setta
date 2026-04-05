@@ -14,13 +14,13 @@ import {
   route_get_git_status,
 } from "utils/generatedEndpoints";
 import {
-  type GetGitCommitDetailsResponse,
-  type GetGitCommitFileDiffResponse,
-  type GetGitDiffResponse,
-  type GetGitLogResponse,
-  type GetGitStatusResponse,
+  type GitCommitDetailsResponse,
+  type GitCommitFileDiffResponse,
   type GitDiffMode,
+  type GitDiffResponse,
+  type GitLogResponse,
   type GitStatusEntry,
+  type GitStatusResponse,
 } from "utils/generatedTypes";
 import {
   appendGitGraphRows,
@@ -36,13 +36,13 @@ let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
 
-type GitStatusRouteResponse = ResponseDataAndStatus<GetGitStatusResponse>;
-type GitDiffRouteResponse = ResponseDataAndStatus<GetGitDiffResponse>;
-type GitLogRouteResponse = ResponseDataAndStatus<GetGitLogResponse>;
+type GitStatusRouteResponse = ResponseDataAndStatus<GitStatusResponse>;
+type GitDiffRouteResponse = ResponseDataAndStatus<GitDiffResponse>;
+type GitLogRouteResponse = ResponseDataAndStatus<GitLogResponse>;
 type GitCommitDetailsRouteResponse =
-  ResponseDataAndStatus<GetGitCommitDetailsResponse>;
+  ResponseDataAndStatus<GitCommitDetailsResponse>;
 type GitCommitFileDiffRouteResponse =
-  ResponseDataAndStatus<GetGitCommitFileDiffResponse>;
+  ResponseDataAndStatus<GitCommitFileDiffResponse>;
 
 function getCurrentGitGraphProjectConfigId(): string | null {
   const projectConfigId = useProjectState.getState().projectConfig.id;

@@ -343,7 +343,7 @@ export async function route_delete_state_machine_edges(
 }
 
 export async function route_delete_terminals(
-  x: gt.DeleteTerminalsRequestInput,
+  x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteTerminals(), x);
 }
@@ -574,31 +574,31 @@ export async function route_get_folder_contents(
 }
 
 export async function route_get_git_commit_details(
-  x: gt.GetGitCommitDetailsRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitDetailsResponse>> {
+  x: gt.GitCommitDetailsRequest,
+): Promise<ResponseDataAndStatus<gt.GitCommitDetailsResponse>> {
   return await post(GoHTTPRouteHelpers.getGitCommitDetails(), x);
 }
 
 export async function route_get_git_commit_file_diff(
-  x: gt.GetGitCommitFileDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
+  x: gt.GitCommitFileDiffRequest,
+): Promise<ResponseDataAndStatus<gt.GitCommitFileDiffResponse>> {
   return await post(GoHTTPRouteHelpers.getGitCommitFileDiff(), x);
 }
 
 export async function route_get_git_diff(
-  x: gt.GetGitDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitDiffResponse>> {
+  x: gt.GitDiffRequest,
+): Promise<ResponseDataAndStatus<gt.GitDiffResponse>> {
   return await post(GoHTTPRouteHelpers.getGitDiff(), x);
 }
 
 export async function route_get_git_log(
-  x: gt.GetGitLogRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitLogResponse>> {
+  x: gt.GitLogRequest,
+): Promise<ResponseDataAndStatus<gt.GitLogResponse>> {
   return await post(GoHTTPRouteHelpers.getGitLog(), x);
 }
 
 export async function route_get_git_status(): Promise<
-  ResponseDataAndStatus<gt.GetGitStatusResponse>
+  ResponseDataAndStatus<gt.GitStatusResponse>
 > {
   return await post(GoHTTPRouteHelpers.getGitStatus(), null);
 }
@@ -773,7 +773,7 @@ export async function route_indent_params(
 }
 
 export async function route_interrupt_terminal_processes(
-  x: gt.InterruptTerminalProcessesRequestInput,
+  x: gt.InterruptTerminalProcessesRequest,
 ): Promise<ResponseDataAndStatus<gt.InterruptTerminalProcessesResponse>> {
   return await post(GoHTTPRouteHelpers.interruptTerminalProcesses(), x);
 }

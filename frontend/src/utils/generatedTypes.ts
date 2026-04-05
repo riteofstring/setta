@@ -1241,156 +1241,6 @@ export type TransferFileBrowserEntryResponse = {
   operation: TransferOperation;
 };
 
-const GitDiffModeEnum = {
-  unstaged: "unstaged",
-  staged: "staged",
-} as const;
-export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
-
-type GitRepoInfo = {
-  isGitRepo: boolean;
-  repoRoot: string | null;
-  headBranch: string | null;
-  headCommit: string | null;
-};
-
-export type GitStatusEntry = {
-  path: string;
-  oldPath: string | null;
-  indexStatus: string;
-  worktreeStatus: string;
-  kind: string;
-};
-export function createGitStatusEntry(
-  options: Partial<GitStatusEntry> = {},
-): GitStatusEntry {
-  return options as GitStatusEntry;
-}
-
-export type GitWorktreeEntry = {
-  path: string;
-  displayName: string;
-  branchName: string | null;
-  headCommit: string | null;
-  isCurrent: boolean;
-  isPrunable: boolean;
-  prunableReason: string | null;
-};
-
-export type GetGitStatusResponse = {
-  repo: GitRepoInfo;
-  entries: Array<GitStatusEntry>;
-  isTruncated: boolean;
-  worktrees: Array<GitWorktreeEntry>;
-};
-export function createGetGitStatusResponse(
-  options: Partial<GetGitStatusResponse> = {},
-): GetGitStatusResponse {
-  return options as GetGitStatusResponse;
-}
-
-export type GetGitDiffRequestInput = {
-  path: string;
-  oldPath: string | null;
-  mode: GitDiffMode;
-};
-
-export type GetGitDiffResponse = {
-  repoRoot: string;
-  path: string;
-  mode: GitDiffMode;
-  diff: string;
-  isTruncated: boolean;
-};
-
-export type GitCommit = {
-  hash: string;
-  parents: Array<string>;
-  authorName: string;
-  authorEmail: string;
-  authorTimeMs: number;
-  subject: string;
-  decorations: Array<string>;
-};
-export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
-  return options as GitCommit;
-}
-
-export type GetGitLogRequestInput = {
-  rev: string;
-  allRefs: boolean;
-  offset: number;
-  pageSize: number;
-};
-
-export type GetGitLogResponse = {
-  repoRoot: string;
-  headBranch: string | null;
-  commits: Array<GitCommit>;
-  offset: number;
-  pageSize: number;
-  nextOffset: number | null;
-  hasMore: boolean;
-  isCapped: boolean;
-};
-export function createGetGitLogResponse(
-  options: Partial<GetGitLogResponse> = {},
-): GetGitLogResponse {
-  return options as GetGitLogResponse;
-}
-
-export type GitCommitChangedFile = {
-  path: string;
-  oldPath: string | null;
-  status: string;
-  additions: number | null;
-  deletions: number | null;
-};
-export function createGitCommitChangedFile(
-  options: Partial<GitCommitChangedFile> = {},
-): GitCommitChangedFile {
-  return options as GitCommitChangedFile;
-}
-
-export type GetGitCommitDetailsRequestInput = {
-  commitHash: string;
-};
-
-export type GetGitCommitDetailsResponse = {
-  repoRoot: string;
-  commitHash: string;
-  parents: Array<string>;
-  authorName: string;
-  authorEmail: string;
-  authorTimeMs: number;
-  committerName: string;
-  committerEmail: string;
-  committerTimeMs: number;
-  subject: string;
-  body: string;
-  files: Array<GitCommitChangedFile>;
-  isTruncated: boolean;
-};
-export function createGetGitCommitDetailsResponse(
-  options: Partial<GetGitCommitDetailsResponse> = {},
-): GetGitCommitDetailsResponse {
-  return options as GetGitCommitDetailsResponse;
-}
-
-export type GetGitCommitFileDiffRequestInput = {
-  commitHash: string;
-  path: string;
-  oldPath: string | null;
-};
-
-export type GetGitCommitFileDiffResponse = {
-  repoRoot: string;
-  commitHash: string;
-  path: string;
-  diff: string;
-  isTruncated: boolean;
-};
-
 export const ClipboardDataTypeEnum = {
   Sections: "Sections",
 } as const;
@@ -7431,18 +7281,6 @@ export type SetActiveIDsRequestInput = {
   activeIds: Array<string>;
 };
 
-export type DeleteTerminalsRequestInput = {
-  sectionIds: Array<string>;
-};
-
-export type InterruptTerminalProcessesRequestInput = {
-  projectId: string;
-};
-
-export type InterruptTerminalProcessesResponse = {
-  interruptedSessionCount: number;
-};
-
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -7659,6 +7497,156 @@ export type FrontendWebsocketMsgUnion = {
   id?: string | null;
   messageType: WebsocketMsgTypeForFrontend;
   content: any;
+};
+
+export type GitCommit = {
+  hash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  subject: string;
+  decorations: Array<string>;
+};
+export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
+  return options as GitCommit;
+}
+
+export type GitLogRequest = {
+  rev: string;
+  allRefs: boolean;
+  offset: number;
+  pageSize: number;
+};
+
+export type GitLogResponse = {
+  repoRoot: string;
+  headBranch: string | null;
+  commits: Array<GitCommit>;
+  offset: number;
+  pageSize: number;
+  nextOffset: number | null;
+  hasMore: boolean;
+  isCapped: boolean;
+};
+export function createGitLogResponse(
+  options: Partial<GitLogResponse> = {},
+): GitLogResponse {
+  return options as GitLogResponse;
+}
+
+export type GitCommitChangedFile = {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  additions: number | null;
+  deletions: number | null;
+};
+export function createGitCommitChangedFile(
+  options: Partial<GitCommitChangedFile> = {},
+): GitCommitChangedFile {
+  return options as GitCommitChangedFile;
+}
+
+export type GitCommitDetailsRequest = {
+  commitHash: string;
+};
+
+export type GitCommitDetailsResponse = {
+  repoRoot: string;
+  commitHash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  committerName: string;
+  committerEmail: string;
+  committerTimeMs: number;
+  subject: string;
+  body: string;
+  files: Array<GitCommitChangedFile>;
+  isTruncated: boolean;
+};
+export function createGitCommitDetailsResponse(
+  options: Partial<GitCommitDetailsResponse> = {},
+): GitCommitDetailsResponse {
+  return options as GitCommitDetailsResponse;
+}
+
+export type GitCommitFileDiffRequest = {
+  commitHash: string;
+  path: string;
+  oldPath: string | null;
+};
+
+export type GitCommitFileDiffResponse = {
+  repoRoot: string;
+  commitHash: string;
+  path: string;
+  diff: string;
+  isTruncated: boolean;
+};
+
+const GitDiffModeEnum = {
+  unstaged: "unstaged",
+  staged: "staged",
+} as const;
+export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
+
+type GitRepoInfo = {
+  isGitRepo: boolean;
+  repoRoot: string | null;
+  headBranch: string | null;
+  headCommit: string | null;
+};
+
+export type GitStatusEntry = {
+  path: string;
+  oldPath: string | null;
+  indexStatus: string;
+  worktreeStatus: string;
+  kind: string;
+};
+export function createGitStatusEntry(
+  options: Partial<GitStatusEntry> = {},
+): GitStatusEntry {
+  return options as GitStatusEntry;
+}
+
+export type GitWorktreeEntry = {
+  path: string;
+  displayName: string;
+  branchName: string | null;
+  headCommit: string | null;
+  isCurrent: boolean;
+  isPrunable: boolean;
+  prunableReason: string | null;
+};
+
+export type GitStatusResponse = {
+  repo: GitRepoInfo;
+  entries: Array<GitStatusEntry>;
+  isTruncated: boolean;
+  worktrees: Array<GitWorktreeEntry>;
+};
+export function createGitStatusResponse(
+  options: Partial<GitStatusResponse> = {},
+): GitStatusResponse {
+  return options as GitStatusResponse;
+}
+
+export type GitDiffRequest = {
+  path: string;
+  oldPath: string | null;
+  mode: GitDiffMode;
+};
+
+export type GitDiffResponse = {
+  repoRoot: string;
+  path: string;
+  mode: GitDiffMode;
+  diff: string;
+  isTruncated: boolean;
 };
 
 export type LauncherRecentWorkspaceRequest = {
@@ -7932,6 +7920,10 @@ export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
   variantId: string;
+};
+
+export type DeleteTerminalsRequest = {
+  sectionIds: Array<string>;
 };
 
 export type DeleteTranscriptionProfileRequest = {
@@ -8493,6 +8485,14 @@ export type GetStateMachineRunRequest = {
   machineGroupId: string;
 };
 
+export type InterruptTerminalProcessesRequest = {
+  projectId: string;
+};
+
+export type InterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
+};
+
 const LaunchResolvedSettaFilesLocationEnum = {
   Local: "local",
   Global: "global",
@@ -8686,7 +8686,7 @@ export type RunCodeRequest = {
   sectionId: string;
   terminalSectionId: string;
   cliId: string;
-  runSnapshotMode: RunSnapshotMode;
+  runSnapshotMode: RunSnapshotMode | null;
   drawSnapshotsBySectionId: Record<string, ContentRef>;
   sectionVariantOverrides: Record<string, string>;
   paramOverrides: Record<string, string>;

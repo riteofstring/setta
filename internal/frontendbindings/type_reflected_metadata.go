@@ -306,7 +306,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"projectConfigId": true,
 		},
 	},
-	reflect.TypeOf(RunCodeRequestInput{}): {
+	reflect.TypeOf(httpapi.RunCodeRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"runSnapshotMode": "RunSnapshotMode | null",
 		},
