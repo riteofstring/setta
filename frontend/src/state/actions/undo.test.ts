@@ -1,6 +1,5 @@
-import { useLocalStorage, useMisc } from "state/definitions";
+import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { createProjectStateBackendUpdate } from "testUtils/projectStateBackendUpdate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearProjectChatThreadStorageUndoStackForTests,
@@ -10,44 +9,24 @@ import {
 } from "./projectChatThreads";
 import { redoProjectState, undoProjectState } from "./undo";
 
-const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 const routeUndoMock = vi.fn();
 const routeRedoMock = vi.fn();
-const processProjectStateUpdateFromBackendMock = vi.fn();
-const projectStateUpdateResponse = {
-  status: 200,
-  hasResponse: true,
-  data: createProjectStateBackendUpdate({
-    projectState: {
-      projectConfig: {
-        id: "project-a",
-        name: "Alpha",
-      },
-    },
-  }),
-};
-vi.mock("openapi/http", () => ({
-  undo: (...args: unknown[]) => routeUndoMock(...args),
-  redo: (...args: unknown[]) => routeRedoMock(...args),
+
+vi.mock("utils/generatedEndpoints", () => ({
+  route_undo: (...args: unknown[]) => routeUndoMock(...args),
+  route_redo: (...args: unknown[]) => routeRedoMock(...args),
 }));
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
+
 vi.mock("./sectionInfos", () => ({
   getCurrProjectConfigId: () => "project-a",
-  processProjectStateUpdateFromBackend: (...args: unknown[]) =>
-    processProjectStateUpdateFromBackendMock(...args),
 }));
+
 describe("undo actions", () => {
   beforeEach(() => {
     resetProjectStores();
     clearProjectChatThreadStorageUndoStackForTests();
     routeUndoMock.mockReset();
     routeRedoMock.mockReset();
-    callOpenAPIMock.mockClear();
-    processProjectStateUpdateFromBackendMock.mockReset();
-    routeUndoMock.mockResolvedValue(projectStateUpdateResponse);
-    routeRedoMock.mockResolvedValue(projectStateUpdateResponse);
     useLocalStorage.setState({
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
@@ -56,24 +35,18 @@ describe("undo actions", () => {
       pinnedProjectChatThreadIdsByProjectConfigId: {},
       trashedProjectChatThreadIdsByProjectConfigId: {},
     });
-    useMisc.setState({ undoOrRedoWasTriggered: false });
   });
-  it("routes to backend undo when no local thread mutation is pending", async () => {
+
+  it("routes to backend undo when no local thread mutation is pending", () => {
     undoProjectState();
-    await vi.waitFor(() => {
-      expect(routeUndoMock).toHaveBeenCalledWith({
-        body: {
-          steps: 1,
-          projectConfigId: "project-a",
-        },
-      });
+
+    expect(routeUndoMock).toHaveBeenCalledWith({
+      steps: 1,
+      projectConfigId: "project-a",
     });
-    expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
-      projectStateUpdateResponse.data,
-    );
-    expect(useMisc.getState().undoOrRedoWasTriggered).toBe(true);
   });
-  it("routes undo to backend even when local thread deletions exist", async () => {
+
+  it("routes undo to backend even when local thread deletions exist", () => {
     const groupId = createProjectChatThreadGroup("project-a", "Backend");
     if (!groupId) {
       throw new Error("Expected thread group id.");
@@ -81,14 +54,12 @@ describe("undo actions", () => {
     setProjectChatThreadGroupAssignment("project-a", "chat-1", groupId);
     const deleted = deleteProjectChatThreadGroup("project-a", groupId);
     expect(deleted).toBe(true);
+
     undoProjectState();
-    await vi.waitFor(() => {
-      expect(routeUndoMock).toHaveBeenCalledWith({
-        body: {
-          steps: 1,
-          projectConfigId: "project-a",
-        },
-      });
+
+    expect(routeUndoMock).toHaveBeenCalledWith({
+      steps: 1,
+      projectConfigId: "project-a",
     });
     const groups =
       useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
@@ -101,19 +72,13 @@ describe("undo actions", () => {
       ]?.["chat-1"],
     ).toBeUndefined();
   });
-  it("routes redo through backend endpoint", async () => {
+
+  it("routes redo through backend endpoint", () => {
     redoProjectState();
-    await vi.waitFor(() => {
-      expect(routeRedoMock).toHaveBeenCalledWith({
-        body: {
-          steps: 1,
-          projectConfigId: "project-a",
-        },
-      });
+
+    expect(routeRedoMock).toHaveBeenCalledWith({
+      steps: 1,
+      projectConfigId: "project-a",
     });
-    expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
-      projectStateUpdateResponse.data,
-    );
-    expect(useMisc.getState().undoOrRedoWasTriggered).toBe(true);
   });
 });

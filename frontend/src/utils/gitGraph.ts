@@ -1,7 +1,7 @@
-import type { GitreadCommit as Commit } from "openapi/http";
+import type { GitCommit } from "./generatedTypes";
 
 export type GitGraphRow = {
-  commit: Commit;
+  commit: GitCommit;
   laneIndex: number;
   laneColorIds: number[];
   laneStartIndices: number[];
@@ -37,7 +37,7 @@ function cloneGitGraphRowComputationState(
 }
 
 export function appendGitGraphRows(
-  commits: readonly Commit[],
+  commits: readonly GitCommit[],
   rowComputationState: GitGraphRowComputationState,
 ): {
   rows: GitGraphRow[];
@@ -76,7 +76,6 @@ export function appendGitGraphRows(
   };
 
   for (const commit of commits) {
-    const parents = commit.parents ?? [];
     const laneStartIndices: number[] = [];
     const matchingLaneIndices: number[] = [];
     for (let idx = 0; idx < lanes.length; idx += 1) {
@@ -98,7 +97,7 @@ export function appendGitGraphRows(
     }
 
     const mergeToLaneIndices: number[] = [];
-    for (const parent of parents.slice(1)) {
+    for (const parent of commit.parents.slice(1)) {
       let parentLaneIndex = lanes.findIndex(
         (lane) => lane?.nextHash === parent,
       );
@@ -111,7 +110,7 @@ export function appendGitGraphRows(
 
     const laneColorIds = lanes.map((lane) => (lane ? lane.colorId : -1));
     const laneEndIndices =
-      parents.length === 0
+      commit.parents.length === 0
         ? [...joinFromLaneIndices, laneIndex]
         : joinFromLaneIndices;
 
@@ -131,7 +130,7 @@ export function appendGitGraphRows(
       lanes[fromIdx] = null;
     }
 
-    if (parents.length > 0) {
+    if (commit.parents.length > 0) {
       const lane = lanes[laneIndex];
       if (!lane) {
         throw new Error(
@@ -139,7 +138,7 @@ export function appendGitGraphRows(
         );
       }
       lanes[laneIndex] = {
-        nextHash: parents[0]!,
+        nextHash: commit.parents[0]!,
         colorId: lane.colorId,
       };
     } else {
@@ -155,7 +154,7 @@ export function appendGitGraphRows(
   };
 }
 
-export function computeGitGraphRowsWithState(commits: readonly Commit[]): {
+export function computeGitGraphRowsWithState(commits: readonly GitCommit[]): {
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
 } {
