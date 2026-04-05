@@ -81,6 +81,7 @@ export function SettingsGraphSubstrateCanary() {
         {controller.sceneSections.length > 0 ? (
           <SettingsGraphSubstrateCanarySectionsLayer
             draggingSectionId={controller.draggingSectionId}
+            hoveredSectionId={hoveredSectionId}
             onHoveredSectionChange={handleHoveredSectionChange}
             sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}

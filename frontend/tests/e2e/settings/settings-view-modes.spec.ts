@@ -243,6 +243,9 @@ test("settings graph substrate canary exposes live instrumentation on normalized
 
     const focusedSnapshot =
       await readSettingsGraphCanaryInstrumentationSnapshot(page);
+    const focusedVisibleSectionCount = await page
+      .getByTestId("graph-substrate-canary-section")
+      .count();
     expect(focusedSnapshot).not.toBeNull();
     if (!focusedSnapshot) {
       throw new Error("Missing canary instrumentation snapshot.");
@@ -270,6 +273,10 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     );
     expect(focusedSnapshot.mountedSectionBodyCount).toBeGreaterThan(0);
     expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(
+      focusedSnapshot.mountedSceneSectionCount,
+    );
+    expect(focusedVisibleSectionCount).toBeGreaterThan(0);
+    expect(focusedVisibleSectionCount).toBeLessThan(
       focusedSnapshot.mountedSceneSectionCount,
     );
     expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(

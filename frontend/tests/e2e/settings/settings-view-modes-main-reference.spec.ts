@@ -12612,6 +12612,11 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     expect(worktreeResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(referenceResult.perf.sectionDomNodeCount).toBeGreaterThan(0);
     expect(worktreeResult.perf.sectionDomNodeCount).toBeGreaterThan(0);
+    expect(referenceResult.perf.visibleSectionCount).toBeGreaterThan(0);
+    expect(worktreeResult.perf.visibleSectionCount).toBeGreaterThan(0);
+    expect(worktreeResult.perf.visibleSectionCount).toBeLessThan(
+      referenceResult.perf.visibleSectionCount,
+    );
     expect(referenceResult.perf.averageFrameDurationMs).toBeLessThan(40);
     expect(worktreeResult.perf.averageFrameDurationMs).toBeLessThan(40);
     expect(referenceResult.perf.maxFrameDurationMs).toBeLessThan(120);

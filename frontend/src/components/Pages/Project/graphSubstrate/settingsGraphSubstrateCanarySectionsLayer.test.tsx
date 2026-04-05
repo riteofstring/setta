@@ -72,6 +72,7 @@ vi.mock("components/Section/Container/SectionContainer", () => ({
 
 function SectionsLayerProbe({
   draggingSectionId,
+  hoveredSectionId = null,
   onHoveredSectionChange = () => {},
   sceneSections,
   viewport = DEFAULT_VIEWPORT,
@@ -79,6 +80,7 @@ function SectionsLayerProbe({
   visibleViewportRect = DEFAULT_VISIBLE_VIEWPORT_RECT,
 }: {
   draggingSectionId: string | null;
+  hoveredSectionId?: string | null;
   onHoveredSectionChange?: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport?: GraphViewport | null;
@@ -91,6 +93,7 @@ function SectionsLayerProbe({
     <div data-viewport-tick={viewportTick}>
       <SettingsGraphSubstrateCanarySectionsLayer
         draggingSectionId={draggingSectionId}
+        hoveredSectionId={hoveredSectionId}
         onHoveredSectionChange={onHoveredSectionChange}
         sceneSections={sceneSections}
         sectionDragController={sectionDragController}
@@ -149,7 +152,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
-  it("unmounts offscreen inactive section bodies while keeping visible ones mounted", async () => {
+  it("unmounts offscreen inactive section shells and bodies while keeping visible ones mounted", async () => {
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -170,7 +173,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
 
     expect(
       host.querySelectorAll('[data-testid="graph-substrate-canary-section"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       host.querySelector('[data-testid="section-content-visible-section"]'),
     ).not.toBeNull();
@@ -218,11 +221,40 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     });
 
     expect(
+      host.querySelectorAll('[data-testid="graph-substrate-canary-section"]'),
+    ).toHaveLength(1);
+    expect(
       host.querySelector(
         '[data-testid="section-content-active-offscreen-section"]',
       ),
     ).not.toBeNull();
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears stale hover state when the hovered shell leaves the presented viewport", async () => {
+    const onHoveredSectionChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          hoveredSectionId={"section-a"}
+          onHoveredSectionChange={onHoveredSectionChange}
+          sceneSections={[
+            createSceneSection({
+              renderedPosition: { x: 1280, y: 80 },
+              position: { x: 1280, y: 80 },
+            }),
+          ]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(onHoveredSectionChange).toHaveBeenCalledWith(null);
+    expect(
+      host.querySelectorAll('[data-testid="graph-substrate-canary-section"]'),
+    ).toHaveLength(0);
   });
 
   it("keeps active tiny visible section bodies mounted for interaction continuity", async () => {

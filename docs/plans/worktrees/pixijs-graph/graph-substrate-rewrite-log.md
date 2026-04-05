@@ -11070,3 +11070,47 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction on the `46`-section motion lane
     - reuse the existing Playwright instrumentation lane plus the cross-worktree motion-perf probe to measure whether that next slice produces an actual motion win
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 02:03 EDT, Ralph item `290`
+  - Summary: viewport-gated the canary DOM shell presentation set so the focused `rotaryParamCodeObjDefault` lane stops mounting offscreen inactive shell wrappers, which reduced visible section shells from `46` to `1`, cut root DOM from `180` to `135`, and improved the normalized motion sample without reopening body continuity or Pixi redraw churn.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-shell-presentation-gating.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized instrumentation lane and cross-worktree motion-perf probe instead of opening a new section-specific lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-shell-presentation-gating.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`2 files`, `16 tests`)
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-005/worktree-ai.log` -> passed; resolved frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap `http://127.0.0.1:8077/__setta__/bootstrap#token=...`, debug port `9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-005/main-ai.log` -> passed; resolved frontend `http://127.0.0.1:3088/`, backend `http://127.0.0.1:8088`, bootstrap `http://127.0.0.1:8088/__setta__/bootstrap#token=...`, debug port `9309`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `51.2s`)
+    - live canary instrumentation stayed stable on the focused lane:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`
+      - focused fit-view baseline: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`
+      - after normalized blank-pane pan: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `29.4s`)
+    - normalized motion-perf output:
+      - legacy `main`: average `16.67ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.83ms`, max `35.0ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - fresh-context Chrome DevTools MCP sub-agents -> partial only:
+      - one bounded pass read `docs/guides/browser-mcp-quickstart.md` and confirmed the worktree app shell loaded `/home` and `/settings` with the settings canvas/tab bar present instead of a blank/crashed surface
+      - a focused viewport compare on `rotaryParamCodeObjDefault` timed out on the oversized settings surface during snapshot/screenshot capture
+      - one narrower retry failed before attach when `list_pages` timed out, so no trustworthy focused-lane CDP compare was obtained
+  - Result:
+    - the DOM shell-presentation lane is complete and should not be reopened unless the visible section count regresses
+    - this is the first measured focused-lane motion win on the canonical canary since the replan
+    - the remaining hotspot is now the full `46`-drawable Pixi shell presentation path, not DOM shell/body fan-out
+    - the focused CDP visual gate for this slice remains deferred because Chrome DevTools MCP did not produce a trustworthy focused compare on the oversized settings surface
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded Pixi shell presentation reduction on the focused lane
+    - reuse the same instrumentation/perf probes and keep the new visible-section-count guard in place while measuring the next Pixi-facing slice
+  - LOOP_TERMINAL_MARKER: none

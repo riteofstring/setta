@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -25,6 +26,7 @@ const MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT = 24;
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
+  hoveredSectionId: string | null;
   onHoveredSectionChange: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
@@ -83,15 +85,52 @@ const SettingsGraphSubstrateCanarySectionEntry = React.memo(
 
 function _SettingsGraphSubstrateCanarySectionsLayer({
   draggingSectionId,
+  hoveredSectionId,
   onHoveredSectionChange,
   sceneSections,
   sectionDragController,
   viewport,
   visibleViewportRect,
 }: SettingsGraphSubstrateCanarySectionsLayerProps) {
+  const stablePresentedSceneSectionsRef = useRef<
+    Array<SettingsGraphSubstrateCanarySceneSection>
+  >([]);
+  const presentedSceneSections = useMemo(() => {
+    const nextPresentedSceneSections = sceneSections.filter((section) =>
+      shouldPresentSettingsGraphSubstrateCanarySectionShell({
+        draggingSectionId,
+        section,
+        viewport,
+        visibleViewportRect,
+      }),
+    );
+    if (
+      areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+        stablePresentedSceneSectionsRef.current,
+        nextPresentedSceneSections,
+      )
+    ) {
+      return stablePresentedSceneSectionsRef.current;
+    }
+    stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
+    return nextPresentedSceneSections;
+  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
+  const presentedSectionIds = useMemo(() => {
+    return new Set(presentedSceneSections.map((section) => section.sectionId));
+  }, [presentedSceneSections]);
+
+  useEffect(() => {
+    if (
+      hoveredSectionId !== null &&
+      !presentedSectionIds.has(hoveredSectionId)
+    ) {
+      onHoveredSectionChange(null);
+    }
+  }, [hoveredSectionId, onHoveredSectionChange, presentedSectionIds]);
+
   const mountedSectionBodyIds = useMemo(() => {
     return new Set(
-      sceneSections
+      presentedSceneSections
         .filter((section) =>
           shouldMountSettingsGraphSubstrateCanarySectionBody({
             draggingSectionId,
@@ -102,7 +141,12 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         )
         .map((section) => section.sectionId),
     );
-  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
+  }, [
+    draggingSectionId,
+    presentedSceneSections,
+    viewport,
+    visibleViewportRect,
+  ]);
 
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
@@ -112,7 +156,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   const sectionBodiesById = useMemo(() => {
     return new Map(
-      sceneSections.map((section) => [
+      presentedSceneSections.map((section) => [
         section.sectionId,
         resolveSettingsGraphSubstrateCanarySectionBody({
           positionAndSizeLocked: section.positionAndSizeLocked,
@@ -124,7 +168,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         }),
       ]),
     );
-  }, [sceneSections]);
+  }, [presentedSceneSections]);
 
   const handleSectionPointerDown = useCallback(
     (
@@ -185,7 +229,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   return (
     <>
-      {sceneSections.map((section) => {
+      {presentedSceneSections.map((section) => {
         const shouldMountBody = mountedSectionBodyIds.has(section.sectionId);
         const sectionBody = sectionBodiesById.get(section.sectionId);
         if (!sectionBody) {
@@ -208,6 +252,36 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         );
       })}
     </>
+  );
+}
+
+export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
+  draggingSectionId,
+  section,
+  viewport,
+  visibleViewportRect,
+}: {
+  draggingSectionId: string | null;
+  section: SettingsGraphSubstrateCanarySceneSection;
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
+}): boolean {
+  if (
+    section.sectionId === draggingSectionId ||
+    section.isActiveSection === true ||
+    viewport === null ||
+    viewport.zoom <= 0 ||
+    visibleViewportRect === null
+  ) {
+    return true;
+  }
+
+  return (
+    getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+      section,
+      viewport,
+      visibleViewportRect,
+    }) !== null
   );
 }
 
@@ -237,6 +311,36 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
     return true;
   }
 
+  const visibleSectionScreenRect =
+    getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+      section,
+      viewport,
+      visibleViewportRect,
+    });
+  if (visibleSectionScreenRect === null) {
+    return false;
+  }
+
+  return (
+    visibleSectionScreenRect.width >= MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
+    visibleSectionScreenRect.height >= MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
+  );
+}
+
+function getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+  section,
+  viewport,
+  visibleViewportRect,
+}: {
+  section: SettingsGraphSubstrateCanarySceneSection;
+  viewport: GraphViewport;
+  visibleViewportRect: GraphRect;
+}): GraphRect | null {
+  const sectionBoundsSize = section.sceneBoundsSize;
+  if (!sectionBoundsSize) {
+    return visibleViewportRect;
+  }
+
   const sectionScreenPosition = worldPointToScreenPoint(
     section.renderedPosition,
     viewport,
@@ -247,18 +351,7 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
     width: sectionBoundsSize.width * viewport.zoom,
     height: sectionBoundsSize.height * viewport.zoom,
   };
-  const visibleSectionScreenRect = getGraphRectIntersection(
-    sectionScreenRect,
-    visibleViewportRect,
-  );
-  if (visibleSectionScreenRect === null) {
-    return false;
-  }
-
-  return (
-    visibleSectionScreenRect.width >= MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
-    visibleSectionScreenRect.height >= MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
-  );
+  return getGraphRectIntersection(sectionScreenRect, visibleViewportRect);
 }
 
 function getGraphRectIntersection(
@@ -276,6 +369,24 @@ function getGraphRectIntersection(
   }
 
   return { x, y, width, height };
+}
+
+function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+  left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+  right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export const SettingsGraphSubstrateCanarySectionsLayer = React.memo(

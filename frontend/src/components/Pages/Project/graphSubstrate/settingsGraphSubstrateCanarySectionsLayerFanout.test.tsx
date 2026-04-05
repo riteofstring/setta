@@ -62,11 +62,13 @@ const NOOP_HOVERED_SECTION_CHANGE = () => {};
 
 function SectionsLayerProbe({
   draggingSectionId,
+  hoveredSectionId = null,
   sceneSections,
   viewport,
   visibleViewportRect = DEFAULT_VISIBLE_VIEWPORT_RECT,
 }: {
   draggingSectionId: string | null;
+  hoveredSectionId?: string | null;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport: GraphViewport | null;
   visibleViewportRect?: GraphRect | null;
@@ -76,6 +78,7 @@ function SectionsLayerProbe({
   return (
     <SettingsGraphSubstrateCanarySectionsLayer
       draggingSectionId={draggingSectionId}
+      hoveredSectionId={hoveredSectionId}
       onHoveredSectionChange={NOOP_HOVERED_SECTION_CHANGE}
       sceneSections={sceneSections}
       sectionDragController={sectionDragController}
@@ -170,6 +173,35 @@ describe("SettingsGraphSubstrateCanarySectionsLayer fan-out", () => {
     expect(mockSectionShell).toHaveBeenCalledTimes(2);
     expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
     expect(host.querySelector('[data-testid="body-section-a"]')).not.toBeNull();
+  });
+
+  it("skips body resolution and shell work for offscreen inactive sections", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({ sectionId: "visible-section" }),
+            createSceneSection({
+              renderedPosition: { x: 1280, y: 80 },
+              position: { x: 1280, y: 80 },
+              sectionId: "offscreen-section",
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 1 }}
+        />,
+      );
+    });
+
+    expect(mockResolveSectionBody).toHaveBeenCalledTimes(1);
+    expect(mockSectionShell).toHaveBeenCalledTimes(1);
+    expect(mockSectionBodyDomAdapter).toHaveBeenCalledTimes(1);
+    expect(
+      host.querySelector('[data-testid="shell-visible-section"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="shell-offscreen-section"]'),
+    ).toBeNull();
   });
 });
 
