@@ -50,7 +50,12 @@ let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return chatId;
+  return {
+    chatId,
+    runId: `${chatId}-run`,
+    engineType: "setta_llm" as const,
+    sectionId: null,
+  };
 }
 
 describe("submitMessage", () => {
@@ -732,7 +737,7 @@ describe("submitMessage", () => {
       chatId: existingChatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.message_start,
+        type: StreamingEventTypeEnum.MESSAGE_START,
         message: createAssistantChatMessage({
           id: "existing-assistant-msg",
           content: [createMessageTextContent({ text: "Continuing poem..." })],

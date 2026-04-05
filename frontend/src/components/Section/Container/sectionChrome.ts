@@ -32,8 +32,71 @@ type SectionSurfaceClassNameOptions = {
   hideFrameBorder?: boolean;
 };
 
+export type SectionChromeCornerStyle = "large" | "small";
+
+export type SectionChromeJoinedEdge = "none" | "top" | "bottom";
+
+export type SectionChromeShellBorderTone = "default" | "locked" | "transparent";
+
+export type SectionChromeFrameStructure = {
+  cornerStyle: SectionChromeCornerStyle;
+  joinedEdge: SectionChromeJoinedEdge;
+  shellBorderTone: SectionChromeShellBorderTone;
+  shellBorderVisible: boolean;
+  shellOutlineWidth: 0 | 2 | 4;
+  surfaceFrameVisible: boolean;
+};
+
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+export function resolveSectionChromeFrameStructure({
+  positionAndSizeLocked,
+  useMetaControlStyle,
+  forceHideOutline = false,
+  hideBorder = false,
+  hideFrameBorder = false,
+  joinedCorners = "none",
+  isJoinedAttachedTerminalChild = false,
+}: Pick<
+  SectionContainerShellClassNameOptions,
+  | "positionAndSizeLocked"
+  | "useMetaControlStyle"
+  | "forceHideOutline"
+  | "hideBorder"
+  | "joinedCorners"
+  | "isJoinedAttachedTerminalChild"
+> &
+  Pick<
+    SectionSurfaceClassNameOptions,
+    "hideFrameBorder"
+  >): SectionChromeFrameStructure {
+  let shellOutlineWidth: SectionChromeFrameStructure["shellOutlineWidth"] =
+    useMetaControlStyle ? 2 : 4;
+  if (forceHideOutline || isJoinedAttachedTerminalChild) {
+    shellOutlineWidth = 0;
+  }
+
+  let joinedEdge: SectionChromeJoinedEdge = "none";
+  if (joinedCorners === "code-terminal-parent") {
+    joinedEdge = "bottom";
+  } else if (isJoinedAttachedTerminalChild) {
+    joinedEdge = "top";
+  }
+
+  return {
+    cornerStyle: positionAndSizeLocked ? "small" : "large",
+    joinedEdge,
+    shellBorderTone: useMetaControlStyle
+      ? "transparent"
+      : positionAndSizeLocked
+        ? "locked"
+        : "default",
+    shellBorderVisible: !hideBorder,
+    shellOutlineWidth,
+    surfaceFrameVisible: !hideFrameBorder,
+  };
 }
 
 export function getSectionContainerShellClassName({
@@ -53,10 +116,20 @@ export function getSectionContainerShellClassName({
   sizeClassName = "w-min",
   cornerClassName,
 }: SectionContainerShellClassNameOptions): string {
+  const frameStructure = resolveSectionChromeFrameStructure({
+    positionAndSizeLocked,
+    useMetaControlStyle,
+    forceHideOutline,
+    hideBorder,
+    joinedCorners,
+    isJoinedAttachedTerminalChild,
+    hideFrameBorder: false,
+  });
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
     : "";
   const outlineColor = getOutlineColor({
+    jsonSourceMissing: false,
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
@@ -75,29 +148,35 @@ export function getSectionContainerShellClassName({
   const outlineClassName = useMetaControlStyle
     ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
     : sectionStyleOutlineClassName;
-  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
-  if (forceHideOutline || isJoinedAttachedTerminalChild) {
-    outlineSizeClassName = "outline-0";
-  }
-  let joinedCornerClassName = "";
-  if (joinedCorners === "code-terminal-parent") {
-    joinedCornerClassName = "rounded-b-none";
-  } else if (isJoinedAttachedTerminalChild) {
-    joinedCornerClassName = "rounded-t-none";
-  }
   const handleScopeClassName = omitAgenticHandleScopeClass
     ? ""
     : "agentic-handle-scope";
   const themedHandleScopeClassName = hasSectionStyleTheme
     ? "agentic-handle-scope--themed"
     : "";
-  const borderColorClassName = !positionAndSizeLocked
-    ? "border-white dark:border-setta-700"
-    : "border-setta-400/90 dark:border-setta-800";
-  const borderWidthClassName = hideBorder ? "border-0" : "border";
-  const defaultCornerClassName = !positionAndSizeLocked
-    ? "rounded-lg"
-    : "rounded-sm";
+  const borderColorClassName =
+    frameStructure.shellBorderTone === "transparent"
+      ? "!border-transparent dark:!border-transparent"
+      : frameStructure.shellBorderTone === "locked"
+        ? "border-setta-400/90 dark:border-setta-800"
+        : "border-white dark:border-setta-700";
+  const borderWidthClassName = frameStructure.shellBorderVisible
+    ? "border"
+    : "border-0";
+  const defaultCornerClassName =
+    frameStructure.cornerStyle === "large" ? "rounded-lg" : "rounded-sm";
+  const joinedCornerClassName =
+    frameStructure.joinedEdge === "bottom"
+      ? "rounded-b-none"
+      : frameStructure.joinedEdge === "top"
+        ? "rounded-t-none"
+        : "";
+  const outlineSizeClassName =
+    frameStructure.shellOutlineWidth === 0
+      ? "outline-0"
+      : frameStructure.shellOutlineWidth === 2
+        ? "outline-2"
+        : "outline-4";
 
   return joinClassNames(
     handleScopeClassName,
@@ -131,14 +210,21 @@ export function getSectionSurfaceClassName({
   cornerClassName,
   hideFrameBorder = false,
 }: SectionSurfaceClassNameOptions): string {
+  const frameStructure = resolveSectionChromeFrameStructure({
+    positionAndSizeLocked,
+    useMetaControlStyle: false,
+    hideFrameBorder,
+  });
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
     : "";
-  const frameBorderClassName = hideFrameBorder
-    ? "before:border-0"
-    : "before:border";
+  const frameBorderClassName = frameStructure.surfaceFrameVisible
+    ? "before:border"
+    : "before:border-0";
+  const defaultCornerClassName =
+    frameStructure.cornerStyle === "large" ? "rounded-lg" : "rounded-sm";
 
   return joinClassNames(
     shouldDisablePointerEvents && "pointer-events-none select-none",
@@ -146,7 +232,7 @@ export function getSectionSurfaceClassName({
     layoutClassNameToUse,
     "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
     frameBorderClassName,
-    cornerClassName ?? (!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"),
+    cornerClassName ?? defaultCornerClassName,
     isYouTube && "overflow-clip",
     zIndexClassName,
     metaHoverZIndexClassName,

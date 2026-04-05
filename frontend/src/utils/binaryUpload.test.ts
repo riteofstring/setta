@@ -1,4 +1,3 @@
-import { createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { uploadBinaryPayload } from "./binaryUpload";
 
@@ -17,14 +16,12 @@ describe("uploadBinaryPayload", () => {
   it("uploads bytes as FormData and returns the uploaded content id", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
-        JSON.stringify(
-          createContentRef({
-            contentId: "payload-123",
-            byteLength: 3,
-            mimeType: "text/plain",
-            sha256: null,
-          }),
-        ),
+        JSON.stringify({
+          contentId: "payload-123",
+          byteLength: 3,
+          mimeType: "text/plain",
+          sha256: null,
+        }),
         {
           status: 200,
           headers: { "content-type": "application/json" },

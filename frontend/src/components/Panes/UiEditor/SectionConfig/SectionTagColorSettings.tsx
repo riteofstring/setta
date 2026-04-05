@@ -4,8 +4,6 @@ import {
 } from "components/Params/ParamUIs/ColorPickerInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
-import { saveSettings } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -19,7 +17,10 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_section_tag_color } from "utils/generatedEndpoints";
+import {
+  route_save_settings,
+  route_set_section_tag_color,
+} from "utils/generatedEndpoints";
 import {
   createSettingsState,
   type ColorPickerChoice,
@@ -83,11 +84,7 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
         if (!canEditStructure) {
           return;
         }
-        void callOpenAPI(
-          saveSettings({
-            body: { settings: useSettings.getState() },
-          }),
-        );
+        void route_save_settings({ settings: useSettings.getState() });
       }, 400),
     [canEditStructure],
   );
