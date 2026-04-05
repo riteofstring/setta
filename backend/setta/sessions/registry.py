@@ -20,6 +20,16 @@ from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
+_SETTA_PROCESS_BASENAMES = frozenset(
+    {
+        "setta",
+        "setta.exe",
+        "setta-script.py",
+        "setta-server",
+        "setta-server.exe",
+    }
+)
+
 
 def resolve_pid_create_time(pid: int) -> float | None:
     if pid <= 0:
@@ -426,32 +436,20 @@ class SessionRegistry:
             return None
 
     def _is_setta_process(self, process: psutil.Process) -> bool | None:
+        cmdline = self._load_process_cmdline(process)
+        if cmdline is None:
+            return None
+        if not cmdline:
+            return False
+        return _cmdline_matches_setta_process(cmdline)
+
+    def _load_process_cmdline(self, process: psutil.Process) -> list[str] | None:
         try:
-            cmdline = process.cmdline()
+            return process.cmdline()
         except psutil.AccessDenied:
             return None
         except (psutil.NoSuchProcess, psutil.ZombieProcess):
-            return False
-        if not cmdline:
-            return False
-        script_basenames = {
-            "setta",
-            "setta.exe",
-            "setta-script.py",
-            "setta-server",
-            "setta-server.exe",
-        }
-        first = cmdline[0].lower()
-        if os.path.basename(first) in script_basenames:
-            return True
-        for item in cmdline[1:]:
-            if os.path.basename(item).lower() in script_basenames:
-                return True
-        lowered = [item.lower() for item in cmdline]
-        for idx, item in enumerate(lowered):
-            if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
-                return True
-        return False
+            return []
 
     def _is_port_listening(self, process: psutil.Process, host: str, port: int) -> bool:
         try:
@@ -474,3 +472,13 @@ class SessionRegistry:
         if listen_host in {"0.0.0.0", "::"}:
             return True
         return host == listen_host
+
+
+def _cmdline_matches_setta_process(cmdline: list[str]) -> bool:
+    normalized = [os.path.basename(item).lower() for item in cmdline]
+    if any(item in _SETTA_PROCESS_BASENAMES for item in normalized):
+        return True
+    lowered = [item.lower() for item in cmdline]
+    return any(
+        flag == "-m" and module == "setta" for flag, module in zip(lowered, lowered[1:])
+    )
