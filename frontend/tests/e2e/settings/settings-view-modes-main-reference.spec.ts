@@ -3986,6 +3986,7 @@ test("settings graph parity probe keeps the task board args filter attached duri
   context,
   page,
 }) => {
+  test.slow();
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -4027,17 +4028,18 @@ test("settings graph parity probe keeps the task board args filter attached duri
     worktreeInitialState,
     "All Settings",
   );
+  const taskBoardSectionName = "taskBoardSectionDefault";
   const referenceAllSettingsViewModeId = findViewModeId(
     referenceInitialState,
     "All Settings",
   );
   const worktreeTaskBoardSectionId = findSectionIdByName(
     worktreeInitialState,
-    "taskBoardSectionDefault",
+    taskBoardSectionName,
   );
   const referenceTaskBoardSectionId = findSectionIdByName(
     referenceInitialState,
-    "taskBoardSectionDefault",
+    taskBoardSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -4053,6 +4055,7 @@ test("settings graph parity probe keeps the task board args filter attached duri
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
     await restoreInitialViewModeLayout({
@@ -4094,9 +4097,20 @@ test("settings graph parity probe keeps the task board args filter attached duri
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: taskBoardSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
     await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
     await expect
@@ -4243,6 +4257,7 @@ test("settings graph parity probe keeps the task board args filter attached duri
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceTaskBoardSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureTaskBoardFilterAfterDrag({
@@ -4257,6 +4272,7 @@ test("settings graph parity probe keeps the task board args filter attached duri
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeTaskBoardSectionId,
+      side: "worktree",
       targetPage: page,
     });
 

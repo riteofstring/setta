@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 00:45 EDT
+Last updated: 2026-04-05 00:55 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,51 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `143` completed the `taskBoardSectionDefault` top-level drag attachment lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-003 worktree/main surfaces.
+  - Why this slice was needed:
+    - item `142` explicitly closed the checked `groupSectionDefault` pane-pan lane and pointed the next bounded step at `taskBoardSectionDefault` instead of reopening the same group/spreadsheet checks
+    - the existing task-board top-level drag lane still relied on an ad hoc `fitGraphViewportToSection(...)` assumption and no explicit slow-test budget, so current live evidence on that named lane was less trustworthy than the newer preflight-backed lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - kept the canonical task-board section name explicit
+      - marked the live two-runtime task-board drag lane `test.slow()`
+      - replaced the ad hoc `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `side: "reference" | "worktree"` through the helper so the lane asserts the named target section on both runtimes
+  - What this slice established:
+    - the current live task-board ids on run-003 are:
+      - worktree canary `09ed2229-b462-4409-b6dd-4a5036fb18b8`
+      - read-only main legacy `1b0840b9-8648-4fd6-96bb-b420db02463d`
+    - rerunning the hardened lane with the current default project URL resolved to `http://127.0.0.1:3076/crisp_falling` passed on run-003 (`1 passed`, `35.6s`)
+    - a fresh-context CDP sub-agent then re-bootstraped both run-003 pages, normalized both sides to `/settings` + `All Settings`, and used CDP as the visual confirmation layer instead of re-driving the drag path from scratch
+    - after that shared normalization, the CDP sub-agent found the named task-board lane visually consistent between worktree canary and read-only main legacy
+    - the CDP sub-agent captured matching filter geometry and only small lane-level drift:
+      - the visible `All` filter aligned at `x=260.703125`, `y=147`, `w=15.296875`, `h=16` on both sides
+      - the visible `View Mode` control remained present on both sides with only small vertical drift (`y≈349` worktree vs `y≈354` reference)
+      - the visible `taskBoardSectionDefault` entry sat higher in the worktree list than in reference (`y=188` vs `y=288`); treat that ordering/landing difference as oracle noise, not renderer drift
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-003 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-003/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-003/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-003/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-003/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `35.6s`)
+    - live task-board-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","taskBoardSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","taskBoardSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `09ed2229-b462-4409-b6dd-4a5036fb18b8`, reference `1b0840b9-8648-4fd6-96bb-b420db02463d`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - re-bootstraped fresh run-003 pages for live worktree `3076` and read-only main `3087`
+      - moved both to `/settings`, normalized to `All Settings`, and compared the named task-board lane visually without replaying the drag path in CDP
+    - CDP visual check: done (fresh run-003 bootstrap, normalized both sides to `/settings` with `All Settings` active, and compared `taskBoardSectionDefault` lane geometry plus its filter controls in live CDP)
+  - Lane status:
+    - close the checked `taskBoardSectionDefault` top-level drag lane as clean on the current run-003 surfaces
+    - treat the left-list ordering/landing difference as oracle noise, not renderer drift
+  - Next frontier:
+    - move to a different renderer-facing named lane that still lacks a canonical, current live check, preferably splitting the shared `browserSectionDefault` / `taskBoardSectionDefault` title-edit drag probe into one explicit `browserSectionDefault` lane with origin-aware preflight
 
 - Ralph item `142` completed the `groupSectionDefault` pane-pan editability lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-002 worktree/main surfaces.
   - Why this slice was needed:
