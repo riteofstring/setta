@@ -2,7 +2,6 @@ package frontendbindings
 
 import (
 	"reflect"
-	"strings"
 
 	"setta/internal/stringenumvalues"
 )
@@ -42,39 +41,4 @@ func frontendBindingEnumValuesFromDiscovered(
 		})
 	}
 	return values
-}
-
-func frontendBindingStructFieldEnumValues(structType reflect.Type) []EnumValue {
-	values := make([]EnumValue, 0, structType.NumField())
-	for index := 0; index < structType.NumField(); index++ {
-		field := structType.Field(index)
-		if !field.IsExported() {
-			continue
-		}
-		name := frontendBindingStructFieldEnumName(field)
-		if name == "" {
-			continue
-		}
-		values = append(values, EnumValue{
-			Name:  name,
-			Value: name,
-		})
-	}
-	return values
-}
-
-func frontendBindingStructFieldEnumName(field reflect.StructField) string {
-	jsonName := strings.TrimSpace(field.Tag.Get("json"))
-	if jsonName == "" {
-		return field.Name
-	}
-	name, _, _ := strings.Cut(jsonName, ",")
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return field.Name
-	}
-	if name == "-" {
-		return ""
-	}
-	return name
 }
