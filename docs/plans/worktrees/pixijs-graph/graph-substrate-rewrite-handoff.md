@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 13:55 EDT
+Last updated: 2026-04-07 14:08 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `271` cut the minimap projection off from shared `sceneSnapshot.renderSize` fallback, so the canary minimap now uses authoritative scene width/height and only falls back to the shared-node seed cache while size is still unresolved.
+
+  - Why this pass completed:
+    - item `270` explicitly left the canary/minimap store reader as the next bounded seam after seed-cache cleanup
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` was the only live external reader still turning shared `sceneSnapshot.sections` render fallback into global minimap geometry
+    - the smallest real product slice was to stop that reader from consuming `renderSize` as geometry while preserving unresolved shared-node visibility through the existing `sectionSeedNodes` cache
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx) so canary minimap nodes now project position/z-order from the live scene sections, authoritative width/height from the canary scene section itself, and only use [`sectionSeedNodes`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts) as the bounded fallback when shared-node size is still unresolved
+    - updated [`frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx) to lock both sides of the contract: unresolved shared-node sections still render through the seed cache, while authoritative canary width/height now win over larger measured `renderSize` fallback
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-005/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `a6e70c`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 60079`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/forks/xyflow/minimap/MiniMapNodes.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`1 file`, `9 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `36.1s`)
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), bootstrapped the live worktree successfully, and reached authenticated `Settings`
+      - the route mounted beyond the spinner, `All Settings` was visible, and the in-app `fit view` action ran without CDP/tool failure
+      - the bounded viewport screenshots did not make the minimap surface itself visually obvious even though the minimap toggle was present and pressed, so this check confirms live canary health rather than opening a new minimap parity claim
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - the only live external minimap reader no longer turns shared `renderSize` fallback into global geometry, which closes the canary/minimap store-reader slice from item `270`
+    - unresolved shared-node sections remain renderable in the minimap through the already-bounded `sectionSeedNodes` cache instead of through the shared scene snapshot render fallback
+    - the live worktree canary now mounts reliably enough for bounded CDP health checks, but this pass did not prove a new minimap-vs-reference parity lane
+  - Next frontier:
+    - continue the measured-geometry authority cleanup at the shared scene/store layer now that the minimap no longer depends on shared `renderSize`; the next slice should decide whether the published canary scene store still needs to expose render-only size outside the surface runtime at all
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the existing first-render Playwright probe plus bounded CDP canary-health checks instead of opening a new minimap-only visual lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `270` moved the canary shared-node seed cache off the shared scene snapshot render fallback path, so seed bootstrap now reads raw sections plus the current measured-size map instead of feeding local `renderSize` back out of `sceneSnapshot`.
 

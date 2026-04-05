@@ -1,5 +1,6 @@
 import type { SettingsGraphSubstrateCanarySceneSection } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore";
+import type { SettingsGraphSubstrateCanarySectionSeedNodes } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes";
 import _ from "lodash";
 import { memo, useMemo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
@@ -217,6 +218,7 @@ function mergeMiniMapNodesWithVisuals(
 export function resolveMiniMapRenderableNodes(
   nodes: Node[],
   canarySections: Array<SettingsGraphSubstrateCanarySceneSection>,
+  sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
 ): Node[] {
   if (canarySections.length === 0) {
     return nodes.filter(isMiniMapNodeRenderable);
@@ -227,8 +229,9 @@ export function resolveMiniMapRenderableNodes(
 
   for (const canarySection of canarySections) {
     const sourceNode = nodesById.get(canarySection.sectionId);
-    const width = canarySection.renderSize?.width;
-    const height = canarySection.renderSize?.height;
+    const sectionSeedNode = sectionSeedNodes.get(canarySection.sectionId);
+    const width = canarySection.width ?? sectionSeedNode?.width;
+    const height = canarySection.height ?? sectionSeedNode?.height;
     if (!width || !height) {
       continue;
     }
@@ -251,14 +254,22 @@ export function useMiniMapRenderableNodes() {
     getNodes,
     areMiniMapNodesRenderableInputsEqual,
   );
-  const canarySections = useSettingsGraphSubstrateCanarySceneStore(
-    (state) => state.sceneSnapshot.sections,
-    _.isEqual,
-  );
+  const { canarySections, sectionSeedNodes } =
+    useSettingsGraphSubstrateCanarySceneStore(
+      (state) => ({
+        canarySections: state.sceneSnapshot.sections,
+        sectionSeedNodes: state.sectionSeedNodes,
+      }),
+      _.isEqual,
+    );
 
   return useMemo(() => {
-    return resolveMiniMapRenderableNodes(nodes, canarySections);
-  }, [canarySections, nodes]);
+    return resolveMiniMapRenderableNodes(
+      nodes,
+      canarySections,
+      sectionSeedNodes,
+    );
+  }, [canarySections, nodes, sectionSeedNodes]);
 }
 
 const getAttrFunction = (
