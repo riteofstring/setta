@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 07:19 EDT
+Last updated: 2026-04-08 07:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,44 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `300` restored one trustworthy automated verdict on the canonical
+    `rotaryParamCodeObjDefault` perf lane after item `299`:
+    - the remaining verifier issue was not a product regression on the landed
+      `reactFlowViewportPublish` removal; the probe still hit the documented
+      zero-publish motion window, but reruns could stall because the
+      requestAnimationFrame-gated motion sequence was being driven on a page
+      that was no longer foregrounded after the cross-page reference capture
+    - landed one bounded verifier-only fix in
+      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts):
+      - call `targetPage.bringToFront()` before the normalized lane setup and
+        again immediately before `startSettingsGraphMotionPerfCapture(...)`
+      - replace the brittle
+        `dominantCanaryMotionAttributionOwner === null` assertion with the real
+        post-item-299 contract:
+        - `reactFlowViewportPublish`: `0`
+        - `reactFlowTransformSubscriptionCallback`: `0`
+        - `reactFlowTransformFollowerCallback`: `0`
+        - no non-zero owners outside the residual
+          `interactionMiscStateSync` /
+          `interactionReactFlowStateSync` pair
+    - final focused verification passed on fresh runtime-info-derived tokens:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.8s`)
+    - normalized motion-perf output on the passing rerun:
+      - legacy `main`: average `17.05ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `18.17ms`, max `50ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+      - measured canary motion attribution on the passing rerun:
+        - `interactionMiscStateSync`: `1`, `0ms` total
+        - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+        - `reactFlowViewportPublish`: `0`
+        - `reactFlowTransformSubscriptionCallback`: `0`
+        - `reactFlowTransformFollowerCallback`: `0`
+        - `viewportPersistenceDispatch`: `0`
+    - required CDP visual signal is reused from item `299`:
+      - no product renderer/runtime code changed in item `300`
+      - the existing fresh-context CDP check already confirmed both worktree and
+        read-only `main` `/settings` pages rendered the All Settings graph
+        surface rather than a spinner/blank shell
   - item `299` completed one bounded product reduction on the named
     `reactFlowViewportPublish` hotspot:
     - landed a canary viewport-override seam so local pan-only motion can read
@@ -163,40 +201,46 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, and item `299` removed the previously named per-step React Flow publish owner from the measured burst:
+  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, item `299` removed the previously named per-step React Flow publish owner from the measured burst, and item `300` restored a trustworthy rerun on that new contract:
     - visible section count stayed `1`
     - root DOM stayed `135`
-    - average frame duration is now `17.76ms` on the worktree canary versus `17.05ms` on legacy `main`
-    - the measured canary motion-attribution window no longer names a dominant owner; the old `reactFlowViewportPublish` / transform-subscription path is now `0`
-  - this means the previous dominant owner is now removed from the measured burst, but the next remaining cost is not yet re-attributed to a new concrete owner
-  - before opening another product hypothesis, the canonical Playwright perf lane needs a trustworthy post-change verdict again because it now hangs after the banner on reruns that should validate the updated expectation
+    - average frame duration is now `18.17ms` on the worktree canary versus `17.05ms` on legacy `main`
+    - the old `reactFlowViewportPublish` / transform-subscription path remains `0` on the passing rerun
+    - the only non-zero measured owners are the residual one-off interaction sync entries:
+      - `interactionMiscStateSync`
+      - `interactionReactFlowStateSync`
+  - this means the previous dominant owner is removed from the measured burst and the canonical probe is trustworthy again; the next product frontier is to decide whether the remaining interaction-sync pair is the next real cost owner or merely the last visible residue before a different owner needs attribution
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
   - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
   - the viewport-interaction pointer-suppression hypothesis is now closed unless a future trace explicitly shows hover/focus pointer churn dominating the lane
   - the `reactFlowViewportPublish` lane is complete and should not be reopened by default; the measured motion burst no longer publishes through that path
-  - the next useful pass should first restore a trustworthy canonical Playwright verdict on this same lane, because the probe now hangs after the banner once the updated expectation should pass
-  - once that verifier is trustworthy again, the next product frontier is to add the next attribution seam for the still-remaining frame cost rather than reopening already-closed host-size, persistence, or pointer-suppression hypotheses
+  - the canonical Playwright verdict is trustworthy again after item `300`; do not reopen verifier-only work on this lane unless the broad perf probe regresses again
+  - the next product frontier is now to add the next attribution seam for the still-remaining frame cost rather than reopening already-closed host-size, persistence, pointer-suppression, or React Flow publish hypotheses
   - the CDP visual gate for this slice is satisfied; do not reopen a browser-only pass on the same lane unless the canary starts failing to render again
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- restore one trustworthy automated verdict for the canonical `rotaryParamCodeObjDefault` perf lane after item `299`
+- use the restored canonical `rotaryParamCodeObjDefault` perf lane to name the next real non-React-Flow cost owner after item `299`
 
 Recommended next target:
 
-- inspect why `settings-view-modes-main-reference.spec.ts` now hangs after the test banner on the updated canary lane even though the earlier run already produced the new zero-publish measurement
-- keep the current product change in place; do not reopen the removed `reactFlowViewportPublish` path unless a fixed verifier proves the canary is still publishing through it
-- once the probe exits cleanly again, use that same lane to decide the next non-React-Flow attribution seam instead of opening a different product hypothesis blindly
+- keep the current product change in place; do not reopen the removed `reactFlowViewportPublish` path unless a future measurement proves it regressed
+- pick one bounded attribution or reduction slice around the residual
+  `interactionMiscStateSync` / `interactionReactFlowStateSync` pair, or prove
+  via one new attribution seam that the remaining frame cost now lives
+  elsewhere
+- use the same canonical perf probe to judge that next slice instead of opening
+  a different product hypothesis blindly
 
 Recommended deliverables for the next iteration:
 
-- one bounded verifier fix on the canonical perf probe / teardown path, or one explicit proof that the hang is outside the test body and should be isolated elsewhere
+- one bounded product or attribution slice on the same canonical lane
 - a clean rerun of the existing normalized cross-worktree motion probe on the same lane
-- reuse the already-satisfied CDP visual signal unless the rerun shows a new render failure
+- reuse the already-satisfied CDP visual signal unless the new slice changes the rendered surface or shows a new render failure
 
 Recommended canonical target:
 
@@ -223,6 +267,38 @@ Do not use the next iteration for:
 - Ralph item `298` completed the attribution-led pass on `rotaryParamCodeObjDefault`, landed the motion-attribution seam plus one perf baseline report, and named `reactFlowViewportPublish` as the dominant remaining owner on the normalized motion burst.
 
 - Ralph item `299` completed the next bounded product reduction on the same `rotaryParamCodeObjDefault` lane and removed the measured `reactFlowViewportPublish` / transform-subscription activity from the motion-attribution window.
+
+- Ralph item `300` completed the verifier-recovery follow-up on the same `rotaryParamCodeObjDefault` lane and restored a clean canonical Playwright verdict without reopening the landed product change.
+
+  - Why this pass completed:
+    - the handoff explicitly named the broken automated verdict as the next blocker before another product hypothesis
+    - the fix stayed verifier-only and directly addressed the observed post-banner stall shape instead of reopening already-closed product hypotheses
+    - the canonical cross-worktree motion probe now exits cleanly again on fresh runtime-info-derived bootstrap tokens
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Product/test change:
+    - updated the canonical Playwright perf probe in [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+    - added explicit `bringToFront()` calls before the lane setup/motion capture on each target page
+    - aligned the post-item-299 assertion contract so residual one-off `interactionMiscStateSync` / `interactionReactFlowStateSync` entries are allowed while all React Flow publish/subscription owners must remain `0`
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+    - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.8s`)
+    - passing normalized motion output:
+      - legacy `main`: average `17.05ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `18.17ms`, max `50ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+      - worktree motion attribution:
+        - `interactionMiscStateSync`: `1`, `0ms` total
+        - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+        - `reactFlowViewportPublish`: `0`
+        - `reactFlowTransformSubscriptionCallback`: `0`
+        - `reactFlowTransformFollowerCallback`: `0`
+        - `viewportPersistenceDispatch`: `0`
+    - `CDP visual check: done (reused item 299 fresh-context confirmation because item 300 changed only the Playwright verifier and did not change renderer/runtime product code)`
+  - Lane status:
+    - the canonical Playwright perf lane is trustworthy again
+    - the `reactFlowViewportPublish` reduction remains landed and should not be reopened by default
+    - the next product hotspot is still not fully named beyond the residual one-off interaction-sync pair, so the next useful pass should add one bounded attribution seam on that remaining cost
 
   - Why this pass completed:
     - the handoff explicitly named `reactFlowViewportPublish` as the next remaining product hotspot on this lane

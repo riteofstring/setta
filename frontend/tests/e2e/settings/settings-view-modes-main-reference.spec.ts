@@ -12446,6 +12446,7 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     beforeMetrics: SettingsGraphSectionMetrics;
     perf: SettingsGraphMotionPerfCapture;
   }> {
+    await args.targetPage.bringToFront();
     await restoreInitialViewModeLayout({
       activeViewModeId: args.activeViewModeId,
       backendOrigin: args.backendOrigin,
@@ -12525,6 +12526,7 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
 
     const motionPoint = await findSettingsGraphPanePoint(args.targetPage);
 
+    await args.targetPage.bringToFront();
     await startSettingsGraphMotionPerfCapture(args.targetPage);
     await runSettingsGraphMotionPerfSequence(args.targetPage, {
       modifierKey: MOD_KEY,
@@ -12610,6 +12612,24 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     expect(worktreeResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
     expect(referenceResult.perf.motionAttribution).toBeNull();
     expect(worktreeResult.perf.motionAttribution).not.toBeNull();
+    const allowedResidualCanaryMotionOwners = [
+      "interactionMiscStateSync",
+      "interactionReactFlowStateSync",
+    ] as const;
+    const unexpectedCanaryMotionOwners = Object.entries(
+      worktreeResult.perf.motionAttribution ?? {},
+    )
+      .filter(([owner, entry]) => {
+        return (
+          !allowedResidualCanaryMotionOwners.includes(
+            owner as (typeof allowedResidualCanaryMotionOwners)[number],
+          ) &&
+          (entry.count > 0 ||
+            entry.totalDurationMs > 0 ||
+            entry.maxDurationMs > 0)
+        );
+      })
+      .map(([owner]) => owner);
     expect(
       worktreeResult.perf.motionAttribution?.reactFlowViewportPublish.count ??
         0,
@@ -12622,7 +12642,10 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       worktreeResult.perf.motionAttribution?.reactFlowTransformFollowerCallback
         .count ?? 0,
     ).toBe(0);
-    expect(worktreeResult.perf.dominantCanaryMotionAttributionOwner).toBeNull();
+    expect(unexpectedCanaryMotionOwners).toEqual([]);
+    expect([null, ...allowedResidualCanaryMotionOwners]).toContain(
+      worktreeResult.perf.dominantCanaryMotionAttributionOwner,
+    );
     expect(referenceResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(worktreeResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(referenceResult.perf.sectionDomNodeCount).toBeGreaterThan(0);

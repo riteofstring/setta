@@ -11436,3 +11436,37 @@ LOOP_TERMINAL_MARKER: none
   - the next immediate blocker is the canonical Playwright probe hanging after the test banner once the updated expectation should pass
   - the next product hotspot is no longer named; the next useful pass should first restore a trustworthy automated verdict on this same lane
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 07:36 EDT - Ralph item 300
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded verifier-recovery subtask from the handoff: restore one trustworthy automated verdict for the canonical cross-worktree motion probe after item `299` without reopening the landed `reactFlowViewportPublish` product slice.
+- Reproduced the real failure shape first:
+  - the probe did not regress the product slice; it still reached the post-item-299 zero-publish motion window
+  - one rerun failed because the spec still expected `dominantCanaryMotionAttributionOwner` to be `null` even though the documented residual one-off owners (`interactionMiscStateSync` / `interactionReactFlowStateSync`) can legitimately be the only non-zero entries
+  - a fresh-token rerun then showed the remaining post-banner stall shape again, which matched a foregrounding problem on the requestAnimationFrame-gated motion sequence rather than a renderer regression
+- Landed one verifier-only fix in `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`:
+  - added `await targetPage.bringToFront()` before the normalized lane setup and again immediately before `startSettingsGraphMotionPerfCapture(...)` so the active page is foregrounded before the rAF-gated motion sequence runs
+  - replaced the brittle `dominantCanaryMotionAttributionOwner === null` assertion with the real post-item-299 contract:
+    - `reactFlowViewportPublish`, `reactFlowTransformSubscriptionCallback`, and `reactFlowTransformFollowerCallback` must remain `0`
+    - no non-zero motion-attribution owners may appear outside the residual `interactionMiscStateSync` / `interactionReactFlowStateSync` pair
+- Focused verification passed on the final formatted file:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-017/worktree-ai.log) && MAIN_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-017/main-ai.log) && env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=\"$(printf '%s' \"$WORKTREE_JSON\" | jq -r '.frontendUrl')\" SETTA_BACKEND_ORIGIN=\"$(printf '%s' \"$WORKTREE_JSON\" | jq -r '.backendUrl')\" SETTA_BOOTSTRAP_TOKEN=\"$(printf '%s' \"$WORKTREE_JSON\" | jq -r '.bootstrapUrl | split(\"#token=\")[1]')\" SETTA_MAIN_REFERENCE_FRONTEND_URL=\"$(printf '%s' \"$MAIN_JSON\" | jq -r '.frontendUrl')\" SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=\"$(printf '%s' \"$MAIN_JSON\" | jq -r '.backendUrl')\" SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$(printf '%s' \"$MAIN_JSON\" | jq -r '.bootstrapUrl')\" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+- Final passing motion-perf output:
+  - legacy `main`: average `17.05ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+  - worktree canary: average `18.17ms`, max `50ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - worktree motion attribution:
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+- CDP visual gate:
+  - `CDP visual check: done (reused item 299 fresh-context confirmation because item 300 only changed the Playwright verifier and did not change renderer/runtime product code)`
+- Result:
+  - the canonical Playwright perf lane is trustworthy again
+  - the `reactFlowViewportPublish` reduction remains landed and should not be reopened by default
+  - the next useful pass should stay on `rotaryParamCodeObjDefault` and add one bounded attribution seam for the remaining interaction-sync cost instead of reopening verifier-only work
+- LOOP_TERMINAL_MARKER: none
