@@ -53,11 +53,8 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
-import {
-  type ProjectConfig,
-  type ProjectConfigMetadata,
-} from "utils/generatedTypes";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
+import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
 const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
@@ -80,9 +77,6 @@ export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed
 export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   HOME_PANE_TITLE_CLASS,
 );
-
-type HomeProject = ProjectConfigMetadata &
-  Partial<Pick<ProjectConfig, "previewImgColor" | "topLevelSections">>;
 
 export function shouldUseCompactHomeLayout(
   winWidth: number | undefined,
@@ -113,15 +107,15 @@ export function partitionProjectsByFavoriteStatus({
   projects,
   favoriteProjectConfigIds,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   favoriteProjectConfigIds: Set<string>;
 }): {
-  favoriteProjects: Array<HomeProject>;
-  nonFavoriteProjects: Array<HomeProject>;
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
   totalProjectsCount: number;
 } {
-  const favoriteProjects: Array<HomeProject> = [];
-  const nonFavoriteProjects: Array<HomeProject> = [];
+  const favoriteProjects: Array<ProjectConfig> = [];
+  const nonFavoriteProjects: Array<ProjectConfig> = [];
   for (const project of projects) {
     if (favoriteProjectConfigIds.has(project.id)) {
       favoriteProjects.push(project);
@@ -213,7 +207,7 @@ function HomeWorkspaceLayout({
   isDeploymentMode,
   hasLoadedProjectMetadata,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
   isDeploymentMode: boolean;
@@ -382,7 +376,7 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await router_set_as_default_project({ projectConfigId });
   }
 
   const commonGalleryProps = {
@@ -801,8 +795,8 @@ function HomeProjectGallery({
   galleryViewMode,
   fullScreenSurface = false,
 }: {
-  favoriteProjects: Array<HomeProject>;
-  nonFavoriteProjects: Array<HomeProject>;
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
   totalProjectsCount: number;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -1013,7 +1007,7 @@ function ProjectGridItems({
   compactGrid = false,
   dataTestId,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -1082,7 +1076,7 @@ function ProjectCard({
   onToggleFavoriteProjectConfig,
   showSelectionControls,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
@@ -1153,7 +1147,7 @@ function ThumbnailWrapper({
   onActivate,
   children,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   onSelectProject: (id: string) => void;
   onOpenProject: () => void;
   projectPath: string | null;
@@ -1202,7 +1196,7 @@ function ThumbnailArea({
   onSetDefaultProject,
   showSelectionControls,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isSelected: boolean;
   onToggleProjectSelection: (id: string) => void;
   projectPath: string | null;
@@ -1333,7 +1327,7 @@ function ProjectListItems({
   onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -1396,7 +1390,7 @@ function ProjectListItem({
   onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
@@ -1539,7 +1533,7 @@ function SelectedProjectDetails({
   isDeploymentMode,
   hideTitle = false,
 }: {
-  project: HomeProject | null;
+  project: ProjectConfig | null;
   isDefault: boolean;
   isDeploymentMode: boolean;
   hideTitle?: boolean;
@@ -1567,7 +1561,6 @@ function SelectedProjectDetails({
   }
 
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
-  const topLevelSectionCount = getProjectTopLevelSectionCount(project);
 
   return (
     <aside
@@ -1587,12 +1580,12 @@ function SelectedProjectDetails({
           Default:{" "}
           <span className="font-semibold">{isDefault ? "Yes" : "No"}</span>
         </p>
-        {topLevelSectionCount === null ? null : (
-          <p>
-            Sections:{" "}
-            <span className="font-semibold">{topLevelSectionCount}</span>
-          </p>
-        )}
+        <p>
+          Sections:{" "}
+          <span className="font-semibold">
+            {getProjectTopLevelSectionCount(project)}
+          </span>
+        </p>
         <p className="truncate">
           ID: <span className="font-mono text-[11px]">{project.id}</span>
         </p>
@@ -1612,12 +1605,7 @@ function SelectedProjectDetails({
   );
 }
 
-export function getProjectTopLevelSectionCount(
-  project: Pick<HomeProject, "topLevelSections">,
-): number | null {
-  if (!project.topLevelSections) {
-    return null;
-  }
+export function getProjectTopLevelSectionCount(project: ProjectConfig): number {
   return Object.keys(project.topLevelSections).length;
 }
 
