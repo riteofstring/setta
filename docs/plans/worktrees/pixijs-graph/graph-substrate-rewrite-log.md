@@ -2185,6 +2185,52 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 179
+
+- Item: Move canary minimap geometry authority onto the shared scene snapshot and prove the normalized `rotaryParamCodeObjDefault` regression lane still stays visually attached.
+- Status: `done`
+- Details:
+  - This iteration followed the handoff frontier directly instead of reopening another lane-specific probe: the minimap still mixed layout sections with shared node-internals geometry after item `178`.
+  - Added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts` as one shared per-project scene-snapshot registry for canary consumers outside `SettingsGraphSubstrateCanary.tsx`.
+  - Updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts` to publish the authoritative scene snapshot into that registry and clear it on unmount.
+  - Updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts` and `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` to share the same explicit empty-scene contract instead of duplicating inline empty snapshot objects.
+  - Updated `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` so canary minimap nodes now derive:
+    - position from `sceneSnapshot.sections[*].renderedPosition`
+    - size from `sceneSnapshot.sections[*].resolvedSize`
+    - temp z-order from `sceneSnapshot.sections[*].tempZIndex`
+  - The minimap still preserves node visuals such as type/style from shared node internals, but it no longer borrows stale node-internals geometry when the scene snapshot has not resolved a size yet.
+  - Focused tests now cover both sides of the new contract:
+    - `settingsGraphSubstrateCanarySceneState.test.tsx` asserts the shared registry mirrors the rendered scene snapshot
+    - `MiniMapNodes.test.tsx` asserts minimap geometry follows snapshot position/size/temp-z and ignores stale node-internals fallback geometry
+  - The trusted broad normalized `rotaryParamCodeObjDefault` regression lane stayed green after the product slice.
+  - Fresh-context CDP confirmation also stayed green:
+    - worktree canary remained visually attached around `rotaryParamCodeObjDefault`
+    - minimap tracked the visible scene on both worktree and read-only `main`
+    - one main-reference `3087/settings` tab was spinner/stale, but another already-live main tab was usable for the compare
+    - only a mild non-blocking shape delta remained after fit view (`main` slightly more kinked/diagonal than the straighter/tighter worktree stack)
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/forks/xyflow/minimap/MiniMapNodes.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - result: passed (`3 files`, `13 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-009/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-009/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `1.0m`)
+  - CDP visual check:
+    - result: done
+    - note: after `All Settings` normalization and fit view on live worktree/main tabs, the graph surface stayed attached around `rotaryParamCodeObjDefault` and the minimap did not look desynced from the rendered scene
+- Next action:
+  - remove the canary-local `useObservedSectionElementSizes` dependency by routing scene-snapshot size authority through the shared section-size / section-ref pipeline or an explicit geometry registry
+  - rerun the same broad normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare after that next geometry-authority slice
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 178
 
 - Item: Remove the canary selector's dependency on shared node-internals temp z-order and make the scene snapshot own active drag frontmost state.

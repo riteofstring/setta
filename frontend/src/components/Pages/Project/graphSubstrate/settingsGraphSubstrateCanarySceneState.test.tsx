@@ -12,6 +12,7 @@ import type {
   SettingsGraphSubstrateCanarySectionPositionOverride,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
+import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 
 type ResizeObserverController = {
   trigger: (elements: Array<HTMLElement>) => Promise<void>;
@@ -117,6 +118,11 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
         ],
       });
     });
+    expect(
+      serializeSceneSnapshot(
+        useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
+      ),
+    ).toEqual(readSceneSnapshot(host));
 
     await resizeObserverController.trigger([sectionElement.element]);
 

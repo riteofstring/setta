@@ -23,6 +23,14 @@ export type SettingsGraphSubstrateCanarySceneSnapshot = {
   sectionsById: Map<string, SettingsGraphSubstrateCanarySceneSection>;
 };
 
+export function createEmptySettingsGraphSubstrateCanarySceneSnapshot(): SettingsGraphSubstrateCanarySceneSnapshot {
+  return {
+    sceneBounds: null,
+    sections: [],
+    sectionsById: new Map(),
+  };
+}
+
 export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
   observedElementSizes: ObservedSectionElementSizes,

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 11:53 EDT
+Last updated: 2026-04-05 12:11 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,67 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `179` moved minimap canary-node derivation onto the shared scene snapshot so the minimap now follows the same rendered position, resolved size, and temp z-order authority as the graph surface.
+  - Why this slice was needed:
+    - item `178` made the scene snapshot authoritative for active drag z-order, but the minimap still rebuilt canary nodes by mixing layout sections with shared node-internals width/height/temp-z values
+    - that left one obvious geometry-authority seam unresolved: the graph surface and minimap were still allowed to disagree during drag/size transitions because they were not reading the same snapshot
+    - this is a real product seam, not another pure controller extraction or forwarding hop
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`
+      - introduces one shared per-project scene-snapshot registry for canary consumers outside `SettingsGraphSubstrateCanary.tsx`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts`
+      - now publishes the authoritative scene snapshot into that registry and clears it on unmount while keeping node-internals sync as a mirrored output
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - exports a shared empty-scene helper so the canary runtime and shared registry initialize from the same null scene contract
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now initializes viewport-controller scene state from the shared empty-scene helper instead of an inline ad hoc empty object
+    - updated `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`
+      - minimap canary-node derivation now consumes `sceneSnapshot.sections`
+      - canary minimap position comes from `renderedPosition`, size comes from `resolvedSize`, and temp z-order comes from the snapshot instead of mixed layout/node-internals values
+      - sections without a resolved scene-snapshot size no longer borrow stale node-internals geometry
+    - updated focused tests:
+      - `settingsGraphSubstrateCanarySceneState.test.tsx`
+      - `MiniMapNodes.test.tsx`
+  - What this slice established:
+    - the minimap now uses the same canary scene snapshot that already feeds graph-surface rendering, scene bounds, and node-internals mirroring
+    - visible canary minimap geometry no longer mixes layout-authored position with node-internals size/temp-z fallbacks
+    - the trusted broad normalized pan+zoom title-edit lane remains green after the minimap authority change:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the spec `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the refreshed run-009 surfaces
+    - the required CDP visual confirmation is also green on the same broad lane:
+      - the fresh-context sub-agent normalized live worktree `3076/settings` and a usable live `3087/settings` main tab to `All Settings`, then applied fit view
+      - the worktree canary still looked attached around `rotaryParamCodeObjDefault` with no gross graph-surface drift versus `main`
+      - the minimap tracked the visible scene shape on both sides and did not look desynced after the authority move
+      - one `3087/settings` main tab was spinner/stale, but another already-live main tab remained usable for the compare
+      - only a mild non-blocking shape delta remained: the worktree stack reads slightly straighter/tighter while main is a bit more kinked/diagonal after fit view
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/forks/xyflow/minimap/MiniMapNodes.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`3 files`, `13 tests`)
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-009/worktree-ai.log`
+      - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-009/main-ai.log`
+      - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via live tabs
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.0m`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: after `All Settings` normalization and fit view on live worktree/main tabs, `rotaryParamCodeObjDefault` stayed attached and the minimap tracked the visible scene without desync
+  - Lane status:
+    - the geometry-authority lane advanced again in product code instead of reopening a probe-only or forwarding-only pass
+    - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage only
+  - Next frontier:
+    - remove the canary-local `useObservedSectionElementSizes` dependency by routing scene-snapshot size authority through the shared section-size / section-ref pipeline or an explicit geometry registry
+    - rerun the same broad normalized Playwright lane plus CDP confirmation after that next geometry-authority slice
 
 - Ralph item `178` removed the canary selector's dependency on shared `nodeInternals` temp-z reads so the scene snapshot now owns active drag z-order and syncs that state back outward.
   - Why this slice was needed:

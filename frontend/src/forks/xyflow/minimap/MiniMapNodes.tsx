@@ -1,7 +1,5 @@
-import {
-  selectSettingsGraphSubstrateCanaryLayoutSections,
-  type GraphSubstrateCanaryLayoutSection,
-} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel";
+import type { SettingsGraphSubstrateCanarySceneSection } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot";
+import { useSettingsGraphSubstrateCanarySceneStore } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore";
 import _ from "lodash";
 import { memo, useMemo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
@@ -218,7 +216,7 @@ function mergeMiniMapNodesWithVisuals(
 
 export function resolveMiniMapRenderableNodes(
   nodes: Node[],
-  canarySections: Array<GraphSubstrateCanaryLayoutSection>,
+  canarySections: Array<SettingsGraphSubstrateCanarySceneSection>,
 ): Node[] {
   if (canarySections.length === 0) {
     return nodes.filter(isMiniMapNodeRenderable);
@@ -229,19 +227,19 @@ export function resolveMiniMapRenderableNodes(
 
   for (const canarySection of canarySections) {
     const sourceNode = nodesById.get(canarySection.sectionId);
-    const width = sourceNode?.width ?? canarySection.width;
-    const height = sourceNode?.height ?? canarySection.height;
+    const width = canarySection.resolvedSize?.width;
+    const height = canarySection.resolvedSize?.height;
     if (!width || !height) {
       continue;
     }
     renderableNodes.push({
-      ...sourceNode,
+      ...(sourceNode ?? {}),
       id: canarySection.sectionId,
-      position: canarySection.position,
+      position: canarySection.renderedPosition,
       width,
       height,
       zIndex: canarySection.zIndex,
-      tempZIndex: sourceNode?.tempZIndex ?? canarySection.zIndex,
+      tempZIndex: canarySection.tempZIndex,
     });
   }
 
@@ -253,8 +251,8 @@ export function useMiniMapRenderableNodes() {
     getNodes,
     areMiniMapNodesRenderableInputsEqual,
   );
-  const canarySections = useProjectState(
-    selectSettingsGraphSubstrateCanaryLayoutSections,
+  const canarySections = useSettingsGraphSubstrateCanarySceneStore(
+    (state) => state.sceneSnapshot.sections,
     _.isEqual,
   );
 

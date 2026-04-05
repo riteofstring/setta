@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useNodeInternals } from "state/definitions";
 import { useObservedSectionElementSizes } from "state/hooks/observedSectionElementSizes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
@@ -8,6 +8,10 @@ import {
   type SettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  resetSettingsGraphSubstrateCanarySceneSnapshot,
+  setSettingsGraphSubstrateCanarySceneSnapshot,
+} from "./settingsGraphSubstrateCanarySceneStore";
 
 export type SettingsGraphSubstrateCanarySceneState = {
   draggingSectionId: string | null;
@@ -49,6 +53,16 @@ export function useSettingsGraphSubstrateCanarySceneState(
     sectionPositionOverride,
     sections,
   ]);
+
+  useLayoutEffect(() => {
+    setSettingsGraphSubstrateCanarySceneSnapshot(sceneSnapshot);
+  }, [sceneSnapshot]);
+
+  useEffect(() => {
+    return () => {
+      resetSettingsGraphSubstrateCanarySceneSnapshot();
+    };
+  }, []);
 
   useEffect(() => {
     const nodeInternals = useNodeInternals.getState().x;

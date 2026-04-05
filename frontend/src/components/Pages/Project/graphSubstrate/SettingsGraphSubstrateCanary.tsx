@@ -29,7 +29,10 @@ import {
   createSettingsGraphSubstrateCanaryPaneInteractionController,
   type SettingsGraphSubstrateCanaryPaneInteractionController,
 } from "./settingsGraphSubstrateCanaryPaneInteractionController";
-import { type SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  createEmptySettingsGraphSubstrateCanarySceneSnapshot,
+  type SettingsGraphSubstrateCanarySceneSection,
+} from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import {
   createSettingsGraphSubstrateCanarySectionDragController,
@@ -155,11 +158,7 @@ export function SettingsGraphSubstrateCanary() {
   const canaryViewportStateRef =
     useRef<SettingsGraphSubstrateCanaryViewportControllerState>({
       resolvedViewport: null,
-      sceneSnapshot: {
-        sceneBounds: null,
-        sections: [],
-        sectionsById: new Map(),
-      },
+      sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
       wrapperDimensions: { width: 0, height: 0 },
     });
   const paneInteractionBehaviorRef = useRef({
