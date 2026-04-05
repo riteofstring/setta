@@ -42,6 +42,7 @@ const MAIN_REFERENCE_BOOTSTRAP_URL =
   process.env.SETTA_MAIN_REFERENCE_BOOTSTRAP_URL ?? "";
 const READY_SELECTOR = ".react-flow__pane";
 const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
+const SETTINGS_GRAPH_PROBE_PHASE_TIMEOUT_MS = 30000;
 
 type ProjectConfigIdResponse = {
   projectConfig?: { id?: string };
@@ -12446,34 +12447,48 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     beforeMetrics: SettingsGraphSectionMetrics;
     perf: SettingsGraphMotionPerfCapture;
   }> {
-    await args.targetPage.bringToFront();
-    await restoreInitialViewModeLayout({
-      activeViewModeId: args.activeViewModeId,
-      backendOrigin: args.backendOrigin,
-      frontendOrigin: args.frontendOrigin,
-      initialState: args.initialState,
-      page: args.targetPage,
-      projectConfigId: args.projectConfigId,
-    });
-    await normalizeSettingsGraphComparePaneState(args.targetPage);
-    await setDurableActiveSectionIds(args.targetPage, []);
-    await setPageViewModeAndClearViewport(
-      args.targetPage,
-      args.backendOrigin,
-      args.frontendOrigin,
-      args.projectConfigId,
-      args.activeViewModeId,
-      args.expectedSurfaceKind,
-    );
+    const runProbePhase = <T>(
+      phase: string,
+      operation: () => Promise<T>,
+    ): Promise<T> =>
+      withSettingsGraphProbePhaseTimeout({
+        label: `${args.side}: ${phase}`,
+        operation,
+      });
 
-    await expect(args.pageTab).toBeVisible();
-    await args.pageTab.click();
-    if (args.expectedSurfaceKind === "legacy") {
-      await args.targetPage.waitForSelector(READY_SELECTOR);
-      await expect(
-        args.targetPage.getByTestId("graph-substrate-canary"),
-      ).toHaveCount(0);
-    } else {
+    await runProbePhase("normalize surface", async () => {
+      await args.targetPage.bringToFront();
+      await restoreInitialViewModeLayout({
+        activeViewModeId: args.activeViewModeId,
+        backendOrigin: args.backendOrigin,
+        frontendOrigin: args.frontendOrigin,
+        initialState: args.initialState,
+        page: args.targetPage,
+        projectConfigId: args.projectConfigId,
+      });
+      await normalizeSettingsGraphComparePaneState(args.targetPage);
+      await setDurableActiveSectionIds(args.targetPage, []);
+      await setPageViewModeAndClearViewport(
+        args.targetPage,
+        args.backendOrigin,
+        args.frontendOrigin,
+        args.projectConfigId,
+        args.activeViewModeId,
+        args.expectedSurfaceKind,
+      );
+    });
+
+    await runProbePhase("mount target surface", async () => {
+      await expect(args.pageTab).toBeVisible();
+      await args.pageTab.click();
+      if (args.expectedSurfaceKind === "legacy") {
+        await args.targetPage.waitForSelector(READY_SELECTOR);
+        await expect(
+          args.targetPage.getByTestId("graph-substrate-canary"),
+        ).toHaveCount(0);
+        return;
+      }
+
       await expect(
         args.targetPage.getByTestId("graph-substrate-canary"),
       ).toBeVisible();
@@ -12482,73 +12497,87 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
           args.targetPage.getByTestId("graph-substrate-canary-section").count(),
         )
         .toBeGreaterThan(1);
-    }
+    });
 
-    await normalizeSettingsGraphComparePaneState(args.targetPage);
-    await setDurableActiveSectionIds(args.targetPage, []);
-    const preflight = await runSettingsGraphComparePreflight({
-      backendOrigin: args.backendOrigin,
-      expectedSurfaceKind: args.expectedSurfaceKind,
-      expectedViewModeName: "All Settings",
-      frontendOrigin: args.frontendOrigin,
-      page: args.targetPage,
-      projectConfigId: args.projectConfigId,
-      requireFitView: true,
-      side: args.side,
-      targetSectionName,
+    const preflight = await runProbePhase("run compare preflight", async () => {
+      await normalizeSettingsGraphComparePaneState(args.targetPage);
+      await setDurableActiveSectionIds(args.targetPage, []);
+      return runSettingsGraphComparePreflight({
+        backendOrigin: args.backendOrigin,
+        expectedSurfaceKind: args.expectedSurfaceKind,
+        expectedViewModeName: "All Settings",
+        frontendOrigin: args.frontendOrigin,
+        page: args.targetPage,
+        projectConfigId: args.projectConfigId,
+        requireFitView: true,
+        side: args.side,
+        targetSectionName,
+      });
     });
     expect(preflight.status).toBe("ok");
     expect(preflight.issues).toEqual([]);
     expect(preflight.targetSectionId).toBe(args.sectionId);
-    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+    const beforeMetrics = await runProbePhase(
+      "capture baseline metrics",
+      async () => {
+        await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
-    await expect
-      .poll(async () => {
-        return (
-          await captureSettingsGraphSectionMetrics(
-            args.targetPage,
-            args.sectionId,
-          )
-        ).surfaceKind;
-      })
-      .toBe(args.expectedSurfaceKind);
+        await expect
+          .poll(async () => {
+            return (
+              await captureSettingsGraphSectionMetrics(
+                args.targetPage,
+                args.sectionId,
+              )
+            ).surfaceKind;
+          })
+          .toBe(args.expectedSurfaceKind);
 
-    const beforeMetrics = await waitForSettledSectionMetrics({
-      expectedSurfaceKind: args.expectedSurfaceKind,
-      page: args.targetPage,
-      sectionId: args.sectionId,
-    });
+        return waitForSettledSectionMetrics({
+          expectedSurfaceKind: args.expectedSurfaceKind,
+          page: args.targetPage,
+          sectionId: args.sectionId,
+        });
+      },
+    );
     if (!beforeMetrics.rect || !beforeMetrics.transform) {
       throw new Error(
         `Missing ${args.expectedSurfaceKind} perf baseline metrics for ${targetSectionName}.`,
       );
     }
 
-    const motionPoint = await findSettingsGraphPanePoint(args.targetPage);
+    const perf = await runProbePhase("capture motion perf", async () => {
+      const motionPoint = await findSettingsGraphPanePoint(args.targetPage);
 
-    await args.targetPage.bringToFront();
-    await startSettingsGraphMotionPerfCapture(args.targetPage);
-    await runSettingsGraphMotionPerfSequence(args.targetPage, {
-      modifierKey: MOD_KEY,
-      point: motionPoint,
-      settleFrameCount: 2,
-      steps: [
-        { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
-        { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
-        { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
-        { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
-      ],
+      await args.targetPage.bringToFront();
+      await startSettingsGraphMotionPerfCapture(args.targetPage);
+      await runSettingsGraphMotionPerfSequence(args.targetPage, {
+        modifierKey: MOD_KEY,
+        point: motionPoint,
+        settleFrameCount: 2,
+        steps: [
+          { deltaX: 160, deltaY: 120, modified: false, repeat: 6 },
+          { deltaX: -160, deltaY: -120, modified: false, repeat: 6 },
+          { deltaX: 0, deltaY: -180, modified: true, repeat: 4 },
+          { deltaX: 0, deltaY: 180, modified: true, repeat: 4 },
+        ],
+      });
+      return stopSettingsGraphMotionPerfCapture(
+        args.targetPage,
+        args.sectionId,
+      );
     });
-    const perf = await stopSettingsGraphMotionPerfCapture(
-      args.targetPage,
-      args.sectionId,
+
+    const afterMetrics = await runProbePhase(
+      "capture result metrics",
+      async () => {
+        return waitForSettledSectionMetrics({
+          expectedSurfaceKind: args.expectedSurfaceKind,
+          page: args.targetPage,
+          sectionId: args.sectionId,
+        });
+      },
     );
-
-    const afterMetrics = await waitForSettledSectionMetrics({
-      expectedSurfaceKind: args.expectedSurfaceKind,
-      page: args.targetPage,
-      sectionId: args.sectionId,
-    });
     if (!afterMetrics.rect || !afterMetrics.transform) {
       throw new Error(
         `Missing ${args.expectedSurfaceKind} perf result metrics for ${targetSectionName}.`,
@@ -12721,19 +12750,58 @@ async function settleWithoutBlocking(
   ]);
 }
 
+async function withSettingsGraphProbePhaseTimeout<T>(args: {
+  label: string;
+  operation: () => Promise<T>;
+  timeoutMs?: number;
+}): Promise<T> {
+  const timeoutMs = args.timeoutMs ?? SETTINGS_GRAPH_PROBE_PHASE_TIMEOUT_MS;
+  console.info("settings-graph-probe-phase-start", args.label);
+
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      args.operation(),
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(
+            new Error(
+              `Timed out after ${timeoutMs}ms during settings graph probe phase: ${args.label}.`,
+            ),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
-  await page.goto(MAIN_REFERENCE_BOOTSTRAP_URL, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.goto(
-    new URL("/settings", MAIN_REFERENCE_FRONTEND_URL).toString(),
-    {
-      waitUntil: "domcontentloaded",
+  await withSettingsGraphProbePhaseTimeout({
+    label: "reference: bootstrap page",
+    operation: async () => {
+      await page.goto(MAIN_REFERENCE_BOOTSTRAP_URL, {
+        waitUntil: "domcontentloaded",
+      });
     },
-  );
-  await page
-    .getByRole("button", { exact: true, name: "All Settings" })
-    .waitFor();
+  });
+  await withSettingsGraphProbePhaseTimeout({
+    label: "reference: open settings",
+    operation: async () => {
+      await page.goto(
+        new URL("/settings", MAIN_REFERENCE_FRONTEND_URL).toString(),
+        {
+          waitUntil: "domcontentloaded",
+        },
+      );
+      await page
+        .getByRole("button", { exact: true, name: "All Settings" })
+        .waitFor();
+    },
+  });
 }
 
 async function postBackendForPage<T>(

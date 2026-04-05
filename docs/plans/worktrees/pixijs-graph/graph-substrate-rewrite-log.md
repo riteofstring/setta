@@ -11760,3 +11760,58 @@ LOOP_TERMINAL_MARKER: none
     worktree lifecycle and retry the required visual smoke before opening
     another product slice
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 09:25 EDT - Ralph item 307
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded verifier-hardening subtask forced by the repeated
+  post-banner stall on the canonical motion probe: add explicit phase
+  deadlines so the lane either passes or fails with a named stuck phase
+  instead of orphaning silently.
+- Landed:
+  - added per-phase deadline wrappers in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    around:
+    - reference bootstrap
+    - normalized surface setup
+    - compare preflight
+    - baseline capture
+    - motion capture
+    - result capture
+  - the canonical probe now prints `settings-graph-probe-phase-start ...`
+    before each major phase, which makes the known stall shape actionable on
+    the next failure instead of disappearing after the Playwright banner
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - canonical cross-worktree perf probe on the current `run-024` runtime pair:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh run-024 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-024 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: passed (`1 passed`, `23.6s`)
+  - passing normalized motion-perf output:
+    - legacy `main`: average `16.62ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `16.63ms`, max `18.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - worktree motion attribution on the passing rerun:
+    - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, dominant owner
+    - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+    - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0.1ms` total
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `pixiViewportPresent`: `0`
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+- CDP visual gate:
+  - fresh-context CDP sub-agent verified the mounted live `/settings` surfaces
+    directly on worktree `3075` and read-only `main` `3087`
+  - `All Settings` was active on both sides after collapsing non-target chat
+    chrome
+  - neither side showed a blank shell or spinner
+  - both fresh bootstrap tabs rejected their tokens, so the visual check used
+    the already-mounted `/settings` surfaces instead of `/__setta__/bootstrap`
+- Result:
+  - the canonical verifier lane is healthy again on the current runtime pair;
+    do not spend another default pass re-proving this same oracle
+  - the next bounded frontier should be product work on the newly re-measured
+    `presentedSceneSectionVisibilityFilter` owner on the same
+    `rotaryParamCodeObjDefault` lane
+- LOOP_TERMINAL_MARKER: none

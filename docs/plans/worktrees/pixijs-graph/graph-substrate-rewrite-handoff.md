@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 09:07 EDT
+Last updated: 2026-04-08 09:25 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,51 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `307` completed one bounded verifier-hardening slice on the canonical
+    `rotaryParamCodeObjDefault` lane and closed the current visual gate:
+    - landed explicit per-phase deadlines in
+      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+      around:
+      - reference bootstrap
+      - normalized surface setup
+      - compare preflight
+      - baseline capture
+      - motion capture
+      - result capture
+    - the canonical cross-worktree perf probe now emits phase-start lines
+      before each major step, so the known post-banner stall shape no longer
+      disappears without naming the stuck phase
+    - refreshed canonical automated verdict on the current `run-024` runtime
+      pair:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh run-024 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-024 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `23.6s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `16.62ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `16.63ms`, max `18.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - fresh canary motion attribution on the passing rerun:
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, dominant owner
+      - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0.1ms` total
+      - `interactionMiscStateSync`: `1`, `0ms` total
+      - `pixiViewportPresent`: `0`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+    - required fresh CDP visual check completed via a fresh-context sub-agent:
+      - worktree `3075` `/settings` rendered the canary graph surface with
+        `All Settings` active after non-target chat chrome was collapsed
+      - read-only `main` `3087` `/settings` rendered the legacy graph surface
+        with `All Settings` active after non-target chat chrome was collapsed
+      - neither side showed a blank shell or spinner
+      - both fresh bootstrap tabs still rejected their tokens, so the visual
+        check used the mounted `/settings` surfaces directly instead of
+        `/__setta__/bootstrap`
+    - reading:
+      - the current verifier-only blocker is closed enough for sequencing; do
+        not spend another default iteration refreshing this same oracle lane
+      - the next real frontier is product work on the freshly re-measured
+        `presentedSceneSectionVisibilityFilter` owner, not another blind
+        reduction on already-zero owners and not another verifier-only rerun
   - item `306` restored one fresh trustworthy automated verdict for the landed
     item-`305` presentation-owner split on the canonical
     `rotaryParamCodeObjDefault` lane before the required visual gate re-blocked:
