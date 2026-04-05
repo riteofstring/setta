@@ -1,12 +1,16 @@
 import throttle from "lodash/throttle";
-import { getPluginsRuntime } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect } from "react";
-import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useActiveSectionUI, useProjectState } from "state/definitions";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
+import {
+  useActiveSectionUI,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
+import { route_plugins_runtime } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -16,7 +20,6 @@ import {
   PluginListEntry,
   PluginListResponse,
   PluginRestartCapability,
-  PluginRuntimeResponse,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   SectionDependencyKey,
@@ -29,7 +32,6 @@ import {
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
-import { buildPluginAssetUrl } from "./transport";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -232,6 +234,7 @@ type SettaPluginHost = {
   createArtifact: (
     payload: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;
+  apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 type PluginFrontendModule = {
@@ -368,9 +371,7 @@ async function loadPluginRuntime(): Promise<void> {
     statusMessage: null,
   }));
 
-  const runtimeResponse = (await callOpenAPI(
-    getPluginsRuntime(),
-  )) as ResponseDataAndStatus<PluginRuntimeResponse>;
+  const runtimeResponse = await route_plugins_runtime();
   if (!res200(runtimeResponse)) {
     setPluginRuntimeLoadError(
       buildPluginRequestErrorMessage("plugins runtime", runtimeResponse),
@@ -701,8 +702,8 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
-  const styleUrl = buildPluginAssetUrl(plugin.frontend.styleUrl);
-  const entrypointUrl = buildPluginAssetUrl(plugin.frontend.entrypointUrl);
+  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
+  const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
     ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
@@ -1234,7 +1235,7 @@ function registerPluginModule({
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
     },
-    registerContextMenu: () => {
+    registerContextMenu: (_definition) => {
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
@@ -1569,16 +1570,36 @@ function registerPluginModule({
         }
       });
     },
-    openArtifact: () => {
+    openArtifact: (_artifactId) => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "openArtifact is not implemented in this host yet.",
       );
     },
-    createArtifact: async () => {
+    createArtifact: async (_payload) => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "createArtifact is not implemented in this host yet.",
+      );
+    },
+    apiFetch: async (path, init) => {
+      const normalizedPath = normalizePluginPath(path);
+      const shareSession = useShareSession.getState();
+      const shareHeaders: Record<string, string> = {};
+      if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+        shareHeaders["X-Share-Session-Id"] = shareSession.shareSessionId;
+      }
+      const requestHeaders = new Headers(init?.headers ?? undefined);
+      for (const [key, value] of Object.entries(shareHeaders)) {
+        requestHeaders.set(key, value);
+      }
+      return fetch(
+        `${C_ADDRESSES.BACKEND}/plugins/${plugin.pluginId}${normalizedPath}`,
+        {
+          ...init,
+          credentials: "include",
+          headers: requestHeaders,
+        },
       );
     },
   };
@@ -1615,6 +1636,43 @@ function registerPluginModule({
   }
 
   return registryDelta;
+}
+
+function normalizePluginPath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const normalizedInput = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const queryStart = normalizedInput.search(/[?#]/);
+  const pathPart =
+    queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
+  const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
+  const segments = pathPart.split("/").filter((segment) => segment.length > 0);
+  let decodedPathPart = pathPart;
+  try {
+    decodedPathPart = decodeURIComponent(pathPart);
+  } catch {
+    decodedPathPart = pathPart;
+  }
+  const decodedSegments = decodedPathPart
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  if (decodedSegments.some((segment) => segment === "." || segment === "..")) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `apiFetch path cannot include relative traversal segments: ${path}`,
+    );
+  }
+  const hasTrailingSlash = pathPart.endsWith("/") && pathPart !== "/";
+  let canonicalPath = "/";
+  if (segments.length > 0) {
+    canonicalPath = `/${segments.join("/")}`;
+    if (hasTrailingSlash) {
+      canonicalPath = `${canonicalPath}/`;
+    }
+  }
+  return `${canonicalPath}${suffix}`;
 }
 
 function ensureCapability(
@@ -1942,6 +2000,19 @@ function ensurePluginStyleLoaded(
 
   styleElementByPluginId.set(pluginId, link);
   styleHrefByPluginId.set(pluginId, styleUrl);
+}
+
+function resolvePluginAssetUrl(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  if (url.startsWith("/")) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${url}`;
+  }
+  return url;
 }
 
 function removeInactivePluginStyles(activePluginIds: Set<string>): void {
@@ -2652,6 +2723,7 @@ export const pluginRuntimeTestApi = {
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
   registerPluginSettingRevealHandler,
+  normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
   toProjectStateSectionSnapshot,

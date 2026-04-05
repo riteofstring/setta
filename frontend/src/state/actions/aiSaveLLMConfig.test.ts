@@ -1,6 +1,6 @@
 import { resetProjectStores } from "state/utils";
 import { route_set_llm_config } from "utils/generatedEndpoints";
-import { type AllConfigs } from "utils/generatedTypes";
+import { type AllLLMConfigs } from "utils/generatedTypes";
 import {
   afterAll,
   afterEach,
@@ -28,7 +28,7 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let saveLLMConfig: typeof import("state/actions/ai").saveLLMConfig;
 let memoryStorage: Storage;
 
-function createAllLLMConfigs(defaultConfigId: string | null): AllConfigs {
+function createAllLLMConfigs(defaultConfigId: string | null): AllLLMConfigs {
   return {
     configs: {
       "openai-main": {

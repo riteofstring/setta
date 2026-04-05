@@ -11,7 +11,7 @@ import {
   createProjectConfig,
   SectionTypeEnum,
   type Core,
-  type LSPDiagnostic,
+  type SettaLspDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,7 +57,7 @@ describe("formatActiveCodeSection", () => {
     isFrozen: false,
   };
 
-  const baseDiagnostic: LSPDiagnostic = {
+  const baseDiagnostic: SettaLspDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -283,7 +283,7 @@ describe("formatActiveCodeSection", () => {
         suppressedCodes: [],
       },
     });
-    const formatterDiagnostic: LSPDiagnostic = {
+    const formatterDiagnostic: SettaLspDiagnostic = {
       message: "Formatter failed.",
       severity: 1,
       code: null,
