@@ -146,14 +146,6 @@ func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
 	}
 }
 
-func filteredPythonImportLine(line string) string {
-	trimmed := strings.TrimSpace(line)
-	if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
-		return ""
-	}
-	return trimmed
-}
-
 func fieldJSONName(field reflect.StructField) (string, error) {
 	tag := strings.TrimSpace(field.Tag.Get("json"))
 	if tag == "" {
@@ -174,11 +166,11 @@ func pythonPatchedFieldTypeExpr(
 	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
 	if importTag != "" {
 		for _, line := range strings.Split(importTag, "\n") {
-			filtered := filteredPythonImportLine(line)
-			if filtered == "" {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
 				continue
 			}
-			imports[filtered] = struct{}{}
+			imports[trimmed] = struct{}{}
 		}
 	}
 	override := strings.TrimSpace(field.Tag.Get("py_type"))

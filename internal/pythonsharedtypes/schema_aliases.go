@@ -155,44 +155,29 @@ func pythonSharedSchemaDeclarations(
 	}
 	blocks := make([]string, 0, len(module.Declarations))
 	for _, declaration := range module.Declarations {
-		updated, declarationImports, err := applyPythonFieldMetadataToDatamodelDeclaration(
-			declaration,
-			defaultSourcesByType,
-		)
-		if err != nil {
-			return nil, nil, err
+		block := declaration.Block
+		declarationImports := map[string]struct{}(nil)
+		if ownerType, ok := sharedtypes.TypeByContractName(declaration.Name); ok &&
+			ownerType != nil &&
+			ownerType.Kind() == reflect.Struct {
+			updatedBlock, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
+				declaration.Name,
+				declaration.Block,
+				ownerType,
+				defaultSourcesByType,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+			declarationImports = extraImports
+			if changed {
+				block = updatedBlock
+			}
 		}
 		mergeImportSet(imports, declarationImports)
-		blocks = append(blocks, updated.Block)
+		blocks = append(blocks, block)
 	}
 	return blocks, sortedImportNames(imports), nil
-}
-
-func applyPythonFieldMetadataToDatamodelDeclaration(
-	declaration datamodelDeclaration,
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (datamodelDeclaration, map[string]struct{}, error) {
-	ownerType, ok := sharedtypes.TypeByContractName(declaration.Name)
-	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
-		return declaration, nil, nil
-	}
-
-	block, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
-		declaration.Name,
-		declaration.Block,
-		ownerType,
-		defaultSourcesByType,
-	)
-	if err != nil {
-		return datamodelDeclaration{}, nil, err
-	}
-	if !changed {
-		return declaration, extraImports, nil
-	}
-
-	updated := declaration
-	updated.Block = block
-	return updated, extraImports, nil
 }
 
 func applyPythonFieldMetadataToDatamodelClassBlock(
