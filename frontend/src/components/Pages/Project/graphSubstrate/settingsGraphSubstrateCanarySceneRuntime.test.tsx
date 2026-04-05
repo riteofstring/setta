@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
   useNodeInternals,
@@ -26,6 +26,8 @@ function SceneRuntimeProbe({
   override: SettingsGraphSubstrateCanarySectionPositionOverride;
   sections: Array<GraphSubstrateCanarySection>;
 }) {
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
   const sceneSnapshot = useSettingsGraphSubstrateCanarySceneRuntime({
     draggingSectionId,
     sectionPositionOverride: override,
@@ -35,6 +37,7 @@ function SceneRuntimeProbe({
   return (
     <div
       data-testid="scene-runtime-probe"
+      data-render-count={String(renderCountRef.current)}
       data-scene={JSON.stringify(serializeSceneSnapshot(sceneSnapshot))}
     />
   );
@@ -118,6 +121,147 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         width: 280,
         zIndex: 2,
       });
+    });
+  });
+
+  it("does not resubscribe locked sections with authoritative layout size to measured-size churn", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              positionAndSizeLocked: true,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 240,
+          height: 160,
+        },
+        sections: [
+          {
+            height: 160,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: true,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 240, height: 160 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: 240,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(1);
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 360, height: 210 },
+      });
+    });
+    await act(async () => {});
+
+    expect(readSceneSnapshot(host)).toEqual({
+      sceneBounds: {
+        x: 120,
+        y: 80,
+        width: 240,
+        height: 160,
+      },
+      sections: [
+        {
+          height: 160,
+          position: { x: 120, y: 80 },
+          positionAndSizeLocked: true,
+          renderedPosition: { x: 120, y: 80 },
+          resolvedSize: { width: 240, height: 160 },
+          sectionId: "section-a",
+          tempZIndex: 2,
+          width: 240,
+          zIndex: 2,
+        },
+      ],
+    });
+    expect(readSceneRenderCount(host)).toBe(1);
+    expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+      height: 160,
+      id: "section-a",
+      position: { x: 120, y: 80 },
+      style: undefined,
+      tempZIndex: 2,
+      type: undefined,
+      width: 240,
+      zIndex: 2,
+    });
+  });
+
+  it("still uses the measured-size fallback for locked sections whose layout geometry is missing", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              positionAndSizeLocked: true,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 280, height: 190 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 280,
+          height: 190,
+        },
+        sections: [
+          {
+            height: null,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: true,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 280, height: 190 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: null,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(2);
+    });
+
+    expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+      height: 190,
+      id: "section-a",
+      position: { x: 120, y: 80 },
+      style: undefined,
+      tempZIndex: 2,
+      type: undefined,
+      width: 280,
+      zIndex: 2,
     });
   });
 
@@ -372,4 +516,20 @@ function readSceneSnapshot(hostElement: HTMLDivElement) {
   return JSON.parse(sceneAttribute) as ReturnType<
     typeof serializeSceneSnapshot
   >;
+}
+
+function readSceneRenderCount(hostElement: HTMLDivElement) {
+  const probe = hostElement.querySelector(
+    '[data-testid="scene-runtime-probe"]',
+  );
+  if (!(probe instanceof HTMLDivElement)) {
+    throw new Error("Expected scene runtime probe.");
+  }
+
+  const renderCount = probe.getAttribute("data-render-count");
+  if (!renderCount) {
+    throw new Error("Expected scene render count attribute.");
+  }
+
+  return Number(renderCount);
 }

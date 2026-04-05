@@ -7636,3 +7636,37 @@ LOOP_TERMINAL_MARKER: none
     - if Pixi dependency approval lands, use the surface-runtime boundary + chrome seams + geometry resolver to insert the first scene-owned static layer
     - otherwise keep moving authority toward robust existing state instead of reopening parity/chrome-helper lanes
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `198` | 2026-04-05 17:56 EDT
+  - Subtask: stop subscribing locked canary sections with authoritative layout size to shared DOM size churn.
+  - Why:
+    - item `197` already made locked layout size authoritative inside the geometry resolver, but the runtime still subscribed every canary section to `useSectionElementSizes(...)`
+    - that meant shared DOM measurement churn could still wake the scene runtime and node-internals sync for sections whose resolved geometry would never change
+    - this slice removes that leftover dependency using the same robust product signal plus existing layout width/height, while preserving the measured fallback when layout geometry is still missing
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+      - added `shouldObserveSettingsGraphSubstrateCanarySectionElementSize(...)` so the measurement-subscription rule and size-authority rule live behind the same geometry seam
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - now filters `useSectionElementSizes(...)` down to only the sections that still need measured fallback instead of subscribing every canary section by default
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+      - added coverage for the new observation rule and for locked sections that still need measured fallback when layout geometry is missing
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - added coverage proving locked sections with explicit layout size do not rerender from registry churn while locked sections with missing layout size still consume measured fallback
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`5 files`, `18 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanarySectionGeometry|settingsGraphSubstrateCanarySceneRuntime" || true` -> no matches
+    - broad Playwright regression lane rerun on refreshed run-029 tokens -> passed (`1 passed`, `32.8s`); both sides ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+  - CDP:
+    - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+    - both fresh bootstrap URLs were rejected in new tabs, so the compare used direct `/settings`
+    - no blocking gross graph-surface drift was observed between worktree `3076` and read-only `main` `3087` around `rotaryParamCodeObjDefault`; persisted worktree chat overlay remained oracle noise
+  - Result:
+    - locked sections with real layout geometry no longer keep an unnecessary live dependency on the shared DOM size registry
+    - the geometry seam now explicitly owns both decisions:
+      - when layout size is authoritative
+      - when the canary still genuinely needs measured fallback
+    - the broad normalized lane remains green after the runtime change
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - otherwise keep replacing remaining DOM-size subscriptions only where an existing authoritative size signal can be proven; do not reopen parity-only work
+LOOP_TERMINAL_MARKER: none

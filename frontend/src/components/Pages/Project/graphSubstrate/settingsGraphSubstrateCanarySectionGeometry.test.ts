@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveSettingsGraphSubstrateCanarySectionGeometry } from "./settingsGraphSubstrateCanarySectionGeometry";
+import {
+  resolveSettingsGraphSubstrateCanarySectionGeometry,
+  shouldObserveSettingsGraphSubstrateCanarySectionElementSize,
+} from "./settingsGraphSubstrateCanarySectionGeometry";
 
 describe("settingsGraphSubstrateCanarySectionGeometry", () => {
   it("keeps layout size authoritative for locked sections even when the measured registry disagrees", () => {
@@ -28,6 +31,16 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     });
   });
 
+  it("stops observing shared measured size when a locked section already has layout geometry", () => {
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
+        width: 240,
+        height: 160,
+        positionAndSizeLocked: true,
+      }),
+    ).toBe(false);
+  });
+
   it("still prefers the live measured size for unlocked sections", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
@@ -42,6 +55,37 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
         },
         {
           "unlocked-section": { width: 360, height: 210 },
+        },
+        null,
+      ),
+    ).toEqual({
+      renderedPosition: { x: 120, y: 80 },
+      resolvedSize: { width: 360, height: 210 },
+    });
+  });
+
+  it("keeps the measured fallback for locked sections whose layout geometry is still missing", () => {
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
+        width: null,
+        height: null,
+        positionAndSizeLocked: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionGeometry(
+        {
+          sectionId: "locked-section",
+          position: { x: 120, y: 80 },
+          width: null,
+          height: null,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: true,
+        },
+        {
+          "locked-section": { width: 360, height: 210 },
         },
         null,
       ),

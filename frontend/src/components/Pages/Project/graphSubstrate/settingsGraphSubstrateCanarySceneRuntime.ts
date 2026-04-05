@@ -12,6 +12,7 @@ import {
   resetSettingsGraphSubstrateCanarySceneSnapshot,
   setSettingsGraphSubstrateCanarySceneSnapshot,
 } from "./settingsGraphSubstrateCanarySceneStore";
+import { shouldObserveSettingsGraphSubstrateCanarySectionElementSize } from "./settingsGraphSubstrateCanarySectionGeometry";
 
 type SettingsGraphSubstrateCanarySceneRuntimeArgs = {
   draggingSectionId: string | null;
@@ -24,11 +25,16 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   sectionPositionOverride,
   sections,
 }: SettingsGraphSubstrateCanarySceneRuntimeArgs): SettingsGraphSubstrateCanarySceneSnapshot {
-  const canarySectionIds = useMemo(
-    () => sections.map((section) => section.sectionId),
+  const measuredSectionIds = useMemo(
+    () =>
+      sections
+        .filter((section) =>
+          shouldObserveSettingsGraphSubstrateCanarySectionElementSize(section),
+        )
+        .map((section) => section.sectionId),
     [sections],
   );
-  const sectionElementSizes = useSectionElementSizes(canarySectionIds);
+  const sectionElementSizes = useSectionElementSizes(measuredSectionIds);
   const sceneSnapshot = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySceneSnapshot(
       sections,
