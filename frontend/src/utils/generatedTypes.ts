@@ -5992,7 +5992,7 @@ export type Delta = {
 };
 
 export type AutoLayoutTopLevelSectionsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   margin: number | null;
 };
@@ -6018,7 +6018,7 @@ export type CancelTranscriptionSessionResponse = {
 };
 
 export type ChangeParamImplRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
@@ -6059,7 +6059,7 @@ export type CreateAgentProfileRequest = {
 };
 
 export type CreateAgenticEdgeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   id: string | null;
   sourceSectionId: string;
@@ -6134,7 +6134,7 @@ export type AppDeploymentSessionResponse = {
 };
 
 export type CreateChildSectionsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   parentId: string;
   implType: string;
@@ -6143,7 +6143,7 @@ export type CreateChildSectionsRequest = {
 };
 
 export type CreateChildSectionsViaIncrementerRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   calledBy: string;
   implType: string;
@@ -6151,7 +6151,7 @@ export type CreateChildSectionsViaIncrementerRequest = {
 };
 
 export type CreateEdgeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sourceSectionId: string;
   sourceVariantId: string;
@@ -6202,7 +6202,7 @@ export type CreateFileRequest = {
 };
 
 export type CreateNewSectionVariantRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -6232,7 +6232,7 @@ export type ShareDeploymentSessionResponse = {
 };
 
 export type CreateStateMachineEdgeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   id: string | null;
   machineGroupId: string;
@@ -6250,7 +6250,7 @@ export type CreateStateMachineEdgeRequest = {
 };
 
 export type CreateTopLevelSectionRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   implType: string;
   controlCodeObjType: string | null;
@@ -6270,12 +6270,12 @@ export type CreateTranscriptionProfileRequest = {
 };
 
 export type CreateViewModeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
 };
 
 export type CreateWindowSpaceRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   state: WindowSpaceState;
   name?: string | null;
@@ -6399,13 +6399,13 @@ export type DeleteSectionVariantOrAskRequest = {
 };
 
 export type DeleteSectionsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
 
 export type DeleteSelectedParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoIds: Array<string>;
@@ -6426,7 +6426,7 @@ export type DeleteTranscriptionProfileRequest = {
 };
 
 export type DeleteViewModeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
@@ -6436,7 +6436,7 @@ export type ProjectConfigMutationResponse = {
 };
 
 export type DeleteWindowSpaceRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   windowSpaceId: string;
 };
@@ -6450,7 +6450,7 @@ export type ForceRefreshProjectRequest = {
 };
 
 export type FormatCodeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
@@ -6734,7 +6734,7 @@ export type ListFolderResponse = {
 };
 
 export type GetLatestProjectStateRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
 };
 
@@ -7089,13 +7089,13 @@ export type WorkspacePythonSignalResponse = {
 };
 
 export type GroupSectionsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
 
 export type IndentParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -7183,14 +7183,14 @@ type MoveParamGroupRequest = {
 };
 
 export type MoveParamGroupsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   moves: Array<MoveParamGroupRequest>;
 };
 
 export type MoveParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
@@ -7419,7 +7419,7 @@ export type RunDetachedResponse = {
 };
 
 export type SaveAsNewProjectConfigRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   newConfigName: string;
   withRefs: boolean;
@@ -7440,13 +7440,13 @@ export type RunningBackendVersionHandshake = {
 };
 
 export type SetActiveIDsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   activeIds: Array<string>;
 };
 
 export type SetActiveViewModeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   activeViewModeId: string;
 };
@@ -7504,7 +7504,7 @@ export type SetBrowserSavedSearchesRequest = {
 };
 
 export type SetCallableRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   callableName: string;
@@ -7512,7 +7512,7 @@ export type SetCallableRequest = {
 };
 
 export type SetCallableHideParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   hideParams: boolean;
@@ -7526,7 +7526,7 @@ export type SetChartAreaDataPathRequest = {
 };
 
 export type SetChartSettingsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   chartSettings: ChartSettingsUpdate;
@@ -7541,14 +7541,14 @@ export type SetChartTypeRequest = {
 };
 
 export type SetChatSectionChatIDRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   chatId: string | null;
 };
 
 export type SetChatSectionSettingsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   managed: boolean;
@@ -7569,7 +7569,7 @@ export type SetChatSectionStateRequest = {
 };
 
 export type SetCodeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   code: string;
@@ -7588,21 +7588,21 @@ export type SetCodeFileBindingRequest = {
 };
 
 export type SetCodeObjDisplayNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   codeObjId: string;
   displayName: string;
 };
 
 export type SetCodeObjNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   codeObjId: string;
   name: string;
 };
 
 export type SetCodeSectionAttachedTerminalRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   terminalSectionId: string | null;
@@ -7622,7 +7622,7 @@ export type SetCodeSectionDiagnosticsMuteRequest = {
 };
 
 export type SetDefaultSectionVariantRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -7635,13 +7635,13 @@ export type SetEdgesRequest = {
 };
 
 export type SetGenCodePrefixRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   genCodePrefix: string;
 };
 
 export type SetGenCodeSuffixRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   genCodeSuffix: string;
 };
@@ -7680,7 +7680,7 @@ export type SetMetaControlShowSectionTitleRequest = {
 };
 
 export type SetParamEnteredValueRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   sectionVariantId: string;
@@ -7689,27 +7689,27 @@ export type SetParamEnteredValueRequest = {
 };
 
 export type SetParentDefaultChildSectionTypeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   defaultChildSectionType: string;
 };
 
 export type SetProjectChatWindowChatIDRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   instanceId: string;
   chatId: string | null;
 };
 
 export type SetProjectChatWindowingStateRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   state: ProjectChatWindowingState;
 };
 
 export type SetProjectConfigCodegenTargetsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   codegenTargets: Array<JSONValue>;
 };
@@ -7720,28 +7720,28 @@ export type SetProjectConfigNameRequest = {
 };
 
 export type SetPromptFormatRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   format: PromptFormat;
 };
 
 export type SetPromptInputsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   inputs: Record<string, string>;
 };
 
 export type SetPromptTemplateRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   template: string;
 };
 
 export type SetPromptTemplateLinkRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   promptTemplateId?: string | null;
@@ -7769,14 +7769,14 @@ export type SetSectionEdgeOutputsRequest = {
 };
 
 export type SetSectionHideUnpinnedParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   hideUnpinnedParams: boolean;
 };
 
 export type SetSectionNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   name: string;
@@ -7790,7 +7790,7 @@ export type SetSectionParamFilterRequest = {
 };
 
 export type SetSectionPinnedParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   pinnedParams: Array<string>;
@@ -7807,48 +7807,48 @@ type sectionSizeRequest = {
 };
 
 export type SetSectionSizesRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionSizes: Record<string, sectionSizeRequest>;
 };
 
 export type SetSectionStyleColorRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   styleColor: string | null;
 };
 
 export type SetSectionTagColorRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   tagColor: string | null;
 };
 
 export type SetSectionVariantRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
 export type SetSectionVariantNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   variantId: string;
   name: string;
 };
 
 export type SetSectionVariantSortOrderRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   orderedVariantIds: Array<string>;
 };
 
 export type SetShowParamDisplayNamesRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   showParamDisplayNames: boolean;
 };
@@ -7945,7 +7945,7 @@ export type SetTextBlockTextRequest = {
 };
 
 export type SetTopLevelSectionLayoutRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   topLevelSections: Record<string, TopLevelSectionLayout>;
 };
@@ -7958,7 +7958,7 @@ export type SetTypeErrorIgnoreRequest = {
 };
 
 export type SetVariantJSONSourceKeysRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
@@ -7966,46 +7966,46 @@ export type SetVariantJSONSourceKeysRequest = {
 };
 
 export type SetViewModeNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
   name: string;
 };
 
 export type SetViewModeSortOrderRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   orderedViewModeIds: Array<string>;
 };
 
 export type SetViewportRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   viewport: Viewport | null;
 };
 
 export type SetWatchCodeEnabledRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   enabled: boolean;
 };
 
 export type SetWatchCodeInputsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   watchCodeFolders: Array<WatchCodeFolder>;
   watchCodeFiles: Array<string>;
 };
 
 export type SetWindowSpaceNameRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   windowSpaceId: string;
   name: string;
 };
 
 export type SetWindowSpaceSortOrderRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   orderedWindowSpaceIds: Array<string>;
 };
@@ -8111,56 +8111,56 @@ export type ToggleGroupOrientationRequest = {
 };
 
 export type ToggleIsEditingViewModeRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
 };
 
 export type ToggleMinimizedRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
 
 export type ToggleParamSelectedRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
 };
 
 export type TogglePositionLocksRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
 
 export type ToggleSectionVisibilityRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
 
 export type ToggleVariantFrozenRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   variantId: string;
 };
 
 export type ToggleVariantJSONSourceRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
 export type ToggleViewModeTabRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
 
 export type ToggleViewModeUserFacingRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
@@ -8193,20 +8193,20 @@ export type UndoRequest = {
 };
 
 export type UngroupGroupsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   groupIds: Array<string>;
 };
 
 export type UnindentParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramIds: Array<string>;
 };
 
 export type UnselectAllParamsRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
 };
 
@@ -8300,7 +8300,7 @@ export type LauncherUpdateResponse = {
 };
 
 export type UpdateParamImplConfigRequest = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;

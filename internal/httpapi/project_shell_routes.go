@@ -58,7 +58,7 @@ type ManualSaveRequest struct {
 }
 
 type SaveAsNewProjectConfigRequest struct {
-	FrontendOpID    *string `json:"frontendOpId"`
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`
 	NewConfigName   string  `json:"newConfigName"`
 	WithRefs        bool    `json:"withRefs"`

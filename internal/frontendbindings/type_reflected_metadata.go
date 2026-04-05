@@ -32,16 +32,6 @@ type reflectedObjectDeclarationSpec struct {
 	ExtraProperties           []TypeProperty
 }
 
-func reflectedOptionalPropertiesSpec(names ...string) reflectedObjectDeclarationSpec {
-	overrides := make(map[string]bool, len(names))
-	for _, name := range names {
-		overrides[name] = true
-	}
-	return reflectedObjectDeclarationSpec{
-		PropertyOptionalOverrides: overrides,
-	}
-}
-
 func reflectedIgnoredProperties(names ...string) map[string]struct{} {
 	ignored := make(map[string]struct{}, len(names))
 	for _, name := range names {
@@ -705,22 +695,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"activeBranchId": true,
 		},
 	},
-	reflect.TypeOf(httpapi.SetSectionParamFilterRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetMetaControlShowSectionTitleRequest{}):   reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetSectionColumnWidthRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetSectionEdgeInputsRequest{}):             reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.ToggleGroupOrientationRequest{}):           reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetGroupOverflowModeRequest{}):             reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetBrowserColumnWidthsRequest{}):           reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetBrowserHideColumnRequest{}):             reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetSpreadsheetFilePathRequest{}):           reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetImageAreaImagePathRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetSocialURLRequest{}):                     reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetChartAreaDataPathRequest{}):             reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockTextRequest{}):                 reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockHeadingAsSectionNameRequest{}): reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockMetaControlStyleRequest{}):     reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockMasterFontSizeRequest{}):       reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(httpapi.CreateEdgeRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":     "string",
@@ -746,38 +720,11 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"zIndex": "number",
 		},
 	},
-	reflect.TypeOf(httpapi.SetChatSectionStateRequest{}):               reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetStateMachineSectionSettingsRequest{}):    reflectedOptionalPropertiesSpec("frontendOpId", "gateType"),
-	reflect.TypeOf(httpapi.DeleteChildSectionsViaDecrementerRequest{}): reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.UpdateEdgeRequest{}):                        reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.DeleteEdgesRequest{}):                       reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.ReconnectEdgeRequest{}):                     reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetEdgesRequest{}):                          reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.UpdateStateMachineEdgeRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.DeleteStateMachineEdgesRequest{}):           reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetStateMachineEdgesRequest{}):              reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.UpdateAgenticEdgeRequest{}):                 reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.DeleteAgenticEdgesRequest{}):                reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetAgenticEdgesRequest{}):                   reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(httpapi.MoveSectionsRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"positionsById": "Record<string, Position> | null",
 		},
-		PropertyOptionalOverrides: map[string]bool{
-			"frontendOpId": true,
-		},
 	},
-	reflect.TypeOf(httpapi.SetSectionEdgeOutputsRequest{}):         reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetListRootViewModeRequest{}):           reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetBrowserAreaViewModeRequest{}):        reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetBrowserSavedSearchesRequest{}):       reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetSpreadsheetSectionSettingsRequest{}): reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTaskBoardSectionStateRequest{}):      reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.AppendDrawAreaLayerItemRequest{}):       reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetChartTypeRequest{}):                  reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockDisplayModeRequest{}):       reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetTextBlockFormatRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(httpapi.SetCodeFileBindingRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(httpapi.UpdateArtifactsRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"artifacts": "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>",

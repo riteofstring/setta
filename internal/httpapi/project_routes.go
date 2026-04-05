@@ -211,19 +211,19 @@ type WindowSpaceMutationResponse struct {
 }
 
 type SetProjectConfigCodegenTargetsRequest struct {
-	FrontendOpID   *string           `json:"frontendOpId"`
+	FrontendOpID   *string           `json:"frontendOpId,omitempty"`
 	ProjectID      string            `json:"projectConfigId"`
 	CodegenTargets []json.RawMessage `json:"codegenTargets"`
 }
 
 type SetGenCodePrefixRequest struct {
-	FrontendOpID  *string `json:"frontendOpId"`
+	FrontendOpID  *string `json:"frontendOpId,omitempty"`
 	ProjectID     string  `json:"projectConfigId"`
 	GenCodePrefix string  `json:"genCodePrefix"`
 }
 
 type SetGenCodeSuffixRequest struct {
-	FrontendOpID  *string `json:"frontendOpId"`
+	FrontendOpID  *string `json:"frontendOpId,omitempty"`
 	ProjectID     string  `json:"projectConfigId"`
 	GenCodeSuffix string  `json:"genCodeSuffix"`
 }
@@ -234,7 +234,7 @@ type CodeFileBindingUpdate struct {
 }
 
 type GetLatestProjectStateRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 }
 
@@ -272,7 +272,7 @@ type DeleteJSONSourceFileAndVariantRequest struct {
 }
 
 type CreateNewSectionVariantRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 }
@@ -280,41 +280,41 @@ type CreateNewSectionVariantRequest struct {
 type CreateNewSectionVariantResponse = projectstate.CreateNewSectionVariantResult
 
 type SetSectionVariantRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	VariantID    string  `json:"variantId"`
 }
 
 type SetDefaultSectionVariantRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	VariantID    string  `json:"variantId"`
 }
 
 type SetSectionVariantSortOrderRequest struct {
-	FrontendOpID      *string  `json:"frontendOpId"`
+	FrontendOpID      *string  `json:"frontendOpId,omitempty"`
 	ProjectID         string   `json:"projectConfigId"`
 	SectionID         string   `json:"sectionId"`
 	OrderedVariantIDs []string `json:"orderedVariantIds"`
 }
 
 type ToggleVariantFrozenRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	VariantID    string  `json:"variantId"`
 }
 
 type ToggleVariantJSONSourceRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	VariantID    string  `json:"variantId"`
 }
 
 type SetVariantJSONSourceKeysRequest struct {
-	FrontendOpID   *string  `json:"frontendOpId"`
+	FrontendOpID   *string  `json:"frontendOpId,omitempty"`
 	ProjectID      string   `json:"projectConfigId"`
 	SectionID      string   `json:"sectionId"`
 	VariantID      string   `json:"variantId"`
@@ -322,20 +322,20 @@ type SetVariantJSONSourceKeysRequest struct {
 }
 
 type SetSectionVariantNameRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	VariantID    string  `json:"variantId"`
 	Name         string  `json:"name"`
 }
 
 type DeleteSectionsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionIDs   []string `json:"sectionIds"`
 }
 
 type DeleteSelectedParamsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamInfoIDs []string `json:"paramInfoIds"`
@@ -354,7 +354,7 @@ type PasteSectionsRequest struct {
 }
 
 type CreateEdgeRequest struct {
-	FrontendOpID    *string         `json:"frontendOpId"`
+	FrontendOpID    *string         `json:"frontendOpId,omitempty"`
 	ProjectID       string          `json:"projectConfigId"`
 	SourceSectionID string          `json:"sourceSectionId"`
 	SourceVariantID string          `json:"sourceVariantId"`
@@ -372,19 +372,19 @@ type CreateEdgeRequest struct {
 }
 
 type UpdateEdgeRequest struct {
-	FrontendOpID *string           `json:"frontendOpId"`
+	FrontendOpID *string           `json:"frontendOpId,omitempty"`
 	ProjectID    string            `json:"projectConfigId"`
 	Edge         projectstate.Edge `json:"edge"`
 }
 
 type DeleteEdgesRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	EdgeIDs      []string `json:"edgeIds"`
 }
 
 type ReconnectEdgeRequest struct {
-	FrontendOpID    *string `json:"frontendOpId"`
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectID       string  `json:"projectConfigId"`
 	EdgeID          string  `json:"edgeId"`
 	SourceSectionID string  `json:"sourceSectionId"`
@@ -396,13 +396,13 @@ type ReconnectEdgeRequest struct {
 }
 
 type SetEdgesRequest struct {
-	FrontendOpID *string             `json:"frontendOpId"`
+	FrontendOpID *string             `json:"frontendOpId,omitempty"`
 	ProjectID    string              `json:"projectConfigId"`
 	Edges        []projectstate.Edge `json:"edges"`
 }
 
 type CreateStateMachineEdgeRequest struct {
-	FrontendOpID                   *string                                                  `json:"frontendOpId"`
+	FrontendOpID                   *string                                                  `json:"frontendOpId,omitempty"`
 	ProjectID                      string                                                   `json:"projectConfigId"`
 	ID                             *string                                                  `json:"id"`
 	MachineGroupID                 string                                                   `json:"machineGroupId"`
@@ -420,25 +420,25 @@ type CreateStateMachineEdgeRequest struct {
 }
 
 type UpdateStateMachineEdgeRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId"`
+	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
 	ProjectID    string                        `json:"projectConfigId"`
 	Edge         projectstate.StateMachineEdge `json:"edge"`
 }
 
 type DeleteStateMachineEdgesRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	EdgeIDs      []string `json:"edgeIds"`
 }
 
 type SetStateMachineEdgesRequest struct {
-	FrontendOpID *string                         `json:"frontendOpId"`
+	FrontendOpID *string                         `json:"frontendOpId,omitempty"`
 	ProjectID    string                          `json:"projectConfigId"`
 	Edges        []projectstate.StateMachineEdge `json:"edges"`
 }
 
 type CreateAgenticEdgeRequest struct {
-	FrontendOpID    *string         `json:"frontendOpId"`
+	FrontendOpID    *string         `json:"frontendOpId,omitempty"`
 	ProjectID       string          `json:"projectConfigId"`
 	ID              *string         `json:"id"`
 	SourceSectionID string          `json:"sourceSectionId"`
@@ -451,25 +451,25 @@ type CreateAgenticEdgeRequest struct {
 }
 
 type UpdateAgenticEdgeRequest struct {
-	FrontendOpID *string                  `json:"frontendOpId"`
+	FrontendOpID *string                  `json:"frontendOpId,omitempty"`
 	ProjectID    string                   `json:"projectConfigId"`
 	Edge         projectstate.AgenticEdge `json:"edge"`
 }
 
 type DeleteAgenticEdgesRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	EdgeIDs      []string `json:"edgeIds"`
 }
 
 type SetAgenticEdgesRequest struct {
-	FrontendOpID *string                    `json:"frontendOpId"`
+	FrontendOpID *string                    `json:"frontendOpId,omitempty"`
 	ProjectID    string                     `json:"projectConfigId"`
 	Edges        []projectstate.AgenticEdge `json:"edges"`
 }
 
 type MoveSectionsRequest struct {
-	FrontendOpID  *string                          `json:"frontendOpId"`
+	FrontendOpID  *string                          `json:"frontendOpId,omitempty"`
 	ProjectID     string                           `json:"projectConfigId"`
 	SectionIDs    []string                         `json:"sectionIds"`
 	NewParentID   *string                          `json:"newParentId"`
@@ -478,7 +478,7 @@ type MoveSectionsRequest struct {
 }
 
 type MoveParamsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamIDs     []string `json:"paramIds"`
@@ -493,21 +493,21 @@ type MoveParamGroupRequest struct {
 }
 
 type MoveParamGroupsRequest struct {
-	FrontendOpID *string                 `json:"frontendOpId"`
+	FrontendOpID *string                 `json:"frontendOpId,omitempty"`
 	ProjectID    string                  `json:"projectConfigId"`
 	SectionID    string                  `json:"sectionId"`
 	Moves        []MoveParamGroupRequest `json:"moves"`
 }
 
 type IndentParamsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamIDs     []string `json:"paramIds"`
 }
 
 type UnindentParamsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamIDs     []string `json:"paramIds"`
@@ -524,7 +524,7 @@ type DeleteKwargRequest struct {
 }
 
 type CreateChildSectionsRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	ParentID     string  `json:"parentId"`
 	ImplType     string  `json:"implType"`
@@ -533,7 +533,7 @@ type CreateChildSectionsRequest struct {
 }
 
 type CreateChildSectionsViaIncrementerRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	CalledBy     string  `json:"calledBy"`
 	ImplType     string  `json:"implType"`
@@ -541,14 +541,14 @@ type CreateChildSectionsViaIncrementerRequest struct {
 }
 
 type DeleteChildSectionsViaDecrementerRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	CalledBy     string  `json:"calledBy"`
 	NumChildren  int     `json:"numChildren"`
 }
 
 type CreateTopLevelSectionRequest struct {
-	FrontendOpID       *string                                       `json:"frontendOpId"`
+	FrontendOpID       *string                                       `json:"frontendOpId,omitempty"`
 	ProjectID          string                                        `json:"projectConfigId"`
 	ImplType           string                                        `json:"implType"`
 	ControlCodeObjType *string                                       `json:"controlCodeObjType"`
@@ -560,97 +560,97 @@ type CreateTopLevelSectionRequest struct {
 }
 
 type CreateViewModeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 }
 
 type SetActiveViewModeRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	ActiveViewModeID string  `json:"activeViewModeId"`
 }
 
 type ToggleIsEditingViewModeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 }
 
 type ToggleSectionVisibilityRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionIDs   []string `json:"sectionIds"`
 }
 
 type GroupSectionsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionIDs   []string `json:"sectionIds"`
 }
 
 type UngroupGroupsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	GroupIDs     []string `json:"groupIds"`
 }
 
 type ToggleViewModeUserFacingRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	ViewModeID   string  `json:"viewModeId"`
 }
 
 type ToggleViewModeTabRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	ViewModeID   string  `json:"viewModeId"`
 }
 
 type SetViewModeNameRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	ViewModeID   string  `json:"viewModeId"`
 	Name         string  `json:"name"`
 }
 
 type SetViewModeSortOrderRequest struct {
-	FrontendOpID       *string  `json:"frontendOpId"`
+	FrontendOpID       *string  `json:"frontendOpId,omitempty"`
 	ProjectID          string   `json:"projectConfigId"`
 	OrderedViewModeIDs []string `json:"orderedViewModeIds"`
 }
 
 type DeleteViewModeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	ViewModeID   string  `json:"viewModeId"`
 }
 
 type SetTopLevelSectionLayoutRequest struct {
-	FrontendOpID     *string                                       `json:"frontendOpId"`
+	FrontendOpID     *string                                       `json:"frontendOpId,omitempty"`
 	ProjectID        string                                        `json:"projectConfigId"`
 	TopLevelSections map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections"`
 }
 
 type AutoLayoutTopLevelSectionsRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	Margin       *int    `json:"margin"`
 }
 
 type SetShowParamDisplayNamesRequest struct {
-	FrontendOpID          *string `json:"frontendOpId"`
+	FrontendOpID          *string `json:"frontendOpId,omitempty"`
 	ProjectID             string  `json:"projectConfigId"`
 	ShowParamDisplayNames bool    `json:"showParamDisplayNames"`
 }
 
 type SetSectionNameRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Name         string  `json:"name"`
 }
 
 type SetCodeFileBindingRequest struct {
-	FrontendOpID *string               `json:"frontendOpId"`
+	FrontendOpID *string               `json:"frontendOpId,omitempty"`
 	ProjectID    string                `json:"projectConfigId"`
 	SectionID    string                `json:"sectionId"`
 	Binding      CodeFileBindingUpdate `json:"binding"`
@@ -667,13 +667,13 @@ type DeclineRenameRefactorRequest struct {
 }
 
 type TogglePositionLocksRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionIDs   []string `json:"sectionIds"`
 }
 
 type ToggleMinimizedRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 }
@@ -733,13 +733,13 @@ func (s sectionSizeRequest) ProjectStateValue() projectstate.SectionSize {
 }
 
 type SetSectionSizesRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId"`
+	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
 	ProjectID    string                        `json:"projectConfigId"`
 	SectionSizes map[string]sectionSizeRequest `json:"sectionSizes"`
 }
 
 type SetCallableRequest struct {
-	FrontendOpID  *string `json:"frontendOpId"`
+	FrontendOpID  *string `json:"frontendOpId,omitempty"`
 	ProjectID     string  `json:"projectConfigId"`
 	SectionID     string  `json:"sectionId"`
 	CallableName  string  `json:"callableName"`
@@ -747,141 +747,141 @@ type SetCallableRequest struct {
 }
 
 type SetActiveIDsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	ActiveIDs    []string `json:"activeIds"`
 }
 
 type SetViewportRequest struct {
-	FrontendOpID *string                `json:"frontendOpId"`
+	FrontendOpID *string                `json:"frontendOpId,omitempty"`
 	ProjectID    string                 `json:"projectConfigId"`
 	Viewport     *projectstate.Viewport `json:"viewport"`
 }
 
 type SetCodeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Code         string  `json:"code"`
 }
 
 type FormatCodeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 }
 
 type SetSectionTagColorRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	TagColor     *string `json:"tagColor"`
 }
 
 type SetSectionStyleColorRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	StyleColor   *string `json:"styleColor"`
 }
 
 type SetSectionParamFilterRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Value        string  `json:"value"`
 }
 
 type SetMetaControlShowSectionTitleRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	SectionID        string  `json:"sectionId"`
 	ShowSectionTitle bool    `json:"showSectionTitle"`
 }
 
 type SetSectionColumnWidthRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ColumnWidth  *float64 `json:"columnWidth"`
 }
 
 type SetSectionEdgeInputsRequest struct {
-	FrontendOpID    *string  `json:"frontendOpId"`
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectID       string   `json:"projectConfigId"`
 	SectionID       string   `json:"sectionId"`
 	EdgeInputParams []string `json:"edgeInputParams"`
 }
 
 type SetSectionEdgeOutputsRequest struct {
-	FrontendOpID    *string                 `json:"frontendOpId"`
+	FrontendOpID    *string                 `json:"frontendOpId,omitempty"`
 	ProjectID       string                  `json:"projectConfigId"`
 	SectionID       string                  `json:"sectionId"`
 	EdgeOutputPorts []projectstate.EdgePort `json:"edgeOutputPorts"`
 }
 
 type SetParentDefaultChildSectionTypeRequest struct {
-	FrontendOpID            *string `json:"frontendOpId"`
+	FrontendOpID            *string `json:"frontendOpId,omitempty"`
 	ProjectID               string  `json:"projectConfigId"`
 	SectionID               string  `json:"sectionId"`
 	DefaultChildSectionType string  `json:"defaultChildSectionType"`
 }
 
 type SetListRootViewModeRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId"`
+	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
 	ProjectID    string                        `json:"projectConfigId"`
 	SectionID    string                        `json:"sectionId"`
 	ViewMode     projectstate.ListRootViewMode `json:"viewMode"`
 }
 
 type ToggleGroupOrientationRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 }
 
 type SetGroupOverflowModeRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	OverflowMode bool    `json:"overflowMode"`
 }
 
 type SetCallableHideParamsRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	HideParams   bool    `json:"hideParams"`
 }
 
 type SetSectionHideUnpinnedParamsRequest struct {
-	FrontendOpID       *string `json:"frontendOpId"`
+	FrontendOpID       *string `json:"frontendOpId,omitempty"`
 	ProjectID          string  `json:"projectConfigId"`
 	SectionID          string  `json:"sectionId"`
 	HideUnpinnedParams bool    `json:"hideUnpinnedParams"`
 }
 
 type SetSectionPinnedParamsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId"`
+	FrontendOpID *string  `json:"frontendOpId,omitempty"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	PinnedParams []string `json:"pinnedParams"`
 }
 
 type ToggleParamSelectedRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	ParamInfoID  string  `json:"paramInfoId"`
 }
 
 type UnselectAllParamsRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 }
 
 type SetBrowserColumnWidthsRequest struct {
-	FrontendOpID     *string  `json:"frontendOpId"`
+	FrontendOpID     *string  `json:"frontendOpId,omitempty"`
 	ProjectID        string   `json:"projectConfigId"`
 	SectionID        string   `json:"sectionId"`
 	ColumnWidth      *float64 `json:"columnWidth"`
@@ -889,21 +889,21 @@ type SetBrowserColumnWidthsRequest struct {
 }
 
 type SetBrowserAreaViewModeRequest struct {
-	FrontendOpID *string                          `json:"frontendOpId"`
+	FrontendOpID *string                          `json:"frontendOpId,omitempty"`
 	ProjectID    string                           `json:"projectConfigId"`
 	SectionID    string                           `json:"sectionId"`
 	ViewMode     projectstate.BrowserAreaViewMode `json:"viewMode"`
 }
 
 type SetBrowserHideColumnRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	HideColumn   bool    `json:"hideColumn"`
 }
 
 type SetBrowserSavedSearchesRequest struct {
-	FrontendOpID  *string                           `json:"frontendOpId"`
+	FrontendOpID  *string                           `json:"frontendOpId,omitempty"`
 	ProjectID     string                            `json:"projectConfigId"`
 	SectionID     string                            `json:"sectionId"`
 	SavedSearches []projectstate.BrowserSavedSearch `json:"savedSearches"`
@@ -920,7 +920,7 @@ type browserSavedSearchRequestRaw struct {
 }
 
 type setBrowserSavedSearchesRequestRaw struct {
-	FrontendOpID  *string                        `json:"frontendOpId"`
+	FrontendOpID  *string                        `json:"frontendOpId,omitempty"`
 	ProjectID     string                         `json:"projectConfigId"`
 	SectionID     string                         `json:"sectionId"`
 	SavedSearches []browserSavedSearchRequestRaw `json:"savedSearches"`
@@ -1008,7 +1008,7 @@ func decodeBrowserSavedSearchesRequest(r *http.Request) (SetBrowserSavedSearches
 }
 
 type SetSpreadsheetFilePathRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	FilePath     string  `json:"filePath"`
@@ -1016,7 +1016,7 @@ type SetSpreadsheetFilePathRequest struct {
 }
 
 type SetSpreadsheetSectionSettingsRequest struct {
-	FrontendOpID               *string                             `json:"frontendOpId"`
+	FrontendOpID               *string                             `json:"frontendOpId,omitempty"`
 	ProjectID                  string                              `json:"projectConfigId"`
 	SectionID                  string                              `json:"sectionId"`
 	ReadOnly                   bool                                `json:"readOnly"`
@@ -1026,7 +1026,7 @@ type SetSpreadsheetSectionSettingsRequest struct {
 }
 
 type SetTaskBoardSectionStateRequest struct {
-	FrontendOpID *string                        `json:"frontendOpId"`
+	FrontendOpID *string                        `json:"frontendOpId,omitempty"`
 	ProjectID    string                         `json:"projectConfigId"`
 	SectionID    string                         `json:"sectionId"`
 	ViewMode     projectstate.TaskBoardViewMode `json:"viewMode"`
@@ -1063,21 +1063,21 @@ func validateTaskBoardViewModeRequestValue(viewMode projectstate.TaskBoardViewMo
 }
 
 type SetImageAreaImagePathRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	ImagePath    string  `json:"imagePath"`
 }
 
 type SetSocialURLRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	URL          string  `json:"url"`
 }
 
 type AppendDrawAreaLayerItemRequest struct {
-	FrontendOpID *string                        `json:"frontendOpId"`
+	FrontendOpID *string                        `json:"frontendOpId,omitempty"`
 	ProjectID    string                         `json:"projectConfigId"`
 	SectionID    string                         `json:"sectionId"`
 	LayerIdx     int                            `json:"layerIdx"`
@@ -1085,21 +1085,21 @@ type AppendDrawAreaLayerItemRequest struct {
 }
 
 type SetChartAreaDataPathRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	DataPath     string  `json:"dataPath"`
 }
 
 type SetChartTypeRequest struct {
-	FrontendOpID *string                `json:"frontendOpId"`
+	FrontendOpID *string                `json:"frontendOpId,omitempty"`
 	ProjectID    string                 `json:"projectConfigId"`
 	SectionID    string                 `json:"sectionId"`
 	ChartType    projectstate.ChartType `json:"chartType"`
 }
 
 type SetChartSettingsRequest struct {
-	FrontendOpID    *string                          `json:"frontendOpId"`
+	FrontendOpID    *string                          `json:"frontendOpId,omitempty"`
 	ProjectID       string                           `json:"projectConfigId"`
 	SectionID       string                           `json:"sectionId"`
 	ChartSettings   projectstate.ChartSettingsUpdate `json:"chartSettings"`
@@ -1122,21 +1122,21 @@ func validateChartTypeRequestValue(fieldName string, chartType projectstate.Char
 }
 
 type SetTextBlockTextRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Text         string  `json:"text"`
 }
 
 type SetTextBlockDisplayModeRequest struct {
-	FrontendOpID    *string                           `json:"frontendOpId"`
+	FrontendOpID    *string                           `json:"frontendOpId,omitempty"`
 	ProjectID       string                            `json:"projectConfigId"`
 	SectionID       string                            `json:"sectionId"`
 	TextDisplayMode projectstate.TextBlockDisplayMode `json:"textDisplayMode"`
 }
 
 type SetTextBlockFormatRequest struct {
-	FrontendOpID *string                      `json:"frontendOpId"`
+	FrontendOpID *string                      `json:"frontendOpId,omitempty"`
 	ProjectID    string                       `json:"projectConfigId"`
 	SectionID    string                       `json:"sectionId"`
 	Format       projectstate.TextBlockFormat `json:"format"`
@@ -1171,56 +1171,56 @@ func validateTextBlockFormatRequestValue(format projectstate.TextBlockFormat) er
 }
 
 type SetTextBlockHeadingAsSectionNameRequest struct {
-	FrontendOpID         *string `json:"frontendOpId"`
+	FrontendOpID         *string `json:"frontendOpId,omitempty"`
 	ProjectID            string  `json:"projectConfigId"`
 	SectionID            string  `json:"sectionId"`
 	HeadingAsSectionName bool    `json:"headingAsSectionName"`
 }
 
 type SetTextBlockMetaControlStyleRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	SectionID        string  `json:"sectionId"`
 	MetaControlStyle bool    `json:"metaControlStyle"`
 }
 
 type SetTextBlockMasterFontSizeRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	SectionID        string  `json:"sectionId"`
 	MasterFontSizePx float64 `json:"masterFontSizePx"`
 }
 
 type SetPromptTemplateRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Template     string  `json:"template"`
 }
 
 type SetPromptTemplateLinkRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	SectionID        string  `json:"sectionId"`
 	PromptTemplateID *string `json:"promptTemplateId,omitempty"`
 }
 
 type SetPromptInputsRequest struct {
-	FrontendOpID *string           `json:"frontendOpId"`
+	FrontendOpID *string           `json:"frontendOpId,omitempty"`
 	ProjectID    string            `json:"projectConfigId"`
 	SectionID    string            `json:"sectionId"`
 	Inputs       map[string]string `json:"inputs"`
 }
 
 type SetPromptFormatRequest struct {
-	FrontendOpID *string                `json:"frontendOpId"`
+	FrontendOpID *string                `json:"frontendOpId,omitempty"`
 	ProjectID    string                 `json:"projectConfigId"`
 	SectionID    string                 `json:"sectionId"`
 	Format       prompttemplates.Format `json:"format"`
 }
 
 type SetChatSectionSettingsRequest struct {
-	FrontendOpID           *string                         `json:"frontendOpId"`
+	FrontendOpID           *string                         `json:"frontendOpId,omitempty"`
 	ProjectID              string                          `json:"projectConfigId"`
 	SectionID              string                          `json:"sectionId"`
 	Managed                bool                            `json:"managed"`
@@ -1268,16 +1268,16 @@ func validateChatDictationModeRequestValue(mode projectstate.ChatDictationMode) 
 }
 
 type SetStateMachineSectionSettingsRequest struct {
-	FrontendOpID   *string                            `json:"frontendOpId"`
+	FrontendOpID   *string                            `json:"frontendOpId,omitempty"`
 	ProjectID      string                             `json:"projectConfigId"`
 	SectionID      string                             `json:"sectionId"`
 	MachineGroupID string                             `json:"machineGroupId"`
 	Label          string                             `json:"label"`
-	GateType       *projectstate.StateMachineGateType `json:"gateType"`
+	GateType       *projectstate.StateMachineGateType `json:"gateType,omitempty"`
 }
 
 type SetChatSectionStateRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId"`
+	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
 	ProjectID    string                        `json:"projectConfigId"`
 	SectionID    string                        `json:"sectionId"`
 	State        projectstate.ChatSectionState `json:"state"`
@@ -1291,66 +1291,66 @@ type GetChatSectionChatIDRequest struct {
 type ChatSectionChatIDResponse string
 
 type SetChatSectionChatIDRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	ChatID       *string `json:"chatId"`
 }
 
 type CreateWindowSpaceRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId"`
+	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
 	ProjectID    string                        `json:"projectConfigId"`
 	State        projectstate.WindowSpaceState `json:"state"`
 	Name         *string                       `json:"name,omitempty"`
 }
 
 type SetWindowSpaceNameRequest struct {
-	FrontendOpID  *string `json:"frontendOpId"`
+	FrontendOpID  *string `json:"frontendOpId,omitempty"`
 	ProjectID     string  `json:"projectConfigId"`
 	WindowSpaceID string  `json:"windowSpaceId"`
 	Name          string  `json:"name"`
 }
 
 type SetWindowSpaceSortOrderRequest struct {
-	FrontendOpID          *string  `json:"frontendOpId"`
+	FrontendOpID          *string  `json:"frontendOpId,omitempty"`
 	ProjectID             string   `json:"projectConfigId"`
 	OrderedWindowSpaceIDs []string `json:"orderedWindowSpaceIds"`
 }
 
 type DeleteWindowSpaceRequest struct {
-	FrontendOpID  *string `json:"frontendOpId"`
+	FrontendOpID  *string `json:"frontendOpId,omitempty"`
 	ProjectID     string  `json:"projectConfigId"`
 	WindowSpaceID string  `json:"windowSpaceId"`
 }
 
 type SetProjectChatWindowingStateRequest struct {
-	FrontendOpID *string                                `json:"frontendOpId"`
+	FrontendOpID *string                                `json:"frontendOpId,omitempty"`
 	ProjectID    string                                 `json:"projectConfigId"`
 	State        projectstate.ProjectChatWindowingState `json:"state"`
 }
 
 type SetProjectChatWindowChatIDRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	InstanceID   string  `json:"instanceId"`
 	ChatID       *string `json:"chatId"`
 }
 
 type SetWatchCodeEnabledRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	Enabled      bool    `json:"enabled"`
 }
 
 type SetWatchCodeInputsRequest struct {
-	FrontendOpID     *string                        `json:"frontendOpId"`
+	FrontendOpID     *string                        `json:"frontendOpId,omitempty"`
 	ProjectID        string                         `json:"projectConfigId"`
 	WatchCodeFolders []projectstate.WatchCodeFolder `json:"watchCodeFolders"`
 	WatchCodeFiles   []string                       `json:"watchCodeFiles"`
 }
 
 type ChangeParamImplRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	ParamInfoID  string  `json:"paramInfoId"`
@@ -1358,7 +1358,7 @@ type ChangeParamImplRequest struct {
 }
 
 type SetParamEnteredValueRequest struct {
-	FrontendOpID     *string `json:"frontendOpId"`
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
 	ProjectID        string  `json:"projectConfigId"`
 	SectionID        string  `json:"sectionId"`
 	SectionVariantID string  `json:"sectionVariantId"`
@@ -1367,7 +1367,7 @@ type SetParamEnteredValueRequest struct {
 }
 
 type UpdateParamImplConfigRequest struct {
-	FrontendOpID *string        `json:"frontendOpId"`
+	FrontendOpID *string        `json:"frontendOpId,omitempty"`
 	ProjectID    string         `json:"projectConfigId"`
 	SectionID    string         `json:"sectionId"`
 	ParamInfoID  string         `json:"paramInfoId"`
@@ -1375,21 +1375,21 @@ type UpdateParamImplConfigRequest struct {
 }
 
 type SetCodeSectionAttachedTerminalRequest struct {
-	FrontendOpID      *string `json:"frontendOpId"`
+	FrontendOpID      *string `json:"frontendOpId,omitempty"`
 	ProjectID         string  `json:"projectConfigId"`
 	SectionID         string  `json:"sectionId"`
 	TerminalSectionID *string `json:"terminalSectionId"`
 }
 
 type SetCodeObjNameRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	CodeObjID    string  `json:"codeObjId"`
 	Name         string  `json:"name"`
 }
 
 type SetCodeObjDisplayNameRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
+	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
 	CodeObjID    string  `json:"codeObjId"`
 	DisplayName  string  `json:"displayName"`
