@@ -34,7 +34,9 @@ func mustTSLiteralValueFromGoValue(context string, value any) any {
 
 func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[string]any, []string) {
 	normalized := mustTSLiteralValueFromGoValue(context, value)
-	normalized = mergeTSLiteralValueFromGoValue(context, value, normalized)
+	if reflected := reflect.ValueOf(value); reflected.IsValid() {
+		normalized = mergeTSLiteralValueFromReflectValue(context, reflected, normalized)
+	}
 	object, ok := normalized.(map[string]any)
 	if !ok {
 		panic(context + ": Go default did not decode to an object")
@@ -59,14 +61,6 @@ func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[strin
 	return object, orderedKeys
 }
 
-func mergeTSLiteralValueFromGoValue(context string, value any, normalized any) any {
-	reflected := reflect.ValueOf(value)
-	if !reflected.IsValid() {
-		return normalized
-	}
-	return mergeTSLiteralValueFromReflectValue(context, reflected, normalized)
-}
-
 func mergeTSLiteralValueFromReflectValue(
 	context string,
 	value reflect.Value,
@@ -88,14 +82,6 @@ func mergeTSLiteralValueFromReflectValue(
 	if !ok {
 		return normalized
 	}
-	return mergeTSLiteralObjectFromStructValue(context, value, object)
-}
-
-func mergeTSLiteralObjectFromStructValue(
-	context string,
-	value reflect.Value,
-	object map[string]any,
-) map[string]any {
 	valueType := value.Type()
 	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
 		field := valueType.Field(fieldIndex)
