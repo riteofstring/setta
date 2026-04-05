@@ -8,7 +8,7 @@ import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSu
 import { useSettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
 import {
   resolveSettingsGraphSubstrateCanarySectionShellLayer,
-  SettingsGraphSubstrateCanarySectionShellLayerDomAdapter,
+  SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter,
 } from "./settingsGraphSubstrateCanarySectionShellLayer";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
@@ -70,7 +70,7 @@ function _SettingsGraphSubstrateCanarySectionShell({
       onPointerUpCapture={(event) => finishSectionDrag(event, true)}
       onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
     >
-      <SettingsGraphSubstrateCanarySectionShellLayerDomAdapter
+      <SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter
         shellLayer={shellLayer}
       />
       {children}

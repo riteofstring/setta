@@ -56,6 +56,24 @@ vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
   ),
 }));
 
+vi.mock("./settingsGraphSubstrateCanarySectionShellPixiLayer", () => ({
+  SettingsGraphSubstrateCanarySectionShellPixiLayer: vi.fn(
+    ({
+      sceneSections,
+      viewport,
+    }: {
+      sceneSections: Array<{ sectionId: string }>;
+      viewport: unknown;
+    }) => (
+      <div
+        data-testid="graph-substrate-canary-section-pixi-layer"
+        data-count={String(sceneSections.length)}
+        data-viewport={JSON.stringify(viewport)}
+      />
+    ),
+  ),
+}));
+
 describe("SettingsGraphSubstrateCanary", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -95,6 +113,20 @@ describe("SettingsGraphSubstrateCanary", () => {
         .querySelector("[data-testid='graph-substrate-canary-sections-layer']")
         ?.getAttribute("data-count"),
     ).toBe("1");
+    expect(
+      host
+        .querySelector(
+          "[data-testid='graph-substrate-canary-section-pixi-layer']",
+        )
+        ?.getAttribute("data-count"),
+    ).toBe("1");
+    expect(
+      host
+        .querySelector(
+          "[data-testid='graph-substrate-canary-section-pixi-layer']",
+        )
+        ?.getAttribute("data-viewport"),
+    ).toBe(JSON.stringify(hoisted.controller.resolvedViewport));
 
     const viewport = host.querySelector(
       "[data-testid='graph-substrate-canary-viewport']",
@@ -118,6 +150,11 @@ describe("SettingsGraphSubstrateCanary", () => {
     expect(
       host.querySelector(
         "[data-testid='graph-substrate-canary-sections-layer']",
+      ),
+    ).toBeNull();
+    expect(
+      host.querySelector(
+        "[data-testid='graph-substrate-canary-section-pixi-layer']",
       ),
     ).toBeNull();
     expect(host.textContent).toContain(

@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrateCanaryBackground";
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
+import { SettingsGraphSubstrateCanarySectionShellPixiLayer } from "./settingsGraphSubstrateCanarySectionShellPixiLayer";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
 
 const ROOT_STYLE: CSSProperties = {
@@ -36,6 +37,12 @@ export function SettingsGraphSubstrateCanary() {
           viewport={controller.resolvedViewport}
         />
       )}
+      {controller.sceneSections.length > 0 ? (
+        <SettingsGraphSubstrateCanarySectionShellPixiLayer
+          sceneSections={controller.sceneSections}
+          viewport={controller.resolvedViewport}
+        />
+      ) : null}
       <div
         className="react-flow__viewport"
         data-testid="graph-substrate-canary-viewport"
@@ -45,7 +52,7 @@ export function SettingsGraphSubstrateCanary() {
           position: "absolute",
           transform: controller.viewportTransform,
           transformOrigin: "0 0",
-          zIndex: 1,
+          zIndex: 2,
         }}
       >
         {controller.sceneSections.length > 0 ? (

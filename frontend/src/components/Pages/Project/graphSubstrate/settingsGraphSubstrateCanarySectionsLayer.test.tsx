@@ -209,7 +209,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
-  it("renders the active outline from the shell while suppressing the duplicate DOM outline", async () => {
+  it("keeps the duplicate DOM outline suppressed for the root Pixi shell layer", async () => {
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -227,8 +227,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     const outline = host.querySelector<HTMLElement>(
       '[data-testid="graph-substrate-canary-section-outline"]',
     );
-    expect(outline?.dataset.outlineTone).toBe("active");
-    expect(outline?.className).toContain("outline-blue-600");
+    expect(outline).toBeNull();
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceHideOutline: true,
       isTopLevel: true,
@@ -236,7 +235,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     });
   });
 
-  it("renders the shell-owned border while keeping the DOM shell border transparent", async () => {
+  it("keeps the DOM shell border transparent while the root Pixi shell layer owns the visible border", async () => {
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -250,8 +249,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     const border = host.querySelector<HTMLElement>(
       '[data-testid="graph-substrate-canary-section-border"]',
     );
-    expect(border?.dataset.borderTone).toBe("default");
-    expect(border?.className).toContain("border-white");
+    expect(border).toBeNull();
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       bodySurfaceOverride: {
         surfaceDecorations: {

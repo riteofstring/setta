@@ -98,29 +98,11 @@ type SettingsGraphSubstrateCanarySectionShellLayerDomAdapterProps = {
   shellLayer: SettingsGraphSubstrateCanarySectionShellLayer;
 };
 
-function _SettingsGraphSubstrateCanarySectionShellLayerDomAdapter({
+function _SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter({
   shellLayer,
 }: SettingsGraphSubstrateCanarySectionShellLayerDomAdapterProps) {
   return (
     <>
-      {shellLayer.border ? (
-        <div
-          aria-hidden="true"
-          className={shellLayer.border.className}
-          data-border-tone={shellLayer.border.shellBorderTone}
-          data-testid="graph-substrate-canary-section-border"
-          style={shellLayer.sectionStyleVars}
-        />
-      ) : null}
-      {shellLayer.outline ? (
-        <div
-          aria-hidden="true"
-          className={shellLayer.outline.className}
-          data-outline-tone={shellLayer.outline.outlineTone}
-          data-testid="graph-substrate-canary-section-outline"
-          style={shellLayer.sectionStyleVars}
-        />
-      ) : null}
       {shellLayer.topDragHandle ? (
         <div
           aria-hidden="true"
@@ -136,5 +118,5 @@ function _SettingsGraphSubstrateCanarySectionShellLayerDomAdapter({
   );
 }
 
-export const SettingsGraphSubstrateCanarySectionShellLayerDomAdapter =
-  React.memo(_SettingsGraphSubstrateCanarySectionShellLayerDomAdapter);
+export const SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter =
+  React.memo(_SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter);

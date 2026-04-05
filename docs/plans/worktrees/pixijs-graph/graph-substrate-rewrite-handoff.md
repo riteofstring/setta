@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 00:29 EDT
+Last updated: 2026-04-07 01:08 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `241` fixed a real Pixi runtime crash in the first shell-owned slice, but the sanctioned shell-border acceptance lane still needs a clean rerun on the committed code and the required CDP spot-check remains blocked by DevTools transport timeouts.
+  - Why this pass stopped here:
+    - item `240` said the next bounded step was to isolate the first post-setup stall inside the shell-border Playwright lane instead of doing another generic acceptance rerun
+    - a trace-backed disposable-workspace rerun exposed an actual product crash rather than a pure harness wait: the worktree hit `TypeError: this._cancelResize is not a function` from `pixi.js` / `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx` while switching into the shell-owned canary
+    - fixing that crash was meaningful product progress and also satisfied the loop rule to pivot from repeated harness churn once a real renderer/runtime blocker was identified
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Product change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+      - made the Pixi application teardown idempotent and gated the actual `app.destroy(...)` call until `app.init(...)` has completed
+      - this prevents the shell layer from destroying the same Pixi app twice when the component unmounts during init and the async cancellation branch later resolves
+  - Debug evidence:
+    - temporary local edits to [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) were used only to isolate the blocker and were reverted before commit
+    - the failing trace screenshot before the fix showed the live runtime error overlay with `this._cancelResize is not a function` and a stack into `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - after the product fix, the disposable Playwright lane no longer died on that Pixi destroy error and instead advanced to a later canary-mount assertion problem
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - disposable Playwright debug lane:
+      - result: still failed later in the shell-border flow, but the prior `_cancelResize` runtime crash no longer reproduced after the product fix
+    - CDP visual gate:
+      - not run
+      - reason:
+        - a fresh-context CDP sub-agent could not use `chrome-devtools-mcp`; every call failed with `Network.enable timed out`, so no trustworthy live worktree inspection or screenshot was possible this pass
+  - Lane status:
+    - the product-side Pixi destroy crash is fixed in code
+    - the sanctioned shell-border acceptance lane still has a later canary-mount / assertion blocker to resolve on the committed code path
+    - CDP transport remains a separate blocker for the required visual spot-check
+  - Next frontier:
+    - rerun the original sanctioned shell-owned border and top-drag-handle tests on the committed shell-layer code, then diagnose the remaining canary-mount failure if it still reproduces
+    - retry the required worktree CDP spot-check once `chrome-devtools-mcp` is usable again; the last failure shape was `Network.enable timed out`
 
 - Ralph item `240` narrowed the sanctioned shell-owned Playwright lane so it now matches the current Pixi ownership contract, but the acceptance gate is still blocked by a remaining browser-only stall inside the first border test.
   - Why this pass stopped here:

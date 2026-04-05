@@ -9401,3 +9401,28 @@ LOOP_TERMINAL_MARKER: none
     - start the next iteration with a fresh worktree lifecycle bootstrap and re-establish a worktree session where `rotaryParamCodeObjDefault` exists before rerunning the required CDP spot-check
     - only once the worktree passes named-lane preflight should item `236` be visually accepted and committed
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 01:08 EDT, Ralph item `241`
+  - Summary: isolated a real Pixi runtime crash inside the pending shell-owned slice, fixed the shell-layer double-destroy path in `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`, verified the focused unit/typecheck suite green, reverted the temporary debug-only Playwright edits, and stopped with the next remaining shell-border acceptance blocker plus a still-broken CDP transport.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`4 files`, `13 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true` -> no matches
+    - disposable Playwright debug reruns against `frontend/tests/e2e/settings/settings-view-modes.spec.ts`:
+      - trace-backed debug run reproduced the live runtime error overlay before the fix with `TypeError: this._cancelResize is not a function` from `pixi.js` / `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      - after the product fix, the same debug lane no longer failed on that Pixi destroy crash and instead progressed to a later canary-mount assertion in the shell-border flow
+    - fresh-context CDP sub-agent on `http://127.0.0.1:3076/settings` -> blocked; every `chrome-devtools-mcp` call failed with `Network.enable timed out`
+  - Result:
+    - the product-side Pixi shell destroy crash is fixed in code
+    - the sanctioned shell-border/top-handle lane is still not accepted; the next blocker is the later canary-mount / assertion failure under the original helper path
+    - CDP visual verification is still unavailable because DevTools transport failed before inspection
+  - Next:
+    - rerun the original sanctioned shell-owned border and top-drag-handle tests on the committed shell-layer code and diagnose the remaining canary-mount failure if it persists
+    - retry the required worktree CDP spot-check once `chrome-devtools-mcp` stops timing out on `Network.enable`
+  - LOOP_TERMINAL_MARKER: none
