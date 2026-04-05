@@ -5248,3 +5248,45 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still lacks origin-aware preflight on the current live surfaces, preferably `groupSectionDefault` / `settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary`
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-05 02:16 EDT - Ralph item 149
+
+- Item: Add a trusted expected-fail parity repro for `dropzoneParamCodeObjDefault` on the shared fit-view-plus-toolbar-zoom lane, then verify that the current live canary drift is card-geometry expansion rather than `Mode` row detachment.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `148` explicitly named `dropzoneParamCodeObjDefault` as the next renderer-facing lane on the current live surfaces
+    - the older dropzone drag/pan lane was already closed as unsupported for the current tool stack, so the next honest step had to be a different trusted lane shape instead of reopening that same oracle family
+    - the fit-view-plus-toolbar-zoom family already had current trusted coverage on nearby dict/chart lanes and was the narrowest way to isolate whether dropzone still had real renderer drift
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added a canonical `dropzoneParamCodeObjDefault` fit-view-plus-toolbar-zoom lane anchored on the `Mode` row
+      - reused the same restore-plus-preflight setup as the hardened dict/chart lanes
+      - marked the lane `test.fail(true, ...)` with the explicit known-drift reason so the current mismatch is preserved as a stable repro
+  - What this slice established:
+    - the current live dropzone ids on run-009 are worktree `b821cb16-8e9a-413a-b02b-832f79257ab7` and reference `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - rerunning the new lane on the current live surfaces passed as an expected failure (`1 passed`, `31.3s`), so the mismatch is now a deterministic checked repro
+    - after the shared `All Settings` restore, preflight, targeted fit view, and one toolbar `zoom in`, the local `Mode` row anchor stayed attached on both sides and scaled similarly
+    - the actual drift is section-level geometry: Playwright captured the reference card at about `139.446` height / `y≈380.277` versus the worktree card at about `378.497` height / `y≈260.751`, while post-zoom `transform.zoom` and local `Mode` row scaling remained nearly identical
+    - a fresh-context CDP sub-agent confirmed the same visual mismatch on the named lane: after the shared fit-view plus one toolbar zoom-in, the worktree dropzone card was still visibly larger and vertically displaced than main, with a normalized readout of about `66x32` at `y≈755` on worktree versus `73x13` at `y≈936` on main
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - refreshed run-009 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-009/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-009/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-009/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-009/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the dropzone mode row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed as expected failure (`1 passed`, `31.3s`)
+  - live dropzone-id cross-check:
+    - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","dropzoneParamCodeObjDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","dropzoneParamCodeObjDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+    - result: worktree `b821cb16-8e9a-413a-b02b-832f79257ab7`, reference `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - visually compared the normalized `dropzoneParamCodeObjDefault` lane after the shared fit-view plus one toolbar zoom-in
+  - CDP visual check: done (fresh-context sub-agent; the `Mode` row stayed attached, but the canary dropzone card remained visibly taller and vertically displaced versus read-only main after the checked motion path)
+- Lane status:
+  - keep the new trusted `dropzoneParamCodeObjDefault` fit-view-plus-toolbar-zoom lane as the canonical live repro for this drift
+  - do not reopen the older unsupported dropzone drag/pan lane; the current blocker is a product-side card-geometry mismatch on the trusted toolbar-zoom path
+- Next action:
+  - land a production fix for the dropzone card height / vertical-placement drift on the named `dropzoneParamCodeObjDefault` lane, then rerun this expected-fail probe until it turns into a normal pass
+- LOOP_TERMINAL_MARKER: none

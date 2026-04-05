@@ -5408,6 +5408,367 @@ test("settings graph parity probe keeps the chart data path row attached after f
   }
 });
 
+test("settings graph parity probe keeps the dropzone mode row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.slow();
+  test.fail(
+    true,
+    "Known canary drift: the dropzone card stays vertically expanded after fit view and toolbar zoom even though the Mode row remains locally attached.",
+  );
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const dropzoneSectionName = "dropzoneParamCodeObjDefault";
+  const worktreeDropzoneSectionId = findSectionIdByName(
+    worktreeInitialState,
+    dropzoneSectionName,
+  );
+  const referenceDropzoneSectionId = findSectionIdByName(
+    referenceInitialState,
+    dropzoneSectionName,
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+
+  async function captureDropzoneToolbarZoom(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    side: "reference" | "worktree";
+    targetPage: Page;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: dropzoneSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const modeRow = sectionLocator.getByText("Mode", { exact: true }).first();
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+    await expect(sectionLocator).toBeVisible();
+    await expect(modeRow).toBeVisible();
+
+    const beforeMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const beforeAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: modeRow,
+      section: sectionLocator,
+    });
+    const beforeModeRowBox = await modeRow.boundingBox();
+    if (
+      !beforeMetrics.transform ||
+      !beforeMetrics.rect ||
+      !beforeAnchorPosition ||
+      !beforeModeRowBox
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} dropzone toolbar zoom baseline metrics.`,
+      );
+    }
+
+    // Keep the same row anchor attached while the shared zoom control changes
+    // the graph viewport.
+    await args.targetPage.getByRole("button", { name: "zoom in" }).click();
+
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).transform?.zoom ?? 0
+        );
+      })
+      .toBeGreaterThan(beforeMetrics.transform.zoom * 1.08);
+
+    await expect
+      .poll(async () => {
+        const latestAnchorPosition = await getLocatorRelativeCenterPosition({
+          child: modeRow,
+          section: sectionLocator,
+        });
+        if (!latestAnchorPosition) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestAnchorPosition.x - beforeAnchorPosition.x),
+          Math.abs(latestAnchorPosition.y - beforeAnchorPosition.y),
+        );
+      })
+      .toBeLessThan(0.03);
+
+    const afterMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const afterAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: modeRow,
+      section: sectionLocator,
+    });
+    const afterModeRowBox = await modeRow.boundingBox();
+    if (
+      !afterMetrics.transform ||
+      !afterMetrics.rect ||
+      !afterAnchorPosition ||
+      !afterModeRowBox
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} dropzone toolbar zoom result metrics.`,
+      );
+    }
+
+    return {
+      afterMetrics: {
+        centerOffsetFromRootCenter: afterMetrics.centerOffsetFromRootCenter,
+        rect: afterMetrics.rect,
+        transform: afterMetrics.transform,
+      },
+      anchorDrift: {
+        x: Math.abs(afterAnchorPosition.x - beforeAnchorPosition.x),
+        y: Math.abs(afterAnchorPosition.y - beforeAnchorPosition.y),
+      },
+      modeRowBox: afterModeRowBox,
+      modeRowScale: {
+        height: afterModeRowBox.height / beforeModeRowBox.height,
+        width: afterModeRowBox.width / beforeModeRowBox.width,
+      },
+      paneState: await getLocalPaneState(args.targetPage),
+      zoomDelta: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
+    };
+  }
+
+  try {
+    const referenceResult = await captureDropzoneToolbarZoom({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceDropzoneSectionId,
+      side: "reference",
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureDropzoneToolbarZoom({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeDropzoneSectionId,
+      side: "worktree",
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(referenceResult.anchorDrift.x).toBeLessThan(0.03);
+    expect(referenceResult.anchorDrift.y).toBeLessThan(0.03);
+    expect(worktreeResult.anchorDrift.x).toBeLessThan(0.03);
+    expect(worktreeResult.anchorDrift.y).toBeLessThan(0.03);
+    expect(referenceResult.modeRowScale.width).toBeGreaterThan(1.05);
+    expect(referenceResult.modeRowScale.height).toBeGreaterThan(1.05);
+    expect(worktreeResult.modeRowScale.width).toBeGreaterThan(1.05);
+    expect(worktreeResult.modeRowScale.height).toBeGreaterThan(1.05);
+    expect(
+      Math.abs(worktreeResult.zoomDelta - referenceResult.zoomDelta),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        (worktreeResult.afterMetrics.centerOffsetFromRootCenter ?? 0) -
+          (referenceResult.afterMetrics.centerOffsetFromRootCenter ?? 0),
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.transform.zoom -
+          referenceResult.afterMetrics.transform.zoom,
+      ),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.x -
+          referenceResult.afterMetrics.rect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.y -
+          referenceResult.afterMetrics.rect.y,
+      ),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.width -
+          referenceResult.afterMetrics.rect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.height -
+          referenceResult.afterMetrics.rect.height,
+      ),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(
+        worktreeResult.modeRowBox.width - referenceResult.modeRowBox.width,
+      ),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(
+        worktreeResult.modeRowBox.height - referenceResult.modeRowBox.height,
+      ),
+    ).toBeLessThan(6);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary", async ({
   context,
   page,
