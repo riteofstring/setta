@@ -11525,3 +11525,32 @@ LOOP_TERMINAL_MARKER: none
   - the `reactFlowViewportPublish` reduction remains landed and should not be reopened by default
   - the next useful pass should stay on `rotaryParamCodeObjDefault` and add one bounded attribution seam for the remaining interaction-sync cost instead of reopening verifier-only work
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 08:05 EDT - Ralph item 302
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded verifier-recovery follow-up named in the handoff: rerun the canonical cross-worktree motion probe on the fresh `run-019` worktree/reference runtimes and record a trustworthy numeric verdict for the item-`301` presentation-path owners before opening another product hypothesis.
+- Landed:
+  - fresh canonical motion-attribution verdict on the existing `presentedSceneSectionsResolve` / `pixiViewportPresent` seam without changing product/runtime code
+  - perf note `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presentation-path-owner-verdict.md`
+  - refreshed `graph-substrate-rewrite-handoff.md` so the active frontier now moves from verifier recovery to a real product slice on `presentedSceneSectionsResolve`
+- Verification:
+  - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-019/worktree-ai.log) && MAIN_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-019/main-ai.log) && env PLAYWRIGHT_BASE_URL="$(printf '%s' "$WORKTREE_JSON" | jq -r '.frontendUrl')" SETTA_BACKEND_ORIGIN="$(printf '%s' "$WORKTREE_JSON" | jq -r '.backendUrl')" SETTA_BOOTSTRAP_TOKEN="$(printf '%s' "$WORKTREE_JSON" | jq -r '.bootstrapUrl | split("#token=")[1]')" SETTA_MAIN_REFERENCE_FRONTEND_URL="$(printf '%s' "$MAIN_JSON" | jq -r '.frontendUrl')" SETTA_MAIN_REFERENCE_BACKEND_ORIGIN="$(printf '%s' "$MAIN_JSON" | jq -r '.backendUrl')" SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$(printf '%s' "$MAIN_JSON" | jq -r '.bootstrapUrl')" BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `48.5s`)
+  - passing normalized motion-perf output:
+    - legacy `main`: average `17.04ms`, max `50ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `18.62ms`, max `66.6ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - worktree motion attribution on the passing rerun:
+    - `presentedSceneSectionsResolve`: `40` calls, `0.4ms` total, `0.1ms` max, dominant owner
+    - `pixiViewportPresent`: `0`
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.1ms` total
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+  - `CDP visual check: done (reused item 301 fresh-context smoke confirmation because item 302 only refreshed the automated perf verdict and did not change renderer/runtime product code)`
+- Result:
+  - the verifier/runtime blocker recorded on item `301` did not reproduce on the current runtime pair; the canonical cross-worktree probe is trustworthy again on this lane
+  - `presentedSceneSectionsResolve` is now the named remaining measured owner on the canonical motion burst; `pixiViewportPresent` stayed at `0`
+  - the next bounded frontier is a real product slice reducing or further splitting `presentedSceneSectionsResolve`, not another verifier-only pass
+- LOOP_TERMINAL_MARKER: none
