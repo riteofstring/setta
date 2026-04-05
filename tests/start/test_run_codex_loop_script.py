@@ -7,10 +7,6 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _runtime_helper_path(repo_root: Path) -> Path:
-    return repo_root / "scripts" / "dev-runtime-info.sh"
-
-
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
@@ -209,17 +205,16 @@ exit 0
         f"{output_dir / 'run-001' / 'main-ai.log'}"
         in rendered_prompt
     )
-    assert f"SETTA_FILES_ROOT={main_root / 'setta_files_dev'}" in rendered_prompt
     assert (
+        f"SETTA_FILES_ROOT={main_root / 'setta_files_dev'} "
         f"setta status --connect-info --latest --json --workspace {main_root}"
         in rendered_prompt
     )
-    if _runtime_helper_path(repo_root).exists():
-        assert (
-            f"`./scripts/dev-runtime-info.sh --workspace {main_root} "
-            f"--runtime-log {output_dir / 'run-001' / 'main-ai.log'}`"
-            in rendered_prompt
-        )
+    assert (
+        f"`./scripts/dev-runtime-info.sh --workspace {main_root} "
+        f"--runtime-log {output_dir / 'run-001' / 'main-ai.log'}`"
+        in rendered_prompt
+    )
     assert (
         "use these current runtime values instead of guessing old ports"
         in rendered_prompt
@@ -579,8 +574,8 @@ exit 0
     assert captured_env.get("DEVTOOLS_HEADLESS") == "0"
     assert captured_env.get("PLAYWRIGHT_HEADLESS") == "0"
     assert "CHROME_BIN" not in captured_env
-    assert f"SETTA_FILES_ROOT={main_root / 'setta_files_dev'}" in rendered_prompt
     assert (
+        f"SETTA_FILES_ROOT={main_root / 'setta_files_dev'} "
         f"setta status --connect-info --latest --json --workspace {main_root}"
         in rendered_prompt
     )

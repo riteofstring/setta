@@ -4,6 +4,7 @@ set -euo pipefail
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
 CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
+BROWSER_MODE="${BROWSER_MODE:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
@@ -86,28 +87,159 @@ BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
 DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
+DEVTOOLS_HEADLESS="${DEVTOOLS_HEADLESS:-0}"
 
 CHROME_ARGS=()
+HEADLESS_CHROME_ARGS=()
 if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   # shellcheck disable=SC2206
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
 
 resolve_python_bin() {
-  if command -v python >/dev/null 2>&1; then
-    echo "python"
+  if [[ -n "${VIRTUAL_ENV:-}" ]] && [[ -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    echo "${VIRTUAL_ENV}/bin/python"
+    return 0
+  fi
+  if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+    echo "${ROOT_DIR}/.venv/bin/python"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     echo "python3"
     return 0
   fi
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
   return 1
+}
+
+clear_devtools_profile_auth_cookies() {
+  local profile_dir="$1"
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    return 0
+  fi
+  "${python_bin}" \
+    "${SCRIPT_DIR}/lib/clear_devtools_profile_auth_cookies.py" \
+    --profile-dir "${profile_dir}"
 }
 
 write_pid() {
   mkdir -p "$MCP_RUN_DIR"
   printf "%s\n" "$2" > "$1"
+}
+
+find_active_devtools_pid() {
+  local profile_needle="setta-mcp/${INSTANCE_NAME}-${PROFILE_SUFFIX}/devtools-profile"
+
+  ps -ax -o pid= -o command= 2>/dev/null \
+    | awk -v needle="${profile_needle}" -v port="${DEBUG_PORT}" '
+        index($0, needle) && index($0, "--remote-debugging-port=" port) {
+          print $1
+          next
+        }
+        index($0, needle) && index($0, "--remote-debugging-port " port) {
+          print $1
+        }
+      ' \
+    | sed '/^[[:space:]]*$/d' \
+    | sort -n \
+    | tail -n 1
+}
+
+write_runtime_manifest() {
+  local pid=""
+  local python_bin=""
+  local manifest_path="${MCP_RUN_DIR}/devtools-runtime.json"
+
+  mkdir -p "${MCP_RUN_DIR}"
+  if [[ -f "${MCP_RUN_DIR}/devtools.pid" ]]; then
+    pid="$(cat "${MCP_RUN_DIR}/devtools.pid" 2>/dev/null || true)"
+  fi
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    cat > "${manifest_path}" <<EOF
+{"workspaceRoot":"${WORKTREE_ROOT}","debugPort":${DEBUG_PORT},"pid":${pid:-null},"profileDir":"${PROFILE_DIR}","mcpRunDir":"${MCP_RUN_DIR}"}
+EOF
+    return 0
+  fi
+
+  WORKTREE_ROOT="${WORKTREE_ROOT}" \
+  DEBUG_PORT="${DEBUG_PORT}" \
+  DEVTOOLS_PID="${pid}" \
+  PROFILE_DIR="${PROFILE_DIR}" \
+  MCP_RUN_DIR="${MCP_RUN_DIR}" \
+  MANIFEST_PATH="${manifest_path}" \
+  "${python_bin}" - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+
+manifest_path = os.environ["MANIFEST_PATH"]
+pid_raw = os.environ.get("DEVTOOLS_PID", "").strip()
+
+payload = {
+    "workspaceRoot": os.environ["WORKTREE_ROOT"],
+    "debugPort": int(os.environ["DEBUG_PORT"]),
+    "pid": int(pid_raw) if pid_raw else None,
+    "profileDir": os.environ["PROFILE_DIR"],
+    "mcpRunDir": os.environ["MCP_RUN_DIR"],
+    "updatedAt": datetime.now(timezone.utc).isoformat(),
+}
+
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+}
+
+record_active_devtools_browser() {
+  local detected_pid=""
+
+  for _ in {1..20}; do
+    detected_pid="$(find_active_devtools_pid || true)"
+    if [[ -n "${detected_pid}" ]] && kill -0 "${detected_pid}" 2>/dev/null; then
+      write_pid "${MCP_RUN_DIR}/devtools.pid" "${detected_pid}"
+      break
+    fi
+    sleep 0.25
+  done
+
+  write_runtime_manifest
+}
+
+launch_background_browser() {
+  local python_bin=""
+  local pid=""
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -n "${python_bin}" ]]; then
+    pid="$(
+      "${python_bin}" - "$@" <<'PY'
+import subprocess
+import sys
+
+proc = subprocess.Popen(
+    sys.argv[1:],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL,
+    start_new_session=True,
+)
+print(proc.pid)
+PY
+    )"
+    write_pid "${MCP_RUN_DIR}/devtools.pid" "${pid}"
+    return 0
+  fi
+
+  nohup "$@" >/dev/null 2>&1 &
+  write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
 }
 
 get_bootstrap_url() {
@@ -174,9 +306,12 @@ if not target or not port:
 encoded = urllib.parse.quote(target, safe="")
 endpoint = f"http://127.0.0.1:{port}/json/new?{encoded}"
 payload = None
+
+
 def _request(method, url):
     req = urllib.request.Request(url, method=method)
     return urllib.request.urlopen(req, timeout=2)
+
 
 try:
     request = urllib.request.Request(endpoint, method="PUT")
@@ -261,72 +396,30 @@ except Exception:
 PY
 }
 
-open_url_in_devtools_profile() {
-  local target_url="$1"
-  if [[ -z "$target_url" ]]; then
-    return 1
-  fi
-  if [[ "$DEVTOOLS_OPEN_WITH_CHROME" != "1" ]]; then
+open_bootstrap_in_devtools() {
+  if [[ "${BOOTSTRAP_ENABLED}" != "1" ]]; then
     return 0
   fi
 
-  local app_bundle=""
-  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-    case "$CHROME_BIN" in
-      *.app/Contents/MacOS/*)
-        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
-        ;;
-    esac
-  fi
-  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if open -g -n -a "$app_bundle" --args \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      "$target_url" >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
-  "$CHROME_BIN" \
-    --user-data-dir="$PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]:-}" \
-    "$target_url" >/dev/null 2>&1 &
-}
-
-open_bootstrap_in_devtools() {
-  if [[ "$BOOTSTRAP_ENABLED" != "1" ]]; then
-    return
-  fi
-
-  if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
-    echo "Waiting for Setta bootstrap URL..."
-  fi
   local elapsed=0
-  while [[ "$elapsed" -lt "$BOOTSTRAP_WAIT_SECONDS" ]]; do
-    local url_candidate=""
-    if url_candidate="$(get_bootstrap_url)"; then
-      if [[ -n "$url_candidate" ]]; then
-        if bootstrap_url_ready "$url_candidate"; then
-          if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
-            echo "Opening Setta bootstrap URL in devtools Chrome."
+  while (( elapsed < BOOTSTRAP_WAIT_SECONDS )); do
+    local url=""
+    if url="$(get_bootstrap_url 2>/dev/null)"; then
+      if [[ -n "$url" ]]; then
+        if bootstrap_url_ready "$url"; then
+          echo "Bootstrap URL (recommended):"
+          echo "$url"
+          open_devtools_tab "$url" >/dev/null 2>&1 || true
+          if [[ "${DEVTOOLS_OPEN_WITH_CHROME}" == "1" ]]; then
+            "$CHROME_BIN" --user-data-dir="$PROFILE_DIR" "$url" >/dev/null 2>&1 &
           fi
-          if open_devtools_tab "$url_candidate"; then
-            return 0
-          fi
-          if [[ "$DEVTOOLS_OPEN_WITH_CHROME" == "1" ]]; then
-            # Fallback for environments where the DevTools JSON endpoint isn't reachable yet.
-            open_url_in_devtools_profile "$url_candidate"
-            return 0
-          fi
-        elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
-          echo "Bootstrap URL not ready yet (backend still starting)."
+          return 0
+        fi
+        if [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
+          echo "Bootstrap URL not yet ready: $url"
         fi
       elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
-        echo "Bootstrap URL not yet available (setta status returned no URL)."
+        echo "Bootstrap URL not yet available (setta status returned empty)."
       fi
     elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
       echo "Bootstrap URL not yet available (setta status failed)."
@@ -341,7 +434,7 @@ open_bootstrap_in_devtools() {
 
 usage() {
   cat <<'EOF'
-Usage: start-browser-mcp.sh [--devtools] [--foreground]
+Usage: start-browser-mcp.sh [--devtools] [--foreground] [--browser-mode headed|headless]
 
 Starts a dedicated Chrome/Chromium instance with remote debugging enabled for
 chrome-devtools-mcp. This is separate from your main profile.
@@ -354,12 +447,14 @@ Environment variables:
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
+  DEVTOOLS_HEADLESS  Launch the devtools browser in headless mode when set to 1 (default: 0)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 
 Flags:
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground     Keep the debug browser attached to this terminal (devtools only)
+  --browser-mode   headed or headless; overrides DEVTOOLS_HEADLESS for this run
 EOF
 }
 
@@ -370,6 +465,24 @@ while [[ $# -gt 0 ]]; do
       ;;
     --foreground)
       FOREGROUND="1"
+      shift
+      ;;
+    --browser-mode)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
+      BROWSER_MODE="$2"
+      shift 2
+      ;;
+    --browser-mode=*)
+      BROWSER_MODE="${1#*=}"
+      if [[ -z "${BROWSER_MODE}" ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
       shift
       ;;
     -h|--help)
@@ -384,6 +497,34 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "${BROWSER_MODE}" ]]; then
+  case "${BROWSER_MODE}" in
+    headed)
+      DEVTOOLS_HEADLESS="0"
+      ;;
+    headless)
+      DEVTOOLS_HEADLESS="1"
+      ;;
+    *)
+      echo "Invalid value for --browser-mode: ${BROWSER_MODE}. Expected headed or headless." >&2
+      exit 1
+      ;;
+  esac
+fi
+
+case "${DEVTOOLS_HEADLESS}" in
+  0|1) ;;
+  *)
+    echo "Invalid DEVTOOLS_HEADLESS value: ${DEVTOOLS_HEADLESS}. Expected 0 or 1." >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
+  DEVTOOLS_OPEN_WITH_CHROME="0"
+  HEADLESS_CHROME_ARGS=(--headless)
+fi
+
 if [[ -z "$CHROME_BIN" ]]; then
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then
     if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
@@ -392,86 +533,91 @@ if [[ -z "$CHROME_BIN" ]]; then
       CHROME_BIN="/Applications/Chromium.app/Contents/MacOS/Chromium"
     fi
   fi
+fi
 
-  if [[ -z "$CHROME_BIN" ]]; then
-    CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+if [[ -z "$CHROME_BIN" ]]; then
+  if command -v google-chrome >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v google-chrome)"
+  elif command -v chromium-browser >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v chromium-browser)"
+  elif command -v chromium >/dev/null 2>&1; then
+    CHROME_BIN="$(command -v chromium)"
   fi
 fi
 
 if [[ -z "$CHROME_BIN" ]]; then
-  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the binary path." >&2
+  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the browser executable." >&2
   exit 1
 fi
 
 if command -v lsof >/dev/null 2>&1; then
-  if lsof -iTCP:"$DEBUG_PORT" -sTCP:LISTEN -n >/dev/null 2>&1; then
-    original_debug_port="$DEBUG_PORT"
-    for ((i = 1; i <= 200; i++)); do
-      candidate=$((original_debug_port + i))
-      if ! lsof -iTCP:"$candidate" -sTCP:LISTEN -n >/dev/null 2>&1; then
-        DEBUG_PORT="$candidate"
-        break
-      fi
-    done
-
-    if [[ "$DEBUG_PORT" == "$original_debug_port" ]]; then
-      echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
-      exit 1
-    fi
-    echo "Port ${original_debug_port} is in use; using ${DEBUG_PORT} instead." >&2
+  if lsof -iTCP:"$DEBUG_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
+    exit 1
   fi
 fi
 
 mkdir -p "$PROFILE_DIR"
+clear_devtools_profile_auth_cookies "$PROFILE_DIR"
+
+BACKGROUND_CHROME_ARGS=(
+  --remote-debugging-port="$DEBUG_PORT"
+  --user-data-dir="$PROFILE_DIR"
+  --no-first-run
+  --no-default-browser-check
+)
+if [[ ${#HEADLESS_CHROME_ARGS[@]} -gt 0 ]]; then
+  BACKGROUND_CHROME_ARGS+=("${HEADLESS_CHROME_ARGS[@]}")
+fi
+if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
+  BACKGROUND_CHROME_ARGS+=("${CHROME_ARGS[@]}")
+fi
+BACKGROUND_CHROME_ARGS+=(about:blank)
+
+OPEN_CHROME_ARGS=(
+  --remote-debugging-port="$DEBUG_PORT"
+  --user-data-dir="$PROFILE_DIR"
+  --no-first-run
+  --no-default-browser-check
+)
+if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
+  OPEN_CHROME_ARGS+=("${CHROME_ARGS[@]}")
+fi
+OPEN_CHROME_ARGS+=(about:blank)
 
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
+  write_runtime_manifest
   open_bootstrap_in_devtools
-  exec "$CHROME_BIN" \
-    --remote-debugging-port="$DEBUG_PORT" \
-    --user-data-dir="$PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]:-}" \
-    about:blank
+  exec "$CHROME_BIN" "${BACKGROUND_CHROME_ARGS[@]}"
 else
-  app_bundle=""
-  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-    case "$CHROME_BIN" in
-      *.app/Contents/MacOS/*)
-        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
-        ;;
-    esac
-  fi
-  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if ! open -g -n -a "$app_bundle" --args \
-      --remote-debugging-port="$DEBUG_PORT" \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      about:blank >/dev/null 2>&1; then
-      "$CHROME_BIN" \
-        --remote-debugging-port="$DEBUG_PORT" \
-        --user-data-dir="$PROFILE_DIR" \
-        --no-first-run \
-        --no-default-browser-check \
-        "${CHROME_ARGS[@]:-}" \
-        about:blank >/dev/null 2>&1 &
-      write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
-    fi
+  if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
+    launch_background_browser "$CHROME_BIN" "${BACKGROUND_CHROME_ARGS[@]}"
   else
-    "$CHROME_BIN" \
-      --remote-debugging-port="$DEBUG_PORT" \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      about:blank >/dev/null 2>&1 &
-    write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+    app_bundle=""
+    if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+      case "$CHROME_BIN" in
+        *.app/Contents/MacOS/*)
+          app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
+          ;;
+      esac
+    fi
+    if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
+      if ! open -g -n -a "$app_bundle" --args "${OPEN_CHROME_ARGS[@]}" >/dev/null 2>&1; then
+        launch_background_browser "$CHROME_BIN" "${OPEN_CHROME_ARGS[@]}"
+      fi
+    else
+      launch_background_browser "$CHROME_BIN" "${OPEN_CHROME_ARGS[@]}"
+    fi
   fi
+  record_active_devtools_browser
   open_bootstrap_in_devtools
+  write_runtime_manifest
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
-  echo "To stop the debug browser, quit that Chrome window or kill its process."
+  if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
+    echo "To stop the debug browser, kill its process."
+  else
+    echo "To stop the debug browser, quit that Chrome window or kill its process."
+  fi
 fi
