@@ -68,10 +68,12 @@ vi.mock("components/Section/Container/SectionContainer", () => ({
 
 function SectionsLayerProbe({
   draggingSectionId,
+  onHoveredSectionChange = () => {},
   sceneSections,
   viewportTick,
 }: {
   draggingSectionId: string | null;
+  onHoveredSectionChange?: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewportTick: number;
 }) {
@@ -81,6 +83,7 @@ function SectionsLayerProbe({
     <div data-viewport-tick={viewportTick}>
       <SettingsGraphSubstrateCanarySectionsLayer
         draggingSectionId={draggingSectionId}
+        onHoveredSectionChange={onHoveredSectionChange}
         sceneSections={sceneSections}
         sectionDragController={sectionDragController}
       />
@@ -214,6 +217,40 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
+  it("publishes shell hover changes without rerendering the DOM-backed body", async () => {
+    const onHoveredSectionChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          onHoveredSectionChange={onHoveredSectionChange}
+          sceneSections={[createSceneSection()]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    const section = host.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-section"]',
+    );
+    expect(section).not.toBeNull();
+
+    await act(async () => {
+      section?.dispatchEvent(
+        new PointerEvent("pointerover", { bubbles: true, relatedTarget: null }),
+      );
+    });
+    await act(async () => {
+      section?.dispatchEvent(
+        new PointerEvent("pointerout", { bubbles: true, relatedTarget: null }),
+      );
+    });
+
+    expect(onHoveredSectionChange.mock.calls).toEqual([["section-a"], [null]]);
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the duplicate DOM outline suppressed for the root Pixi shell layer", async () => {
     await act(async () => {
       root.render(
@@ -270,7 +307,7 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     });
   });
 
-  it("renders the shell-owned top drag handle while suppressing the duplicate DOM handle", async () => {
+  it("suppresses both DOM top drag handle variants once the shell canvas owns that visual", async () => {
     await act(async () => {
       root.render(
         <SectionsLayerProbe
@@ -285,10 +322,11 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       );
     });
 
-    const topDragHandle = host.querySelector<HTMLElement>(
-      '[data-testid="graph-substrate-canary-section-top-drag-handle"]',
-    );
-    expect(topDragHandle?.dataset.resizeHandleTone).toBe("minimal");
+    expect(
+      host.querySelector(
+        '[data-testid="graph-substrate-canary-section-top-drag-handle"]',
+      ),
+    ).toBeNull();
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       bodySurfaceOverride: {
         surfaceDecorations: {

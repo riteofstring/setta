@@ -19,6 +19,8 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
         previewStyleColors: {
           "section-a": previewStyleColor,
         },
@@ -47,14 +49,17 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       screenX: 110,
       screenY: 20,
       sectionId: "section-a",
+      topDragHandle: null,
     });
   });
 
-  it("skips sections whose remaining shell chrome is only the DOM-owned top drag handle", () => {
+  it("skips sections whose remaining shell chrome is only the hidden hover handle", () => {
     const drawables =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
         darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: null,
         previewStyleColors: {},
         sceneSections: [
           createSceneSection({
@@ -70,11 +75,53 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
     expect(drawables).toEqual([]);
   });
 
+  it("projects the shell-owned top drag handle into Pixi when the section is hovered", () => {
+    const drawables =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: "section-a",
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({
+            isInOtherProjectConfigs: true,
+            sectionTypeName: SectionTypeEnum.MetaControl,
+            styleColor: null,
+            textBlockMetaControlStyle: false,
+          }),
+        ],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      });
+
+    expect(drawables).toEqual([
+      expect.objectContaining({
+        border: null,
+        fill: null,
+        outline: null,
+        sectionId: "section-a",
+        topDragHandle: {
+          cornerRadius: 2,
+          fill: {
+            alpha: 0.7,
+            color: "hsl(220, 25%, 67%)",
+          },
+          screenHeight: 4,
+          screenWidth: 32,
+          screenX: 224,
+          screenY: 78,
+        },
+      }),
+    ]);
+  });
+
   it("uses dark-mode shell colors for unthemed active sections", () => {
     const drawables =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: ["section-a"],
         darkMode: true,
+        draggingSectionId: null,
+        hoveredSectionId: null,
         previewStyleColors: {},
         sceneSections: [createSceneSection({ isActiveSection: false })],
         viewport: { x: 0, y: 0, zoom: 1 },
@@ -92,6 +139,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       color: "#1d4ed8",
       width: 4,
     });
+    expect(drawables[0]?.topDragHandle).toBeNull();
   });
 });
 

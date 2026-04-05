@@ -10,12 +10,14 @@ import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstra
 
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
+  onHoveredSectionChange: (sectionId: string | null) => void;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
 };
 
 function _SettingsGraphSubstrateCanarySectionsLayer({
   draggingSectionId,
+  onHoveredSectionChange,
   sceneSections,
   sectionDragController,
 }: SettingsGraphSubstrateCanarySectionsLayerProps) {
@@ -88,6 +90,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             finishSectionDrag={finishSectionDrag}
             handleSectionPointerDown={handleSectionPointerDown}
             handleSectionPointerMove={handleSectionPointerMove}
+            onHoveredSectionChange={onHoveredSectionChange}
             section={section}
           >
             <SettingsGraphSubstrateCanarySectionBodyDomAdapter

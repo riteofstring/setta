@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 01:54 EDT
+Last updated: 2026-04-07 02:16 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `244` moved the shell-owned top drag handle visual out of the per-section DOM shell and into the root Pixi shell canvas, while keeping drag interaction on the existing section root and preserving the duplicate-DOM suppression contract.
+  - Why this pass stopped here:
+    - item `243` explicitly said to keep moving the first scene-owned shell slice deeper into non-editing shell/body/header visuals instead of reopening shell-lane cleanup churn
+    - the old shell-layer contract still rendered the top drag handle through a dedicated DOM adapter even though interaction already lived on the section root, so it was the next meaningful non-editing shell visual to transfer without inventing new runtime seams
+    - the updated Playwright acceptance no longer failed on the hover assertion body; it timed out later in the same `finally` `postBackend(page, "/setViewport", ...)` cleanup path already recorded as existing helper noise on this file, so this pass should not reopen cleanup-only harness work
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the Pixi shell lane
+    - the top-drag-handle acceptance itself uses a temporary created `MetaControl` section because the named regression anchor does not expose a top drag handle
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx)
+      - added canary-local hovered-section state and threaded it from the section shells back to the root shell canvas without rerendering the DOM-backed body subtree
+      - removed the old per-section DOM top-drag-handle adapter from the shell wrapper
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts) and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+      - added Pixi top-drag-handle drawables keyed off the shared shell appearance contract plus hovered/dragging section state
+      - uses exact shared theme/setta palette colors for the handle fill, and draws the handle from the root shell canvas after the existing fill/border/outline pass
+    - updated focused tests in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx), and [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts)
+      - unit tests now cover the hovered top-drag-handle drawable and the shell-hover callback path without rerendering the DOM-backed body
+      - the sanctioned Playwright handle lane now asserts both DOM handle variants are absent and that hovering changes the shell canvas data URL
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts`
+      - result: passed (`4 files`, `15 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionsLayer\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionShell\\.(tsx)|settingsGraphSubstrateCanarySectionShellPixi(Layer|Model)\\.(tsx|ts|test\\.ts)|settings-view-modes\\.spec\\.ts' || true`
+      - result: no matches
+    - sanctioned Playwright helper:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle'`
+      - result: timed out in `finally` at `postBackend(page, "/setViewport", ...)` on [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts#L1973)
+      - interpretation: the updated assertion body no longer failed on the hover/visual probe; the lane hit the same cleanup-side helper noise already recorded on this file, so it is not new product evidence against the handle move
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent verified the live worktree settings canary, centered a `MetaControl` section, and reported that the shell canvas handle was visibly present with no obvious duplicate DOM handle in the viewport or accessibility tree
+      - the sub-agent also opened the read-only `main` settings page as a comparison anchor and said the overall shell treatment matched the moved-handle behavior
+  - Lane status:
+    - the top drag handle is now scene-owned by the root Pixi shell canvas instead of a per-section DOM adapter
+    - hover/drag state is sufficient for the canvas handle to appear without rerendering the DOM-backed body subtree
+    - the remaining Playwright red on this exact lane is unchanged cleanup noise in `finally`, not a new product failure on the handle path
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing shell/header visual instead of spending a default iteration on the known cleanup timeout
+    - if the sanctioned Playwright helper is touched again, do it only in service of a later product slice, not as standalone cleanup churn
 
 - Ralph item `243` moved the first Pixi-owned shell slice deeper by making the root Pixi layer own section surface fills wherever the shared chrome contract can provide an explicit renderer-facing background color, while forcing the DOM section surface transparent at the actual themed owner boundary.
   - Why this pass stopped here:

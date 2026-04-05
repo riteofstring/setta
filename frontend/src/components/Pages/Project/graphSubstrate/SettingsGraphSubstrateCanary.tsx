@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
 import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrateCanaryBackground";
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
 import { SettingsGraphSubstrateCanarySectionShellPixiLayer } from "./settingsGraphSubstrateCanarySectionShellPixiLayer";
@@ -14,6 +14,12 @@ const ROOT_STYLE: CSSProperties = {
 
 export function SettingsGraphSubstrateCanary() {
   const controller = useSettingsGraphSubstrateCanaryController();
+  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
+  const handleHoveredSectionChange = useCallback((sectionId: string | null) => {
+    setHoveredSectionId((currentSectionId) => {
+      return currentSectionId === sectionId ? currentSectionId : sectionId;
+    });
+  }, []);
 
   return (
     <div
@@ -39,6 +45,8 @@ export function SettingsGraphSubstrateCanary() {
       )}
       {controller.sceneSections.length > 0 ? (
         <SettingsGraphSubstrateCanarySectionShellPixiLayer
+          draggingSectionId={controller.draggingSectionId}
+          hoveredSectionId={hoveredSectionId}
           sceneSections={controller.sceneSections}
           viewport={controller.resolvedViewport}
         />
@@ -58,6 +66,7 @@ export function SettingsGraphSubstrateCanary() {
         {controller.sceneSections.length > 0 ? (
           <SettingsGraphSubstrateCanarySectionsLayer
             draggingSectionId={controller.draggingSectionId}
+            onHoveredSectionChange={handleHoveredSectionChange}
             sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}
           />

@@ -24,9 +24,15 @@ const RED_400 = "#f87171";
 const RED_600 = "#dc2626";
 const TURQUOISE_400 = "#22d3ee";
 const WHITE = "#ffffff";
+const SETTA_300 = "hsl(220, 25%, 67%)";
 const SETTA_400 = "hsl(220, 26%, 57%)";
+const SETTA_500 = "hsl(220, 25%, 45%)";
+const SETTA_600 = "hsl(219, 25%, 34%)";
 const SETTA_700 = "hsl(219, 26%, 23%)";
 const SETTA_800 = "hsl(220, 26%, 14%)";
+
+const TOP_DRAG_HANDLE_HEIGHT_PX = 4;
+const TOP_DRAG_HANDLE_WIDTH_PX = 32;
 
 type SettingsGraphSubstrateCanaryShellPixiColor = {
   alpha: number;
@@ -43,6 +49,15 @@ export type SettingsGraphSubstrateCanarySectionShellPixiStroke = {
   width: number;
 };
 
+export type SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle = {
+  cornerRadius: number;
+  fill: SettingsGraphSubstrateCanarySectionShellPixiFill;
+  screenHeight: number;
+  screenWidth: number;
+  screenX: number;
+  screenY: number;
+};
+
 export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   border: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
   cornerRadius: number;
@@ -53,17 +68,22 @@ export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   screenX: number;
   screenY: number;
   sectionId: string;
+  topDragHandle: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null;
 };
 
 export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   activeSectionIds,
   darkMode,
+  draggingSectionId,
+  hoveredSectionId,
   previewStyleColors,
   sceneSections,
   viewport,
 }: {
   activeSectionIds: ReadonlyArray<string>;
   darkMode: boolean;
+  draggingSectionId: string | null;
+  hoveredSectionId: string | null;
   previewStyleColors: Record<string, string | null | undefined>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport: GraphViewport | null;
@@ -83,6 +103,9 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         isActiveSection:
           activeSectionIdSet.has(section.sectionId) ||
           section.isActiveSection === true,
+        isTopDragHandleVisible:
+          section.sectionId === hoveredSectionId ||
+          section.sectionId === draggingSectionId,
         previewStyleColor: previewStyleColors[section.sectionId],
         section,
         viewport,
@@ -98,12 +121,14 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
 function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   darkMode,
   isActiveSection,
+  isTopDragHandleVisible,
   previewStyleColor,
   section,
   viewport,
 }: {
   darkMode: boolean;
   isActiveSection: boolean;
+  isTopDragHandleVisible: boolean;
   previewStyleColor: string | null | undefined;
   section: SettingsGraphSubstrateCanarySceneSection;
   viewport: GraphViewport;
@@ -157,8 +182,17 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
     darkMode,
     viewport.zoom,
   );
+  const topDragHandle = resolveSectionShellPixiTopDragHandle({
+    appearance: shellAppearance,
+    darkMode,
+    isVisible: isTopDragHandleVisible,
+    screenWidth: screenSize.width,
+    screenX: screenPosition.x,
+    screenY: screenPosition.y,
+    zoom: viewport.zoom,
+  });
 
-  if (!border && !fill && !outline) {
+  if (!border && !fill && !outline && !topDragHandle) {
     return null;
   }
 
@@ -175,6 +209,7 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
     screenX: screenPosition.x,
     screenY: screenPosition.y,
     sectionId: section.sectionId,
+    topDragHandle,
   };
 }
 
@@ -244,6 +279,74 @@ function resolveSectionShellPixiOutlineStroke(
     color: color.color,
     width: Math.max(outlineWidth * zoom, MIN_STROKE_WIDTH),
   };
+}
+
+function resolveSectionShellPixiTopDragHandle({
+  appearance,
+  darkMode,
+  isVisible,
+  screenWidth,
+  screenX,
+  screenY,
+  zoom,
+}: {
+  appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
+  darkMode: boolean;
+  isVisible: boolean;
+  screenWidth: number;
+  screenX: number;
+  screenY: number;
+  zoom: number;
+}): SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null {
+  if (!isVisible || !appearance.surfaceDecorations.showTopDragHandle) {
+    return null;
+  }
+
+  const fill = resolveSectionShellPixiTopDragHandleFill(appearance, darkMode);
+  if (!fill) {
+    return null;
+  }
+
+  const topDragHandleWidth = TOP_DRAG_HANDLE_WIDTH_PX * zoom;
+  const topDragHandleHeight = TOP_DRAG_HANDLE_HEIGHT_PX * zoom;
+
+  return {
+    cornerRadius: topDragHandleHeight / 2,
+    fill,
+    screenHeight: topDragHandleHeight,
+    screenWidth: topDragHandleWidth,
+    screenX: screenX + (screenWidth - topDragHandleWidth) / 2,
+    screenY: screenY - topDragHandleHeight / 2,
+  };
+}
+
+function resolveSectionShellPixiTopDragHandleFill(
+  appearance: SettingsGraphSubstrateCanarySectionShellAppearance,
+  darkMode: boolean,
+): SettingsGraphSubstrateCanarySectionShellPixiFill | null {
+  if (appearance.hasSectionStyleTheme) {
+    const color = getSectionStyleColor(
+      appearance.sectionStyleVars,
+      "--setta-section-style-border",
+    );
+    if (!color) {
+      return null;
+    }
+    return {
+      alpha: 0.7,
+      color: color.color,
+    };
+  }
+
+  return appearance.surfaceDecorations.resizeHandleTone === "minimal"
+    ? {
+        alpha: 0.7,
+        color: darkMode ? SETTA_600 : SETTA_300,
+      }
+    : {
+        alpha: 0.8,
+        color: darkMode ? SETTA_500 : SETTA_400,
+      };
 }
 
 function resolveSectionShellPixiShellBorderColor(

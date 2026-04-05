@@ -18,11 +18,15 @@ import {
 import type { GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySectionShellPixiLayerProps = {
+  draggingSectionId: string | null;
+  hoveredSectionId: string | null;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   viewport: GraphViewport | null;
 };
 
 export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
+  draggingSectionId,
+  hoveredSectionId,
   sceneSections,
   viewport,
 }: SettingsGraphSubstrateCanarySectionShellPixiLayerProps) {
@@ -50,11 +54,21 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     return resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
       activeSectionIds,
       darkMode,
+      draggingSectionId,
+      hoveredSectionId,
       previewStyleColors,
       sceneSections,
       viewport,
     });
-  }, [activeSectionIds, darkMode, previewStyleColors, sceneSections, viewport]);
+  }, [
+    activeSectionIds,
+    darkMode,
+    draggingSectionId,
+    hoveredSectionId,
+    previewStyleColors,
+    sceneSections,
+    viewport,
+  ]);
 
   drawablesRef.current = drawables;
 
@@ -238,6 +252,20 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
           color: drawable.border.color,
           join: "round",
           width: drawable.border.width,
+        });
+    }
+    if (drawable.topDragHandle) {
+      graphics
+        .roundRect(
+          drawable.topDragHandle.screenX,
+          drawable.topDragHandle.screenY,
+          drawable.topDragHandle.screenWidth,
+          drawable.topDragHandle.screenHeight,
+          drawable.topDragHandle.cornerRadius,
+        )
+        .fill({
+          alpha: drawable.topDragHandle.fill.alpha,
+          color: drawable.topDragHandle.fill.color,
         });
     }
   }

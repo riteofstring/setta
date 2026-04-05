@@ -1923,36 +1923,41 @@ test("settings graph substrate canary renders the shell-owned top drag handle wi
       `[data-testid="graph-substrate-canary-section"][data-section-id="${createdSectionId}"]`,
     );
     await expect(canarySection).toBeVisible();
-    await canarySection.hover();
-
-    const shellHandle = canarySection.getByTestId(
-      "graph-substrate-canary-section-top-drag-handle",
+    const shellPixiLayer = page.getByTestId(
+      "graph-substrate-canary-section-pixi-layer",
     );
-    await expect(shellHandle).toHaveAttribute(
-      "data-resize-handle-tone",
-      "minimal",
-    );
-    await expect
-      .poll(async () => {
-        return shellHandle.evaluate((node) => {
-          return window.getComputedStyle(node as HTMLElement).opacity;
-        });
-      })
-      .not.toBe("0");
+    await expect(shellPixiLayer).toBeVisible();
 
-    const shellHandleStyle = await shellHandle.evaluate((node) => {
-      const indicator = node.firstElementChild as HTMLElement | null;
-      const computedStyle = window.getComputedStyle(indicator ?? node);
-      return {
-        backgroundColor: computedStyle.backgroundColor,
-      };
-    });
-    expect(shellHandleStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-    expect(shellHandleStyle.backgroundColor).not.toBe("transparent");
-
+    await expect(
+      canarySection.getByTestId(
+        "graph-substrate-canary-section-top-drag-handle",
+      ),
+    ).toHaveCount(0);
     await expect(
       canarySection.getByTestId("section-top-drag-handle"),
     ).toHaveCount(0);
+
+    const canvasDataUrlBeforeHover = await shellPixiLayer.evaluate((node) => {
+      return (node as HTMLCanvasElement).toDataURL();
+    });
+
+    await canarySection.hover();
+
+    await expect
+      .poll(async () => {
+        const canvasDataUrlAfterHover = await shellPixiLayer.evaluate(
+          (node) => {
+            return (node as HTMLCanvasElement).toDataURL();
+          },
+        );
+        return canvasDataUrlAfterHover === canvasDataUrlBeforeHover;
+      })
+      .toBe(false);
+
+    const canvasDataUrlAfterHover = await shellPixiLayer.evaluate((node) => {
+      return (node as HTMLCanvasElement).toDataURL();
+    });
+    expect(canvasDataUrlAfterHover).not.toBe(canvasDataUrlBeforeHover);
   } finally {
     if (createdSectionId) {
       await postBackend(page, "/deleteSections", {

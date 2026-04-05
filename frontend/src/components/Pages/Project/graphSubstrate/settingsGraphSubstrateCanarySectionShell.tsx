@@ -2,14 +2,8 @@ import React, {
   type CSSProperties,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
-  useMemo,
 } from "react";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
-import { useSettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
-import {
-  resolveSettingsGraphSubstrateCanarySectionShellLayer,
-  SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter,
-} from "./settingsGraphSubstrateCanarySectionShellLayer";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
   children: ReactNode;
@@ -23,6 +17,7 @@ type SettingsGraphSubstrateCanarySectionShellProps = {
     event: ReactPointerEvent<HTMLDivElement>,
   ) => void;
   handleSectionPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onHoveredSectionChange: (sectionId: string | null) => void;
   section: SettingsGraphSubstrateCanarySceneSection;
 };
 
@@ -32,15 +27,9 @@ function _SettingsGraphSubstrateCanarySectionShell({
   finishSectionDrag,
   handleSectionPointerDown,
   handleSectionPointerMove,
+  onHoveredSectionChange,
   section,
 }: SettingsGraphSubstrateCanarySectionShellProps) {
-  const shellAppearance =
-    useSettingsGraphSubstrateCanarySectionShellAppearance(section);
-  const shellLayer = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySectionShellLayer(
-      shellAppearance,
-    );
-  }, [shellAppearance]);
   let sectionCursor: CSSProperties["cursor"] = "grab";
   if (section.positionAndSizeLocked) {
     sectionCursor = "default";
@@ -65,14 +54,13 @@ function _SettingsGraphSubstrateCanarySectionShell({
       data-section-id={section.sectionId}
       data-dragging={draggingSectionId === section.sectionId ? "true" : "false"}
       data-testid="graph-substrate-canary-section"
+      onPointerEnter={() => onHoveredSectionChange(section.sectionId)}
+      onPointerLeave={() => onHoveredSectionChange(null)}
       onPointerDownCapture={(event) => handleSectionPointerDown(section, event)}
       onPointerMoveCapture={handleSectionPointerMove}
       onPointerUpCapture={(event) => finishSectionDrag(event, true)}
       onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
     >
-      <SettingsGraphSubstrateCanarySectionShellTopDragHandleDomAdapter
-        shellLayer={shellLayer}
-      />
       {children}
     </div>
   );

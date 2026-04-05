@@ -9491,3 +9491,34 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into the next non-editing shell/body/header visual
     - do not spend a default iteration on this helper timeout alone unless a future product slice genuinely needs the lane tightened again
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 02:16 EDT, Ralph item `244`
+  - Summary: moved the shell-owned top drag handle visual from the per-section DOM shell into the root Pixi shell canvas, added hovered-section state so the canvas can reveal that handle without rerendering the DOM-backed body subtree, and verified the live worktree visually in CDP against the read-only `main` settings shell.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - the handle-specific acceptance creates a temporary `MetaControl` section because the named regression anchor does not expose a top drag handle
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts` -> passed (`4 files`, `15 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionsLayer\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionShell\\.(tsx)|settingsGraphSubstrateCanarySectionShellPixi(Layer|Model)\\.(tsx|ts|test\\.ts)|settings-view-modes\\.spec\\.ts' || true` -> no matches
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle'` -> timed out in `finally` at `postBackend(page, "/setViewport", ...)` on `frontend/tests/e2e/settings/settings-view-modes.spec.ts:1973` after the updated hover/canvas assertion body completed
+    - fresh-context CDP sub-agent -> done; centered a `MetaControl` section on the live worktree settings canary, saw the top drag handle on the shell canvas, saw no obvious duplicate DOM handle, and used the already-running `main` settings shell as a comparison anchor
+  - Result:
+    - the top drag handle is now scene-owned by the root Pixi shell canvas
+    - the DOM-backed body subtree no longer needs a dedicated shell-handle adapter to present that visual
+    - the helper lane still has the same cleanup-timeout noise in `finally`, but the product-side hover/render path is visually confirmed in CDP
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing shell/header visual
+    - do not spend a default iteration on the known `setViewport` cleanup timeout unless a later product slice genuinely requires that helper lane to tighten
+  - LOOP_TERMINAL_MARKER: none
