@@ -1,11 +1,11 @@
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
 import {
+  type EndpointOrigin,
   resolveEndpointOriginForMode,
-  type EndpointOriginPolicy,
 } from "./serverModeBoundaryPolicy";
 
-function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+function resolveEndpointOrigin(address: string): EndpointOrigin {
   return resolveEndpointOriginForMode(address, useServerMode.getState().mode);
 }
 

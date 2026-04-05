@@ -195,10 +195,10 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 	if len(hydrated.AppGenerationByMessageID) != 2 {
 		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
 	}
-	if hydrated.AppGenerationByMessageID["user-app"] != agentruns.ChatAppGenerationMessageModeJSONRenderWithImage {
+	if hydrated.AppGenerationByMessageID["user-app"] != string(agentruns.ChatAppGenerationMessageModeJSONRenderWithImage) {
 		t.Fatalf("expected image-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
-	if hydrated.AppGenerationByMessageID["user-plain"] != agentruns.ChatAppGenerationMessageModePlainChat {
+	if hydrated.AppGenerationByMessageID["user-plain"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain-chat provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 }

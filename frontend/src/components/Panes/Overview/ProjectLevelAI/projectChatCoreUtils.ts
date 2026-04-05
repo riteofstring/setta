@@ -43,11 +43,11 @@ import {
 } from "utils/conversationSearch";
 import {
   AgentRun,
+  AppGenerationModeEnum,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
-  GeneratedAppGenerationModeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
 import { type ProjectChatThreadBlockedErrorCode } from "./projectChatHydrationAuthority";
@@ -812,7 +812,7 @@ export function hasRetainedImageAttachmentFromImageModeThread(
     }
     if (
       appGenerationByMessageId[message.id]?.mode !==
-      GeneratedAppGenerationModeEnum.JSONRenderWithImage
+      AppGenerationModeEnum.JSONRenderWithImage
     ) {
       return false;
     }

@@ -130,6 +130,9 @@ func frontendBindingNamedTypes() []reflect.Type {
 		}
 		visit(t)
 	}
+	for _, export := range DiscoveredFrontendValueExports() {
+		visit(export.Type)
+	}
 
 	types := make([]reflect.Type, 0, len(named))
 	for t := range named {

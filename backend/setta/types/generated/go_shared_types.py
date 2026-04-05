@@ -365,6 +365,12 @@ class CodeObjValueRepresentationMode(str, Enum):
     file_read = "file_read"
 
 
+class RunSnapshotMode(str, Enum):
+    ephemeral = "ephemeral"
+    always = "always"
+    never = "never"
+
+
 class Format(str, Enum):
     Jinja = "Jinja"
 

@@ -1,11 +1,7 @@
-import {
-  GENERATED_DEFAULT_APP_POLICY,
-  createPolicy,
-  type Policy,
-} from "./generatedTypes";
+import { DefaultAppPolicy, createPolicy, type Policy } from "./generatedTypes";
 
 export function createDefaultAppPolicy(): Policy {
-  return createPolicy({ ...GENERATED_DEFAULT_APP_POLICY });
+  return createPolicy({ ...DefaultAppPolicy });
 }
 
 export function createDefaultSharePolicy(): Policy {

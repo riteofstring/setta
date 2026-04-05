@@ -4,29 +4,31 @@ import {
   resolveGeneratedWorkspaceLaunchRouteKind,
 } from "./bindingRuntime";
 import {
-  GENERATED_ENDPOINT_ORIGIN_POLICY,
-  GENERATED_MODE_SCOPED_LAUNCHER_ROUTES,
-  GENERATED_SERVER_MODE_BOUNDARY_POLICY,
+  EndpointOriginEnum,
+  EndpointOriginPolicyByRoute,
+  ModeScopedLauncherRoutesList,
   RouteEnum,
-  type GeneratedEndpointOriginPolicy,
-  type GeneratedServerModeCapabilities,
-  type GeneratedWorkspaceLaunchRouteKind,
+  ServerModeBoundaryPolicyByMode,
+  WorkspaceLaunchRouteKindEnum,
+  type EndpointOrigin as GeneratedEndpointOrigin,
+  type ServerModeCapabilities as GeneratedServerModeCapabilities,
+  type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
   type ServerModeResponse,
 } from "./generatedTypes";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
-export type EndpointOriginPolicy = GeneratedEndpointOriginPolicy;
+export type EndpointOrigin = GeneratedEndpointOrigin;
 export type WorkspaceLaunchRouteKind = GeneratedWorkspaceLaunchRouteKind;
 
 export type ServerModeCapabilities = GeneratedServerModeCapabilities;
 
-export const ENDPOINT_ORIGIN_POLICY = GENERATED_ENDPOINT_ORIGIN_POLICY;
+export const ENDPOINT_ORIGIN_POLICY = EndpointOriginPolicyByRoute;
 
 export function resolveServerModeCapabilities(
   mode: ServerMode,
 ): ServerModeCapabilities {
   return resolveGeneratedServerModeCapabilities(
-    GENERATED_SERVER_MODE_BOUNDARY_POLICY,
+    ServerModeBoundaryPolicyByMode,
     mode,
     { canManageDesktopLauncher: false },
   );
@@ -36,23 +38,23 @@ export function resolveWorkspaceLaunchRouteKind(
   mode: ServerMode,
 ): WorkspaceLaunchRouteKind {
   return resolveGeneratedWorkspaceLaunchRouteKind(
-    GENERATED_SERVER_MODE_BOUNDARY_POLICY,
+    ServerModeBoundaryPolicyByMode,
     mode,
-    "blocked",
+    WorkspaceLaunchRouteKindEnum.Blocked,
   );
 }
 
 export function resolveEndpointOriginForMode(
   address: string,
   serverMode: ServerMode,
-): EndpointOriginPolicy {
+): EndpointOrigin {
   return resolveGeneratedEndpointOriginForMode(address, serverMode, {
     bootstrapPage: RouteEnum.BOOTSTRAP_PAGE,
     launcherMode: "launcher",
-    endpointOriginPolicy: GENERATED_ENDPOINT_ORIGIN_POLICY,
-    modeScopedLauncherRoutes: GENERATED_MODE_SCOPED_LAUNCHER_ROUTES,
-    backendOriginValue: "backend-origin",
-    launcherOriginValue: "launcher",
-    backendValue: "backend",
+    endpointOriginPolicy: EndpointOriginPolicyByRoute,
+    modeScopedLauncherRoutes: new Set<string>(ModeScopedLauncherRoutesList),
+    backendOriginValue: EndpointOriginEnum.BackendOrigin,
+    launcherOriginValue: EndpointOriginEnum.Launcher,
+    backendValue: EndpointOriginEnum.Backend,
   });
 }

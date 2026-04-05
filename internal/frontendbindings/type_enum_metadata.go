@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"setta/internal/agentruns"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
@@ -37,7 +38,11 @@ var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
 }
 
 var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
+	reflect.TypeOf(agentruns.AppGenerationMode("")):              frontendEnumNamingPascalValue,
+	reflect.TypeOf(agentruns.ChatAppGenerationMessageMode("")):   frontendEnumNamingPascalValue,
 	reflect.TypeOf(config.Mode("")):                              frontendEnumNamingPascalValue,
+	reflect.TypeOf(httpapi.FrontendEndpointOrigin("")):           frontendEnumNamingPascalValue,
+	reflect.TypeOf(httpapi.FrontendWorkspaceLaunchRouteKind("")): frontendEnumNamingPascalValue,
 	reflect.TypeOf(httpapi.LaunchSettaFilesLocation("")):         frontendEnumNamingPascalValue,
 	reflect.TypeOf(httpapi.LaunchResolvedSettaFilesLocation("")): frontendEnumNamingPascalValue,
 	reflect.TypeOf(launcher.LauncherOpenMode("")):                frontendEnumNamingPascalValue,

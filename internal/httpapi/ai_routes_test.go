@@ -226,7 +226,7 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 		t.Fatalf("unexpected frontendAffinityToken %#v", got)
 	}
 	appGenerationByMessageID, ok := runs[0].Inputs["appGenerationByMessageId"].(map[string]any)
-	if !ok || appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModePlainChat {
+	if !ok || appGenerationByMessageID["user-1"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected persisted app-generation provenance, got %#v", runs[0].Inputs["appGenerationByMessageId"])
 	}
 	state, err := fixture.runtime.GetLiveChatState(runs[0].ID)
@@ -280,7 +280,7 @@ func TestRegisterAIRoutesOverridesSubmittedTurnProvenanceWithRequestedMode(t *te
 	if !ok {
 		t.Fatalf("expected persisted app-generation provenance, got %#v", runs[0].Inputs["appGenerationByMessageId"])
 	}
-	if appGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+	if appGenerationByMessageID["user-1"] != string(agentruns.ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected submitted turn to use requested mode, got %#v", appGenerationByMessageID)
 	}
 }
@@ -341,7 +341,7 @@ func TestRegisterAIRoutesStartsManagedChat(t *testing.T) {
 		t.Fatalf("expected managed message in starter inputs, got %#v", rawMessages[0])
 	}
 	appGenerationByMessageID, ok := fixture.managedStarter.lastInputs["appGenerationByMessageId"].(map[string]string)
-	if !ok || appGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+	if !ok || appGenerationByMessageID["user-managed"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected managed app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
 	}
 	runs, err := fixture.store.List()
@@ -387,7 +387,7 @@ func TestRegisterAIRoutesNormalizesSubmittedTurnToPlainChatWhenModeUnset(t *test
 	if !ok {
 		t.Fatalf("expected managed app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
 	}
-	if appGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+	if appGenerationByMessageID["user-managed"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected submitted turn to normalize to plain_chat, got %#v", appGenerationByMessageID)
 	}
 }
@@ -487,7 +487,7 @@ func TestRegisterAIRoutesStartsManagedBranchEditWithFilteredAppGenerationProvena
 		t.Fatal("expected branchCreatedAt to persist")
 	}
 	appGenerationByMessageID, ok := fixture.managedStarter.lastInputs["appGenerationByMessageId"].(map[string]string)
-	if !ok || len(appGenerationByMessageID) != 1 || appGenerationByMessageID["source-user"] != agentruns.ChatAppGenerationMessageModePromptBuilder {
+	if !ok || len(appGenerationByMessageID) != 1 || appGenerationByMessageID["source-user"] != string(agentruns.ChatAppGenerationMessageModePromptBuilder) {
 		t.Fatalf("expected filtered branch-edit app-generation provenance, got %#v", fixture.managedStarter.lastInputs["appGenerationByMessageId"])
 	}
 	rawMessages, ok := fixture.managedStarter.lastInputs["messages"].([]any)
@@ -1681,7 +1681,7 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 	if payload.ContextUsage != nil {
 		t.Fatalf("expected no context usage, got %#v", payload.ContextUsage)
 	}
-	if payload.AppGenerationByMessageID["user-1"] != agentruns.ChatAppGenerationMessageModeMCPServer {
+	if payload.AppGenerationByMessageID["user-1"] != string(agentruns.ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected external app-generation provenance, got %#v", payload.AppGenerationByMessageID)
 	}
 }
@@ -6500,7 +6500,7 @@ func TestRegisterAIRoutesGetsManagedChat(t *testing.T) {
 	if got := payload.ToolCallArguments["tool-call-managed"]; got != `{"task":"Managed reply"}` {
 		t.Fatalf("expected managed toolCallArguments payload, got %#v", payload.ToolCallArguments)
 	}
-	if payload.AppGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
+	if payload.AppGenerationByMessageID["user-managed"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected managed plain-chat provenance, got %#v", payload.AppGenerationByMessageID)
 	}
 }

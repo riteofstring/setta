@@ -200,7 +200,7 @@ func normalizeStartChatGenerationOptions(
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	if appGenerationMode == nil || *appGenerationMode != agentruns.AppGenerationModeJSONRenderWithImage {
+	if appGenerationMode == nil || *appGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
 		referenceImageURL = nil
 		referenceImageNotes = nil
 	}
@@ -365,7 +365,7 @@ func validateStartChatImageRequirements(
 	priorMessages []map[string]any,
 	appGenerationByMessageID map[string]string,
 ) error {
-	if request.AppGenerationMode == nil || *request.AppGenerationMode != agentruns.AppGenerationModeJSONRenderWithImage {
+	if request.AppGenerationMode == nil || *request.AppGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
 		return nil
 	}
 	if agentruns.MessageHasImageAttachment(request.Message) {

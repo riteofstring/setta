@@ -1056,7 +1056,9 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 		lines[2] = "- streamingPreview: enabled"
 	}
 	switch resolvedMode {
-	case agentruns.AppGenerationModeJSONRender, agentruns.AppGenerationModeJSONRenderWithImage, agentruns.AppGenerationModePromptBuilder:
+	case string(agentruns.AppGenerationModeJSONRender),
+		string(agentruns.AppGenerationModeJSONRenderWithImage),
+		string(agentruns.AppGenerationModePromptBuilder):
 		lines = append(lines,
 			"- If you are generating/updating the App spec (json-render):",
 			"  - Use catalog-compatible components only.",
@@ -1075,7 +1077,7 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 		}
 	}
 	switch resolvedMode {
-	case agentruns.AppGenerationModeJSONRenderWithImage:
+	case string(agentruns.AppGenerationModeJSONRenderWithImage):
 		lines = append(lines,
 			"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
 			"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
@@ -1089,11 +1091,11 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 				lines = append(lines, fmt.Sprintf("- Reference image notes: %s", strings.TrimSpace(*referenceImageNotes)))
 			}
 		}
-	case agentruns.AppGenerationModePromptBuilder:
+	case string(agentruns.AppGenerationModePromptBuilder):
 		lines = append(lines,
 			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
 		)
-	case agentruns.AppGenerationModeMCPServer:
+	case string(agentruns.AppGenerationModeMCPServer):
 		lines = append(lines,
 			"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
 			"- For Figma-oriented requests, support both paths:",

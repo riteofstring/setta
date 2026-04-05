@@ -1562,6 +1562,43 @@ export type TransferFileBrowserEntryRequest = {
   operation: TransferOperation;
 };
 
+export const EndpointOriginEnum = {
+  Backend: "backend",
+  Launcher: "launcher",
+  BackendOrigin: "backend-origin",
+} as const;
+export type EndpointOrigin = ObjectValues<typeof EndpointOriginEnum>;
+
+export const WorkspaceLaunchRouteKindEnum = {
+  IDE: "ide",
+  Launcher: "launcher",
+  Blocked: "blocked",
+} as const;
+export type WorkspaceLaunchRouteKind = ObjectValues<
+  typeof WorkspaceLaunchRouteKindEnum
+>;
+
+export type ServerModeCapabilities = {
+  canManageDesktopLauncher: boolean;
+};
+
+type ServerModeBoundary = {
+  capabilities: ServerModeCapabilities;
+  workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
+};
+
+type ServerModeBoundaryPolicy = Record<string, ServerModeBoundary>;
+
+type EndpointOriginPolicy = Record<string, EndpointOrigin>;
+
+type ModeScopedLauncherRoutes = Array<string>;
+
+type ToolNameNormalization = {
+  singlePrefix: string;
+  doublePrefix: string;
+  askUserQuestionToolName: string;
+};
+
 type LauncherHomeErrorPayload = {
   code: string;
   message: string;
@@ -3828,6 +3865,22 @@ export type AgentProfile = {
   toolAllowlist: Array<string>;
   memoryScope?: string | null;
 };
+
+export const AppGenerationModeEnum = {
+  JSONRender: "json_render",
+  JSONRenderWithImage: "json_render_with_image",
+  PromptBuilder: "prompt_builder",
+  MCPServer: "mcp_server",
+} as const;
+export type AppGenerationMode = ObjectValues<typeof AppGenerationModeEnum>;
+
+export const ChatAppGenerationMessageModeEnum = {
+  PlainChat: "plain_chat",
+  JSONRender: "json_render",
+  JSONRenderWithImage: "json_render_with_image",
+  PromptBuilder: "prompt_builder",
+  MCPServer: "mcp_server",
+} as const;
 
 export type EngineConfig = {
   id: string;
@@ -9739,22 +9792,51 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   }
 }
 
-export type GeneratedAppGenerationMode =
-  | "json_render"
-  | "json_render_with_image"
-  | "prompt_builder"
-  | "mcp_server";
+export const BootstrapProtocol = {
+  workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
+  workspaceHistoryQueryParam: "__setta_workspace_history",
+  workspaceHistoryHashParam: "wh",
+  launcherOriginStorageKey: "setta.launcherOrigin",
+  launcherOriginHashParam: "lo",
+  launcherOriginProofHashParam: "lop",
+  openWorkspaceSwitcherQueryParam: "__setta_open_workspace_switcher",
+  openWorkspaceSwitcherHashParam: "osw",
+  backendOriginOverrideQueryParam: "__setta_backend_origin",
+  maxValueLength: 8192,
+} satisfies BootstrapHandoffProtocol;
 
-export const GeneratedAppGenerationModeEnum = {
-  JSONRender: "json_render",
-  JSONRenderWithImage: "json_render_with_image",
-  PromptBuilder: "prompt_builder",
-  MCPServer: "mcp_server",
-} as const satisfies Record<string, GeneratedAppGenerationMode>;
+export const DefaultAppPolicy = {
+  allowParamChanges: true,
+  allowVariantChanges: false,
+  allowLayoutChanges: false,
+  allowRun: true,
+  allowLLM: false,
+  allowExternalLinks: false,
+  allowFileDownloads: false,
+  allowMultipleRuns: true,
+  runSnapshotMode: "ephemeral",
+} satisfies Policy;
 
-export const GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
+export const EndpointOriginPolicyByRoute = {
+  "/__setta__/tools/call": "backend-origin",
+  "/addLauncherRecentWorkspace": "launcher",
+  "/createWorkspaceLaunchIntent": "launcher",
+  "/launch": "launcher",
+  "/launcherFilesystemRoots": "launcher",
+  "/launcherRecentWorkspaces": "launcher",
+  "/listLauncherDirectory": "launcher",
+  "/openLauncherWorkspace": "launcher",
+  "/pinLauncherRecentWorkspace": "launcher",
+  "/removeLauncherRecentWorkspace": "launcher",
+  "/settaHomeInfo": "backend",
+} satisfies EndpointOriginPolicy;
 
-export const GENERATED_NAME_VALIDATION_CONTRACT = {
+export const ModeScopedLauncherRoutesList = [
+  "/launch",
+  "/createWorkspaceLaunchIntent",
+] satisfies ModeScopedLauncherRoutes;
+
+export const NameValidationRules = {
   projectReservedNames: ["home", "settings"],
   pythonKeywords: [
     "False",
@@ -9986,17 +10068,38 @@ export const GENERATED_NAME_VALIDATION_CONTRACT = {
   slugReplacementChars: ["[", "]", '"', "'", " "],
 } satisfies NameValidationContract;
 
-export const GENERATED_DEFAULT_APP_POLICY = {
-  allowParamChanges: true,
-  allowVariantChanges: false,
-  allowLayoutChanges: false,
-  allowRun: true,
-  allowLLM: false,
-  allowExternalLinks: false,
-  allowFileDownloads: false,
-  allowMultipleRuns: true,
-  runSnapshotMode: "ephemeral",
-} as const satisfies Policy;
+export const ServerModeBoundaryPolicyByMode = {
+  app: {
+    capabilities: {
+      canManageDesktopLauncher: false,
+    },
+    workspaceLaunchRouteKind: "blocked",
+  },
+  ide: {
+    capabilities: {
+      canManageDesktopLauncher: true,
+    },
+    workspaceLaunchRouteKind: "ide",
+  },
+  launcher: {
+    capabilities: {
+      canManageDesktopLauncher: false,
+    },
+    workspaceLaunchRouteKind: "launcher",
+  },
+  share: {
+    capabilities: {
+      canManageDesktopLauncher: false,
+    },
+    workspaceLaunchRouteKind: "blocked",
+  },
+} satisfies ServerModeBoundaryPolicy;
+
+export const ToolNameNormalizationConfig = {
+  singlePrefix: "setta_",
+  doublePrefix: "setta__",
+  askUserQuestionToolName: "AskUserQuestion",
+} satisfies ToolNameNormalization;
 
 type SafeParseSuccess<T> = {
   success: true;
@@ -10018,19 +10121,6 @@ function generatedSafeParseFieldPath(
 ): string {
   return fieldName === "" ? propertyName : fieldName + "." + propertyName;
 }
-
-export const GENERATED_BOOTSTRAP_PROTOCOL = {
-  workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
-  workspaceHistoryQueryParam: "__setta_workspace_history",
-  workspaceHistoryHashParam: "wh",
-  launcherOriginStorageKey: "setta.launcherOrigin",
-  launcherOriginHashParam: "lo",
-  launcherOriginProofHashParam: "lop",
-  openWorkspaceSwitcherQueryParam: "__setta_open_workspace_switcher",
-  openWorkspaceSwitcherHashParam: "osw",
-  backendOriginOverrideQueryParam: "__setta_backend_origin",
-  maxValueLength: 8192,
-} satisfies BootstrapHandoffProtocol;
 
 type FrontendConstants = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;
@@ -10147,70 +10237,3 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
 } as Record<SectionType, readonly UIEditorTabName[]>;
-
-export type GeneratedEndpointOriginPolicy =
-  | "backend"
-  | "launcher"
-  | "backend-origin";
-
-export type GeneratedWorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
-
-export type GeneratedServerModeCapabilities = {
-  canManageDesktopLauncher: boolean;
-};
-
-export const GENERATED_SERVER_MODE_BOUNDARY_POLICY = {
-  ide: {
-    capabilities: { canManageDesktopLauncher: true },
-    workspaceLaunchRouteKind: "ide",
-  },
-  share: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-  app: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-  launcher: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "launcher",
-  },
-} as Record<
-  ServerModeResponse["mode"],
-  {
-    capabilities: GeneratedServerModeCapabilities;
-    workspaceLaunchRouteKind: GeneratedWorkspaceLaunchRouteKind;
-  }
->;
-
-export const GENERATED_ENDPOINT_ORIGIN_POLICY = {
-  "/launch": "launcher",
-  "/createWorkspaceLaunchIntent": "launcher",
-  "/settaHomeInfo": "backend",
-  "/__setta__/tools/call": "backend-origin",
-  "/launcherRecentWorkspaces": "launcher",
-  "/addLauncherRecentWorkspace": "launcher",
-  "/removeLauncherRecentWorkspace": "launcher",
-  "/pinLauncherRecentWorkspace": "launcher",
-  "/launcherFilesystemRoots": "launcher",
-  "/listLauncherDirectory": "launcher",
-  "/openLauncherWorkspace": "launcher",
-} as Readonly<Record<string, GeneratedEndpointOriginPolicy>>;
-
-export const GENERATED_MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
-  "/launch",
-  "/createWorkspaceLaunchIntent",
-]);
-
-type GeneratedToolNameNormalization = {
-  singlePrefix: string;
-  doublePrefix: string;
-  askUserQuestionToolName: string;
-};
-
-export const GENERATED_TOOL_NAME_NORMALIZATION = {
-  singlePrefix: "setta_",
-  doublePrefix: "setta__",
-  askUserQuestionToolName: "AskUserQuestion",
-} as const satisfies GeneratedToolNameNormalization;

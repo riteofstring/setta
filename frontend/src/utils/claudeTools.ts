@@ -1,8 +1,8 @@
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
-  GENERATED_TOOL_NAME_NORMALIZATION,
   ToolCall,
+  ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
 import { normalizeGeneratedToolName } from "./bindingRuntime";
 
@@ -52,9 +52,9 @@ export function normalizeToolName(
 ): string | null {
   return normalizeGeneratedToolName(
     name,
-    GENERATED_TOOL_NAME_NORMALIZATION.singlePrefix,
-    GENERATED_TOOL_NAME_NORMALIZATION.doublePrefix,
-    GENERATED_TOOL_NAME_NORMALIZATION.askUserQuestionToolName,
+    ToolNameNormalizationConfig.singlePrefix,
+    ToolNameNormalizationConfig.doublePrefix,
+    ToolNameNormalizationConfig.askUserQuestionToolName,
   );
 }
 

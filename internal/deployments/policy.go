@@ -68,6 +68,10 @@ func DefaultAppPolicy() Policy {
 	}
 }
 
+func FrontendValueDefaultAppPolicy() Policy {
+	return DefaultAppPolicy()
+}
+
 func LoadPolicy(deploymentRoot string) (Policy, error) {
 	resolvedRoot, err := statefs.NormalizePath(deploymentRoot, "")
 	if err != nil {

@@ -27,6 +27,10 @@ func FrontendNameValidationContractData() FrontendNameValidationContract {
 	}
 }
 
+func FrontendValueNameValidationRules() FrontendNameValidationContract {
+	return FrontendNameValidationContractData()
+}
+
 func sanitizeSimpleNameSlug(name string) string {
 	replaced := strings.NewReplacer(
 		"[", "_",

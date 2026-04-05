@@ -1,5 +1,5 @@
 import {
-  GENERATED_NAME_VALIDATION_CONTRACT,
+  NameValidationRules,
   type NameValidationContract,
 } from "utils/generatedTypes";
 import {
@@ -19,8 +19,7 @@ type ParamNameValidationOptions = {
   skipPathChecks?: boolean;
 };
 
-const generatedNameValidation: NameValidationContract =
-  GENERATED_NAME_VALIDATION_CONTRACT;
+const generatedNameValidation: NameValidationContract = NameValidationRules;
 
 const simpleNameAllowedChars = new Set(
   generatedNameValidation.simpleNameAllowedChars,

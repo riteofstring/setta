@@ -2,34 +2,40 @@ package agentruns
 
 import "strings"
 
+type AppGenerationMode string
+
+type ChatAppGenerationMessageMode string
+
 const (
-	ChatAppGenerationMessageModePlainChat           = "plain_chat"
-	AppGenerationModeJSONRender                     = "json_render"
-	AppGenerationModeJSONRenderWithImage            = "json_render_with_image"
-	AppGenerationModePromptBuilder                  = "prompt_builder"
-	AppGenerationModeMCPServer                      = "mcp_server"
-	ChatAppGenerationMessageModeJSONRender          = AppGenerationModeJSONRender
-	ChatAppGenerationMessageModeJSONRenderWithImage = AppGenerationModeJSONRenderWithImage
-	ChatAppGenerationMessageModePromptBuilder       = AppGenerationModePromptBuilder
-	ChatAppGenerationMessageModeMCPServer           = AppGenerationModeMCPServer
+	ChatAppGenerationMessageModePlainChat ChatAppGenerationMessageMode = "plain_chat"
+
+	AppGenerationModeJSONRender          AppGenerationMode = "json_render"
+	AppGenerationModeJSONRenderWithImage AppGenerationMode = "json_render_with_image"
+	AppGenerationModePromptBuilder       AppGenerationMode = "prompt_builder"
+	AppGenerationModeMCPServer           AppGenerationMode = "mcp_server"
+
+	ChatAppGenerationMessageModeJSONRender          ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModeJSONRender)
+	ChatAppGenerationMessageModeJSONRenderWithImage ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModeJSONRenderWithImage)
+	ChatAppGenerationMessageModePromptBuilder       ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModePromptBuilder)
+	ChatAppGenerationMessageModeMCPServer           ChatAppGenerationMessageMode = ChatAppGenerationMessageMode(AppGenerationModeMCPServer)
 )
 
 func AppGenerationModes() []string {
 	return []string{
-		AppGenerationModeJSONRender,
-		AppGenerationModeJSONRenderWithImage,
-		AppGenerationModePromptBuilder,
-		AppGenerationModeMCPServer,
+		string(AppGenerationModeJSONRender),
+		string(AppGenerationModeJSONRenderWithImage),
+		string(AppGenerationModePromptBuilder),
+		string(AppGenerationModeMCPServer),
 	}
 }
 
 func ParseAppGenerationMode(raw string) (string, bool) {
 	trimmed := strings.TrimSpace(raw)
 	switch trimmed {
-	case AppGenerationModeJSONRender,
-		AppGenerationModeJSONRenderWithImage,
-		AppGenerationModePromptBuilder,
-		AppGenerationModeMCPServer:
+	case string(AppGenerationModeJSONRender),
+		string(AppGenerationModeJSONRenderWithImage),
+		string(AppGenerationModePromptBuilder),
+		string(AppGenerationModeMCPServer):
 		return trimmed, true
 	default:
 		return "", false
@@ -69,7 +75,7 @@ func NormalizeAppGenerationByMessageID(raw any) map[string]string {
 		}
 	case map[string]any:
 		for messageID, rawMode := range typed {
-			mode, ok := rawMode.(string)
+			mode, ok := normalizeAppGenerationModeValue(rawMode)
 			if !ok {
 				continue
 			}
@@ -81,13 +87,26 @@ func NormalizeAppGenerationByMessageID(raw any) map[string]string {
 	return normalized
 }
 
+func normalizeAppGenerationModeValue(raw any) (string, bool) {
+	switch typed := raw.(type) {
+	case string:
+		return strings.TrimSpace(typed), true
+	case AppGenerationMode:
+		return strings.TrimSpace(string(typed)), true
+	case ChatAppGenerationMessageMode:
+		return strings.TrimSpace(string(typed)), true
+	default:
+		return "", false
+	}
+}
+
 func isAllowedChatAppGenerationMessageMode(mode string) bool {
 	switch mode {
-	case ChatAppGenerationMessageModePlainChat,
-		AppGenerationModeJSONRender,
-		AppGenerationModeJSONRenderWithImage,
-		AppGenerationModePromptBuilder,
-		AppGenerationModeMCPServer:
+	case string(ChatAppGenerationMessageModePlainChat),
+		string(AppGenerationModeJSONRender),
+		string(AppGenerationModeJSONRenderWithImage),
+		string(AppGenerationModePromptBuilder),
+		string(AppGenerationModeMCPServer):
 		return true
 	default:
 		return false
@@ -129,7 +148,7 @@ func HasRetainedImageAttachmentFromImageModeThread(
 			continue
 		}
 		messageID, _ := message["id"].(string)
-		if appGenerationByMessageID[messageID] != ChatAppGenerationMessageModeJSONRenderWithImage {
+		if appGenerationByMessageID[messageID] != string(ChatAppGenerationMessageModeJSONRenderWithImage) {
 			continue
 		}
 		if MessageHasImageAttachment(message) {
@@ -149,7 +168,7 @@ func NormalizeSubmittedTurnAppGenerationByMessageID(
 		return normalized
 	}
 	if requestedMode == nil || strings.TrimSpace(*requestedMode) == "" {
-		normalized[submittedMessageID] = ChatAppGenerationMessageModePlainChat
+		normalized[submittedMessageID] = string(ChatAppGenerationMessageModePlainChat)
 		return normalized
 	}
 	normalized[submittedMessageID] = strings.TrimSpace(*requestedMode)

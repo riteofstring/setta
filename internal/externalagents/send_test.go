@@ -400,7 +400,7 @@ func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *tes
 		PermissionMode:          ChatPermissionModeYolo,
 		SearchEnabled:           false,
 		AppSpecStreamingEnabled: true,
-		AppGenerationMode:       stringPtr(agentruns.AppGenerationModeJSONRender),
+		AppGenerationMode:       stringPtr(string(agentruns.AppGenerationModeJSONRender)),
 	})
 	if err != nil {
 		t.Fatalf("start external app-generation chat: %v", err)
@@ -1128,7 +1128,7 @@ func TestSendServiceRejectsImageModeWithoutCurrentOrRetainedImageAttachment(t *t
 		AllowUnscoped:     true,
 		PermissionMode:    ChatPermissionModeMinimal,
 		SearchEnabled:     false,
-		AppGenerationMode: stringPtr(agentruns.AppGenerationModeJSONRenderWithImage),
+		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
 			"appGenerationByMessageId": map[string]any{
 				"user-image": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
@@ -1186,7 +1186,7 @@ func TestSendServiceAllowsImageModeWithRetainedImageModeHistory(t *testing.T) {
 		AllowUnscoped:     true,
 		PermissionMode:    ChatPermissionModeMinimal,
 		SearchEnabled:     false,
-		AppGenerationMode: stringPtr(agentruns.AppGenerationModeJSONRenderWithImage),
+		AppGenerationMode: stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		AdditionalInputs: map[string]any{
 			"appGenerationByMessageId": map[string]any{
 				"user-image-initial":   agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,

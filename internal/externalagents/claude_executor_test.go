@@ -2257,8 +2257,8 @@ func runClaudeFixtureProcess(scenario string) error {
 		if got := strings.TrimSpace(stringValue(rawEnv["WHITESPACE_KEY"])); got != "managed-fallback" {
 			return fmt.Errorf("expected managed fallback for whitespace key, got %#v", rawEnv["WHITESPACE_KEY"])
 		}
-		if _, ok := rawEnv["PLAIN_KEY"]; ok {
-			return fmt.Errorf("expected plain dotenv-only key to stay excluded, got %#v", rawEnv["PLAIN_KEY"])
+		if got := strings.TrimSpace(stringValue(rawEnv["PLAIN_KEY"])); got != "plain-dot-env-value" {
+			return fmt.Errorf("expected plain dotenv fallback, got %#v", rawEnv["PLAIN_KEY"])
 		}
 		if _, ok := rawEnv["MISSING_KEY"]; ok {
 			return fmt.Errorf("expected missing key to stay excluded, got %#v", rawEnv["MISSING_KEY"])

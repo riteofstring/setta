@@ -1,10 +1,9 @@
-import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
+import { BootstrapProtocol } from "utils/generatedTypes";
 import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
-const LAUNCHER_ORIGIN_STORAGE_KEY =
-  GENERATED_BOOTSTRAP_PROTOCOL.launcherOriginStorageKey;
+const LAUNCHER_ORIGIN_STORAGE_KEY = BootstrapProtocol.launcherOriginStorageKey;
 
 function launcherOriginStorage(): Storage | undefined {
   return safeSessionStorage();

@@ -1,10 +1,10 @@
 import {
-  GeneratedAppGenerationModeEnum,
-  type GeneratedAppGenerationMode,
+  AppGenerationModeEnum,
+  type AppGenerationMode as GeneratedAppGenerationMode,
 } from "utils/generatedTypes";
 
 const appGenerationModeSet = new Set<GeneratedAppGenerationMode>(
-  Object.values(GeneratedAppGenerationModeEnum),
+  Object.values(AppGenerationModeEnum),
 );
 
 export type AppGenerationMode = GeneratedAppGenerationMode;

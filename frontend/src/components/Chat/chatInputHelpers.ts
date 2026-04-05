@@ -3,8 +3,8 @@ import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { isImageAttachment } from "utils/attachmentPreview";
 import {
+  AppGenerationModeEnum,
   ChatFileAttachment,
-  GeneratedAppGenerationModeEnum,
 } from "utils/generatedTypes";
 import {
   type ChatPermissionModeValue,
@@ -246,9 +246,7 @@ export function resolveSlashCommandSubmitOptions(
 function requiresImageAttachmentForAppGenerationMode(
   appGenerationMode: AppGenerationMode | null | undefined,
 ): boolean {
-  return (
-    appGenerationMode === GeneratedAppGenerationModeEnum.JSONRenderWithImage
-  );
+  return appGenerationMode === AppGenerationModeEnum.JSONRenderWithImage;
 }
 
 function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
 	binary "setta/internal/binary"
+	deployments "setta/internal/deployments"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
@@ -379,6 +380,15 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf((*projectview.CodeFileBinding)(nil)).Elem(),
 		reflect.TypeOf(projectview.ProjectStateSummary{}),
 		reflect.TypeOf(projectview.ProjectStateItem{}),
+		reflect.TypeOf(deployments.Metadata{}),
+		reflect.TypeOf(deployments.Allocation{}),
+		reflect.TypeOf(deployments.Type("")),
+		reflect.TypeOf(deployments.ListenerConfig{}),
+		reflect.TypeOf(deployments.Manifest{}),
+		reflect.TypeOf(deployments.RunSnapshotMode("")),
+		reflect.TypeOf(deployments.Policy{}),
+		reflect.TypeOf(deployments.Session{}),
+		reflect.TypeOf(deployments.SharePolicyOverrides{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryVariant{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryParam{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummarySection{}),

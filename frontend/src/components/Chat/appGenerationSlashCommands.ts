@@ -1,5 +1,5 @@
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { GeneratedAppGenerationModeEnum } from "utils/generatedTypes";
+import { AppGenerationModeEnum } from "utils/generatedTypes";
 
 export type AppGenerationSlashCommandAction =
   | "app_json_render"
@@ -19,7 +19,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-json",
     action: "app_json_render",
-    mode: GeneratedAppGenerationModeEnum.JSONRender,
+    mode: AppGenerationModeEnum.JSONRender,
     summary: "Generate a standalone app spec through JSON render.",
     promptTemplate: [
       "Generate a polished standalone JSON-render app spec.",
@@ -30,7 +30,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-image",
     action: "app_json_render_with_image",
-    mode: GeneratedAppGenerationModeEnum.JSONRenderWithImage,
+    mode: AppGenerationModeEnum.JSONRenderWithImage,
     summary: "Generate an app spec using attached image guidance.",
     promptTemplate: [
       "Generate a JSON-render app spec that matches the attached reference image as closely as possible.",
@@ -41,7 +41,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-prompt",
     action: "app_prompt_builder",
-    mode: GeneratedAppGenerationModeEnum.PromptBuilder,
+    mode: AppGenerationModeEnum.PromptBuilder,
     summary: "Generate an app-definition plan for chat-driven iteration.",
     promptTemplate: [
       "Generate a practical, polished JSON-render app spec for this project.",
@@ -52,7 +52,7 @@ export const APP_GENERATION_SLASH_COMMANDS: AppGenerationSlashCommandEntry[] = [
   {
     command: "/app-mcp",
     action: "app_mcp_server",
-    mode: GeneratedAppGenerationModeEnum.MCPServer,
+    mode: AppGenerationModeEnum.MCPServer,
     summary: "Route app generation through MCP-capable tools.",
     promptTemplate: [
       "Use MCP tools to produce a high-fidelity UI implementation for this project.",
