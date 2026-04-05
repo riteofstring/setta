@@ -43,6 +43,21 @@ describe("resolveAttachmentLimit", () => {
 });
 
 describe("getAttachmentPolicy", () => {
+  it("derives chat policy fields from constants", () => {
+    const policy = getAttachmentPolicy("chat");
+    expect(policy.maxFiles).toBe(C.CHAT_ATTACHMENTS_MAX_FILES);
+    expect(policy.maxFileBytes).toBe(C.CHAT_ATTACHMENTS_MAX_FILE_BYTES);
+    expect(policy.maxFileLabel).toBe(C.CHAT_ATTACHMENTS_MAX_FILE_LABEL);
+  });
+
+  it("derives dropzone limits from constants", () => {
+    const stateful = getAttachmentPolicy("dropzone_stateful");
+    const stateless = getAttachmentPolicy("dropzone_stateless");
+    expect(stateful.maxFileBytes).toBe(C.DROPZONE_STATEFUL_MAX_FILE_BYTES);
+    expect(stateless.maxFileBytes).toBe(C.DROPZONE_STATELESS_MAX_FILE_BYTES);
+    expect(stateless.maxTotalBytes).toBe(C.DROPZONE_STATELESS_MAX_TOTAL_BYTES);
+  });
+
   it("builds allowed mime label from configured prefixes", () => {
     const originalPrefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES;
     try {

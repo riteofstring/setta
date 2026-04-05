@@ -3,11 +3,6 @@ import {
   gitFileStatusCategoryFromCommitFile,
   gitFileStatusVisuals,
 } from "components/Git/gitFileStatusVisuals";
-import type {
-  GitreadCommit as Commit,
-  GitreadCommitChangedFile as CommitChangedFile,
-  GitreadCommitDetailsResponse as CommitDetailsResponse,
-} from "openapi/http";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   List,
@@ -27,6 +22,11 @@ import {
 } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
+import type {
+  GetGitCommitDetailsResponse,
+  GitCommit,
+  GitCommitChangedFile,
+} from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -224,10 +224,8 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
 };
 const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
 
-export function buildGitCommitSearchBlob(commit: Commit): string {
-  const normalizedDecorations = (commit.decorations ?? [])
-    .join(" ")
-    .toLowerCase();
+export function buildGitCommitSearchBlob(commit: GitCommit): string {
+  const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
   return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
 }
 
@@ -336,11 +334,11 @@ export function summarizeDecorationChips(
 }
 
 function buildDecorationChipSummaryByHash(
-  commits: readonly Commit[],
+  commits: readonly GitCommit[],
 ): Map<string, DecorationChipSummary> {
   const allDecorations: string[] = [];
   for (const commit of commits) {
-    allDecorations.push(...(commit.decorations ?? []));
+    allDecorations.push(...commit.decorations);
   }
   const remoteDecorationPrefixes =
     collectRemoteDecorationPrefixes(allDecorations);
@@ -349,19 +347,16 @@ function buildDecorationChipSummaryByHash(
   for (const commit of commits) {
     chipSummaryByHash.set(
       commit.hash,
-      summarizeDecorationChips(
-        commit.decorations ?? [],
-        remoteDecorationPrefixes,
-      ),
+      summarizeDecorationChips(commit.decorations, remoteDecorationPrefixes),
     );
   }
   return chipSummaryByHash;
 }
 
 export function buildGitCommitLookupByHash(
-  commits: readonly Commit[],
-): Map<string, Commit> {
-  const commitsByHash = new Map<string, Commit>();
+  commits: readonly GitCommit[],
+): Map<string, GitCommit> {
+  const commitsByHash = new Map<string, GitCommit>();
   for (const commit of commits) {
     commitsByHash.set(commit.hash, commit);
   }
@@ -382,7 +377,9 @@ export function buildGitGraphRowHeightCacheKey({
   return `${commitDigest}:${refMode}:${normalizedFilter}`;
 }
 
-export function buildGitGraphCommitDigest(commits: readonly Commit[]): string {
+export function buildGitGraphCommitDigest(
+  commits: readonly GitCommit[],
+): string {
   if (commits.length === 0) {
     return "0";
   }
@@ -1285,18 +1282,16 @@ export function GitGraphOverlay({
                       Reload
                     </button>
                   </div>
-                  {(selectedCommit.decorations?.length ?? 0) > 0 && (
+                  {selectedCommit.decorations.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {(selectedCommit.decorations ?? [])
-                        .slice(0, 6)
-                        .map((d) => (
-                          <span
-                            key={d}
-                            className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
-                          >
-                            {d}
-                          </span>
-                        ))}
+                      {selectedCommit.decorations.slice(0, 6).map((d) => (
+                        <span
+                          key={d}
+                          className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
+                        >
+                          {d}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1411,7 +1406,7 @@ function GitCommitRow({
 
   const decorationSummary =
     decorationChipSummaryByHash.get(commit.hash) ??
-    summarizeDecorationChips(commit.decorations ?? []);
+    summarizeDecorationChips(commit.decorations);
   const chips = decorationSummary.chips;
   const extraChipCount = decorationSummary.extraChipCount;
 
@@ -1616,12 +1611,10 @@ function ExpandedCommitRow({
   details,
   selectedFilePath,
 }: {
-  details: CommitDetailsResponse;
+  details: GetGitCommitDetailsResponse;
   selectedFilePath: string | null;
 }) {
-  const parents = details.parents ?? [];
-  const files = details.files ?? [];
-  const parentsLabel = parents.map((p) => p.slice(0, 8)).join(" ");
+  const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");
   const authorDate = DATE_FORMATTER.format(new Date(details.authorTimeMs));
   const committerDate = DATE_FORMATTER.format(
     new Date(details.committerTimeMs),
@@ -1686,11 +1679,11 @@ function ExpandedCommitRow({
             Files changed
           </div>
           <div className="text-[11px] text-setta-400 dark:text-setta-500">
-            {files.length}
+            {details.files.length}
           </div>
         </div>
 
-        {files.length === 0 ? (
+        {details.files.length === 0 ? (
           <div className="rounded-md border border-setta-200 bg-white px-2 py-2 text-[11px] text-setta-500 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-400">
             None
           </div>
@@ -1699,7 +1692,7 @@ function ExpandedCommitRow({
             data-testid="git-graph-files-list"
             className="max-h-56 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
           >
-            {files.map((file) => (
+            {details.files.map((file) => (
               <li key={`${file.status}-${file.oldPath ?? ""}-${file.path}`}>
                 <CommitFileRow
                   file={file}
@@ -1718,7 +1711,7 @@ function CommitFileRow({
   file,
   isSelected,
 }: {
-  file: CommitChangedFile;
+  file: GitCommitChangedFile;
   isSelected: boolean;
 }) {
   const additions =
