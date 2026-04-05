@@ -126,6 +126,12 @@ func buildGoBackedCreateBodyTS(
 	if !ok {
 		return "", fmt.Errorf("%s default literal did not decode to an object", context)
 	}
+	propertyAccessExpr := func(baseExpr string, propertyName string) string {
+		if tsIdentifierPattern.MatchString(propertyName) {
+			return baseExpr + "." + propertyName
+		}
+		return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
+	}
 	defaultsObject := make(map[string]any, len(properties))
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
@@ -140,53 +146,29 @@ func buildGoBackedCreateBodyTS(
 		}
 		expr, ok := buildGenericCreateFieldExprTS(
 			propertySpec,
-			tsPropertyAccessExpr("defaults", property.Name),
-			tsPropertyAccessExpr("options", property.Name),
+			propertyAccessExpr("defaults", property.Name),
+			propertyAccessExpr("options", property.Name),
 			hasDefault,
 		)
 		if !ok {
 			continue
 		}
-		appendGoBackedCreateFieldAssignment(&fieldBuilder, property.Name, expr)
+		fieldBuilder.WriteString("    ")
+		if property.Name != "__proto__" && tsIdentifierPattern.MatchString(property.Name) {
+			fieldBuilder.WriteString(property.Name)
+		} else {
+			fieldBuilder.WriteString(strconv.Quote(property.Name))
+		}
+		fieldBuilder.WriteString(": ")
+		fieldBuilder.WriteString(expr)
+		fieldBuilder.WriteString(",\n")
 	}
-	ensureNoUnexpectedGoBackedCreateDefaults(context, defaultValuesByName, defaultsObject)
-	return renderGoBackedCreateBody(declarationName, defaultsObject, fieldBuilder.String()), nil
-}
-
-func appendGoBackedCreateFieldAssignment(
-	builder *strings.Builder,
-	propertyName string,
-	expr string,
-) {
-	builder.WriteString("    ")
-	if propertyName != "__proto__" && tsIdentifierPattern.MatchString(propertyName) {
-		builder.WriteString(propertyName)
-	} else {
-		builder.WriteString(strconv.Quote(propertyName))
-	}
-	builder.WriteString(": ")
-	builder.WriteString(expr)
-	builder.WriteString(",\n")
-}
-
-func ensureNoUnexpectedGoBackedCreateDefaults(
-	context string,
-	defaultValuesByName map[string]any,
-	defaultsObject map[string]any,
-) {
 	for key := range defaultValuesByName {
 		if _, ok := defaultsObject[key]; ok {
 			continue
 		}
 		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
-}
-
-func renderGoBackedCreateBody(
-	declarationName string,
-	defaultsObject map[string]any,
-	fieldAssignments string,
-) string {
 	var builder strings.Builder
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
@@ -197,9 +179,9 @@ func renderGoBackedCreateBody(
 	builder.WriteString("    ...mergeGeneratedOptions<")
 	builder.WriteString(declarationName)
 	builder.WriteString(">(defaults, options),\n")
-	builder.WriteString(fieldAssignments)
+	builder.WriteString(fieldBuilder.String())
 	builder.WriteString("  };")
-	return builder.String()
+	return builder.String(), nil
 }
 
 func buildGenericCreateFieldExprTS(
@@ -274,13 +256,6 @@ func buildGenericCreateFieldExprTS(
 		return builder.String(), true
 	}
 	return "", false
-}
-
-func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
-	if tsIdentifierPattern.MatchString(propertyName) {
-		return baseExpr + "." + propertyName
-	}
-	return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
 }
 
 func (c *typeConverter) structPropertySpecs(
