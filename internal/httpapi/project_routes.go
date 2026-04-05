@@ -178,6 +178,7 @@ type ProjectRouteDependencies struct {
 	CallableSignatures             projectstate.CallableSignatureResolver
 	CodeUpdates                    ProjectCodeUpdateService
 	RenameRefactors                ProjectRenameRefactorService
+	openAPIDocumentOnly            bool
 }
 
 type ProjectCodeUpdateService interface {
@@ -1678,7 +1679,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	if deps.ModePolicy.IsIDE() && !deps.openAPIDocumentOnly {
 		if strings.TrimSpace(deps.WorkspaceRoot) == "" {
 			return fmt.Errorf("workspace root is required in ide mode")
 		}
@@ -1704,7 +1705,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 			return fmt.Errorf("project python generated-section reconciler is required in ide mode")
 		}
 	}
-	if deps.ModePolicy.IsDeployment() {
+	if deps.ModePolicy.IsDeployment() && !deps.openAPIDocumentOnly {
 		if deps.ShareSessions == nil {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}

@@ -16,8 +16,6 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/chatattachments"
-	"setta/internal/chatsections"
-	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
@@ -48,8 +46,6 @@ import (
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
-type frontendHTTPOpenAPIProjectCodeUpdateService struct{}
-type frontendHTTPOpenAPIProjectRenameRefactorService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -79,26 +75,6 @@ func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pytho
 		CoreVersion:        "dev-core",
 		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
 	}
-}
-
-func (frontendHTTPOpenAPIProjectCodeUpdateService) SetCode(context.Context, string, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectCodeUpdateService) FormatCode(context.Context, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectRenameRefactorService) SetSectionName(context.Context, string, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectRenameRefactorService) AcceptRenameRefactor(context.Context, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPIProjectRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
-	return nil
 }
 
 func newFrontendHTTPOpenAPILauncherManagementService() (*launcher.ManagementService, error) {
@@ -259,15 +235,8 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		return nil, fmt.Errorf("register artifact routes: %w", err)
 	}
 	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
-		ModePolicy:                     modes.NewPolicy(config.ModeIDE),
-		WorkspaceRoot:                  "/workspace",
-		ProjectState:                   &projectstate.Runtime{},
-		SettingsState:                  &settingsstate.Runtime{},
-		ChatSectionChatIDs:             (*chatsections.Service)(nil),
-		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
-		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error { return nil }),
-		CodeUpdates:                    frontendHTTPOpenAPIProjectCodeUpdateService{},
-		RenameRefactors:                frontendHTTPOpenAPIProjectRenameRefactorService{},
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		openAPIDocumentOnly: true,
 	}); err != nil {
 		return nil, fmt.Errorf("register project routes: %w", err)
 	}

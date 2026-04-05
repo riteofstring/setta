@@ -1039,6 +1039,38 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 	)
 }
 
+func TestRegisterProjectRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *testing.T) {
+	document := newOpenAPIDocument()
+	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+
+	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		openAPIDocumentOnly: true,
+	}); err != nil {
+		t.Fatalf("register project routes for openapi document: %v", err)
+	}
+
+	setCode := document.Paths[RouteSetCode].Post
+	if setCode == nil {
+		t.Fatalf("expected %s post operation", RouteSetCode)
+	}
+	if setCode.OperationID != "setCode" {
+		t.Fatalf("set code operation id = %q, want %q", setCode.OperationID, "setCode")
+	}
+
+	acceptRenameRefactor := document.Paths[RouteAcceptRenameRefactor].Post
+	if acceptRenameRefactor == nil {
+		t.Fatalf("expected %s post operation", RouteAcceptRenameRefactor)
+	}
+	if acceptRenameRefactor.OperationID != "acceptRenameRefactor" {
+		t.Fatalf(
+			"accept rename refactor operation id = %q, want %q",
+			acceptRenameRefactor.OperationID,
+			"acceptRenameRefactor",
+		)
+	}
+}
+
 func assertOpenAPIOperationID(
 	t *testing.T,
 	paths map[string]any,
