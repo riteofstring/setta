@@ -47,6 +47,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         width: 240,
         height: 160,
         resolvedSize: { width: 240, height: 160 },
+        sceneBoundsSize: { width: 240, height: 160 },
         zIndex: 2,
         tempZIndex: 1002,
         positionAndSizeLocked: false,
@@ -59,6 +60,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         height: null,
         sizeAuthority: "none",
         resolvedSize: { width: 280, height: 190 },
+        sceneBoundsSize: null,
         zIndex: 1,
         tempZIndex: 1,
         positionAndSizeLocked: false,
@@ -142,6 +144,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
       height: 78,
       sizeAuthority: "sectionModel",
       resolvedSize: { width: 550, height: 78 },
+      sceneBoundsSize: { width: 550, height: 78 },
       zIndex: 2,
       tempZIndex: 2,
       positionAndSizeLocked: false,
@@ -185,7 +188,12 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
       width: 240,
       height: 160,
     });
+    expect(snapshot.sections[0]?.sceneBoundsSize).toEqual({
+      width: 240,
+      height: 160,
+    });
     expect(snapshot.sections[1]?.resolvedSize).toBeNull();
+    expect(snapshot.sections[1]?.sceneBoundsSize).toBeNull();
     expect(snapshot.sceneBounds).toEqual({
       x: 120,
       y: 80,
@@ -213,6 +221,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     );
 
     expect(snapshot.sections[0]?.resolvedSize).toBeNull();
+    expect(snapshot.sections[0]?.sceneBoundsSize).toBeNull();
     expect(snapshot.sceneBounds).toBeNull();
   });
 
@@ -245,6 +254,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
       height: null,
       sizeAuthority: "none",
       resolvedSize: { width: 280, height: 190 },
+      sceneBoundsSize: null,
       zIndex: 2,
       tempZIndex: 2,
       positionAndSizeLocked: false,

@@ -14,6 +14,7 @@ export type SettingsGraphSubstrateCanarySectionPositionOverride = {
 export type SettingsGraphSubstrateCanaryResolvedSectionGeometry = {
   renderedPosition: Position;
   resolvedSize: SectionElementSize | null;
+  sceneBoundsSize: SectionElementSize | null;
 };
 
 export function resolveSettingsGraphSubstrateCanarySectionGeometry(
@@ -21,12 +22,15 @@ export function resolveSettingsGraphSubstrateCanarySectionGeometry(
   sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
 ): SettingsGraphSubstrateCanaryResolvedSectionGeometry {
+  const resolvedSize = getResolvedSectionSize(section, sectionElementSizes);
+
   return {
     renderedPosition: getRenderedSectionPosition(
       section,
       sectionPositionOverride,
     ),
-    resolvedSize: getResolvedSectionSize(section, sectionElementSizes),
+    resolvedSize,
+    sceneBoundsSize: getSceneBoundsSize(section, resolvedSize),
   };
 }
 
@@ -86,6 +90,31 @@ function getResolvedSectionSize(
   }
 
   return sectionSize;
+}
+
+function getSceneBoundsSize(
+  section: GraphSubstrateCanarySection,
+  resolvedSize: SectionElementSize | null,
+) {
+  if (
+    hasPositiveSectionSize(resolvedSize) &&
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section) !== "none"
+  ) {
+    return resolvedSize;
+  }
+
+  return getStoredSectionSize(section);
+}
+
+function hasPositiveSectionSize(
+  size: Pick<SectionElementSize, "width" | "height"> | null | undefined,
+) {
+  return (
+    typeof size?.width === "number" &&
+    size.width > 0 &&
+    typeof size.height === "number" &&
+    size.height > 0
+  );
 }
 
 function getStoredSectionSize(

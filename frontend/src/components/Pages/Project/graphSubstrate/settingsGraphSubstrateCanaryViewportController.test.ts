@@ -13,16 +13,39 @@ import {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
+  const resolvedSize =
+    "resolvedSize" in overrides
+      ? overrides.resolvedSize ?? null
+      : { width: 200, height: 100 };
+  const width =
+    "width" in overrides
+      ? overrides.width ?? null
+      : resolvedSize?.width ?? null;
+  const height =
+    "height" in overrides
+      ? overrides.height ?? null
+      : resolvedSize?.height ?? null;
+  const sizeAuthority =
+    overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
+
   return {
     sectionId: "section-1",
     position: { x: 0, y: 0 },
     renderedPosition: { x: 0, y: 0 },
     zIndex: 1,
     tempZIndex: 1,
-    width: 200,
-    height: 100,
-    resolvedSize: { width: 200, height: 100 },
+    width,
+    height,
+    resolvedSize,
+    sceneBoundsSize:
+      overrides.sceneBoundsSize ??
+      (resolvedSize && sizeAuthority !== "none"
+        ? resolvedSize
+        : width && height
+          ? { width, height }
+          : null),
     positionAndSizeLocked: false,
+    ...(sizeAuthority ? { sizeAuthority } : {}),
     ...overrides,
   };
 }

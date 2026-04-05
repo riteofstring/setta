@@ -399,27 +399,30 @@ function createSceneSnapshot({
   position = { x: 120, y: 80 },
   renderedPosition = position,
   resolvedSize = { width: 240, height: 160 },
+  sceneBoundsSize = resolvedSize,
   sceneBounds = {
     x: renderedPosition.x,
     y: renderedPosition.y,
-    width: resolvedSize?.width ?? 0,
-    height: resolvedSize?.height ?? 0,
+    width: sceneBoundsSize?.width ?? 0,
+    height: sceneBoundsSize?.height ?? 0,
   },
 }: {
   position?: { x: number; y: number };
   renderedPosition?: { x: number; y: number };
   resolvedSize?: { width: number; height: number } | null;
+  sceneBoundsSize?: { width: number; height: number } | null;
   sceneBounds?: SettingsGraphSubstrateCanarySceneSnapshot["sceneBounds"];
 } = {}): SettingsGraphSubstrateCanarySceneSnapshot {
   const section = {
-    height: resolvedSize?.height ?? 160,
+    height: sceneBoundsSize?.height ?? resolvedSize?.height ?? 160,
     position,
     positionAndSizeLocked: false,
     renderedPosition,
     resolvedSize,
+    sceneBoundsSize,
     sectionId: "section-a",
     tempZIndex: 2,
-    width: resolvedSize?.width ?? 240,
+    width: sceneBoundsSize?.width ?? resolvedSize?.width ?? 240,
     zIndex: 2,
   };
 

@@ -191,21 +191,44 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
+  const resolvedSize =
+    "resolvedSize" in overrides
+      ? overrides.resolvedSize ?? null
+      : { width: 240, height: 160 };
+  const width =
+    "width" in overrides
+      ? overrides.width ?? null
+      : resolvedSize?.width ?? null;
+  const height =
+    "height" in overrides
+      ? overrides.height ?? null
+      : resolvedSize?.height ?? null;
+  const sizeAuthority =
+    overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
+
   return {
-    height: 160,
+    height,
     isActiveSection: false,
     isInOtherProjectConfigs: false,
     position: { x: 120, y: 80 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 120, y: 80 },
-    resolvedSize: { width: 240, height: 160 },
+    resolvedSize,
+    sceneBoundsSize:
+      overrides.sceneBoundsSize ??
+      (resolvedSize && sizeAuthority !== "none"
+        ? resolvedSize
+        : width && height
+          ? { width, height }
+          : null),
     sectionId: "section-a",
     sectionTypeName: SectionTypeEnum.Code,
     styleColor: null,
     tempZIndex: 2,
     textBlockMetaControlStyle: false,
-    width: 240,
+    width,
     zIndex: 2,
+    ...(sizeAuthority ? { sizeAuthority } : {}),
     ...overrides,
   };
 }

@@ -1,8 +1,5 @@
 import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
-import {
-  getSettingsGraphSubstrateCanarySectionSizeAuthority,
-  type GraphSubstrateCanarySection,
-} from "./settingsGraphSubstrateCanaryModel";
+import { type GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import {
   resolveSettingsGraphSubstrateCanarySectionGeometry,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
@@ -15,6 +12,7 @@ export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
     renderedPosition: GraphSubstrateCanarySection["position"];
     resolvedSize: SectionElementSizes[string] | null;
+    sceneBoundsSize: SectionElementSizes[string] | null;
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
@@ -47,6 +45,7 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
       ...section,
       renderedPosition: geometry.renderedPosition,
       resolvedSize: geometry.resolvedSize,
+      sceneBoundsSize: geometry.sceneBoundsSize,
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
     return sceneSection;
@@ -86,7 +85,7 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
   let hasAuthoritativeSectionBounds = false;
 
   for (const section of sections) {
-    const boundsSize = getRenderableSceneBoundsSize(section);
+    const boundsSize = section.sceneBoundsSize;
     if (!boundsSize) {
       continue;
     }
@@ -108,40 +107,4 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
     width: maxX - minX,
     height: maxY - minY,
   };
-}
-
-function getPositiveSceneBoundsSize(
-  size:
-    | {
-        height: number | null | undefined;
-        width: number | null | undefined;
-      }
-    | null
-    | undefined,
-) {
-  if (
-    typeof size?.width === "number" &&
-    size.width > 0 &&
-    typeof size.height === "number" &&
-    size.height > 0
-  ) {
-    return size;
-  }
-
-  return null;
-}
-
-function getRenderableSceneBoundsSize(
-  section: SettingsGraphSubstrateCanarySceneSection,
-) {
-  const resolvedSize = getPositiveSceneBoundsSize(section.resolvedSize);
-  if (resolvedSize) {
-    const sizeAuthority =
-      getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
-    if (sizeAuthority !== "none") {
-      return resolvedSize;
-    }
-  }
-
-  return getPositiveSceneBoundsSize(section);
 }

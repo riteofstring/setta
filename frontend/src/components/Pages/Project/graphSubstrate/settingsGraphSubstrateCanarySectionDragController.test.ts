@@ -79,16 +79,39 @@ function createHarness(
 function createSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
+  const resolvedSize =
+    "resolvedSize" in overrides
+      ? overrides.resolvedSize ?? null
+      : { width: 180, height: 90 };
+  const width =
+    "width" in overrides
+      ? overrides.width ?? null
+      : resolvedSize?.width ?? null;
+  const height =
+    "height" in overrides
+      ? overrides.height ?? null
+      : resolvedSize?.height ?? null;
+  const sizeAuthority =
+    overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
+
   return {
-    height: 90,
+    height,
     position: { x: 100, y: 200 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 100, y: 200 },
-    resolvedSize: { width: 180, height: 90 },
+    resolvedSize,
+    sceneBoundsSize:
+      overrides.sceneBoundsSize ??
+      (resolvedSize && sizeAuthority !== "none"
+        ? resolvedSize
+        : width && height
+          ? { width, height }
+          : null),
     sectionId: "section-a",
     tempZIndex: 3,
-    width: 180,
+    width,
     zIndex: 3,
+    ...(sizeAuthority ? { sizeAuthority } : {}),
     ...overrides,
   };
 }

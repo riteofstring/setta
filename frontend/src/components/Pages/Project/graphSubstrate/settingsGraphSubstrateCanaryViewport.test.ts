@@ -304,22 +304,25 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
 function createSceneSnapshot({
   position = { x: 0, y: 0 },
   renderedPosition = position,
+  sceneBoundsSize = { width: 240, height: 120 },
 }: {
   position?: { x: number; y: number };
   renderedPosition?: { x: number; y: number };
+  sceneBoundsSize?: { width: number; height: number } | null;
 }) {
   return {
     sceneBounds: null,
     sections: [
       {
-        height: 120,
+        height: sceneBoundsSize?.height ?? 120,
         position,
         positionAndSizeLocked: false,
         renderedPosition,
         resolvedSize: { width: 240, height: 120 },
+        sceneBoundsSize,
         sectionId: "section-a",
         tempZIndex: 1,
-        width: 240,
+        width: sceneBoundsSize?.width ?? 240,
         zIndex: 1,
       },
     ],

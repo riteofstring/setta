@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 05:54 EDT
+Last updated: 2026-04-07 06:08 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `259` made scene-bounds authority explicit on each canary scene section via `sceneBoundsSize`, so bounds and `fitView` now consume a declared geometry contract instead of re-inferring authority from `resolvedSize`.
+
+  - Why this pass stopped here:
+    - item `258` already stopped the `sizeAuthority: "none"` path from widening `sceneBounds`, but the bounds decision still lived as downstream inference inside `getSettingsGraphSubstrateCanarySceneBoundsForSections(...)`
+    - the next smallest real product move was to promote that decision into the scene-geometry / scene-snapshot contract instead of repeating the same authority check in later bounds/viewport consumers
+    - this pass stayed bounded to the scene-section contract plus focused fixture/test updates; it does not yet remove `useSectionElementSizes(...)` or decide whether the remaining `sharedNode` measured refresh path should keep widening authoritative bounds
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate remained a bounded worktree canary-health check only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts)
+      - geometry resolution now returns `sceneBoundsSize` alongside `resolvedSize`
+      - authoritative layout/section-model/shared-node geometry stays explicit while `sizeAuthority: "none"` measured fallback now resolves `sceneBoundsSize: null`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts)
+      - scene sections now store `sceneBoundsSize`
+      - `getSettingsGraphSubstrateCanarySceneBoundsForSections(...)` now reuses that explicit contract directly instead of inferring authority from `resolvedSize`
+    - updated focused scene-section fixture/test helpers in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts)
+      - added the explicit `sceneBoundsSize` fixture field where scene sections are constructed directly
+      - fixed helper builders so explicit `null` geometry overrides stay unresolved instead of being silently replaced by default sizes
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`
+      - result: passed (`10 files`, `62 tests`)
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent bootstrapped through `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3076/home`, then opened `/settings`
+      - DevTools result: `All Settings` showed a populated graph surface with multiple visible settings cards and the minimap; the canary was not blank or detached
+  - Lane status:
+    - scene bounds and targeted `fitView` now read explicit `sceneBoundsSize` from the scene section contract instead of re-deriving authority from `resolvedSize`
+    - `resolvedSize` remains available as the local render fallback for visible shells, so the contract now cleanly separates render-only measured fallback from authoritative bounds geometry
+    - do not reopen this exact contract-split slice unless a downstream consumer reintroduces `resolvedSize` authority inference
+  - Next frontier:
+    - inspect whether the remaining `sharedNode` measured refresh path should keep widening `sceneBoundsSize` before a later authoritative promotion, or whether that measurement should be narrowed to seed-only local fallback while authoritative bounds stay on stored/controller size
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `258` stopped `sceneBounds` / `fitView` from treating `sizeAuthority: "none"` measured fallback as authoritative geometry while keeping the same local `resolvedSize` render fallback for visible canary shells.
 
