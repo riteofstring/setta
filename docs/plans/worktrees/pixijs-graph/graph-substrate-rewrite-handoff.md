@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 20:00 EDT
+Last updated: 2026-04-05 20:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,62 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `209` extracted section-title appearance behind the shared chrome contract so section headers and project chat window headers no longer depend on a DOM header helper for title styling.
+  - Why this slice was needed:
+    - item `208` closed section-surface/meta-control appearance, but title tone, uppercase fixed-title handling, and themed-vs-default title text rules still lived inside `SectionHeader.tsx`
+    - `ProjectChatWindowSurface.tsx` was importing `getTitleStyles(...)` from `SectionHeader`, so a future scene-owned header/title layer would still have depended on a DOM header component for title appearance
+    - approval to add Pixi is still unavailable, so the next bounded renderer-ownership slice had to deepen the existing chrome contract rather than reopen parity or controller churn
+  - Production/test change:
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `resolveSectionChromeTitleDecorations(...)` as a renderer-neutral contract for title tone, uppercase fixed-title casing, and fixed-title styling strategy
+      - added `getSectionChromeTitleDomAdapter(...)` so the current DOM title inputs/labels remain the adapter layer over that contract
+    - updated `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - now resolves title appearance through the shared chrome contract instead of owning `getTitleStyles(...)` inline
+      - kept title selection logic (`MaybeCardTitle`, text-block heading suppression) while moving title styling authority beside the shell/surface chrome seams
+    - updated `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.tsx`
+      - now consumes the shared title chrome contract directly instead of importing title styling from `SectionHeader`
+    - updated focused tests:
+      - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+  - What this slice established:
+    - title appearance now lives beside shell and surface appearance in one renderer-facing chrome module
+    - section headers and project chat window headers no longer depend on a DOM header helper to agree on title styling
+    - fixed-title uppercase handling for `GlobalVariables` / generated-code sections is now expressed as shared chrome semantics instead of hidden `SectionHeader` class logic
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green on refreshed run-040 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.06082ms`; worktree average frame duration was `16.62295ms`
+      - visible section count stayed `46` on both sides
+      - reference recorded one `56ms` long task; worktree recorded none
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Header/SectionHeader.tsx src/components/ChatWindowing/ProjectChatWindowSurface.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Header/SectionHeader.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+      - result: passed (`3 files`, `30 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|sectionChrome\\.test\\.ts|SectionHeader\\.tsx|ProjectChatWindowSurface(\\.test)?\\.tsx" || true`
+      - result: no matches
+      - note: `SectionHeader.test.tsx` still carries unrelated legacy strict-type noise, so the narrowed grep stayed on the files touched in this slice
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-040/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-040/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-040 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-040 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `37.8s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, normalized both already-open settings sessions to `All Settings`, and centered `rotaryParamCodeObjDefault`
+      - note: the fresh bootstrap URLs were rejected again, so the visual compare used the existing mounted `/settings` sessions instead of new bootstrap tabs
+      - note: no target-lane graph-surface divergence was visible; worktree and read-only `main` showed the same `rotaryParamCodeObjDefault` body fields (`Core Name Editable`, `Core Name Type`, `defaultVal`, `max 1.0`, `min 0.0`, `step 0.1`, `typeAnnotation`, `value 0`)
+  - Lane status:
+    - this closes the title portion of the header/title/action appearance lane without reopening parity-only work
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if approval is still unavailable, keep the next bounded renderer-ownership slice on shared header action/button appearance extraction across `SectionHeader`, `ProjectChatWindowSurface`, and `ProjectChatBottomDock`
+    - do not reopen parity or controller cleanup unless the existing broad normalized lane fails
 
 - Ralph item `208` extracted the section-surface/meta-control appearance contract behind one renderer-facing surface-decoration seam so future scene-owned shells no longer have to reconstruct transparent hover frames, single-cell meta layout, hover elevation, minimal resize-handle tone, or top drag-handle visibility from both `SectionContainerCoreResizabe` and `CustomResizable`.
   - Why this slice was needed:

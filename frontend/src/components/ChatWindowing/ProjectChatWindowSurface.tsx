@@ -1,11 +1,12 @@
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
 import {
+  getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
   resolveSectionChromeShellDecorations,
+  resolveSectionChromeTitleDecorations,
 } from "components/Section/Container/sectionChrome";
 import { getBgColor } from "components/Section/Container/utils";
-import { getTitleStyles } from "components/Section/Header/SectionHeader";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   useEffect,
@@ -92,12 +93,14 @@ function ProjectChatWindowTitle({
   const errorClassName = validationError
     ? "text-red-500 dark:text-red-300 border-red-400"
     : "";
-  const titleProps = getTitleStyles({
-    isActiveSection: false,
-    isInOtherProjectConfigs: false,
-    sectionTypeName: SectionTypeEnum.Chat,
-    hasSectionStyleTheme: false,
-  });
+  const titleProps = getSectionChromeTitleDomAdapter(
+    resolveSectionChromeTitleDecorations({
+      isActiveSection: false,
+      isInOtherProjectConfigs: false,
+      sectionTypeName: SectionTypeEnum.Chat,
+      hasSectionStyleTheme: false,
+    }),
+  );
   const editingClassName =
     `${titleProps.editing ?? ""} ${errorClassName}`.trim();
   const notEditingClassName =

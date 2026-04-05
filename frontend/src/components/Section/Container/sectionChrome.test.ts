@@ -1,11 +1,14 @@
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   getSectionChromeSurfaceDomAdapter,
+  getSectionChromeTitleDomAdapter,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
   resolveSectionChromeFrameStructure,
   resolveSectionChromeShellDecorations,
   resolveSectionChromeSurfaceDecorations,
+  resolveSectionChromeTitleDecorations,
 } from "./sectionChrome";
 
 describe("sectionChrome", () => {
@@ -167,6 +170,40 @@ describe("sectionChrome", () => {
         "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60",
       layoutClassName: "grid-cols-1 grid-rows-1",
       metaHoverZIndexClassName: "group-hover/card-section:z-[170]",
+    });
+  });
+
+  it("resolves renderer-neutral title decorations for uppercase fixed titles", () => {
+    expect(
+      resolveSectionChromeTitleDecorations({
+        isActiveSection: true,
+        isInOtherProjectConfigs: false,
+        sectionTypeName: SectionTypeEnum.GlobalVariables,
+        hasSectionStyleTheme: false,
+      }),
+    ).toEqual({
+      useThemeTextColor: false,
+      notEditingTone: "global-active",
+      textCase: "uppercase",
+      fixedStyle: "match-not-editing",
+    });
+  });
+
+  it("maps title decorations to DOM classes without depending on SectionHeader helpers", () => {
+    expect(
+      getSectionChromeTitleDomAdapter({
+        useThemeTextColor: false,
+        notEditingTone: "terminal-inactive",
+        textCase: "normal",
+        fixedStyle: "subdued-italic",
+      }),
+    ).toEqual({
+      editing:
+        "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight",
+      notEditing:
+        "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate text-setta-300",
+      fixed:
+        "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5 text-setta-400",
     });
   });
 

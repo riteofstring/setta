@@ -31,6 +31,10 @@ import {
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
+import {
+  getSectionChromeTitleDomAdapter,
+  resolveSectionChromeTitleDecorations,
+} from "../Container/sectionChrome";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -565,7 +569,7 @@ function MaybeCardTitle({
   ) : (
     <SectionTitle
       sectionId={sectionId}
-      titleProps={getTitleStyles({
+      titleProps={getSectionTitleProps({
         isActiveSection,
         isInOtherProjectConfigs,
         sectionTypeName,
@@ -637,7 +641,7 @@ function TextBlockCardTitle({
     !useHeadingAsSectionName && (
       <SectionTitle
         sectionId={sectionId}
-        titleProps={getTitleStyles({
+        titleProps={getSectionTitleProps({
           isActiveSection,
           isInOtherProjectConfigs,
           sectionTypeName,
@@ -653,83 +657,27 @@ export function hasMarkdownHeadingText(markdown: string) {
   if (!match) {
     return false;
   }
-  return match[2].trim().length > 0;
+  const headingText = match[2];
+  return headingText !== undefined && headingText.trim().length > 0;
 }
 
-export function getTitleStyles({
+function getSectionTitleProps({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
+}: {
+  isActiveSection: boolean;
+  isInOtherProjectConfigs: boolean;
+  sectionTypeName: SectionType;
+  hasSectionStyleTheme: boolean;
 }) {
-  const editing = hasSectionStyleTheme
-    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
-    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
-
-  const notEditing = getNotEditingStyle({
-    isActiveSection,
-    isInOtherProjectConfigs,
-    sectionTypeName,
-    hasSectionStyleTheme,
-  });
-
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
-    return { fixed: notEditing };
-  }
-
-  const fixed = hasSectionStyleTheme
-    ? "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5"
-    : "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
-
-  return { editing, notEditing, fixed };
-}
-
-function getNotEditingStyle({
-  isActiveSection,
-  isInOtherProjectConfigs,
-  sectionTypeName,
-  hasSectionStyleTheme,
-}) {
-  let textColorClass = "";
-  let fontClass = "font-bold";
-
-  // Handle text color based on conditions
-  if (!hasSectionStyleTheme) {
-    if (isActiveSection) {
-      if (isInOtherProjectConfigs) {
-        textColorClass = "text-purple-800 dark:text-purple-200";
-      } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-        textColorClass = "text-green-800 dark:text-green-200";
-      } else if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-blue-400";
-      } else {
-        textColorClass = "text-blue-600 dark:text-blue-400";
-      }
-    } else {
-      if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-setta-300";
-      } else {
-        textColorClass = "text-setta-700 dark:text-setta-300";
-      }
-    }
-  }
-
-  // Handle text case for global variables
-  if (
-    sectionTypeName === SectionTypeEnum.GlobalVariables ||
-    sectionTypeName === SectionTypeEnum.GenPythonCode ||
-    sectionTypeName === SectionTypeEnum.GenPythonMetadata
-  ) {
-    fontClass = "uppercase font-bold";
-  }
-
-  // Combine all the classes
-  const baseClasses =
-    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
-
-  return `${baseClasses} ${textColorClass} ${fontClass}`;
+  return getSectionChromeTitleDomAdapter(
+    resolveSectionChromeTitleDecorations({
+      isActiveSection,
+      isInOtherProjectConfigs,
+      sectionTypeName,
+      hasSectionStyleTheme,
+    }),
+  );
 }

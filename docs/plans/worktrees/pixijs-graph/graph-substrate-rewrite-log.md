@@ -75,6 +75,54 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `209` | 2026-04-05 20:14 EDT
+  - Subtask: extract section-title appearance into the shared chrome contract so section headers and project chat window headers stop depending on `SectionHeader` for title styling.
+  - Why:
+    - item `208` closed the section-surface/meta-control appearance lane, but title tone, uppercase fixed-title handling, and themed-vs-default title text still lived inside `SectionHeader.tsx`
+    - `ProjectChatWindowSurface.tsx` was importing `getTitleStyles(...)` from `SectionHeader`, so a future scene-owned header/title layer would still have depended on a DOM header helper for title appearance
+    - approval to add Pixi is still unavailable, so the next bounded renderer-ownership slice had to deepen the chrome contract rather than reopen parity/controller work
+  - Production:
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `resolveSectionChromeTitleDecorations(...)` for title tone, fixed-title casing, and fixed-title style strategy
+      - added `getSectionChromeTitleDomAdapter(...)` so the DOM title path stays an adapter over that shared contract
+    - updated `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - now resolves title styling through the shared chrome contract instead of owning `getTitleStyles(...)` inline
+      - kept title-selection behavior (`MaybeCardTitle`, text-block heading suppression) while moving title-style authority beside the other chrome seams
+    - updated `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.tsx`
+      - now consumes the shared title chrome contract directly instead of importing title styling from `SectionHeader`
+  - Tests:
+    - updated `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - added coverage for uppercase fixed-title decorations and DOM title adapter mapping
+    - updated `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+      - rewired the title-style mock coverage to the shared chrome contract
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Header/SectionHeader.tsx src/components/ChatWindowing/ProjectChatWindowSurface.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Header/SectionHeader.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx` -> passed (`3 files`, `30 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|sectionChrome\\.test\\.ts|SectionHeader\\.tsx|ProjectChatWindowSurface(\\.test)?\\.tsx" || true` -> no matches
+      - note: `SectionHeader.test.tsx` still has unrelated legacy strict-type noise, so the narrowed grep stayed on the files touched in this slice
+  - Runtime verification:
+    - refreshed run-040 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-040/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-040/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-040 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-040 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `37.8s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.06082ms`; worktree average frame duration was `16.62295ms`
+      - visible section count stayed `46` on both sides; reference recorded one `56ms` long task and worktree recorded none
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - normalized both already-open settings sessions to `All Settings` and centered `rotaryParamCodeObjDefault`
+      - the fresh bootstrap URLs were rejected again, so the compare used the existing mounted `/settings` sessions instead of new bootstrap tabs
+      - no target-lane graph-surface divergence was visible; worktree and read-only `main` showed the same `rotaryParamCodeObjDefault` body fields (`Core Name Editable`, `Core Name Type`, `defaultVal`, `max 1.0`, `min 0.0`, `step 0.1`, `typeAnnotation`, `value 0`)
+  - Result:
+    - title appearance now lives beside shell and surface appearance in the shared chrome module instead of inside `SectionHeader`
+    - project chat window headers no longer depend on a DOM header helper to match section title styling
+    - this closes the title portion of the header/title/action appearance lane while keeping the broad normalized parity lane green
+  - Next:
+    - if approval is still unavailable, extract shared header action/button appearance across `SectionHeader`, `ProjectChatWindowSurface`, and `ProjectChatBottomDock`
+    - do not reopen parity or controller cleanup unless the broad normalized `rotaryParamCodeObjDefault` lane fails
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `208` | 2026-04-05 20:00 EDT
   - Subtask: extract the shared section-surface/meta-control appearance contract from `SectionContainerCoreResizabe` and `CustomResizable`.
   - Production:

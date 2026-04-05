@@ -1,3 +1,5 @@
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+
 type SectionContainerShellClassNameOptions = {
   outlineTone: SectionChromeOutlineTone;
   scopeHighlight: SectionChromeScopeHighlight;
@@ -33,6 +35,13 @@ type ResolveSectionChromeSurfaceDecorationsArgs = {
   isMetaControlSection: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
+};
+
+type ResolveSectionChromeTitleDecorationsArgs = {
+  isActiveSection: boolean;
+  isInOtherProjectConfigs: boolean;
+  sectionTypeName: SectionType;
+  hasSectionStyleTheme: boolean;
 };
 
 export type SectionChromeCornerStyle = "large" | "small";
@@ -87,6 +96,33 @@ export type SectionChromeShellDecorations = {
   scopeHighlight: SectionChromeScopeHighlight;
   showAiHighlight: boolean;
   zIndexClassName: string;
+};
+
+export type SectionChromeTitleTone =
+  | "default"
+  | "active"
+  | "other-project-active"
+  | "global-active"
+  | "terminal-active"
+  | "terminal-inactive";
+
+export type SectionChromeTitleCase = "normal" | "uppercase";
+
+export type SectionChromeTitleFixedStyle =
+  | "match-not-editing"
+  | "subdued-italic";
+
+export type SectionChromeTitleDecorations = {
+  useThemeTextColor: boolean;
+  notEditingTone: SectionChromeTitleTone;
+  textCase: SectionChromeTitleCase;
+  fixedStyle: SectionChromeTitleFixedStyle;
+};
+
+export type SectionChromeTitleDomAdapter = {
+  editing: string;
+  notEditing: string;
+  fixed: string;
 };
 
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
@@ -174,6 +210,29 @@ export function resolveSectionChromeShellDecorations({
   };
 }
 
+export function resolveSectionChromeTitleDecorations({
+  isActiveSection,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+}: ResolveSectionChromeTitleDecorationsArgs): SectionChromeTitleDecorations {
+  return {
+    useThemeTextColor: hasSectionStyleTheme,
+    notEditingTone: resolveSectionChromeTitleTone({
+      isActiveSection,
+      isInOtherProjectConfigs,
+      sectionTypeName,
+      hasSectionStyleTheme,
+    }),
+    textCase: isSectionChromeUppercaseTitleType(sectionTypeName)
+      ? "uppercase"
+      : "normal",
+    fixedStyle: isSectionChromeFixedOnlyTitleType(sectionTypeName)
+      ? "match-not-editing"
+      : "subdued-italic",
+  };
+}
+
 export function resolveSectionChromeFrameStructure({
   positionAndSizeLocked,
   useMetaControlStyle,
@@ -258,6 +317,90 @@ export function getSectionChromeSurfaceDomAdapter(
   }
 
   return adapter;
+}
+
+export function getSectionChromeTitleDomAdapter(
+  titleDecorations: SectionChromeTitleDecorations,
+): SectionChromeTitleDomAdapter {
+  const editing = titleDecorations.useThemeTextColor
+    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
+    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
+  const notEditing = joinClassNames(
+    "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate",
+    titleDecorations.useThemeTextColor
+      ? ""
+      : getSectionChromeTitleToneClassName(titleDecorations.notEditingTone),
+    titleDecorations.textCase === "uppercase" ? "uppercase" : "",
+  );
+  const fixed =
+    titleDecorations.fixedStyle === "match-not-editing"
+      ? notEditing
+      : joinClassNames(
+          "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5",
+          titleDecorations.useThemeTextColor ? "" : "text-setta-400",
+        );
+
+  return {
+    editing,
+    notEditing,
+    fixed,
+  };
+}
+
+function isSectionChromeUppercaseTitleType(sectionTypeName: SectionType) {
+  return (
+    sectionTypeName === SectionTypeEnum.GlobalVariables ||
+    sectionTypeName === SectionTypeEnum.GenPythonCode ||
+    sectionTypeName === SectionTypeEnum.GenPythonMetadata
+  );
+}
+
+function isSectionChromeFixedOnlyTitleType(sectionTypeName: SectionType) {
+  return isSectionChromeUppercaseTitleType(sectionTypeName);
+}
+
+function resolveSectionChromeTitleTone({
+  isActiveSection,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+}: ResolveSectionChromeTitleDecorationsArgs): SectionChromeTitleTone {
+  if (hasSectionStyleTheme) {
+    return "default";
+  }
+  if (isActiveSection && isInOtherProjectConfigs) {
+    return "other-project-active";
+  }
+  if (isActiveSection && sectionTypeName === SectionTypeEnum.GlobalVariables) {
+    return "global-active";
+  }
+  if (isActiveSection && sectionTypeName === SectionTypeEnum.Terminal) {
+    return "terminal-active";
+  }
+  if (isActiveSection) {
+    return "active";
+  }
+  if (sectionTypeName === SectionTypeEnum.Terminal) {
+    return "terminal-inactive";
+  }
+  return "default";
+}
+
+function getSectionChromeTitleToneClassName(tone: SectionChromeTitleTone) {
+  switch (tone) {
+    case "active":
+      return "text-blue-600 dark:text-blue-400";
+    case "other-project-active":
+      return "text-purple-800 dark:text-purple-200";
+    case "global-active":
+      return "text-green-800 dark:text-green-200";
+    case "terminal-active":
+      return "text-blue-400";
+    case "terminal-inactive":
+      return "text-setta-300";
+    case "default":
+      return "text-setta-700 dark:text-setta-300";
+  }
 }
 
 export function getSectionContainerShellClassName({
