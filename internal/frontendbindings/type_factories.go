@@ -9,8 +9,6 @@ import (
 	"setta/internal/projectstate"
 )
 
-type generatedFactoryPropertyExprBuilder func(defaultsExpr string) string
-
 type genericCreateFieldSpec struct {
 	Name string
 	Expr string
@@ -348,65 +346,6 @@ func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
 }
 
-func buildGeneratedFactoryReturnBodyTS(
-	objectEntries []string,
-	overridesExpr string,
-	prelude string,
-) string {
-	var builder strings.Builder
-	trimmedPrelude := strings.TrimRight(prelude, "\n")
-	if trimmedPrelude != "" {
-		builder.WriteString(trimmedPrelude)
-		builder.WriteString("\n")
-	}
-	builder.WriteString("  return mergeGeneratedOptions(\n")
-	builder.WriteString("    {\n")
-	for _, entry := range objectEntries {
-		builder.WriteString("      ")
-		builder.WriteString(entry)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString("    },\n")
-	builder.WriteString("    ")
-	builder.WriteString(overridesExpr)
-	builder.WriteString(",\n")
-	builder.WriteString("  );")
-	return builder.String()
-}
-
-func buildResolvedGeneratedFactoryBodyTS(
-	defaultType string,
-	implType string,
-	objectEntries []string,
-	prelude string,
-	overridesExpr string,
-) string {
-	if overridesExpr == "" {
-		overridesExpr = "resolved.overrides"
-	}
-	var builder strings.Builder
-	builder.WriteString("  const resolved = resolveGeneratedFactoryInputs<\n")
-	builder.WriteString("    ")
-	builder.WriteString(defaultType)
-	builder.WriteString(",\n")
-	builder.WriteString("    ")
-	builder.WriteString(implType)
-	builder.WriteString("\n")
-	builder.WriteString("  >(create")
-	builder.WriteString(defaultType)
-	builder.WriteString("(), defaultsOrOverrides, overrides);\n")
-	builder.WriteString(buildGeneratedFactoryReturnBodyTS(objectEntries, overridesExpr, prelude))
-	return builder.String()
-}
-
-func buildDirectGeneratedFactoryBodyTS(
-	objectEntries []string,
-	overridesExpr string,
-	prelude string,
-) string {
-	return buildGeneratedFactoryReturnBodyTS(objectEntries, overridesExpr, prelude)
-}
-
 func objectDeclarationWithGoBackedSectionDefaults(
 	name string,
 	implType string,
@@ -531,34 +470,12 @@ func optionalOverrideTypeProperty(implType string) TypeProperty {
 	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", Optional: true}
 }
 
-func defaultsTypeProperty(defaultType string) TypeProperty {
-	return TypeProperty{Name: "defaults", TypeExpr: defaultType}
-}
-
-func overrideTypeProperty(implType string) TypeProperty {
-	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", DefaultValue: "{}"}
-}
-
 func orderedTypePropertyNames(properties []TypeProperty) []string {
 	names := make([]string, 0, len(properties))
 	for _, property := range properties {
 		names = append(names, property.Name)
 	}
 	return names
-}
-
-func buildTaskBoardOverridesPreludeTS() string {
-	var builder strings.Builder
-	builder.WriteString("  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {\n")
-	builder.WriteString("    ...resolved.overrides,\n")
-	builder.WriteString("  };\n")
-	builder.WriteString("  if (normalizedOverrides.columns === undefined) {\n")
-	builder.WriteString("    delete normalizedOverrides.columns;\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  if (normalizedOverrides.tasks === undefined) {\n")
-	builder.WriteString("    delete normalizedOverrides.tasks;\n")
-	builder.WriteString("  }")
-	return builder.String()
 }
 
 func generatedSectionImplName(t reflect.Type) (string, bool) {
@@ -645,221 +562,83 @@ func generatedSectionImplDefaultTypeName(sectionName string) string {
 	return "UserDefault" + sectionName + "SectionImpl"
 }
 
-func generatedOrdinaryFactoryEntries(
-	properties []TypeProperty,
-	defaults map[string]any,
-	defaultsExpr string,
-	userDefaultPropertyNames map[string]struct{},
-	exprOverrides map[string]generatedFactoryPropertyExprBuilder,
-) []string {
-	entries := make([]string, 0, len(properties))
-	for _, property := range properties {
-		expr := generatedOrdinaryFactoryPropertyExpr(
-			property,
-			defaults,
-			defaultsExpr,
-			userDefaultPropertyNames,
-			exprOverrides,
-		)
-		entries = append(entries, property.Name+": "+expr)
-	}
-	return entries
+type generatedImplFactorySpec struct {
+	DefaultType  string
+	DefaultValue any
 }
 
-func generatedOrdinaryFactoryPropertyExpr(
-	property TypeProperty,
-	defaults map[string]any,
-	defaultsExpr string,
-	userDefaultPropertyNames map[string]struct{},
-	exprOverrides map[string]generatedFactoryPropertyExprBuilder,
-) string {
-	if builder, ok := exprOverrides[property.Name]; ok {
-		return builder(defaultsExpr)
-	}
-	if _, ok := userDefaultPropertyNames[property.Name]; ok {
-		return defaultsExpr + "." + property.Name
-	}
-	if value, ok := defaults[property.Name]; ok {
-		return renderTSLiteralExpr(value)
-	}
-	panic(
-		fmt.Sprintf(
-			"missing generated factory default for %s (%s)",
-			property.Name,
-			property.TypeExpr,
-		),
-	)
-}
-
-func mustGeneratedSectionImplFactoryProperties(
-	converter *typeConverter,
-	t reflect.Type,
-) []TypeProperty {
-	properties, err := generatedUserDefaultReflectedProperties(converter, t)
-	if err != nil {
-		panic("load generated section impl properties: " + err.Error())
-	}
-	return properties
-}
-
-func generatedSectionImplFactoryDefaultValues(sectionName string) map[string]any {
-	defaults, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
-	if err != nil {
-		panic("load generated section factory defaults: " + err.Error())
-	}
-	return mustTSLiteralObjectFromGoValue(
-		"frontend section impl factory defaults "+sectionName,
-		defaults,
-	)
-}
-
-func generatedSectionImplFactoryUserDefaultPropertyNames(
-	converter *typeConverter,
-	sectionName string,
-) map[string]struct{} {
-	properties, err := generatedUserDefaultSectionProperties(converter, sectionName)
-	if err != nil {
-		panic("load generated user default section properties: " + err.Error())
-	}
-	return generatedPropertyNameSet(properties)
-}
-
-func generatedSectionImplFactoryExprOverrides(
-	sectionName string,
-) map[string]generatedFactoryPropertyExprBuilder {
-	overrides := map[string]generatedFactoryPropertyExprBuilder{
-		"type": func(string) string {
-			return generatedSectionImplTypeExpr(sectionName)
-		},
-	}
-	switch sectionName {
-	case "TaskBoard":
-		overrides["columns"] = func(defaultsExpr string) string {
-			return defaultsExpr + `.columns === null || ` + defaultsExpr + `.columns === undefined
-        ? []
-        : cloneGeneratedValue(` + defaultsExpr + `.columns)`
-		}
-	}
-	return overrides
-}
-
-func generatedSectionImplFactoryOptions(
-	sectionName string,
-) (useDirectDefaults bool, defaultsExpr string, overridesExpr string, prelude string) {
-	if sectionName == "Dict" {
-		return true, "defaults", "overrides", ""
-	}
-	overridesExpr = "resolved.overrides"
-	if sectionName == "TaskBoard" {
-		overridesExpr = "normalizedOverrides"
-		prelude = buildTaskBoardOverridesPreludeTS()
-	}
-	return false, "resolved.defaults", overridesExpr, prelude
-}
-
-func generatedSectionImplFactoryEntries(
-	converter *typeConverter,
-	t reflect.Type,
-	sectionName string,
-	defaultsExpr string,
-) []string {
-	return generatedOrdinaryFactoryEntries(
-		mustGeneratedSectionImplFactoryProperties(converter, t),
-		generatedSectionImplFactoryDefaultValues(sectionName),
-		defaultsExpr,
-		generatedSectionImplFactoryUserDefaultPropertyNames(converter, sectionName),
-		generatedSectionImplFactoryExprOverrides(sectionName),
-	)
-}
-
-func generatedSectionImplFactoryDeclaration(
-	converter *typeConverter,
-	t reflect.Type,
-) (TypeDeclaration, bool) {
-	sectionName, ok := generatedSectionImplName(t)
+func generatedImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
+	spec, ok := generatedImplFactorySpecForType(t)
 	if !ok {
 		return TypeDeclaration{}, false
 	}
 	implType := frontendBindingTypeName(t)
-	defaultType := generatedSectionImplDefaultTypeName(sectionName)
-	name := "create" + implType
-	useDirectDefaults, defaultsExpr, overridesExpr, prelude := generatedSectionImplFactoryOptions(sectionName)
-	entries := generatedSectionImplFactoryEntries(converter, t, sectionName, defaultsExpr)
-
-	if useDirectDefaults {
-		return exportedFunctionDeclaration(
-			name,
-			implType,
-			buildDirectGeneratedFactoryBodyTS(
-				entries,
-				"overrides",
-				"",
-			),
-			defaultsTypeProperty(defaultType),
-			overrideTypeProperty(implType),
-		), true
-	}
-
 	return exportedFunctionDeclaration(
-		name,
+		"create"+implType,
 		implType,
-		buildResolvedGeneratedFactoryBodyTS(
-			defaultType,
+		buildGeneratedImplFactoryBodyTS(
+			"frontend generated impl defaults "+implType,
+			spec.DefaultType,
 			implType,
-			entries,
-			prelude,
-			overridesExpr,
+			spec.DefaultValue,
 		),
-		defaultsOrOverridesTypeProperty(defaultType, implType),
+		defaultsOrOverridesTypeProperty(spec.DefaultType, implType),
 		optionalOverrideTypeProperty(implType),
 	), true
 }
 
-func generatedCodeParamCodeObjFactoryEntries(
-	converter *typeConverter,
-	defaultsExpr string,
-) []string {
-	userDefaultProperties, err := generatedUserDefaultCodeParamCodeObjProperties(converter)
-	if err != nil {
-		panic("load generated user default code param properties: " + err.Error())
+func generatedImplFactorySpecForType(t reflect.Type) (generatedImplFactorySpec, bool) {
+	if sectionName, ok := generatedSectionImplName(t); ok {
+		defaultValue, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
+		if err != nil {
+			panic("load generated section impl defaults: " + err.Error())
+		}
+		return generatedImplFactorySpec{
+			DefaultType:  generatedSectionImplDefaultTypeName(sectionName),
+			DefaultValue: defaultValue,
+		}, true
 	}
-	properties, err := generatedUserDefaultReflectedProperties(
-		converter,
-		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
-	)
-	if err != nil {
-		panic("load generated code param impl properties: " + err.Error())
+	if t == reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}) {
+		return generatedImplFactorySpec{
+			DefaultType:  "UserDefaultCodeParamCodeObjImpl",
+			DefaultValue: projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+		}, true
 	}
-	return generatedOrdinaryFactoryEntries(
-		properties,
-		mustTSLiteralObjectFromGoValue(
-			"frontend code param factory defaults",
-			projectstate.FrontendDefaultCodeParamCodeObjImpl(),
-		),
-		defaultsExpr,
-		generatedPropertyNameSet(userDefaultProperties),
-		map[string]generatedFactoryPropertyExprBuilder{
-			"type": func(string) string {
-				return "CodeObjTypeEnum.CodeParam"
-			},
-		},
-	)
+	return generatedImplFactorySpec{}, false
 }
 
-func generatedCodeParamCodeObjFactoryDeclaration(converter *typeConverter) TypeDeclaration {
-	return exportedFunctionDeclaration(
-		"createCodeParamCodeObjImpl",
-		"CodeParamCodeObjImpl",
-		buildResolvedGeneratedFactoryBodyTS(
-			"UserDefaultCodeParamCodeObjImpl",
-			"CodeParamCodeObjImpl",
-			generatedCodeParamCodeObjFactoryEntries(converter, "resolved.defaults"),
-			"",
-			"",
+func buildGeneratedImplFactoryBodyTS(
+	context string,
+	defaultType string,
+	implType string,
+	defaultValue any,
+) string {
+	var builder strings.Builder
+	builder.WriteString("  const resolved = resolveGeneratedFactoryInputs<\n")
+	builder.WriteString("    ")
+	builder.WriteString(defaultType)
+	builder.WriteString(",\n")
+	builder.WriteString("    ")
+	builder.WriteString(implType)
+	builder.WriteString("\n")
+	builder.WriteString("  >(create")
+	builder.WriteString(defaultType)
+	builder.WriteString("(), defaultsOrOverrides, overrides);\n")
+	builder.WriteString("  const defaults = ")
+	builder.WriteString(
+		buildTSMergeGeneratedOptionsExprFromGoValueTS(
+			context,
+			defaultValue,
+			goJSONFieldOrder(defaultValue),
+			"resolved.defaults as Partial<"+implType+">",
+			implType,
 		),
-		defaultsOrOverridesTypeProperty("UserDefaultCodeParamCodeObjImpl", "CodeParamCodeObjImpl"),
-		optionalOverrideTypeProperty("CodeParamCodeObjImpl"),
 	)
+	builder.WriteString(";\n")
+	builder.WriteString("  return mergeGeneratedOptions<")
+	builder.WriteString(implType)
+	builder.WriteString(">(defaults, resolved.overrides);")
+	return builder.String()
 }
 
 func baseChartSettingsUnionFactoryDeclaration() TypeDeclaration {
@@ -888,12 +667,8 @@ func additionalFactoryDeclarations() []TypeDeclaration {
 	}
 }
 
-func additionalDeclarationsForType(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
-	switch t {
-	case reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}):
-		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration(converter)}, true
-	}
-	if declaration, ok := generatedSectionImplFactoryDeclaration(converter, t); ok {
+func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
+	if declaration, ok := generatedImplFactoryDeclaration(t); ok {
 		return []TypeDeclaration{declaration}, true
 	}
 	return nil, false

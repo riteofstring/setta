@@ -1257,40 +1257,44 @@ export function createChatSectionImpl(
     UserDefaultChatSectionImpl,
     ChatSectionImpl
   >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<ChatSectionImpl>(
     {
-      type: SectionTypeEnum.Chat,
+      type: "Chat",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 200,
+        width: 400,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      managed: resolved.defaults.managed,
-      engineConfigId: resolved.defaults.engineConfigId,
-      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
-      agentProfileId: resolved.defaults.agentProfileId,
-      chatId: resolved.defaults.chatId,
-      thinking: resolved.defaults.thinking,
-      permissionMode: resolved.defaults.permissionMode,
-      searchEnabled: resolved.defaults.searchEnabled,
-      dictationMode: resolved.defaults.dictationMode,
-      messages: resolved.defaults.messages,
-      inputText: resolved.defaults.inputText,
-      waitingForResponse: resolved.defaults.waitingForResponse,
-      toolCallArguments: resolved.defaults.toolCallArguments,
-      activeBranchId: resolved.defaults.activeBranchId,
-      branches: resolved.defaults.branches,
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId: null,
+      agentProfileId: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: "minimal",
+      searchEnabled: true,
+      dictationMode: "auto",
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
     },
-    resolved.overrides,
+    resolved.defaults as Partial<ChatSectionImpl>,
   );
+  return mergeGeneratedOptions<ChatSectionImpl>(defaults, resolved.overrides);
 }
 
 type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
@@ -1320,26 +1324,33 @@ export function createListRootSectionImpl(
     UserDefaultListRootSectionImpl,
     ListRootSectionImpl
   >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<ListRootSectionImpl>(
     {
-      type: SectionTypeEnum.ListRoot,
+      type: "ListRoot",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       children: [],
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
-      viewMode: resolved.defaults.viewMode,
+      defaultChildSectionType: "Callable",
+      viewMode: "default",
     },
+    resolved.defaults as Partial<ListRootSectionImpl>,
+  );
+  return mergeGeneratedOptions<ListRootSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -1362,29 +1373,33 @@ export function createGroupSectionImpl(
     UserDefaultGroupSectionImpl,
     GroupSectionImpl
   >(createUserDefaultGroupSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<GroupSectionImpl>(
     {
-      type: SectionTypeEnum.Group,
+      type: "Group",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       children: [],
-      isHorizontalOrientation: resolved.defaults.isHorizontalOrientation,
-      overflowMode: resolved.defaults.overflowMode,
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+      isHorizontalOrientation: false,
+      overflowMode: false,
+      defaultChildSectionType: "Callable",
     },
-    resolved.overrides,
+    resolved.defaults as Partial<GroupSectionImpl>,
   );
+  return mergeGeneratedOptions<GroupSectionImpl>(defaults, resolved.overrides);
 }
 
 type StateMachineStartSectionImpl = BaseSectionImpl & {
@@ -1408,26 +1423,33 @@ export function createStateMachineStartSectionImpl(
     defaultsOrOverrides,
     overrides,
   );
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<StateMachineStartSectionImpl>(
     {
-      type: SectionTypeEnum.StateMachineStart,
+      type: "StateMachineStart",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 96,
+        width: 240,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      machineGroupId: resolved.defaults.machineGroupId,
-      label: resolved.defaults.label,
-      maxIterations: resolved.defaults.maxIterations,
+      machineGroupId: "",
+      label: "Start",
+      maxIterations: null,
     },
+    resolved.defaults as Partial<StateMachineStartSectionImpl>,
+  );
+  return mergeGeneratedOptions<StateMachineStartSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -1479,29 +1501,36 @@ export function createTextBlockSectionImpl(
     UserDefaultTextBlockSectionImpl,
     TextBlockSectionImpl
   >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<TextBlockSectionImpl>(
     {
-      type: SectionTypeEnum.TextBlock,
+      type: "TextBlock",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 500,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      format: resolved.defaults.format,
-      masterFontSizePx: resolved.defaults.masterFontSizePx,
-      headingAsSectionName: resolved.defaults.headingAsSectionName,
-      metaControlStyle: resolved.defaults.metaControlStyle,
-      textDisplayMode: resolved.defaults.textDisplayMode,
-      text: resolved.defaults.text,
+      format: "Plaintext",
+      masterFontSizePx: 14,
+      headingAsSectionName: false,
+      metaControlStyle: false,
+      textDisplayMode: "Render",
+      text: "",
     },
+    resolved.defaults as Partial<TextBlockSectionImpl>,
+  );
+  return mergeGeneratedOptions<TextBlockSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -1532,32 +1561,36 @@ export function createPromptSectionImpl(
     UserDefaultPromptSectionImpl,
     PromptSectionImpl
   >(createUserDefaultPromptSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<PromptSectionImpl>(
     {
-      type: SectionTypeEnum.Prompt,
+      type: "Prompt",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 300,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       promptTemplateId: null,
-      template: resolved.defaults.template,
-      format: resolved.defaults.format,
-      inputs: resolved.defaults.inputs,
-      renderedText: resolved.defaults.renderedText,
-      missingVariables: resolved.defaults.missingVariables,
-      renderError: resolved.defaults.renderError,
+      template: "",
+      format: "Jinja",
+      inputs: {},
+      renderedText: "",
+      missingVariables: [],
+      renderError: null,
     },
-    resolved.overrides,
+    resolved.defaults as Partial<PromptSectionImpl>,
   );
+  return mergeGeneratedOptions<PromptSectionImpl>(defaults, resolved.overrides);
 }
 
 type CodeSectionImpl = BaseSectionImpl & {
@@ -1580,31 +1613,38 @@ export function createCodeSectionImpl(
     UserDefaultCodeSectionImpl,
     CodeSectionImpl
   >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<CodeSectionImpl>(
     {
-      type: SectionTypeEnum.Code,
+      type: "Code",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 500,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       children: [],
-      code: resolved.defaults.code,
-      codeFileBinding: resolved.defaults.codeFileBinding,
-      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
-      codeLanguage: resolved.defaults.codeLanguage,
-      diagnosticsIgnoreState: resolved.defaults.diagnosticsIgnoreState,
+      code: "",
+      codeFileBinding: null,
+      attachedTerminalSectionId: null,
+      codeLanguage: "python",
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
     },
-    resolved.overrides,
+    resolved.defaults as Partial<CodeSectionImpl>,
   );
+  return mergeGeneratedOptions<CodeSectionImpl>(defaults, resolved.overrides);
 }
 
 type TerminalSectionImpl = BaseSectionImpl & {
@@ -1621,23 +1661,30 @@ export function createTerminalSectionImpl(
     UserDefaultTerminalSectionImpl,
     TerminalSectionImpl
   >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<TerminalSectionImpl>(
     {
-      type: SectionTypeEnum.Terminal,
+      type: "Terminal",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
     },
+    resolved.defaults as Partial<TerminalSectionImpl>,
+  );
+  return mergeGeneratedOptions<TerminalSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -1668,38 +1715,45 @@ export function createCallableSectionImpl(
     UserDefaultCallableSectionImpl,
     CallableSectionImpl
   >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<CallableSectionImpl>(
     {
-      type: SectionTypeEnum.Callable,
+      type: "Callable",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       codeObjVariantMap: {},
-      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
-      paramFilter: resolved.defaults.paramFilter,
-      columnWidth: resolved.defaults.columnWidth,
-      configLanguage: resolved.defaults.configLanguage,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
       pinnedParams: [],
       selectedParams: [],
       ignoreTypeErrors: {
         callable: false,
         params: {},
       },
-      edgeInputParams: resolved.defaults.edgeInputParams,
-      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
+      edgeInputParams: [],
+      edgeOutputPorts: [],
       callable: null,
-      hideParams: resolved.defaults.hideParams,
+      hideParams: false,
     },
+    resolved.defaults as Partial<CallableSectionImpl>,
+  );
+  return mergeGeneratedOptions<CallableSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -1723,45 +1777,55 @@ type DictSectionImpl = BaseSectionImpl & {
 };
 
 export function createDictSectionImpl(
-  defaults: UserDefaultDictSectionImpl,
-  overrides: Partial<DictSectionImpl> = {},
+  defaultsOrOverrides:
+    | Partial<UserDefaultDictSectionImpl>
+    | Partial<DictSectionImpl> = {},
+  overrides?: Partial<DictSectionImpl>,
 ): DictSectionImpl {
-  return mergeGeneratedOptions(
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultDictSectionImpl,
+    DictSectionImpl
+  >(createUserDefaultDictSectionImpl(), defaultsOrOverrides, overrides);
+  const defaults = mergeGeneratedOptions<DictSectionImpl>(
     {
-      type: SectionTypeEnum.Dict,
+      type: "Dict",
       id: "",
       name: "",
-      isFrozen: defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: defaults.tagColor,
-      styleColor: defaults.styleColor,
-      size: defaults.size,
-      aspectRatio: defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: defaults.isMinimized,
-      positionAndSizeLocked: defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
       codeObjVariantMap: {},
-      hideUnpinnedParams: defaults.hideUnpinnedParams,
-      paramFilter: defaults.paramFilter,
-      columnWidth: defaults.columnWidth,
-      configLanguage: defaults.configLanguage,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
       pinnedParams: [],
       selectedParams: [],
       ignoreTypeErrors: {
         callable: false,
         params: {},
       },
-      edgeInputParams: defaults.edgeInputParams,
-      edgeOutputPorts: defaults.edgeOutputPorts,
+      edgeInputParams: [],
+      edgeOutputPorts: [],
       topLevelParamId: null,
-      isJsonSource: defaults.isJsonSource,
-      jsonSourceKeys: defaults.jsonSourceKeys,
+      isJsonSource: false,
+      jsonSourceKeys: [],
       jsonSourceMissing: false,
     },
-    overrides,
+    resolved.defaults as Partial<DictSectionImpl>,
   );
+  return mergeGeneratedOptions<DictSectionImpl>(defaults, resolved.overrides);
 }
 
 export const TaskBoardViewModeEnum = {
@@ -1841,40 +1905,34 @@ export function createTaskBoardSectionImpl(
     UserDefaultTaskBoardSectionImpl,
     TaskBoardSectionImpl
   >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
-  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
-    ...resolved.overrides,
-  };
-  if (normalizedOverrides.columns === undefined) {
-    delete normalizedOverrides.columns;
-  }
-  if (normalizedOverrides.tasks === undefined) {
-    delete normalizedOverrides.tasks;
-  }
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<TaskBoardSectionImpl>(
     {
-      type: SectionTypeEnum.TaskBoard,
+      type: "TaskBoard",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 430,
+        width: 720,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      viewMode: resolved.defaults.viewMode,
-      columns:
-        resolved.defaults.columns === null ||
-        resolved.defaults.columns === undefined
-          ? []
-          : cloneGeneratedValue(resolved.defaults.columns),
-      tasks: resolved.defaults.tasks,
+      viewMode: "kanban",
+      columns: null,
+      tasks: [],
     },
-    normalizedOverrides,
+    resolved.defaults as Partial<TaskBoardSectionImpl>,
+  );
+  return mergeGeneratedOptions<TaskBoardSectionImpl>(
+    defaults,
+    resolved.overrides,
   );
 }
 
@@ -1894,27 +1952,37 @@ export function createChartSectionImpl(
     UserDefaultChartSectionImpl,
     ChartSectionImpl
   >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<ChartSectionImpl>(
     {
-      type: SectionTypeEnum.Chart,
+      type: "Chart",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 300,
+        width: 300,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      dataPath: resolved.defaults.dataPath,
-      chartSettings: resolved.defaults.chartSettings,
+      dataPath: "",
+      chartSettings: {
+        secondYAxisColumns: [],
+        type: "line",
+        xAxisLog: false,
+        y1AxisLog: false,
+        y2AxisLog: false,
+      },
     },
-    resolved.overrides,
+    resolved.defaults as Partial<ChartSectionImpl>,
   );
+  return mergeGeneratedOptions<ChartSectionImpl>(defaults, resolved.overrides);
 }
 
 type SpreadsheetSectionImpl = BaseSectionImpl & {
@@ -1937,29 +2005,36 @@ export function createSpreadsheetSectionImpl(
     UserDefaultSpreadsheetSectionImpl,
     SpreadsheetSectionImpl
   >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<SpreadsheetSectionImpl>(
     {
-      type: SectionTypeEnum.Spreadsheet,
+      type: "Spreadsheet",
       id: "",
       name: "",
-      isFrozen: resolved.defaults.isFrozen,
+      isFrozen: false,
       isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 500,
+        width: 760,
+      },
+      aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isPreset: false,
-      filePath: resolved.defaults.filePath,
-      activeSheet: resolved.defaults.activeSheet,
-      readOnly: resolved.defaults.readOnly,
-      showRowNumbers: resolved.defaults.showRowNumbers,
-      density: resolved.defaults.density,
-      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
+      filePath: "",
+      activeSheet: null,
+      readOnly: false,
+      showRowNumbers: true,
+      density: "compact",
+      autoReloadOnExternalChange: false,
     },
+    resolved.defaults as Partial<SpreadsheetSectionImpl>,
+  );
+  return mergeGeneratedOptions<SpreadsheetSectionImpl>(
+    defaults,
     resolved.overrides,
   );
 }
@@ -2000,20 +2075,24 @@ export function createCodeParamCodeObjImpl(
     UserDefaultCodeParamCodeObjImpl,
     CodeParamCodeObjImpl
   >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
+  const defaults = mergeGeneratedOptions<CodeParamCodeObjImpl>(
     {
-      type: CodeObjTypeEnum.CodeParam,
+      type: "CodeParam",
       id: "",
       name: "",
       description: "",
       isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
+      coreNameType: "TEXT",
+      coreNameEditable: false,
       passingStyle: "DEFAULT",
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
+      typeAnnotation: "",
+      defaultVal: "",
+      value: "",
     },
+    resolved.defaults as Partial<CodeParamCodeObjImpl>,
+  );
+  return mergeGeneratedOptions<CodeParamCodeObjImpl>(
+    defaults,
     resolved.overrides,
   );
 }
