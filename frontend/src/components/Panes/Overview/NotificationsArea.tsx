@@ -23,20 +23,17 @@ import {
   type OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_delete_notification,
   route_get_notifications,
 } from "utils/generatedEndpoints";
 import {
-  Notification,
-  NotificationList,
-  NotificationType,
-  NotificationTypeEnum,
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-
-type NotificationsRouteResponse = ResponseDataAndStatus<NotificationList>;
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -67,8 +64,7 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response: NotificationsRouteResponse =
-          await route_get_notifications({ projectConfigId });
+        const response = await route_get_notifications({ projectConfigId });
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
@@ -157,7 +153,7 @@ export function NotificationsArea() {
 function NotificationsList({
   notifications,
 }: {
-  notifications: Array<Notification>;
+  notifications: Array<SettaNotification>;
 }) {
   return (
     <div
@@ -178,7 +174,11 @@ function NotificationsList({
   );
 }
 
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({
+  notification,
+}: {
+  notification: SettaNotification;
+}) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
@@ -275,27 +275,30 @@ function NotificationItem({ notification }: { notification: Notification }) {
   );
 }
 
-export function getNotificationIcon(type: NotificationType, className = "") {
+export function getNotificationIcon(
+  type: SettaNotificationType,
+  className = "",
+) {
   switch (type) {
-    case NotificationTypeEnum.error:
+    case SettaNotificationTypeEnum.error:
       return (
         <IoAlertCircleSharp
           className={`${className} text-red-500 dark:text-red-400`}
         />
       );
-    case NotificationTypeEnum.warning:
+    case SettaNotificationTypeEnum.warning:
       return (
         <IoWarning
           className={`${className} text-yellow-500 dark:text-yellow-400`}
         />
       );
-    case NotificationTypeEnum.save:
+    case SettaNotificationTypeEnum.save:
       return (
         <VscSave
           className={`${className} text-setta-300 dark:text-setta-400`}
         />
       );
-    case NotificationTypeEnum.info:
+    case SettaNotificationTypeEnum.info:
     default:
       return (
         <IoInformationCircle
