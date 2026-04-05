@@ -78,268 +78,264 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	)
 }
 
-func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
-	document := newOpenAPIDocument()
-	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+func registerFrontendHTTPOpenAPIRouteFamily(family string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("register %s routes: %w", family, err)
+}
+
+func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
+	settaHome, settaFilesRoot, globalSettaFiles := "/setta-home", "/setta-files", "/global-setta"
+	deploymentRoot, defaultWorktree := "/deployment", "default"
+	workspaceRoot, profileLookupHome, runtimeRoot := "/workspace", "/profiles", "/runtime"
+	llmConfigPath := settaFilesRoot + "/llm_config.json"
+	resolvedFilesLocal := config.ResolvedFilesLocationLocal
 	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
+	ideMode := modes.NewPolicy(config.ModeIDE)
+	shareMode := modes.NewPolicy(config.ModeShare)
+	appMode := modes.NewPolicy(config.ModeApp)
+	launcherMode := modes.NewPolicy(config.ModeLauncher)
+	websocketHub := &realtime.WebsocketHub{}
+	projectStateRuntime := &projectstate.Runtime{}
+	deploymentRuntime := &deployments.Runtime{}
+	attachmentService := &chatattachments.Service{}
+
 	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
 		Server: config.Server{Mode: config.ModeIDE},
 		Paths: config.Paths{
-			WorkspaceRoot:         "/workspace",
-			SettaHome:             "/setta-home",
-			ProfileLookupHome:     "/profiles",
-			SettaFilesRoot:        "/setta-files",
-			ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
-			RuntimeRoot:           "/runtime",
+			WorkspaceRoot:         workspaceRoot,
+			SettaHome:             settaHome,
+			ProfileLookupHome:     profileLookupHome,
+			SettaFilesRoot:        settaFilesRoot,
+			ResolvedFilesLocation: resolvedFilesLocal,
+			RuntimeRoot:           runtimeRoot,
 		},
 		User: config.UserConfig{
-			GlobalSettaFilesBase: "/global-setta",
+			GlobalSettaFilesBase: globalSettaFiles,
 			AutoMode:             config.AutoModeCreateLocal,
 		},
 	}, ""))
-	if err := RegisterStatusRoutes(router, StatusRouteDependencies{
-		ModePolicy:           modes.NewPolicy(config.ModeIDE),
-		SettaHome:            "/setta-home",
-		SettaFilesRoot:       "/setta-files",
+	if err := registerFrontendHTTPOpenAPIRouteFamily("status", RegisterStatusRoutes(router, StatusRouteDependencies{
+		ModePolicy:           ideMode,
+		SettaHome:            settaHome,
+		SettaFilesRoot:       settaFilesRoot,
 		RevealPath:           &pathreveal.Service{},
-		WorktreeName:         "default",
-		GlobalSettaFilesBase: "/global-setta",
-	}); err != nil {
-		return nil, fmt.Errorf("register status routes: %w", err)
+		WorktreeName:         defaultWorktree,
+		GlobalSettaFilesBase: globalSettaFiles,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterSettingsRoutes(router, SettingsRouteDependencies{
-		ModePolicy:    modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("settings", RegisterSettingsRoutes(router, SettingsRouteDependencies{
+		ModePolicy:    ideMode,
 		SettingsState: &settingsstate.Runtime{},
-		WebsocketHub:  &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register settings routes: %w", err)
+		WebsocketHub:  websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterLLMRoutes(router, LLMRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("llm", RegisterLLMRoutes(router, LLMRouteDependencies{
+		ModePolicy:   ideMode,
 		Service:      &llmconfig.Service{},
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register llm routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("engine config", RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
+		ModePolicy:   ideMode,
 		Engines:      &agentruns.EngineStore{},
 		LLM:          &llmconfig.Runtime{},
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register engine config routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("agent profile", RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
+		ModePolicy:   ideMode,
 		Profiles:     &agentprofiles.Store{},
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register agent profile routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("prompt template", RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
+		ModePolicy:   ideMode,
 		Templates:    &prompttemplates.Store{},
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register prompt template routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("external agent config", RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
+		ModePolicy:   ideMode,
 		Configs:      &externalagentconfigs.Service{},
 		Preflight:    (*externalagentconfigs.SystemChecker)(nil),
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register external agent config routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("transcription profile", RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
+		ModePolicy:   ideMode,
 		Profiles:     &transcriptionprofiles.Service{},
-		WebsocketHub: &realtime.WebsocketHub{},
-	}); err != nil {
-		return nil, fmt.Errorf("register transcription profile routes: %w", err)
+		WebsocketHub: websocketHub,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterDocstringRoutes(router, DocstringRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-	}); err != nil {
-		return nil, fmt.Errorf("register docstring routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("docstring", RegisterDocstringRoutes(router, DocstringRouteDependencies{
+		ModePolicy: ideMode,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterAgenticSummaryCacheRoutes(router, AgenticSummaryCacheRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
-		ProjectState: &projectstate.Runtime{},
+	if err := registerFrontendHTTPOpenAPIRouteFamily("agentic summary cache", RegisterAgenticSummaryCacheRoutes(router, AgenticSummaryCacheRouteDependencies{
+		ModePolicy:   ideMode,
+		ProjectState: projectStateRuntime,
 		Statuses:     &agenticsummarycache.Service{},
-	}); err != nil {
-		return nil, fmt.Errorf("register agentic summary cache routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterMCPRoutes(router, MCPRouteDependencies{
-		ModePolicy:    modes.NewPolicy(config.ModeIDE),
-		LLMConfigPath: "/setta-files/llm_config.json",
-	}); err != nil {
-		return nil, fmt.Errorf("register mcp routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("mcp", RegisterMCPRoutes(router, MCPRouteDependencies{ModePolicy: ideMode, LLMConfigPath: llmConfigPath})); err != nil {
+		return err
 	}
-	if err := RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
-		ProjectState: &projectstate.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register app definition routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("app definition", RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+		ModePolicy:   ideMode,
+		ProjectState: projectStateRuntime,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("app gen skill", RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
+		ModePolicy: ideMode,
 		Service:    &appgenskills.Service{},
-	}); err != nil {
-		return nil, fmt.Errorf("register app gen skill routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterArtifactRoutes(router, ArtifactRouteDependencies{
-		ModePolicy:     modes.NewPolicy(config.ModeIDE),
-		Artifacts:      (*artifacts.Service)(nil),
-		ShareArtifacts: (*shareartifacts.Service)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register artifact routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("artifact", RegisterArtifactRoutes(router, ArtifactRouteDependencies{ModePolicy: ideMode, Artifacts: (*artifacts.Service)(nil), ShareArtifacts: (*shareartifacts.Service)(nil)})); err != nil {
+		return err
 	}
-	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
-		ModePolicy:          modes.NewPolicy(config.ModeIDE),
-		openAPIDocumentOnly: true,
-	}); err != nil {
-		return nil, fmt.Errorf("register project routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("project", RegisterProjectRoutes(router, ProjectRouteDependencies{ModePolicy: ideMode, openAPIDocumentOnly: true})); err != nil {
+		return err
 	}
-	if err := RegisterGitRoutes(router, GitRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Git:        (*gitread.Service)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register git routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("git", RegisterGitRoutes(router, GitRouteDependencies{ModePolicy: ideMode, Git: (*gitread.Service)(nil)})); err != nil {
+		return err
 	}
-	if err := RegisterListenerRoutes(router, ListenerRouteDependencies{
-		ModePolicy:          modes.NewPolicy(config.ModeIDE),
-		ProjectState:        &projectstate.Runtime{},
+	if err := registerFrontendHTTPOpenAPIRouteFamily("listener", RegisterListenerRoutes(router, ListenerRouteDependencies{
+		ModePolicy:          ideMode,
+		ProjectState:        projectStateRuntime,
 		ListenerBroadcaster: &realtime.ListenerBroadcaster{},
-	}); err != nil {
-		return nil, fmt.Errorf("register listener routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("agent run", RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
+		ModePolicy: ideMode,
 		Profiles:   &agentprofiles.Store{},
 		Runs:       &agentruns.RunStore{},
 		Managed:    &agentruns.Runtime{},
 		Chains:     &runchains.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register agent run routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterDetachedRunRoutes(router, DetachedRunRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("detached run", RegisterDetachedRunRoutes(router, DetachedRunRouteDependencies{
+		ModePolicy:   ideMode,
 		Planner:      &runs.Planner{},
 		Runs:         &detachedruns.Manager{},
-		ProjectState: &projectstate.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register detached run routes: %w", err)
+		ProjectState: projectStateRuntime,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("state machine", RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
+		ModePolicy: ideMode,
 		Runtime:    &statemachineruns.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register state machine routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("workspace launch", RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+		ModePolicy: ideMode,
 		Auth:       &auth.Service{},
 		Intents:    &workspacelaunch.IntentService{},
 		Launch:     &workspacelaunch.LocalLaunchService{},
-	}); err != nil {
-		return nil, fmt.Errorf("register workspace launch routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
-		ModePolicy:     modes.NewPolicy(config.ModeIDE),
-		DeploymentRoot: "/deployment",
+	if err := registerFrontendHTTPOpenAPIRouteFamily("file browser", RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
+		ModePolicy:     ideMode,
+		DeploymentRoot: deploymentRoot,
 		Browser:        (*filebrowser.Service)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register file browser routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterLSPRoutes(router, LSPRouteDependencies{
-		ModePolicy:   modes.NewPolicy(config.ModeIDE),
-		ProjectState: &projectstate.Runtime{},
+	if err := registerFrontendHTTPOpenAPIRouteFamily("lsp", RegisterLSPRoutes(router, LSPRouteDependencies{
+		ModePolicy:   ideMode,
+		ProjectState: projectStateRuntime,
 		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
 		Completions:  &lspcompletion.Service{},
 		Admin:        (*lsp.ProjectSynchronizer)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register lsp routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Service:    (*plugins.Service)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register plugin routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("plugin", RegisterPluginRoutes(router, PluginRouteDependencies{ModePolicy: ideMode, Service: (*plugins.Service)(nil)})); err != nil {
+		return err
 	}
-	if err := RegisterBinaryRoutes(router, BinaryRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Store:      &binarypayload.Store{},
-	}); err != nil {
-		return nil, fmt.Errorf("register binary routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("binary", RegisterBinaryRoutes(router, BinaryRouteDependencies{ModePolicy: ideMode, Store: &binarypayload.Store{}})); err != nil {
+		return err
 	}
-	if err := RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Service:    &chatattachments.Service{},
-	}); err != nil {
-		return nil, fmt.Errorf("register attachment root routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("attachment root", RegisterAttachmentRootRoutes(router, AttachmentRootRouteDependencies{ModePolicy: ideMode, Service: attachmentService})); err != nil {
+		return err
 	}
-	if err := RegisterAttachmentRoutes(router, AttachmentRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Service:    &chatattachments.Service{},
-	}); err != nil {
-		return nil, fmt.Errorf("register attachment routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("attachment", RegisterAttachmentRoutes(router, AttachmentRouteDependencies{ModePolicy: ideMode, Service: attachmentService})); err != nil {
+		return err
 	}
-	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
-		ModePolicy:    modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("project shell", RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
+		ModePolicy:    ideMode,
 		Shell:         (*projectshell.Service)(nil),
 		Notifications: (*notifications.Service)(nil),
-	}); err != nil {
-		return nil, fmt.Errorf("register project shell routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
+	if err := registerFrontendHTTPOpenAPIRouteFamily("terminal", RegisterTerminalRoutes(router, TerminalRouteDependencies{
+		ModePolicy: ideMode,
 		Terminals:  &terminals.Service{},
 		RunCode:    &runs.Service{},
-	}); err != nil {
-		return nil, fmt.Errorf("register terminal routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterAIRoutes(router, AIRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeShare),
-		Deployment: &deployments.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register ai routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("ai", RegisterAIRoutes(router, AIRouteDependencies{ModePolicy: shareMode, Deployment: deploymentRuntime})); err != nil {
+		return err
 	}
-	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
-		ModePolicy:          modes.NewPolicy(config.ModeIDE),
-		DefaultSettaHome:    "/setta-home",
-		openAPIDocumentOnly: true,
-	}); err != nil {
-		return nil, fmt.Errorf("register launcher management routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher management", RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{ModePolicy: ideMode, DefaultSettaHome: settaHome, openAPIDocumentOnly: true})); err != nil {
+		return err
 	}
-	if err := RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
-		ModePolicy:       modes.NewPolicy(config.ModeLauncher),
-		DefaultSettaHome: "/setta-home",
+	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher home", RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
+		ModePolicy:       launcherMode,
+		DefaultSettaHome: settaHome,
 		Home:             launcherHome,
 		OpenWorkspace:    &launcher.OpenWorkspaceService{},
-	}); err != nil {
-		return nil, fmt.Errorf("register launcher home routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
-		ModePolicy:     modes.NewPolicy(config.ModeIDE),
-		ProjectState:   &projectstate.Runtime{},
+	if err := registerFrontendHTTPOpenAPIRouteFamily("deployment ide", RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
+		ModePolicy:     ideMode,
+		ProjectState:   projectStateRuntime,
 		Catalog:        &deployments.Catalog{},
 		SharePublisher: &deployments.SharePublisher{},
 		AppPublisher:   &deployments.AppPublisher{},
-	}); err != nil {
-		return nil, fmt.Errorf("register deployment ide routes: %w", err)
+	})); err != nil {
+		return err
 	}
-	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeShare),
-		Deployment: &deployments.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register share deployment routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: shareMode,
+		Deployment: deploymentRuntime,
+	})); err != nil {
+		return err
 	}
-	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
-		ModePolicy: modes.NewPolicy(config.ModeApp),
-		Deployment: &deployments.Runtime{},
-	}); err != nil {
-		return nil, fmt.Errorf("register app deployment routes: %w", err)
+	if err := registerFrontendHTTPOpenAPIRouteFamily("app deployment", RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: appMode,
+		Deployment: deploymentRuntime,
+	})); err != nil {
+		return err
+	}
+	return nil
+}
+
+func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
+	document := newOpenAPIDocument()
+	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+	if err := registerFrontendHTTPOpenAPIDocumentRoutes(router); err != nil {
+		return nil, err
 	}
 	return document, nil
 }
