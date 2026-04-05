@@ -17,65 +17,8 @@ var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
 var discoveredTypeOverrides = DiscoveredTypeOverrides()
 
-type tsLiteralField struct {
-	Name  string
-	Value string
-}
-
 type tsRawExpr struct {
 	Expr string
-}
-
-type tsNamedLiteralObject struct {
-	Name   string
-	Fields []tsLiteralField
-}
-
-func writeTSObjectFields(builder *strings.Builder, indent string, fields []tsLiteralField) {
-	for _, field := range fields {
-		builder.WriteString(indent)
-		builder.WriteString(field.Name)
-		builder.WriteString(": ")
-		builder.WriteString(field.Value)
-		builder.WriteString(",\n")
-	}
-}
-
-func writeTSNamedObjectEntries(builder *strings.Builder, entryIndent string, fieldIndent string, entries []tsNamedLiteralObject) {
-	for _, entry := range entries {
-		builder.WriteString(entryIndent)
-		builder.WriteString(entry.Name)
-		builder.WriteString(": {\n")
-		writeTSObjectFields(builder, fieldIndent, entry.Fields)
-		builder.WriteString(entryIndent)
-		builder.WriteString("},\n")
-	}
-}
-
-func writeTSNamedMergeEntries(builder *strings.Builder, entryIndent string, fieldIndent string, generic string, optionsExprPrefix string, entries []tsNamedLiteralObject) {
-	for _, entry := range entries {
-		builder.WriteString(entryIndent)
-		builder.WriteString(entry.Name)
-		builder.WriteString(": mergeGeneratedOptions")
-		if generic != "" {
-			builder.WriteString("<")
-			builder.WriteString(generic)
-			builder.WriteString(">")
-		}
-		builder.WriteString("(\n")
-		builder.WriteString(fieldIndent)
-		builder.WriteString("{\n")
-		writeTSObjectFields(builder, fieldIndent+"  ", entry.Fields)
-		builder.WriteString(fieldIndent)
-		builder.WriteString("},\n")
-		builder.WriteString(fieldIndent)
-		builder.WriteString(optionsExprPrefix)
-		builder.WriteString(".")
-		builder.WriteString(entry.Name)
-		builder.WriteString(" ?? {},\n")
-		builder.WriteString(entryIndent)
-		builder.WriteString("),\n")
-	}
 }
 
 func buildTSMergeGeneratedOptionsExprFromTSObject(
@@ -156,36 +99,6 @@ func fillMissingTSLiteralObjectKeysWithNil(object map[string]any, orderedKeys []
 		}
 		object[key] = nil
 	}
-}
-
-func buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
-	context string,
-	value any,
-	orderedKeys []string,
-	overridesExpr string,
-	resultType string,
-) string {
-	var builder strings.Builder
-	builder.WriteString("  return ")
-	builder.WriteString(
-		buildTSMergeGeneratedOptionsExprFromGoValueTS(
-			context,
-			value,
-			orderedKeys,
-			overridesExpr,
-			resultType,
-		),
-	)
-	builder.WriteString(";")
-	return builder.String()
-}
-
-func renderTSObjectLiteralFromGoValue(context string, value any, orderedKeys []string) string {
-	object := mustTSLiteralObjectFromGoValue(context, value)
-	validateTSLiteralObjectKeys(context, object, orderedKeys)
-	var builder strings.Builder
-	writeTSObjectLiteral(&builder, "  ", object, orderedKeys)
-	return builder.String()
 }
 
 func validateTSLiteralObjectKeys(context string, object map[string]any, orderedKeys []string) {
