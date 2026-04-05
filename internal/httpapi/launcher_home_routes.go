@@ -154,13 +154,70 @@ func RegisterLauncherHomeRoutes(router chi.Router, deps LauncherHomeRouteDepende
 		return fmt.Errorf("default setta home is required in launcher mode")
 	}
 
-	router.Get(RouteGetLauncherRecentWorkspaces, getLauncherRecentWorkspacesHandler(deps.DefaultSettaHome, deps.Home))
-	router.Post(RouteAddLauncherRecentWorkspace, addLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home))
-	router.Post(RouteRemoveLauncherRecentWorkspace, removeLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home))
-	router.Post(RoutePinLauncherRecentWorkspace, pinLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home))
-	router.Get(RouteGetLauncherFilesystemRoots, getLauncherFilesystemRootsHandler(deps.Home))
-	router.Post(RouteListLauncherDirectory, listLauncherDirectoryHandler(deps.Home))
-	router.Post(RouteOpenLauncherWorkspace, openLauncherWorkspaceHandler(deps.Auth, deps.OpenWorkspace))
+	registerOpenAPIGet[LauncherRecentWorkspacesResponse](
+		router,
+		"getLauncherRecentWorkspaces",
+		RouteGetLauncherRecentWorkspaces,
+		getLauncherRecentWorkspacesHandler(deps.DefaultSettaHome, deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("List recent launcher workspaces for the selected Setta home scope."),
+		withOpenAPIModeRequirement("launcher"),
+		withOpenAPIQuery[GetLauncherRecentWorkspacesRequest](),
+	)
+	registerOpenAPIPost[LauncherRecentWorkspaceRequest, LauncherRecentWorkspacesResponse](
+		router,
+		"addLauncherRecentWorkspace",
+		RouteAddLauncherRecentWorkspace,
+		addLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Add a workspace to the launcher recent-workspaces list."),
+		withOpenAPIModeRequirement("launcher"),
+	)
+	registerOpenAPIPost[LauncherRecentWorkspaceRequest, LauncherRecentWorkspacesResponse](
+		router,
+		"removeLauncherRecentWorkspace",
+		RouteRemoveLauncherRecentWorkspace,
+		removeLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Remove a workspace from the launcher recent-workspaces list."),
+		withOpenAPIModeRequirement("launcher"),
+	)
+	registerOpenAPIPost[PinLauncherRecentWorkspaceRequest, LauncherRecentWorkspacesResponse](
+		router,
+		"pinLauncherRecentWorkspace",
+		RoutePinLauncherRecentWorkspace,
+		pinLauncherRecentWorkspaceHandler(deps.DefaultSettaHome, deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Pin or unpin a workspace in the launcher recent-workspaces list."),
+		withOpenAPIModeRequirement("launcher"),
+	)
+	registerOpenAPIGet[LauncherFilesystemRootsResponse](
+		router,
+		"getLauncherFilesystemRoots",
+		RouteGetLauncherFilesystemRoots,
+		getLauncherFilesystemRootsHandler(deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("List filesystem roots that the launcher can browse."),
+		withOpenAPIModeRequirement("launcher"),
+	)
+	registerOpenAPIPost[LauncherListDirectoryRequest, LauncherListDirectoryResponse](
+		router,
+		"listLauncherDirectory",
+		RouteListLauncherDirectory,
+		listLauncherDirectoryHandler(deps.Home),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("List a launcher-visible directory page with pagination metadata."),
+		withOpenAPIModeRequirement("launcher"),
+	)
+	registerOpenAPIPost[LauncherOpenWorkspaceRequest, LauncherOpenWorkspaceResponse](
+		router,
+		"openLauncherWorkspace",
+		RouteOpenLauncherWorkspace,
+		openLauncherWorkspaceHandler(deps.Auth, deps.OpenWorkspace),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Open or reconnect to a launcher-selected workspace."),
+		withOpenAPIModeRequirement("launcher"),
+	)
 	return nil
 }
 

@@ -34,12 +34,6 @@ export async function route_add_kwarg(
   return await post(GoHTTPRouteHelpers.addKwarg(), x);
 }
 
-export async function route_add_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post(GoHTTPRouteHelpers.addLauncherRecentWorkspace(), x);
-}
-
 export async function route_append_draw_area_layer_item(
   x: gt.AppendDrawAreaLayerItemRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -338,24 +332,6 @@ export async function route_get_latest_project_state(
   return await post(GoHTTPRouteHelpers.getLatestProjectState(), x);
 }
 
-export async function route_get_launcher_filesystem_roots(): Promise<
-  ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getLauncherFilesystemRoots());
-}
-
-export async function route_get_launcher_recent_workspaces(
-  x: gt.GetLauncherRecentWorkspacesRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await get(GoHTTPRouteHelpers.getLauncherRecentWorkspaces(), x);
-}
-
-export async function route_get_launcher_status(
-  x: gt.GetLauncherStatusRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await get(GoHTTPRouteHelpers.getLauncherStatus(), x);
-}
-
 export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequest,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
@@ -422,12 +398,6 @@ export async function route_interrupt_terminal_processes(
   return await post(GoHTTPRouteHelpers.interruptTerminalProcesses(), x);
 }
 
-export async function route_list_launcher_directory(
-  x: gt.LauncherListDirectoryRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
-  return await post(GoHTTPRouteHelpers.listLauncherDirectory(), x);
-}
-
 export async function route_load_cached_brush_strokes(
   x: gt.LoadCachedPathsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.JSONArtifact>>> {
@@ -473,22 +443,10 @@ export async function route_move_sections(
   return await post(GoHTTPRouteHelpers.moveSections(), x);
 }
 
-export async function route_open_launcher_workspace(
-  x: gt.LauncherOpenWorkspaceRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
-  return await post(GoHTTPRouteHelpers.openLauncherWorkspace(), x);
-}
-
 export async function route_paste_sections(
   x: gt.PasteSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.pasteSections(), x);
-}
-
-export async function route_pin_launcher_recent_workspace(
-  x: gt.PinLauncherRecentWorkspaceRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post(GoHTTPRouteHelpers.pinLauncherRecentWorkspace(), x);
 }
 
 export async function route_prepare_sections_for_copy(
@@ -509,24 +467,6 @@ export async function route_redo(
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
 > {
   return await post(GoHTTPRouteHelpers.redo(), x);
-}
-
-export async function route_remove_launcher(
-  x: gt.LauncherRequestBase,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post(GoHTTPRouteHelpers.removeLauncher(), x);
-}
-
-export async function route_remove_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post(GoHTTPRouteHelpers.removeLauncherRecentWorkspace(), x);
-}
-
-export async function route_repair_launcher(
-  x: gt.LauncherRequestBase,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post(GoHTTPRouteHelpers.repairLauncher(), x);
 }
 
 export async function route_reset_state_machine(
@@ -1003,12 +943,6 @@ export async function route_set_window_space_sort_order(
   return await post(GoHTTPRouteHelpers.setWindowSpaceSortOrder(), x);
 }
 
-export async function route_setup_launcher(
-  x: gt.SetupLauncherRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post(GoHTTPRouteHelpers.setupLauncher(), x);
-}
-
 export async function route_start_agent_run(
   x: gt.StartAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
@@ -1171,12 +1105,6 @@ export async function route_update_edge(
   x: gt.UpdateEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.updateEdge(), x);
-}
-
-export async function route_update_launcher(
-  x: gt.UpdateLauncherRequest,
-): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
-  return await post(GoHTTPRouteHelpers.updateLauncher(), x);
 }
 
 export async function route_update_param_impl_config(

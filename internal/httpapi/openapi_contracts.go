@@ -30,6 +30,7 @@ type openAPIOperation struct {
 	AuthRequirement     string
 	ModeRequirement     string
 	PathParamsType      reflect.Type
+	QueryParamsType     reflect.Type
 	RequestType         reflect.Type
 	ResponseType        reflect.Type
 	RequestContentType  string
@@ -173,6 +174,12 @@ func withOpenAPIPathParams[T any]() openAPIOperationOption {
 	}
 }
 
+func withOpenAPIQuery[T any]() openAPIOperationOption {
+	return func(operation *openAPIOperation) {
+		operation.QueryParamsType = openAPIReflectType[T]()
+	}
+}
+
 func registerOpenAPIGet[Resp any](
 	router chi.Router,
 	operationID string,
@@ -294,7 +301,7 @@ func (c *openAPICollector) AddOperation(operation openAPIOperation) {
 		OperationID: operation.OperationID,
 		Tags:        append([]string(nil), operation.Tags...),
 		Summary:     operation.Summary,
-		Parameters:  c.buildPathParameters(operation.Path, operation.PathParamsType, operation.OperationID),
+		Parameters:  c.buildParameters(operation.Path, operation.PathParamsType, operation.QueryParamsType, operation.OperationID),
 		Responses: map[string]*huma.Response{
 			"200": c.buildSuccessResponse(operation.ResponseType, operation.ResponseContentType),
 		},
@@ -366,6 +373,23 @@ func (c *openAPICollector) defaultErrorResponse() *huma.Response {
 	return c.defaultErrorReply
 }
 
+func (c *openAPICollector) buildParameters(
+	routePath string,
+	pathParamsType reflect.Type,
+	queryParamsType reflect.Type,
+	operationID string,
+) []*huma.Param {
+	pathParams := c.buildPathParameters(routePath, pathParamsType, operationID)
+	queryParams := c.buildQueryParameters(queryParamsType, operationID)
+	if len(pathParams) == 0 {
+		return queryParams
+	}
+	if len(queryParams) == 0 {
+		return pathParams
+	}
+	return append(pathParams, queryParams...)
+}
+
 func (c *openAPICollector) buildPathParameters(
 	routePath string,
 	pathParamsType reflect.Type,
@@ -391,7 +415,28 @@ func (c *openAPICollector) buildPathParameters(
 			Name:     paramName,
 			In:       "path",
 			Required: true,
-			Schema:   c.schemaForType(fieldType),
+			Schema:   c.schemaForType(openAPIParameterType(fieldType)),
+		})
+	}
+	return params
+}
+
+func (c *openAPICollector) buildQueryParameters(
+	queryParamsType reflect.Type,
+	operationID string,
+) []*huma.Param {
+	fields := openAPIParameterFields(queryParamsType, operationID, "query")
+	if len(fields) == 0 {
+		return nil
+	}
+
+	params := make([]*huma.Param, 0, len(fields))
+	for _, field := range fields {
+		params = append(params, &huma.Param{
+			Name:     field.Name,
+			In:       "query",
+			Required: field.Required,
+			Schema:   c.schemaForType(openAPIParameterType(field.Type)),
 		})
 	}
 	return params
@@ -417,6 +462,16 @@ func normalizeOpenAPIType(t reflect.Type) reflect.Type {
 		return nil
 	}
 	return t
+}
+
+func openAPIParameterType(t reflect.Type) reflect.Type {
+	return openAPIConcreteType(normalizeOpenAPIType(t))
+}
+
+type openAPIParameterField struct {
+	Name     string
+	Type     reflect.Type
+	Required bool
 }
 
 func openAPIPathParamFields(t reflect.Type, operationID string) map[string]reflect.Type {
@@ -448,20 +503,77 @@ func openAPIPathParamFields(t reflect.Type, operationID string) map[string]refle
 	return fields
 }
 
+func openAPIParameterFields(
+	t reflect.Type,
+	operationID string,
+	parameterKind string,
+) []openAPIParameterField {
+	if t == nil {
+		return nil
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("openapi operation %s %s params type must be a struct, got %s", operationID, parameterKind, t))
+	}
+
+	fields := make([]openAPIParameterField, 0, t.NumField())
+	for i := range t.NumField() {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		name, options, skip := openAPIJSONField(field)
+		if skip {
+			continue
+		}
+		required := !options.Omitempty && !options.Omitzero && field.Type.Kind() != reflect.Pointer
+		fields = append(fields, openAPIParameterField{
+			Name:     name,
+			Type:     field.Type,
+			Required: required,
+		})
+	}
+	if len(fields) == 0 {
+		panic(fmt.Sprintf("openapi operation %s %s params type %s has no exported json fields", operationID, parameterKind, t))
+	}
+	return fields
+}
+
+type openAPIJSONFieldOptions struct {
+	Omitempty bool
+	Omitzero  bool
+}
+
 func openAPIJSONFieldName(field reflect.StructField) (string, bool) {
+	name, _, skip := openAPIJSONField(field)
+	return name, skip
+}
+
+func openAPIJSONField(field reflect.StructField) (string, openAPIJSONFieldOptions, bool) {
 	tag := strings.TrimSpace(field.Tag.Get("json"))
 	if tag == "-" {
-		return "", true
+		return "", openAPIJSONFieldOptions{}, true
 	}
+	options := openAPIJSONFieldOptions{}
 	if tag == "" {
-		return field.Name, false
+		return field.Name, options, false
 	}
-	name, _, _ := strings.Cut(tag, ",")
+	name, remainder, _ := strings.Cut(tag, ",")
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return field.Name, false
+	for _, option := range strings.Split(remainder, ",") {
+		switch strings.TrimSpace(option) {
+		case "omitempty":
+			options.Omitempty = true
+		case "omitzero":
+			options.Omitzero = true
+		}
 	}
-	return name, false
+	if name == "" {
+		return field.Name, options, false
+	}
+	return name, options, false
 }
 
 func openAPIPathParamNames(routePath string) []string {

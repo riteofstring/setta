@@ -540,6 +540,135 @@ export type HttpapiLaunchSessionInfo = {
   workspacePathCanonical: string;
 };
 
+export type HttpapiLauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string> | null;
+};
+
+export type HttpapiLauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type HttpapiLauncherListDirectoryRequest = {
+  cursor: string | null;
+  pageSize: number | null;
+  path: string | null;
+};
+
+export type HttpapiLauncherListDirectoryResponse = {
+  currentPath: string | null;
+  entries: Array<LauncherDirectoryEntry> | null;
+  error: HttpapiLauncherHomeErrorPayload;
+  hasMore: boolean;
+  nextCursor: string | null;
+  ok: boolean;
+  parentPath: string | null;
+  truncated: boolean;
+};
+
+export type HttpapiLauncherOpenWorkspaceRequest = {
+  createIfMissing: boolean;
+  profile: string | null;
+  runtimeRoot: string | null;
+  settaFilesLocation: string | null;
+  settaFilesRoot: string | null;
+  settaHome: string | null;
+  workspaceRoot: string;
+};
+
+export type HttpapiLauncherOpenWorkspaceResponse = {
+  bootstrapUrlFragment: string | null;
+  error: HttpapiLauncherHomeErrorPayload;
+  ok: boolean;
+  profile: string | null;
+  runtimeRoot: string | null;
+  sessionId: string | null;
+  settaFilesLocation: string | null;
+  settaFilesRoot: string | null;
+  settaHome: string | null;
+  startedNew: boolean | null;
+  workspaceRoot: string | null;
+};
+
+export type HttpapiLauncherOperationErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type HttpapiLauncherRecentWorkspaceRequest = {
+  pinned: boolean | null;
+  settaHome: string | null;
+  workspaceRoot: string;
+};
+
+export type HttpapiLauncherRecentWorkspacesResponse = {
+  error: HttpapiLauncherHomeErrorPayload;
+  ok: boolean;
+  workspaces: Array<LauncherRecentWorkspaceEntry> | null;
+};
+
+export type HttpapiLauncherRequestBase = {
+  settaHome: string | null;
+};
+
+export type HttpapiLauncherStatusResponse = {
+  artifactOptions?: {
+    [key: string]: string;
+  };
+  channel?: string;
+  error?: HttpapiLauncherOperationErrorPayload;
+  existingManagedArtifacts?: Array<string> | null;
+  installed?: boolean;
+  lastUsedWorkspace?: string;
+  launcherDir?: string;
+  managedArtifacts?: {
+    [key: string]: string;
+  };
+  metadataPath?: string;
+  missingManagedArtifacts?: Array<string> | null;
+  ok: boolean;
+  openMode?: string;
+  settaHome?: string;
+  settaVersion?: string;
+  targetCommand?: Array<string> | null;
+  targetError?: string;
+  targetValid?: boolean;
+  updateCapability?: string;
+  updateGuidance?: string;
+  workspaceBehavior?: string;
+};
+
+export type HttpapiLauncherUpdateResponse = {
+  artifactOptions?: {
+    [key: string]: string;
+  };
+  channel?: string;
+  error?: HttpapiLauncherOperationErrorPayload;
+  existingManagedArtifacts?: Array<string> | null;
+  fromVersion?: string;
+  installed?: boolean;
+  lastUsedWorkspace?: string;
+  launcherDir?: string;
+  managedArtifacts?: {
+    [key: string]: string;
+  };
+  metadataPath?: string;
+  missingManagedArtifacts?: Array<string> | null;
+  ok: boolean;
+  openMode?: string;
+  packageSpec?: string;
+  settaHome?: string;
+  settaVersion?: string;
+  targetCommand?: Array<string> | null;
+  targetError?: string;
+  targetValid?: boolean;
+  toVersion?: string;
+  updateCapability?: string;
+  updateGuidance?: string;
+  workspaceBehavior?: string;
+};
+
 export type HttpapiLoadDeploymentProjectConfigRequest = {
   projectConfigId: string;
 };
@@ -581,6 +710,12 @@ export type HttpapiOutputAccessorCompletionRequest = {
   position: number;
   projectConfigId: string;
   sectionId: string;
+};
+
+export type HttpapiPinLauncherRecentWorkspaceRequest = {
+  pinned: boolean;
+  settaHome: string | null;
+  workspaceRoot: string;
 };
 
 export type HttpapiPluginConfigWriteRequest = {
@@ -758,6 +893,18 @@ export type HttpapiSettaHomeInfoResponse = {
   settaHome: string;
 };
 
+export type HttpapiSetupLauncherRequest = {
+  artifactOptions?: {
+    [key: string]: string;
+  };
+  channel?: string;
+  installArtifacts?: boolean;
+  installSource?: string;
+  openMode?: string;
+  settaHome?: string;
+  workspaceBehavior?: string;
+};
+
 export type HttpapiShareDeploymentSessionResponse = {
   defaultProjectConfigId: string;
   deploymentName: string;
@@ -819,6 +966,11 @@ export type HttpapiUpdateExternalAgentConfigRequest = {
   config: ExternalagentconfigsConfig;
 };
 
+export type HttpapiUpdateLauncherRequest = {
+  packageSpec: string | null;
+  settaHome: string | null;
+};
+
 export type HttpapiUpdatePromptTemplateRequest = {
   template: HttpapiPromptTemplatePayload;
 };
@@ -836,6 +988,19 @@ export type HttpapiWriteFileBrowserFileContentRequest = {
   contentId: string;
   expectedMtimeNs?: number;
   path: string;
+};
+
+export type LauncherDirectoryEntry = {
+  isDirectory: boolean;
+  isSymlink: boolean;
+  name: string;
+  path: string;
+};
+
+export type LauncherRecentWorkspaceEntry = {
+  lastUsedAt: number;
+  pinned: boolean;
+  workspaceRoot: string;
 };
 
 export type LlmconfigAllConfigs = {
@@ -1749,6 +1914,33 @@ export type TranscriptionprofilesProfile = {
   transcriptionLlmConfigId: string;
   transportMode: string;
 };
+
+export type AddLauncherRecentWorkspaceData = {
+  body: HttpapiLauncherRecentWorkspaceRequest;
+  path?: never;
+  query?: never;
+  url: "/addLauncherRecentWorkspace";
+};
+
+export type AddLauncherRecentWorkspaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AddLauncherRecentWorkspaceError =
+  AddLauncherRecentWorkspaceErrors[keyof AddLauncherRecentWorkspaceErrors];
+
+export type AddLauncherRecentWorkspaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherRecentWorkspacesResponse;
+};
+
+export type AddLauncherRecentWorkspaceResponse =
+  AddLauncherRecentWorkspaceResponses[keyof AddLauncherRecentWorkspaceResponses];
 
 export type ListAppDeploymentsData = {
   body?: never;
@@ -3219,6 +3411,118 @@ export type LaunchWorkspaceResponses = {
 export type LaunchWorkspaceResponse =
   LaunchWorkspaceResponses[keyof LaunchWorkspaceResponses];
 
+export type GetLauncherFilesystemRootsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/launcherFilesystemRoots";
+};
+
+export type GetLauncherFilesystemRootsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLauncherFilesystemRootsError =
+  GetLauncherFilesystemRootsErrors[keyof GetLauncherFilesystemRootsErrors];
+
+export type GetLauncherFilesystemRootsResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherFilesystemRootsResponse;
+};
+
+export type GetLauncherFilesystemRootsResponse =
+  GetLauncherFilesystemRootsResponses[keyof GetLauncherFilesystemRootsResponses];
+
+export type GetLauncherRecentWorkspacesData = {
+  body?: never;
+  path?: never;
+  query?: {
+    setta_home?: string;
+  };
+  url: "/launcherRecentWorkspaces";
+};
+
+export type GetLauncherRecentWorkspacesErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLauncherRecentWorkspacesError =
+  GetLauncherRecentWorkspacesErrors[keyof GetLauncherRecentWorkspacesErrors];
+
+export type GetLauncherRecentWorkspacesResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherRecentWorkspacesResponse;
+};
+
+export type GetLauncherRecentWorkspacesResponse =
+  GetLauncherRecentWorkspacesResponses[keyof GetLauncherRecentWorkspacesResponses];
+
+export type GetLauncherStatusData = {
+  body?: never;
+  path?: never;
+  query?: {
+    setta_home?: string;
+  };
+  url: "/launcherStatus";
+};
+
+export type GetLauncherStatusErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLauncherStatusError =
+  GetLauncherStatusErrors[keyof GetLauncherStatusErrors];
+
+export type GetLauncherStatusResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherStatusResponse;
+};
+
+export type GetLauncherStatusResponse =
+  GetLauncherStatusResponses[keyof GetLauncherStatusResponses];
+
+export type ListLauncherDirectoryData = {
+  body: HttpapiLauncherListDirectoryRequest;
+  path?: never;
+  query?: never;
+  url: "/listLauncherDirectory";
+};
+
+export type ListLauncherDirectoryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ListLauncherDirectoryError =
+  ListLauncherDirectoryErrors[keyof ListLauncherDirectoryErrors];
+
+export type ListLauncherDirectoryResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherListDirectoryResponse;
+};
+
+export type ListLauncherDirectoryResponse =
+  ListLauncherDirectoryResponses[keyof ListLauncherDirectoryResponses];
+
 export type GetLlmApiKeysData = {
   body?: never;
   path?: never;
@@ -3430,6 +3734,33 @@ export type GetMcpServerRuntimeStatusResponses = {
 export type GetMcpServerRuntimeStatusResponse =
   GetMcpServerRuntimeStatusResponses[keyof GetMcpServerRuntimeStatusResponses];
 
+export type OpenLauncherWorkspaceData = {
+  body: HttpapiLauncherOpenWorkspaceRequest;
+  path?: never;
+  query?: never;
+  url: "/openLauncherWorkspace";
+};
+
+export type OpenLauncherWorkspaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type OpenLauncherWorkspaceError =
+  OpenLauncherWorkspaceErrors[keyof OpenLauncherWorkspaceErrors];
+
+export type OpenLauncherWorkspaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherOpenWorkspaceResponse;
+};
+
+export type OpenLauncherWorkspaceResponse =
+  OpenLauncherWorkspaceResponses[keyof OpenLauncherWorkspaceResponses];
+
 export type OutputAccessorCompletionData = {
   body: HttpapiOutputAccessorCompletionRequest;
   path?: never;
@@ -3456,6 +3787,33 @@ export type OutputAccessorCompletionResponses = {
 
 export type OutputAccessorCompletionResponse =
   OutputAccessorCompletionResponses[keyof OutputAccessorCompletionResponses];
+
+export type PinLauncherRecentWorkspaceData = {
+  body: HttpapiPinLauncherRecentWorkspaceRequest;
+  path?: never;
+  query?: never;
+  url: "/pinLauncherRecentWorkspace";
+};
+
+export type PinLauncherRecentWorkspaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type PinLauncherRecentWorkspaceError =
+  PinLauncherRecentWorkspaceErrors[keyof PinLauncherRecentWorkspaceErrors];
+
+export type PinLauncherRecentWorkspaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherRecentWorkspacesResponse;
+};
+
+export type PinLauncherRecentWorkspaceResponse =
+  PinLauncherRecentWorkspaceResponses[keyof PinLauncherRecentWorkspaceResponses];
 
 export type WritePluginConfigData = {
   body: HttpapiPluginConfigWriteRequest;
@@ -3800,6 +4158,87 @@ export type UpdatePluginResponses = {
 
 export type UpdatePluginResponse =
   UpdatePluginResponses[keyof UpdatePluginResponses];
+
+export type RemoveLauncherData = {
+  body: HttpapiLauncherRequestBase;
+  path?: never;
+  query?: never;
+  url: "/removeLauncher";
+};
+
+export type RemoveLauncherErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RemoveLauncherError =
+  RemoveLauncherErrors[keyof RemoveLauncherErrors];
+
+export type RemoveLauncherResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherStatusResponse;
+};
+
+export type RemoveLauncherResponse =
+  RemoveLauncherResponses[keyof RemoveLauncherResponses];
+
+export type RemoveLauncherRecentWorkspaceData = {
+  body: HttpapiLauncherRecentWorkspaceRequest;
+  path?: never;
+  query?: never;
+  url: "/removeLauncherRecentWorkspace";
+};
+
+export type RemoveLauncherRecentWorkspaceErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RemoveLauncherRecentWorkspaceError =
+  RemoveLauncherRecentWorkspaceErrors[keyof RemoveLauncherRecentWorkspaceErrors];
+
+export type RemoveLauncherRecentWorkspaceResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherRecentWorkspacesResponse;
+};
+
+export type RemoveLauncherRecentWorkspaceResponse =
+  RemoveLauncherRecentWorkspaceResponses[keyof RemoveLauncherRecentWorkspaceResponses];
+
+export type RepairLauncherData = {
+  body: HttpapiLauncherRequestBase;
+  path?: never;
+  query?: never;
+  url: "/repairLauncher";
+};
+
+export type RepairLauncherErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RepairLauncherError =
+  RepairLauncherErrors[keyof RepairLauncherErrors];
+
+export type RepairLauncherResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherStatusResponse;
+};
+
+export type RepairLauncherResponse =
+  RepairLauncherResponses[keyof RepairLauncherResponses];
 
 export type RestartLanguageServerData = {
   body?: never;
@@ -4148,6 +4587,32 @@ export type GetSettaHomeInfoResponses = {
 
 export type GetSettaHomeInfoResponse =
   GetSettaHomeInfoResponses[keyof GetSettaHomeInfoResponses];
+
+export type SetupLauncherData = {
+  body: HttpapiSetupLauncherRequest;
+  path?: never;
+  query?: never;
+  url: "/setupLauncher";
+};
+
+export type SetupLauncherErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetupLauncherError = SetupLauncherErrors[keyof SetupLauncherErrors];
+
+export type SetupLauncherResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherStatusResponse;
+};
+
+export type SetupLauncherResponse =
+  SetupLauncherResponses[keyof SetupLauncherResponses];
 
 export type ListShareDeploymentsData = {
   body?: never;
@@ -4507,6 +4972,33 @@ export type UpdateExternalAgentConfigResponses = {
 
 export type UpdateExternalAgentConfigResponse =
   UpdateExternalAgentConfigResponses[keyof UpdateExternalAgentConfigResponses];
+
+export type UpdateLauncherData = {
+  body: HttpapiUpdateLauncherRequest;
+  path?: never;
+  query?: never;
+  url: "/updateLauncher";
+};
+
+export type UpdateLauncherErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdateLauncherError =
+  UpdateLauncherErrors[keyof UpdateLauncherErrors];
+
+export type UpdateLauncherResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLauncherUpdateResponse;
+};
+
+export type UpdateLauncherResponse =
+  UpdateLauncherResponses[keyof UpdateLauncherResponses];
 
 export type UpdatePromptTemplateData = {
   body: HttpapiUpdatePromptTemplateRequest;

@@ -1709,6 +1709,414 @@
         ],
         "type": "object"
       },
+      "HttpapiLauncherFilesystemRootsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "roots": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["ok", "roots"],
+        "type": "object"
+      },
+      "HttpapiLauncherHomeErrorPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "HttpapiLauncherListDirectoryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": ["string", "null"]
+          },
+          "pageSize": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "path": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["path", "cursor", "pageSize"],
+        "type": "object"
+      },
+      "HttpapiLauncherListDirectoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "currentPath": {
+            "type": ["string", "null"]
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/LauncherDirectoryEntry"
+            },
+            "type": ["array", "null"]
+          },
+          "error": {
+            "$ref": "#/components/schemas/HttpapiLauncherHomeErrorPayload"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "nextCursor": {
+            "type": ["string", "null"]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "parentPath": {
+            "type": ["string", "null"]
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "currentPath",
+          "parentPath",
+          "entries",
+          "nextCursor",
+          "hasMore",
+          "truncated",
+          "error"
+        ],
+        "type": "object"
+      },
+      "HttpapiLauncherOpenWorkspaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "createIfMissing": {
+            "type": "boolean"
+          },
+          "profile": {
+            "type": ["string", "null"]
+          },
+          "runtimeRoot": {
+            "type": ["string", "null"]
+          },
+          "settaFilesLocation": {
+            "type": ["string", "null"]
+          },
+          "settaFilesRoot": {
+            "type": ["string", "null"]
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspaceRoot",
+          "settaHome",
+          "profile",
+          "settaFilesRoot",
+          "settaFilesLocation",
+          "runtimeRoot",
+          "createIfMissing"
+        ],
+        "type": "object"
+      },
+      "HttpapiLauncherOpenWorkspaceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrapUrlFragment": {
+            "type": ["string", "null"]
+          },
+          "error": {
+            "$ref": "#/components/schemas/HttpapiLauncherHomeErrorPayload"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "profile": {
+            "type": ["string", "null"]
+          },
+          "runtimeRoot": {
+            "type": ["string", "null"]
+          },
+          "sessionId": {
+            "type": ["string", "null"]
+          },
+          "settaFilesLocation": {
+            "type": ["string", "null"]
+          },
+          "settaFilesRoot": {
+            "type": ["string", "null"]
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          },
+          "startedNew": {
+            "type": ["boolean", "null"]
+          },
+          "workspaceRoot": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": [
+          "ok",
+          "bootstrapUrlFragment",
+          "workspaceRoot",
+          "settaFilesLocation",
+          "settaFilesRoot",
+          "runtimeRoot",
+          "settaHome",
+          "profile",
+          "sessionId",
+          "startedNew",
+          "error"
+        ],
+        "type": "object"
+      },
+      "HttpapiLauncherOperationErrorPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "type": "object"
+      },
+      "HttpapiLauncherRecentWorkspaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pinned": {
+            "type": ["boolean", "null"]
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "required": ["settaHome", "workspaceRoot", "pinned"],
+        "type": "object"
+      },
+      "HttpapiLauncherRecentWorkspacesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/HttpapiLauncherHomeErrorPayload"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/LauncherRecentWorkspaceEntry"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["ok", "workspaces", "error"],
+        "type": "object"
+      },
+      "HttpapiLauncherRequestBase": {
+        "additionalProperties": false,
+        "properties": {
+          "settaHome": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["settaHome"],
+        "type": "object"
+      },
+      "HttpapiLauncherStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactOptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/components/schemas/HttpapiLauncherOperationErrorPayload"
+          },
+          "existingManagedArtifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "lastUsedWorkspace": {
+            "type": "string"
+          },
+          "launcherDir": {
+            "type": "string"
+          },
+          "managedArtifacts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "metadataPath": {
+            "type": "string"
+          },
+          "missingManagedArtifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "openMode": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          },
+          "settaVersion": {
+            "type": "string"
+          },
+          "targetCommand": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "targetError": {
+            "type": "string"
+          },
+          "targetValid": {
+            "type": "boolean"
+          },
+          "updateCapability": {
+            "type": "string"
+          },
+          "updateGuidance": {
+            "type": "string"
+          },
+          "workspaceBehavior": {
+            "type": "string"
+          }
+        },
+        "required": ["ok"],
+        "type": "object"
+      },
+      "HttpapiLauncherUpdateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactOptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/components/schemas/HttpapiLauncherOperationErrorPayload"
+          },
+          "existingManagedArtifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "fromVersion": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "lastUsedWorkspace": {
+            "type": "string"
+          },
+          "launcherDir": {
+            "type": "string"
+          },
+          "managedArtifacts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "metadataPath": {
+            "type": "string"
+          },
+          "missingManagedArtifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "openMode": {
+            "type": "string"
+          },
+          "packageSpec": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          },
+          "settaVersion": {
+            "type": "string"
+          },
+          "targetCommand": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "targetError": {
+            "type": "string"
+          },
+          "targetValid": {
+            "type": "boolean"
+          },
+          "toVersion": {
+            "type": "string"
+          },
+          "updateCapability": {
+            "type": "string"
+          },
+          "updateGuidance": {
+            "type": "string"
+          },
+          "workspaceBehavior": {
+            "type": "string"
+          }
+        },
+        "required": ["ok"],
+        "type": "object"
+      },
       "HttpapiLoadDeploymentProjectConfigRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1858,6 +2266,22 @@
           }
         },
         "required": ["projectConfigId", "sectionId", "fullText", "position"],
+        "type": "object"
+      },
+      "HttpapiPinLauncherRecentWorkspaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "pinned": {
+            "type": "boolean"
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "required": ["settaHome", "workspaceRoot", "pinned"],
         "type": "object"
       },
       "HttpapiPluginConfigWriteRequest": {
@@ -2354,6 +2778,36 @@
         ],
         "type": "object"
       },
+      "HttpapiSetupLauncherRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactOptions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "installArtifacts": {
+            "type": "boolean"
+          },
+          "installSource": {
+            "type": "string"
+          },
+          "openMode": {
+            "type": "string"
+          },
+          "settaHome": {
+            "type": "string"
+          },
+          "workspaceBehavior": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "HttpapiShareDeploymentSessionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2555,6 +3009,19 @@
         "required": ["config"],
         "type": "object"
       },
+      "HttpapiUpdateLauncherRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "packageSpec": {
+            "type": ["string", "null"]
+          },
+          "settaHome": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["settaHome", "packageSpec"],
+        "type": "object"
+      },
       "HttpapiUpdatePromptTemplateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2603,6 +3070,42 @@
           }
         },
         "required": ["path", "contentId"],
+        "type": "object"
+      },
+      "LauncherDirectoryEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "isDirectory": {
+            "type": "boolean"
+          },
+          "isSymlink": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": ["name", "path", "isDirectory", "isSymlink"],
+        "type": "object"
+      },
+      "LauncherRecentWorkspaceEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "lastUsedAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "workspaceRoot": {
+            "type": "string"
+          }
+        },
+        "required": ["workspaceRoot", "pinned", "lastUsedAt"],
         "type": "object"
       },
       "LlmconfigAllConfigs": {
@@ -5612,6 +6115,47 @@
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "openapi": "3.1.0",
   "paths": {
+    "/addLauncherRecentWorkspace": {
+      "post": {
+        "operationId": "addLauncherRecentWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspacesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Add a workspace to the launcher recent-workspaces list.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
     "/app/deployments": {
       "get": {
         "operationId": "listAppDeployments",
@@ -7780,6 +8324,158 @@
         "x-setta-mode-requirement": "not-deployment"
       }
     },
+    "/launcherFilesystemRoots": {
+      "get": {
+        "operationId": "getLauncherFilesystemRoots",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherFilesystemRootsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List filesystem roots that the launcher can browse.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
+    "/launcherRecentWorkspaces": {
+      "get": {
+        "operationId": "getLauncherRecentWorkspaces",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "setta_home",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspacesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List recent launcher workspaces for the selected Setta home scope.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
+    "/launcherStatus": {
+      "get": {
+        "operationId": "getLauncherStatus",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "setta_home",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get desktop launcher installation status for the selected Setta home scope.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/listLauncherDirectory": {
+      "post": {
+        "operationId": "listLauncherDirectory",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherListDirectoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherListDirectoryResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "List a launcher-visible directory page with pagination metadata.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
     "/llm/apiKeys": {
       "get": {
         "operationId": "getLlmApiKeys",
@@ -8064,6 +8760,47 @@
         "x-setta-mode-requirement": "full-ide"
       }
     },
+    "/openLauncherWorkspace": {
+      "post": {
+        "operationId": "openLauncherWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherOpenWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherOpenWorkspaceResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Open or reconnect to a launcher-selected workspace.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
     "/outputAccessorCompletion": {
       "post": {
         "operationId": "outputAccessorCompletion",
@@ -8106,6 +8843,47 @@
         "tags": ["LSP"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/pinLauncherRecentWorkspace": {
+      "post": {
+        "operationId": "pinLauncherRecentWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiPinLauncherRecentWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspacesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Pin or unpin a workspace in the launcher recent-workspaces list.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
       }
     },
     "/plugins/config": {
@@ -8600,6 +9378,129 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/removeLauncher": {
+      "post": {
+        "operationId": "removeLauncher",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherRequestBase"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove launcher metadata and managed artifacts for the selected Setta home scope.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/removeLauncherRecentWorkspace": {
+      "post": {
+        "operationId": "removeLauncherRecentWorkspace",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherRecentWorkspacesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove a workspace from the launcher recent-workspaces list.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "launcher"
+      }
+    },
+    "/repairLauncher": {
+      "post": {
+        "operationId": "repairLauncher",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiLauncherRequestBase"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Repair launcher bindings for the selected Setta home scope.",
+        "tags": ["Launcher"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
     "/restartLanguageServer": {
       "post": {
         "operationId": "restartLanguageServer",
@@ -9076,6 +9977,47 @@
         },
         "summary": "Get Setta home and files-path information for the IDE runtime.",
         "tags": ["Status"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/setupLauncher": {
+      "post": {
+        "operationId": "setupLauncher",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetupLauncherRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Install or refresh desktop launcher bindings and managed artifacts.",
+        "tags": ["Launcher"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
       }
@@ -9622,6 +10564,47 @@
         },
         "summary": "Update an external agent runtime configuration.",
         "tags": ["External Agent Configs"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/updateLauncher": {
+      "post": {
+        "operationId": "updateLauncher",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiUpdateLauncherRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLauncherUpdateResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Update the desktop launcher installation when the current channel supports in-app upgrades.",
+        "tags": ["Launcher"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
       }

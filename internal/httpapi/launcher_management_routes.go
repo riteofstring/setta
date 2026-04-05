@@ -118,11 +118,52 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 		return fmt.Errorf("launcher management service is required in ide mode")
 	}
 
-	router.Get(RouteGetLauncherStatus, getLauncherStatusHandler(deps.DefaultSettaHome, deps.Manager))
-	router.Post(RouteSetupLauncher, setupLauncherHandler(deps.DefaultSettaHome, deps.Manager))
-	router.Post(RouteRepairLauncher, repairLauncherHandler(deps.DefaultSettaHome, deps.Manager))
-	router.Post(RouteRemoveLauncher, removeLauncherHandler(deps.DefaultSettaHome, deps.Manager))
-	router.Post(RouteUpdateLauncher, updateLauncherHandler(deps.DefaultSettaHome, deps.Manager))
+	registerOpenAPIGet[LauncherStatusResponse](
+		router,
+		"getLauncherStatus",
+		RouteGetLauncherStatus,
+		getLauncherStatusHandler(deps.DefaultSettaHome, deps.Manager),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Get desktop launcher installation status for the selected Setta home scope."),
+		withOpenAPIModeRequirement("ide"),
+		withOpenAPIQuery[GetLauncherStatusRequest](),
+	)
+	registerOpenAPIPost[SetupLauncherRequest, LauncherStatusResponse](
+		router,
+		"setupLauncher",
+		RouteSetupLauncher,
+		setupLauncherHandler(deps.DefaultSettaHome, deps.Manager),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Install or refresh desktop launcher bindings and managed artifacts."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[LauncherRequestBase, LauncherStatusResponse](
+		router,
+		"repairLauncher",
+		RouteRepairLauncher,
+		repairLauncherHandler(deps.DefaultSettaHome, deps.Manager),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Repair launcher bindings for the selected Setta home scope."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[LauncherRequestBase, LauncherStatusResponse](
+		router,
+		"removeLauncher",
+		RouteRemoveLauncher,
+		removeLauncherHandler(deps.DefaultSettaHome, deps.Manager),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Remove launcher metadata and managed artifacts for the selected Setta home scope."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[UpdateLauncherRequest, LauncherUpdateResponse](
+		router,
+		"updateLauncher",
+		RouteUpdateLauncher,
+		updateLauncherHandler(deps.DefaultSettaHome, deps.Manager),
+		withOpenAPITags("Launcher"),
+		withOpenAPISummary("Update the desktop launcher installation when the current channel supports in-app upgrades."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

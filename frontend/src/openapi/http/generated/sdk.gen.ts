@@ -8,6 +8,9 @@ import {
 } from "./client";
 import { client as _heyApiClient } from "./client.gen";
 import type {
+  AddLauncherRecentWorkspaceData,
+  AddLauncherRecentWorkspaceErrors,
+  AddLauncherRecentWorkspaceResponses,
   ApplyPluginLockfileData,
   ApplyPluginLockfileErrors,
   ApplyPluginLockfileResponses,
@@ -149,6 +152,15 @@ import type {
   GetLatestLspDiagnosticsData,
   GetLatestLspDiagnosticsErrors,
   GetLatestLspDiagnosticsResponses,
+  GetLauncherFilesystemRootsData,
+  GetLauncherFilesystemRootsErrors,
+  GetLauncherFilesystemRootsResponses,
+  GetLauncherRecentWorkspacesData,
+  GetLauncherRecentWorkspacesErrors,
+  GetLauncherRecentWorkspacesResponses,
+  GetLauncherStatusData,
+  GetLauncherStatusErrors,
+  GetLauncherStatusResponses,
   GetLlmApiKeysData,
   GetLlmApiKeysErrors,
   GetLlmApiKeysResponses,
@@ -212,6 +224,9 @@ import type {
   ListAppDeploymentsData,
   ListAppDeploymentsErrors,
   ListAppDeploymentsResponses,
+  ListLauncherDirectoryData,
+  ListLauncherDirectoryErrors,
+  ListLauncherDirectoryResponses,
   ListShareDeploymentVersionsData,
   ListShareDeploymentVersionsErrors,
   ListShareDeploymentVersionsResponses,
@@ -227,15 +242,30 @@ import type {
   LoadSettingsData,
   LoadSettingsErrors,
   LoadSettingsResponses,
+  OpenLauncherWorkspaceData,
+  OpenLauncherWorkspaceErrors,
+  OpenLauncherWorkspaceResponses,
   OutputAccessorCompletionData,
   OutputAccessorCompletionErrors,
   OutputAccessorCompletionResponses,
+  PinLauncherRecentWorkspaceData,
+  PinLauncherRecentWorkspaceErrors,
+  PinLauncherRecentWorkspaceResponses,
   PublishAppDeploymentData,
   PublishAppDeploymentErrors,
   PublishAppDeploymentResponses,
   PublishShareDeploymentData,
   PublishShareDeploymentErrors,
   PublishShareDeploymentResponses,
+  RemoveLauncherData,
+  RemoveLauncherErrors,
+  RemoveLauncherRecentWorkspaceData,
+  RemoveLauncherRecentWorkspaceErrors,
+  RemoveLauncherRecentWorkspaceResponses,
+  RemoveLauncherResponses,
+  RepairLauncherData,
+  RepairLauncherErrors,
+  RepairLauncherResponses,
   RescanPluginsData,
   RescanPluginsErrors,
   RescanPluginsResponses,
@@ -281,6 +311,9 @@ import type {
   SetProjectConfigNameData,
   SetProjectConfigNameErrors,
   SetProjectConfigNameResponses,
+  SetupLauncherData,
+  SetupLauncherErrors,
+  SetupLauncherResponses,
   TextFieldCompletionData,
   TextFieldCompletionErrors,
   TextFieldCompletionResponses,
@@ -302,6 +335,9 @@ import type {
   UpdateExternalAgentConfigData,
   UpdateExternalAgentConfigErrors,
   UpdateExternalAgentConfigResponses,
+  UpdateLauncherData,
+  UpdateLauncherErrors,
+  UpdateLauncherResponses,
   UpdatePluginData,
   UpdatePluginErrors,
   UpdatePluginResponses,
@@ -340,6 +376,28 @@ export type Options<
    * used to access values that aren't defined as part of the SDK function.
    */
   meta?: Record<string, unknown>;
+};
+
+/**
+ * Add a workspace to the launcher recent-workspaces list.
+ */
+export const addLauncherRecentWorkspace = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<AddLauncherRecentWorkspaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AddLauncherRecentWorkspaceResponses,
+    AddLauncherRecentWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: "/addLauncherRecentWorkspace",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
 };
 
 /**
@@ -1374,6 +1432,78 @@ export const launchWorkspace = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * List filesystem roots that the launcher can browse.
+ */
+export const getLauncherFilesystemRoots = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetLauncherFilesystemRootsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetLauncherFilesystemRootsResponses,
+    GetLauncherFilesystemRootsErrors,
+    ThrowOnError
+  >({
+    url: "/launcherFilesystemRoots",
+    ...options,
+  });
+};
+
+/**
+ * List recent launcher workspaces for the selected Setta home scope.
+ */
+export const getLauncherRecentWorkspaces = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetLauncherRecentWorkspacesData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetLauncherRecentWorkspacesResponses,
+    GetLauncherRecentWorkspacesErrors,
+    ThrowOnError
+  >({
+    url: "/launcherRecentWorkspaces",
+    ...options,
+  });
+};
+
+/**
+ * Get desktop launcher installation status for the selected Setta home scope.
+ */
+export const getLauncherStatus = <ThrowOnError extends boolean = false>(
+  options?: Options<GetLauncherStatusData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetLauncherStatusResponses,
+    GetLauncherStatusErrors,
+    ThrowOnError
+  >({
+    url: "/launcherStatus",
+    ...options,
+  });
+};
+
+/**
+ * List a launcher-visible directory page with pagination metadata.
+ */
+export const listLauncherDirectory = <ThrowOnError extends boolean = false>(
+  options: Options<ListLauncherDirectoryData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ListLauncherDirectoryResponses,
+    ListLauncherDirectoryErrors,
+    ThrowOnError
+  >({
+    url: "/listLauncherDirectory",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Get the current managed LLM API key snapshot.
  */
 export const getLlmApiKeys = <ThrowOnError extends boolean = false>(
@@ -1518,6 +1648,26 @@ export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Open or reconnect to a launcher-selected workspace.
+ */
+export const openLauncherWorkspace = <ThrowOnError extends boolean = false>(
+  options: Options<OpenLauncherWorkspaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    OpenLauncherWorkspaceResponses,
+    OpenLauncherWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: "/openLauncherWorkspace",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Resolve output accessor completions for a section.
  */
 export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
@@ -1529,6 +1679,28 @@ export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/outputAccessorCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Pin or unpin a workspace in the launcher recent-workspaces list.
+ */
+export const pinLauncherRecentWorkspace = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PinLauncherRecentWorkspaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    PinLauncherRecentWorkspaceResponses,
+    PinLauncherRecentWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: "/pinLauncherRecentWorkspace",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1773,6 +1945,68 @@ export const updatePlugin = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/plugins/update",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Remove launcher metadata and managed artifacts for the selected Setta home scope.
+ */
+export const removeLauncher = <ThrowOnError extends boolean = false>(
+  options: Options<RemoveLauncherData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RemoveLauncherResponses,
+    RemoveLauncherErrors,
+    ThrowOnError
+  >({
+    url: "/removeLauncher",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Remove a workspace from the launcher recent-workspaces list.
+ */
+export const removeLauncherRecentWorkspace = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RemoveLauncherRecentWorkspaceData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RemoveLauncherRecentWorkspaceResponses,
+    RemoveLauncherRecentWorkspaceErrors,
+    ThrowOnError
+  >({
+    url: "/removeLauncherRecentWorkspace",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Repair launcher bindings for the selected Setta home scope.
+ */
+export const repairLauncher = <ThrowOnError extends boolean = false>(
+  options: Options<RepairLauncherData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RepairLauncherResponses,
+    RepairLauncherErrors,
+    ThrowOnError
+  >({
+    url: "/repairLauncher",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2028,6 +2262,26 @@ export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Install or refresh desktop launcher bindings and managed artifacts.
+ */
+export const setupLauncher = <ThrowOnError extends boolean = false>(
+  options: Options<SetupLauncherData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetupLauncherResponses,
+    SetupLauncherErrors,
+    ThrowOnError
+  >({
+    url: "/setupLauncher",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * List published share deployments.
  */
 export const listShareDeployments = <ThrowOnError extends boolean = false>(
@@ -2265,6 +2519,26 @@ export const updateExternalAgentConfig = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/updateExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update the desktop launcher installation when the current channel supports in-app upgrades.
+ */
+export const updateLauncher = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateLauncherData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdateLauncherResponses,
+    UpdateLauncherErrors,
+    ThrowOnError
+  >({
+    url: "/updateLauncher",
     ...options,
     headers: {
       "Content-Type": "application/json",

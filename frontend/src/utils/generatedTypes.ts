@@ -1403,105 +1403,6 @@ type ToolNameNormalization = {
   askUserQuestionToolName: string;
 };
 
-type LauncherHomeErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type RecentWorkspaceEntry = {
-  workspaceRoot: string;
-  pinned: boolean;
-  lastUsedAt: number;
-};
-
-export type LauncherRecentWorkspacesResponse = {
-  ok: boolean;
-  workspaces: Array<RecentWorkspaceEntry>;
-  error: LauncherHomeErrorPayload | null;
-};
-
-export type GetLauncherRecentWorkspacesRequest = {
-  setta_home?: string | null;
-};
-
-export type LauncherRecentWorkspaceRequest = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean | null;
-};
-
-export type PinLauncherRecentWorkspaceRequest = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean;
-};
-
-export type LauncherFilesystemRootsResponse = {
-  ok: boolean;
-  roots: Array<string>;
-};
-
-export type LauncherListDirectoryRequest = {
-  path: string | null;
-  cursor: string | null;
-  pageSize: number | null;
-};
-
-export type DirectoryEntry = {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isSymlink: boolean;
-};
-
-export type LauncherListDirectoryResponse = {
-  ok: boolean;
-  currentPath: string | null;
-  parentPath: string | null;
-  entries: Array<DirectoryEntry>;
-  nextCursor: string | null;
-  hasMore: boolean;
-  truncated: boolean;
-  error: LauncherHomeErrorPayload | null;
-};
-
-const FilesLocationEnum = {
-  auto: "auto",
-  local: "local",
-  global: "global",
-} as const;
-type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
-
-export type LauncherOpenWorkspaceRequest = {
-  workspaceRoot: string;
-  settaHome: string | null;
-  profile: string | null;
-  settaFilesRoot: string | null;
-  settaFilesLocation: FilesLocation | null;
-  runtimeRoot: string | null;
-  createIfMissing: boolean;
-};
-
-const ResolvedFilesLocationEnum = {
-  local: "local",
-  global: "global",
-} as const;
-type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
-
-export type LauncherOpenWorkspaceResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: ResolvedFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  error: LauncherHomeErrorPayload | null;
-};
-
 type LauncherOperationErrorPayload = {
   code: string;
   message: string;
@@ -1530,7 +1431,7 @@ type LauncherUpdateCapability = ObjectValues<
   typeof LauncherUpdateCapabilityEnum
 >;
 
-export type LauncherStatusResponse = {
+type LauncherStatusResponse = {
   ok: boolean;
   installed?: boolean | null;
   settaHome?: string | null;
@@ -1557,55 +1458,6 @@ export function createLauncherStatusResponse(
 ): LauncherStatusResponse {
   return options as LauncherStatusResponse;
 }
-
-export type LauncherUpdateResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-  packageSpec?: string | null;
-  fromVersion?: string | null;
-  toVersion?: string | null;
-};
-
-export type LauncherRequestBase = {
-  settaHome: string | null;
-};
-
-export type GetLauncherStatusRequest = {
-  setta_home?: string | null;
-};
-
-export type SetupLauncherRequest = {
-  settaHome?: string | null;
-  channel?: string | null;
-  installSource?: string | null;
-  openMode?: string | null;
-  workspaceBehavior?: string | null;
-  installArtifacts?: boolean | null;
-  artifactOptions?: Record<string, string> | null;
-};
-
-export type UpdateLauncherRequest = {
-  settaHome: string | null;
-  packageSpec: string | null;
-};
 
 export type ForceRefreshProjectRequest = {
   projectConfigId: string;

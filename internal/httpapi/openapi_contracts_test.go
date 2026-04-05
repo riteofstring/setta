@@ -6,8 +6,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agenticsummarycache"
 	"setta/internal/agentprofiles"
@@ -17,6 +19,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
@@ -223,6 +226,23 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
 	}); err != nil {
 		t.Fatalf("register project shell routes: %v", err)
+	}
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
+	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
+		ModePolicy:       modes.NewPolicy(config.ModeIDE),
+		DefaultSettaHome: defaultSettaHome,
+		Manager:          newLauncherManagementService(t),
+	}); err != nil {
+		t.Fatalf("register launcher management routes: %v", err)
+	}
+	if err := RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
+		ModePolicy:       modes.NewPolicy(config.ModeLauncher),
+		DefaultSettaHome: defaultSettaHome,
+		Home:             launcherHome,
+		OpenWorkspace:    newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, launcherHome, &httpAPICapturingLauncher{}),
+	}); err != nil {
+		t.Fatalf("register launcher home routes: %v", err)
 	}
 	if err := RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
@@ -544,6 +564,30 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("getNotifications operation id = %q, want %q", getNotifications.OperationID, "getNotifications")
 	}
 
+	getLauncherStatus := document.Paths[RouteGetLauncherStatus].Get
+	if getLauncherStatus == nil {
+		t.Fatalf("expected %s get operation", RouteGetLauncherStatus)
+	}
+	if getLauncherStatus.OperationID != "getLauncherStatus" {
+		t.Fatalf("launcher status operation id = %q, want %q", getLauncherStatus.OperationID, "getLauncherStatus")
+	}
+	if got := getLauncherStatus.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("launcher status mode requirement = %#v, want %q", got, "ide")
+	}
+	assertOpenAPIParameter(t, getLauncherStatus.Parameters, "setta_home", "query", false)
+
+	getLauncherRecentWorkspaces := document.Paths[RouteGetLauncherRecentWorkspaces].Get
+	if getLauncherRecentWorkspaces == nil {
+		t.Fatalf("expected %s get operation", RouteGetLauncherRecentWorkspaces)
+	}
+	if getLauncherRecentWorkspaces.OperationID != "getLauncherRecentWorkspaces" {
+		t.Fatalf("launcher recent workspaces operation id = %q, want %q", getLauncherRecentWorkspaces.OperationID, "getLauncherRecentWorkspaces")
+	}
+	if got := getLauncherRecentWorkspaces.Extensions["x-setta-mode-requirement"]; got != "launcher" {
+		t.Fatalf("launcher recent workspaces mode requirement = %#v, want %q", got, "launcher")
+	}
+	assertOpenAPIParameter(t, getLauncherRecentWorkspaces.Parameters, "setta_home", "query", false)
+
 	listShareDeployments := document.Paths[RouteShareDeployments].Get
 	if listShareDeployments == nil {
 		t.Fatalf("expected %s get operation", RouteShareDeployments)
@@ -609,6 +653,26 @@ func assertOpenAPIOperationID(
 	if got, _ := methodEntry["operationId"].(string); got != wantOperationID {
 		t.Fatalf("%s %s operationId = %q, want %q", method, routePath, got, wantOperationID)
 	}
+}
+
+func assertOpenAPIParameter(
+	t *testing.T,
+	parameters []*huma.Param,
+	name string,
+	location string,
+	required bool,
+) {
+	t.Helper()
+
+	for _, parameter := range parameters {
+		if parameter != nil && parameter.Name == name && parameter.In == location {
+			if parameter.Required != required {
+				t.Fatalf("parameter %s %s required = %v, want %v", location, name, parameter.Required, required)
+			}
+			return
+		}
+	}
+	t.Fatalf("missing %s parameter %q in %#v", location, name, parameters)
 }
 
 func assertOpenAPIStringEnumProperty(

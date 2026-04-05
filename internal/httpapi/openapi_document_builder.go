@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
+	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
@@ -255,6 +257,21 @@ func (frontendHTTPOpenAPILSPAdminService) TypeCheckProject(context.Context, proj
 	return nil
 }
 
+func newFrontendHTTPOpenAPILauncherManagementService() (*launcher.ManagementService, error) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("resolve current executable: %w", err)
+	}
+	service, err := launcher.NewManagementService(launcher.ManagementServiceOptions{
+		ExecutablePath: executablePath,
+		Version:        "dev-openapi",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create launcher management service: %w", err)
+	}
+	return service, nil
+}
+
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -293,6 +310,11 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+	launcherManagement, err := newFrontendHTTPOpenAPILauncherManagementService()
+	if err != nil {
+		return nil, fmt.Errorf("create launcher management service: %w", err)
+	}
+	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
 	registerCoreRuntimeOpenAPIRoutes(router, frontendHTTPOpenAPIInfoService{})
 	if err := RegisterStatusRoutes(router, StatusRouteDependencies{
 		ModePolicy:           modes.NewPolicy(config.ModeIDE),
@@ -415,6 +437,21 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register project shell routes: %w", err)
+	}
+	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
+		ModePolicy:       modes.NewPolicy(config.ModeIDE),
+		DefaultSettaHome: "/setta-home",
+		Manager:          launcherManagement,
+	}); err != nil {
+		return nil, fmt.Errorf("register launcher management routes: %w", err)
+	}
+	if err := RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
+		ModePolicy:       modes.NewPolicy(config.ModeLauncher),
+		DefaultSettaHome: "/setta-home",
+		Home:             launcherHome,
+		OpenWorkspace:    &launcher.OpenWorkspaceService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register launcher home routes: %w", err)
 	}
 	if err := RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
 		ModePolicy:     modes.NewPolicy(config.ModeIDE),
