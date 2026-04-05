@@ -108,12 +108,29 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	assertNoTypeDeclaration(t, converter.Declarations(), "ControlCodeObjTypeSet")
 	assertNoTypeDeclaration(t, converter.Declarations(), "SectionParamCodeObjTypeSet")
 
-	declaration := findTypeDeclaration(t, converter.Declarations(), "BaseParamCodeObjImplTypeSet")
-	if declaration.Kind != "set" {
-		t.Fatalf("BaseParamCodeObjImplTypeSet kind = %q, want %q", declaration.Kind, "set")
+	for _, declarationName := range []string{
+		"BaseParentSectionImplTypeSet",
+		"BaseSectionWithParamsImplTypeSet",
+		"BaseParamCodeObjImplTypeSet",
+		"BaseParentCodeObjImplTypeSet",
+	} {
+		declaration := findTypeDeclaration(t, converter.Declarations(), declarationName)
+		if declaration.Kind != "set" {
+			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "set")
+		}
+		if declaration.Exported {
+			t.Fatalf("%s should stay local to generated guards", declarationName)
+		}
 	}
-	if declaration.Exported {
-		t.Fatalf("BaseParamCodeObjImplTypeSet should stay local to generated guards")
+	for _, declarationName := range []string{
+		"isBaseParentSectionImpl",
+		"isBaseSectionWithParamsImpl",
+		"isBaseParentCodeObjImpl",
+	} {
+		declaration := findTypeDeclaration(t, converter.Declarations(), declarationName)
+		if declaration.Kind != "type_guard" {
+			t.Fatalf("%s kind = %q, want %q", declarationName, declaration.Kind, "type_guard")
+		}
 	}
 }
 

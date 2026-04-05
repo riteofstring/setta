@@ -8,10 +8,15 @@ import (
 	"setta/internal/frontendbindingmeta"
 )
 
-var frontendBindingBaseSectionImplType = reflect.TypeOf(FrontendBaseSectionImpl{})
-var frontendBindingBaseCodeObjImplType = reflect.TypeOf(FrontendBaseCodeObjImpl{})
-var frontendBindingBaseValueParamCodeObjImplType = reflect.TypeOf(FrontendBaseValueParamCodeObjImpl{})
-var frontendBindingParamCodeObjFieldsType = reflect.TypeOf(FrontendParamCodeObjFields{})
+var (
+	frontendBindingBaseSectionImplType                = reflect.TypeOf(FrontendBaseSectionImpl{})
+	frontendBindingBaseCodeObjImplType                = reflect.TypeOf(FrontendBaseCodeObjImpl{})
+	frontendBindingChildSectionFieldsType             = reflect.TypeOf(FrontendChildSectionFields{})
+	frontendBindingSectionWithParamsLeadingFieldsType = reflect.TypeOf(FrontendSectionWithParamsLeadingFields{})
+	frontendBindingBaseValueParamCodeObjImplType      = reflect.TypeOf(FrontendBaseValueParamCodeObjImpl{})
+	frontendBindingChildCodeObjFieldsType             = reflect.TypeOf(FrontendChildCodeObjFields{})
+	frontendBindingParamCodeObjFieldsType             = reflect.TypeOf(FrontendParamCodeObjFields{})
+)
 
 func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() frontendbindingmeta.DiscriminatedObjectFamily {
 	return frontendbindingmeta.DiscriminatedObjectFamily{
@@ -34,7 +39,7 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				UnionName:   "BaseParentSectionImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate:   frontendBindingHasJSONFieldPredicate("children"),
+				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildSectionFieldsType),
 				SetName:     "BaseParentSectionImplTypeSet",
 				GuardName:   "isBaseParentSectionImpl",
 				GuardInput:  "BaseSectionImplUnion",
@@ -43,7 +48,7 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				UnionName:   "BaseSectionWithParamsImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate:   frontendBindingHasJSONFieldPredicate("codeObjVariantMap"),
+				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingSectionWithParamsLeadingFieldsType),
 				SetName:     "BaseSectionWithParamsImplTypeSet",
 				GuardName:   "isBaseSectionWithParamsImpl",
 				GuardInput:  "BaseSectionImplUnion",
@@ -87,17 +92,13 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				UnionName:   "BaseParentCodeObjImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate:   frontendBindingHasJSONFieldPredicate("children"),
+				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingChildCodeObjFieldsType),
 				SetName:     "BaseParentCodeObjImplTypeSet",
 				GuardName:   "isBaseParentCodeObjImpl",
 				GuardInput:  "BaseCodeObjImplUnion",
 			},
 		},
 	}
-}
-
-func frontendBindingHasJSONFieldPredicate(fieldName string) func(reflect.Type) bool {
-	return func(t reflect.Type) bool { return frontendBindingContractTypeHasJSONField(t, fieldName) }
 }
 
 func frontendBindingEmbedsAnonymousFieldPredicate(target reflect.Type) func(reflect.Type) bool {
@@ -130,29 +131,6 @@ func frontendBindingNamedConcreteTypeValue(t reflect.Type, suffix string) (strin
 	return value, true
 }
 
-func frontendBindingContractTypeHasJSONField(t reflect.Type, fieldName string) bool {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t == nil || t.Kind() != reflect.Struct {
-		return false
-	}
-	for index := range t.NumField() {
-		field := t.Field(index)
-		if !field.IsExported() {
-			continue
-		}
-		if field.Anonymous && frontendBindingContractTypeHasJSONField(field.Type, fieldName) {
-			return true
-		}
-		name, _, skip := frontendBindingJSONFieldName(field)
-		if !skip && name == fieldName {
-			return true
-		}
-	}
-	return false
-}
-
 func frontendBindingContractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
@@ -178,32 +156,4 @@ func frontendBindingContractTypeEmbedsAnonymousField(t reflect.Type, target refl
 		}
 	}
 	return false
-}
-
-func frontendBindingJSONFieldName(field reflect.StructField) (name string, optional bool, skip bool) {
-	tag := strings.TrimSpace(field.Tag.Get("json"))
-	if tag == "-" {
-		return "", false, true
-	}
-	if tag == "" {
-		return frontendBindingLowerCamelCase(field.Name), false, false
-	}
-	parts := strings.Split(tag, ",")
-	name = strings.TrimSpace(parts[0])
-	if name == "" {
-		name = frontendBindingLowerCamelCase(field.Name)
-	}
-	for _, part := range parts[1:] {
-		if strings.TrimSpace(part) == "omitempty" {
-			optional = true
-		}
-	}
-	return name, optional, false
-}
-
-func frontendBindingLowerCamelCase(value string) string {
-	if value == "" {
-		return value
-	}
-	return strings.ToLower(value[:1]) + value[1:]
 }

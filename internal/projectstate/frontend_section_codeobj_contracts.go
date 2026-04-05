@@ -233,6 +233,11 @@ type FrontendSectionWithParamsLeadingFields struct {
 	ColumnWidth        *float64          `json:"columnWidth"`
 }
 
+// setta-go-type-discovery: skip
+type FrontendChildSectionFields struct {
+	Children []string `json:"children"`
+}
+
 type FrontendSectionWithParamsTrailingFields struct {
 	PinnedParams     []string             `json:"pinnedParams"`
 	SelectedParams   []string             `json:"selectedParams"`
@@ -276,14 +281,14 @@ type FrontendBrowserSectionImpl struct {
 
 type FrontendListRootSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                []string            `json:"children"`
+	FrontendChildSectionFields
 	DefaultChildSectionType FrontendSectionType `json:"defaultChildSectionType"`
 	ViewMode                ListRootViewMode    `json:"viewMode"`
 }
 
 type FrontendGroupSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                []string            `json:"children"`
+	FrontendChildSectionFields
 	IsHorizontalOrientation bool                `json:"isHorizontalOrientation"`
 	OverflowMode            bool                `json:"overflowMode"`
 	DefaultChildSectionType FrontendSectionType `json:"defaultChildSectionType"`
@@ -333,7 +338,7 @@ type FrontendPromptSectionImpl struct {
 
 type FrontendCodeSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                  []string                          `json:"children"`
+	FrontendChildSectionFields
 	Code                      string                            `json:"code"`
 	CodeFileBinding           *FrontendCodeFileBinding          `json:"codeFileBinding,omitempty"`
 	AttachedTerminalSectionID *string                           `json:"attachedTerminalSectionId,omitempty"`
@@ -416,18 +421,23 @@ type FrontendBaseValueParamCodeObjImpl struct {
 	Value      string `json:"value"`
 }
 
+// setta-go-type-discovery: skip
+type FrontendChildCodeObjFields struct {
+	Children []string `json:"children"`
+}
+
 type FrontendCodeParamCodeObjImpl struct {
 	FrontendBaseValueParamCodeObjImpl
 }
 
 type FrontendCodeCallableCodeObjImpl struct {
 	FrontendBaseCodeObjImpl
-	Children []string `json:"children"`
+	FrontendChildCodeObjFields
 }
 
 type FrontendNestedParamCodeObjImpl struct {
 	FrontendBaseCodeObjImpl
-	Children []string `json:"children"`
+	FrontendChildCodeObjFields
 	FrontendParamCodeObjFields
 }
 
