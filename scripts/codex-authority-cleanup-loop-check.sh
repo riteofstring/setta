@@ -128,19 +128,26 @@ fi
 
 previous_head="$(<"${head_file}")"
 
-latest_run_suffix="$(
+latest_run_dir="$(
   find "${output_dir}" -maxdepth 1 -type d -name 'run-*' -print 2>/dev/null \
-    | sed -E 's#^.*/run-([0-9]+)$#\1#' \
-    | sort -n \
+    | while IFS= read -r candidate_dir; do
+        if [[ -f "${candidate_dir}/status.txt" ]]; then
+          printf '%s\t%s\n' "$(basename "${candidate_dir}" | sed -E 's#^run-([0-9]+)$#\1#')" "${candidate_dir}"
+        fi
+      done \
+    | sort -n -k1,1 \
     | tail -n 1
 )"
 
-if [[ -z "${latest_run_suffix}" ]]; then
+if [[ -z "${latest_run_dir}" ]]; then
   printf '%s\n' "pending" > "${status_file}"
   reset_failure_state
-  echo "No previous loop runs found yet."
+  echo "No completed loop runs found yet."
   exit 0
 fi
+
+latest_run_suffix="$(printf '%s\n' "${latest_run_dir}" | cut -f1)"
+latest_run_dir="$(printf '%s\n' "${latest_run_dir}" | cut -f2-)"
 
 response_file="${output_dir}/run-${latest_run_suffix}/last-message.txt"
 latest_run_status_file="${output_dir}/run-${latest_run_suffix}/status.txt"
