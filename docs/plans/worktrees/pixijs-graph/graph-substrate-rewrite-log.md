@@ -6458,3 +6458,60 @@ LOOP_TERMINAL_MARKER: none
   - extract the remaining section-drag bookkeeping out of `SettingsGraphSubstrateCanary.tsx` so drag-session state, temp z-index handling, and persisted end-position writes stop living directly in the render component
   - rerun the same broad normalized Playwright lane plus CDP confirmation after that next product slice
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 176
+
+- Item: Extract the canary section-drag bookkeeping into a dedicated controller module and recheck the broad normalized regression lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - items `174` and `175` already moved viewport-controller and pane pan/wheel ownership out of `SettingsGraphSubstrateCanary.tsx`, but section drag still lived inline with controller-local state, temp z-index handling, and persisted end-position writes
+    - that remaining drag path was still a real runtime ownership seam inside the active controller/geometry lane, not another pure forwarding hop
+    - finishing that extraction closes the current controller-boundary lane so later iterations can pivot back to geometry authority instead of repeating the same refactor shape
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`
+      - owns section-drag session state, threshold crossing, world-position override updates, temp z-index reset behavior, and persisted drag-end writes for the canary surface
+      - centralizes drag start/move/finish bookkeeping behind one controller boundary while reusing the existing node-internal and section-position actions
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - covers immediate-start drag sessions, thresholded drag start plus snapped persisted end positions, cancellation resetting temp z-index, and blocked/locked drag targets
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now wires the extracted section-drag controller instead of owning drag refs, drag-threshold checks, temp z-index handling, and persisted end-position writes inline
+      - keeps only render-facing drag state (`draggingSectionId`, `sectionPositionOverride`) in the component while delegating runtime ownership to the controller
+  - What this slice established:
+    - `SettingsGraphSubstrateCanary.tsx` no longer directly owns active section-drag session state, temp z-index reset logic, or persisted drag-end writes; those runtime decisions now live behind a dedicated controller module with focused coverage
+    - the trusted broad normalized pan+zoom title-edit lane remains green after the extraction:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the spec `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the refreshed run-006 surfaces
+    - the required CDP visual confirmation is also green on the same broad lane:
+      - the fresh-context sub-agent reused the live worktree/main tabs in the connected browser profile
+      - on both sides it normalized to `Settings -> All Settings`, restored graph focus, and anchored on `rotaryParamCodeObjDefault`
+      - the `rotaryParamCodeObjDefault` title/body region stayed visually attached with no gross drift or detached-card behavior between worktree canary and read-only `main`
+      - only a small horizontal camera offset of roughly `30px` remained, which is oracle noise for this lane rather than a new renderer blocker
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`4 files`, `25 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-006/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-006/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `60.0s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: reused existing worktree/main tabs in the connected browser profile; after `All Settings` normalization and restoring fit/focus, `rotaryParamCodeObjDefault` stayed visually attached with no gross drift
+- Lane status:
+  - the controller/interaction-boundary lane is now complete enough; repeating the same extraction shape again would be churn rather than progress
+  - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage only
+- Next action:
+  - pivot back to geometry authority by moving transient drag-position ownership and scene-snapshot composition farther out of `SettingsGraphSubstrateCanary.tsx`, rather than starting another controller extraction
+  - use the same broad normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare as the regression gate after that geometry slice
+- LOOP_TERMINAL_MARKER: none
