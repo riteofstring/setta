@@ -9,6 +9,9 @@ func TestFrontendDefaultsMaterializeGeneratorValues(t *testing.T) {
 	if got := FrontendDefaultEngineRuntimeSupport(); !reflect.DeepEqual(got, EngineRuntimeSupport{}) {
 		t.Fatalf("expected empty runtime support defaults, got %#v", got)
 	}
+	if got := FrontendDefaultEngineConfig(); got.EngineType != EngineTypeSettaLLM {
+		t.Fatalf("expected engine config defaults to prefer setta_llm, got %#v", got)
+	}
 
 	event := FrontendDefaultRunEvent()
 	if event.ID != "" || !event.Timestamp.IsZero() || event.Type != "" {
@@ -28,6 +31,7 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 	}
 
 	expectations := []tagExpectation{
+		{typ: reflect.TypeOf(EngineConfig{}), field: "Defaults", tagName: "ts_optional", tagValue: "false"},
 		{typ: reflect.TypeOf(RunEvent{}), field: "Timestamp", tagName: "ts_create_expr", tagValue: "\"\""},
 		{typ: reflect.TypeOf(Run{}), field: "Inputs", tagName: "ts_type", tagValue: "Record<string, unknown> | null"},
 		{typ: reflect.TypeOf(Run{}), field: "Outputs", tagName: "ts_type", tagValue: "Record<string, unknown> | null"},

@@ -12,6 +12,12 @@ func TestFrontendCapabilityDefaultProvidersReturnZeroValueStructs(t *testing.T) 
 	if got := FrontendDefaultSectionCapabilities(); !reflect.DeepEqual(got, SectionCapabilities{}) {
 		t.Fatalf("expected zero-value section capabilities, got %#v", got)
 	}
+	if got := FrontendDefaultSectionCodegenPolicy(); !reflect.DeepEqual(got, FrontendDefaultPythonSectionCodegenPolicy()) {
+		t.Fatalf("expected exact section codegen provider to match python defaults, got %#v", got)
+	}
+	if got := FrontendDefaultCodeObjValuePolicy(); !reflect.DeepEqual(got, FrontendDefaultPythonCodeObjValuePolicy()) {
+		t.Fatalf("expected exact codeobj value provider to match python defaults, got %#v", got)
+	}
 }
 
 func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
@@ -33,6 +39,15 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(SingleConfig{}), field: "CodeObjImpls", tagName: "ts_type", tagValue: "Record<string, BaseCodeObjImplUnion>"},
 		{typ: reflect.TypeOf(Core{}), field: "SharedModifier", tagName: "ts_type", tagValue: "Record<string, unknown>"},
 		{typ: reflect.TypeOf(Variant{}), field: "Modifier", tagName: "ts_type", tagValue: "Record<string, unknown>"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "Allowlist", tagName: "ts_type", tagValue: "Array<SectionType> | null"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "Allowlist", tagName: "ts_optional", tagValue: "true"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "MetaControlAllowlist", tagName: "ts_type", tagValue: "Array<CodeObjType> | null"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "MetaControlAllowlist", tagName: "ts_optional", tagValue: "true"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "TypePolicies", tagName: "ts_type", tagValue: "Record<SectionType, SectionTypeCodegenPolicy>"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "SectionOverrides", tagName: "ts_type", tagValue: "Record<string, SectionCodegenOverride>"},
+		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "TypePolicies", tagName: "ts_type", tagValue: "Record<CodeObjType, CodeObjTypeValuePolicy>"},
+		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "CodeObjOverrides", tagName: "ts_type", tagValue: "Record<string, CodeObjValueOverride>"},
+		{typ: reflect.TypeOf(ProjectCodegenPythonTarget{}), field: "Language", tagName: "ts_type", tagValue: "typeof ProjectCodegenLanguageEnum.python"},
 	}
 
 	for _, expectation := range expectations {

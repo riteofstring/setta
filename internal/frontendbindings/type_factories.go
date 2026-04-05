@@ -233,6 +233,9 @@ func frontendObjectCreateFunctionName(fieldType reflect.Type) (string, string, b
 		fieldType = fieldType.Elem()
 	}
 	fieldType = canonicalFrontendBindingType(fieldType)
+	if fieldType == timeType {
+		return "", "", false, false
+	}
 	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
 		return "", "", false, false
 	}

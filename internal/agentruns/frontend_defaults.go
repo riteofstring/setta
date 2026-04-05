@@ -10,6 +10,18 @@ func FrontendDefaultEngineRuntimeSupport() EngineRuntimeSupport {
 	return EngineRuntimeSupport{}
 }
 
+func FrontendDefaultEngineConfig() EngineConfig {
+	return EngineConfig{
+		ID:                    "",
+		Name:                  "",
+		EngineType:            EngineTypeSettaLLM,
+		SettaLLMConfigID:      nil,
+		ExternalAgentConfigID: nil,
+		Defaults:              FrontendDefaultEngineConfigDefaults(),
+		RuntimeSupport:        nil,
+	}
+}
+
 func FrontendDefaultRunEvent() RunEvent {
 	return RunEvent{
 		ID:        "",

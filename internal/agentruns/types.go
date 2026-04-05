@@ -30,7 +30,7 @@ type EngineConfig struct {
 	EngineType            EngineType            `json:"engineType"`
 	SettaLLMConfigID      *string               `json:"settaLlmConfigId,omitempty"`
 	ExternalAgentConfigID *string               `json:"externalAgentConfigId,omitempty"`
-	Defaults              EngineConfigDefaults  `json:"defaults,omitempty"`
+	Defaults              EngineConfigDefaults  `json:"defaults,omitempty" ts_optional:"false"`
 	RuntimeSupport        *EngineRuntimeSupport `json:"runtimeSupport,omitempty"`
 }
 

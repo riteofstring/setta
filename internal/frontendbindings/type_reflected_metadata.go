@@ -3,13 +3,10 @@ package frontendbindings
 import (
 	"reflect"
 
-	"setta/internal/agentruns"
 	"setta/internal/artifacts"
-	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
-	"setta/internal/settingsstate"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -65,75 +62,19 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"dependencies": "Array<BaseDependencyKeyUnion>",
 		},
 	},
-	reflect.TypeOf(agentruns.EngineConfig{}): {
-		DefaultValue:         agentruns.EngineConfig{EngineType: agentruns.EngineTypeSettaLLM},
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-		PropertyOptionalOverrides: map[string]bool{
-			"defaults":              false,
-			"externalAgentConfigId": true,
-			"runtimeSupport":        true,
-			"settaLlmConfigId":      true,
-		},
-	},
-	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}): {
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-	},
-	reflect.TypeOf(projectstate.FrontendSectionSizingPolicyByType{}): {
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-	},
-	reflect.TypeOf(projectstate.FrontendSectionSizingPolicy{}): {
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-	},
-	reflect.TypeOf(settingsstate.FrontendSettingsState{}): {
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-	},
-	reflect.TypeOf(deployments.Policy{}): {
-		DefaultValue:  deployments.DefaultPolicy(),
-		HasCreateExpr: true,
-	},
 	reflect.TypeOf(projectstate.SectionSize{}): {
+		DefaultValue:  projectstate.FrontendDefaultSectionSize(),
+		HasCreateExpr: true,
 		CreateExprOverrides: map[string]string{
 			"width":  "SectionSizeModeEnum.auto",
 			"height": "SectionSizeModeEnum.auto",
 		},
 	},
 	reflect.TypeOf(projectview.SectionCodegenPolicy{}): {
-		DefaultValue:         projectview.FrontendDefaultPythonSectionCodegenPolicy(),
-		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
-		PropertyTypeExprOverrides: map[string]string{
-			"allowlist":            "Array<SectionType> | null",
-			"metaControlAllowlist": "Array<CodeObjType> | null",
-			"typePolicies":         "Record<SectionType, SectionTypeCodegenPolicy>",
-			"sectionOverrides":     "Record<string, SectionCodegenOverride>",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"allowlist":            true,
-			"metaControlAllowlist": true,
-		},
 	},
 	reflect.TypeOf(projectview.CodeObjValuePolicy{}): {
-		DefaultValue:         projectview.FrontendDefaultPythonCodeObjValuePolicy(),
-		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
-		PropertyTypeExprOverrides: map[string]string{
-			"typePolicies":     "Record<CodeObjType, CodeObjTypeValuePolicy>",
-			"codeObjOverrides": "Record<string, CodeObjValueOverride>",
-		},
-	},
-	reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}): {
-		HasCreateExpr:        true,
-		UseGenericCreateBody: true,
-		PropertyTypeExprOverrides: map[string]string{
-			"language":           "typeof ProjectCodegenLanguageEnum.python",
-			"sectionPolicy":      "SectionCodegenPolicy",
-			"codeObjValuePolicy": "CodeObjValuePolicy",
-		},
 	},
 }
 

@@ -324,7 +324,15 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	}
 	declarationName := frontendBindingTypeName(t)
 	declaration := objectDeclaration(declarationName, properties...)
-	if spec.UseGenericCreateBody {
+	useGenericCreateBody := spec.UseGenericCreateBody
+	if !useGenericCreateBody && spec.DefaultValue != nil {
+		autoGenericCreateBody, err := reflectedStructNeedsGenericCreateBody(t, properties)
+		if err != nil {
+			return TypeDeclaration{}, err
+		}
+		useGenericCreateBody = autoGenericCreateBody
+	}
+	if useGenericCreateBody {
 		context := "frontend create defaults " + declarationName
 		createBody, err := buildGenericGoBackedCreateBodyTS(
 			context,
@@ -360,6 +368,48 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		}
 	}
 	return declaration, nil
+}
+
+func reflectedStructNeedsGenericCreateBody(
+	structType reflect.Type,
+	properties []TypeProperty,
+) (bool, error) {
+	fieldTypes, err := reflectedFieldTypesByJSONName(structType)
+	if err != nil {
+		return false, err
+	}
+	needsGenericCreateBody := false
+	for _, property := range properties {
+		fieldType, ok := fieldTypes[property.Name]
+		if !ok {
+			continue
+		}
+		if reflectedMapFieldNeedsGeneratedCreate(fieldType) {
+			return false, nil
+		}
+		if reflectedNamedStructFieldNeedsGeneratedCreate(fieldType) {
+			needsGenericCreateBody = true
+		}
+	}
+	return needsGenericCreateBody, nil
+}
+
+func reflectedNamedStructFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
+	if _, _, _, ok := frontendObjectCreateFunctionName(fieldType); ok {
+		return true
+	}
+	return false
+}
+
+func reflectedMapFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
+	for fieldType.Kind() == reflect.Pointer {
+		fieldType = fieldType.Elem()
+	}
+	if fieldType.Kind() != reflect.Map {
+		return false
+	}
+	_, _, _, ok := frontendObjectCreateFunctionName(fieldType.Elem())
+	return ok
 }
 
 func (c *typeConverter) structProperties(

@@ -1142,7 +1142,15 @@ export type SectionSize = {
 export function createSectionSize(
   options: Partial<SectionSize> = {},
 ): SectionSize {
-  return options as SectionSize;
+  const defaults: SectionSize = {
+    height: "auto",
+    width: "auto",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionSize>(defaults, options),
+    width: options.width ?? SectionSizeModeEnum.auto,
+    height: options.height ?? SectionSizeModeEnum.auto,
+  };
 }
 
 type EdgePort = {
@@ -3292,11 +3300,35 @@ export type ChatWindowBounds = {
   width: number;
   height: number;
 };
+function createChatWindowBounds(
+  options: Partial<ChatWindowBounds> = {},
+): ChatWindowBounds {
+  return mergeGeneratedOptions<ChatWindowBounds>(
+    {
+      x: 120,
+      y: 120,
+      width: 820,
+      height: 520,
+    },
+    options,
+  );
+}
 
 type ChatWindowDockMetrics = {
   widthFraction?: number | null;
   preferredWidthPx?: number | null;
 };
+function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
+  return mergeGeneratedOptions<ChatWindowDockMetrics>(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
 
 export type ProjectChatWindowInstance = {
   instanceId: string;
@@ -3317,33 +3349,37 @@ export type ProjectChatWindowInstance = {
 export function createProjectChatWindowInstance(
   options: Partial<ProjectChatWindowInstance> = {},
 ): ProjectChatWindowInstance {
-  return mergeGeneratedOptions<ProjectChatWindowInstance>(
-    {
-      instanceId: "",
-      placement: "bottom_docked",
-      isMinimized: false,
-      isClosed: false,
-      isMaximized: false,
-      bounds: {
-        height: 520,
-        width: 820,
-        x: 120,
-        y: 120,
-      },
-      dockMetrics: {
-        preferredWidthPx: null,
-        widthFraction: null,
-      },
-      zIndex: 0,
-      lastPlacementBeforeMaximize: null,
-      mode: "project_ai_mode",
-      sectionIdOrNull: null,
-      title: null,
-      lastFocusedAt: 0,
-      chatId: null,
+  const defaults: ProjectChatWindowInstance = {
+    instanceId: "",
+    placement: "bottom_docked",
+    isMinimized: false,
+    isClosed: false,
+    isMaximized: false,
+    bounds: {
+      height: 520,
+      width: 820,
+      x: 120,
+      y: 120,
     },
-    options,
-  );
+    dockMetrics: {
+      preferredWidthPx: null,
+      widthFraction: null,
+    },
+    zIndex: 0,
+    lastPlacementBeforeMaximize: null,
+    mode: "project_ai_mode",
+    sectionIdOrNull: null,
+    title: null,
+    lastFocusedAt: 0,
+    chatId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
+    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
+    dockMetrics: createChatWindowDockMetrics(
+      options.dockMetrics ?? defaults.dockMetrics,
+    ),
+  };
 }
 
 export type ProjectChatWindowingState = {
@@ -3376,6 +3412,19 @@ export type NormalizedFloatingWindowBounds = {
   width: number;
   height: number;
 };
+function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
+  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
+    {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
 
 type WindowSpaceWindow = {
   surfaceKind?: WindowSpaceSurfaceKind;
@@ -3390,24 +3439,27 @@ type WindowSpaceWindow = {
 export function createWindowSpaceWindow(
   options: Partial<WindowSpaceWindow> = {},
 ): WindowSpaceWindow {
-  return mergeGeneratedOptions<WindowSpaceWindow>(
-    {
-      surfaceKind: "project_chat",
-      sectionIdOrNull: null,
-      mode: "project_ai_mode",
-      title: null,
-      chatId: null,
-      embeddedGitPaneVisible: false,
-      zIndex: 0,
-      normalizedBounds: {
-        height: 1,
-        width: 1,
-        x: 0,
-        y: 0,
-      },
+  const defaults: WindowSpaceWindow = {
+    surfaceKind: "project_chat",
+    sectionIdOrNull: null,
+    mode: "project_ai_mode",
+    title: null,
+    chatId: null,
+    embeddedGitPaneVisible: false,
+    zIndex: 0,
+    normalizedBounds: {
+      height: 1,
+      width: 1,
+      x: 0,
+      y: 0,
     },
-    options,
-  );
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
+    normalizedBounds: createNormalizedFloatingWindowBounds(
+      options.normalizedBounds ?? defaults.normalizedBounds,
+    ),
+  };
 }
 
 export type WindowSpaceState = {
@@ -3697,14 +3749,22 @@ export type BrushStrokeArtifact = {
 export function createBrushStrokeArtifact(
   options: Partial<BrushStrokeArtifact> = {},
 ): BrushStrokeArtifact {
-  return mergeGeneratedOptions<BrushStrokeArtifact>(
-    {
-      type: "BrushStroke",
-      id: createJsonArtifactId(),
-      value: createBrushStroke(),
+  const defaults: BrushStrokeArtifact = {
+    type: "BrushStroke",
+    id: "",
+    value: {
+      globalCompositeOperation: "source-over",
+      lineCap: "round",
+      lineWidth: 1,
+      points: [],
+      strokeStyle: "",
     },
-    options,
-  );
+  };
+  return {
+    ...mergeGeneratedOptions<BrushStrokeArtifact>(defaults, options),
+    id: options.id ?? createJsonArtifactId(),
+    value: options.value ?? createBrushStroke(),
+  };
 }
 
 export type DrawAreaLayerItemTransformArtifact = {
@@ -3715,14 +3775,22 @@ export type DrawAreaLayerItemTransformArtifact = {
 export function createDrawAreaLayerItemTransformArtifact(
   options: Partial<DrawAreaLayerItemTransformArtifact> = {},
 ): DrawAreaLayerItemTransformArtifact {
-  return mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
-    {
-      type: "DrawAreaLayerItemTransform",
-      id: createJsonArtifactId(),
-      value: createDrawAreaLayerItemTransform(),
+  const defaults: DrawAreaLayerItemTransformArtifact = {
+    type: "DrawAreaLayerItemTransform",
+    id: "",
+    value: {
+      eraserStrokes: [],
+      transform: [1, 0, 0, 1, 0, 0],
     },
-    options,
-  );
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
+      defaults,
+      options,
+    ),
+    id: options.id ?? createJsonArtifactId(),
+    value: options.value ?? createDrawAreaLayerItemTransform(),
+  };
 }
 
 export const ArtifactTypeEnum = {
@@ -3809,14 +3877,21 @@ export type ImageArtifact = {
 export function createImageArtifact(
   options: Partial<ImageArtifact> = {},
 ): ImageArtifact {
-  return mergeGeneratedOptions<ImageArtifact>(
-    {
-      type: "Image",
-      id: createPngArtifactId(),
-      value: createContentRef(),
+  const defaults: ImageArtifact = {
+    type: "Image",
+    id: "",
+    value: {
+      byteLength: 0,
+      contentId: "",
+      mimeType: "",
+      sha256: "",
     },
-    options,
-  );
+  };
+  return {
+    ...mergeGeneratedOptions<ImageArtifact>(defaults, options),
+    id: options.id ?? createPngArtifactId(),
+    value: options.value ?? createContentRef(),
+  };
 }
 
 type ChartDataValue = Record<string, Array<string | number>>;
@@ -5541,17 +5616,18 @@ export type ToolCall = {
   function: ToolCallFunction;
 };
 export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
-  return mergeGeneratedOptions<ToolCall>(
-    {
-      id: "",
-      type: "function",
-      function: {
-        arguments: {},
-        name: "",
-      },
+  const defaults: ToolCall = {
+    id: "",
+    type: "function",
+    function: {
+      arguments: {},
+      name: "",
     },
-    options,
-  );
+  };
+  return {
+    ...mergeGeneratedOptions<ToolCall>(defaults, options),
+    function: createToolCallFunction(options.function ?? defaults.function),
+  };
 }
 
 type SystemChatMessage = {
@@ -6449,20 +6525,7 @@ export type SharePolicy = {
 export function createSharePolicy(
   options: Partial<SharePolicy> = {},
 ): SharePolicy {
-  return mergeGeneratedOptions<SharePolicy>(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: true,
-      allowLayoutChanges: true,
-      allowRun: false,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: "ephemeral",
-    },
-    options,
-  );
+  return options as SharePolicy;
 }
 
 const DeploymentTypeEnum = {
@@ -7206,73 +7269,79 @@ export type ProjectStateSingleConfigWithCompletedOpIDs = {
 export function createProjectStateSingleConfigWithCompletedOpIDs(
   options: Partial<ProjectStateSingleConfigWithCompletedOpIDs> = {},
 ): ProjectStateSingleConfigWithCompletedOpIDs {
-  return mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
-    {
-      projectState: {
-        artifactGroups: {},
-        codeObjImpls: {},
-        codeObjVariants: {},
-        codeObjs: {},
-        genCodeBinding: null,
-        parentSectionMap: {},
-        projectChatWindowing: {
-          instancesById: {},
-          nextInstanceNumber: 1,
-          order: [],
-        },
-        projectConfig: {
-          activeIds: [],
-          activeViewModeId: null,
-          agenticEdges: [],
-          allowJsonSourceKeyEdits: false,
-          codegenTargets: [],
-          edges: [],
-          entryCodeBlockId: null,
-          hasPythonCodegenTarget: false,
-          id: "",
-          isEditingViewMode: false,
-          name: "",
-          previewImgColor: "",
-          runCapabilities: {
-            canRunFromMain: false,
-            effectiveEntrySectionId: null,
-            mainRunDisabledReason: null,
-          },
-          sectionIdsByPathSlug: {},
-          sectionPathSlugsById: {},
-          sectionVariantMap: {},
-          showParamDisplayNames: false,
-          stateMachineEdges: [],
-          topLevelSections: {},
-          viewModes: {},
-          viewport: null,
-          viewportInitialized: false,
-          watchCodeBaselineByPath: {},
-          watchCodeEnabled: false,
-          watchCodeFiles: [],
-          watchCodeFolders: [],
-          watchCodeRegistry: {},
-          windowSpaceIdsBySlug: {},
-          windowSpaceSlugsById: {},
-          windowSpaces: {},
-        },
-        requiredDecodedImages: [],
-        sectionCapabilities: {},
-        sectionImpls: {},
-        sectionVariants: {},
-        sections: {},
-        shownParamIds: {},
-        singletonSections: {
-          GenPythonCode: null,
-          GenPythonMetadata: null,
-          GlobalVariables: null,
-        },
+  const defaults: ProjectStateSingleConfigWithCompletedOpIDs = {
+    projectState: {
+      artifactGroups: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      codeObjs: {},
+      genCodeBinding: null,
+      parentSectionMap: {},
+      projectChatWindowing: {
+        instancesById: {},
+        nextInstanceNumber: 1,
+        order: [],
       },
-      completedOpIds: [],
-      pendingOpIds: [],
+      projectConfig: {
+        activeIds: [],
+        activeViewModeId: null,
+        agenticEdges: [],
+        allowJsonSourceKeyEdits: false,
+        codegenTargets: [],
+        edges: [],
+        entryCodeBlockId: null,
+        hasPythonCodegenTarget: false,
+        id: "",
+        isEditingViewMode: false,
+        name: "",
+        previewImgColor: "",
+        runCapabilities: {
+          canRunFromMain: false,
+          effectiveEntrySectionId: null,
+          mainRunDisabledReason: null,
+        },
+        sectionIdsByPathSlug: {},
+        sectionPathSlugsById: {},
+        sectionVariantMap: {},
+        showParamDisplayNames: false,
+        stateMachineEdges: [],
+        topLevelSections: {},
+        viewModes: {},
+        viewport: null,
+        viewportInitialized: false,
+        watchCodeBaselineByPath: {},
+        watchCodeEnabled: false,
+        watchCodeFiles: [],
+        watchCodeFolders: [],
+        watchCodeRegistry: {},
+        windowSpaceIdsBySlug: {},
+        windowSpaceSlugsById: {},
+        windowSpaces: {},
+      },
+      requiredDecodedImages: [],
+      sectionCapabilities: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      sections: {},
+      shownParamIds: {},
+      singletonSections: {
+        GenPythonCode: null,
+        GenPythonMetadata: null,
+        GlobalVariables: null,
+      },
     },
-    options,
-  );
+    completedOpIds: [],
+    pendingOpIds: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
+      defaults,
+      options,
+    ),
+    projectState: createSingleConfig(
+      options.projectState ?? defaults.projectState,
+    ),
+  };
 }
 
 export type LauncherFilesystemRootsResponse = {

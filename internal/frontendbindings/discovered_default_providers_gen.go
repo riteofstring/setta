@@ -56,6 +56,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.CodeObjValueOverride{}): func() any {
 			return projectview.FrontendDefaultCodeObjValueOverride()
 		},
+		reflect.TypeOf(projectview.CodeObjValuePolicy{}): func() any {
+			return projectview.FrontendDefaultCodeObjValuePolicy()
+		},
 		reflect.TypeOf(realtime.Connection{}): func() any {
 			return realtime.FrontendDefaultConnection()
 		},
@@ -76,6 +79,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayerItemTransformArtifact()
+		},
+		reflect.TypeOf(agentruns.EngineConfig{}): func() any {
+			return agentruns.FrontendDefaultEngineConfig()
 		},
 		reflect.TypeOf(agentruns.EngineConfigDefaults{}): func() any {
 			return agentruns.FrontendDefaultEngineConfigDefaults()
@@ -163,6 +169,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(projectview.SectionCodegenOverride{}): func() any {
 			return projectview.FrontendDefaultSectionCodegenOverride()
+		},
+		reflect.TypeOf(projectview.SectionCodegenPolicy{}): func() any {
+			return projectview.FrontendDefaultSectionCodegenPolicy()
 		},
 		reflect.TypeOf(projectview.SectionTypeCodegenPolicy{}): func() any {
 			return projectview.FrontendDefaultSectionTypeCodegenPolicy()

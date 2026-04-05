@@ -25,6 +25,14 @@ func FrontendDefaultSectionCapabilities() SectionCapabilities {
 	return SectionCapabilities{}
 }
 
+func FrontendDefaultSectionCodegenPolicy() SectionCodegenPolicy {
+	return FrontendDefaultPythonSectionCodegenPolicy()
+}
+
+func FrontendDefaultCodeObjValuePolicy() CodeObjValuePolicy {
+	return FrontendDefaultPythonCodeObjValuePolicy()
+}
+
 func PythonSharedDefaultProjectConfig() ProjectConfig {
 	viewport := projectstate.FrontendDefaultViewport()
 	defaults := ProjectConfig{
