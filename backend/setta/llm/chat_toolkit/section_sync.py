@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass
 
 from pydantic import TypeAdapter
 from setta.types.generated.go_shared_types import (
@@ -44,155 +45,149 @@ def build_chat_section_state(
     )
 
 
+@dataclass
+class _StreamDeltaDraft:
+    messages: list[BaseChatMessageUnion]
+    tool_call_arguments: dict[str, str]
+    waiting_for_response: bool
+    input_text: str
+    active_branch_id: ID | None
+    branches: dict[ID, ChatSectionBranch]
+
+    @classmethod
+    def from_state(cls, state: ChatSectionState) -> "_StreamDeltaDraft":
+        return cls(
+            messages=list(state.messages),
+            tool_call_arguments=dict(state.toolCallArguments),
+            waiting_for_response=state.waitingForResponse,
+            input_text=state.inputText,
+            active_branch_id=state.activeBranchId,
+            branches=dict(state.branches),
+        )
+
+    def build_state(self) -> ChatSectionState:
+        return build_chat_section_state(
+            messages=self.messages,
+            input_text=self.input_text,
+            waiting_for_response=self.waiting_for_response,
+            tool_call_arguments=self.tool_call_arguments,
+            active_branch_id=self.active_branch_id,
+            branches=self._sync_active_branch_messages(),
+        )
+
+    def _sync_active_branch_messages(self) -> dict[ID, ChatSectionBranch]:
+        if not self.active_branch_id:
+            return self.branches
+        active_branch = self.branches.get(self.active_branch_id)
+        if active_branch is None:
+            return self.branches
+        updated = active_branch.model_copy(update={"messages": list(self.messages)})
+        next_branches = dict(self.branches)
+        next_branches[self.active_branch_id] = updated
+        return next_branches
+
+
 def apply_stream_delta(
     *,
     state: ChatSectionState,
     chunk: LLMStreamingResponseChunk,
 ) -> ChatSectionState:
-    messages = list(state.messages)
-    tool_call_arguments = dict(state.toolCallArguments)
-    waiting_for_response = state.waitingForResponse
-    input_text = state.inputText
-    active_branch_id = state.activeBranchId
-    branches = dict(state.branches)
+    draft = _StreamDeltaDraft.from_state(state)
+    _apply_stream_chunk(draft, chunk)
+    return draft.build_state()
 
-    def sync_active_branch_messages() -> dict[ID, ChatSectionBranch]:
-        if not active_branch_id:
-            return branches
-        active_branch = branches.get(active_branch_id)
-        if active_branch is None:
-            return branches
-        updated = active_branch.model_copy(update={"messages": list(messages)})
-        next_branches = dict(branches)
-        next_branches[active_branch_id] = updated
-        return next_branches
 
-    if isinstance(chunk, MessageStartEvent):
-        message = _coerce_chat_message(chunk.message)
-        if isinstance(message, AssistantChatMessage):
-            message = message.model_copy(deep=True)
-        if _should_ignore_response_placeholder_message(message):
-            updated_branches = sync_active_branch_messages()
-            return build_chat_section_state(
-                messages=messages,
-                input_text=input_text,
-                waiting_for_response=waiting_for_response,
-                tool_call_arguments=tool_call_arguments,
-                active_branch_id=active_branch_id,
-                branches=updated_branches,
-            )
-        messages = _upsert_message(messages, message)
-        waiting_for_response = True
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
+def _apply_stream_chunk(
+    draft: _StreamDeltaDraft,
+    chunk: LLMStreamingResponseChunk,
+) -> None:
+    handler = _STREAM_CHUNK_HANDLERS.get(type(chunk))
+    if handler is None:
+        return
+    handler(draft, chunk)
 
-    if isinstance(chunk, MessageDeltaEvent):
-        messages = _apply_message_delta(messages, chunk)
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
 
-    if isinstance(chunk, ToolCallDeltaEvent):
-        messages = _apply_tool_call_delta(messages, tool_call_arguments, chunk)
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
+def _apply_message_start(
+    draft: _StreamDeltaDraft,
+    chunk: MessageStartEvent,
+) -> None:
+    message = _coerce_chat_message(chunk.message)
+    if isinstance(message, AssistantChatMessage):
+        message = message.model_copy(deep=True)
+    if _should_ignore_response_placeholder_message(message):
+        return
+    draft.messages = _upsert_message(draft.messages, message)
+    draft.waiting_for_response = True
 
-    if isinstance(chunk, ToolArgumentPreviewDeltaEvent):
-        messages = _apply_tool_call_delta(messages, tool_call_arguments, chunk)
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
 
-    if isinstance(chunk, ToolResultEvent):
-        messages = _upsert_message(
-            messages, ToolChatMessage.model_validate(chunk.result)
-        )
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
+def _apply_message_delta_chunk(
+    draft: _StreamDeltaDraft,
+    chunk: MessageDeltaEvent,
+) -> None:
+    draft.messages = _apply_message_delta(draft.messages, chunk)
 
-    if isinstance(chunk, MessageStopEvent):
-        waiting_for_response = False
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
 
-    if isinstance(chunk, MessageFinalizedEvent):
-        message = _coerce_chat_message(chunk.message)
-        if _should_ignore_response_placeholder_message(message):
-            updated_branches = sync_active_branch_messages()
-            return build_chat_section_state(
-                messages=messages,
-                input_text=input_text,
-                waiting_for_response=waiting_for_response,
-                tool_call_arguments=tool_call_arguments,
-                active_branch_id=active_branch_id,
-                branches=updated_branches,
-            )
-        if isinstance(message, AssistantChatMessage):
-            message, target_id = _resolve_finalized_assistant_message(messages, message)
-            messages = _upsert_message(messages, message, target_id=target_id)
-        else:
-            messages = _upsert_message(messages, message)
-        waiting_for_response = False
-        tool_call_arguments = {}
-        updated_branches = sync_active_branch_messages()
-        return build_chat_section_state(
-            messages=messages,
-            input_text=input_text,
-            waiting_for_response=waiting_for_response,
-            tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
-        )
-
-    updated_branches = sync_active_branch_messages()
-    return build_chat_section_state(
-        messages=messages,
-        input_text=input_text,
-        waiting_for_response=waiting_for_response,
-        tool_call_arguments=tool_call_arguments,
-        active_branch_id=active_branch_id,
-        branches=updated_branches,
+def _apply_tool_call_chunk(
+    draft: _StreamDeltaDraft,
+    chunk: ToolCallDeltaEvent | ToolArgumentPreviewDeltaEvent,
+) -> None:
+    draft.messages = _apply_tool_call_delta(
+        draft.messages,
+        draft.tool_call_arguments,
+        chunk,
     )
+
+
+def _apply_tool_result(
+    draft: _StreamDeltaDraft,
+    chunk: ToolResultEvent,
+) -> None:
+    draft.messages = _upsert_message(
+        draft.messages,
+        ToolChatMessage.model_validate(chunk.result),
+    )
+
+
+def _apply_message_stop(
+    draft: _StreamDeltaDraft,
+    chunk: MessageStopEvent,
+) -> None:
+    del chunk
+    draft.waiting_for_response = False
+
+
+def _apply_message_finalized(
+    draft: _StreamDeltaDraft,
+    chunk: MessageFinalizedEvent,
+) -> None:
+    message = _coerce_chat_message(chunk.message)
+    if _should_ignore_response_placeholder_message(message):
+        return
+    if isinstance(message, AssistantChatMessage):
+        message, target_id = _resolve_finalized_assistant_message(
+            draft.messages,
+            message,
+        )
+        draft.messages = _upsert_message(
+            draft.messages,
+            message,
+            target_id=target_id,
+        )
+    else:
+        draft.messages = _upsert_message(draft.messages, message)
+    draft.waiting_for_response = False
+    draft.tool_call_arguments = {}
+
+
+_STREAM_CHUNK_HANDLERS = {
+    MessageStartEvent: _apply_message_start,
+    MessageDeltaEvent: _apply_message_delta_chunk,
+    ToolCallDeltaEvent: _apply_tool_call_chunk,
+    ToolArgumentPreviewDeltaEvent: _apply_tool_call_chunk,
+    ToolResultEvent: _apply_tool_result,
+    MessageStopEvent: _apply_message_stop,
+    MessageFinalizedEvent: _apply_message_finalized,
+}
 
 
 def _upsert_message(
