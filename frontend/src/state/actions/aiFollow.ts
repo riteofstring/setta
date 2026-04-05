@@ -1,5 +1,5 @@
 import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
   AIFollowToolArgumentsUpdateContent,
@@ -31,6 +31,10 @@ function cloneIdsByType(
     entries.map(([idType, ids]) => [idType, [...ids]]),
   ) as AIFollowIdsByType;
 }
+
+type AIFollowSnapshotRouteResponse = ResponseDataAndStatus<
+  Array<AIFollowToolArgumentsUpdateContent>
+>;
 
 function buildTimeoutKey(
   projectConfigId: string,
@@ -287,7 +291,9 @@ export function receiveAgenticScopeViolationEdges({
 export async function requestAIFollowSnapshot(
   projectConfigId: string,
 ): Promise<void> {
-  const res = await route_get_ai_follow_snapshot({ projectConfigId });
+  const res: AIFollowSnapshotRouteResponse = await route_get_ai_follow_snapshot(
+    { projectConfigId },
+  );
   if (!res200(res)) {
     return;
   }
