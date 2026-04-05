@@ -586,6 +586,112 @@ def test_chrome_repro_collect_llm_artifacts_copies_redacted_external_agent_sessi
     assert not list(llm_artifacts_dir.rglob("memories/*"))
 
 
+def test_chrome_repro_collect_llm_artifacts_merges_external_agent_run_updates(
+    tmp_path: Path,
+) -> None:
+    root = repo_root()
+    artifact_dir = tmp_path / "recording"
+    setta_files_root = tmp_path / "setta_files"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    setta_files_root.mkdir(parents=True, exist_ok=True)
+
+    transport_detail_lines = [
+        "{not json}",
+        json.dumps(
+            {
+                "event": {
+                    "detailJson": {
+                        "messageType": "AgentRunUpdated",
+                        "content": {
+                            "id": "run-merged",
+                            "inputs": {
+                                "runType": "external_agent",
+                                "engineConfigId": "engine-123",
+                            },
+                        },
+                    }
+                }
+            }
+        ),
+        json.dumps(
+            {
+                "event": {
+                    "detailJson": {
+                        "messageType": "AgentRunUpdated",
+                        "content": {
+                            "id": "ignored-non-external",
+                            "inputs": {
+                                "runType": "internal_agent",
+                                "chatId": "chat-ignored",
+                            },
+                        },
+                    }
+                }
+            }
+        ),
+        json.dumps(
+            {
+                "event": {
+                    "detailJson": {
+                        "messageType": "AgentRunUpdated",
+                        "content": {
+                            "id": "run-merged",
+                            "inputs": {
+                                "runType": " external_agent ",
+                                "chatId": "chat-456",
+                            },
+                            "outputs": {
+                                "threadId": "thread-789",
+                            },
+                        },
+                    }
+                }
+            }
+        ),
+    ]
+    (artifact_dir / "transport_details.ndjson").write_text(
+        "\n".join(transport_detail_lines) + "\n",
+        encoding="utf-8",
+    )
+
+    process = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "chrome_repro_collect_llm_artifacts.py"),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--setta-files-root",
+            str(setta_files_root),
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert process.returncode == 0, process.stdout + process.stderr
+
+    manifest = json.loads(
+        (artifact_dir / "llm_engine_artifacts" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert manifest["recordedRuns"] == [
+        {
+            "runId": "run-merged",
+            "chatId": "chat-456",
+            "engineConfigId": "engine-123",
+            "threadId": "thread-789",
+        }
+    ]
+    assert manifest["copiedRunCount"] == 1
+    assert manifest["copiedRuns"][0]["runId"] == "run-merged"
+    assert manifest["copiedRuns"][0]["chatId"] == "chat-456"
+    assert manifest["copiedRuns"][0]["threadId"] == "thread-789"
+    assert str(setta_files_root / "agent_runs" / "run-merged.json") == manifest["copiedRuns"][0]["missingRunFile"]
+
+
 def test_record_chrome_repro_wrapper_launches_browser_and_writes_artifacts(
     tmp_path: Path,
 ) -> None:

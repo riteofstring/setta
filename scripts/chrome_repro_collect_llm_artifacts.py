@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 from collections import OrderedDict
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -139,57 +140,80 @@ def write_sanitized_copy(source: Path, destination: Path) -> None:
     shutil.copy2(source, destination)
 
 
-def extract_recorded_external_agent_runs(artifact_dir: Path) -> list[dict[str, str]]:
-    transport_details_path = artifact_dir / "transport_details.ndjson"
-    if not transport_details_path.is_file():
-        return []
-    runs: "OrderedDict[str, dict[str, str]]" = OrderedDict()
-    for raw_line in transport_details_path.read_text(encoding="utf-8").splitlines():
+def iter_json_object_lines(path: Path) -> Iterator[dict[str, Any]]:
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
         if not raw_line.strip():
             continue
         try:
             payload = json.loads(raw_line)
         except json.JSONDecodeError:
             continue
-        event = payload.get("event")
-        if not isinstance(event, dict):
+        if isinstance(payload, dict):
+            yield payload
+
+
+def build_external_agent_run_update(payload: dict[str, Any]) -> dict[str, str] | None:
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return None
+    detail_json = event.get("detailJson")
+    if (
+        not isinstance(detail_json, dict)
+        or detail_json.get("messageType") != "AgentRunUpdated"
+    ):
+        return None
+    content = detail_json.get("content")
+    if not isinstance(content, dict):
+        return None
+    inputs = content.get("inputs")
+    if (
+        not isinstance(inputs, dict)
+        or normalize_string(inputs.get("runType")) != "external_agent"
+    ):
+        return None
+    run_id = normalize_string(content.get("id"))
+    if run_id == "":
+        return None
+    outputs = content.get("outputs")
+    thread_id = ""
+    if isinstance(outputs, dict):
+        thread_id = normalize_string(outputs.get("threadId"))
+    return {
+        "runId": run_id,
+        "chatId": normalize_string(inputs.get("chatId")),
+        "engineConfigId": normalize_string(inputs.get("engineConfigId")),
+        "threadId": thread_id,
+    }
+
+
+def merge_recorded_run_update(
+    runs: "OrderedDict[str, dict[str, str]]", update: dict[str, str]
+) -> None:
+    run_id = update["runId"]
+    entry = runs.setdefault(
+        run_id,
+        {
+            "runId": run_id,
+            "chatId": "",
+            "engineConfigId": "",
+            "threadId": "",
+        },
+    )
+    for key in ("chatId", "engineConfigId", "threadId"):
+        if entry[key] == "" and update[key] != "":
+            entry[key] = update[key]
+
+
+def extract_recorded_external_agent_runs(artifact_dir: Path) -> list[dict[str, str]]:
+    transport_details_path = artifact_dir / "transport_details.ndjson"
+    runs: "OrderedDict[str, dict[str, str]]" = OrderedDict()
+    for payload in iter_json_object_lines(transport_details_path):
+        update = build_external_agent_run_update(payload)
+        if update is None:
             continue
-        detail_json = event.get("detailJson")
-        if not isinstance(detail_json, dict):
-            continue
-        if detail_json.get("messageType") != "AgentRunUpdated":
-            continue
-        content = detail_json.get("content")
-        if not isinstance(content, dict):
-            continue
-        inputs = content.get("inputs")
-        if (
-            not isinstance(inputs, dict)
-            or normalize_string(inputs.get("runType")) != "external_agent"
-        ):
-            continue
-        run_id = normalize_string(content.get("id"))
-        if run_id == "":
-            continue
-        outputs = content.get("outputs")
-        thread_id = ""
-        if isinstance(outputs, dict):
-            thread_id = normalize_string(outputs.get("threadId"))
-        entry = runs.setdefault(
-            run_id,
-            {
-                "runId": run_id,
-                "chatId": normalize_string(inputs.get("chatId")),
-                "engineConfigId": normalize_string(inputs.get("engineConfigId")),
-                "threadId": thread_id,
-            },
-        )
-        if entry["chatId"] == "":
-            entry["chatId"] = normalize_string(inputs.get("chatId"))
-        if entry["engineConfigId"] == "":
-            entry["engineConfigId"] = normalize_string(inputs.get("engineConfigId"))
-        if entry["threadId"] == "" and thread_id != "":
-            entry["threadId"] = thread_id
+        merge_recorded_run_update(runs, update)
     return list(runs.values())
 
 
@@ -213,32 +237,27 @@ def collect_session_artifacts(
     llm_artifacts_dir: Path,
     copied_files: list[str],
 ) -> None:
+    for source_path in iter_safe_session_source_paths(source_root):
+        destination_path = destination_root / source_path.relative_to(source_root)
+        write_sanitized_copy(source_path, destination_path)
+        copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
+
+
+def iter_safe_session_source_paths(source_root: Path) -> Iterator[Path]:
     for file_name in SAFE_TOP_LEVEL_SESSION_FILES:
         source_path = source_root / file_name
         if not source_path.is_file():
             continue
-        destination_path = destination_root / file_name
-        write_sanitized_copy(source_path, destination_path)
-        copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
+        yield source_path
 
     for directory_name in SAFE_SESSION_SUBDIRS:
         source_dir = source_root / directory_name
         if not source_dir.is_dir():
             continue
-        for source_path in sorted(
-            path for path in source_dir.rglob("*") if path.is_file()
-        ):
-            destination_path = destination_root / source_path.relative_to(source_root)
-            write_sanitized_copy(source_path, destination_path)
-            copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
+        yield from sorted(path for path in source_dir.rglob("*") if path.is_file())
 
     for pattern in SAFE_SESSION_GLOB_PATTERNS:
-        for source_path in sorted(source_root.glob(pattern)):
-            if not source_path.is_file():
-                continue
-            destination_path = destination_root / source_path.relative_to(source_root)
-            write_sanitized_copy(source_path, destination_path)
-            copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
+        yield from sorted(path for path in source_root.glob(pattern) if path.is_file())
 
 
 def main() -> int:
