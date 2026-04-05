@@ -2,6 +2,7 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { useEffect, type RefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
+  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
@@ -501,10 +502,11 @@ function getCanvasFocusableElements(root: HTMLElement): HTMLElement[] {
 function getOrderedTopLevelSectionIds(): string[] {
   const state = useProjectState.getState();
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
+  const activeTopLevelSections = getActiveViewModeTopLevelSections(state);
   const topLevelSections = topLevelSectionIds
     .map((sectionId) => ({
       sectionId,
-      layout: state.projectConfig.topLevelSections[sectionId],
+      layout: activeTopLevelSections[sectionId],
     }))
     .filter((entry) => entry.layout);
 
