@@ -158,6 +158,13 @@ func writeTSObjectLiteral(
 ) {
 	builder.WriteString("{\n")
 	childIndent := indent + "  "
+	writeProperty := func(key string, value any) {
+		builder.WriteString(childIndent)
+		builder.WriteString(renderTSObjectKey(key))
+		builder.WriteString(": ")
+		writeTSLiteralValue(builder, childIndent, value, nil)
+		builder.WriteString(",\n")
+	}
 	seen := map[string]struct{}{}
 	for _, key := range orderedKeys {
 		value, ok := object[key]
@@ -165,7 +172,7 @@ func writeTSObjectLiteral(
 			continue
 		}
 		seen[key] = struct{}{}
-		writeTSObjectProperty(builder, childIndent, key, value)
+		writeProperty(key, value)
 	}
 
 	remaining := make([]string, 0, len(object)-len(seen))
@@ -177,19 +184,11 @@ func writeTSObjectLiteral(
 	}
 	sort.Strings(remaining)
 	for _, key := range remaining {
-		writeTSObjectProperty(builder, childIndent, key, object[key])
+		writeProperty(key, object[key])
 	}
 
 	builder.WriteString(indent)
 	builder.WriteString("}")
-}
-
-func writeTSObjectProperty(builder *strings.Builder, indent string, key string, value any) {
-	builder.WriteString(indent)
-	builder.WriteString(renderTSObjectKey(key))
-	builder.WriteString(": ")
-	writeTSLiteralValue(builder, indent, value, nil)
-	builder.WriteString(",\n")
 }
 
 func writeTSLiteralValue(builder *strings.Builder, indent string, value any, orderedKeys []string) {
@@ -201,7 +200,10 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 	case string:
 		builder.WriteString(strconv.Quote(typed))
 	case float64:
-		builder.WriteString(formatTSNumberLiteral(typed))
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			panic("settings defaults contained a non-finite numeric literal")
+		}
+		builder.WriteString(strconv.FormatFloat(typed, 'f', -1, 64))
 	case tsRawExpr:
 		builder.WriteString(typed.Expr)
 	case []any:
@@ -267,13 +269,6 @@ func renderTSObjectKey(key string) string {
 		return key
 	}
 	return strconv.Quote(key)
-}
-
-func formatTSNumberLiteral(value float64) string {
-	if math.IsNaN(value) || math.IsInf(value, 0) {
-		panic("settings defaults contained a non-finite numeric literal")
-	}
-	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func specialTypeDeclaration(
