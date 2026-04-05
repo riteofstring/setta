@@ -114,35 +114,6 @@ export type StopRunChainRequest = {
   runId: string;
 };
 
-export type GetLLMResponseRequest = {
-  chatId: string | null;
-  continueFromChatId: string | null;
-  message: Record<string, unknown>;
-  engineConfigId: string;
-  agentProfileId: string | null;
-  thinking: boolean;
-  projectConfigId: string;
-  sectionId: string | null;
-  frontendAffinityToken: string | null;
-  allowUnscoped: boolean;
-  branchParentChatId: string | null;
-  branchFromMessageId: string | null;
-  appSpecStreamingEnabled?: boolean;
-  permissionMode: string;
-  searchEnabled: boolean;
-  appGenerationMode: string | null;
-  appGenerationByMessageId: Record<string, string>;
-  appGenerationReferenceImageUrl: string | null;
-  appGenerationReferenceImageNotes: string | null;
-};
-
-export type GetExternalAgentChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-export type LLMChatIDResponse = string;
-
 export type LLMConfig = {
   id: string;
   model: string;
@@ -156,98 +127,6 @@ export type LLMConfig = {
 export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
 }
-
-type ChatContextUsage = {
-  contextWindowTokens: number | null;
-  contextUsedTokens: number | null;
-  estimated: boolean;
-};
-
-export type LLMChatResponse = {
-  messages: Array<Record<string, unknown>>;
-  toolCallArguments: Record<string, string>;
-  waitingForResponse: boolean;
-  llmConfig: LLMConfig | null;
-  contextUsage: ChatContextUsage | null;
-  appGenerationByMessageId: Record<string, string>;
-};
-
-export type GetLLMChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-export type ExternalAgentChatResponse = {
-  messages: Array<Record<string, unknown>>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage: ChatContextUsage | null;
-  appGenerationByMessageId: Record<string, string>;
-};
-
-export type StopLLMChatResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId: string | null;
-  stoppedMessageId: string | null;
-};
-
-export type StopLLMChatRequest = {
-  chatId: string;
-};
-
-export type GetAIFollowSnapshotRequest = {
-  projectConfigId: string;
-};
-
-export type StopExternalAgentRunRequest = {
-  runId: string;
-};
-
-export type RespondExternalAgentApprovalRequest = {
-  approvalId: string;
-  approved: boolean;
-};
-
-export type RespondExternalAgentQuestionRequest = {
-  toolCallId: string;
-  answers: Record<string, string>;
-};
-
-export type StartTranscriptionSessionRequest = {
-  transcriptionProfileId: string;
-  language: string | null;
-};
-
-export type StartTranscriptionSessionResponse = {
-  sessionId: string;
-  resolvedTransportMode: string;
-  chunkMs: number;
-};
-
-export type AppendTranscriptionAudioRequest = {
-  sessionId: string;
-  audioPcm16Base64: string;
-  sampleRateHz: number;
-  channels: number;
-};
-
-export type StopTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type CancelTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type Delta = {
-  appendText: string;
-  fullText: string;
-  isFinal: boolean;
-};
-
-export type CancelTranscriptionSessionResponse = {
-  ok: boolean;
-};
 
 export type GetAppDefinitionRequest = {
   frontendOpId?: string | null;

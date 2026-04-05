@@ -1,3 +1,4 @@
+import { getAiFollowSnapshot } from "openapi/http";
 import { useAIFollow } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -6,12 +7,22 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const routeGetAIFollowSnapshotMock = vi.fn();
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getAiFollowSnapshot: vi.fn(),
+  };
+});
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_ai_follow_snapshot: (...args: unknown[]) =>
-    routeGetAIFollowSnapshotMock(...args),
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
+
+const mockedGetAiFollowSnapshot = vi.mocked(getAiFollowSnapshot);
 
 import {
   receiveAgenticScopeViolationEdges,
@@ -106,7 +117,7 @@ describe("receiveAgenticScopeViolationEdges", () => {
 describe("requestAIFollowSnapshot", () => {
   beforeEach(() => {
     resetProjectStores();
-    routeGetAIFollowSnapshotMock.mockReset();
+    mockedGetAiFollowSnapshot.mockReset();
   });
 
   afterEach(() => {
@@ -114,7 +125,7 @@ describe("requestAIFollowSnapshot", () => {
   });
 
   it("hydrates tool argument ids from the Go-owned AI follow snapshot route", async () => {
-    routeGetAIFollowSnapshotMock.mockResolvedValue({
+    mockedGetAiFollowSnapshot.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: [
@@ -130,8 +141,10 @@ describe("requestAIFollowSnapshot", () => {
 
     await requestAIFollowSnapshot("project-1");
 
-    expect(routeGetAIFollowSnapshotMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
+    expect(mockedGetAiFollowSnapshot).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+      },
     });
     expect(
       useAIFollow.getState().toolArgumentsIdsByProjectConfigId["project-1"],
@@ -143,7 +156,7 @@ describe("requestAIFollowSnapshot", () => {
   });
 
   it("ignores empty snapshots from the backend route", async () => {
-    routeGetAIFollowSnapshotMock.mockResolvedValue({
+    mockedGetAiFollowSnapshot.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: [],
@@ -157,7 +170,7 @@ describe("requestAIFollowSnapshot", () => {
   });
 
   it("ignores failed snapshot responses", async () => {
-    routeGetAIFollowSnapshotMock.mockResolvedValue({
+    mockedGetAiFollowSnapshot.mockResolvedValue({
       status: 500,
       hasResponse: true,
       data: null,

@@ -1,10 +1,7 @@
+import { getLlmChat, getLlmResponse } from "openapi/http";
 import { resetProjectStores } from "state/utils";
 import { PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE } from "state/utils/chatAppGeneration";
-import {
-  route_get_agent_runs,
-  route_get_llm_chat,
-  route_get_llm_response,
-} from "utils/generatedEndpoints";
+import { route_get_agent_runs } from "utils/generatedEndpoints";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
@@ -22,6 +19,22 @@ import {
   vi,
 } from "vitest";
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getLlmChat: vi.fn(),
+    getLlmResponse: vi.fn(),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
     typeof import("utils/generatedEndpoints")
@@ -29,8 +42,6 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_get_agent_runs: vi.fn(),
-    route_get_llm_chat: vi.fn(),
-    route_get_llm_response: vi.fn(),
   };
 });
 
@@ -39,8 +50,8 @@ vi.mock("state/actions/frontendWebsocketAffinity", () => ({
 }));
 
 const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
-const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
-const mockedRouteGetLLMResponse = vi.mocked(route_get_llm_response);
+const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
+const mockedRouteGetLLMResponse = vi.mocked(getLlmResponse);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
@@ -221,13 +232,16 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appGenerationMode: string | null;
-        appGenerationByMessageId: Record<string, string>;
-        message: { id: string };
+        body: {
+          appGenerationMode: string | null;
+          appGenerationByMessageId: Record<string, string>;
+          message: { id: string };
+        };
       },
     ];
+    const payload = request.body;
     expect(payload.appGenerationMode).toBe("mcp_server");
     expect(payload.appGenerationByMessageId).toEqual({
       [payload.message.id]: "mcp_server",
@@ -296,13 +310,16 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(chatId);
 
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appGenerationMode: string | null;
-        appGenerationByMessageId: Record<string, string>;
-        message: { id: string; attachments: unknown[] };
+        body: {
+          appGenerationMode: string | null;
+          appGenerationByMessageId: Record<string, string>;
+          message: { id: string; attachments: unknown[] };
+        };
       },
     ];
+    const payload = request.body;
     expect(payload.appGenerationMode).toBe("json_render_with_image");
     expect(payload.message.attachments).toEqual([]);
     expect(payload.appGenerationByMessageId).toEqual({
@@ -338,13 +355,16 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        appGenerationMode: string | null;
-        appGenerationByMessageId: Record<string, string>;
-        message: { id: string };
+        body: {
+          appGenerationMode: string | null;
+          appGenerationByMessageId: Record<string, string>;
+          message: { id: string };
+        };
       },
     ];
+    const payload = request.body;
     expect(payload.appGenerationMode).toBeNull();
     expect(payload.appGenerationByMessageId).toEqual({
       [payload.message.id]: PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
@@ -381,12 +401,15 @@ describe("submitMessage", () => {
     ).resolves.toBe(returnedChatId);
 
     expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
       {
-        permissionMode: string;
-        searchEnabled: boolean;
+        body: {
+          permissionMode: string;
+          searchEnabled: boolean;
+        };
       },
     ];
+    const payload = request.body;
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
   });
@@ -550,9 +573,10 @@ describe("submitMessage", () => {
       ),
     ).resolves.toBe(returnedChatId);
 
-    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
-      { frontendAffinityToken: string },
+    const [request] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      { body: { frontendAffinityToken: string } },
     ];
+    const payload = request.body;
     expect(payload.frontendAffinityToken).toBe("frontend-test-id");
   });
 

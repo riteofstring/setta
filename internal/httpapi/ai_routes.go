@@ -20,6 +20,7 @@ import (
 	"setta/internal/managedllm"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
 )
@@ -146,19 +147,109 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
-	router.Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
-	router.Post(RouteGetLLMChat, getLLMChatHandler(deps))
-	router.Post(RouteStopLLMChat, stopLLMChatHandler(deps))
-	router.Post(RouteStartTranscriptionSession, startTranscriptionSessionHandler(deps))
-	router.Post(RouteAppendTranscriptionAudio, appendTranscriptionAudioHandler(deps))
-	router.Post(RouteStopTranscriptionSession, stopTranscriptionSessionHandler(deps))
-	router.Post(RouteCancelTranscriptionSession, cancelTranscriptionSessionHandler(deps))
-	router.Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
-	router.Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
-	router.Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
-	router.Post(RouteRespondExternalAgentApproval, respondExternalAgentApprovalHandler(deps))
-	router.Post(RouteRespondExternalAgentQuestion, respondExternalAgentQuestionHandler(deps))
+	registerAIPost[GetLLMResponseRequest, LLMChatIDResponse](
+		router,
+		"getLlmResponse",
+		RouteGetLLMResponse,
+		"Start or continue a managed or external AI chat and return the chat ID.",
+		getLLMResponseHandler(deps),
+	)
+	registerAIPost[GetLLMChatRequest, LLMChatResponse](
+		router,
+		"getLlmChat",
+		RouteGetLLMChat,
+		"Load the hydrated managed AI chat state for a chat ID.",
+		getLLMChatHandler(deps),
+	)
+	registerAIPost[StopLLMChatRequest, StopLLMChatResponse](
+		router,
+		"stopLlmChat",
+		RouteStopLLMChat,
+		"Stop an active managed AI chat run.",
+		stopLLMChatHandler(deps),
+	)
+	registerAIPost[StartTranscriptionSessionRequest, StartTranscriptionSessionResponse](
+		router,
+		"startTranscriptionSession",
+		RouteStartTranscriptionSession,
+		"Start a transcription session for the current authenticated scope.",
+		startTranscriptionSessionHandler(deps),
+	)
+	registerAIPost[AppendTranscriptionAudioRequest, TranscriptionSessionDeltaResponse](
+		router,
+		"appendTranscriptionAudio",
+		RouteAppendTranscriptionAudio,
+		"Append PCM16 audio to an active transcription session.",
+		appendTranscriptionAudioHandler(deps),
+	)
+	registerAIPost[StopTranscriptionSessionRequest, TranscriptionSessionDeltaResponse](
+		router,
+		"stopTranscriptionSession",
+		RouteStopTranscriptionSession,
+		"Stop an active transcription session and return the final delta.",
+		stopTranscriptionSessionHandler(deps),
+	)
+	registerAIPost[CancelTranscriptionSessionRequest, CancelTranscriptionSessionResponse](
+		router,
+		"cancelTranscriptionSession",
+		RouteCancelTranscriptionSession,
+		"Cancel an active transcription session.",
+		cancelTranscriptionSessionHandler(deps),
+	)
+	registerAIPost[GetExternalAgentChatRequest, ExternalAgentChatResponse](
+		router,
+		"getExternalAgentChat",
+		RouteGetExternalAgentChat,
+		"Load the hydrated external agent chat state for a chat ID.",
+		getExternalAgentChatHandler(deps),
+	)
+	registerAIPost[GetAIFollowSnapshotRequest, []realtime.AIFollowToolArgumentsUpdateContent](
+		router,
+		"getAIFollowSnapshot",
+		RouteGetAIFollowSnapshot,
+		"Load the current AI follow tool-argument snapshot for a project.",
+		getAIFollowSnapshotHandler(deps),
+	)
+	registerAIPost[StopExternalAgentRunRequest, agentruns.Run](
+		router,
+		"stopExternalAgentRun",
+		RouteStopExternalAgentRun,
+		"Stop an active external agent run.",
+		stopExternalAgentRunHandler(deps),
+	)
+	registerAIPost[RespondExternalAgentApprovalRequest, openAPIJSONNull](
+		router,
+		"respondExternalAgentApproval",
+		RouteRespondExternalAgentApproval,
+		"Submit an approval decision for an external agent run.",
+		respondExternalAgentApprovalHandler(deps),
+	)
+	registerAIPost[RespondExternalAgentQuestionRequest, openAPIJSONNull](
+		router,
+		"respondExternalAgentQuestion",
+		RouteRespondExternalAgentQuestion,
+		"Submit answers for an external agent question prompt.",
+		respondExternalAgentQuestionHandler(deps),
+	)
 	return nil
+}
+
+func registerAIPost[Req, Resp any](
+	router chi.Router,
+	operationID string,
+	routePath string,
+	summary string,
+	handler http.HandlerFunc,
+) {
+	registerOpenAPIPost[Req, Resp](
+		router,
+		operationID,
+		routePath,
+		handler,
+		withOpenAPITags("AI"),
+		withOpenAPISummary(summary),
+		withOpenAPIModeRequirement("not-launcher"),
+	)
 }
 
 func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {

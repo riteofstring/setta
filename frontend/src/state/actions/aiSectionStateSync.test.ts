@@ -1,6 +1,11 @@
+import {
+  getExternalAgentChat as apiGetExternalAgentChat,
+  getLlmChat as apiGetLlmChat,
+} from "openapi/http";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { markChatStreamActive } from "state/aiStreamingTracker";
 import { resetProjectStores } from "state/utils";
+import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
   LLMConfig,
@@ -28,17 +33,35 @@ let getLLMChat: typeof import("./ai").getLLMChat;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getLlmChat: vi.fn(),
+    getExternalAgentChat: vi.fn(),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
     typeof import("utils/generatedEndpoints")
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_llm_chat: vi.fn(),
-    route_get_external_agent_chat: vi.fn(),
     route_set_chat_section_state: vi.fn(),
   };
 });
+
+const mockedRouteGetLLMChat = vi.mocked(apiGetLlmChat);
+const mockedRouteGetExternalAgentChat = vi.mocked(apiGetExternalAgentChat);
+const mockedRouteSetChatSectionState = vi.mocked(route_set_chat_section_state);
 
 const projectConfigId = "project-1";
 const sectionId = "section-1";
@@ -133,13 +156,7 @@ describe("chat history sync to section state", () => {
   });
 
   it("syncs external agent chat history to section state", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -157,7 +174,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -183,18 +200,13 @@ describe("chat history sync to section state", () => {
     ).toBe(true);
     expect(impl.toolCallArguments).toEqual({ "tool-1": "{}" });
     expect(impl.waitingForResponse).toBe(false);
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
   });
 
   it("syncs LLM chat history to section state", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
     const llmConfig: LLMConfig = {
       id: "llm-1",
       model: "test-model",
@@ -205,7 +217,7 @@ describe("chat history sync to section state", () => {
       mcpServerIds: null,
       temporary: false,
     };
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -224,7 +236,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -249,7 +261,7 @@ describe("chat history sync to section state", () => {
     ).toBe(true);
     expect(impl.toolCallArguments).toEqual({ "tool-1": `{"task":"Hello"}` });
     expect(impl.waitingForResponse).toBe(true);
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -262,11 +274,6 @@ describe("chat history sync to section state", () => {
   });
 
   it("replaces local thought text with backend-authoritative hydrate during active LLM streams", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
     const llmConfig: LLMConfig = {
       id: "llm-1",
       model: "test-model",
@@ -278,7 +285,7 @@ describe("chat history sync to section state", () => {
       temporary: false,
     };
     const backendSummary = "Structured summary title from backend metadata.";
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -302,7 +309,7 @@ describe("chat history sync to section state", () => {
         contextUsage: null,
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -351,7 +358,7 @@ describe("chat history sync to section state", () => {
         signature: "backend-signature",
       }),
     ]);
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -370,13 +377,7 @@ describe("chat history sync to section state", () => {
   });
 
   it("replaces section messages with backend history while preserving explicit stream overlays", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -394,7 +395,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -428,7 +429,7 @@ describe("chat history sync to section state", () => {
     expect(impl.messages.map((message) => message.id)).toEqual(["msg-remote"]);
     expect(impl.waitingForResponse).toBe(true);
     expect(impl.toolCallArguments).toEqual({ local: "{}", remote: "{}" });
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -446,13 +447,7 @@ describe("chat history sync to section state", () => {
   });
 
   it("keeps local-only section tool call overlays but lets backend win for overlapping ids during active-stream hydrate", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -473,7 +468,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -512,7 +507,7 @@ describe("chat history sync to section state", () => {
       remoteOnly: `{"task":"Backend only"}`,
       localOnly: `{"task":"Still local only"}`,
     });
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -529,12 +524,6 @@ describe("chat history sync to section state", () => {
   });
 
   it("syncs the active section branch to hydrated backend messages without rewriting inactive branches", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
     const authoritativeMessage = {
       id: "msg-remote-branch",
       role: ChatRoleEnum.assistant,
@@ -542,7 +531,7 @@ describe("chat history sync to section state", () => {
       attachments: [],
       tool_calls: null,
     };
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -552,7 +541,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -630,7 +619,7 @@ describe("chat history sync to section state", () => {
         attachments: [],
       },
     ]);
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -656,13 +645,7 @@ describe("chat history sync to section state", () => {
   });
 
   it("drops local-only section messages after hydrate when stream is inactive", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -680,7 +663,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -714,13 +697,7 @@ describe("chat history sync to section state", () => {
   });
 
   it("replaces tool call arguments when not streaming", async () => {
-    const route_get_external_agent_chat = (
-      await import("utils/generatedEndpoints")
-    ).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_get_external_agent_chat.mockResolvedValue({
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -738,7 +715,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -760,7 +737,7 @@ describe("chat history sync to section state", () => {
       SectionTypeEnum.Chat,
     );
     expect(impl.toolCallArguments).toEqual({ remote: "{}" });
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
@@ -771,11 +748,6 @@ describe("chat history sync to section state", () => {
   });
 
   it("clears stale llm tool call arguments when hydrate is not streaming", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
     const llmConfig: LLMConfig = {
       id: "llm-1",
       model: "test-model",
@@ -786,7 +758,7 @@ describe("chat history sync to section state", () => {
       mcpServerIds: null,
       temporary: false,
     };
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -804,7 +776,7 @@ describe("chat history sync to section state", () => {
         appGenerationByMessageId: {},
       },
     });
-    route_set_chat_section_state.mockResolvedValue({
+    mockedRouteSetChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
@@ -840,7 +812,7 @@ describe("chat history sync to section state", () => {
     expect(
       useAIStore.getState().chatDetails[chatId]?.toolCallArguments,
     ).toEqual({});
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
+    const persistedCall = mockedRouteSetChatSectionState.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();

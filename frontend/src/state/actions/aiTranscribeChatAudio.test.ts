@@ -1,9 +1,9 @@
 import {
-  route_append_transcription_audio,
-  route_cancel_transcription_session,
-  route_start_transcription_session,
-  route_stop_transcription_session,
-} from "utils/generatedEndpoints";
+  appendTranscriptionAudio as apiAppendTranscriptionAudio,
+  cancelTranscriptionSession as apiCancelTranscriptionSession,
+  startTranscriptionSession as apiStartTranscriptionSession,
+  stopTranscriptionSession as apiStopTranscriptionSession,
+} from "openapi/http";
 import { NotificationTypeEnum } from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,34 +16,39 @@ import {
 } from "./ai";
 import { addTemporaryNotification } from "./notifications";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_start_transcription_session: vi.fn(),
-    route_append_transcription_audio: vi.fn(),
-    route_stop_transcription_session: vi.fn(),
-    route_cancel_transcription_session: vi.fn(),
+    startTranscriptionSession: vi.fn(),
+    appendTranscriptionAudio: vi.fn(),
+    stopTranscriptionSession: vi.fn(),
+    cancelTranscriptionSession: vi.fn(),
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("./notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
 const mockedRouteStartTranscriptionSession = vi.mocked(
-  route_start_transcription_session,
+  apiStartTranscriptionSession,
 );
 const mockedRouteAppendTranscriptionAudio = vi.mocked(
-  route_append_transcription_audio,
+  apiAppendTranscriptionAudio,
 );
 const mockedRouteStopTranscriptionSession = vi.mocked(
-  route_stop_transcription_session,
+  apiStopTranscriptionSession,
 );
 const mockedRouteCancelTranscriptionSession = vi.mocked(
-  route_cancel_transcription_session,
+  apiCancelTranscriptionSession,
 );
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
@@ -77,11 +82,11 @@ describe("transcription session actions", () => {
       isFinal: false,
     });
     expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
-    const [payload] = mockedRouteAppendTranscriptionAudio.mock.calls[0] ?? [];
-    expect(payload.sessionId).toBe("session-1");
-    expect(payload.sampleRateHz).toBe(24_000);
-    expect(payload.channels).toBe(1);
-    expect(payload.audioPcm16Base64).toBe("AQIDBA==");
+    const [request] = mockedRouteAppendTranscriptionAudio.mock.calls[0] ?? [];
+    expect(request.body.sessionId).toBe("session-1");
+    expect(request.body.sampleRateHz).toBe(24_000);
+    expect(request.body.channels).toBe(1);
+    expect(request.body.audioPcm16Base64).toBe("AQIDBA==");
   });
 
   it("surfaces append errors", async () => {
@@ -214,9 +219,9 @@ describe("transcription session actions", () => {
         transcript: "ready",
       });
       expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(2);
-      for (const [payload] of mockedRouteAppendTranscriptionAudio.mock.calls) {
-        expect(payload.sampleRateHz).toBe(24_000);
-        expect(payload.channels).toBe(1);
+      for (const [request] of mockedRouteAppendTranscriptionAudio.mock.calls) {
+        expect(request.body.sampleRateHz).toBe(24_000);
+        expect(request.body.channels).toBe(1);
       }
       expect(closeMock).toHaveBeenCalledTimes(1);
     } finally {

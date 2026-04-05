@@ -150,6 +150,76 @@
         "required": ["thinking"],
         "type": "object"
       },
+      "AgentrunsRun": {
+        "additionalProperties": false,
+        "properties": {
+          "cost": {
+            "format": "double",
+            "type": "number"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentrunsRunEvent"
+            },
+            "type": ["array", "null"]
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "outputs": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "profileId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "toolCalls": {
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["id", "status", "toolCalls", "events"],
+        "type": "object"
+      },
+      "AgentrunsRunEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "timestamp", "type"],
+        "type": "object"
+      },
       "BinaryContentRef": {
         "additionalProperties": false,
         "properties": {
@@ -727,6 +797,32 @@
         "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
         "type": "object"
       },
+      "HttpapiAppendTranscriptionAudioRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audioPcm16Base64": {
+            "type": "string"
+          },
+          "channels": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sampleRateHz": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "audioPcm16Base64",
+          "sampleRateHz",
+          "channels"
+        ],
+        "type": "object"
+      },
       "HttpapiAttachmentDownloadURLEntry": {
         "additionalProperties": false,
         "properties": {
@@ -814,6 +910,26 @@
           }
         },
         "required": ["file"],
+        "type": "object"
+      },
+      "HttpapiCancelTranscriptionSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": ["sessionId"],
+        "type": "object"
+      },
+      "HttpapiCancelTranscriptionSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": ["ok"],
         "type": "object"
       },
       "HttpapiCheckIfFileExistsRequest": {
@@ -1317,6 +1433,44 @@
         "required": ["error"],
         "type": "object"
       },
+      "HttpapiExternalAgentChatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appGenerationByMessageId": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "contextUsage": {
+            "$ref": "#/components/schemas/ManagedchatChatContextUsage"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "type": ["array", "null"]
+          },
+          "toolCallArguments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "waitingForResponse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messages",
+          "waitingForResponse",
+          "toolCallArguments",
+          "contextUsage",
+          "appGenerationByMessageId"
+        ],
+        "type": "object"
+      },
       "HttpapiExternalAgentPreflightStatus": {
         "additionalProperties": false,
         "properties": {
@@ -1410,6 +1564,16 @@
         "required": ["projectConfigId", "fullText", "position"],
         "type": "object"
       },
+      "HttpapiGetAIFollowSnapshotRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
+        "type": "object"
+      },
       "HttpapiGetAgentProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1484,6 +1648,19 @@
           }
         },
         "required": ["configId"],
+        "type": "object"
+      },
+      "HttpapiGetExternalAgentChatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chatId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["chatId", "projectConfigId"],
         "type": "object"
       },
       "HttpapiGetExternalAgentConfigRequest": {
@@ -1574,6 +1751,106 @@
         "required": ["folderPath"],
         "type": "object"
       },
+      "HttpapiGetLLMChatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chatId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["chatId", "projectConfigId"],
+        "type": "object"
+      },
+      "HttpapiGetLLMResponseRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agentProfileId": {
+            "type": ["string", "null"]
+          },
+          "allowUnscoped": {
+            "type": "boolean"
+          },
+          "appGenerationByMessageId": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "appGenerationMode": {
+            "type": ["string", "null"]
+          },
+          "appGenerationReferenceImageNotes": {
+            "type": ["string", "null"]
+          },
+          "appGenerationReferenceImageUrl": {
+            "type": ["string", "null"]
+          },
+          "appSpecStreamingEnabled": {
+            "type": "boolean"
+          },
+          "branchFromMessageId": {
+            "type": ["string", "null"]
+          },
+          "branchParentChatId": {
+            "type": ["string", "null"]
+          },
+          "chatId": {
+            "type": ["string", "null"]
+          },
+          "continueFromChatId": {
+            "type": ["string", "null"]
+          },
+          "engineConfigId": {
+            "type": "string"
+          },
+          "frontendAffinityToken": {
+            "type": ["string", "null"]
+          },
+          "message": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "permissionMode": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "searchEnabled": {
+            "type": "boolean"
+          },
+          "sectionId": {
+            "type": ["string", "null"]
+          },
+          "thinking": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chatId",
+          "continueFromChatId",
+          "message",
+          "engineConfigId",
+          "agentProfileId",
+          "thinking",
+          "projectConfigId",
+          "sectionId",
+          "frontendAffinityToken",
+          "allowUnscoped",
+          "branchParentChatId",
+          "branchFromMessageId",
+          "permissionMode",
+          "searchEnabled",
+          "appGenerationMode",
+          "appGenerationByMessageId",
+          "appGenerationReferenceImageUrl",
+          "appGenerationReferenceImageNotes"
+        ],
+        "type": "object"
+      },
       "HttpapiGetLatestLSPDiagnosticsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1659,6 +1936,48 @@
           }
         },
         "required": ["apiKeys", "revision", "corrupt", "errorCode", "message"],
+        "type": "object"
+      },
+      "HttpapiLLMChatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appGenerationByMessageId": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "contextUsage": {
+            "$ref": "#/components/schemas/ManagedchatChatContextUsage"
+          },
+          "llmConfig": {
+            "$ref": "#/components/schemas/LlmconfigConfig"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "type": ["array", "null"]
+          },
+          "toolCallArguments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "waitingForResponse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "messages",
+          "toolCallArguments",
+          "waitingForResponse",
+          "llmConfig",
+          "contextUsage",
+          "appGenerationByMessageId"
+        ],
         "type": "object"
       },
       "HttpapiLaunchRequest": {
@@ -2648,6 +2967,35 @@
         ],
         "type": "object"
       },
+      "HttpapiRespondExternalAgentApprovalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalId": {
+            "type": "string"
+          },
+          "approved": {
+            "type": "boolean"
+          }
+        },
+        "required": ["approvalId", "approved"],
+        "type": "object"
+      },
+      "HttpapiRespondExternalAgentQuestionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "toolCallId": {
+            "type": "string"
+          }
+        },
+        "required": ["toolCallId", "answers"],
+        "type": "object"
+      },
       "HttpapiRevealPathInOSFileExplorerRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2992,6 +3340,82 @@
           "projectMetadata",
           "sharePolicy"
         ],
+        "type": "object"
+      },
+      "HttpapiStartTranscriptionSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "type": ["string", "null"]
+          },
+          "transcriptionProfileId": {
+            "type": "string"
+          }
+        },
+        "required": ["transcriptionProfileId", "language"],
+        "type": "object"
+      },
+      "HttpapiStartTranscriptionSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "resolvedTransportMode": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": ["sessionId", "resolvedTransportMode", "chunkMs"],
+        "type": "object"
+      },
+      "HttpapiStopExternalAgentRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": ["runId"],
+        "type": "object"
+      },
+      "HttpapiStopLLMChatRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "chatId": {
+            "type": "string"
+          }
+        },
+        "required": ["chatId"],
+        "type": "object"
+      },
+      "HttpapiStopLLMChatResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alreadyStopped": {
+            "type": "boolean"
+          },
+          "stoppedMessageId": {
+            "type": ["string", "null"]
+          },
+          "stoppedRunId": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["alreadyStopped", "stoppedRunId", "stoppedMessageId"],
+        "type": "object"
+      },
+      "HttpapiStopTranscriptionSessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          }
+        },
+        "required": ["sessionId"],
         "type": "object"
       },
       "HttpapiTextFieldCompletionRequest": {
@@ -3371,6 +3795,24 @@
           }
         },
         "required": ["label", "type"],
+        "type": "object"
+      },
+      "ManagedchatChatContextUsage": {
+        "additionalProperties": false,
+        "properties": {
+          "contextUsedTokens": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "contextWindowTokens": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "estimated": {
+            "type": "boolean"
+          }
+        },
+        "required": ["contextWindowTokens", "contextUsedTokens", "estimated"],
         "type": "object"
       },
       "McpxServerRuntimeStatus": {
@@ -5739,6 +6181,28 @@
         "required": ["sdkVersion", "coreVersion", "sdkContractVersion"],
         "type": "object"
       },
+      "RealtimeAIFollowToolArgumentsUpdateContent": {
+        "additionalProperties": false,
+        "properties": {
+          "chatId": {
+            "type": "string"
+          },
+          "idsByType": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": ["array", "null"]
+            },
+            "type": "object"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "chatId", "idsByType"],
+        "type": "object"
+      },
       "SettingsstateFrontendColorPickerChoice": {
         "additionalProperties": false,
         "properties": {
@@ -6248,6 +6712,22 @@
           "supportsRealtimeTranscription"
         ],
         "type": "object"
+      },
+      "TranscriptionsessionsDelta": {
+        "additionalProperties": false,
+        "properties": {
+          "appendText": {
+            "type": "string"
+          },
+          "fullText": {
+            "type": "string"
+          },
+          "isFinal": {
+            "type": "boolean"
+          }
+        },
+        "required": ["appendText", "fullText", "isFinal"],
+        "type": "object"
       }
     }
   },
@@ -6596,6 +7076,47 @@
         "x-setta-mode-requirement": "app"
       }
     },
+    "/appendTranscriptionAudio": {
+      "post": {
+        "operationId": "appendTranscriptionAudio",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiAppendTranscriptionAudioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionsessionsDelta"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Append PCM16 audio to an active transcription session.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/attachments/{token}": {
       "get": {
         "operationId": "downloadAttachment",
@@ -6779,6 +7300,47 @@
         },
         "summary": "Download a binary payload from the runtime content store.",
         "tags": ["Binary"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/cancelTranscriptionSession": {
+      "post": {
+        "operationId": "cancelTranscriptionSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCancelTranscriptionSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiCancelTranscriptionSessionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Cancel an active transcription session.",
+        "tags": ["AI"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
       }
@@ -7778,6 +8340,50 @@
         "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
+    "/getAIFollowSnapshot": {
+      "post": {
+        "operationId": "getAIFollowSnapshot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetAIFollowSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RealtimeAIFollowToolArgumentsUpdateContent"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load the current AI follow tool-argument snapshot for a project.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/getAgentProfile": {
       "post": {
         "operationId": "getAgentProfile",
@@ -8052,6 +8658,47 @@
         "tags": ["Engine Configs"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/getExternalAgentChat": {
+      "post": {
+        "operationId": "getExternalAgentChat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetExternalAgentChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiExternalAgentChatResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load the hydrated external agent chat state for a chat ID.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/getExternalAgentConfig": {
@@ -8357,6 +9004,88 @@
         },
         "summary": "List the visible contents of a folder in the file browser.",
         "tags": ["File Browser"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getLLMChat": {
+      "post": {
+        "operationId": "getLlmChat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetLLMChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiLLMChatResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Load the hydrated managed AI chat state for a chat ID.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getLLMResponse": {
+      "post": {
+        "operationId": "getLlmResponse",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetLLMResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start or continue a managed or external AI chat and return the chat ID.",
+        "tags": ["AI"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
       }
@@ -9854,6 +10583,88 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/respondExternalAgentApproval": {
+      "post": {
+        "operationId": "respondExternalAgentApproval",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiRespondExternalAgentApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Submit an approval decision for an external agent run.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/respondExternalAgentQuestion": {
+      "post": {
+        "operationId": "respondExternalAgentQuestion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiRespondExternalAgentQuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Submit answers for an external agent question prompt.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
     "/restartLanguageServer": {
       "post": {
         "operationId": "restartLanguageServer",
@@ -10711,6 +11522,170 @@
         "tags": ["Share Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "share"
+      }
+    },
+    "/startTranscriptionSession": {
+      "post": {
+        "operationId": "startTranscriptionSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStartTranscriptionSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiStartTranscriptionSessionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Start a transcription session for the current authenticated scope.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/stopExternalAgentRun": {
+      "post": {
+        "operationId": "stopExternalAgentRun",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopExternalAgentRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentrunsRun"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop an active external agent run.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/stopLLMChat": {
+      "post": {
+        "operationId": "stopLlmChat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopLLMChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiStopLLMChatResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop an active managed AI chat run.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/stopTranscriptionSession": {
+      "post": {
+        "operationId": "stopTranscriptionSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiStopTranscriptionSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptionsessionsDelta"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Stop an active transcription session and return the final delta.",
+        "tags": ["AI"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/textFieldCompletion": {

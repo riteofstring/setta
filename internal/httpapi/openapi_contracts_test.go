@@ -295,6 +295,12 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register terminal routes: %v", err)
 	}
+	if err := RegisterAIRoutes(router, AIRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		t.Fatalf("register ai routes: %v", err)
+	}
 	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
 	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
 	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
@@ -670,6 +676,55 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := runCode.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
 		t.Fatalf("run code mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	getLlmResponse := document.Paths[RouteGetLLMResponse].Post
+	if getLlmResponse == nil {
+		t.Fatalf("expected %s post operation", RouteGetLLMResponse)
+	}
+	if getLlmResponse.OperationID != "getLlmResponse" {
+		t.Fatalf("get llm response operation id = %q, want %q", getLlmResponse.OperationID, "getLlmResponse")
+	}
+	if got := getLlmResponse.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("get llm response mode requirement = %#v, want %q", got, "not-launcher")
+	}
+	getLlmResponseJSON := getLlmResponse.Responses["200"].Content["application/json"]
+	if getLlmResponseJSON == nil || getLlmResponseJSON.Schema == nil || getLlmResponseJSON.Schema.Type != "string" {
+		t.Fatalf("get llm response schema = %#v, want json string", getLlmResponseJSON)
+	}
+
+	getAIFollowSnapshot := document.Paths[RouteGetAIFollowSnapshot].Post
+	if getAIFollowSnapshot == nil {
+		t.Fatalf("expected %s post operation", RouteGetAIFollowSnapshot)
+	}
+	if getAIFollowSnapshot.OperationID != "getAIFollowSnapshot" {
+		t.Fatalf("ai follow snapshot operation id = %q, want %q", getAIFollowSnapshot.OperationID, "getAIFollowSnapshot")
+	}
+	if got := getAIFollowSnapshot.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("ai follow snapshot mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	startTranscriptionSession := document.Paths[RouteStartTranscriptionSession].Post
+	if startTranscriptionSession == nil {
+		t.Fatalf("expected %s post operation", RouteStartTranscriptionSession)
+	}
+	if startTranscriptionSession.OperationID != "startTranscriptionSession" {
+		t.Fatalf("start transcription session operation id = %q, want %q", startTranscriptionSession.OperationID, "startTranscriptionSession")
+	}
+	if startTranscriptionSession.RequestBody == nil {
+		t.Fatalf("expected startTranscriptionSession request body to be documented")
+	}
+
+	respondExternalAgentApproval := document.Paths[RouteRespondExternalAgentApproval].Post
+	if respondExternalAgentApproval == nil {
+		t.Fatalf("expected %s post operation", RouteRespondExternalAgentApproval)
+	}
+	if respondExternalAgentApproval.OperationID != "respondExternalAgentApproval" {
+		t.Fatalf("respond external agent approval operation id = %q, want %q", respondExternalAgentApproval.OperationID, "respondExternalAgentApproval")
+	}
+	respondExternalAgentApprovalJSON := respondExternalAgentApproval.Responses["200"].Content["application/json"]
+	if respondExternalAgentApprovalJSON == nil || respondExternalAgentApprovalJSON.Schema == nil || respondExternalAgentApprovalJSON.Schema.Type != "null" {
+		t.Fatalf("respond external agent approval schema = %#v, want json null", respondExternalAgentApprovalJSON)
 	}
 
 	loadAllProjectMetadata := document.Paths[RouteLoadAllProjectMetadata].Post

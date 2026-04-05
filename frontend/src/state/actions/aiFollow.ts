@@ -1,6 +1,10 @@
+import {
+  getAiFollowSnapshot,
+  type RealtimeAiFollowToolArgumentsUpdateContent,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
   AIFollowToolArgumentsUpdateContent,
   AIFollowToolResultUpdateContent,
@@ -33,7 +37,7 @@ function cloneIdsByType(
 }
 
 type AIFollowSnapshotRouteResponse = ResponseDataAndStatus<
-  Array<AIFollowToolArgumentsUpdateContent>
+  Array<RealtimeAiFollowToolArgumentsUpdateContent>
 >;
 
 function buildTimeoutKey(
@@ -291,13 +295,15 @@ export function receiveAgenticScopeViolationEdges({
 export async function requestAIFollowSnapshot(
   projectConfigId: string,
 ): Promise<void> {
-  const res: AIFollowSnapshotRouteResponse = await route_get_ai_follow_snapshot(
-    { projectConfigId },
+  const res: AIFollowSnapshotRouteResponse = await callOpenAPI(
+    getAiFollowSnapshot({
+      body: { projectConfigId },
+    }),
   );
   if (!res200(res)) {
     return;
   }
-  const snapshot: AIFollowToolArgumentsUpdateContent[] = res.data;
+  const snapshot: RealtimeAiFollowToolArgumentsUpdateContent[] = res.data;
   if (snapshot.length === 0) {
     return;
   }

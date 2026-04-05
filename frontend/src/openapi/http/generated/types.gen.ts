@@ -40,6 +40,34 @@ export type AgentrunsEngineRuntimeSupport = {
   thinking: boolean;
 };
 
+export type AgentrunsRun = {
+  cost?: number;
+  events: Array<AgentrunsRunEvent> | null;
+  finishedAt?: string;
+  id: string;
+  inputs?: {
+    [key: string]: unknown;
+  };
+  outputs?: {
+    [key: string]: unknown;
+  };
+  profileId?: string;
+  startedAt?: string;
+  status: string;
+  toolCalls: Array<{
+    [key: string]: unknown;
+  }> | null;
+};
+
+export type AgentrunsRunEvent = {
+  id: string;
+  payload?: {
+    [key: string]: unknown;
+  };
+  timestamp: string;
+  type: string;
+};
+
 export type BinaryContentRef = {
   byteLength: number;
   contentId: string;
@@ -222,6 +250,13 @@ export type HttpapiAppDeploymentStateResponse = {
   projectState: ProjectviewSingleConfig;
 };
 
+export type HttpapiAppendTranscriptionAudioRequest = {
+  audioPcm16Base64: string;
+  channels: number;
+  sampleRateHz: number;
+  sessionId: string;
+};
+
 export type HttpapiAttachmentDownloadUrlEntry = {
   artifactId: string;
   expiresAt: number;
@@ -248,6 +283,14 @@ export type HttpapiBackendInitStatusResponse = {
 export type HttpapiBinaryUploadFormRequest = {
   durable?: boolean;
   file: Blob | File;
+};
+
+export type HttpapiCancelTranscriptionSessionRequest = {
+  sessionId: string;
+};
+
+export type HttpapiCancelTranscriptionSessionResponse = {
+  ok: boolean;
 };
 
 export type HttpapiCheckIfFileExistsRequest = {
@@ -413,6 +456,20 @@ export type HttpapiErrorResponse = {
   error: HttpapiErrorDetail;
 };
 
+export type HttpapiExternalAgentChatResponse = {
+  appGenerationByMessageId: {
+    [key: string]: string;
+  };
+  contextUsage: ManagedchatChatContextUsage;
+  messages: Array<{
+    [key: string]: unknown;
+  }> | null;
+  toolCallArguments: {
+    [key: string]: string;
+  };
+  waitingForResponse: boolean;
+};
+
 export type HttpapiExternalAgentPreflightStatus = {
   available: boolean;
   baseUrl: string | null;
@@ -437,6 +494,10 @@ export type HttpapiGenCodePrefixCompletionRequest = {
 export type HttpapiGenCodeSuffixCompletionRequest = {
   fullText: string;
   position: number;
+  projectConfigId: string;
+};
+
+export type HttpapiGetAiFollowSnapshotRequest = {
   projectConfigId: string;
 };
 
@@ -468,6 +529,11 @@ export type HttpapiGetEngineConfigRequest = {
   configId: string;
 };
 
+export type HttpapiGetExternalAgentChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+
 export type HttpapiGetExternalAgentConfigRequest = {
   configId: string;
 };
@@ -496,6 +562,37 @@ export type HttpapiGetFolderContentsRequest = {
   includeSize?: boolean;
   maxEntries?: number;
   missingFolderBehavior?: string;
+};
+
+export type HttpapiGetLlmChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+
+export type HttpapiGetLlmResponseRequest = {
+  agentProfileId: string | null;
+  allowUnscoped: boolean;
+  appGenerationByMessageId: {
+    [key: string]: string;
+  };
+  appGenerationMode: string | null;
+  appGenerationReferenceImageNotes: string | null;
+  appGenerationReferenceImageUrl: string | null;
+  appSpecStreamingEnabled?: boolean;
+  branchFromMessageId: string | null;
+  branchParentChatId: string | null;
+  chatId: string | null;
+  continueFromChatId: string | null;
+  engineConfigId: string;
+  frontendAffinityToken: string | null;
+  message: {
+    [key: string]: unknown;
+  };
+  permissionMode: string;
+  projectConfigId: string;
+  searchEnabled: boolean;
+  sectionId: string | null;
+  thinking: boolean;
 };
 
 export type HttpapiGetLatestLspDiagnosticsRequest = {
@@ -530,6 +627,21 @@ export type HttpapiLlmapiKeysSnapshot = {
   errorCode: string | null;
   message: string | null;
   revision: number;
+};
+
+export type HttpapiLlmChatResponse = {
+  appGenerationByMessageId: {
+    [key: string]: string;
+  };
+  contextUsage: ManagedchatChatContextUsage;
+  llmConfig: LlmconfigConfig;
+  messages: Array<{
+    [key: string]: unknown;
+  }> | null;
+  toolCallArguments: {
+    [key: string]: string;
+  };
+  waitingForResponse: boolean;
 };
 
 export type HttpapiLaunchRequest = {
@@ -844,6 +956,18 @@ export type HttpapiPublishShareDeploymentRequest = {
   sharePolicyOverrides: DeploymentsSharePolicyOverrides;
 };
 
+export type HttpapiRespondExternalAgentApprovalRequest = {
+  approvalId: string;
+  approved: boolean;
+};
+
+export type HttpapiRespondExternalAgentQuestionRequest = {
+  answers: {
+    [key: string]: string;
+  };
+  toolCallId: string;
+};
+
 export type HttpapiRevealPathInOsFileExplorerRequest = {
   path: string;
 };
@@ -964,6 +1088,35 @@ export type HttpapiShareDeploymentSessionResponse = {
   sessionRunCount: number;
   sharePolicy: DeploymentsPolicy;
   shareSessionId: string;
+};
+
+export type HttpapiStartTranscriptionSessionRequest = {
+  language: string | null;
+  transcriptionProfileId: string;
+};
+
+export type HttpapiStartTranscriptionSessionResponse = {
+  chunkMs: number;
+  resolvedTransportMode: string;
+  sessionId: string;
+};
+
+export type HttpapiStopExternalAgentRunRequest = {
+  runId: string;
+};
+
+export type HttpapiStopLlmChatRequest = {
+  chatId: string;
+};
+
+export type HttpapiStopLlmChatResponse = {
+  alreadyStopped: boolean;
+  stoppedMessageId: string | null;
+  stoppedRunId: string | null;
+};
+
+export type HttpapiStopTranscriptionSessionRequest = {
+  sessionId: string;
 };
 
 export type HttpapiTextFieldCompletionRequest = {
@@ -1097,6 +1250,12 @@ export type LlmconfigServerConfig = {
 export type LspcompletionCodeMirrorCompletion = {
   label: string;
   type: string;
+};
+
+export type ManagedchatChatContextUsage = {
+  contextUsedTokens: number | null;
+  contextWindowTokens: number | null;
+  estimated: boolean;
 };
 
 export type McpxServerRuntimeStatus = {
@@ -1833,6 +1992,14 @@ export type PythonsdkcontractsRunningBackendVersionHandshake = {
   sdkVersion: string;
 };
 
+export type RealtimeAiFollowToolArgumentsUpdateContent = {
+  chatId: string;
+  idsByType: {
+    [key: string]: Array<string> | null;
+  };
+  projectConfigId: string;
+};
+
 export type SettingsstateFrontendColorPickerChoice = {
   color: string;
   description: string;
@@ -1963,6 +2130,12 @@ export type TranscriptionprofilesProfile = {
   supportsRealtimeTranscription: boolean;
   transcriptionLlmConfigId: string;
   transportMode: string;
+};
+
+export type TranscriptionsessionsDelta = {
+  appendText: string;
+  fullText: string;
+  isFinal: boolean;
 };
 
 export type AddLauncherRecentWorkspaceData = {
@@ -2191,6 +2364,33 @@ export type GetAppDeploymentStateResponses = {
 export type GetAppDeploymentStateResponse =
   GetAppDeploymentStateResponses[keyof GetAppDeploymentStateResponses];
 
+export type AppendTranscriptionAudioData = {
+  body: HttpapiAppendTranscriptionAudioRequest;
+  path?: never;
+  query?: never;
+  url: "/appendTranscriptionAudio";
+};
+
+export type AppendTranscriptionAudioErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type AppendTranscriptionAudioError =
+  AppendTranscriptionAudioErrors[keyof AppendTranscriptionAudioErrors];
+
+export type AppendTranscriptionAudioResponses = {
+  /**
+   * OK
+   */
+  200: TranscriptionsessionsDelta;
+};
+
+export type AppendTranscriptionAudioResponse =
+  AppendTranscriptionAudioResponses[keyof AppendTranscriptionAudioResponses];
+
 export type DownloadAttachmentData = {
   body?: never;
   path: {
@@ -2328,6 +2528,33 @@ export type DownloadBinaryResponses = {
 
 export type DownloadBinaryResponse =
   DownloadBinaryResponses[keyof DownloadBinaryResponses];
+
+export type CancelTranscriptionSessionData = {
+  body: HttpapiCancelTranscriptionSessionRequest;
+  path?: never;
+  query?: never;
+  url: "/cancelTranscriptionSession";
+};
+
+export type CancelTranscriptionSessionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CancelTranscriptionSessionError =
+  CancelTranscriptionSessionErrors[keyof CancelTranscriptionSessionErrors];
+
+export type CancelTranscriptionSessionResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiCancelTranscriptionSessionResponse;
+};
+
+export type CancelTranscriptionSessionResponse =
+  CancelTranscriptionSessionResponses[keyof CancelTranscriptionSessionResponses];
 
 export type CheckIfFileExistsData = {
   body: HttpapiCheckIfFileExistsRequest;
@@ -2977,6 +3204,33 @@ export type GenCodeSuffixCompletionResponses = {
 export type GenCodeSuffixCompletionResponse =
   GenCodeSuffixCompletionResponses[keyof GenCodeSuffixCompletionResponses];
 
+export type GetAiFollowSnapshotData = {
+  body: HttpapiGetAiFollowSnapshotRequest;
+  path?: never;
+  query?: never;
+  url: "/getAIFollowSnapshot";
+};
+
+export type GetAiFollowSnapshotErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAiFollowSnapshotError =
+  GetAiFollowSnapshotErrors[keyof GetAiFollowSnapshotErrors];
+
+export type GetAiFollowSnapshotResponses = {
+  /**
+   * OK
+   */
+  200: Array<RealtimeAiFollowToolArgumentsUpdateContent> | null;
+};
+
+export type GetAiFollowSnapshotResponse =
+  GetAiFollowSnapshotResponses[keyof GetAiFollowSnapshotResponses];
+
 export type GetAgentProfileData = {
   body: HttpapiGetAgentProfileRequest;
   path?: never;
@@ -3165,6 +3419,33 @@ export type GetEngineConfigsResponses = {
 
 export type GetEngineConfigsResponse =
   GetEngineConfigsResponses[keyof GetEngineConfigsResponses];
+
+export type GetExternalAgentChatData = {
+  body: HttpapiGetExternalAgentChatRequest;
+  path?: never;
+  query?: never;
+  url: "/getExternalAgentChat";
+};
+
+export type GetExternalAgentChatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetExternalAgentChatError =
+  GetExternalAgentChatErrors[keyof GetExternalAgentChatErrors];
+
+export type GetExternalAgentChatResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiExternalAgentChatResponse;
+};
+
+export type GetExternalAgentChatResponse =
+  GetExternalAgentChatResponses[keyof GetExternalAgentChatResponses];
 
 export type GetExternalAgentConfigData = {
   body: HttpapiGetExternalAgentConfigRequest;
@@ -3381,6 +3662,58 @@ export type GetFolderContentsResponses = {
 
 export type GetFolderContentsResponse =
   GetFolderContentsResponses[keyof GetFolderContentsResponses];
+
+export type GetLlmChatData = {
+  body: HttpapiGetLlmChatRequest;
+  path?: never;
+  query?: never;
+  url: "/getLLMChat";
+};
+
+export type GetLlmChatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLlmChatError = GetLlmChatErrors[keyof GetLlmChatErrors];
+
+export type GetLlmChatResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiLlmChatResponse;
+};
+
+export type GetLlmChatResponse = GetLlmChatResponses[keyof GetLlmChatResponses];
+
+export type GetLlmResponseData = {
+  body: HttpapiGetLlmResponseRequest;
+  path?: never;
+  query?: never;
+  url: "/getLLMResponse";
+};
+
+export type GetLlmResponseErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLlmResponseError =
+  GetLlmResponseErrors[keyof GetLlmResponseErrors];
+
+export type GetLlmResponseResponses = {
+  /**
+   * OK
+   */
+  200: string;
+};
+
+export type GetLlmResponseResponse =
+  GetLlmResponseResponses[keyof GetLlmResponseResponses];
 
 export type GetLatestLspDiagnosticsData = {
   body: HttpapiGetLatestLspDiagnosticsRequest;
@@ -4427,6 +4760,60 @@ export type RepairLauncherResponses = {
 export type RepairLauncherResponse =
   RepairLauncherResponses[keyof RepairLauncherResponses];
 
+export type RespondExternalAgentApprovalData = {
+  body: HttpapiRespondExternalAgentApprovalRequest;
+  path?: never;
+  query?: never;
+  url: "/respondExternalAgentApproval";
+};
+
+export type RespondExternalAgentApprovalErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RespondExternalAgentApprovalError =
+  RespondExternalAgentApprovalErrors[keyof RespondExternalAgentApprovalErrors];
+
+export type RespondExternalAgentApprovalResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type RespondExternalAgentApprovalResponse =
+  RespondExternalAgentApprovalResponses[keyof RespondExternalAgentApprovalResponses];
+
+export type RespondExternalAgentQuestionData = {
+  body: HttpapiRespondExternalAgentQuestionRequest;
+  path?: never;
+  query?: never;
+  url: "/respondExternalAgentQuestion";
+};
+
+export type RespondExternalAgentQuestionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RespondExternalAgentQuestionError =
+  RespondExternalAgentQuestionErrors[keyof RespondExternalAgentQuestionErrors];
+
+export type RespondExternalAgentQuestionResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type RespondExternalAgentQuestionResponse =
+  RespondExternalAgentQuestionResponses[keyof RespondExternalAgentQuestionResponses];
+
 export type RestartLanguageServerData = {
   body?: never;
   path?: never;
@@ -5024,6 +5411,113 @@ export type GetShareDeploymentStateResponses = {
 
 export type GetShareDeploymentStateResponse =
   GetShareDeploymentStateResponses[keyof GetShareDeploymentStateResponses];
+
+export type StartTranscriptionSessionData = {
+  body: HttpapiStartTranscriptionSessionRequest;
+  path?: never;
+  query?: never;
+  url: "/startTranscriptionSession";
+};
+
+export type StartTranscriptionSessionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StartTranscriptionSessionError =
+  StartTranscriptionSessionErrors[keyof StartTranscriptionSessionErrors];
+
+export type StartTranscriptionSessionResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiStartTranscriptionSessionResponse;
+};
+
+export type StartTranscriptionSessionResponse =
+  StartTranscriptionSessionResponses[keyof StartTranscriptionSessionResponses];
+
+export type StopExternalAgentRunData = {
+  body: HttpapiStopExternalAgentRunRequest;
+  path?: never;
+  query?: never;
+  url: "/stopExternalAgentRun";
+};
+
+export type StopExternalAgentRunErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopExternalAgentRunError =
+  StopExternalAgentRunErrors[keyof StopExternalAgentRunErrors];
+
+export type StopExternalAgentRunResponses = {
+  /**
+   * OK
+   */
+  200: AgentrunsRun;
+};
+
+export type StopExternalAgentRunResponse =
+  StopExternalAgentRunResponses[keyof StopExternalAgentRunResponses];
+
+export type StopLlmChatData = {
+  body: HttpapiStopLlmChatRequest;
+  path?: never;
+  query?: never;
+  url: "/stopLLMChat";
+};
+
+export type StopLlmChatErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopLlmChatError = StopLlmChatErrors[keyof StopLlmChatErrors];
+
+export type StopLlmChatResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiStopLlmChatResponse;
+};
+
+export type StopLlmChatResponse =
+  StopLlmChatResponses[keyof StopLlmChatResponses];
+
+export type StopTranscriptionSessionData = {
+  body: HttpapiStopTranscriptionSessionRequest;
+  path?: never;
+  query?: never;
+  url: "/stopTranscriptionSession";
+};
+
+export type StopTranscriptionSessionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type StopTranscriptionSessionError =
+  StopTranscriptionSessionErrors[keyof StopTranscriptionSessionErrors];
+
+export type StopTranscriptionSessionResponses = {
+  /**
+   * OK
+   */
+  200: TranscriptionsessionsDelta;
+};
+
+export type StopTranscriptionSessionResponse =
+  StopTranscriptionSessionResponses[keyof StopTranscriptionSessionResponses];
 
 export type TextFieldCompletionData = {
   body: HttpapiTextFieldCompletionRequest;

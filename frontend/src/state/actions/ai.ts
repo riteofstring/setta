@@ -1,4 +1,6 @@
 import {
+  appendTranscriptionAudio as apiAppendTranscriptionAudio,
+  cancelTranscriptionSession as apiCancelTranscriptionSession,
   createAgentProfile as apiCreateAgentProfile,
   createExternalAgentConfig as apiCreateExternalAgentConfig,
   createPromptTemplate as apiCreatePromptTemplate,
@@ -7,6 +9,15 @@ import {
   deleteExternalAgentConfig as apiDeleteExternalAgentConfig,
   deletePromptTemplate as apiDeletePromptTemplate,
   deleteTranscriptionProfile as apiDeleteTranscriptionProfile,
+  getExternalAgentChat as apiGetExternalAgentChat,
+  getLlmChat as apiGetLlmChat,
+  getLlmResponse as apiGetLlmResponse,
+  respondExternalAgentApproval as apiRespondExternalAgentApproval,
+  respondExternalAgentQuestion as apiRespondExternalAgentQuestion,
+  startTranscriptionSession as apiStartTranscriptionSession,
+  stopExternalAgentRun as apiStopExternalAgentRun,
+  stopLlmChat as apiStopLlmChat,
+  stopTranscriptionSession as apiStopTranscriptionSession,
   updateAgentProfile as apiUpdateAgentProfile,
   updateEngineConfig as apiUpdateEngineConfig,
   updateExternalAgentConfig as apiUpdateExternalAgentConfig,
@@ -25,11 +36,16 @@ import {
   type AgentprofilesProfile,
   type AgentrunsEngineConfig,
   type ExternalagentconfigsConfig,
+  type HttpapiExternalAgentChatResponse,
   type HttpapiExternalAgentPreflightStatus,
   type HttpapiLlmapiKeysSnapshot,
+  type HttpapiLlmChatResponse,
+  type HttpapiStartTranscriptionSessionResponse,
+  type HttpapiStopLlmChatResponse,
   type LlmconfigAllConfigs,
   type PrompttemplatesTemplate,
   type TranscriptionprofilesProfile,
+  type TranscriptionsessionsDelta,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
@@ -85,19 +101,8 @@ import {
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_append_transcription_audio,
-  route_cancel_transcription_session,
   route_get_agent_runs,
-  route_get_external_agent_chat,
-  route_get_llm_chat,
-  route_get_llm_response,
-  route_respond_external_agent_approval,
-  route_respond_external_agent_question,
   route_set_chat_section_chat_id,
-  route_start_transcription_session,
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
-  route_stop_transcription_session,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -121,19 +126,15 @@ import {
   DeletePromptTemplateRequest,
   DeleteTranscriptionProfileRequest,
   EngineConfig,
-  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
   LLMAPIKeysSnapshot,
-  LLMChatResponse,
   LLMStreamingResponseContent,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageStartEvent,
   NotificationTypeEnum,
   RunStatusEnum,
-  StartTranscriptionSessionResponse,
-  StopLLMChatResponse,
   StreamingEventTypeEnum,
   Template,
   ToolArgumentPreviewDeltaEvent,
@@ -141,7 +142,6 @@ import {
   ToolChatMessage,
   ToolResultEvent,
   TranscriptionProfile,
-  Delta as TranscriptionSessionDeltaResponse,
   UpdateAgentProfileRequest,
   UpdateEngineConfigRequest,
   UpdateExternalAgentConfigRequest,
@@ -331,14 +331,18 @@ export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
   options: TranscriptionRequestOptions = {},
-): Promise<StartTranscriptionSessionResponse | null> {
+): Promise<HttpapiStartTranscriptionSessionResponse | null> {
   if (!transcriptionProfileId) {
     return null;
   }
-  const res = await route_start_transcription_session({
-    transcriptionProfileId,
-    language,
-  });
+  const res = await callOpenAPI(
+    apiStartTranscriptionSession({
+      body: {
+        transcriptionProfileId,
+        language,
+      },
+    }),
+  );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
@@ -351,16 +355,20 @@ export async function appendTranscriptionAudio(
   sampleRateHz: number,
   channels: number,
   options: TranscriptionRequestOptions = {},
-): Promise<TranscriptionSessionDeltaResponse | null> {
+): Promise<TranscriptionsessionsDelta | null> {
   if (!sessionId || audioPcm16.byteLength === 0) {
     return null;
   }
-  const res = await route_append_transcription_audio({
-    sessionId,
-    audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
-    sampleRateHz,
-    channels,
-  });
+  const res = await callOpenAPI(
+    apiAppendTranscriptionAudio({
+      body: {
+        sessionId,
+        audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
+        sampleRateHz,
+        channels,
+      },
+    }),
+  );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
@@ -370,11 +378,15 @@ export async function appendTranscriptionAudio(
 async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
-): Promise<TranscriptionSessionDeltaResponse | null> {
+): Promise<TranscriptionsessionsDelta | null> {
   if (!sessionId) {
     return null;
   }
-  const res = await route_stop_transcription_session({ sessionId });
+  const res = await callOpenAPI(
+    apiStopTranscriptionSession({
+      body: { sessionId },
+    }),
+  );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
@@ -385,7 +397,11 @@ async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   if (!sessionId) {
     return true;
   }
-  const res = await route_cancel_transcription_session({ sessionId });
+  const res = await callOpenAPI(
+    apiCancelTranscriptionSession({
+      body: { sessionId },
+    }),
+  );
   return res200(res);
 }
 
@@ -490,7 +506,7 @@ export function resampleMonoPcm16ToSampleRate(
 
 function resolveProviderTranscriptionPcmPayloadForSession(
   pcmPayload: DictationPcmPayload,
-  session: StartTranscriptionSessionResponse,
+  session: HttpapiStartTranscriptionSessionResponse,
 ): DictationPcmPayload {
   if (session.resolvedTransportMode !== "realtime") {
     return pcmPayload;
@@ -523,7 +539,7 @@ export function resolveProviderTranscriptionChunkSampleCount({
   sampleRateHz,
   channels,
 }: {
-  session: StartTranscriptionSessionResponse;
+  session: HttpapiStartTranscriptionSessionResponse;
   sampleRateHz: number;
   channels: number;
 }): number {
@@ -707,7 +723,7 @@ export async function transcribeChatAudioWithProfile(
       "Provider transcription append failed.",
     );
   }
-  let stopDelta: TranscriptionSessionDeltaResponse | null = null;
+  let stopDelta: TranscriptionsessionsDelta | null = null;
   try {
     stopDelta = await stopTranscriptionSession(sessionId, {
       suppressNotification: true,
@@ -2096,7 +2112,11 @@ async function stopExternalChatResponse({
     addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
     return false;
   }
-  const response = await route_stop_external_agent_run({ runId });
+  const response = await callOpenAPI(
+    apiStopExternalAgentRun({
+      body: { runId },
+    }),
+  );
   if (res200(response)) {
     void loadAgentRuns();
     if (response.data?.status === RunStatusEnum.cancelled) {
@@ -2136,7 +2156,7 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome: StopLLMChatResponse | null | undefined;
+  stopOutcome: HttpapiStopLlmChatResponse | null | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2188,7 +2208,11 @@ export async function stopProjectChatResponse(
     });
   }
 
-  const response = await route_stop_llm_chat({ chatId });
+  const response = await callOpenAPI(
+    apiStopLlmChat({
+      body: { chatId },
+    }),
+  );
   if (res200(response)) {
     reconcileStoppedLLMChatOutcome({
       chatId,
@@ -2241,7 +2265,11 @@ export async function stopManagedSectionChatResponse(
       localSnapshot,
     });
   }
-  const response = await route_stop_llm_chat({ chatId });
+  const response = await callOpenAPI(
+    apiStopLlmChat({
+      body: { chatId },
+    }),
+  );
   if (res200(response)) {
     reconcileStoppedLLMChatOutcome({
       chatId,
@@ -2400,8 +2428,12 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<ChatHydrationProbeResult<LLMChatResponse>> {
-  const response = await route_get_llm_chat({ chatId, projectConfigId });
+): Promise<ChatHydrationProbeResult<HttpapiLlmChatResponse>> {
+  const response = await callOpenAPI(
+    apiGetLlmChat({
+      body: { chatId, projectConfigId },
+    }),
+  );
   if (!res200(response)) {
     return {
       ...buildChatHydrationFailureOutcome(response),
@@ -2419,11 +2451,15 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
-  const response = await route_get_external_agent_chat({
-    chatId,
-    projectConfigId,
-  });
+): Promise<ChatHydrationProbeResult<HttpapiExternalAgentChatResponse>> {
+  const response = await callOpenAPI(
+    apiGetExternalAgentChat({
+      body: {
+        chatId,
+        projectConfigId,
+      },
+    }),
+  );
   if (!res200(response)) {
     return {
       ...buildChatHydrationFailureOutcome(response),
@@ -2447,9 +2483,9 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: LLMChatResponse;
+  payload: HttpapiLlmChatResponse;
 }): void {
-  const managedHydrationPayload = payload as LLMChatResponse & {
+  const managedHydrationPayload = payload as HttpapiLlmChatResponse & {
     toolCallArguments?: Record<string, string>;
     appGenerationByMessageId?: Record<string, string>;
   };
@@ -2499,7 +2535,7 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: ExternalAgentChatResponse;
+  payload: HttpapiExternalAgentChatResponse;
 }): void {
   const {
     messages,
@@ -2696,24 +2732,28 @@ export async function submitMessage(
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
     const appGenerationMode = appGeneration?.mode ?? null;
-    const res = await route_get_llm_response({
-      message: userMessage,
-      thinking,
-      chatId,
-      continueFromChatId: options.continueFromChatId ?? null,
-      engineConfigId,
-      agentProfileId: options.agentProfileId ?? null,
-      appGenerationMode,
-      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
-        nextAppGenerationDetails,
-      ),
-      projectConfigId,
-      sectionId: options.sectionId ?? null,
-      frontendAffinityToken,
-      allowUnscoped: options.sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
-    });
+    const res = await callOpenAPI(
+      apiGetLlmResponse({
+        body: {
+          message: userMessage,
+          thinking,
+          chatId,
+          continueFromChatId: options.continueFromChatId ?? null,
+          engineConfigId,
+          agentProfileId: options.agentProfileId ?? null,
+          appGenerationMode,
+          appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+            nextAppGenerationDetails,
+          ),
+          projectConfigId,
+          sectionId: options.sectionId ?? null,
+          frontendAffinityToken,
+          allowUnscoped: options.sectionId == null,
+          permissionMode: resolvedExecutionSettings.permissionMode,
+          searchEnabled: resolvedExecutionSettings.searchEnabled,
+        },
+      }),
+    );
     if (res200(res)) {
       const returnedChatId = res.data;
       if (returnedChatId) {
@@ -2862,25 +2902,29 @@ export async function submitEditedMessage({
 
   try {
     const frontendAffinityToken = await waitForFrontendAffinityToken();
-    const res = await route_get_llm_response({
-      message: editedMessage,
-      thinking,
-      chatId: null,
-      engineConfigId: resolvedEngineConfigId,
-      agentProfileId: agentProfileId ?? null,
-      projectConfigId,
-      sectionId: sectionId ?? null,
-      frontendAffinityToken,
-      allowUnscoped: sectionId == null,
-      branchParentChatId: parentChatId,
-      branchFromMessageId: messageId,
-      appGenerationMode: resolvedAppGeneration?.mode ?? null,
-      appGenerationByMessageId: serializeChatAppGenerationByMessageId(
-        nextAppGenerationDetails,
-      ),
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
-    });
+    const res = await callOpenAPI(
+      apiGetLlmResponse({
+        body: {
+          message: editedMessage,
+          thinking,
+          chatId: null,
+          engineConfigId: resolvedEngineConfigId,
+          agentProfileId: agentProfileId ?? null,
+          projectConfigId,
+          sectionId: sectionId ?? null,
+          frontendAffinityToken,
+          allowUnscoped: sectionId == null,
+          branchParentChatId: parentChatId,
+          branchFromMessageId: messageId,
+          appGenerationMode: resolvedAppGeneration?.mode ?? null,
+          appGenerationByMessageId: serializeChatAppGenerationByMessageId(
+            nextAppGenerationDetails,
+          ),
+          permissionMode: resolvedExecutionSettings.permissionMode,
+          searchEnabled: resolvedExecutionSettings.searchEnabled,
+        },
+      }),
+    );
     if (!res200(res)) {
       const detail =
         getErrorDetail(res.data) ??
@@ -2934,10 +2978,14 @@ export async function respondExternalAgentApproval(
   approvalId: string,
   approved: boolean,
 ): Promise<boolean> {
-  const res = await route_respond_external_agent_approval({
-    approvalId,
-    approved,
-  });
+  const res = await callOpenAPI(
+    apiRespondExternalAgentApproval({
+      body: {
+        approvalId,
+        approved,
+      },
+    }),
+  );
   return res200(res);
 }
 
@@ -2945,10 +2993,14 @@ export async function respondExternalAgentQuestion(
   toolCallId: string,
   answers: Record<string, string>,
 ): Promise<boolean> {
-  const res = await route_respond_external_agent_question({
-    toolCallId,
-    answers,
-  });
+  const res = await callOpenAPI(
+    apiRespondExternalAgentQuestion({
+      body: {
+        toolCallId,
+        answers,
+      },
+    }),
+  );
   return res200(res);
 }
 

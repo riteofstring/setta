@@ -1,3 +1,4 @@
+import { getLlmChat } from "openapi/http";
 import { markChatStreamActive } from "state/aiStreamingTracker";
 import type {
   useAIStore as useAIStoreType,
@@ -21,15 +22,22 @@ import {
   vi,
 } from "vitest";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_llm_chat: vi.fn(),
+    getLlmChat: vi.fn(),
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
 
 const projectConfigId = "project-1";
 const chatId = "chat-1";
@@ -107,9 +115,7 @@ describe("chat hydration waitingForResponse", () => {
       },
     });
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -138,9 +144,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -172,9 +176,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -213,9 +215,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -263,9 +263,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -308,9 +306,7 @@ describe("chat hydration waitingForResponse", () => {
   });
 
   it("hydrates app-generation provenance with the chat response", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -347,9 +343,7 @@ describe("chat hydration waitingForResponse", () => {
   });
 
   it("hydrates explicit plain-chat provenance without reviving an older app-generation mode", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -405,9 +399,7 @@ describe("chat hydration waitingForResponse", () => {
       },
     });
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {
@@ -456,9 +448,7 @@ describe("chat hydration waitingForResponse", () => {
     });
     markChatStreamActive(chatId, null);
 
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    route_get_llm_chat.mockResolvedValue({
+    mockedRouteGetLLMChat.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: {

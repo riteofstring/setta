@@ -460,6 +460,12 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("register terminal routes: %w", err)
 	}
+	if err := RegisterAIRoutes(router, AIRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register ai routes: %w", err)
+	}
 	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
 		ModePolicy:       modes.NewPolicy(config.ModeIDE),
 		DefaultSettaHome: "/setta-home",

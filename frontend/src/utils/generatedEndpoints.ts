@@ -40,12 +40,6 @@ export async function route_append_draw_area_layer_item(
   return await post(GoHTTPRouteHelpers.appendDrawAreaLayerItem(), x);
 }
 
-export async function route_append_transcription_audio(
-  x: gt.AppendTranscriptionAudioRequest,
-): Promise<ResponseDataAndStatus<gt.Delta>> {
-  return await post(GoHTTPRouteHelpers.appendTranscriptionAudio(), x);
-}
-
 export async function route_auto_layout_top_level_sections(
   x: gt.AutoLayoutTopLevelSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -56,12 +50,6 @@ export async function route_cancel_run(
   x: gt.CancelRunRequest,
 ): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
   return await post(GoHTTPRouteHelpers.cancelRun(), x);
-}
-
-export async function route_cancel_transcription_session(
-  x: gt.CancelTranscriptionSessionRequest,
-): Promise<ResponseDataAndStatus<gt.CancelTranscriptionSessionResponse>> {
-  return await post(GoHTTPRouteHelpers.cancelTranscriptionSession(), x);
 }
 
 export async function route_change_param_impl(
@@ -226,14 +214,6 @@ export async function route_get_agent_runs(): Promise<
   return await get(GoHTTPRouteHelpers.getAgentRuns());
 }
 
-export async function route_get_ai_follow_snapshot(
-  x: gt.GetAIFollowSnapshotRequest,
-): Promise<
-  ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
-> {
-  return await post(GoHTTPRouteHelpers.getAIFollowSnapshot(), x);
-}
-
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -262,12 +242,6 @@ export async function route_get_chat_section_chat_id(
   x: gt.GetChatSectionChatIDRequest,
 ): Promise<ResponseDataAndStatus<string>> {
   return await post(GoHTTPRouteHelpers.getChatSectionChatId(), x);
-}
-
-export async function route_get_external_agent_chat(
-  x: gt.GetExternalAgentChatRequest,
-): Promise<ResponseDataAndStatus<gt.ExternalAgentChatResponse>> {
-  return await post(GoHTTPRouteHelpers.getExternalAgentChat(), x);
 }
 
 export async function route_get_git_commit_details(
@@ -312,18 +286,6 @@ export async function route_get_listener_coverage(
   x: gt.ListenerCoverageRequest,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
   return await post(GoHTTPRouteHelpers.getListenerCoverage(), x);
-}
-
-export async function route_get_llm_chat(
-  x: gt.GetLLMChatRequest,
-): Promise<ResponseDataAndStatus<gt.LLMChatResponse>> {
-  return await post(GoHTTPRouteHelpers.getLLMChat(), x);
-}
-
-export async function route_get_llm_response(
-  x: gt.GetLLMResponseRequest,
-): Promise<ResponseDataAndStatus<gt.LLMChatIDResponse>> {
-  return await post(GoHTTPRouteHelpers.getLLMResponse(), x);
 }
 
 export async function route_get_password_param_value(
@@ -443,18 +405,6 @@ export async function route_reset_state_machine(
   x: gt.ResetStateMachineRequest,
 ): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
   return await post(GoHTTPRouteHelpers.resetStateMachine(), x);
-}
-
-export async function route_respond_external_agent_approval(
-  x: gt.RespondExternalAgentApprovalRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.respondExternalAgentApproval(), x);
-}
-
-export async function route_respond_external_agent_question(
-  x: gt.RespondExternalAgentQuestionRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.respondExternalAgentQuestion(), x);
 }
 
 export async function route_run_detached(
@@ -925,28 +875,10 @@ export async function route_start_state_machine_run(
   return await post(GoHTTPRouteHelpers.startStateMachineRun(), x);
 }
 
-export async function route_start_transcription_session(
-  x: gt.StartTranscriptionSessionRequest,
-): Promise<ResponseDataAndStatus<gt.StartTranscriptionSessionResponse>> {
-  return await post(GoHTTPRouteHelpers.startTranscriptionSession(), x);
-}
-
 export async function route_stop_agent_run(
   x: gt.StopAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopAgentRun(), x);
-}
-
-export async function route_stop_external_agent_run(
-  x: gt.StopExternalAgentRunRequest,
-): Promise<ResponseDataAndStatus<gt.AgentRun>> {
-  return await post(GoHTTPRouteHelpers.stopExternalAgentRun(), x);
-}
-
-export async function route_stop_llm_chat(
-  x: gt.StopLLMChatRequest,
-): Promise<ResponseDataAndStatus<gt.StopLLMChatResponse>> {
-  return await post(GoHTTPRouteHelpers.stopLLMChat(), x);
 }
 
 export async function route_stop_run_chain(
@@ -959,12 +891,6 @@ export async function route_stop_state_machine_run(
   x: gt.StopStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
   return await post(GoHTTPRouteHelpers.stopStateMachineRun(), x);
-}
-
-export async function route_stop_transcription_session(
-  x: gt.StopTranscriptionSessionRequest,
-): Promise<ResponseDataAndStatus<gt.Delta>> {
-  return await post(GoHTTPRouteHelpers.stopTranscriptionSession(), x);
 }
 
 export async function route_toggle_group_orientation(

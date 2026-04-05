@@ -11,9 +11,15 @@ import type {
   AddLauncherRecentWorkspaceData,
   AddLauncherRecentWorkspaceErrors,
   AddLauncherRecentWorkspaceResponses,
+  AppendTranscriptionAudioData,
+  AppendTranscriptionAudioErrors,
+  AppendTranscriptionAudioResponses,
   ApplyPluginLockfileData,
   ApplyPluginLockfileErrors,
   ApplyPluginLockfileResponses,
+  CancelTranscriptionSessionData,
+  CancelTranscriptionSessionErrors,
+  CancelTranscriptionSessionResponses,
   CheckIfFileExistsData,
   CheckIfFileExistsErrors,
   CheckIfFileExistsResponses,
@@ -107,6 +113,9 @@ import type {
   GetAgenticSummaryCacheStatusData,
   GetAgenticSummaryCacheStatusErrors,
   GetAgenticSummaryCacheStatusResponses,
+  GetAiFollowSnapshotData,
+  GetAiFollowSnapshotErrors,
+  GetAiFollowSnapshotResponses,
   GetAppDeploymentCurrentSessionData,
   GetAppDeploymentCurrentSessionErrors,
   GetAppDeploymentCurrentSessionResponses,
@@ -137,6 +146,9 @@ import type {
   GetEngineConfigsData,
   GetEngineConfigsErrors,
   GetEngineConfigsResponses,
+  GetExternalAgentChatData,
+  GetExternalAgentChatErrors,
+  GetExternalAgentChatResponses,
   GetExternalAgentConfigData,
   GetExternalAgentConfigErrors,
   GetExternalAgentConfigResponses,
@@ -176,9 +188,15 @@ import type {
   GetLlmApiKeysData,
   GetLlmApiKeysErrors,
   GetLlmApiKeysResponses,
+  GetLlmChatData,
+  GetLlmChatErrors,
+  GetLlmChatResponses,
   GetLlmConfigData,
   GetLlmConfigErrors,
   GetLlmConfigResponses,
+  GetLlmResponseData,
+  GetLlmResponseErrors,
+  GetLlmResponseResponses,
   GetMcpServerRuntimeStatusData,
   GetMcpServerRuntimeStatusErrors,
   GetMcpServerRuntimeStatusResponses,
@@ -284,6 +302,12 @@ import type {
   RescanPluginsData,
   RescanPluginsErrors,
   RescanPluginsResponses,
+  RespondExternalAgentApprovalData,
+  RespondExternalAgentApprovalErrors,
+  RespondExternalAgentApprovalResponses,
+  RespondExternalAgentQuestionData,
+  RespondExternalAgentQuestionErrors,
+  RespondExternalAgentQuestionResponses,
   RestartLanguageServerData,
   RestartLanguageServerErrors,
   RestartLanguageServerResponses,
@@ -332,6 +356,18 @@ import type {
   SetupLauncherData,
   SetupLauncherErrors,
   SetupLauncherResponses,
+  StartTranscriptionSessionData,
+  StartTranscriptionSessionErrors,
+  StartTranscriptionSessionResponses,
+  StopExternalAgentRunData,
+  StopExternalAgentRunErrors,
+  StopExternalAgentRunResponses,
+  StopLlmChatData,
+  StopLlmChatErrors,
+  StopLlmChatResponses,
+  StopTranscriptionSessionData,
+  StopTranscriptionSessionErrors,
+  StopTranscriptionSessionResponses,
   TextFieldCompletionData,
   TextFieldCompletionErrors,
   TextFieldCompletionResponses,
@@ -543,6 +579,26 @@ export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Append PCM16 audio to an active transcription session.
+ */
+export const appendTranscriptionAudio = <ThrowOnError extends boolean = false>(
+  options: Options<AppendTranscriptionAudioData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    AppendTranscriptionAudioResponses,
+    AppendTranscriptionAudioErrors,
+    ThrowOnError
+  >({
+    url: "/appendTranscriptionAudio",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Download a chat attachment by signed token.
  */
 export const downloadAttachment = <ThrowOnError extends boolean = false>(
@@ -624,6 +680,28 @@ export const downloadBinary = <ThrowOnError extends boolean = false>(
   >({
     url: "/binary/{contentId}",
     ...options,
+  });
+};
+
+/**
+ * Cancel an active transcription session.
+ */
+export const cancelTranscriptionSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelTranscriptionSessionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CancelTranscriptionSessionResponses,
+    CancelTranscriptionSessionErrors,
+    ThrowOnError
+  >({
+    url: "/cancelTranscriptionSession",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -1110,6 +1188,26 @@ export const genCodeSuffixCompletion = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Load the current AI follow tool-argument snapshot for a project.
+ */
+export const getAiFollowSnapshot = <ThrowOnError extends boolean = false>(
+  options: Options<GetAiFollowSnapshotData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAiFollowSnapshotResponses,
+    GetAiFollowSnapshotErrors,
+    ThrowOnError
+  >({
+    url: "/getAIFollowSnapshot",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Get a single agent profile.
  */
 export const getAgentProfile = <ThrowOnError extends boolean = false>(
@@ -1240,6 +1338,26 @@ export const getEngineConfigs = <ThrowOnError extends boolean = false>(
   >({
     url: "/getEngineConfigs",
     ...options,
+  });
+};
+
+/**
+ * Load the hydrated external agent chat state for a chat ID.
+ */
+export const getExternalAgentChat = <ThrowOnError extends boolean = false>(
+  options: Options<GetExternalAgentChatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetExternalAgentChatResponses,
+    GetExternalAgentChatErrors,
+    ThrowOnError
+  >({
+    url: "/getExternalAgentChat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
@@ -1385,6 +1503,46 @@ export const getFolderContents = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/getFolderContents",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load the hydrated managed AI chat state for a chat ID.
+ */
+export const getLlmChat = <ThrowOnError extends boolean = false>(
+  options: Options<GetLlmChatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetLlmChatResponses,
+    GetLlmChatErrors,
+    ThrowOnError
+  >({
+    url: "/getLLMChat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Start or continue a managed or external AI chat and return the chat ID.
+ */
+export const getLlmResponse = <ThrowOnError extends boolean = false>(
+  options: Options<GetLlmResponseData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetLlmResponseResponses,
+    GetLlmResponseErrors,
+    ThrowOnError
+  >({
+    url: "/getLLMResponse",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -2132,6 +2290,50 @@ export const repairLauncher = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Submit an approval decision for an external agent run.
+ */
+export const respondExternalAgentApproval = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RespondExternalAgentApprovalData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RespondExternalAgentApprovalResponses,
+    RespondExternalAgentApprovalErrors,
+    ThrowOnError
+  >({
+    url: "/respondExternalAgentApproval",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Submit answers for an external agent question prompt.
+ */
+export const respondExternalAgentQuestion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RespondExternalAgentQuestionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RespondExternalAgentQuestionResponses,
+    RespondExternalAgentQuestionErrors,
+    ThrowOnError
+  >({
+    url: "/respondExternalAgentQuestion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Restart the language server against the current project snapshot.
  */
 export const restartLanguageServer = <ThrowOnError extends boolean = false>(
@@ -2540,6 +2742,86 @@ export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
   >({
     url: "/share/deployments/{deploymentName}/{version}/state",
     ...options,
+  });
+};
+
+/**
+ * Start a transcription session for the current authenticated scope.
+ */
+export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
+  options: Options<StartTranscriptionSessionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StartTranscriptionSessionResponses,
+    StartTranscriptionSessionErrors,
+    ThrowOnError
+  >({
+    url: "/startTranscriptionSession",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop an active external agent run.
+ */
+export const stopExternalAgentRun = <ThrowOnError extends boolean = false>(
+  options: Options<StopExternalAgentRunData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopExternalAgentRunResponses,
+    StopExternalAgentRunErrors,
+    ThrowOnError
+  >({
+    url: "/stopExternalAgentRun",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop an active managed AI chat run.
+ */
+export const stopLlmChat = <ThrowOnError extends boolean = false>(
+  options: Options<StopLlmChatData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopLlmChatResponses,
+    StopLlmChatErrors,
+    ThrowOnError
+  >({
+    url: "/stopLLMChat",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Stop an active transcription session and return the final delta.
+ */
+export const stopTranscriptionSession = <ThrowOnError extends boolean = false>(
+  options: Options<StopTranscriptionSessionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    StopTranscriptionSessionResponses,
+    StopTranscriptionSessionErrors,
+    ThrowOnError
+  >({
+    url: "/stopTranscriptionSession",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });
 };
 
