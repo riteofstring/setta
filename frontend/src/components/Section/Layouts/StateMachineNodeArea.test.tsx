@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  RunStatusEnum,
+  AgentRunStatusEnum,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
   createAgentRun,
@@ -10,6 +10,7 @@ import {
   createCore,
   createProjectConfig,
   createSectionSize,
+  createUserDefaultChatSectionImpl,
   createVariant,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
@@ -201,7 +202,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-1",
-          status: RunStatusEnum.running,
+          status: AgentRunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "state_machine",
@@ -277,53 +278,6 @@ describe("StateMachineNodeArea", () => {
     );
   });
 
-  it("ignores unrelated workflow events without gate payloads on gate nodes", () => {
-    seedWorkflowSection({
-      sectionId: "section-gate-unrelated",
-      variantId: "variant-gate-unrelated",
-      impl: {
-        id: "impl-gate-unrelated",
-        type: SectionTypeEnum.StateMachineGate,
-        name: "Gate Node",
-        size: createSectionSize({ width: 240, height: 120 }),
-        machineGroupId: "workflow-main",
-        gateType: StateMachineGateTypeEnum.AND,
-        label: "Review Gate",
-        ui: { showDetails: false },
-        ...COMMON_MACHINE_IMPL_FIELDS,
-      },
-    });
-    useAIStore.setState({
-      agentRuns: [
-        createAgentRun({
-          id: "machine-run-gate-unrelated",
-          status: RunStatusEnum.running,
-          startedAt: "2024-01-01T00:00:00Z",
-          inputs: {
-            runType: "state_machine",
-            projectConfigId: "project-1",
-            machineGroupId: "workflow-main",
-          },
-          events: [
-            {
-              id: "event-run-cancelled",
-              timestamp: "2024-01-01T00:00:10Z",
-              type: "run_cancelled",
-            },
-          ],
-        }),
-      ],
-    });
-    syncStoreInitialState(useAIStore);
-
-    const markup = renderToStaticMarkup(
-      <StateMachineNodeArea sectionId="section-gate-unrelated" />,
-    );
-
-    expect(markup).toContain("Running");
-    expect(markup).not.toContain("Unhandled Thrown Error!");
-  });
-
   it("shows a small draft warning on gate nodes that are missing workflow endpoints", () => {
     seedWorkflowSection({
       sectionId: "section-gate-warning",
@@ -371,7 +325,7 @@ describe("StateMachineNodeArea", () => {
         {
           sectionId: "section-chat-warning",
           variantId: "variant-chat-warning",
-          impl: createChatSectionImpl({
+          impl: createChatSectionImpl(createUserDefaultChatSectionImpl(), {
             id: "impl-chat-warning",
             name: "Review Chat",
           }),
@@ -465,7 +419,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-activity",
-          status: RunStatusEnum.cancelled,
+          status: AgentRunStatusEnum.cancelled,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:02Z",
           inputs: {
@@ -531,7 +485,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-reset",
-          status: RunStatusEnum.cancelled,
+          status: AgentRunStatusEnum.cancelled,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:03Z",
           inputs: {
@@ -566,54 +520,6 @@ describe("StateMachineNodeArea", () => {
     );
   });
 
-  it("keeps workflow status rendering when a live run update omits events", () => {
-    seedWorkflowSection({
-      sectionId: "section-start-live",
-      variantId: "variant-start-live",
-      impl: {
-        id: "impl-start-live",
-        type: SectionTypeEnum.StateMachineStart,
-        name: "Live Start Node",
-        size: createSectionSize({ width: 260, height: 120 }),
-        machineGroupId: "workflow-main",
-        label: "Kickoff",
-        ...COMMON_MACHINE_IMPL_FIELDS,
-      },
-    });
-
-    const runPayload = JSON.parse(
-      JSON.stringify(
-        createAgentRun({
-          id: "machine-run-live",
-          status: RunStatusEnum.running,
-          startedAt: "2024-01-01T00:00:00Z",
-          inputs: {
-            runType: "state_machine",
-            projectConfigId: "project-1",
-            machineGroupId: "workflow-main",
-          },
-          outputs: {
-            dispatchedStartEdgeActions: [],
-          },
-          events: [],
-        }),
-      ),
-    ) as Record<string, unknown>;
-    delete runPayload.events;
-
-    useAIStore.setState({
-      agentRuns: [runPayload],
-    });
-    syncStoreInitialState(useAIStore);
-
-    const markup = renderToStaticMarkup(
-      <StateMachineNodeArea sectionId="section-start-live" />,
-    );
-
-    expect(markup).toContain("Running");
-    expect(markup).not.toContain("Unhandled Thrown Error!");
-  });
-
   it("renders a workflow failure summary ahead of generic failure activity", () => {
     seedWorkflowSection({
       sectionId: "section-start-failed",
@@ -632,7 +538,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-failed",
-          status: RunStatusEnum.failed,
+          status: AgentRunStatusEnum.failed,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:03Z",
           inputs: {

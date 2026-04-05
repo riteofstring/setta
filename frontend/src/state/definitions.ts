@@ -1,16 +1,11 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
-import type {
-  HttpapiExternalAgentPreflightStatus,
-  HttpapiLlmapiKeysSnapshot,
-} from "openapi/http";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
-import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -34,33 +29,35 @@ import {
   AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
-  AllConfigs,
+  AllLLMConfigs,
   AllProjectMetadata,
+  APIKeys,
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
-  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
+  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  LSPDiagnostic,
-  Notification,
-  Policy,
+  ProjectStateSingleConfig,
+  PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
+  SettaLspDiagnostic,
+  SettaNotification,
+  SettaProjectNameValidationErrors,
   SettingsState,
-  SingleConfig,
-  Template,
+  SharePolicy,
   TranscriptionProfile,
+  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -106,9 +103,6 @@ const getPersistStorage = <S>() =>
     return localStorage;
   });
 
-type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
-type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
-
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
     immer(
@@ -149,7 +143,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = SingleConfig & {
+export type ZustandProjectState = ProjectStateSingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 
@@ -163,7 +157,6 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
-          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -213,7 +206,7 @@ type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
-  sharePolicy: Policy | null;
+  sharePolicy: SharePolicy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
   deploymentMode: "share" | "app" | null;
@@ -481,7 +474,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<Notification> };
+type ZustandNotificationState = { notifications: Array<SettaNotification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -693,6 +686,12 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+  ),
+);
+
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -732,6 +731,17 @@ export const useSectionRefs = withProjectState(
   ),
 );
 
+export type SectionElementSize = {
+  width: number;
+  height: number;
+};
+
+export const useSectionElementSizeRegistry = withProjectState(
+  createWithEqualityFn(
+    withResetFn<Record<string, SectionElementSize>>(() => ({})),
+  ),
+);
+
 export type EdgeHandleRecord = {
   sectionId: string;
   portId: string;
@@ -765,9 +775,7 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() =>
-  createSettingsState(),
-);
+export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -792,8 +800,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<LSPDiagnostic>>;
-  unmappedGenCode: Array<LSPDiagnostic>;
+  codeSections: Record<string, Array<SettaLspDiagnostic>>;
+  unmappedGenCode: Array<SettaLspDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(
@@ -828,7 +836,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<Connection>;
+  connections: Array<WebsocketConnectionInfo>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(
@@ -912,7 +920,7 @@ type ZustandAIStore = {
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
   projectChatActivityAccordionOpenByDefault: boolean;
   projectChatActivityChildrenOpenByDefault: boolean;
-  allLLMConfigs: AllConfigs | null;
+  allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
   agentProfiles: Array<AgentProfile>;
@@ -927,7 +935,7 @@ type ZustandAIStore = {
     | "terminal_error";
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
-  promptTemplates: Array<Template>;
+  promptTemplates: Array<PromptTemplate>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
   promptTemplatesLoading: boolean;
@@ -935,7 +943,7 @@ type ZustandAIStore = {
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
   externalAgentConfigsLoading: boolean;
-  externalAgentHealth: Array<ExternalAgentHealthStatus>;
+  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
   externalAgentHealthInitialLoadComplete: boolean;
   externalAgentHealthLoadError: string | null;
   externalAgentHealthLoading: boolean;
