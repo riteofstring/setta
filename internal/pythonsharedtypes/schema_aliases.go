@@ -20,15 +20,8 @@ const (
 	datamodelGeneratorModule       = "datamodel_code_generator"
 )
 
-type datamodelDeclarationKind string
-
-const (
-	datamodelDeclarationKindClass datamodelDeclarationKind = "class"
-)
-
 type datamodelDeclaration struct {
 	Name  string
-	Kind  datamodelDeclarationKind
 	Block string
 }
 
@@ -179,10 +172,6 @@ func applyPythonFieldMetadataToDatamodelDeclaration(
 	declaration datamodelDeclaration,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (datamodelDeclaration, map[string]struct{}, error) {
-	if declaration.Kind != datamodelDeclarationKindClass {
-		return declaration, nil, nil
-	}
-
 	ownerType, ok := sharedtypes.TypeByContractName(declaration.Name)
 	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
 		return declaration, nil, nil
@@ -358,18 +347,13 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 	imports := []string{}
 	seen := map[string]struct{}{}
 	declarations := []datamodelDeclaration{}
+	sawDeclaration := false
 	for _, block := range splitDatamodelBlocks(module) {
 		header := datamodelBlockHeader(block)
 		switch {
 		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
 			continue
-		case isDatamodelDeclarationHeader(header):
-			declaration, err := parseDatamodelDeclaration(block)
-			if err != nil {
-				return datamodelModule{}, err
-			}
-			declarations = append(declarations, declaration)
-		default:
+		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
 			for _, line := range strings.Split(block, "\n") {
 				trimmed := strings.TrimSpace(line)
 				if trimmed == "" || strings.HasPrefix(trimmed, "#") || trimmed == "from __future__ import annotations" {
@@ -384,21 +368,19 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 				seen[trimmed] = struct{}{}
 				imports = append(imports, trimmed)
 			}
+		default:
+			declaration, err := parseDatamodelDeclaration(block)
+			if err != nil {
+				return datamodelModule{}, err
+			}
+			sawDeclaration = true
+			declarations = append(declarations, declaration)
 		}
 	}
 	return datamodelModule{
 		ImportLines:  imports,
 		Declarations: declarations,
 	}, nil
-}
-
-func isDatamodelDeclarationHeader(line string) bool {
-	trimmedLeft := strings.TrimLeft(line, " \t")
-	if trimmedLeft != line {
-		return false
-	}
-	trimmed := strings.TrimSpace(line)
-	return strings.HasPrefix(trimmed, "class ") || strings.HasPrefix(trimmed, "type ")
 }
 
 func splitDatamodelBlocks(module string) []string {
@@ -435,24 +417,16 @@ func parseDatamodelDeclaration(block string) (datamodelDeclaration, error) {
 		return datamodelDeclaration{}, fmt.Errorf("python shared types: empty datamodel declaration block")
 	}
 	header := datamodelBlockHeader(trimmedBlock)
-	switch {
-	case strings.HasPrefix(header, "class "):
-		name, err := parseDatamodelClassName(header)
-		if err != nil {
-			return datamodelDeclaration{}, err
-		}
-		return datamodelDeclaration{
-			Name:  name,
-			Kind:  datamodelDeclarationKindClass,
-			Block: trimmedBlock,
-		}, nil
-	case strings.HasPrefix(header, "type "):
-		return datamodelDeclaration{
-			Block: trimmedBlock,
-		}, nil
-	default:
-		return datamodelDeclaration{}, fmt.Errorf("python shared types: unsupported datamodel declaration header %q", header)
+	declaration := datamodelDeclaration{Block: trimmedBlock}
+	if !strings.HasPrefix(header, "class ") {
+		return declaration, nil
 	}
+	name, err := parseDatamodelClassName(header)
+	if err != nil {
+		return datamodelDeclaration{}, err
+	}
+	declaration.Name = name
+	return declaration, nil
 }
 
 func parseDatamodelClassName(header string) (string, error) {

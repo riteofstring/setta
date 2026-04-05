@@ -278,7 +278,7 @@ func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fiel
 	}
 	contractName := pythonSharedContractNameForType(ownerType)
 	for _, declaration := range module.Declarations {
-		if declaration.Name != contractName || declaration.Kind != datamodelDeclarationKindClass {
+		if declaration.Name != contractName {
 			continue
 		}
 		lines := strings.Split(declaration.Block, "\n")
