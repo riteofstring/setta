@@ -131,38 +131,30 @@ def load_time_maps(
     return time_maps
 
 
-def main() -> int:
-    args = parse_args()
-    if args.days < 0:
-        raise SystemExit("--days must be a non-negative integer")
-
-    lockfile_text = args.lockfile.read_text(encoding="utf-8")
+def collect_resolved_packages(
+    lockfile_text: str, *, lockfile: Path
+) -> tuple[set[tuple[str, str]], list[str]]:
     resolved_packages: set[tuple[str, str]] = set()
     unsupported_keys: list[str] = []
 
-    for raw_key in load_package_keys(lockfile_text, lockfile=args.lockfile):
+    for raw_key in load_package_keys(lockfile_text, lockfile=lockfile):
         parsed = parse_registry_package(raw_key)
         if parsed is None:
             unsupported_keys.append(raw_key)
             continue
         resolved_packages.add(parsed)
 
-    if unsupported_keys:
-        print(
-            f"pnpm release-age policy failed: unsupported lockfile entries found in {args.lockfile}."
-        )
-        for raw_key in sorted(unsupported_keys):
-            print(f"- {raw_key}")
-        return 1
+    return resolved_packages, unsupported_keys
 
-    cutoff = datetime.now(UTC) - timedelta(days=args.days)
-    time_maps = load_time_maps(
-        package_names={package_name for package_name, _ in resolved_packages},
-        registry_url=args.registry_url,
-    )
 
-    too_new: list[tuple[str, str, datetime]] = []
+def collect_release_age_failures(
+    resolved_packages: set[tuple[str, str]],
+    *,
+    cutoff: datetime,
+    time_maps: dict[str, dict[str, str]],
+) -> tuple[list[tuple[str, str]], list[tuple[str, str, datetime]]]:
     missing_versions: list[tuple[str, str]] = []
+    too_new: list[tuple[str, str, datetime]] = []
 
     for package_name, version in sorted(resolved_packages):
         package_times = time_maps[package_name]
@@ -175,20 +167,71 @@ def main() -> int:
         if published_at > cutoff:
             too_new.append((package_name, version, published_at))
 
-    if missing_versions:
-        print(
-            f"pnpm release-age policy failed: registry metadata did not include {len(missing_versions)} locked version(s) from {args.lockfile}."
-        )
-        for package_name, version in missing_versions:
-            print(f"- {package_name}@{version}")
+    return missing_versions, too_new
+
+
+def report_unsupported_keys(lockfile: Path, unsupported_keys: list[str]) -> bool:
+    if not unsupported_keys:
+        return False
+    print(
+        f"pnpm release-age policy failed: unsupported lockfile entries found in {lockfile}."
+    )
+    for raw_key in sorted(unsupported_keys):
+        print(f"- {raw_key}")
+    return True
+
+
+def report_missing_versions(
+    lockfile: Path, missing_versions: list[tuple[str, str]]
+) -> bool:
+    if not missing_versions:
+        return False
+    print(
+        f"pnpm release-age policy failed: registry metadata did not include {len(missing_versions)} locked version(s) from {lockfile}."
+    )
+    for package_name, version in missing_versions:
+        print(f"- {package_name}@{version}")
+    return True
+
+
+def report_too_new_packages(
+    lockfile: Path, days: int, too_new: list[tuple[str, str, datetime]]
+) -> bool:
+    if not too_new:
+        return False
+    print(
+        f"pnpm release-age policy failed: {len(too_new)} package(s) in {lockfile} are newer than {days} day(s)."
+    )
+    for package_name, version, published_at in too_new:
+        print(f"- {package_name}@{version} published {published_at.isoformat()}")
+    return True
+
+
+def main() -> int:
+    args = parse_args()
+    if args.days < 0:
+        raise SystemExit("--days must be a non-negative integer")
+
+    lockfile_text = args.lockfile.read_text(encoding="utf-8")
+    resolved_packages, unsupported_keys = collect_resolved_packages(
+        lockfile_text, lockfile=args.lockfile
+    )
+    if report_unsupported_keys(args.lockfile, unsupported_keys):
         return 1
 
-    if too_new:
-        print(
-            f"pnpm release-age policy failed: {len(too_new)} package(s) in {args.lockfile} are newer than {args.days} day(s)."
-        )
-        for package_name, version, published_at in too_new:
-            print(f"- {package_name}@{version} published {published_at.isoformat()}")
+    cutoff = datetime.now(UTC) - timedelta(days=args.days)
+    time_maps = load_time_maps(
+        package_names={package_name for package_name, _ in resolved_packages},
+        registry_url=args.registry_url,
+    )
+    missing_versions, too_new = collect_release_age_failures(
+        resolved_packages, cutoff=cutoff, time_maps=time_maps
+    )
+
+    if report_missing_versions(args.lockfile, missing_versions):
+        return 1
+
+    if report_too_new_packages(args.lockfile, args.days, too_new):
         return 1
 
     print(
