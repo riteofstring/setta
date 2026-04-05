@@ -1,9 +1,10 @@
 import type { Node } from "forks/xyflow/core/types";
 import { describe, expect, it } from "vitest";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
+import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs measured canary section geometry into shared node internals", () => {
+  it("syncs the authoritative canary scene snapshot into shared node internals", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -20,8 +21,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       ],
     ]);
 
-    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
-      nodeInternals,
+    // Layout-resolved size should stay authoritative when it already exists.
+    const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
           sectionId: "section-a",
@@ -35,8 +36,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         {
           sectionId: "section-b",
           position: { x: 120, y: 80 },
-          width: 320,
-          height: 220,
+          width: null,
+          height: null,
           zIndex: 2,
           tempZIndex: 2,
           positionAndSizeLocked: false,
@@ -48,13 +49,17 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       },
       null,
     );
+    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
+      nodeInternals,
+      sceneSnapshot,
+    );
 
     expect(nextNodeInternals).not.toBe(nodeInternals);
     expect(nextNodeInternals.get("section-a")).toEqual({
       id: "section-a",
       position: { x: 500, y: 300 },
-      width: 360,
-      height: 210,
+      width: 240,
+      height: 160,
       zIndex: 4,
       tempZIndex: 7,
       type: "Code",
@@ -79,16 +84,17 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         {
           id: "section-a",
           position: { x: 500, y: 300 },
-          width: 360,
-          height: 210,
+          width: 240,
+          height: 160,
           zIndex: 4,
           tempZIndex: 7,
         },
       ],
     ]);
 
-    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
-      nodeInternals,
+    // When the shared internals already match the authoritative snapshot, no
+    // replacement map should be allocated.
+    const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
           sectionId: "section-a",
@@ -104,6 +110,10 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         "section-a": { width: 360, height: 210 },
       },
       null,
+    );
+    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
+      nodeInternals,
+      sceneSnapshot,
     );
 
     expect(nextNodeInternals).toBe(nodeInternals);

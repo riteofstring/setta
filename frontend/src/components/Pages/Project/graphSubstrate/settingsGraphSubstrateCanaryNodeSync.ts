@@ -1,27 +1,19 @@
 import type { Node } from "forks/xyflow/core/types";
-import type { Position } from "utils/generatedTypes";
-import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
-
-type SectionPositionOverride = {
-  sectionId: string;
-  position: Position;
-} | null;
+import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 export function syncSettingsGraphSubstrateCanaryNodes(
   nodeInternals: Map<string, Node>,
-  sections: Array<GraphSubstrateCanarySection>,
-  observedElementSizes: Record<string, { width: number; height: number }>,
-  sectionPositionOverride: SectionPositionOverride,
+  sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot,
 ): Map<string, Node> {
   let nextNodeInternals: Map<string, Node> | null = null;
 
-  for (const section of sections) {
+  for (const section of sceneSnapshot.sections) {
     const currentNode = nodeInternals.get(section.sectionId);
-    const observedSize = observedElementSizes[section.sectionId];
-    const width = observedSize?.width ?? currentNode?.width ?? section.width;
+    const width =
+      section.resolvedSize?.width ?? currentNode?.width ?? section.width;
     const height =
-      observedSize?.height ?? currentNode?.height ?? section.height;
-    const position = getSyncedSectionPosition(section, sectionPositionOverride);
+      section.resolvedSize?.height ?? currentNode?.height ?? section.height;
+    const position = section.renderedPosition;
     if (
       currentNode &&
       currentNode.position.x === position.x &&
@@ -50,14 +42,4 @@ export function syncSettingsGraphSubstrateCanaryNodes(
   }
 
   return nextNodeInternals ?? nodeInternals;
-}
-
-function getSyncedSectionPosition(
-  section: GraphSubstrateCanarySection,
-  sectionPositionOverride: SectionPositionOverride,
-) {
-  if (sectionPositionOverride?.sectionId === section.sectionId) {
-    return sectionPositionOverride.position;
-  }
-  return section.position;
 }

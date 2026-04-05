@@ -33,7 +33,6 @@ import {
 import { useTabScope } from "utils/focusManager";
 import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
-import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 import {
   resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
   resolveSettingsGraphSubstrateCanarySectionDragMovePosition,
@@ -47,6 +46,14 @@ import {
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
+import {
+  getSettingsGraphSubstrateCanarySceneBoundsForSections,
+  resolveSettingsGraphSubstrateCanarySceneSnapshot,
+  type SettingsGraphSubstrateCanaryObservedElementSizes,
+  type SettingsGraphSubstrateCanarySceneSection,
+  type SettingsGraphSubstrateCanarySceneSnapshot,
+  type SettingsGraphSubstrateCanarySectionPositionOverride,
+} from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
@@ -64,7 +71,6 @@ import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
   translateViewport,
-  type GraphRect,
   type GraphViewport,
 } from "./viewportTransform";
 
@@ -93,17 +99,9 @@ type ActiveViewportPan = {
   originViewport: GraphViewport;
 };
 
-type SectionPositionOverride = {
-  sectionId: string;
-  position: Position;
-};
-
 type CanaryViewportState = {
-  observedElementSizes: Record<string, { width: number; height: number }>;
   resolvedViewport: GraphViewport | null;
-  sceneBounds: GraphRect | null;
-  sectionPositionOverride: SectionPositionOverride | null;
-  sections: Array<GraphSubstrateCanarySection>;
+  sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   wrapperDimensions: { width: number; height: number };
 };
 
@@ -130,7 +128,7 @@ export function SettingsGraphSubstrateCanary() {
   );
   const [isViewportPanning, setIsViewportPanning] = useState(false);
   const [sectionPositionOverride, setSectionPositionOverride] =
-    useState<SectionPositionOverride | null>(null);
+    useState<SettingsGraphSubstrateCanarySectionPositionOverride>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
   useTabScope({
     scopeId: "canvas",
@@ -210,11 +208,12 @@ export function SettingsGraphSubstrateCanary() {
     _.isEqual,
   );
   const canaryViewportStateRef = useRef<CanaryViewportState>({
-    observedElementSizes: {},
     resolvedViewport: null,
-    sceneBounds: null,
-    sectionPositionOverride: null,
-    sections: [],
+    sceneSnapshot: {
+      sceneBounds: null,
+      sections: [],
+      sectionsById: new Map(),
+    },
     wrapperDimensions: { width: 0, height: 0 },
   });
 
@@ -280,13 +279,14 @@ export function SettingsGraphSubstrateCanary() {
     );
   }, [fallbackViewport, sharedProjectViewport, sharedReactFlowViewport]);
 
-  const sceneBounds = useMemo(() => {
-    return getSettingsGraphSubstrateCanarySceneBounds(
+  const sceneSnapshot = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanarySceneSnapshot(
       sections,
       observedElementSizes,
       sectionPositionOverride,
     );
   }, [observedElementSizes, sectionPositionOverride, sections]);
+  const sceneBounds = sceneSnapshot.sceneBounds;
   const effectivePaneWidths = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
       overviewVisible: overviewVis,
@@ -408,35 +408,23 @@ export function SettingsGraphSubstrateCanary() {
     // Keep the controller's snapshot current before paint so fast toolbar
     // actions fit against the latest visible section set.
     canaryViewportStateRef.current = {
-      observedElementSizes,
       resolvedViewport,
-      sceneBounds,
-      sectionPositionOverride,
-      sections,
+      sceneSnapshot,
       wrapperDimensions,
     };
-  }, [
-    observedElementSizes,
-    resolvedViewport,
-    sceneBounds,
-    sectionPositionOverride,
-    sections,
-    wrapperDimensions,
-  ]);
+  }, [resolvedViewport, sceneSnapshot, wrapperDimensions]);
 
   useEffect(() => {
     const nodeInternals = useNodeInternals.getState().x;
     const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
       nodeInternals,
-      sections,
-      observedElementSizes,
-      sectionPositionOverride,
+      sceneSnapshot,
     );
     if (nextNodeInternals === nodeInternals) {
       return;
     }
     useNodeInternals.setState({ x: nextNodeInternals });
-  }, [observedElementSizes, sectionPositionOverride, sections]);
+  }, [sceneSnapshot]);
 
   function applyControlledViewportChange(
     buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,
@@ -568,20 +556,13 @@ export function SettingsGraphSubstrateCanary() {
         );
       },
       fitView: (options) => {
-        const { observedElementSizes, sectionPositionOverride, sections } =
-          canaryViewportStateRef.current;
+        const { sceneSnapshot } = canaryViewportStateRef.current;
         const targetSections = getCanaryFitViewSections(
-          sections,
+          sceneSnapshot.sections,
           options?.nodes,
         );
-        if (targetSections.length === 0) {
-          return false;
-        }
-        const bounds = getSettingsGraphSubstrateCanarySceneBounds(
-          targetSections,
-          observedElementSizes,
-          sectionPositionOverride,
-        );
+        const bounds =
+          getSettingsGraphSubstrateCanarySceneBoundsForSections(targetSections);
         if (!bounds) {
           return false;
         }
@@ -659,7 +640,7 @@ export function SettingsGraphSubstrateCanary() {
   ]);
 
   function handleSectionPointerDown(
-    section: GraphSubstrateCanarySection,
+    section: SettingsGraphSubstrateCanarySceneSection,
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
     if (!resolvedViewport || section.positionAndSizeLocked) {
@@ -674,10 +655,7 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
-    const originWorldPosition = getRenderedSectionPosition(
-      section,
-      sectionPositionOverride,
-    );
+    const originWorldPosition = section.renderedPosition;
     dragStateRef.current = {
       latestWorldPosition: nodeDragThreshold === 0 ? originWorldPosition : null,
       pointerId: event.pointerId,
@@ -1017,12 +995,8 @@ export function SettingsGraphSubstrateCanary() {
           zIndex: 1,
         }}
       >
-        {sections.length > 0 ? (
-          sections.map((section) => {
-            const renderedSectionPosition = getRenderedSectionPosition(
-              section,
-              sectionPositionOverride,
-            );
+        {sceneSnapshot.sections.length > 0 ? (
+          sceneSnapshot.sections.map((section) => {
             let sectionCursor: CSSProperties["cursor"] = "grab";
             if (section.positionAndSizeLocked) {
               sectionCursor = "default";
@@ -1039,7 +1013,7 @@ export function SettingsGraphSubstrateCanary() {
                   cursor: sectionCursor,
                   touchAction: "none",
                   position: "absolute",
-                  transform: `translate(${renderedSectionPosition.x}px,${renderedSectionPosition.y}px)`,
+                  transform: `translate(${section.renderedPosition.x}px,${section.renderedPosition.y}px)`,
                   transformOrigin: "0 0",
                   pointerEvents: "all",
                   visibility: "visible",
@@ -1113,10 +1087,10 @@ function getCurrentCanaryPaneWidths() {
   });
 }
 
-function getCanaryFitViewSections(
-  sections: Array<GraphSubstrateCanarySection>,
+function getCanaryFitViewSections<T extends { sectionId: string }>(
+  sections: Array<T>,
   nodes: Array<{ id: string }> | undefined,
-) {
+): Array<T> {
   if (!nodes?.length) {
     return sections;
   }
@@ -1124,16 +1098,24 @@ function getCanaryFitViewSections(
   return sections.filter((section) => targetSectionIds.has(section.sectionId));
 }
 
-function ensureCanaryNode(section: GraphSubstrateCanarySection) {
+function ensureCanaryNode(
+  section:
+    | GraphSubstrateCanarySection
+    | SettingsGraphSubstrateCanarySceneSection,
+) {
   if (useNodeInternals.getState().x.has(section.sectionId)) {
     return;
   }
+  const width =
+    "resolvedSize" in section ? section.resolvedSize?.width : section.width;
+  const height =
+    "resolvedSize" in section ? section.resolvedSize?.height : section.height;
   addNodes([
     {
       id: section.sectionId,
       position: section.position,
-      width: section.width,
-      height: section.height,
+      width,
+      height,
       zIndex: section.zIndex,
       tempZIndex: section.zIndex,
     },
@@ -1152,16 +1134,6 @@ function resetCanarySectionTempZIndex(sectionId: string) {
     tempZIndex: node.zIndex,
   });
   useNodeInternals.setState({ x: nextNodeInternals });
-}
-
-function getRenderedSectionPosition(
-  section: GraphSubstrateCanarySection,
-  sectionPositionOverride: SectionPositionOverride | null,
-) {
-  if (sectionPositionOverride?.sectionId === section.sectionId) {
-    return sectionPositionOverride.position;
-  }
-  return section.position;
 }
 
 function syncCanaryViewportInteractionState({
@@ -1214,9 +1186,8 @@ function useElementDimensions(ref: RefObject<HTMLDivElement>) {
 }
 
 function useObservedElementSizes() {
-  const [observedElementSizes, setObservedElementSizes] = useState<
-    Record<string, { width: number; height: number }>
-  >({});
+  const [observedElementSizes, setObservedElementSizes] =
+    useState<SettingsGraphSubstrateCanaryObservedElementSizes>({});
   const observerRef = useRef<ResizeObserver | null>(null);
   const elementsRef = useRef(new Map<string, HTMLDivElement>());
   const refCallbacksRef = useRef(

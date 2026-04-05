@@ -6152,3 +6152,92 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - stop for a real replan/human review; under the current Gate 1 / Gate 2 sequence, the remaining obvious next steps are more probe churn rather than a newly isolated renderer defect
 - LOOP_TERMINAL_MARKER: replan_required
+
+## 2026-04-05 170
+
+- Item: Manual replan after item `169` to pivot the Ralph loop from section-by-section parity expansion to geometry-authority product work.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `169` had already established a real replan boundary: the broad shared title-edit-after-pan-and-zoom lane stayed clean on the live run-029 surfaces
+    - items `165` through `169` together closed the remaining named normalized motion/editing lanes that were still justified under the old sequence
+    - continuing without a replan would have defaulted to more probe churn inside the existing parity harness instead of landing rewrite architecture work
+  - Production/test change:
+    - docs only; updated the rewrite plan, Ralph loop contract, and handoff to encode the new frontier
+  - What this slice established:
+    - the current Gate 1 / Gate 2 parity matrix is now regression coverage, not the default next-slice picker
+    - the active architectural blocker is the canary-local geometry-authority path:
+      - `SettingsGraphSubstrateCanary.tsx` still owns `observedElementSizes` via a local `ResizeObserver`
+      - `settingsGraphSubstrateCanaryBounds.ts` still requires measured DOM sizes before scene bounds and fit logic can resolve
+      - `settingsGraphSubstrateCanaryNodeSync.ts` still backfills node internals from those observed DOM sizes
+    - that means the rewrite still depends on DOM-measured scene placement inside the canary path, which contradicts the plan's ownership rules
+    - the next useful slices should therefore deepen the canary boundary around scene geometry and viewport/runtime ownership instead of widening parity probes
+- Verification:
+  - manual review:
+    - reread `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, and the current graph-substrate implementation before updating the durable docs
+  - tests:
+    - not run; docs-only replan
+- Lane status:
+  - freeze the current named parity lanes as guardrails unless a broad deterministic lane or concrete user-visible artifact fails
+  - do not add another section-specific parity lane by default
+- Next action:
+  - introduce one canary scene snapshot / geometry-authority boundary and move bounds, fit, node sync, and minimap inputs onto it
+  - split the canary runtime/controller logic into a deeper testable module
+  - after product code lands, rerun one broad normalized pan/zoom/edit parity lane plus CDP instead of reopening section-by-section coverage
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 171
+
+- Item: Introduce a shared canary scene snapshot and move bounds, fit view, and node sync onto that geometry boundary.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `170` explicitly made geometry authority the active product frontier and named one canary scene snapshot as the next bounded slice
+    - before this change, the canary still resolved section geometry three times: once in `SettingsGraphSubstrateCanary.tsx`, once in `settingsGraphSubstrateCanaryBounds.ts`, and once in `settingsGraphSubstrateCanaryNodeSync.ts`
+    - that duplication also let observed DOM size outrank already-resolved layout size in node sync, which kept the canary too dependent on DOM observation
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - centralizes rendered section position, resolved size, `sectionsById`, and scene bounds in one shared snapshot
+      - keeps layout-resolved size authoritative and only falls back to observed DOM size when the layout still has no resolved size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - stores the shared snapshot in the viewport/controller ref
+      - uses the snapshot for auto-fit, targeted fit view, render-time section transforms, and shared node sync
+      - seeds newly added canary nodes from resolved snapshot size when available
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - reduced it to a wrapper over the snapshot instead of maintaining a second bounds reducer
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+      - now syncs from the shared snapshot, so authoritative layout size beats observed DOM size whenever both exist
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - covers layout-size precedence, drag-position overrides, and subset bounds used by fit view
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - locks the new contract that node sync follows the snapshot rather than raw observed DOM size
+  - What this slice established:
+    - the canary now has one shared scene-geometry module that owns the resolved section list consumed by bounds, fit view, render transforms, and node sync
+    - the local canary `ResizeObserver` still exists, but it is now demoted to a fallback size input instead of outranking already-resolved layout geometry
+    - the broad `shared title editing working after normalized pan and zoom` regression lane stayed clean after this product-code change, so the first snapshot seam did not reintroduce visible pan/zoom/edit drift
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - result: passed (`3 files`, `6 tests`)
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<current worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<current main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `57.3s`)
+  - targeted eslint:
+    - `pnpm -C frontend exec eslint ...`
+    - result: not usable in the current frontend environment because `frontend/eslint.config.js` cannot resolve `@eslint/js`; treat this as existing tooling noise, not evidence against the slice
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - verified the live worktree canary at `3076/settings` and the live read-only `main` legacy tab at `3087/settings`
+  - CDP visual check:
+    - result: done
+    - note: normalized both tabs to `All Settings`, ignored stale bootstrap tabs and worktree-label chrome as oracle noise, then one toolbar zoom-in plus one small pan still left the broad shared title/body region visually attached on both sides
+- Lane status:
+  - keep the broad shared title-edit-after-pan-and-zoom lane closed as regression coverage
+  - the geometry-authority lane now has a landed product seam; do not spend the next pass reopening section-specific parity lanes by default
+- Next action:
+  - remove the canary-local `useObservedElementSizes` ownership by routing fallback size input through a shared geometry registry or the existing section-size pipeline instead of a canary-local observer
+  - then split the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx`
+- LOOP_TERMINAL_MARKER: none
