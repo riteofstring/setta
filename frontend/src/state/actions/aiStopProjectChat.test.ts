@@ -8,7 +8,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AgentRunStatusEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   StreamingEventTypeEnum,
   createAgentRun,
   createAssistantChatMessage,
@@ -201,7 +201,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -461,7 +461,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -660,7 +660,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -773,7 +773,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -937,7 +937,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -1026,7 +1026,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   });
 
@@ -1123,7 +1123,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);

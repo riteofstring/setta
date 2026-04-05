@@ -37,7 +37,7 @@ experience around resizing.
 - When a Terminal is attached under a code section, the backend promotes the
   parent Code/GenPython section height to at least
   `min(Code) + min(Terminal) + 80` via
-  `backend/setta/types/helpers_lvl2.py:ensure_code_section_embedded_terminal_size`.
+  `internal/projectstate/child_section_creation.go:ensureEmbeddedCodeSectionPayloadSize`.
 - Attached terminals are normalized to concrete dimensions (no `"auto"` height):
   creation and run-attach flows seed height from Terminal defaults and align
   width to the parent code section when available.
@@ -64,13 +64,14 @@ experience around resizing.
 | Chat | 400 x 200 |
 | Code | width 500, height auto |
 
-Defaults are mirrored into generated user defaults in
-`backend/setta/types/generated/user_defaults.py` and into frontend schemas in
-`frontend/src/utils/generatedTypes.ts`.
+Defaults are seeded from the Go project-state creation path in
+`internal/projectstate/top_level_section_creation.go` and mirrored into
+frontend factories in `frontend/src/utils/generatedTypes.ts` through the
+frontend bindings generation pipeline under `internal/frontendbindings/`.
 
 ## Policy bounds
 - Sizing bounds come from `SectionSizingPolicy` in
-  `backend/setta/types/settings_state.py`.
+  `internal/settingsstate/defaults.json` and `internal/settingsstate/queries.go`.
 - New sections and `set_section_sizes` payloads are normalized against the
   policy min/max bounds (non-finite values are rejected).
 - When auto layout needs a width/height but a section size is `"auto"`, it
