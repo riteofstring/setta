@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 13:23 EDT
+Last updated: 2026-04-05 13:42 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,66 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `184` removed the canary's live React Flow transform render subscription so local viewport ownership no longer rerenders the canary root for mirrored store writes on the canonical normal-zoom perf lane.
+  - Why this slice was needed:
+    - item `183` explicitly handed off to the remaining viewport/root transform path instead of reopening another oracle lane or doing another pure extraction
+    - even after section-layer memoization, `SettingsGraphSubstrateCanary.tsx` still subscribed in render to `useReactFlow(state.transform)` while the viewport runtime mirrored that same transform back into the store on every local pan/zoom tick
+    - that self-mirroring subscription is a bounded product hotspot on `rotaryParamCodeObjDefault`, not another forwarding-only seam lift
+  - Production/test/report change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - removed the live render-time React Flow transform subscription from the canary component
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - now seeds/follows the React Flow transform inside the viewport runtime and ignores mirrored store updates while a local viewport owner is active
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - added coverage for restoring an existing non-fallback React Flow viewport and for ignoring mirrored store writes during local ownership
+    - added `perf/reports/frontend/2026-04-05_settings-graph-substrate-reactflow-mirror-rerender-isolation.md`
+      - records the same normalized `rotaryParamCodeObjDefault` performance lane after this fix
+  - What this slice established:
+    - the canary no longer listens in render to the same React Flow transform it writes back during local pan/zoom ownership
+    - the focused runtime tests are green:
+      - initial non-fallback React Flow viewport seeding still restores correctly when no shared backend viewport exists
+      - mirrored React Flow transform writes are ignored while the local viewport owner is active
+    - the same deterministic `rotaryParamCodeObjDefault` performance lane stayed healthy after the change:
+      - legacy rerun: `17.01ms` average frame duration, `50.0ms` max, `1` long task (`56ms`)
+      - worktree canary: `16.63ms` average frame duration, `33.3ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is currently blocked by a restarted unhealthy worktree session rather than renderer drift:
+      - the one allowed self-recovery used `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - the restart reassigned the worktree runtime to backend `8077`, frontend `3077`, and bootstrap session `1fd005`
+      - a fresh-context CDP retry could reach Chrome after the restart, but the worktree `Settings` route never advanced past the loading spinner after bootstrap, so the graph surface never mounted for comparison
+      - restart output also logged backend `500` failures on `getLatestProjectState` with `KeyError: 'Unknown project config: 7d5d1ae1-71b1-4e34-a03d-2292aebda023'`
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`4 files`, `26 tests`)
+    - runtime refresh before the initial live rerun:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-014/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-014/main-ai.log`
+      - result: `main` frontend/backend healthy with refreshed bootstrap url
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `51.5s`)
+    - static verification:
+      - `git diff --check`
+      - result: passed
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - initial result: blocked because the browser tool surface was not reachable from that sub-agent and the fallback Playwright bootstrap hit `401`
+      - retry after the allowed `./aireset.sh` recovery: Chrome reachable, but worktree `Settings` stayed on the loading spinner after bootstrap so the graph surface never mounted
+    - CDP visual check:
+      - result: not complete
+      - blocker: `worktree_unhealthy` after the single allowed restart; no graph surface was available to compare against `main`
+  - Lane status:
+    - the viewport-mirror rerender fix itself is landed, tested, measured, and documented under `perf/`
+    - the iteration is blocked only on re-establishing a healthy live worktree session for the required CDP visual compare
+  - Next frontier:
+    - restart the current worktree lifecycle again from the outer Ralph loop so `Settings` mounts cleanly, then rerun the same fresh-context CDP compare on `rotaryParamCodeObjDefault`
+    - once the live worktree is healthy again, keep this same normalized perf lane as the regression gate before choosing another product hotspot
 
 - Ralph item `183` isolated the canary section-wrapper tree behind a memoized layer so viewport-only pan/zoom updates stop remapping every visible section wrapper on the canonical normal-zoom perf lane.
   - Why this slice was needed:

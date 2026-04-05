@@ -2185,6 +2185,69 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 184
+
+- Item: Remove the canary's live React Flow transform render subscription and keep the same normalized perf lane green.
+- Status: `blocked`
+- Details:
+  - Why this slice was necessary:
+    - item `183` already narrowed the remaining hotspot to the viewport/root transform path on the same `rotaryParamCodeObjDefault` lane
+    - the canary still subscribed in render to `useReactFlow(state.transform)` while the viewport runtime mirrored that transform back into the store on every local pan/zoom tick
+    - removing that self-mirroring render subscription is a real product fix on the active lane, not another harness-only or seam-forwarding pass
+  - Production/test/report change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - removed the live React Flow transform render subscription from the canary component
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - now owns React Flow transform seeding/following inside the viewport runtime and ignores mirrored store updates while local viewport ownership is active
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - added coverage for restoring an initial non-fallback React Flow viewport and for ignoring mirrored transform writes during local ownership
+    - added `perf/reports/frontend/2026-04-05_settings-graph-substrate-reactflow-mirror-rerender-isolation.md`
+      - records the same normalized `rotaryParamCodeObjDefault` lane after this fix
+  - What this slice established:
+    - the canary no longer listens in render to the same React Flow transform it mirrors back during local pan/zoom ownership
+    - the focused runtime tests are green and lock down the new ownership path
+    - the same deterministic perf lane stayed healthy after the change:
+      - legacy rerun: `17.01ms` average frame duration, `50.0ms` max, `1` long task (`56ms`)
+      - worktree canary: `16.63ms` average frame duration, `33.3ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the remaining blocker is live-runtime health, not a new renderer drift claim:
+      - the one allowed recovery used `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - that restart reassigned the worktree runtime to `3077/8077` and bootstrap session `1fd005`
+      - the fresh-context CDP retry could reach Chrome, but the worktree `Settings` route never moved past the loading spinner after bootstrap, so the graph surface never mounted for comparison
+      - restart logs also showed backend `500` errors on `getLatestProjectState` with `KeyError: 'Unknown project config: 7d5d1ae1-71b1-4e34-a03d-2292aebda023'`
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`4 files`, `26 tests`)
+  - runtime refresh before the live rerun:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-014/worktree-ai.log`
+    - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-014/main-ai.log`
+    - result: `main` frontend/backend healthy with refreshed bootstrap url
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `51.5s`)
+  - static verification:
+    - `git diff --check`
+    - result: passed
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - first attempt: browser tool surface unavailable from that sub-agent and fallback Playwright bootstrap hit `401`
+    - retry after the allowed `./aireset.sh` recovery: Chrome reachable, but the restarted worktree stayed on the loading spinner after bootstrap so there was no graph surface to compare
+  - CDP visual check:
+    - result: blocked
+    - blocker: `worktree_unhealthy` after the allowed restart
+- Lane status:
+  - the viewport-mirror rerender fix is landed, tested, and documented
+  - the iteration cannot claim the required live visual gate because the restarted worktree session never mounted `Settings`
+- Next action:
+  - start the next iteration with a fresh worktree lifecycle restart and rerun the same fresh-context CDP compare on `rotaryParamCodeObjDefault`
+  - once the worktree mounts cleanly again, keep this same normalized perf lane as the regression gate before picking another product hotspot
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 180
 
 - Item: Move canary section-size publication onto the shared section-ref boundary and remove the canary-local observed-size hook from scene-state composition.

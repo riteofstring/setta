@@ -29,13 +29,16 @@ type ResizeObserverController = {
 
 function ViewportRuntimeProbe({
   localViewport,
+  onRender,
   sceneSnapshot,
   sharedProjectViewport,
 }: {
   localViewport: GraphViewport | null;
+  onRender?: () => void;
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   sharedProjectViewport: GraphViewport | null;
 }) {
+  onRender?.();
   const rootRef = useRef<HTMLDivElement>(null);
   const runtime = useSettingsGraphSubstrateCanaryViewportRuntime({
     defaultZoomLevel: 1,
@@ -52,7 +55,6 @@ function ViewportRuntimeProbe({
     rootRef,
     sceneSnapshot,
     sharedProjectViewport,
-    sharedReactFlowViewport: null,
     uiEditorTrueWidth: 260,
     uiEditorVisible: false,
   });
@@ -203,6 +205,41 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     expect(reactFlowState.viewportPersistenceEnabled).toBe(true);
   });
 
+  it("seeds the canary viewport from the current React Flow transform without auto-fitting over it", async () => {
+    const reactFlowViewport = { x: 320, y: -180, zoom: 0.42 };
+    useReactFlow.setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      transform: [
+        reactFlowViewport.x,
+        reactFlowViewport.y,
+        reactFlowViewport.zoom,
+      ],
+    });
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(reactFlowViewport);
+    });
+  });
+
   it("treats local interaction writes as the new authoritative viewport owner", async () => {
     const localViewport = { x: -140, y: 88, zoom: 1.6 };
 
@@ -235,6 +272,38 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
       localViewport.zoom,
     ]);
     expect(reactFlowState.viewportPersistenceEnabled).toBe(true);
+  });
+
+  it("ignores mirrored React Flow transform updates while a local viewport owner is active", async () => {
+    const localViewport = { x: -140, y: 88, zoom: 1.6 };
+    const renderSpy = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={localViewport}
+          onRender={renderSpy}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(localViewport);
+    });
+    renderSpy.mockClear();
+
+    await act(async () => {
+      useReactFlow.setState({
+        transform: [640, -320, 0.75],
+      });
+    });
+
+    await act(async () => {});
+
+    expect(readResolvedViewport(host)).toEqual(localViewport);
+    expect(renderSpy).not.toHaveBeenCalled();
   });
 });
 

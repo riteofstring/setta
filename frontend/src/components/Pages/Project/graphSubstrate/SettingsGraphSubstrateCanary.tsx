@@ -71,13 +71,6 @@ export function SettingsGraphSubstrateCanary() {
       zoom: viewport.zoom,
     };
   }, _.isEqual);
-  const sharedReactFlowViewport = useReactFlow((state) => {
-    if (state.fitViewOnInit || !state.fitViewOnInitDone) {
-      return null;
-    }
-    const [x, y, zoom] = state.transform;
-    return { x, y, zoom };
-  }, _.isEqual);
   const zoomActivationKeyPressed = useReactFlow(
     (state) => state.zoomActivationKeyPressed,
   );
@@ -134,7 +127,6 @@ export function SettingsGraphSubstrateCanary() {
     rootRef,
     sceneSnapshot,
     sharedProjectViewport,
-    sharedReactFlowViewport,
     uiEditorTrueWidth,
     uiEditorVisible: uiEditorVis,
   });

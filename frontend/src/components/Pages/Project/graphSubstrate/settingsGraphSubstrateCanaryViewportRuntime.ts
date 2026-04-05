@@ -40,7 +40,6 @@ type SettingsGraphSubstrateCanaryViewportRuntimeArgs = {
   rootRef: RefObject<HTMLDivElement>;
   sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot;
   sharedProjectViewport: GraphViewport | null;
-  sharedReactFlowViewport: GraphViewport | null;
   uiEditorTrueWidth: number;
   uiEditorVisible: boolean;
 };
@@ -72,7 +71,6 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   rootRef,
   sceneSnapshot,
   sharedProjectViewport,
-  sharedReactFlowViewport,
   uiEditorTrueWidth,
   uiEditorVisible,
 }: SettingsGraphSubstrateCanaryViewportRuntimeArgs): SettingsGraphSubstrateCanaryViewportRuntime {
@@ -84,6 +82,11 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
   const [isViewportPanning, setIsViewportPanning] = useState(false);
   const wrapperDimensions = useElementDimensions(rootRef);
+  const sharedReactFlowViewportRef = useRef<GraphViewport | null>(
+    getCurrentSharedReactFlowViewport(),
+  );
+  const [sharedReactFlowViewport, setSharedReactFlowViewport] =
+    useState<GraphViewport | null>(sharedReactFlowViewportRef.current);
   const canaryViewportStateRef =
     useRef<SettingsGraphSubstrateCanaryViewportControllerState>({
       resolvedViewport: null,
@@ -154,6 +157,13 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
         return;
       }
       viewportOwnershipRef.current = null;
+      setSharedReactFlowViewport((current) => {
+        const nextViewport = sharedReactFlowViewportRef.current;
+        if (areGraphViewportsEqual(current, nextViewport)) {
+          return current;
+        }
+        return nextViewport;
+      });
       setViewport((current) => {
         if (current === null) {
           return current;
@@ -170,6 +180,37 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       }
       return null;
     });
+  }, [sharedProjectViewport]);
+
+  useEffect(() => {
+    return useReactFlow.subscribe(
+      (state) => {
+        if (state.fitViewOnInit || !state.fitViewOnInitDone) {
+          return null;
+        }
+        const [x, y, zoom] = state.transform;
+        return { x, y, zoom };
+      },
+      (nextViewport) => {
+        sharedReactFlowViewportRef.current = nextViewport;
+        if (
+          sharedProjectViewport !== null ||
+          viewportOwnershipRef.current === "local"
+        ) {
+          return;
+        }
+        setSharedReactFlowViewport((current) => {
+          if (areGraphViewportsEqual(current, nextViewport)) {
+            return current;
+          }
+          return nextViewport;
+        });
+      },
+      {
+        equalityFn: areGraphViewportsEqual,
+        fireImmediately: true,
+      },
+    );
   }, [sharedProjectViewport]);
 
   useEffect(() => {
@@ -380,6 +421,28 @@ function getCurrentCanaryPaneWidths() {
     uiEditorVisible: localStorageState.uiEditorVis,
     uiEditorTrueWidth: localStorageState.uiEditorTrueWidth,
   });
+}
+
+function getCurrentSharedReactFlowViewport(): GraphViewport | null {
+  const reactFlowState = useReactFlow.getState();
+  if (reactFlowState.fitViewOnInit || !reactFlowState.fitViewOnInitDone) {
+    return null;
+  }
+  const [x, y, zoom] = reactFlowState.transform;
+  return { x, y, zoom };
+}
+
+function areGraphViewportsEqual(
+  left: GraphViewport | null,
+  right: GraphViewport | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
 }
 
 function useElementDimensions(ref: RefObject<HTMLDivElement>) {
