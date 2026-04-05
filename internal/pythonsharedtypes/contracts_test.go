@@ -174,6 +174,20 @@ func TestBuildModelSpecUsesGoValueDefaultsForOwnerTypes(t *testing.T) {
 	}
 }
 
+func TestBuildUsesAuthoritativeSharedRouteInventory(t *testing.T) {
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	if !strings.Contains(generated.PythonModule, `API_PREFIX = "/api"`) {
+		t.Fatalf("expected generated routes to include API prefix route")
+	}
+	if !strings.Contains(generated.PythonModule, `LISTENER_BY_ID = "/ws/listeners/{listenerID}"`) {
+		t.Fatalf("expected generated routes to include listener route")
+	}
+}
+
 func defaultExprForField(t *testing.T, model modelSpec, fieldName string) string {
 	t.Helper()
 	for _, field := range model.Fields {

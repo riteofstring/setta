@@ -1,9 +1,10 @@
 package pythonsharedtypes
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 
-	"setta/internal/frontendbindings"
 	"setta/internal/projectview"
 	"setta/internal/sharedtypes"
 	"setta/internal/stringenumvalues"
@@ -28,6 +29,11 @@ type contractSpec struct {
 	Kind       contractKind
 	Type       reflect.Type
 	EnumValues []enumValueSpec
+}
+
+type generationContext struct {
+	ContractSpecs        []contractSpec
+	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
 var pythonSharedEnumFallbackPackages = []string{
@@ -58,61 +64,147 @@ var pythonSharedDefaultFieldOverrides = map[pythonSharedDefaultFieldKey]func() a
 	},
 }
 
-func currentContractSpecs() ([]contractSpec, error) {
-	routeSpec, err := buildRouteContractSpec()
+func buildGenerationContext() (generationContext, error) {
+	sidecar, err := sharedtypes.BuildSemanticSidecar()
 	if err != nil {
-		return nil, err
+		return generationContext{}, err
 	}
+
+	defaultSources, err := defaultSourcesFromSidecar(sidecar)
+	if err != nil {
+		return generationContext{}, err
+	}
+	specs, err := contractSpecsFromSidecar(sidecar, defaultSources)
+	if err != nil {
+		return generationContext{}, err
+	}
+	for t, buildSource := range pythonSharedExplicitDefaultSourcesByType {
+		value, ok, err := coerceDefaultSourceValue(t, buildSource())
+		if err != nil {
+			return generationContext{}, fmt.Errorf(
+				"python shared types: explicit default %s: %w",
+				pythonSharedContractNameForType(t),
+				err,
+			)
+		}
+		if ok {
+			defaultSources[t] = value
+		}
+	}
+
+	return generationContext{
+		ContractSpecs:        specs,
+		DefaultSourcesByType: defaultSources,
+	}, nil
+}
+
+func contractSpecsFromSidecar(
+	sidecar sharedtypes.SemanticSidecar,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) ([]contractSpec, error) {
+	routeSpec := routeContractSpecFromSidecar(sidecar)
 	specs := []contractSpec{routeSpec}
 	seenNames := map[string]struct{}{
 		routeSpec.Name: {},
 	}
 
-	specs, err = appendDiscoveredContractSpecs(
-		specs,
-		seenNames,
-		sharedtypes.DiscoveredTypes(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return specs, nil
-}
+	for _, entry := range sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		if _, alreadySeen := seenNames[name]; alreadySeen {
+			continue
+		}
 
-func appendDiscoveredContractSpecs(
-	specs []contractSpec,
-	seenNames map[string]struct{},
-	discoveredTypes []reflect.Type,
-) ([]contractSpec, error) {
-	for _, discoveredType := range discoveredTypes {
-		contractName := pythonSharedContractNameForType(discoveredType)
-		if contractName == "" {
-			continue
+		typ, ok := sharedtypes.TypeByContractName(name)
+		if !ok {
+			return nil, fmt.Errorf("python shared types: missing discovered type for sidecar contract %s", name)
 		}
-		if _, alreadySeen := seenNames[contractName]; alreadySeen {
-			continue
-		}
-		switch discoveredType.Kind() {
-		case reflect.String:
-			spec, ok, err := enumContractSpecIfConvertible(discoveredType)
+
+		switch contractKind(strings.TrimSpace(entry.Kind)) {
+		case contractKindEnum:
+			spec, ok, err := enumContractSpecIfConvertible(typ)
 			if err != nil {
 				return nil, err
 			}
 			if !ok {
-				continue
+				return nil, fmt.Errorf("python shared types: sidecar enum %s has no discovered enum values", name)
 			}
+			spec.Name = name
+			spec.Type = typ
 			specs = append(specs, spec)
-			seenNames[spec.Name] = struct{}{}
-		case reflect.Struct:
-			spec, ok := modelContractSpecIfConvertible(discoveredType)
+		case contractKindModel:
+			spec, ok := modelContractSpecIfConvertible(typ, defaultSourcesByType)
 			if !ok {
 				continue
 			}
+			spec.Name = name
+			spec.Type = typ
 			specs = append(specs, spec)
-			seenNames[spec.Name] = struct{}{}
+		default:
+			continue
+		}
+		seenNames[name] = struct{}{}
+	}
+
+	return specs, nil
+}
+
+func routeContractSpecFromSidecar(sidecar sharedtypes.SemanticSidecar) contractSpec {
+	values := make([]enumValueSpec, 0, len(sidecar.Routes))
+	for _, route := range sidecar.Routes {
+		values = append(values, enumValueSpec{
+			Name:  route.Name,
+			Value: route.Path,
+		})
+	}
+	return contractSpec{
+		Name:       "Route",
+		Kind:       contractKindEnum,
+		EnumValues: values,
+	}
+}
+
+func defaultSourcesFromSidecar(
+	sidecar sharedtypes.SemanticSidecar,
+) (map[reflect.Type]reflect.Value, error) {
+	defaultSources := map[reflect.Type]reflect.Value{}
+	for _, entry := range sidecar.Defaults {
+		typ, ok := sharedtypes.TypeByContractName(entry.Type)
+		if !ok {
+			return nil, fmt.Errorf("python shared types: missing discovered type for sidecar default %s", entry.Type)
+		}
+		value, ok, err := coerceDefaultSourceValue(typ, entry.Value)
+		if err != nil {
+			return nil, fmt.Errorf("python shared types: sidecar default %s: %w", entry.Type, err)
+		}
+		if ok {
+			defaultSources[typ] = value
 		}
 	}
-	return specs, nil
+	return defaultSources, nil
+}
+
+func coerceDefaultSourceValue(
+	targetType reflect.Type,
+	value any,
+) (reflect.Value, bool, error) {
+	reflectValue := reflect.ValueOf(value)
+	if !reflectValue.IsValid() {
+		return reflect.Value{}, false, nil
+	}
+	if reflectValue.Type() == targetType {
+		return reflectValue, true, nil
+	}
+	if reflectValue.Type().ConvertibleTo(targetType) {
+		return reflectValue.Convert(targetType), true, nil
+	}
+	return reflect.Value{}, false, fmt.Errorf(
+		"default value type %s is not assignable to %s",
+		reflectValue.Type(),
+		targetType,
+	)
 }
 
 func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
@@ -155,46 +247,34 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 	return contractSpec{
 		Name:       pythonSharedContractNameForType(t),
 		Kind:       contractKindEnum,
+		Type:       t,
 		EnumValues: discoveredEnumValues,
 	}, true, nil
 }
 
-func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
+func modelContractSpecIfConvertible(
+	t reflect.Type,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (contractSpec, bool) {
 	spec := contractSpec{
 		Name: pythonSharedContractNameForType(t),
 		Kind: contractKindModel,
 		Type: t,
 	}
-	if _, err := buildModelSpec(spec, map[string]struct{}{spec.Name: {}}); err != nil {
+	if _, err := buildModelSpecWithDefaultSources(
+		spec,
+		map[string]struct{}{spec.Name: {}},
+		defaultSourcesByType,
+	); err != nil {
 		return contractSpec{}, false
 	}
 	return spec, true
 }
 
-func pythonSharedDefaultSourceForType(t reflect.Type) (reflect.Value, bool) {
-	buildSource, ok := pythonSharedExplicitDefaultSourcesByType[t]
-	if !ok {
-		buildSource, ok = frontendbindings.DefaultValueProviderForType(t)
-	}
-	if !ok {
-		return reflect.Value{}, false
-	}
-	value := reflect.ValueOf(buildSource())
-	if !value.IsValid() {
-		return reflect.Value{}, false
-	}
-	if value.Type() == t {
-		return value, true
-	}
-	if value.Type().ConvertibleTo(t) {
-		return value.Convert(t), true
-	}
-	return reflect.Value{}, false
-}
-
 func pythonSharedDefaultValueForField(
 	ownerType reflect.Type,
 	field reflect.StructField,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (reflect.Value, bool) {
 	if override, ok := pythonSharedDefaultFieldOverrides[pythonSharedDefaultFieldKey{
 		OwnerType: ownerType,
@@ -202,31 +282,12 @@ func pythonSharedDefaultValueForField(
 	}]; ok {
 		return reflect.ValueOf(override()), true
 	}
-	defaultSource, ok := pythonSharedDefaultSourceForType(ownerType)
+
+	defaultSource, ok := defaultSourcesByType[ownerType]
 	if !ok {
 		return reflect.Value{}, false
 	}
 	return defaultSource.FieldByIndex(field.Index), true
-}
-
-func buildRouteContractSpec() (contractSpec, error) {
-	routes, err := sharedtypes.DiscoveredRouteEntries()
-	if err != nil {
-		return contractSpec{}, err
-	}
-	values := make([]enumValueSpec, 0, len(routes))
-	for _, route := range routes {
-		values = append(values, enumValueSpec{
-			Name:  route.Name,
-			Value: route.Path,
-		})
-	}
-
-	return contractSpec{
-		Name:       "Route",
-		Kind:       contractKindEnum,
-		EnumValues: values,
-	}, nil
 }
 
 func pythonSharedContractNameForType(t reflect.Type) string {

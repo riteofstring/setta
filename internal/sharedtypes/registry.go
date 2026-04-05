@@ -56,6 +56,19 @@ func ContractNameForType(t reflect.Type) string {
 	return strings.TrimSpace(frontendbindings.BindingTypeName(t))
 }
 
+func TypeByContractName(name string) (reflect.Type, bool) {
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName == "" {
+		return nil, false
+	}
+	for _, t := range DiscoveredTypes() {
+		if ContractNameForType(t) == trimmedName {
+			return t, true
+		}
+	}
+	return nil, false
+}
+
 func canonicalType(t reflect.Type) reflect.Type {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()

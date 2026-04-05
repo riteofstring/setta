@@ -43,10 +43,11 @@ var pythonKeywords = map[string]struct{}{
 }
 
 func Build() (GeneratedTypes, error) {
-	specs, err := currentContractSpecs()
+	ctx, err := buildGenerationContext()
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
+	specs := ctx.ContractSpecs
 	knownContractNames := map[string]struct{}{}
 	for _, spec := range specs {
 		knownContractNames[spec.Name] = struct{}{}
@@ -78,7 +79,11 @@ func Build() (GeneratedTypes, error) {
 			needsEnum = true
 			enums = append(enums, spec)
 		case contractKindModel:
-			model, err := buildModelSpec(spec, knownContractNames)
+			model, err := buildModelSpecWithDefaultSources(
+				spec,
+				knownContractNames,
+				ctx.DefaultSourcesByType,
+			)
 			if err != nil {
 				return GeneratedTypes{}, err
 			}
@@ -195,6 +200,18 @@ func buildModelSpec(
 	spec contractSpec,
 	knownContractNames map[string]struct{},
 ) (modelSpec, error) {
+	ctx, err := buildGenerationContext()
+	if err != nil {
+		return modelSpec{}, err
+	}
+	return buildModelSpecWithDefaultSources(spec, knownContractNames, ctx.DefaultSourcesByType)
+}
+
+func buildModelSpecWithDefaultSources(
+	spec contractSpec,
+	knownContractNames map[string]struct{},
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (modelSpec, error) {
 	modelType := spec.Type
 	if modelType.Kind() != reflect.Struct {
 		return modelSpec{}, fmt.Errorf("python shared types: %s must be a struct", modelType)
@@ -244,6 +261,7 @@ func buildModelSpec(
 			spec.Type,
 			field,
 			typeSpec.TypeExpr,
+			defaultSourcesByType,
 		)
 		if err != nil {
 			return modelSpec{}, fmt.Errorf(
@@ -573,6 +591,7 @@ func pythonDefaultExpr(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	typeExpr string,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (string, error) {
 	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
 	switch defaultTag {
@@ -582,7 +601,7 @@ func pythonDefaultExpr(
 		}
 		return "", nil
 	case "go_value":
-		return pythonDefaultExprFromGoValue(ownerType, field)
+		return pythonDefaultExprFromGoValue(ownerType, field, defaultSourcesByType)
 	case "factory:list":
 		return "Field(default_factory=list)", nil
 	case "factory:dict":
@@ -592,8 +611,12 @@ func pythonDefaultExpr(
 	}
 }
 
-func pythonDefaultExprFromGoValue(ownerType reflect.Type, field reflect.StructField) (string, error) {
-	defaultValue, ok := pythonSharedDefaultValueForField(ownerType, field)
+func pythonDefaultExprFromGoValue(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (string, error) {
+	defaultValue, ok := pythonSharedDefaultValueForField(ownerType, field, defaultSourcesByType)
 	if !ok {
 		defaultValue = reflect.Zero(field.Type)
 	}
