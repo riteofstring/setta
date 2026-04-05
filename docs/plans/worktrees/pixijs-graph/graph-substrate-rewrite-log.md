@@ -9710,3 +9710,56 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next geometry slice to the explicit `sharedNode` carry-forward path
     - decide whether the remaining `sharedNode` node-internals writes in the canary/runtime path can be tightened further without regressing controller refreshes or reopening layout persistence leaks
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 03:58 EDT, Ralph item `248`
+  - Summary: stopped explicit `sharedNode` fallback sizes from persisting into authoritative top-level layout snapshots, but the required CDP visual gate stayed blocked after the one allowed worktree recovery.
+  - Files:
+    - `frontend/src/state/actions/sectionInfos.ts`
+    - `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened for this authority slice
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts` -> passed (`2 files`, `34 tests`)
+    - fresh-context CDP sub-agent attempt 1 -> reached `http://127.0.0.1:3076/settings` before bootstrap and only saw the minimal shell (`Home`, `Connected to server`), so the worktree failed visual preflight as `worktree_unhealthy` rather than as renderer drift
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree on frontend `3076`, backend `8076`, bootstrap session `39a0a0`
+    - runtime refresh: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-014/worktree-ai.log` -> confirmed refreshed runtime values and new bootstrap URL
+    - fresh-context CDP sub-agent attempt 2 -> blocked; `chrome-devtools-mcp` timed out before attaching to a live browser page, so the bootstrap-first retry never reached the settings canary
+  - Result:
+    - `sharedNode` fallback no longer persists back into authoritative top-level layout `w/h`
+    - the live `sharedNode` node-internals seed/refresh behavior remains unchanged and is still the next product decision once this slice gets a clean visual gate
+    - the slice is uncommitted because the required CDP visual check could not be completed after the allowed recovery attempt
+  - Next:
+    - retry the required CDP visual gate for this exact `sharedNode` layout-persistence slice after the next fresh worktree bootstrap, then commit if the worktree canary is visually healthy
+    - do not start another geometry-authority code slice until this pending visual gate is either completed or the runtime/CDP blockage is reclassified
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 04:09 EDT, Ralph item `249`
+  - Summary: cleared the pending verification/commit lane for the `sharedNode` layout-persistence slice after one allowed worktree recovery, without opening a new geometry refactor.
+  - Files:
+    - `frontend/src/state/actions/sectionInfos.ts`
+    - `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - the recovered reset session did not mount that section, so this pass used the live `All Settings` surface as a bounded canary-health visual gate instead of reopening a new named lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts` -> passed (`2 files`, `34 tests`)
+    - fresh-context CDP sub-agent attempt 1 -> blocked; `Network.enable timed out` before it could attach to the browser
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted the worktree on frontend `3075`, backend `8075`, bootstrap session `11ccdf`, debug port `9297`
+    - runtime refresh: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-015/worktree-ai.log` -> confirmed backend `8075`, bootstrap URL rooted at `8075`, and debug port `9297`; the runtime log kept a stale frontend `3076`, so the retry used the live `3075` frontend from the restart output
+    - fresh-context CDP sub-agent attempt 2 -> done; bootstrap landed in the app at `http://127.0.0.1:3075/`, `http://127.0.0.1:3075/settings` loaded, the settings canary surface plus `All Settings` were present, and the visible graph surface showed no blank shell or detached body
+    - anchor note: `rotaryParamCodeObjDefault` was not mounted in the reset session, so this pass treated the missing anchor as session-state noise for this bounded persistence slice rather than as renderer drift
+  - Result:
+    - the `sharedNode` fallback no longer persists back into authoritative top-level layout `w/h`
+    - the slice is now verified well enough to commit even though the reset session did not expose the usual regression anchor section
+    - the remaining geometry-authority frontier is still the live `sharedNode` carry-forward seed/refresh behavior, not the already-closed layout-persistence leak
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority product slice to the remaining live `sharedNode` node-internals seed/refresh path instead of spending another default pass on transport or anchor rediscovery for this slice
+  - LOOP_TERMINAL_MARKER: none

@@ -1369,6 +1369,7 @@ export function getPersistedTopLevelSectionLayoutSize(
   currentNode: Pick<Node, "height" | "sizeAuthority" | "width"> | undefined,
 ) {
   if (
+    currentNode?.sizeAuthority === "sharedNode" ||
     currentNode?.sizeAuthority === "sectionModel" ||
     currentNode?.sizeAuthority === "none"
   ) {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 03:45 EDT
+Last updated: 2026-04-07 04:09 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,74 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `249` cleared the pending verification/commit lane for the `sharedNode` layout-persistence slice without opening a new geometry refactor.
+
+  - Why this pass stopped here:
+    - item `248` already contained the bounded product change; the only remaining work was to rerun the required CDP gate after a fresh worktree recovery and then commit that slice if the live canary was healthy
+    - the first fresh-context CDP retry failed at transport setup again, so this pass used the one allowed worktree recovery instead of starting another product edit
+    - after recovery, the live worktree settings canary was healthy enough to clear the slice, but the reset session did not expose the usual `rotaryParamCodeObjDefault` anchor, so this pass did not try to manufacture a new named lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - the recovered reset session did not mount that section, so this pass used the live `All Settings` surface as a bounded canary-health visual gate rather than an anchor-specific parity probe
+  - Product/test change:
+    - no new product code beyond item `248`; this pass commits the existing updates in [`frontend/src/state/actions/sectionInfos.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sectionInfos.ts) and [`frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - result: passed (`2 files`, `34 tests`)
+    - CDP visual gate:
+      - done
+      - first fresh-context CDP sub-agent failed before recovery with `Network.enable timed out`, so it could not attach to the live browser at all
+      - one allowed worktree recovery ran with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` and brought up frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap session `11ccdf`, and debug port `9297`
+      - runtime refresh via `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-015/worktree-ai.log` confirmed backend `8075`, bootstrap URL rooted at `8075`, and debug port `9297`; the runtime log kept a stale frontend `3076`, so the retry used the recovered `3075` frontend from the live restart output
+      - a second fresh-context CDP sub-agent bootstrapped successfully to `http://127.0.0.1:3075/settings`, confirmed the settings canary surface plus `All Settings`, and reported no blank shell or detached body on the visible graph surface
+      - `rotaryParamCodeObjDefault` was not present in the reset session, so this pass treated the missing anchor as session-state noise for this bounded persistence slice rather than as renderer drift
+  - Lane status:
+    - the `sharedNode` layout-persistence slice from item `248` is now verified well enough to commit
+    - explicit `sharedNode` fallback still seeds live node-internals carry-forward behavior, which remains the next product decision point
+    - do not spend the next default pass on more transport recovery or anchor rediscovery for this slice alone
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority product slice to the remaining live `sharedNode` node-internals seed/refresh path, and decide whether it can be tightened further without reopening controller-refresh or layout-persistence regressions
+
+- Ralph item `248` narrowed the geometry-authority lane by stopping explicit `sharedNode` fallback sizes from persisting into authoritative top-level layout snapshots, while leaving live node-internals carry-forward semantics unchanged for the current session.
+
+  - Why this pass stopped here:
+    - item `247` explicitly closed the unresolved `sizeAuthority: "none"` leak and left the remaining geometry-authority frontier on the explicit `sharedNode` carry-forward path
+    - `getPersistedTopLevelSectionLayoutSize(...)` still treated `sharedNode` node sizes as layout-worthy, which let DOM-measured shared fallback harden into saved top-level layout `w/h` even though that path is not authoritative scene geometry
+    - this pass stayed bounded to the persistence boundary only; it does not yet change the live `sharedNode` seed/refresh behavior inside canary node internals
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened for this slice
+  - Product/test change:
+    - updated [`frontend/src/state/actions/sectionInfos.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sectionInfos.ts)
+      - `getPersistedTopLevelSectionLayoutSize(...)` now refuses to persist `sizeAuthority: "sharedNode"` node sizes as authoritative layout `w/h`
+    - updated [`frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts)
+      - added a focused regression proving `createTopLevelSectionLayoutDict(...)` clears persisted `w/h` when the current node only carries `sharedNode` fallback size
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - result: passed (`2 files`, `34 tests`)
+    - CDP visual gate:
+      - blocked
+      - first fresh-context CDP sub-agent reached `http://127.0.0.1:3076/settings` before bootstrap and only saw the minimal shell (`Home`, `Connected to server`), so the worktree failed visual preflight as `worktree_unhealthy` rather than as renderer drift
+      - one allowed worktree recovery was attempted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - runtime refresh after recovery reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap session `39a0a0`, and runtime bootstrap URL rooted at backend `8076`
+      - a second fresh-context CDP sub-agent was then given the new bootstrap URL first, but `chrome-devtools-mcp` still timed out before it could attach to a live browser page, so the required post-recovery visual check did not run
+  - Lane status:
+    - explicit `sharedNode` fallback no longer persists back into authoritative top-level layout snapshots
+    - the live `sharedNode` carry-forward seed in node internals is still intact and remains the next product decision point once the blocked visual gate is cleared
+    - this slice is not committed yet because the required CDP gate was still blocked after the allowed recovery attempt
+  - Next frontier:
+    - rerun the required CDP visual gate for this exact `sharedNode` layout-persistence slice after a fresh worktree bootstrap; if the canary is visually healthy, commit this change before starting another geometry subtask
+    - after that gate clears, keep `rotaryParamCodeObjDefault` as regression coverage and decide whether the remaining live `sharedNode` node-internals writes should be tightened further without breaking controller refreshes
 
 - Ralph item `247` narrowed the geometry-authority lane again by stopping unresolved `sizeAuthority: "none"` node sizes from auto-promoting into implicit shared-node authority or persisting back into top-level layout snapshots.
 
