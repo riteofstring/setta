@@ -16,6 +16,7 @@ const semanticSidecarRelativePath = "frontend/generation/non_http_shared/sidecar
 
 type semanticSidecarManifest struct {
 	Contracts             []semanticContractEntry       `json:"contracts"`
+	Defaults              []semanticDefaultEntry        `json:"defaults"`
 	ExportedValues        []semanticExportedValueEntry  `json:"exportedValues"`
 	DiscriminatedFamilies []semanticDiscriminatedFamily `json:"discriminatedFamilies"`
 }
@@ -24,6 +25,12 @@ type semanticContractEntry struct {
 	Name       string          `json:"name"`
 	Kind       string          `json:"kind"`
 	EnumValues []TypeEnumValue `json:"enumValues"`
+}
+
+type semanticDefaultEntry struct {
+	Profile string          `json:"profile,omitempty"`
+	Type    string          `json:"type"`
+	Value   json.RawMessage `json:"value"`
 }
 
 type semanticExportedValueEntry struct {
@@ -57,6 +64,8 @@ var (
 	cachedSemanticSidecar       semanticSidecarManifest
 	cachedSemanticSidecarErr    error
 )
+
+const semanticDefaultProfileFrontend = "frontend"
 
 func ensureSemanticExportTypeDeclarations(converter *typeConverter) error {
 	manifest, err := loadSemanticSidecarManifest()
@@ -165,6 +174,52 @@ func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
 		))
 	}
 	return declarations, nil
+}
+
+func semanticDefaultValueForType(
+	t reflect.Type,
+	profile string,
+) (any, bool, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return nil, false, err
+	}
+
+	typeName := strings.TrimSpace(frontendBindingTypeName(t))
+	profile = strings.TrimSpace(profile)
+	if typeName == "" || profile == "" {
+		return nil, false, nil
+	}
+
+	var matched *semanticDefaultEntry
+	for index := range manifest.Defaults {
+		entry := &manifest.Defaults[index]
+		if strings.TrimSpace(entry.Type) != typeName || strings.TrimSpace(entry.Profile) != profile {
+			continue
+		}
+		if matched != nil {
+			return nil, false, fmt.Errorf(
+				"frontend semantic sidecar has duplicate default %s for profile %s",
+				typeName,
+				profile,
+			)
+		}
+		matched = entry
+	}
+	if matched == nil {
+		return nil, false, nil
+	}
+
+	value, err := decodeSemanticDefaultValue(canonicalFrontendBindingType(t), matched.Value)
+	if err != nil {
+		return nil, false, fmt.Errorf(
+			"frontend semantic sidecar default %s for profile %s: %w",
+			typeName,
+			profile,
+			err,
+		)
+	}
+	return value, true, nil
 }
 
 func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {

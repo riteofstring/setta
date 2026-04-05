@@ -67,12 +67,6 @@ type reflectedStructProperty struct {
 	MapValueCreateTargetTypeName string
 }
 
-type reflectedObjectDeclarationSpec struct {
-	DefaultValue any
-}
-
-var discoveredFrontendDefaultValueProviderRegistry = discoveredFrontendDefaultValueProviders()
-
 func newFrontendSDKMirrorOwnerTypesByName() map[string]reflect.Type {
 	owners := map[string]reflect.Type{}
 	for _, t := range DiscoveredConvertibleTypes() {
@@ -229,8 +223,10 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return nil
 	}
 
-	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
-		declaration, err := c.reflectedObjectDeclaration(t, spec)
+	if defaultValue, ok, err := semanticDefaultValueForType(t, semanticDefaultProfileFrontend); err != nil {
+		return err
+	} else if ok {
+		declaration, err := c.reflectedObjectDeclaration(t, defaultValue)
 		if err != nil {
 			return err
 		}
@@ -329,6 +325,10 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	return t
 }
 
+func CanonicalBindingType(t reflect.Type) reflect.Type {
+	return canonicalFrontendBindingType(t)
+}
+
 func frontendBindingTypeName(t reflect.Type) string {
 	t = canonicalFrontendBindingType(t)
 	if t == nil {
@@ -340,19 +340,9 @@ func frontendBindingTypeName(t reflect.Type) string {
 	return normalizedFrontendBindingTypeName(t.Name())
 }
 
-func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectDeclarationSpec, bool) {
-	provider, ok := discoveredFrontendDefaultValueProviderRegistry[t]
-	if !ok || provider == nil {
-		return reflectedObjectDeclarationSpec{}, false
-	}
-	return reflectedObjectDeclarationSpec{
-		DefaultValue: provider(),
-	}, true
-}
-
 func (c *typeConverter) reflectedObjectDeclaration(
 	t reflect.Type,
-	spec reflectedObjectDeclarationSpec,
+	defaultValue any,
 ) (TypeDeclaration, error) {
 	propertySpecs, err := c.structPropertySpecs(t, nil, nil, nil)
 	if err != nil {
@@ -363,14 +353,14 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		properties = append(properties, propertySpec.Property)
 	}
 	declarationName := frontendBindingTypeName(t)
-	if spec.DefaultValue == nil {
+	if defaultValue == nil {
 		return TypeDeclaration{}, fmt.Errorf("%s has no Go default value", declarationName)
 	}
 	declaration := objectDeclaration(declarationName, properties...)
 	createBody, err := buildGoBackedCreateBodyTS(
 		"frontend create defaults "+declarationName,
 		declarationName,
-		spec.DefaultValue,
+		defaultValue,
 		propertySpecs,
 	)
 	if err != nil {

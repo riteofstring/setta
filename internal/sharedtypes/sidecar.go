@@ -1,6 +1,8 @@
 package sharedtypes
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"slices"
@@ -96,6 +98,64 @@ func BuildSemanticSidecar() (SemanticSidecar, error) {
 		ExportedValues:        buildExportedValueEntries(),
 		DiscriminatedFamilies: families,
 	}, nil
+}
+
+func NormalizeSemanticSidecarForJSON(sidecar SemanticSidecar) (SemanticSidecar, error) {
+	normalized := sidecar
+
+	if len(sidecar.Defaults) > 0 {
+		normalized.Defaults = make([]DefaultEntry, len(sidecar.Defaults))
+		for index, entry := range sidecar.Defaults {
+			value, err := normalizeSemanticSidecarValue(entry.Value)
+			if err != nil {
+				return SemanticSidecar{}, fmt.Errorf(
+					"shared sidecar default %s profile %s: %w",
+					entry.Type,
+					entry.Profile,
+					err,
+				)
+			}
+			entry.Value = value
+			normalized.Defaults[index] = entry
+		}
+	}
+
+	if len(sidecar.ExportedValues) > 0 {
+		normalized.ExportedValues = make([]ExportedValueEntry, len(sidecar.ExportedValues))
+		for index, entry := range sidecar.ExportedValues {
+			value, err := normalizeSemanticSidecarValue(entry.Value)
+			if err != nil {
+				return SemanticSidecar{}, fmt.Errorf("shared sidecar export %s: %w", entry.Name, err)
+			}
+			entry.Value = value
+			normalized.ExportedValues[index] = entry
+		}
+	}
+
+	if len(sidecar.DiscriminatedFamilies) > 0 {
+		normalized.DiscriminatedFamilies = make([]DiscriminatedFamilyEntry, len(sidecar.DiscriminatedFamilies))
+		for index, family := range sidecar.DiscriminatedFamilies {
+			if len(family.DefaultValuesByDiscriminator) > 0 {
+				defaults := make(map[string]any, len(family.DefaultValuesByDiscriminator))
+				for discriminatorValue, value := range family.DefaultValuesByDiscriminator {
+					normalizedValue, err := normalizeSemanticSidecarValue(value)
+					if err != nil {
+						return SemanticSidecar{}, fmt.Errorf(
+							"shared sidecar family %s discriminator %q default: %w",
+							family.BaseType,
+							discriminatorValue,
+							err,
+						)
+					}
+					defaults[discriminatorValue] = normalizedValue
+				}
+				family.DefaultValuesByDiscriminator = defaults
+			}
+			normalized.DiscriminatedFamilies[index] = family
+		}
+	}
+
+	return normalized, nil
 }
 
 func buildContractEntries() ([]ContractEntry, error) {
@@ -468,4 +528,101 @@ func splitRouteWords(name string) []string {
 
 	words = append(words, string(runes[start:]))
 	return words
+}
+
+func normalizeSemanticSidecarValue(value any) (any, error) {
+	payload, err := marshalSemanticSidecarJSON(value)
+	if err != nil {
+		return nil, err
+	}
+	var normalized any
+	if err := json.Unmarshal(payload, &normalized); err != nil {
+		return nil, err
+	}
+	return mergeSemanticSidecarStructFields(reflect.ValueOf(value), normalized)
+}
+
+func marshalSemanticSidecarJSON(value any) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buffer.Bytes(), []byte("\n")), nil
+}
+
+func mergeSemanticSidecarStructFields(value reflect.Value, normalized any) (any, error) {
+	if !value.IsValid() {
+		return normalized, nil
+	}
+	for value.Kind() == reflect.Interface || value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return nil, nil
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return normalized, nil
+	}
+
+	object, ok := normalized.(map[string]any)
+	if !ok {
+		return normalized, nil
+	}
+
+	valueType := value.Type()
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		field := valueType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		fieldValue := value.Field(fieldIndex)
+		if field.Anonymous {
+			merged, err := mergeSemanticSidecarStructFields(fieldValue, object)
+			if err != nil {
+				return nil, err
+			}
+			if mergedObject, ok := merged.(map[string]any); ok {
+				object = mergedObject
+			}
+			continue
+		}
+
+		name, skip := semanticSidecarJSONFieldName(field)
+		if skip {
+			continue
+		}
+		existing, ok := object[name]
+		if !ok {
+			normalizedField, err := normalizeSemanticSidecarValue(fieldValue.Interface())
+			if err != nil {
+				return nil, fmt.Errorf("%s.%s: %w", valueType, field.Name, err)
+			}
+			object[name] = normalizedField
+			continue
+		}
+		mergedField, err := mergeSemanticSidecarStructFields(fieldValue, existing)
+		if err != nil {
+			return nil, fmt.Errorf("%s.%s: %w", valueType, field.Name, err)
+		}
+		object[name] = mergedField
+	}
+	return object, nil
+}
+
+func semanticSidecarJSONFieldName(field reflect.StructField) (string, bool) {
+	tag := field.Tag.Get("json")
+	if tag == "-" {
+		return "", true
+	}
+	if tag == "" {
+		return field.Name, false
+	}
+	parts := strings.Split(tag, ",")
+	name := strings.TrimSpace(parts[0])
+	if name == "" {
+		return field.Name, false
+	}
+	return name, false
 }

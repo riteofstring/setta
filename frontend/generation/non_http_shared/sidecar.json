@@ -6355,88 +6355,98 @@
       "profile": "frontend",
       "type": "AgentRun",
       "value": {
+        "cost": null,
+        "events": [],
+        "finishedAt": null,
         "id": "",
+        "inputs": null,
+        "outputs": null,
+        "profileId": null,
+        "startedAt": null,
         "status": "queued",
-        "toolCalls": [],
-        "events": []
+        "toolCalls": []
       }
     },
     {
       "profile": "frontend",
       "type": "AgenticEdge",
       "value": {
-        "id": "",
-        "sourceSectionId": "",
-        "targetSectionId": "",
-        "kind": "section_chat",
         "contextMode": "reference_only",
-        "style": {}
+        "hidden": false,
+        "id": "",
+        "kind": "section_chat",
+        "selected": false,
+        "sourceSectionId": "",
+        "style": {},
+        "targetSectionId": "",
+        "zIndex": 0
       }
     },
     {
       "profile": "frontend",
       "type": "AssistantChatMessage",
       "value": {
+        "attachments": [],
+        "content": [],
+        "createdAt": 0,
         "id": "",
         "role": "assistant",
-        "createdAt": 0,
-        "content": [],
-        "attachments": []
+        "tool_calls": null
       }
     },
     {
       "profile": "frontend",
       "type": "BrowserSavedSearch",
       "value": {
+        "color": "#3b82f6",
         "id": "",
         "name": "",
         "query": "",
+        "quickInfo": "",
         "searchScope": "recursive",
         "typeFilters": {
-          "image": true,
-          "video": true,
           "audio": true,
+          "data": true,
+          "image": true,
           "text": true,
-          "data": true
-        },
-        "color": "#3b82f6",
-        "quickInfo": ""
+          "video": true
+        }
       }
     },
     {
       "profile": "frontend",
       "type": "BrowserSavedSearchTypeFilters",
       "value": {
-        "image": true,
-        "video": true,
         "audio": true,
+        "data": true,
+        "image": true,
         "text": true,
-        "data": true
+        "video": true
       }
     },
     {
       "profile": "frontend",
       "type": "BrushStroke",
       "value": {
-        "strokeStyle": "",
-        "lineWidth": 1,
+        "globalCompositeOperation": "source-over",
         "lineCap": "round",
+        "lineWidth": 1,
         "points": [],
-        "globalCompositeOperation": "source-over"
+        "strokeStyle": ""
       }
     },
     {
       "profile": "frontend",
       "type": "BrushStrokeArtifact",
       "value": {
-        "type": "BrushStroke",
         "id": "",
+        "type": "BrushStroke",
         "value": {
-          "strokeStyle": "",
-          "lineWidth": 1,
+          "globalCompositeOperation": "source-over",
           "lineCap": "round",
+          "lineWidth": 1,
           "points": [],
-          "globalCompositeOperation": "source-over"
+          "strokeStyle": ""
         }
       }
     },
@@ -6444,8 +6454,8 @@
       "profile": "frontend",
       "type": "ChartDataArtifact",
       "value": {
-        "type": "ChartData",
         "id": "",
+        "type": "ChartData",
         "value": {}
       }
     },
@@ -6453,27 +6463,45 @@
       "profile": "frontend",
       "type": "ChatWindowBounds",
       "value": {
-        "x": 120,
-        "y": 120,
+        "height": 520,
         "width": 820,
-        "height": 520
+        "x": 120,
+        "y": 120
       }
     },
     {
       "profile": "frontend",
       "type": "ChatWindowDockMetrics",
-      "value": {}
+      "value": {
+        "preferredWidthPx": null,
+        "widthFraction": null
+      }
     },
     {
       "profile": "frontend",
       "type": "ClipboardProjectStateCore",
-      "value": {}
+      "value": {
+        "codeObjImpls": {},
+        "codeObjVariants": {},
+        "codeObjs": {},
+        "sectionImpls": {},
+        "sectionVariants": {},
+        "sections": {}
+      }
     },
     {
       "profile": "frontend",
       "type": "ClipboardProjectStateCoreWithSectionVariantMap",
       "value": {
-        "core": {}
+        "core": {
+          "codeObjImpls": {},
+          "codeObjVariants": {},
+          "codeObjs": {},
+          "sectionImpls": {},
+          "sectionVariants": {},
+          "sections": {}
+        },
+        "sectionVariantMap": {}
       }
     },
     {
@@ -6494,6 +6522,7 @@
       "profile": "frontend",
       "type": "CodeObjValuePolicy",
       "value": {
+        "codeObjOverrides": {},
         "typePolicies": {
           "ButtonParam": {
             "representation": "expression"
@@ -6540,24 +6569,23 @@
           "TimeParam": {
             "representation": "string"
           }
-        },
-        "codeObjOverrides": {}
+        }
       }
     },
     {
       "profile": "frontend",
       "type": "CodeParamCodeObjImpl",
       "value": {
-        "type": "CodeParam",
-        "id": "",
-        "name": "",
-        "description": "",
-        "isPreset": false,
-        "coreNameType": "TEXT",
         "coreNameEditable": false,
-        "passingStyle": "DEFAULT",
-        "typeAnnotation": "",
+        "coreNameType": "TEXT",
         "defaultVal": "",
+        "description": "",
+        "id": "",
+        "isPreset": false,
+        "name": "",
+        "passingStyle": "DEFAULT",
+        "type": "CodeParam",
+        "typeAnnotation": "",
         "value": ""
       }
     },
@@ -6565,54 +6593,58 @@
       "profile": "frontend",
       "type": "Connection",
       "value": {
+        "connectionType": "SERVER",
+        "currentAddress": "",
         "id": "",
-        "connectionType": "SERVER"
+        "shareSessionId": ""
       }
     },
     {
       "profile": "frontend",
       "type": "Core",
       "value": {
+        "defaultVariant": null,
+        "displayName": "",
         "id": "",
         "name": "",
-        "displayName": "",
-        "variants": [],
-        "defaultVariant": null,
         "sharedModifier": {},
-        "unsharedKeys": []
+        "unsharedKeys": [],
+        "variants": []
       }
     },
     {
       "profile": "frontend",
       "type": "CurrentAddressUpdateMessage",
       "value": {
-        "messageType": "CurrentAddressUpdate",
-        "content": ""
+        "content": "",
+        "id": null,
+        "messageType": "CurrentAddressUpdate"
       }
     },
     {
       "profile": "frontend",
       "type": "DrawAreaLayer",
       "value": {
-        "name": "",
         "elements": [],
-        "visible": true,
-        "layerOpacity": 1
+        "layerOpacity": 1,
+        "name": "",
+        "visible": true
       }
     },
     {
       "profile": "frontend",
       "type": "DrawAreaLayerItem",
       "value": {
-        "type": "BrushStroke",
         "dataPath": "",
-        "transformId": ""
+        "transformId": "",
+        "type": "BrushStroke"
       }
     },
     {
       "profile": "frontend",
       "type": "DrawAreaLayerItemTransform",
       "value": {
+        "eraserStrokes": [],
         "transform": [
           1,
           0,
@@ -6620,17 +6652,17 @@
           1,
           0,
           0
-        ],
-        "eraserStrokes": []
+        ]
       }
     },
     {
       "profile": "frontend",
       "type": "DrawAreaLayerItemTransformArtifact",
       "value": {
-        "type": "DrawAreaLayerItemTransform",
         "id": "",
+        "type": "DrawAreaLayerItemTransform",
         "value": {
+          "eraserStrokes": [],
           "transform": [
             1,
             0,
@@ -6638,8 +6670,7 @@
             1,
             0,
             0
-          ],
-          "eraserStrokes": []
+          ]
         }
       }
     },
@@ -6647,16 +6678,23 @@
       "profile": "frontend",
       "type": "EngineConfig",
       "value": {
+        "defaults": {
+          "thinking": null
+        },
+        "engineType": "setta_llm",
+        "externalAgentConfigId": null,
         "id": "",
         "name": "",
-        "engineType": "setta_llm",
-        "defaults": {}
+        "runtimeSupport": null,
+        "settaLlmConfigId": null
       }
     },
     {
       "profile": "frontend",
       "type": "EngineConfigDefaults",
-      "value": {}
+      "value": {
+        "thinking": null
+      }
     },
     {
       "profile": "frontend",
@@ -6669,11 +6707,13 @@
       "profile": "frontend",
       "type": "FileArtifact",
       "value": {
-        "type": "File",
         "id": "",
+        "type": "File",
         "value": {
+          "byteLength": 0,
           "contentId": "",
-          "byteLength": 0
+          "mimeType": "",
+          "sha256": ""
         }
       }
     },
@@ -6681,11 +6721,13 @@
       "profile": "frontend",
       "type": "ImageArtifact",
       "value": {
-        "type": "Image",
         "id": "",
+        "type": "Image",
         "value": {
+          "byteLength": 0,
           "contentId": "",
-          "byteLength": 0
+          "mimeType": "",
+          "sha256": ""
         }
       }
     },
@@ -6693,8 +6735,9 @@
       "profile": "frontend",
       "type": "LineChartSettings",
       "value": {
-        "type": "line",
         "secondYAxisColumns": [],
+        "type": "line",
+        "xAxisColumn": null,
         "xAxisLog": false,
         "y1AxisLog": false,
         "y2AxisLog": false
@@ -6704,24 +6747,30 @@
       "profile": "frontend",
       "type": "MessageTextContent",
       "value": {
-        "type": "text",
-        "text": ""
+        "text": "",
+        "type": "text"
       }
     },
     {
       "profile": "frontend",
       "type": "MessageThinkingContent",
       "value": {
-        "type": "thinking",
-        "thinking": "",
+        "signature": "",
         "summary": "",
-        "signature": ""
+        "thinking": "",
+        "type": "thinking"
       }
     },
     {
       "profile": "frontend",
       "type": "MetaControlSizingPolicyByType",
       "value": {
+        "ButtonParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
+        },
         "CodeCallable": {
           "minHeight": 32,
           "minWidth": 200,
@@ -6734,7 +6783,7 @@
           "sizeModeHeight": "any",
           "sizeModeWidth": "any"
         },
-        "TextParam": {
+        "ColorPickerParam": {
           "minHeight": 32,
           "minWidth": 200,
           "sizeModeHeight": "any",
@@ -6746,58 +6795,10 @@
           "sizeModeHeight": "any",
           "sizeModeWidth": "any"
         },
-        "TimeParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
-          "sizeModeWidth": "any"
-        },
-        "ButtonParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
-          "sizeModeWidth": "any"
-        },
-        "SliderParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "auto_only",
-          "sizeModeWidth": "any"
-        },
-        "RotaryParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
-          "sizeModeWidth": "any"
-        },
-        "SwitchParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
-          "sizeModeWidth": "any"
-        },
-        "ColorPickerParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
-          "sizeModeWidth": "any"
-        },
         "DropdownParam": {
           "minHeight": 32,
           "minWidth": 200,
           "sizeModeHeight": "auto_only",
-          "sizeModeWidth": "any"
-        },
-        "PasswordParam": {
-          "minHeight": 32,
-          "minWidth": 200,
-          "sizeModeHeight": "auto_only",
-          "sizeModeWidth": "any"
-        },
-        "TextAreaParam": {
-          "minHeight": 80,
-          "minWidth": 200,
-          "sizeModeHeight": "any",
           "sizeModeWidth": "any"
         },
         "DropzoneParam": {
@@ -6811,6 +6812,48 @@
           "minWidth": 200,
           "sizeModeHeight": "any",
           "sizeModeWidth": "any"
+        },
+        "PasswordParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "auto_only",
+          "sizeModeWidth": "any"
+        },
+        "RotaryParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
+        },
+        "SliderParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "auto_only",
+          "sizeModeWidth": "any"
+        },
+        "SwitchParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
+        },
+        "TextAreaParam": {
+          "minHeight": 80,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
+        },
+        "TextParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
+        },
+        "TimeParam": {
+          "minHeight": 32,
+          "minWidth": 200,
+          "sizeModeHeight": "any",
+          "sizeModeWidth": "any"
         }
       }
     },
@@ -6818,26 +6861,38 @@
       "profile": "frontend",
       "type": "NormalizedFloatingWindowBounds",
       "value": {
-        "x": 0,
-        "y": 0,
+        "height": 1,
         "width": 1,
-        "height": 1
+        "x": 0,
+        "y": 0
       }
     },
     {
       "profile": "frontend",
       "type": "ProjectChatWindowInstance",
       "value": {
-        "instanceId": "",
-        "placement": "bottom_docked",
         "bounds": {
-          "x": 120,
-          "y": 120,
+          "height": 520,
           "width": 820,
-          "height": 520
+          "x": 120,
+          "y": 120
         },
-        "dockMetrics": {},
-        "mode": "project_ai_mode"
+        "chatId": null,
+        "dockMetrics": {
+          "preferredWidthPx": null,
+          "widthFraction": null
+        },
+        "instanceId": "",
+        "isClosed": false,
+        "isMaximized": false,
+        "isMinimized": false,
+        "lastFocusedAt": 0,
+        "lastPlacementBeforeMaximize": null,
+        "mode": "project_ai_mode",
+        "placement": "bottom_docked",
+        "sectionIdOrNull": null,
+        "title": null,
+        "zIndex": 0
       }
     },
     {
@@ -6845,8 +6900,8 @@
       "type": "ProjectChatWindowingState",
       "value": {
         "instancesById": {},
-        "order": [],
-        "nextInstanceNumber": 1
+        "nextInstanceNumber": 1,
+        "order": []
       }
     },
     {
@@ -6861,10 +6916,60 @@
       "profile": "frontend",
       "type": "ProjectCodegenPythonTarget",
       "value": {
-        "language": "python",
+        "codeObjValuePolicy": {
+          "codeObjOverrides": {},
+          "typePolicies": {
+            "ButtonParam": {
+              "representation": "expression"
+            },
+            "CodeCallable": {
+              "representation": "expression"
+            },
+            "CodeParam": {
+              "representation": "expression"
+            },
+            "ColorPickerParam": {
+              "representation": "string"
+            },
+            "DateParam": {
+              "representation": "string"
+            },
+            "DropdownParam": {
+              "representation": "expression"
+            },
+            "DropzoneParam": {
+              "representation": "file_path"
+            },
+            "NestedParam": {
+              "representation": "expression"
+            },
+            "PasswordParam": {
+              "representation": "string"
+            },
+            "RotaryParam": {
+              "representation": "expression"
+            },
+            "SliderParam": {
+              "representation": "expression"
+            },
+            "SwitchParam": {
+              "representation": "expression"
+            },
+            "TextAreaParam": {
+              "representation": "string"
+            },
+            "TextParam": {
+              "representation": "string"
+            },
+            "TimeParam": {
+              "representation": "string"
+            }
+          }
+        },
         "genCodePrefix": "",
         "genCodeSuffix": "state = SettaState()",
         "generateMetadata": false,
+        "language": "python",
         "sectionPolicy": {
           "allowlist": [
             "Callable",
@@ -6878,6 +6983,7 @@
             "TaskBoard",
             "Spreadsheet"
           ],
+          "exclude": [],
           "metaControlAllowlist": [
             "CodeParam",
             "TextParam",
@@ -6893,7 +6999,7 @@
             "ButtonParam",
             "DropzoneParam"
           ],
-          "exclude": [],
+          "sectionOverrides": {},
           "typePolicies": {
             "Browser": {
               "mode": "inherit",
@@ -6995,58 +7101,7 @@
               "mode": "inherit",
               "representation": "expression"
             }
-          },
-          "sectionOverrides": {}
-        },
-        "codeObjValuePolicy": {
-          "typePolicies": {
-            "ButtonParam": {
-              "representation": "expression"
-            },
-            "CodeCallable": {
-              "representation": "expression"
-            },
-            "CodeParam": {
-              "representation": "expression"
-            },
-            "ColorPickerParam": {
-              "representation": "string"
-            },
-            "DateParam": {
-              "representation": "string"
-            },
-            "DropdownParam": {
-              "representation": "expression"
-            },
-            "DropzoneParam": {
-              "representation": "file_path"
-            },
-            "NestedParam": {
-              "representation": "expression"
-            },
-            "PasswordParam": {
-              "representation": "string"
-            },
-            "RotaryParam": {
-              "representation": "expression"
-            },
-            "SliderParam": {
-              "representation": "expression"
-            },
-            "SwitchParam": {
-              "representation": "expression"
-            },
-            "TextAreaParam": {
-              "representation": "string"
-            },
-            "TextParam": {
-              "representation": "string"
-            },
-            "TimeParam": {
-              "representation": "string"
-            }
-          },
-          "codeObjOverrides": {}
+          }
         }
       }
     },
@@ -7054,71 +7109,106 @@
       "profile": "frontend",
       "type": "ProjectConfig",
       "value": {
-        "id": "",
-        "name": "",
-        "showParamDisplayNames": false,
-        "allowJsonSourceKeyEdits": false,
-        "viewport": null,
-        "viewportInitialized": false,
-        "viewModes": {},
+        "activeIds": [],
         "activeViewModeId": null,
-        "isEditingViewMode": false,
+        "agenticEdges": [],
+        "allowJsonSourceKeyEdits": false,
+        "codegenTargets": [],
+        "edges": [],
+        "entryCodeBlockId": null,
         "hasPythonCodegenTarget": false,
+        "id": "",
+        "isEditingViewMode": false,
+        "name": "",
+        "previewImgColor": "",
         "runCapabilities": {
           "canRunFromMain": false,
-          "mainRunDisabledReason": null,
-          "effectiveEntrySectionId": null
+          "effectiveEntrySectionId": null,
+          "mainRunDisabledReason": null
         },
-        "codegenTargets": [],
-        "watchCodeEnabled": false,
-        "watchCodeFolders": [],
-        "watchCodeFiles": [],
-        "watchCodeRegistry": {},
-        "watchCodeBaselineByPath": {},
-        "entryCodeBlockId": null,
-        "sectionPathSlugsById": {},
         "sectionIdsByPathSlug": {},
-        "topLevelSections": {},
-        "windowSpaceSlugsById": {},
-        "windowSpaceIdsBySlug": {},
-        "windowSpaces": {},
+        "sectionPathSlugsById": {},
         "sectionVariantMap": {},
-        "activeIds": [],
-        "edges": [],
-        "agenticEdges": [],
-        "stateMachineEdges": []
+        "showParamDisplayNames": false,
+        "stateMachineEdges": [],
+        "topLevelSections": {},
+        "viewModes": {},
+        "viewport": null,
+        "viewportInitialized": false,
+        "watchCodeBaselineByPath": {},
+        "watchCodeEnabled": false,
+        "watchCodeFiles": [],
+        "watchCodeFolders": [],
+        "watchCodeRegistry": {},
+        "windowSpaceIdsBySlug": {},
+        "windowSpaceSlugsById": {},
+        "windowSpaces": {}
       }
     },
     {
       "profile": "python_shared",
       "type": "ProjectConfig",
       "value": {
-        "id": "",
-        "name": "",
-        "showParamDisplayNames": false,
-        "allowJsonSourceKeyEdits": true,
-        "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
-        "viewport": {
-          "x": 0,
-          "y": 0,
-          "zoom": 1
-        },
-        "viewportInitialized": false,
-        "viewModes": {},
+        "activeIds": [],
         "activeViewModeId": null,
-        "isEditingViewMode": false,
-        "hasPythonCodegenTarget": false,
-        "runCapabilities": {
-          "canRunFromMain": false,
-          "mainRunDisabledReason": null,
-          "effectiveEntrySectionId": null
-        },
+        "agenticEdges": [],
+        "allowJsonSourceKeyEdits": true,
         "codegenTargets": [
           {
-            "language": "python",
+            "codeObjValuePolicy": {
+              "codeObjOverrides": {},
+              "typePolicies": {
+                "ButtonParam": {
+                  "representation": "expression"
+                },
+                "CodeCallable": {
+                  "representation": "expression"
+                },
+                "CodeParam": {
+                  "representation": "expression"
+                },
+                "ColorPickerParam": {
+                  "representation": "string"
+                },
+                "DateParam": {
+                  "representation": "string"
+                },
+                "DropdownParam": {
+                  "representation": "expression"
+                },
+                "DropzoneParam": {
+                  "representation": "file_path"
+                },
+                "NestedParam": {
+                  "representation": "expression"
+                },
+                "PasswordParam": {
+                  "representation": "string"
+                },
+                "RotaryParam": {
+                  "representation": "expression"
+                },
+                "SliderParam": {
+                  "representation": "expression"
+                },
+                "SwitchParam": {
+                  "representation": "expression"
+                },
+                "TextAreaParam": {
+                  "representation": "string"
+                },
+                "TextParam": {
+                  "representation": "string"
+                },
+                "TimeParam": {
+                  "representation": "string"
+                }
+              }
+            },
             "genCodePrefix": "",
             "genCodeSuffix": "state = SettaState()",
             "generateMetadata": false,
+            "language": "python",
             "sectionPolicy": {
               "allowlist": [
                 "Callable",
@@ -7132,6 +7222,7 @@
                 "TaskBoard",
                 "Spreadsheet"
               ],
+              "exclude": [],
               "metaControlAllowlist": [
                 "CodeParam",
                 "TextParam",
@@ -7147,7 +7238,7 @@
                 "ButtonParam",
                 "DropzoneParam"
               ],
-              "exclude": [],
+              "sectionOverrides": {},
               "typePolicies": {
                 "Browser": {
                   "mode": "inherit",
@@ -7249,78 +7340,43 @@
                   "mode": "inherit",
                   "representation": "expression"
                 }
-              },
-              "sectionOverrides": {}
-            },
-            "codeObjValuePolicy": {
-              "typePolicies": {
-                "ButtonParam": {
-                  "representation": "expression"
-                },
-                "CodeCallable": {
-                  "representation": "expression"
-                },
-                "CodeParam": {
-                  "representation": "expression"
-                },
-                "ColorPickerParam": {
-                  "representation": "string"
-                },
-                "DateParam": {
-                  "representation": "string"
-                },
-                "DropdownParam": {
-                  "representation": "expression"
-                },
-                "DropzoneParam": {
-                  "representation": "file_path"
-                },
-                "NestedParam": {
-                  "representation": "expression"
-                },
-                "PasswordParam": {
-                  "representation": "string"
-                },
-                "RotaryParam": {
-                  "representation": "expression"
-                },
-                "SliderParam": {
-                  "representation": "expression"
-                },
-                "SwitchParam": {
-                  "representation": "expression"
-                },
-                "TextAreaParam": {
-                  "representation": "string"
-                },
-                "TextParam": {
-                  "representation": "string"
-                },
-                "TimeParam": {
-                  "representation": "string"
-                }
-              },
-              "codeObjOverrides": {}
+              }
             }
           }
         ],
-        "watchCodeEnabled": false,
-        "watchCodeFolders": [],
-        "watchCodeFiles": [],
-        "watchCodeRegistry": {},
-        "watchCodeBaselineByPath": {},
-        "entryCodeBlockId": null,
-        "sectionPathSlugsById": {},
-        "sectionIdsByPathSlug": {},
-        "topLevelSections": {},
-        "windowSpaceSlugsById": {},
-        "windowSpaceIdsBySlug": {},
-        "windowSpaces": {},
-        "sectionVariantMap": {},
-        "activeIds": [],
         "edges": [],
-        "agenticEdges": [],
-        "stateMachineEdges": []
+        "entryCodeBlockId": null,
+        "hasPythonCodegenTarget": false,
+        "id": "",
+        "isEditingViewMode": false,
+        "name": "",
+        "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
+        "runCapabilities": {
+          "canRunFromMain": false,
+          "effectiveEntrySectionId": null,
+          "mainRunDisabledReason": null
+        },
+        "sectionIdsByPathSlug": {},
+        "sectionPathSlugsById": {},
+        "sectionVariantMap": {},
+        "showParamDisplayNames": false,
+        "stateMachineEdges": [],
+        "topLevelSections": {},
+        "viewModes": {},
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "viewportInitialized": false,
+        "watchCodeBaselineByPath": {},
+        "watchCodeEnabled": false,
+        "watchCodeFiles": [],
+        "watchCodeFolders": [],
+        "watchCodeRegistry": {},
+        "windowSpaceIdsBySlug": {},
+        "windowSpaceSlugsById": {},
+        "windowSpaces": {}
       }
     },
     {
@@ -7328,8 +7384,8 @@
       "type": "ProjectRunCapabilities",
       "value": {
         "canRunFromMain": false,
-        "mainRunDisabledReason": null,
-        "effectiveEntrySectionId": null
+        "effectiveEntrySectionId": null,
+        "mainRunDisabledReason": null
       }
     },
     {
@@ -7337,6 +7393,7 @@
       "type": "RunEvent",
       "value": {
         "id": "",
+        "payload": {},
         "timestamp": "0001-01-01T00:00:00Z",
         "type": ""
       }
@@ -7345,7 +7402,9 @@
       "profile": "frontend",
       "type": "ScatterChartSettings",
       "value": {
+        "categoryColumn": null,
         "type": "scatter",
+        "xAxisColumn": null,
         "xAxisLog": false,
         "yAxisLog": false
       }
@@ -7355,10 +7414,10 @@
       "type": "SectionCapabilities",
       "value": {
         "canRun": false,
-        "runDisabledReason": null,
-        "runRequestSectionId": null,
         "canSelectAsEntryCodeBlock": false,
-        "entryCodeBlockValue": null
+        "entryCodeBlockValue": null,
+        "runDisabledReason": null,
+        "runRequestSectionId": null
       }
     },
     {
@@ -7385,6 +7444,7 @@
           "TaskBoard",
           "Spreadsheet"
         ],
+        "exclude": [],
         "metaControlAllowlist": [
           "CodeParam",
           "TextParam",
@@ -7400,7 +7460,7 @@
           "ButtonParam",
           "DropzoneParam"
         ],
-        "exclude": [],
+        "sectionOverrides": {},
         "typePolicies": {
           "Browser": {
             "mode": "inherit",
@@ -7502,16 +7562,15 @@
             "mode": "inherit",
             "representation": "expression"
           }
-        },
-        "sectionOverrides": {}
+        }
       }
     },
     {
       "profile": "frontend",
       "type": "SectionSize",
       "value": {
-        "width": "auto",
-        "height": "auto"
+        "height": "auto",
+        "width": "auto"
       }
     },
     {
@@ -7519,160 +7578,174 @@
       "type": "SectionSizingPolicy",
       "value": {
         "byType": {
-          "Callable": {
-            "minHeight": 104,
+          "Browser": {
             "maxHeight": 100000,
-            "minWidth": 200,
             "maxWidth": 100000,
+            "minHeight": 250,
+            "minWidth": 200
+          },
+          "Callable": {
+            "hideParamsMinHeight": 90,
             "hideSearchMinHeight": 42,
-            "hideParamsMinHeight": 90
-          },
-          "Dict": {
-            "minHeight": 78,
             "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "ListRoot": {
-            "minHeight": 50,
-            "maxHeight": 50,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "Group": {
-            "minHeight": 0,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "StateMachineStart": {
-            "minHeight": 96,
-            "maxHeight": 100000,
-            "minWidth": 240,
-            "maxWidth": 100000
-          },
-          "StateMachineGate": {
-            "minHeight": 120,
-            "maxHeight": 100000,
-            "minWidth": 240,
-            "maxWidth": 100000
-          },
-          "StateMachineEnd": {
-            "minHeight": 96,
-            "maxHeight": 100000,
-            "minWidth": 240,
-            "maxWidth": 100000
-          },
-          "Image": {
-            "minHeight": 100,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
+            "maxWidth": 100000,
+            "minHeight": 104,
+            "minWidth": 200
           },
           "Chart": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
             "minHeight": 300,
-            "maxHeight": 100000,
-            "minWidth": 300,
-            "maxWidth": 100000
-          },
-          "Draw": {
-            "minHeight": 100,
-            "maxHeight": 100000,
-            "minWidth": 402,
-            "maxWidth": 100000
-          },
-          "Prompt": {
-            "minHeight": 150,
-            "maxHeight": 100000,
-            "minWidth": 300,
-            "maxWidth": 100000
-          },
-          "TextBlock": {
-            "minHeight": 49,
-            "maxHeight": 100000,
-            "minWidth": 100,
-            "maxWidth": 100000
-          },
-          "MetaControl": {
-            "minHeight": 10,
-            "maxHeight": 100000,
-            "minWidth": 100,
-            "maxWidth": 100000
-          },
-          "Social": {
-            "minHeight": 50,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "GlobalVariables": {
-            "minHeight": 78,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "Code": {
-            "minHeight": 58.2,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "GenPythonCode": {
-            "minHeight": 0,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "GenPythonMetadata": {
-            "minHeight": 0,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "Terminal": {
-            "minHeight": 100,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
-          },
-          "IFrame": {
-            "minHeight": 0,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
+            "minWidth": 300
           },
           "Chat": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
             "minHeight": 200,
-            "maxHeight": 100000,
-            "minWidth": 400,
-            "maxWidth": 100000
+            "minWidth": 400
           },
-          "Browser": {
-            "minHeight": 250,
+          "Code": {
             "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
+            "maxWidth": 100000,
+            "minHeight": 58.2,
+            "minWidth": 200
+          },
+          "Dict": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 78,
+            "minWidth": 200
+          },
+          "Draw": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 100,
+            "minWidth": 402
+          },
+          "GenPythonCode": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 0,
+            "minWidth": 200
+          },
+          "GenPythonMetadata": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 0,
+            "minWidth": 200
+          },
+          "GlobalVariables": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 78,
+            "minWidth": 200
+          },
+          "Group": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 0,
+            "minWidth": 200
+          },
+          "IFrame": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 0,
+            "minWidth": 200
+          },
+          "Image": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 100,
+            "minWidth": 200
+          },
+          "ListRoot": {
+            "maxHeight": 50,
+            "maxWidth": 100000,
+            "minHeight": 50,
+            "minWidth": 200
+          },
+          "MetaControl": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 10,
+            "minWidth": 100
           },
           "Plugin": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
             "minHeight": 80,
-            "maxHeight": 100000,
-            "minWidth": 200,
-            "maxWidth": 100000
+            "minWidth": 200
           },
-          "TaskBoard": {
-            "minHeight": 240,
+          "Prompt": {
             "maxHeight": 100000,
-            "minWidth": 360,
-            "maxWidth": 100000
+            "maxWidth": 100000,
+            "minHeight": 150,
+            "minWidth": 300
+          },
+          "Social": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 50,
+            "minWidth": 200
           },
           "Spreadsheet": {
-            "minHeight": 260,
             "maxHeight": 100000,
-            "minWidth": 420,
-            "maxWidth": 100000
+            "maxWidth": 100000,
+            "minHeight": 260,
+            "minWidth": 420
+          },
+          "StateMachineEnd": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 96,
+            "minWidth": 240
+          },
+          "StateMachineGate": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 120,
+            "minWidth": 240
+          },
+          "StateMachineStart": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 96,
+            "minWidth": 240
+          },
+          "TaskBoard": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 240,
+            "minWidth": 360
+          },
+          "Terminal": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 100,
+            "minWidth": 200
+          },
+          "TextBlock": {
+            "maxHeight": 100000,
+            "maxWidth": 100000,
+            "minHeight": 49,
+            "minWidth": 100
           }
         },
+        "globals": {
+          "autoMaxHeight": 350,
+          "infiniteMaxHeight": 100000,
+          "infiniteMaxWidth": 100000,
+          "minimizedHeight": 32,
+          "pinnedParamsAreaMinHeight": 64,
+          "unpinnedParamsAreaMinHeight": 36
+        },
         "metaControlByType": {
+          "ButtonParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
+          },
           "CodeCallable": {
             "minHeight": 32,
             "minWidth": 200,
@@ -7685,7 +7758,7 @@
             "sizeModeHeight": "any",
             "sizeModeWidth": "any"
           },
-          "TextParam": {
+          "ColorPickerParam": {
             "minHeight": 32,
             "minWidth": 200,
             "sizeModeHeight": "any",
@@ -7697,58 +7770,10 @@
             "sizeModeHeight": "any",
             "sizeModeWidth": "any"
           },
-          "TimeParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
-            "sizeModeWidth": "any"
-          },
-          "ButtonParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
-            "sizeModeWidth": "any"
-          },
-          "SliderParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "auto_only",
-            "sizeModeWidth": "any"
-          },
-          "RotaryParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
-            "sizeModeWidth": "any"
-          },
-          "SwitchParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
-            "sizeModeWidth": "any"
-          },
-          "ColorPickerParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
-            "sizeModeWidth": "any"
-          },
           "DropdownParam": {
             "minHeight": 32,
             "minWidth": 200,
             "sizeModeHeight": "auto_only",
-            "sizeModeWidth": "any"
-          },
-          "PasswordParam": {
-            "minHeight": 32,
-            "minWidth": 200,
-            "sizeModeHeight": "auto_only",
-            "sizeModeWidth": "any"
-          },
-          "TextAreaParam": {
-            "minHeight": 80,
-            "minWidth": 200,
-            "sizeModeHeight": "any",
             "sizeModeWidth": "any"
           },
           "DropzoneParam": {
@@ -7762,15 +7787,49 @@
             "minWidth": 200,
             "sizeModeHeight": "any",
             "sizeModeWidth": "any"
+          },
+          "PasswordParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "auto_only",
+            "sizeModeWidth": "any"
+          },
+          "RotaryParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
+          },
+          "SliderParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "auto_only",
+            "sizeModeWidth": "any"
+          },
+          "SwitchParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
+          },
+          "TextAreaParam": {
+            "minHeight": 80,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
+          },
+          "TextParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
+          },
+          "TimeParam": {
+            "minHeight": 32,
+            "minWidth": 200,
+            "sizeModeHeight": "any",
+            "sizeModeWidth": "any"
           }
-        },
-        "globals": {
-          "pinnedParamsAreaMinHeight": 64,
-          "unpinnedParamsAreaMinHeight": 36,
-          "minimizedHeight": 32,
-          "infiniteMaxHeight": 100000,
-          "infiniteMaxWidth": 100000,
-          "autoMaxHeight": 350
         }
       }
     },
@@ -7778,157 +7837,157 @@
       "profile": "frontend",
       "type": "SectionSizingPolicyByType",
       "value": {
-        "Callable": {
-          "minHeight": 104,
+        "Browser": {
           "maxHeight": 100000,
-          "minWidth": 200,
           "maxWidth": 100000,
+          "minHeight": 250,
+          "minWidth": 200
+        },
+        "Callable": {
+          "hideParamsMinHeight": 90,
           "hideSearchMinHeight": 42,
-          "hideParamsMinHeight": 90
-        },
-        "Dict": {
-          "minHeight": 78,
           "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "ListRoot": {
-          "minHeight": 50,
-          "maxHeight": 50,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "Group": {
-          "minHeight": 0,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "StateMachineStart": {
-          "minHeight": 96,
-          "maxHeight": 100000,
-          "minWidth": 240,
-          "maxWidth": 100000
-        },
-        "StateMachineGate": {
-          "minHeight": 120,
-          "maxHeight": 100000,
-          "minWidth": 240,
-          "maxWidth": 100000
-        },
-        "StateMachineEnd": {
-          "minHeight": 96,
-          "maxHeight": 100000,
-          "minWidth": 240,
-          "maxWidth": 100000
-        },
-        "Image": {
-          "minHeight": 100,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
+          "maxWidth": 100000,
+          "minHeight": 104,
+          "minWidth": 200
         },
         "Chart": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
           "minHeight": 300,
-          "maxHeight": 100000,
-          "minWidth": 300,
-          "maxWidth": 100000
-        },
-        "Draw": {
-          "minHeight": 100,
-          "maxHeight": 100000,
-          "minWidth": 402,
-          "maxWidth": 100000
-        },
-        "Prompt": {
-          "minHeight": 150,
-          "maxHeight": 100000,
-          "minWidth": 300,
-          "maxWidth": 100000
-        },
-        "TextBlock": {
-          "minHeight": 49,
-          "maxHeight": 100000,
-          "minWidth": 100,
-          "maxWidth": 100000
-        },
-        "MetaControl": {
-          "minHeight": 10,
-          "maxHeight": 100000,
-          "minWidth": 100,
-          "maxWidth": 100000
-        },
-        "Social": {
-          "minHeight": 50,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "GlobalVariables": {
-          "minHeight": 78,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "Code": {
-          "minHeight": 58.2,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "GenPythonCode": {
-          "minHeight": 0,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "GenPythonMetadata": {
-          "minHeight": 0,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "Terminal": {
-          "minHeight": 100,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
-        },
-        "IFrame": {
-          "minHeight": 0,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
+          "minWidth": 300
         },
         "Chat": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
           "minHeight": 200,
-          "maxHeight": 100000,
-          "minWidth": 400,
-          "maxWidth": 100000
+          "minWidth": 400
         },
-        "Browser": {
-          "minHeight": 250,
+        "Code": {
           "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
+          "maxWidth": 100000,
+          "minHeight": 58.2,
+          "minWidth": 200
+        },
+        "Dict": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 78,
+          "minWidth": 200
+        },
+        "Draw": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 100,
+          "minWidth": 402
+        },
+        "GenPythonCode": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 0,
+          "minWidth": 200
+        },
+        "GenPythonMetadata": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 0,
+          "minWidth": 200
+        },
+        "GlobalVariables": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 78,
+          "minWidth": 200
+        },
+        "Group": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 0,
+          "minWidth": 200
+        },
+        "IFrame": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 0,
+          "minWidth": 200
+        },
+        "Image": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 100,
+          "minWidth": 200
+        },
+        "ListRoot": {
+          "maxHeight": 50,
+          "maxWidth": 100000,
+          "minHeight": 50,
+          "minWidth": 200
+        },
+        "MetaControl": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 10,
+          "minWidth": 100
         },
         "Plugin": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
           "minHeight": 80,
-          "maxHeight": 100000,
-          "minWidth": 200,
-          "maxWidth": 100000
+          "minWidth": 200
         },
-        "TaskBoard": {
-          "minHeight": 240,
+        "Prompt": {
           "maxHeight": 100000,
-          "minWidth": 360,
-          "maxWidth": 100000
+          "maxWidth": 100000,
+          "minHeight": 150,
+          "minWidth": 300
+        },
+        "Social": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 50,
+          "minWidth": 200
         },
         "Spreadsheet": {
-          "minHeight": 260,
           "maxHeight": 100000,
-          "minWidth": 420,
-          "maxWidth": 100000
+          "maxWidth": 100000,
+          "minHeight": 260,
+          "minWidth": 420
+        },
+        "StateMachineEnd": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 96,
+          "minWidth": 240
+        },
+        "StateMachineGate": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 120,
+          "minWidth": 240
+        },
+        "StateMachineStart": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 96,
+          "minWidth": 240
+        },
+        "TaskBoard": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 240,
+          "minWidth": 360
+        },
+        "Terminal": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 100,
+          "minWidth": 200
+        },
+        "TextBlock": {
+          "maxHeight": 100000,
+          "maxWidth": 100000,
+          "minHeight": 49,
+          "minWidth": 100
         }
       }
     },
@@ -7936,12 +7995,12 @@
       "profile": "frontend",
       "type": "SectionSizingPolicyGlobals",
       "value": {
-        "pinnedParamsAreaMinHeight": 64,
-        "unpinnedParamsAreaMinHeight": 36,
-        "minimizedHeight": 32,
+        "autoMaxHeight": 350,
         "infiniteMaxHeight": 100000,
         "infiniteMaxWidth": 100000,
-        "autoMaxHeight": 350
+        "minimizedHeight": 32,
+        "pinnedParamsAreaMinHeight": 64,
+        "unpinnedParamsAreaMinHeight": 36
       }
     },
     {
@@ -7956,59 +8015,56 @@
       "profile": "frontend",
       "type": "SectionsClipboardData",
       "value": {
-        "type": "Sections",
         "data": {
-          "core": {}
-        }
+          "core": {
+            "codeObjImpls": {},
+            "codeObjVariants": {},
+            "codeObjs": {},
+            "sectionImpls": {},
+            "sectionVariants": {},
+            "sections": {}
+          },
+          "sectionVariantMap": {}
+        },
+        "type": "Sections"
       }
     },
     {
       "profile": "frontend",
       "type": "SettingsBackend",
       "value": {
-        "showDefaultConfigOnLoad": true,
-        "autosave": true,
+        "autoRefetchCallableParamsOnLspMismatch": true,
         "autobackup": true,
         "autobackupFreq": 300,
         "autobackupKeepLastN": 10,
+        "autosave": true,
         "clearTerminalBeforeMarkingAsReady": true,
+        "completionGuardEnabled": false,
+        "defaultTerminalShell": null,
         "exportDbReadableOnSave": false,
         "exportDbReadableWithVariantsOnSave": false,
-        "autoRefetchCallableParamsOnLspMismatch": true,
         "renameRefactorMode": "ALWAYS_ASK",
-        "saveRenderedValues": false,
         "runSnapshotMode": "ephemeral",
-        "completionGuardEnabled": false
+        "saveRenderedValues": false,
+        "showDefaultConfigOnLoad": true
       }
     },
     {
       "profile": "frontend",
       "type": "SettingsGUI",
       "value": {
-        "snapGrid": [
-          15,
-          15
-        ],
-        "showGridLines": true,
-        "gridPattern": "dots",
-        "gridPatternSize": 2,
+        "defaultZoomLevel": 1,
         "gridColor": "#afbacf",
         "gridColorDarkMode": "#2b364a",
-        "wireColor": "#41506c",
-        "wireColorDarkMode": "#bac2d3",
-        "defaultZoomLevel": 1,
-        "minZoom": 0.1,
+        "gridPattern": "dots",
+        "gridPatternSize": 2,
+        "leftSidePaneShiftsMap": true,
         "maxZoom": 10,
+        "minZoom": 0.1,
         "panOnDrag": true,
         "panOnScroll": true,
-        "panOnScrollSpeed": 1,
         "panOnScrollMode": "free",
-        "zoomOnScroll": true,
-        "zoomOnPinch": true,
-        "zoomOnDoubleClick": false,
-        "selectionMode": "partial",
-        "leftSidePaneShiftsMap": true,
-        "transitionDuration": 50,
+        "panOnScrollSpeed": 1,
         "sectionTagColorChoices": [
           {
             "color": "#ef4444",
@@ -8042,170 +8098,122 @@
             "color": "#64748b",
             "description": "Slate"
           }
-        ]
+        ],
+        "selectionMode": "partial",
+        "showGridLines": true,
+        "snapGrid": [
+          15,
+          15
+        ],
+        "transitionDuration": 50,
+        "wireColor": "#41506c",
+        "wireColorDarkMode": "#bac2d3",
+        "zoomOnDoubleClick": false,
+        "zoomOnPinch": true,
+        "zoomOnScroll": true
       }
     },
     {
       "profile": "frontend",
       "type": "SettingsShortcuts",
       "value": {
-        "newCardShortcut": "N",
-        "newGroupShortcut": "G",
-        "typeCheckShortcut": "",
-        "newProjectConfigShortcut": "",
-        "undoShortcut": "Mod + Z",
-        "redoShortcut": "Mod + Shift + Z",
-        "groupShortcut": "Mod + G",
-        "ungroupShortcut": "Shift + Mod + G",
-        "saveShortcut": "Mod + S",
-        "saveAsShortcut": "Mod + Shift + S",
-        "loadShortcut": "Mod + L",
-        "searchShortcut": "Mod + K",
         "advancedSearchShortcut": "Mod + P",
         "commandPaletteShortcut": "Mod + Shift + P",
-        "resetZoomShortcut": "Mod + Comma",
         "copyShortcut": "Mod + C",
-        "pasteShortcut": "Mod + V",
-        "pasteAsRefShortcut": "Mod + Shift + V",
-        "sortingShortcut": "Mod + Alt",
-        "movingFreeShortcut": "Alt",
-        "showTooltipShortcut": "Q",
-        "tooltipToPlaintextShortcut": "Q + S",
-        "tooltipToMarkdownShortcut": "Q + W",
-        "freezeTooltipShortcut": "Q + F",
-        "frozenTooltipToPlaintextShortcut": "S",
-        "frozenTooltipToMarkdownShortcut": "W",
-        "incrementTooltipPageShortcut": "Q + ArrowRight",
-        "decrementTooltipPageShortcut": "Q + ArrowLeft",
         "copyTooltipTextShortcut": "Q + C",
-        "frozenTooltipIncrementShortcut": "ArrowRight",
-        "frozenTooltipDecrementShortcut": "ArrowLeft",
-        "frozenTooltipCopyShortcut": "C",
-        "newTerminalShortcut": "Ctrl + `",
-        "fitViewShortcut": "F",
-        "zoomToMouseShortcut": "Z",
+        "decrementTooltipPageShortcut": "Q + ArrowLeft",
         "deleteSectionShortcut": "Backspace",
-        "selectAll": "Mod + A",
-        "selectTopLevelNonGroupSections": "Mod + Shift + A",
-        "showVersionsTabShortcut": "V",
-        "showParamUITypeTabShortcut": "P",
-        "showProjectOverviewTabShortcut": "O",
+        "fitViewShortcut": "F",
+        "focusCanvasShortcut": "Ctrl + Shift + 3",
         "focusHeaderShortcut": "Ctrl + Shift + 1",
         "focusOverviewShortcut": "Ctrl + Shift + 2",
-        "focusCanvasShortcut": "Ctrl + Shift + 3",
         "focusUiEditorShortcut": "Ctrl + Shift + 4",
+        "formatCode": "Shift + Alt + F",
+        "freezeTooltipShortcut": "Q + F",
+        "frozenTooltipCopyShortcut": "C",
+        "frozenTooltipDecrementShortcut": "ArrowLeft",
+        "frozenTooltipIncrementShortcut": "ArrowRight",
+        "frozenTooltipToMarkdownShortcut": "W",
+        "frozenTooltipToPlaintextShortcut": "S",
+        "groupShortcut": "Mod + G",
+        "incrementTooltipPageShortcut": "Q + ArrowRight",
+        "loadShortcut": "Mod + L",
+        "movingFreeShortcut": "Alt",
+        "multiSelectionKeyCode": "Mod",
+        "newCardShortcut": "N",
+        "newGroupShortcut": "G",
+        "newProjectConfigShortcut": "",
+        "newTerminalShortcut": "Ctrl + `",
         "nextTopLevelSectionShortcut": "Alt + J",
+        "panActivationKeyCode": "Space",
+        "paramIndentShortcut": "Tab",
+        "paramMoveDownShortcut": "Alt + ArrowDown",
+        "paramMoveUpShortcut": "Alt + ArrowUp",
+        "paramSelect": "Mod + Shift",
+        "paramUnindentShortcut": "Shift + Tab",
+        "pasteAsRefShortcut": "Mod + Shift + V",
+        "pasteShortcut": "Mod + V",
         "prevTopLevelSectionShortcut": "Alt + K",
+        "redoShortcut": "Mod + Shift + Z",
+        "resetZoomShortcut": "Mod + Comma",
+        "restartLanguageServerShortcut": "Alt + Shift + R",
         "runCodeShortcut": "Mod + Enter",
         "runEntryCodeBlockShortcut": "Mod + Shift + Enter",
-        "paramSelect": "Mod + Shift",
-        "paramIndentShortcut": "Tab",
-        "paramUnindentShortcut": "Shift + Tab",
-        "paramMoveUpShortcut": "Alt + ArrowUp",
-        "paramMoveDownShortcut": "Alt + ArrowDown",
-        "formatCode": "Shift + Alt + F",
+        "saveAsShortcut": "Mod + Shift + S",
+        "saveShortcut": "Mod + S",
+        "searchShortcut": "Mod + K",
+        "selectAll": "Mod + A",
+        "selectTopLevelNonGroupSections": "Mod + Shift + A",
         "selectionKeyCode": "Shift",
-        "multiSelectionKeyCode": "Mod",
-        "panActivationKeyCode": "Space",
+        "showParamUITypeTabShortcut": "P",
+        "showProjectOverviewTabShortcut": "O",
+        "showTooltipShortcut": "Q",
+        "showVersionsTabShortcut": "V",
+        "sortingShortcut": "Mod + Alt",
+        "tooltipToMarkdownShortcut": "Q + W",
+        "tooltipToPlaintextShortcut": "Q + S",
+        "typeCheckShortcut": "",
+        "undoShortcut": "Mod + Z",
+        "ungroupShortcut": "Shift + Mod + G",
         "zoomActivationKeyCode": "Mod",
         "zoomInShortcut": "Equal",
         "zoomOutShortcut": "Minus",
-        "restartLanguageServerShortcut": "Alt + Shift + R"
+        "zoomToMouseShortcut": "Z"
       }
     },
     {
       "profile": "frontend",
       "type": "SettingsState",
       "value": {
-        "shortcuts": {
-          "newCardShortcut": "N",
-          "newGroupShortcut": "G",
-          "typeCheckShortcut": "",
-          "newProjectConfigShortcut": "",
-          "undoShortcut": "Mod + Z",
-          "redoShortcut": "Mod + Shift + Z",
-          "groupShortcut": "Mod + G",
-          "ungroupShortcut": "Shift + Mod + G",
-          "saveShortcut": "Mod + S",
-          "saveAsShortcut": "Mod + Shift + S",
-          "loadShortcut": "Mod + L",
-          "searchShortcut": "Mod + K",
-          "advancedSearchShortcut": "Mod + P",
-          "commandPaletteShortcut": "Mod + Shift + P",
-          "resetZoomShortcut": "Mod + Comma",
-          "copyShortcut": "Mod + C",
-          "pasteShortcut": "Mod + V",
-          "pasteAsRefShortcut": "Mod + Shift + V",
-          "sortingShortcut": "Mod + Alt",
-          "movingFreeShortcut": "Alt",
-          "showTooltipShortcut": "Q",
-          "tooltipToPlaintextShortcut": "Q + S",
-          "tooltipToMarkdownShortcut": "Q + W",
-          "freezeTooltipShortcut": "Q + F",
-          "frozenTooltipToPlaintextShortcut": "S",
-          "frozenTooltipToMarkdownShortcut": "W",
-          "incrementTooltipPageShortcut": "Q + ArrowRight",
-          "decrementTooltipPageShortcut": "Q + ArrowLeft",
-          "copyTooltipTextShortcut": "Q + C",
-          "frozenTooltipIncrementShortcut": "ArrowRight",
-          "frozenTooltipDecrementShortcut": "ArrowLeft",
-          "frozenTooltipCopyShortcut": "C",
-          "newTerminalShortcut": "Ctrl + `",
-          "fitViewShortcut": "F",
-          "zoomToMouseShortcut": "Z",
-          "deleteSectionShortcut": "Backspace",
-          "selectAll": "Mod + A",
-          "selectTopLevelNonGroupSections": "Mod + Shift + A",
-          "showVersionsTabShortcut": "V",
-          "showParamUITypeTabShortcut": "P",
-          "showProjectOverviewTabShortcut": "O",
-          "focusHeaderShortcut": "Ctrl + Shift + 1",
-          "focusOverviewShortcut": "Ctrl + Shift + 2",
-          "focusCanvasShortcut": "Ctrl + Shift + 3",
-          "focusUiEditorShortcut": "Ctrl + Shift + 4",
-          "nextTopLevelSectionShortcut": "Alt + J",
-          "prevTopLevelSectionShortcut": "Alt + K",
-          "runCodeShortcut": "Mod + Enter",
-          "runEntryCodeBlockShortcut": "Mod + Shift + Enter",
-          "paramSelect": "Mod + Shift",
-          "paramIndentShortcut": "Tab",
-          "paramUnindentShortcut": "Shift + Tab",
-          "paramMoveUpShortcut": "Alt + ArrowUp",
-          "paramMoveDownShortcut": "Alt + ArrowDown",
-          "formatCode": "Shift + Alt + F",
-          "selectionKeyCode": "Shift",
-          "multiSelectionKeyCode": "Mod",
-          "panActivationKeyCode": "Space",
-          "zoomActivationKeyCode": "Mod",
-          "zoomInShortcut": "Equal",
-          "zoomOutShortcut": "Minus",
-          "restartLanguageServerShortcut": "Alt + Shift + R"
+        "backend": {
+          "autoRefetchCallableParamsOnLspMismatch": true,
+          "autobackup": true,
+          "autobackupFreq": 300,
+          "autobackupKeepLastN": 10,
+          "autosave": true,
+          "clearTerminalBeforeMarkingAsReady": true,
+          "completionGuardEnabled": false,
+          "defaultTerminalShell": null,
+          "exportDbReadableOnSave": false,
+          "exportDbReadableWithVariantsOnSave": false,
+          "renameRefactorMode": "ALWAYS_ASK",
+          "runSnapshotMode": "ephemeral",
+          "saveRenderedValues": false,
+          "showDefaultConfigOnLoad": true
         },
         "gui": {
-          "snapGrid": [
-            15,
-            15
-          ],
-          "showGridLines": true,
-          "gridPattern": "dots",
-          "gridPatternSize": 2,
+          "defaultZoomLevel": 1,
           "gridColor": "#afbacf",
           "gridColorDarkMode": "#2b364a",
-          "wireColor": "#41506c",
-          "wireColorDarkMode": "#bac2d3",
-          "defaultZoomLevel": 1,
-          "minZoom": 0.1,
+          "gridPattern": "dots",
+          "gridPatternSize": 2,
+          "leftSidePaneShiftsMap": true,
           "maxZoom": 10,
+          "minZoom": 0.1,
           "panOnDrag": true,
           "panOnScroll": true,
-          "panOnScrollSpeed": 1,
           "panOnScrollMode": "free",
-          "zoomOnScroll": true,
-          "zoomOnPinch": true,
-          "zoomOnDoubleClick": false,
-          "selectionMode": "partial",
-          "leftSidePaneShiftsMap": true,
-          "transitionDuration": 50,
+          "panOnScrollSpeed": 1,
           "sectionTagColorChoices": [
             {
               "color": "#ef4444",
@@ -8239,179 +8247,202 @@
               "color": "#64748b",
               "description": "Slate"
             }
-          ]
+          ],
+          "selectionMode": "partial",
+          "showGridLines": true,
+          "snapGrid": [
+            15,
+            15
+          ],
+          "transitionDuration": 50,
+          "wireColor": "#41506c",
+          "wireColorDarkMode": "#bac2d3",
+          "zoomOnDoubleClick": false,
+          "zoomOnPinch": true,
+          "zoomOnScroll": true
         },
-        "backend": {
-          "showDefaultConfigOnLoad": true,
-          "autosave": true,
-          "autobackup": true,
-          "autobackupFreq": 300,
-          "autobackupKeepLastN": 10,
-          "clearTerminalBeforeMarkingAsReady": true,
-          "exportDbReadableOnSave": false,
-          "exportDbReadableWithVariantsOnSave": false,
-          "autoRefetchCallableParamsOnLspMismatch": true,
-          "renameRefactorMode": "ALWAYS_ASK",
-          "saveRenderedValues": false,
-          "runSnapshotMode": "ephemeral",
-          "completionGuardEnabled": false
+        "languageServer": {
+          "basedpyright": {
+            "analysis": {
+              "diagnosticSeverityOverrides": {
+                "reportSelfClsParameterName": "none",
+                "reportUnannotatedClassAttribute": "none",
+                "reportUnknownMemberType": "none",
+                "reportUnknownVariableType": "none"
+              }
+            }
+          }
         },
         "sectionSizingPolicy": {
           "byType": {
-            "Callable": {
-              "minHeight": 104,
+            "Browser": {
               "maxHeight": 100000,
-              "minWidth": 200,
               "maxWidth": 100000,
+              "minHeight": 250,
+              "minWidth": 200
+            },
+            "Callable": {
+              "hideParamsMinHeight": 90,
               "hideSearchMinHeight": 42,
-              "hideParamsMinHeight": 90
-            },
-            "Dict": {
-              "minHeight": 78,
               "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "ListRoot": {
-              "minHeight": 50,
-              "maxHeight": 50,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "Group": {
-              "minHeight": 0,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "StateMachineStart": {
-              "minHeight": 96,
-              "maxHeight": 100000,
-              "minWidth": 240,
-              "maxWidth": 100000
-            },
-            "StateMachineGate": {
-              "minHeight": 120,
-              "maxHeight": 100000,
-              "minWidth": 240,
-              "maxWidth": 100000
-            },
-            "StateMachineEnd": {
-              "minHeight": 96,
-              "maxHeight": 100000,
-              "minWidth": 240,
-              "maxWidth": 100000
-            },
-            "Image": {
-              "minHeight": 100,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
+              "maxWidth": 100000,
+              "minHeight": 104,
+              "minWidth": 200
             },
             "Chart": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
               "minHeight": 300,
-              "maxHeight": 100000,
-              "minWidth": 300,
-              "maxWidth": 100000
-            },
-            "Draw": {
-              "minHeight": 100,
-              "maxHeight": 100000,
-              "minWidth": 402,
-              "maxWidth": 100000
-            },
-            "Prompt": {
-              "minHeight": 150,
-              "maxHeight": 100000,
-              "minWidth": 300,
-              "maxWidth": 100000
-            },
-            "TextBlock": {
-              "minHeight": 49,
-              "maxHeight": 100000,
-              "minWidth": 100,
-              "maxWidth": 100000
-            },
-            "MetaControl": {
-              "minHeight": 10,
-              "maxHeight": 100000,
-              "minWidth": 100,
-              "maxWidth": 100000
-            },
-            "Social": {
-              "minHeight": 50,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "GlobalVariables": {
-              "minHeight": 78,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "Code": {
-              "minHeight": 58.2,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "GenPythonCode": {
-              "minHeight": 0,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "GenPythonMetadata": {
-              "minHeight": 0,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "Terminal": {
-              "minHeight": 100,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
-            },
-            "IFrame": {
-              "minHeight": 0,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
+              "minWidth": 300
             },
             "Chat": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
               "minHeight": 200,
-              "maxHeight": 100000,
-              "minWidth": 400,
-              "maxWidth": 100000
+              "minWidth": 400
             },
-            "Browser": {
-              "minHeight": 250,
+            "Code": {
               "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
+              "maxWidth": 100000,
+              "minHeight": 58.2,
+              "minWidth": 200
+            },
+            "Dict": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 78,
+              "minWidth": 200
+            },
+            "Draw": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 100,
+              "minWidth": 402
+            },
+            "GenPythonCode": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 0,
+              "minWidth": 200
+            },
+            "GenPythonMetadata": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 0,
+              "minWidth": 200
+            },
+            "GlobalVariables": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 78,
+              "minWidth": 200
+            },
+            "Group": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 0,
+              "minWidth": 200
+            },
+            "IFrame": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 0,
+              "minWidth": 200
+            },
+            "Image": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 100,
+              "minWidth": 200
+            },
+            "ListRoot": {
+              "maxHeight": 50,
+              "maxWidth": 100000,
+              "minHeight": 50,
+              "minWidth": 200
+            },
+            "MetaControl": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 10,
+              "minWidth": 100
             },
             "Plugin": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
               "minHeight": 80,
-              "maxHeight": 100000,
-              "minWidth": 200,
-              "maxWidth": 100000
+              "minWidth": 200
             },
-            "TaskBoard": {
-              "minHeight": 240,
+            "Prompt": {
               "maxHeight": 100000,
-              "minWidth": 360,
-              "maxWidth": 100000
+              "maxWidth": 100000,
+              "minHeight": 150,
+              "minWidth": 300
+            },
+            "Social": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 50,
+              "minWidth": 200
             },
             "Spreadsheet": {
-              "minHeight": 260,
               "maxHeight": 100000,
-              "minWidth": 420,
-              "maxWidth": 100000
+              "maxWidth": 100000,
+              "minHeight": 260,
+              "minWidth": 420
+            },
+            "StateMachineEnd": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 96,
+              "minWidth": 240
+            },
+            "StateMachineGate": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 120,
+              "minWidth": 240
+            },
+            "StateMachineStart": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 96,
+              "minWidth": 240
+            },
+            "TaskBoard": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 240,
+              "minWidth": 360
+            },
+            "Terminal": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 100,
+              "minWidth": 200
+            },
+            "TextBlock": {
+              "maxHeight": 100000,
+              "maxWidth": 100000,
+              "minHeight": 49,
+              "minWidth": 100
             }
           },
+          "globals": {
+            "autoMaxHeight": 350,
+            "infiniteMaxHeight": 100000,
+            "infiniteMaxWidth": 100000,
+            "minimizedHeight": 32,
+            "pinnedParamsAreaMinHeight": 64,
+            "unpinnedParamsAreaMinHeight": 36
+          },
           "metaControlByType": {
+            "ButtonParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
+            },
             "CodeCallable": {
               "minHeight": 32,
               "minWidth": 200,
@@ -8424,7 +8455,7 @@
               "sizeModeHeight": "any",
               "sizeModeWidth": "any"
             },
-            "TextParam": {
+            "ColorPickerParam": {
               "minHeight": 32,
               "minWidth": 200,
               "sizeModeHeight": "any",
@@ -8436,58 +8467,10 @@
               "sizeModeHeight": "any",
               "sizeModeWidth": "any"
             },
-            "TimeParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
-              "sizeModeWidth": "any"
-            },
-            "ButtonParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
-              "sizeModeWidth": "any"
-            },
-            "SliderParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "auto_only",
-              "sizeModeWidth": "any"
-            },
-            "RotaryParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
-              "sizeModeWidth": "any"
-            },
-            "SwitchParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
-              "sizeModeWidth": "any"
-            },
-            "ColorPickerParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
-              "sizeModeWidth": "any"
-            },
             "DropdownParam": {
               "minHeight": 32,
               "minWidth": 200,
               "sizeModeHeight": "auto_only",
-              "sizeModeWidth": "any"
-            },
-            "PasswordParam": {
-              "minHeight": 32,
-              "minWidth": 200,
-              "sizeModeHeight": "auto_only",
-              "sizeModeWidth": "any"
-            },
-            "TextAreaParam": {
-              "minHeight": 80,
-              "minWidth": 200,
-              "sizeModeHeight": "any",
               "sizeModeWidth": "any"
             },
             "DropzoneParam": {
@@ -8501,28 +8484,114 @@
               "minWidth": 200,
               "sizeModeHeight": "any",
               "sizeModeWidth": "any"
+            },
+            "PasswordParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "auto_only",
+              "sizeModeWidth": "any"
+            },
+            "RotaryParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
+            },
+            "SliderParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "auto_only",
+              "sizeModeWidth": "any"
+            },
+            "SwitchParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
+            },
+            "TextAreaParam": {
+              "minHeight": 80,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
+            },
+            "TextParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
+            },
+            "TimeParam": {
+              "minHeight": 32,
+              "minWidth": 200,
+              "sizeModeHeight": "any",
+              "sizeModeWidth": "any"
             }
-          },
-          "globals": {
-            "pinnedParamsAreaMinHeight": 64,
-            "unpinnedParamsAreaMinHeight": 36,
-            "minimizedHeight": 32,
-            "infiniteMaxHeight": 100000,
-            "infiniteMaxWidth": 100000,
-            "autoMaxHeight": 350
           }
         },
-        "languageServer": {
-          "basedpyright": {
-            "analysis": {
-              "diagnosticSeverityOverrides": {
-                "reportSelfClsParameterName": "none",
-                "reportUnannotatedClassAttribute": "none",
-                "reportUnknownMemberType": "none",
-                "reportUnknownVariableType": "none"
-              }
-            }
-          }
+        "shortcuts": {
+          "advancedSearchShortcut": "Mod + P",
+          "commandPaletteShortcut": "Mod + Shift + P",
+          "copyShortcut": "Mod + C",
+          "copyTooltipTextShortcut": "Q + C",
+          "decrementTooltipPageShortcut": "Q + ArrowLeft",
+          "deleteSectionShortcut": "Backspace",
+          "fitViewShortcut": "F",
+          "focusCanvasShortcut": "Ctrl + Shift + 3",
+          "focusHeaderShortcut": "Ctrl + Shift + 1",
+          "focusOverviewShortcut": "Ctrl + Shift + 2",
+          "focusUiEditorShortcut": "Ctrl + Shift + 4",
+          "formatCode": "Shift + Alt + F",
+          "freezeTooltipShortcut": "Q + F",
+          "frozenTooltipCopyShortcut": "C",
+          "frozenTooltipDecrementShortcut": "ArrowLeft",
+          "frozenTooltipIncrementShortcut": "ArrowRight",
+          "frozenTooltipToMarkdownShortcut": "W",
+          "frozenTooltipToPlaintextShortcut": "S",
+          "groupShortcut": "Mod + G",
+          "incrementTooltipPageShortcut": "Q + ArrowRight",
+          "loadShortcut": "Mod + L",
+          "movingFreeShortcut": "Alt",
+          "multiSelectionKeyCode": "Mod",
+          "newCardShortcut": "N",
+          "newGroupShortcut": "G",
+          "newProjectConfigShortcut": "",
+          "newTerminalShortcut": "Ctrl + `",
+          "nextTopLevelSectionShortcut": "Alt + J",
+          "panActivationKeyCode": "Space",
+          "paramIndentShortcut": "Tab",
+          "paramMoveDownShortcut": "Alt + ArrowDown",
+          "paramMoveUpShortcut": "Alt + ArrowUp",
+          "paramSelect": "Mod + Shift",
+          "paramUnindentShortcut": "Shift + Tab",
+          "pasteAsRefShortcut": "Mod + Shift + V",
+          "pasteShortcut": "Mod + V",
+          "prevTopLevelSectionShortcut": "Alt + K",
+          "redoShortcut": "Mod + Shift + Z",
+          "resetZoomShortcut": "Mod + Comma",
+          "restartLanguageServerShortcut": "Alt + Shift + R",
+          "runCodeShortcut": "Mod + Enter",
+          "runEntryCodeBlockShortcut": "Mod + Shift + Enter",
+          "saveAsShortcut": "Mod + Shift + S",
+          "saveShortcut": "Mod + S",
+          "searchShortcut": "Mod + K",
+          "selectAll": "Mod + A",
+          "selectTopLevelNonGroupSections": "Mod + Shift + A",
+          "selectionKeyCode": "Shift",
+          "showParamUITypeTabShortcut": "P",
+          "showProjectOverviewTabShortcut": "O",
+          "showTooltipShortcut": "Q",
+          "showVersionsTabShortcut": "V",
+          "sortingShortcut": "Mod + Alt",
+          "tooltipToMarkdownShortcut": "Q + W",
+          "tooltipToPlaintextShortcut": "Q + S",
+          "typeCheckShortcut": "",
+          "undoShortcut": "Mod + Z",
+          "ungroupShortcut": "Shift + Mod + G",
+          "zoomActivationKeyCode": "Mod",
+          "zoomInShortcut": "Equal",
+          "zoomOutShortcut": "Minus",
+          "zoomToMouseShortcut": "Z"
         }
       }
     },
@@ -8552,61 +8621,63 @@
       "profile": "frontend",
       "type": "SingleConfig",
       "value": {
-        "sections": {},
-        "sectionImpls": {},
-        "sectionCapabilities": {},
-        "sectionVariants": {},
-        "codeObjs": {},
+        "artifactGroups": {},
         "codeObjImpls": {},
         "codeObjVariants": {},
-        "projectConfig": {
-          "id": "",
-          "name": "",
-          "showParamDisplayNames": false,
-          "allowJsonSourceKeyEdits": false,
-          "viewport": null,
-          "viewportInitialized": false,
-          "viewModes": {},
-          "activeViewModeId": null,
-          "isEditingViewMode": false,
-          "hasPythonCodegenTarget": false,
-          "runCapabilities": {
-            "canRunFromMain": false,
-            "mainRunDisabledReason": null,
-            "effectiveEntrySectionId": null
-          },
-          "codegenTargets": [],
-          "watchCodeEnabled": false,
-          "watchCodeFolders": [],
-          "watchCodeFiles": [],
-          "watchCodeRegistry": {},
-          "watchCodeBaselineByPath": {},
-          "entryCodeBlockId": null,
-          "sectionPathSlugsById": {},
-          "sectionIdsByPathSlug": {},
-          "topLevelSections": {},
-          "windowSpaceSlugsById": {},
-          "windowSpaceIdsBySlug": {},
-          "windowSpaces": {},
-          "sectionVariantMap": {},
-          "activeIds": [],
-          "edges": [],
-          "agenticEdges": [],
-          "stateMachineEdges": []
-        },
-        "singletonSections": {
-          "GlobalVariables": null,
-          "GenPythonCode": null,
-          "GenPythonMetadata": null
-        },
-        "parentSectionMap": {},
-        "shownParamIds": {},
-        "requiredDecodedImages": [],
+        "codeObjs": {},
         "genCodeBinding": null,
+        "parentSectionMap": {},
         "projectChatWindowing": {
           "instancesById": {},
-          "order": [],
-          "nextInstanceNumber": 1
+          "nextInstanceNumber": 1,
+          "order": []
+        },
+        "projectConfig": {
+          "activeIds": [],
+          "activeViewModeId": null,
+          "agenticEdges": [],
+          "allowJsonSourceKeyEdits": false,
+          "codegenTargets": [],
+          "edges": [],
+          "entryCodeBlockId": null,
+          "hasPythonCodegenTarget": false,
+          "id": "",
+          "isEditingViewMode": false,
+          "name": "",
+          "previewImgColor": "",
+          "runCapabilities": {
+            "canRunFromMain": false,
+            "effectiveEntrySectionId": null,
+            "mainRunDisabledReason": null
+          },
+          "sectionIdsByPathSlug": {},
+          "sectionPathSlugsById": {},
+          "sectionVariantMap": {},
+          "showParamDisplayNames": false,
+          "stateMachineEdges": [],
+          "topLevelSections": {},
+          "viewModes": {},
+          "viewport": null,
+          "viewportInitialized": false,
+          "watchCodeBaselineByPath": {},
+          "watchCodeEnabled": false,
+          "watchCodeFiles": [],
+          "watchCodeFolders": [],
+          "watchCodeRegistry": {},
+          "windowSpaceIdsBySlug": {},
+          "windowSpaceSlugsById": {},
+          "windowSpaces": {}
+        },
+        "requiredDecodedImages": [],
+        "sectionCapabilities": {},
+        "sectionImpls": {},
+        "sectionVariants": {},
+        "sections": {},
+        "shownParamIds": {},
+        "singletonSections": {
+          "GenPythonCode": null,
+          "GenPythonMetadata": null,
+          "GlobalVariables": null
         }
       }
     },
@@ -8614,21 +8685,28 @@
       "profile": "frontend",
       "type": "SingletonSections",
       "value": {
-        "GlobalVariables": null,
         "GenPythonCode": null,
-        "GenPythonMetadata": null
+        "GenPythonMetadata": null,
+        "GlobalVariables": null
       }
     },
     {
       "profile": "frontend",
       "type": "StateMachineEdge",
       "value": {
+        "hidden": false,
         "id": "",
         "machineGroupId": "",
-        "sourceSectionId": "",
+        "selected": false,
+        "sourceActivationCountCondition": null,
+        "sourceFilter": null,
         "sourcePortId": "workflow-source",
+        "sourceSectionId": "",
+        "style": null,
+        "targetAction": null,
+        "targetPortId": "workflow-target",
         "targetSectionId": "",
-        "targetPortId": "workflow-target"
+        "zIndex": 0
       }
     },
     {
@@ -8650,6 +8728,9 @@
       "profile": "frontend",
       "type": "StateMachineSourceFilter",
       "value": {
+        "equals": null,
+        "payloadField": null,
+        "signalName": null,
         "type": "run_completed"
       }
     },
@@ -8657,28 +8738,37 @@
       "profile": "frontend",
       "type": "StateMachineTargetAction",
       "value": {
-        "type": "send_prompt",
-        "threadStrategy": "continue_current_thread"
+        "agentProfileId": null,
+        "engineConfigId": null,
+        "inlinePrompt": null,
+        "permissionMode": null,
+        "promptInputs": {},
+        "promptSectionId": null,
+        "promptTemplateId": null,
+        "searchEnabled": null,
+        "stopIfRunning": false,
+        "threadStrategy": "continue_current_thread",
+        "type": "send_prompt"
       }
     },
     {
       "profile": "frontend",
       "type": "SystemChatMessage",
       "value": {
-        "id": "",
-        "role": "system",
-        "createdAt": 0,
+        "attachments": [],
         "content": [],
-        "attachments": []
+        "createdAt": 0,
+        "id": "",
+        "role": "system"
       }
     },
     {
       "profile": "frontend",
       "type": "TaskBoardColumn",
       "value": {
+        "color": "#3b82f6",
         "id": "",
         "name": "",
-        "color": "#3b82f6",
         "sortIndex": 0
       }
     },
@@ -8686,60 +8776,65 @@
       "profile": "frontend",
       "type": "TaskBoardTask",
       "value": {
-        "id": "",
-        "title": "",
-        "description": "",
-        "completed": false,
         "columnId": null,
+        "completed": false,
+        "description": "",
         "dueDateIso": "",
+        "id": "",
         "recurrence": "none",
         "recurrenceDays": [],
         "recurrenceMonths": [],
         "recurrenceYears": [],
-        "sortIndex": 0
+        "sortIndex": 0,
+        "title": ""
       }
     },
     {
       "profile": "frontend",
       "type": "ToolCall",
       "value": {
-        "id": "",
-        "type": "function",
         "function": {
-          "name": "",
-          "arguments": {}
-        }
+          "arguments": {},
+          "name": ""
+        },
+        "id": "",
+        "type": "function"
       }
     },
     {
       "profile": "frontend",
       "type": "ToolCallFunction",
       "value": {
-        "name": "",
-        "arguments": {}
+        "arguments": {},
+        "name": ""
       }
     },
     {
       "profile": "frontend",
       "type": "ToolChatMessage",
       "value": {
-        "id": "",
-        "role": "tool",
-        "createdAt": 0,
-        "tool_call_id": "",
         "arguments": {},
-        "result": null,
+        "completed_at": null,
         "content": [],
+        "createdAt": 0,
+        "id": "",
         "is_error": false,
-        "started_at": "0001-01-01T00:00:00Z"
+        "result": null,
+        "role": "tool",
+        "started_at": "0001-01-01T00:00:00Z",
+        "tool_call_id": "",
+        "tool_name": null
       }
     },
     {
       "profile": "frontend",
       "type": "TopLevelSectionLayout",
       "value": {
+        "h": null,
+        "w": null,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "zIndex": 0
       }
     },
     {
@@ -8754,11 +8849,11 @@
       "profile": "frontend",
       "type": "UserChatMessage",
       "value": {
-        "id": "",
-        "role": "user",
-        "createdAt": 0,
+        "attachments": [],
         "content": [],
-        "attachments": []
+        "createdAt": 0,
+        "id": "",
+        "role": "user"
       }
     },
     {
@@ -8766,11 +8861,11 @@
       "type": "Variant",
       "value": {
         "id": "",
-        "name": "",
         "impl": "",
-        "nonPresetImpls": [],
+        "isFrozen": false,
         "modifier": {},
-        "isFrozen": false
+        "name": "",
+        "nonPresetImpls": []
       }
     },
     {
@@ -8778,8 +8873,14 @@
       "type": "ViewMode",
       "value": {
         "id": "",
+        "isTab": false,
+        "isUserFacing": false,
         "name": "",
-        "sortIndex": 0
+        "sortIndex": 0,
+        "topLevelSections": {},
+        "viewport": null,
+        "viewportInitialized": false,
+        "visibilityBySectionId": {}
       }
     },
     {
@@ -8795,30 +8896,38 @@
       "profile": "frontend",
       "type": "WindowSpaceConfig",
       "value": {
-        "windowsById": {},
-        "order": []
+        "id": "",
+        "name": "",
+        "order": [],
+        "sortIndex": 0,
+        "windowsById": {}
       }
     },
     {
       "profile": "frontend",
       "type": "WindowSpaceState",
       "value": {
-        "windowsById": {},
-        "order": []
+        "order": [],
+        "windowsById": {}
       }
     },
     {
       "profile": "frontend",
       "type": "WindowSpaceWindow",
       "value": {
-        "surfaceKind": "project_chat",
+        "chatId": null,
+        "embeddedGitPaneVisible": false,
         "mode": "project_ai_mode",
         "normalizedBounds": {
-          "x": 0,
-          "y": 0,
+          "height": 1,
           "width": 1,
-          "height": 1
-        }
+          "x": 0,
+          "y": 0
+        },
+        "sectionIdOrNull": null,
+        "surfaceKind": "project_chat",
+        "title": null,
+        "zIndex": 0
       }
     }
   ],
@@ -8827,16 +8936,16 @@
       "name": "BootstrapProtocol",
       "type": "BootstrapHandoffProtocol",
       "value": {
-        "workspaceHistoryStorageKey": "setta.workspaceHistoryHandoff",
-        "workspaceHistoryQueryParam": "__setta_workspace_history",
-        "workspaceHistoryHashParam": "wh",
-        "launcherOriginStorageKey": "setta.launcherOrigin",
+        "backendOriginOverrideQueryParam": "__setta_backend_origin",
         "launcherOriginHashParam": "lo",
         "launcherOriginProofHashParam": "lop",
-        "openWorkspaceSwitcherQueryParam": "__setta_open_workspace_switcher",
+        "launcherOriginStorageKey": "setta.launcherOrigin",
+        "maxValueLength": 8192,
         "openWorkspaceSwitcherHashParam": "osw",
-        "backendOriginOverrideQueryParam": "__setta_backend_origin",
-        "maxValueLength": 8192
+        "openWorkspaceSwitcherQueryParam": "__setta_open_workspace_switcher",
+        "workspaceHistoryHashParam": "wh",
+        "workspaceHistoryQueryParam": "__setta_workspace_history",
+        "workspaceHistoryStorageKey": "setta.workspaceHistoryHandoff"
       }
     },
     {
@@ -8872,14 +8981,14 @@
       "name": "DefaultAppPolicy",
       "type": "Policy",
       "value": {
-        "allowParamChanges": true,
-        "allowVariantChanges": false,
-        "allowLayoutChanges": false,
-        "allowRun": true,
-        "allowLLM": false,
         "allowExternalLinks": false,
         "allowFileDownloads": false,
+        "allowLLM": false,
+        "allowLayoutChanges": false,
         "allowMultipleRuns": true,
+        "allowParamChanges": true,
+        "allowRun": true,
+        "allowVariantChanges": false,
         "runSnapshotMode": "ephemeral"
       }
     },
@@ -8916,49 +9025,7 @@
           "home",
           "settings"
         ],
-        "pythonKeywords": [
-          "False",
-          "None",
-          "True",
-          "and",
-          "as",
-          "assert",
-          "async",
-          "await",
-          "break",
-          "case",
-          "class",
-          "continue",
-          "def",
-          "del",
-          "elif",
-          "else",
-          "except",
-          "finally",
-          "for",
-          "from",
-          "global",
-          "if",
-          "import",
-          "in",
-          "is",
-          "lambda",
-          "match",
-          "nonlocal",
-          "not",
-          "or",
-          "pass",
-          "raise",
-          "return",
-          "try",
-          "type",
-          "while",
-          "with",
-          "yield"
-        ],
-        "simpleNameAllowedChars": [
-          " ",
-          "-",
+        "pythonIdentifierContinueChars": [
           "0",
           "1",
           "2",
@@ -9078,7 +9145,49 @@
           "y",
           "z"
         ],
-        "pythonIdentifierContinueChars": [
+        "pythonKeywords": [
+          "False",
+          "None",
+          "True",
+          "and",
+          "as",
+          "assert",
+          "async",
+          "await",
+          "break",
+          "case",
+          "class",
+          "continue",
+          "def",
+          "del",
+          "elif",
+          "else",
+          "except",
+          "finally",
+          "for",
+          "from",
+          "global",
+          "if",
+          "import",
+          "in",
+          "is",
+          "lambda",
+          "match",
+          "nonlocal",
+          "not",
+          "or",
+          "pass",
+          "raise",
+          "return",
+          "try",
+          "type",
+          "while",
+          "with",
+          "yield"
+        ],
+        "simpleNameAllowedChars": [
+          " ",
+          "-",
           "0",
           "1",
           "2",
@@ -9278,9 +9387,9 @@
       "name": "ToolNameNormalizationConfig",
       "type": "ToolNameNormalization",
       "value": {
-        "singlePrefix": "setta_",
+        "askUserQuestionToolName": "AskUserQuestion",
         "doublePrefix": "setta__",
-        "askUserQuestionToolName": "AskUserQuestion"
+        "singlePrefix": "setta_"
       }
     },
     {
@@ -9288,50 +9397,50 @@
       "type": "TransportRoutes",
       "value": {
         "apiPrefix": "/api",
-        "root": {
-          "bootstrapPage": "/__setta__/bootstrap",
-          "toolsCall": "/__setta__/tools/call"
-        },
         "binary": {
-          "upload": "/binary/upload",
-          "download": "/binary/{contentId}"
-        },
-        "websocket": {
-          "frontend": "/ws/frontend",
-          "listenerById": "/ws/listeners/{listenerID}",
-          "terminalBySection": "/ws/terminals/{projectID}/{sectionID}"
-        },
-        "serverModeBoundary": {
-          "launch": "/launch",
-          "createWorkspaceLaunchIntent": "/createWorkspaceLaunchIntent",
-          "getSettaHomeInfo": "/settaHomeInfo",
-          "getLauncherRecentWorkspaces": "/launcherRecentWorkspaces",
-          "addLauncherRecentWorkspace": "/addLauncherRecentWorkspace",
-          "removeLauncherRecentWorkspace": "/removeLauncherRecentWorkspace",
-          "pinLauncherRecentWorkspace": "/pinLauncherRecentWorkspace",
-          "getLauncherFilesystemRoots": "/launcherFilesystemRoots",
-          "listLauncherDirectory": "/listLauncherDirectory",
-          "openLauncherWorkspace": "/openLauncherWorkspace"
-        },
-        "status": {
-          "getSettaHomeInfo": "/settaHomeInfo",
-          "revealPathInOsFileExplorer": "/revealPathInOsFileExplorer"
-        },
-        "launcherManagement": {
-          "getLauncherStatus": "/launcherStatus",
-          "repairLauncher": "/repairLauncher",
-          "updateLauncher": "/updateLauncher",
-          "removeLauncher": "/removeLauncher"
+          "download": "/binary/{contentId}",
+          "upload": "/binary/upload"
         },
         "fileBrowser": {
           "getFileBrowserRoot": "/getFileBrowserRoot",
           "getFolderContents": "/getFolderContents",
           "writeFileBrowserContent": "/writeFileBrowserFileContent"
         },
+        "launcherManagement": {
+          "getLauncherStatus": "/launcherStatus",
+          "removeLauncher": "/removeLauncher",
+          "repairLauncher": "/repairLauncher",
+          "updateLauncher": "/updateLauncher"
+        },
+        "root": {
+          "bootstrapPage": "/__setta__/bootstrap",
+          "toolsCall": "/__setta__/tools/call"
+        },
+        "serverModeBoundary": {
+          "addLauncherRecentWorkspace": "/addLauncherRecentWorkspace",
+          "createWorkspaceLaunchIntent": "/createWorkspaceLaunchIntent",
+          "getLauncherFilesystemRoots": "/launcherFilesystemRoots",
+          "getLauncherRecentWorkspaces": "/launcherRecentWorkspaces",
+          "getSettaHomeInfo": "/settaHomeInfo",
+          "launch": "/launch",
+          "listLauncherDirectory": "/listLauncherDirectory",
+          "openLauncherWorkspace": "/openLauncherWorkspace",
+          "pinLauncherRecentWorkspace": "/pinLauncherRecentWorkspace",
+          "removeLauncherRecentWorkspace": "/removeLauncherRecentWorkspace"
+        },
         "settaApiPresets": {
           "createTopLevelSection": "/createTopLevelSection",
           "getLatestProjectState": "/getLatestProjectState",
           "saveProject": "/saveProject"
+        },
+        "status": {
+          "getSettaHomeInfo": "/settaHomeInfo",
+          "revealPathInOsFileExplorer": "/revealPathInOsFileExplorer"
+        },
+        "websocket": {
+          "frontend": "/ws/frontend",
+          "listenerById": "/ws/listeners/{listenerID}",
+          "terminalBySection": "/ws/terminals/{projectID}/{sectionID}"
         }
       }
     }
@@ -9456,16 +9565,16 @@
       ],
       "defaultValuesByDiscriminator": {
         "CodeParam": {
-          "type": "CodeParam",
-          "id": "",
-          "name": "",
-          "description": "",
-          "isPreset": false,
-          "coreNameType": "TEXT",
           "coreNameEditable": false,
-          "passingStyle": "DEFAULT",
-          "typeAnnotation": "",
+          "coreNameType": "TEXT",
           "defaultVal": "",
+          "description": "",
+          "id": "",
+          "isPreset": false,
+          "name": "",
+          "passingStyle": "DEFAULT",
+          "type": "CodeParam",
+          "typeAnnotation": "",
           "value": ""
         }
       }
@@ -9578,405 +9687,418 @@
       ],
       "defaultValuesByDiscriminator": {
         "Browser": {
-          "type": "Browser",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 720,
-            "height": 460
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
+          "columnWidth": null,
           "folder": "",
           "hideColumn": false,
-          "viewMode": "list",
-          "savedSearches": []
-        },
-        "Callable": {
-          "type": "Callable",
           "id": "",
-          "name": "",
           "isFrozen": false,
           "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "savedSearches": [],
           "size": {
-            "width": 250,
-            "height": 150
+            "height": 460,
+            "width": 720
           },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Browser",
+          "typesColumnWidth": null,
+          "viewMode": "list"
+        },
+        "Callable": {
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
+          "callable": null,
           "codeObjVariantMap": {},
-          "hideUnpinnedParams": false,
-          "paramFilter": "",
           "columnWidth": null,
           "configLanguage": "python",
-          "pinnedParams": [],
-          "selectedParams": [],
+          "edgeInputParams": [],
+          "edgeOutputPorts": [],
+          "hideParams": false,
+          "hideUnpinnedParams": false,
+          "id": "",
           "ignoreTypeErrors": {
             "callable": false,
             "params": {}
           },
-          "edgeInputParams": [],
-          "edgeOutputPorts": [],
-          "hideParams": false
-        },
-        "Chart": {
-          "type": "Chart",
-          "id": "",
-          "name": "",
           "isFrozen": false,
           "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "paramFilter": "",
+          "pinnedParams": [],
+          "positionAndSizeLocked": false,
+          "selectedParams": [],
           "size": {
-            "width": 300,
-            "height": 300
+            "height": 150,
+            "width": 250
           },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Callable"
+        },
+        "Chart": {
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
-          "dataPath": "",
           "chartSettings": {
             "secondYAxisColumns": [],
             "type": "line",
             "xAxisLog": false,
             "y1AxisLog": false,
             "y2AxisLog": false
-          }
+          },
+          "dataPath": "",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 300,
+            "width": 300
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Chart"
         },
         "Chat": {
-          "type": "Chat",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 400,
-            "height": 200
-          },
+          "activeBranchId": null,
+          "agentProfileId": null,
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
+          "branches": {},
+          "chatId": null,
+          "dictationMode": "auto",
+          "engineConfigId": null,
+          "id": "",
+          "inputText": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
           "isMinimized": false,
-          "positionAndSizeLocked": false,
           "isPreset": false,
           "managed": false,
-          "thinking": true,
-          "permissionMode": "minimal",
-          "searchEnabled": true,
-          "dictationMode": "auto",
           "messages": [],
-          "inputText": "",
-          "waitingForResponse": false,
+          "name": "",
+          "permissionMode": "minimal",
+          "positionAndSizeLocked": false,
+          "searchEnabled": true,
+          "size": {
+            "height": 200,
+            "width": 400
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "thinking": true,
           "toolCallArguments": {},
-          "activeBranchId": null,
-          "branches": {}
+          "transcriptionProfileId": null,
+          "type": "Chat",
+          "waitingForResponse": false
         },
         "Code": {
-          "type": "Code",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 500,
-            "height": 150
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
+          "attachedTerminalSectionId": null,
           "children": [],
           "code": "",
+          "codeFileBinding": null,
           "codeLanguage": "python",
           "diagnosticsIgnoreState": {
             "muted": false,
             "suppressedCodes": []
-          }
-        },
-        "Dict": {
-          "type": "Dict",
+          },
           "id": "",
-          "name": "",
           "isFrozen": false,
           "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
           "size": {
-            "width": 250,
-            "height": 150
+            "height": 150,
+            "width": 500
           },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Code"
+        },
+        "Dict": {
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
           "codeObjVariantMap": {},
-          "hideUnpinnedParams": false,
-          "paramFilter": "",
           "columnWidth": null,
           "configLanguage": "python",
-          "pinnedParams": [],
-          "selectedParams": [],
+          "edgeInputParams": [],
+          "edgeOutputPorts": [],
+          "hideUnpinnedParams": false,
+          "id": "",
           "ignoreTypeErrors": {
             "callable": false,
             "params": {}
           },
-          "edgeInputParams": [],
-          "edgeOutputPorts": [],
-          "topLevelParamId": null,
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
           "isJsonSource": false,
+          "isMinimized": false,
+          "isPreset": false,
           "jsonSourceKeys": [],
-          "jsonSourceMissing": false
+          "jsonSourceMissing": false,
+          "name": "",
+          "paramFilter": "",
+          "pinnedParams": [],
+          "positionAndSizeLocked": false,
+          "selectedParams": [],
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "topLevelParamId": null,
+          "type": "Dict"
         },
         "Group": {
-          "type": "Group",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 250,
-            "height": 150
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
-          "children": [],
-          "isHorizontalOrientation": false,
-          "overflowMode": false,
-          "defaultChildSectionType": "Callable"
-        },
-        "ListRoot": {
-          "type": "ListRoot",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 250,
-            "height": 150
-          },
-          "aspectRatio": false,
-          "aspectRatioExtraHeight": 0,
-          "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
           "children": [],
           "defaultChildSectionType": "Callable",
+          "id": "",
+          "isFrozen": false,
+          "isHorizontalOrientation": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "overflowMode": false,
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Group"
+        },
+        "ListRoot": {
+          "aspectRatio": false,
+          "aspectRatioExtraHeight": 0,
+          "aspectRatioExtraWidth": 0,
+          "children": [],
+          "defaultChildSectionType": "Callable",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "ListRoot",
           "viewMode": "default"
         },
         "Prompt": {
-          "type": "Prompt",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 300,
-            "height": 150
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
-          "template": "",
           "format": "Jinja",
+          "id": "",
           "inputs": {},
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "missingVariables": [],
+          "name": "",
+          "positionAndSizeLocked": false,
+          "promptTemplateId": null,
+          "renderError": null,
           "renderedText": "",
-          "missingVariables": []
+          "size": {
+            "height": 150,
+            "width": 300
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "template": "",
+          "type": "Prompt"
         },
         "Spreadsheet": {
-          "type": "Spreadsheet",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 760,
-            "height": 500
-          },
+          "activeSheet": null,
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
+          "autoReloadOnExternalChange": false,
+          "density": "compact",
           "filePath": "",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
           "readOnly": false,
           "showRowNumbers": true,
-          "density": "compact",
-          "autoReloadOnExternalChange": false
+          "size": {
+            "height": 500,
+            "width": 760
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Spreadsheet"
         },
         "StateMachineEnd": {
-          "type": "StateMachineEnd",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 240,
-            "height": 96
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
           "isMinimized": false,
-          "positionAndSizeLocked": false,
           "isPreset": false,
+          "label": "End",
           "machineGroupId": "",
-          "label": "End"
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 96,
+            "width": 240
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "StateMachineEnd"
         },
         "StateMachineGate": {
-          "type": "StateMachineGate",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 240,
-            "height": 120
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
-          "machineGroupId": "",
           "gateType": "AND",
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
           "label": "",
+          "machineGroupId": "",
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 120,
+            "width": 240
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "StateMachineGate",
           "ui": {
             "showDetails": false
           }
         },
         "StateMachineStart": {
-          "type": "StateMachineStart",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 240,
-            "height": 96
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
           "isMinimized": false,
-          "positionAndSizeLocked": false,
           "isPreset": false,
+          "label": "Start",
           "machineGroupId": "",
-          "label": "Start"
+          "maxIterations": null,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 96,
+            "width": 240
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "StateMachineStart"
         },
         "TaskBoard": {
-          "type": "TaskBoard",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 720,
-            "height": 430
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
-          "viewMode": "kanban",
           "columns": [],
-          "tasks": []
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 430,
+            "width": 720
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "tasks": [],
+          "type": "TaskBoard",
+          "viewMode": "kanban"
         },
         "Terminal": {
-          "type": "Terminal",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 250,
-            "height": 150
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
           "isMinimized": false,
+          "isPreset": false,
+          "name": "",
           "positionAndSizeLocked": false,
-          "isPreset": false
+          "size": {
+            "height": 150,
+            "width": 250
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "type": "Terminal"
         },
         "TextBlock": {
-          "type": "TextBlock",
-          "id": "",
-          "name": "",
-          "isFrozen": false,
-          "isInOtherProjectConfigs": false,
-          "tagColor": null,
-          "styleColor": null,
-          "size": {
-            "width": 500,
-            "height": 150
-          },
           "aspectRatio": false,
           "aspectRatioExtraHeight": 0,
           "aspectRatioExtraWidth": 0,
-          "isMinimized": false,
-          "positionAndSizeLocked": false,
-          "isPreset": false,
           "format": "Plaintext",
-          "masterFontSizePx": 14,
           "headingAsSectionName": false,
+          "id": "",
+          "isFrozen": false,
+          "isInOtherProjectConfigs": false,
+          "isMinimized": false,
+          "isPreset": false,
+          "masterFontSizePx": 14,
           "metaControlStyle": false,
+          "name": "",
+          "positionAndSizeLocked": false,
+          "size": {
+            "height": 150,
+            "width": 500
+          },
+          "styleColor": null,
+          "tagColor": null,
+          "text": "",
           "textDisplayMode": "Render",
-          "text": ""
+          "type": "TextBlock"
         }
       }
     }

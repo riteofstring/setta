@@ -61,7 +61,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
 			os.Exit(1)
 		}
-		if err := writeJSON(*sidecarOutputPath, sidecar); err != nil {
+		jsonReadySidecar, err := sharedtypes.NormalizeSemanticSidecarForJSON(sidecar)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
+			os.Exit(1)
+		}
+		if err := writeJSON(*sidecarOutputPath, jsonReadySidecar); err != nil {
 			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
 			os.Exit(1)
 		}
