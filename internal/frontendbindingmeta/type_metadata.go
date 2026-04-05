@@ -17,15 +17,9 @@ func LookupProvider[P any](t reflect.Type) (P, bool) {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	if t == nil || t.PkgPath() == "" {
+	if t == nil || t.PkgPath() == "" || t.Kind() == reflect.Interface {
 		return zero, false
 	}
-	if provider, ok := reflect.Zero(t).Interface().(P); ok {
-		return provider, true
-	}
-	if t.Kind() == reflect.Interface {
-		return zero, false
-	}
-	provider, ok := reflect.New(t).Interface().(P)
+	provider, ok := reflect.Zero(t).Interface().(P)
 	return provider, ok
 }

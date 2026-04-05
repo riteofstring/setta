@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"setta/internal/agentruns"
+	"setta/internal/artifacts"
 	"setta/internal/frontendbindingmeta"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -190,6 +191,43 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	}
 	if !strings.Contains(declaration.FunctionBody, "createSectionSize(") {
 		t.Fatalf("createChatSectionImpl should reuse nested create helpers:\n%s", declaration.FunctionBody)
+	}
+}
+
+func TestTypeScriptExprProvidersGenerateAliasDeclarations(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	typ := reflect.TypeOf(artifacts.ChartDataValue{})
+	if err := converter.ensureDeclaration(typ); err != nil {
+		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	}
+
+	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
+	if declaration.Kind != "alias" {
+		t.Fatalf("%s kind = %q, want %q", declaration.Name, declaration.Kind, "alias")
+	}
+	if declaration.Alias != "Record<string, Array<string | number>>" {
+		t.Fatalf("%s alias = %q, want %q", declaration.Name, declaration.Alias, "Record<string, Array<string | number>>")
+	}
+}
+
+func TestUnionTypeProvidersGenerateAliasDeclarations(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	typ := reflect.TypeOf(projectview.ProjectCodegenTarget{})
+	if err := converter.ensureDeclaration(typ); err != nil {
+		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	}
+
+	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
+	if declaration.Kind != "alias" {
+		t.Fatalf("%s kind = %q, want %q", declaration.Name, declaration.Kind, "alias")
+	}
+	wantAlias := "ProjectCodegenPythonTarget\n  | ProjectCodegenPluginTarget"
+	if declaration.Alias != wantAlias {
+		t.Fatalf("%s alias = %q, want %q", declaration.Name, declaration.Alias, wantAlias)
 	}
 }
 
