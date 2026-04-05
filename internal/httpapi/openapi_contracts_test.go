@@ -1071,6 +1071,35 @@ func TestRegisterProjectRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *tes
 	}
 }
 
+func TestRegisterLauncherManagementRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *testing.T) {
+	document := newOpenAPIDocument()
+	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+
+	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		DefaultSettaHome:    "/setta-home",
+		openAPIDocumentOnly: true,
+	}); err != nil {
+		t.Fatalf("register launcher management routes for openapi document: %v", err)
+	}
+
+	getLauncherStatus := document.Paths[RouteGetLauncherStatus].Get
+	if getLauncherStatus == nil {
+		t.Fatalf("expected %s get operation", RouteGetLauncherStatus)
+	}
+	if getLauncherStatus.OperationID != "getLauncherStatus" {
+		t.Fatalf("get launcher status operation id = %q, want %q", getLauncherStatus.OperationID, "getLauncherStatus")
+	}
+
+	updateLauncher := document.Paths[RouteUpdateLauncher].Post
+	if updateLauncher == nil {
+		t.Fatalf("expected %s post operation", RouteUpdateLauncher)
+	}
+	if updateLauncher.OperationID != "updateLauncher" {
+		t.Fatalf("update launcher operation id = %q, want %q", updateLauncher.OperationID, "updateLauncher")
+	}
+}
+
 func assertOpenAPIOperationID(
 	t *testing.T,
 	paths map[string]any,

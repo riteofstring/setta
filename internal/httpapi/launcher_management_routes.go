@@ -22,9 +22,10 @@ const RouteRemoveLauncher = "/removeLauncher"
 const RouteUpdateLauncher = "/updateLauncher"
 
 type LauncherManagementRouteDependencies struct {
-	ModePolicy       modes.Policy
-	DefaultSettaHome string
-	Manager          *launcher.ManagementService
+	ModePolicy          modes.Policy
+	DefaultSettaHome    string
+	Manager             *launcher.ManagementService
+	openAPIDocumentOnly bool
 }
 
 type LauncherOperationErrorPayload struct {
@@ -114,7 +115,7 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 	if strings.TrimSpace(deps.DefaultSettaHome) == "" {
 		return fmt.Errorf("default setta home is required in ide mode")
 	}
-	if deps.Manager == nil {
+	if deps.Manager == nil && !deps.openAPIDocumentOnly {
 		return fmt.Errorf("launcher management service is required in ide mode")
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
@@ -77,21 +76,6 @@ func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pytho
 	}
 }
 
-func newFrontendHTTPOpenAPILauncherManagementService() (*launcher.ManagementService, error) {
-	executablePath, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("resolve current executable: %w", err)
-	}
-	service, err := launcher.NewManagementService(launcher.ManagementServiceOptions{
-		ExecutablePath: executablePath,
-		Version:        "dev-openapi",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create launcher management service: %w", err)
-	}
-	return service, nil
-}
-
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -130,10 +114,6 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
-	launcherManagement, err := newFrontendHTTPOpenAPILauncherManagementService()
-	if err != nil {
-		return nil, fmt.Errorf("create launcher management service: %w", err)
-	}
 	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
 	registerCoreRuntimeOpenAPIRoutes(router, frontendHTTPOpenAPIInfoService{})
 	if err := RegisterStatusRoutes(router, StatusRouteDependencies{
@@ -345,9 +325,9 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		return nil, fmt.Errorf("register ai routes: %w", err)
 	}
 	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
-		ModePolicy:       modes.NewPolicy(config.ModeIDE),
-		DefaultSettaHome: "/setta-home",
-		Manager:          launcherManagement,
+		ModePolicy:          modes.NewPolicy(config.ModeIDE),
+		DefaultSettaHome:    "/setta-home",
+		openAPIDocumentOnly: true,
 	}); err != nil {
 		return nil, fmt.Errorf("register launcher management routes: %w", err)
 	}
