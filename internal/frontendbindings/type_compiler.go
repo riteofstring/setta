@@ -109,7 +109,7 @@ func frontendBindingTypeName(t reflect.Type) string {
 
 func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {
 	typeName := frontendBindingTypeName(t)
-	propertySpecs, err := c.structPropertySpecs(t, nil, nil, nil)
+	propertySpecs, err := c.structPropertySpecs(t)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -399,18 +399,12 @@ func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 
 func (c *typeConverter) structPropertySpecs(
 	t reflect.Type,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
 ) ([]reflectedStructProperty, error) {
-	return c.structPropertySpecsWithFieldIndex(t, typeExprOverrides, optionalOverrides, ignoredProperties, nil)
+	return c.structPropertySpecsWithFieldIndex(t, nil)
 }
 
 func (c *typeConverter) structPropertySpecsWithFieldIndex(
 	t reflect.Type,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
 	fieldIndexPrefix []int,
 ) ([]reflectedStructProperty, error) {
 	properties := make([]reflectedStructProperty, 0, t.NumField())
@@ -421,9 +415,6 @@ func (c *typeConverter) structPropertySpecsWithFieldIndex(
 			t,
 			field,
 			fieldIndex,
-			typeExprOverrides,
-			optionalOverrides,
-			ignoredProperties,
 		)
 		if err != nil {
 			return nil, err
@@ -437,9 +428,6 @@ func (c *typeConverter) structPropertySpecsForField(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	fieldIndex []int,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
 ) ([]reflectedStructProperty, error) {
 	if !field.IsExported() {
 		return nil, nil
@@ -449,18 +437,12 @@ func (c *typeConverter) structPropertySpecsForField(
 			ownerType,
 			field,
 			fieldIndex,
-			typeExprOverrides,
-			optionalOverrides,
-			ignoredProperties,
 		)
 	}
 	property, ok, err := c.namedStructPropertySpec(
 		ownerType,
 		field,
 		fieldIndex,
-		typeExprOverrides,
-		optionalOverrides,
-		ignoredProperties,
 	)
 	if err != nil || !ok {
 		return nil, err
@@ -472,9 +454,6 @@ func (c *typeConverter) embeddedStructPropertySpecs(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	fieldIndex []int,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
 ) ([]reflectedStructProperty, error) {
 	embeddedType := field.Type
 	for embeddedType.Kind() == reflect.Pointer {
@@ -490,9 +469,6 @@ func (c *typeConverter) embeddedStructPropertySpecs(
 	}
 	return c.structPropertySpecsWithFieldIndex(
 		embeddedType,
-		typeExprOverrides,
-		optionalOverrides,
-		ignoredProperties,
 		fieldIndex,
 	)
 }
@@ -501,9 +477,6 @@ func (c *typeConverter) namedStructPropertySpec(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	fieldIndex []int,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
 ) (reflectedStructProperty, bool, error) {
 	name, optional, skip := jsonFieldName(field)
 	if skip {
@@ -513,11 +486,13 @@ func (c *typeConverter) namedStructPropertySpec(
 	if err != nil {
 		return reflectedStructProperty{}, false, fmt.Errorf("%s.%s: %w", ownerType.Name(), field.Name, err)
 	}
-	if tsMetadata.Skip || ignoredStructProperty(name, ignoredProperties) {
+	if tsMetadata.Skip {
 		return reflectedStructProperty{}, false, nil
 	}
-	optional = resolvedStructPropertyOptional(name, optional, tsMetadata, optionalOverrides)
-	typeExpr := resolvedStructPropertyTypeExpr(name, tsMetadata, typeExprOverrides)
+	if tsMetadata.Optional != nil {
+		optional = *tsMetadata.Optional
+	}
+	typeExpr := strings.TrimSpace(tsMetadata.TypeExpr)
 	fieldType, nullable := unwrapNullableFieldType(field.Type)
 	createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
 	mapValueCreateTargetTypeName, err := resolvedMapValueCreateTargetTypeName(
@@ -542,46 +517,6 @@ func (c *typeConverter) namedStructPropertySpec(
 		CreateTargetTypeName:         createTargetTypeName,
 		MapValueCreateTargetTypeName: mapValueCreateTargetTypeName,
 	}, true, nil
-}
-
-func ignoredStructProperty(name string, ignoredProperties map[string]struct{}) bool {
-	if ignoredProperties == nil {
-		return false
-	}
-	_, ignored := ignoredProperties[name]
-	return ignored
-}
-
-func resolvedStructPropertyOptional(
-	name string,
-	optional bool,
-	tsMetadata tsFieldMetadataSpec,
-	optionalOverrides map[string]bool,
-) bool {
-	if optionalOverrides != nil {
-		if override, ok := optionalOverrides[name]; ok {
-			optional = override
-		}
-	}
-	if tsMetadata.Optional != nil {
-		optional = *tsMetadata.Optional
-	}
-	return optional
-}
-
-func resolvedStructPropertyTypeExpr(
-	name string,
-	tsMetadata tsFieldMetadataSpec,
-	typeExprOverrides map[string]string,
-) string {
-	typeExpr := strings.TrimSpace(tsMetadata.TypeExpr)
-	if typeExprOverrides == nil {
-		return typeExpr
-	}
-	if override := strings.TrimSpace(typeExprOverrides[name]); override != "" {
-		return override
-	}
-	return typeExpr
 }
 
 func resolvedMapValueCreateTargetTypeName(

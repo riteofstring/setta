@@ -274,7 +274,7 @@ func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *t
 	t.Parallel()
 
 	converter := newTypeConverter()
-	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testOmitEmptyDefaults{}), nil, nil, nil)
+	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testOmitEmptyDefaults{}))
 	if err != nil {
 		t.Fatalf("structPropertySpecs(testOmitEmptyDefaults): %v", err)
 	}
@@ -300,7 +300,7 @@ func TestBuildGoBackedCreateBodyTSRestoresNestedOmitEmptyDefaults(t *testing.T) 
 	t.Parallel()
 
 	converter := newTypeConverter()
-	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testNestedOmitEmptyDefaults{}), nil, nil, nil)
+	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testNestedOmitEmptyDefaults{}))
 	if err != nil {
 		t.Fatalf("structPropertySpecs(testNestedOmitEmptyDefaults): %v", err)
 	}
