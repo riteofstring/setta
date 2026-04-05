@@ -6116,3 +6116,39 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - do not spend the next iteration on another section-by-section replay of the same motion/editing shape; pick the next genuinely new renderer-facing Gate 1 / Gate 2 question or return `REPLAN_REQUIRED` if the only remaining options are more probe churn
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 169
+
+- Item: Recheck the broader shared title-edit-after-pan-and-zoom lane on the current run-029 surfaces and decide whether the loop still has a concrete renderer frontier or has reached replan-only territory.
+- Status: `replan_required`
+- Details:
+  - Why this slice was necessary:
+    - item `168` explicitly said the next pass had to choose a genuinely new renderer-facing Gate 1 / Gate 2 question or stop for replan instead of reopening another section-by-section parity lane
+    - the existing `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` lane was already deterministic and broader than the recent section-specific motion/editing closures, so it was the narrowest remaining live check that could still expose a current renderer defect without adding harness code
+    - if this broader lane stayed clean on the current run-029 surfaces, the remaining obvious next steps would be more probe churn rather than a newly isolated product bug
+  - Production/test change:
+    - none; this slice intentionally reused the existing broad pan+zoom title-edit probe and paired it with the required fresh-context CDP check
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the current run-029 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle still sees the shared title-edit lane survive normalized pan plus toolbar zoom without breaking editability
+    - the fresh-context CDP sub-agent confirmed the same broad lane without surfacing renderer drift:
+      - used the live `http://127.0.0.1:3076/settings` worktree tab and `http://127.0.0.1:3087/settings` read-only `main` tab
+      - ignored stale `__setta__/bootstrap` tabs as oracle noise
+      - closed extra worktree chat chrome and ignored the read-only `main` worktree label plus an `Autosaved!` toast as non-target UI noise
+      - after normalization, one toolbar `zoom in`, and one small pan, the shared title/body region stayed visually contiguous on both sides with no detached header/body stack or broken post-motion alignment
+    - because this broader motion/editing lane is still clean on the current live runtimes, the loop no longer has an obvious bounded renderer defect under the current Gate 1 / Gate 2 plan sequence; continuing now would mean more probe churn rather than a concrete product frontier
+- Verification:
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-029 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<run-029 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `44.2s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - verified the live worktree canary at `3076/settings` and the live read-only `main` legacy tab at `3087/settings`
+  - CDP visual check:
+    - result: done
+    - note: after normalization plus one toolbar zoom-in and one small pan, the shared title/body stack stayed visually contiguous on both sides; stale bootstrap tabs, worktree-label chrome, chat chrome, and the transient `Autosaved!` toast were treated as oracle noise
+- Lane status:
+  - keep the broad shared title-edit-after-pan-and-zoom lane closed on the current run-029 surfaces
+  - do not reopen this lane by default unless a future deterministic rerun or normalized CDP compare shows an actual post-motion title/body detachment or editability failure
+- Next action:
+  - stop for a real replan/human review; under the current Gate 1 / Gate 2 sequence, the remaining obvious next steps are more probe churn rather than a newly isolated renderer defect
+- LOOP_TERMINAL_MARKER: replan_required
