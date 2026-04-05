@@ -17,6 +17,7 @@ import type { SettingsGraphSubstrateCanarySectionDragController } from "./settin
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
+  resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect,
   shouldMountSettingsGraphSubstrateCanarySectionBody,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
@@ -139,6 +140,13 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     }
   }, [hoveredSectionId, onHoveredSectionChange, presentedSectionIds]);
 
+  const visibleViewportWorldRect = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport,
+      visibleViewportRect,
+    });
+  }, [viewport, visibleViewportRect]);
+
   const mountedSectionBodyIds = useMemo(() => {
     return new Set(
       resolvedPresentedSceneSections
@@ -148,6 +156,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
             section,
             viewport,
             visibleViewportRect,
+            visibleViewportWorldRect,
           }),
         )
         .map((section) => section.sectionId),
@@ -157,6 +166,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     resolvedPresentedSceneSections,
     viewport,
     visibleViewportRect,
+    visibleViewportWorldRect,
   ]);
 
   useEffect(() => {

@@ -11554,3 +11554,51 @@ LOOP_TERMINAL_MARKER: none
   - `presentedSceneSectionsResolve` is now the named remaining measured owner on the canonical motion burst; `pixiViewportPresent` stayed at `0`
   - the next bounded frontier is a real product slice reducing or further splitting `presentedSceneSectionsResolve`, not another verifier-only pass
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 08:27 EDT - Ralph item 303
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded product slice named in the handoff: reduce
+  `presentedSceneSectionsResolve` without reopening any closed React Flow,
+  persistence, host-size, or pointer-suppression lane.
+- Landed:
+  - world-space presented-section culling in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+    and
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+  - the canary now resolves one visible viewport world rect per pass and uses
+    that for:
+    - presented subset filtering
+    - section body mount threshold checks
+  - focused threshold coverage in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+  - perf note
+    `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - result: passed (`3 files`, `22 tests`)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - result: passed
+  - canonical cross-worktree perf probe on fresh `run-020` runtime-info-derived
+    bootstrap data:
+    - reached the Playwright banner / spec body
+    - then reproduced the known post-banner stall shape without printing a
+      verdict or timeout
+    - after it exceeded recent healthy runtimes by a wide margin, the orphaned
+      Playwright processes were terminated manually
+- CDP visual gate:
+  - fresh-context sub-agent completed the required smoke check
+  - worktree `3076` `/settings` rendered the Settings shell plus a small graph
+    node/card after the chat surface was closed; no spinner or blank shell was
+    present
+  - read-only `main` `3087` `/settings` rendered multiple settings node/cards
+    across the All Settings graph surface; no spinner or blank shell was
+    present
+- Result:
+  - the world-space culling reduction is landed and should remain in place
+  - the canonical probe is untrustworthy again on this runtime pair, so there
+    is still no fresh numeric verdict for whether the slice reduced
+    `presentedSceneSectionsResolve`
+  - the next bounded pass should restore one trustworthy automated verdict for
+    item `303` before opening another hotspot on the lane
+- LOOP_TERMINAL_MARKER: none

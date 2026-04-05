@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 08:05 EDT
+Last updated: 2026-04-08 08:27 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,36 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `303` completed one bounded product reduction on the named
+    `presentedSceneSectionsResolve` hotspot:
+    - landed world-space presented-section culling in
+      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+      and
+      [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx)
+      so the canary resolves one visible viewport world rect per pass instead
+      of projecting every section into screen space during presented subset /
+      body-mount culling
+    - focused coverage passed:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`3 files`, `22 tests`)
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx` -> passed
+    - the canonical cross-worktree probe became untrustworthy again on this
+      slice:
+      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - it reached the Playwright banner / spec body and then re-entered the
+        known post-banner stall shape without printing a verdict or timeout
+      - after it exceeded recent healthy runtimes by a wide margin, the orphaned
+        Playwright processes were terminated manually; treat this as verifier
+        debt on the lane, not as evidence that the new world-space culling
+        regressed renderer behavior
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling.md`
+    - required fresh CDP visual check completed via a fresh-context sub-agent:
+      - worktree `3076` `/settings` rendered the Settings shell and a small
+        graph node/card after the chat surface was closed; no spinner or blank
+        shell was present
+      - read-only `main` `3087` `/settings` rendered multiple settings
+        node/cards across the All Settings surface; no spinner or blank shell
+        was present
   - item `302` restored one fresh trustworthy automated verdict on the
     canonical `rotaryParamCodeObjDefault` lane after the item-`301`
     presentation-path attribution seam:
@@ -270,7 +300,7 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the last trustworthy numeric state is now item `302` on the live
+  - the last trustworthy numeric state is still item `302` on the live
     `rotaryParamCodeObjDefault` lane:
     - visible section count stayed `1`
     - root DOM stayed `135`
@@ -287,55 +317,57 @@ This section overrides older "next frontier" notes below when choosing the next 
     single-shot and low-cost:
     - `interactionMiscStateSync`
     - `interactionReactFlowStateSync`
-  - the next hotspot is no longer an unknown verifier gap on this lane; the
-    next product frontier is to reduce or further split
-    `presentedSceneSectionsResolve`
+  - item `303` landed a world-space reduction on that owner, but there is not
+    yet a fresh trustworthy numeric verdict saying whether the owner shrank or
+    whether a different residual owner replaced it
+  - the immediate next blocker is therefore verifier recovery on the same
+    canonical lane, not another blind product hypothesis on a different owner
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
   - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
   - the viewport-interaction pointer-suppression hypothesis is now closed unless a future trace explicitly shows hover/focus pointer churn dominating the lane
   - the `reactFlowViewportPublish` lane is complete and should not be reopened by default; the measured motion burst no longer publishes through that path
-  - the fresh item-`302` verdict closes the verifier/runtime blocker on this
-    lane for now; the canonical Playwright probe is trustworthy again on the
-    current runtime pair
+  - item `303` keeps the world-space presented-section culling change landed;
+    do not revert or reopen screen-space culling unless a fresh verdict or
+    regression points back at it
+  - the canonical Playwright probe became untrustworthy again on the current
+    runtime pair once this product slice landed, so the next pass must restore
+    a trustworthy verdict before opening another hotspot
   - `pixiViewportPresent` is not the remaining hotspot on this measurement
     window; do not reopen that lane without new evidence
-  - the next likely useful reduction or attribution split is inside
-    `presentedSceneSectionsResolve`
+  - until the canonical probe exits cleanly again, item `302` remains the last
+    trustworthy numeric attribution state for this lane
   - the CDP visual gate for this slice is satisfied; do not reopen a browser-only pass on the same lane unless the canary starts failing to render again
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- reduce or further split `presentedSceneSectionsResolve` on
-  `rotaryParamCodeObjDefault` without reopening closed lanes
+- restore one trustworthy automated verdict for the landed item-`303`
+  world-space culling slice on `rotaryParamCodeObjDefault`
 
 Recommended next target:
 
-- keep the current product change in place; do not reopen the removed
-  `reactFlowViewportPublish` path unless a future measurement proves it
-  regressed
-- keep using the same canonical cross-worktree perf probe as the trusted oracle
-  for this lane; the verifier blocker did not reproduce on item `302`
-- land one bounded product slice that either:
-  - reduces needless `presentedSceneSectionsResolve` executions during the
-    normalized motion burst, or
-  - splits that owner into a narrower source-of-truth attribution so the next
-    reducer is not guessed blindly
-- do not spend the next pass on another report-only rerun unless the canonical
-  verifier becomes untrustworthy again
+- keep the new world-space culling change in place; do not reopen already
+  closed React Flow / persistence / host-size / pointer-suppression lanes while
+  the current slice still lacks a trustworthy verdict
+- rerun the same canonical cross-worktree perf probe on a fresh lifecycle /
+  runtime pair and capture whether:
+  - `presentedSceneSectionsResolve` shrank, or
+  - a new residual owner replaced it
+- if the same post-banner stall reproduces again on a fresh runtime pair,
+  treat the probe itself as the next blocker and stop opening new product
+  hypotheses on this lane until that verifier is fixed
 
 Recommended deliverables for the next iteration:
 
-- one bounded product change or attribution split on
-  `presentedSceneSectionsResolve`
-- one fresh automated motion-attribution verdict confirming whether that slice
-  reduced or reclassified the dominant owner
-- reuse the already-satisfied CDP visual signal only if the next slice stays
-  verifier-only; otherwise run a fresh CDP check because the next pass should
-  change product code
+- one fresh automated motion-attribution verdict for the landed item-`303`
+  product slice
+- if the probe passes, update the hotspot reading and only then choose the next
+  reducer
+- because the next pass should be verifier-only, reuse the satisfied item-`303`
+  CDP smoke signal unless the runtime stops rendering graph content again
 
 Recommended canonical target:
 

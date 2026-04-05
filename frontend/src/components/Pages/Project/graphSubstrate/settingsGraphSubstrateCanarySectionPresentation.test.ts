@@ -4,6 +4,7 @@ import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSu
 import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
+  shouldMountSettingsGraphSubstrateCanarySectionBody,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 
 describe("settingsGraphSubstrateCanarySectionPresentation", () => {
@@ -65,6 +66,40 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
         previousPresentedSceneSections,
         nextPresentedSceneSections,
       ),
+    ).toBe(true);
+  });
+
+  it("skips body mounting when only a sub-threshold screen sliver is visible", () => {
+    const partiallyVisibleSection = createSceneSection({
+      position: { x: 301, y: 80 },
+      renderedPosition: { x: 301, y: 80 },
+      sectionId: "partially-visible-section",
+    });
+
+    expect(
+      shouldMountSettingsGraphSubstrateCanarySectionBody({
+        draggingSectionId: null,
+        section: partiallyVisibleSection,
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps body mounting when the visible world slice still meets the screen threshold", () => {
+    const thresholdVisibleSection = createSceneSection({
+      position: { x: 300, y: 80 },
+      renderedPosition: { x: 300, y: 80 },
+      sectionId: "threshold-visible-section",
+    });
+
+    expect(
+      shouldMountSettingsGraphSubstrateCanarySectionBody({
+        draggingSectionId: null,
+        section: thresholdVisibleSection,
+        viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
     ).toBe(true);
   });
 });

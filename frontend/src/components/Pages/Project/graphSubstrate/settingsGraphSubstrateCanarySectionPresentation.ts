@@ -1,6 +1,6 @@
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
-  worldPointToScreenPoint,
+  screenPointToWorldPoint,
   type GraphRect,
   type GraphViewport,
 } from "./viewportTransform";
@@ -19,14 +19,55 @@ export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
   viewport: GraphViewport | null;
   visibleViewportRect: GraphRect | null;
 }): Array<SettingsGraphSubstrateCanarySceneSection> {
+  const visibleViewportWorldRect =
+    resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport,
+      visibleViewportRect,
+    });
   return sceneSections.filter((section) =>
     shouldPresentSettingsGraphSubstrateCanarySectionShell({
       draggingSectionId,
       section,
       viewport,
       visibleViewportRect,
+      visibleViewportWorldRect,
     }),
   );
+}
+
+export function resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+  viewport,
+  visibleViewportRect,
+}: {
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
+}): GraphRect | null {
+  if (viewport === null || viewport.zoom <= 0 || visibleViewportRect === null) {
+    return null;
+  }
+
+  const topLeft = screenPointToWorldPoint(
+    {
+      x: visibleViewportRect.x,
+      y: visibleViewportRect.y,
+    },
+    viewport,
+  );
+  const bottomRight = screenPointToWorldPoint(
+    {
+      x: visibleViewportRect.x + visibleViewportRect.width,
+      y: visibleViewportRect.y + visibleViewportRect.height,
+    },
+    viewport,
+  );
+  const x = Math.min(topLeft.x, bottomRight.x);
+  const y = Math.min(topLeft.y, bottomRight.y);
+  return {
+    x,
+    y,
+    width: Math.abs(bottomRight.x - topLeft.x),
+    height: Math.abs(bottomRight.y - topLeft.y),
+  };
 }
 
 export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
@@ -34,27 +75,34 @@ export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
   section,
   viewport,
   visibleViewportRect,
+  visibleViewportWorldRect,
 }: {
   draggingSectionId: string | null;
   section: SettingsGraphSubstrateCanarySceneSection;
   viewport: GraphViewport | null;
   visibleViewportRect: GraphRect | null;
+  visibleViewportWorldRect?: GraphRect | null;
 }): boolean {
+  const resolvedVisibleViewportWorldRect =
+    visibleViewportWorldRect ??
+    resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport,
+      visibleViewportRect,
+    });
   if (
     section.sectionId === draggingSectionId ||
     section.isActiveSection === true ||
     viewport === null ||
     viewport.zoom <= 0 ||
-    visibleViewportRect === null
+    resolvedVisibleViewportWorldRect === null
   ) {
     return true;
   }
 
   return (
-    getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+    getVisibleSettingsGraphSubstrateCanarySectionWorldRect({
       section,
-      viewport,
-      visibleViewportRect,
+      visibleViewportWorldRect: resolvedVisibleViewportWorldRect,
     }) !== null
   );
 }
@@ -64,18 +112,26 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
   section,
   viewport,
   visibleViewportRect,
+  visibleViewportWorldRect,
 }: {
   draggingSectionId: string | null;
   section: SettingsGraphSubstrateCanarySceneSection;
   viewport: GraphViewport | null;
   visibleViewportRect: GraphRect | null;
+  visibleViewportWorldRect?: GraphRect | null;
 }): boolean {
+  const resolvedVisibleViewportWorldRect =
+    visibleViewportWorldRect ??
+    resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+      viewport,
+      visibleViewportRect,
+    });
   if (
     section.sectionId === draggingSectionId ||
     section.isActiveSection === true ||
     viewport === null ||
     viewport.zoom <= 0 ||
-    visibleViewportRect === null
+    resolvedVisibleViewportWorldRect === null
   ) {
     return true;
   }
@@ -85,19 +141,20 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
     return true;
   }
 
-  const visibleSectionScreenRect =
-    getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+  const visibleSectionWorldRect =
+    getVisibleSettingsGraphSubstrateCanarySectionWorldRect({
       section,
-      viewport,
-      visibleViewportRect,
+      visibleViewportWorldRect: resolvedVisibleViewportWorldRect,
     });
-  if (visibleSectionScreenRect === null) {
+  if (visibleSectionWorldRect === null) {
     return false;
   }
 
   return (
-    visibleSectionScreenRect.width >= MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
-    visibleSectionScreenRect.height >= MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
+    visibleSectionWorldRect.width * viewport.zoom >=
+      MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
+    visibleSectionWorldRect.height * viewport.zoom >=
+      MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
   );
 }
 
@@ -119,31 +176,25 @@ export function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
   return true;
 }
 
-function getVisibleSettingsGraphSubstrateCanarySectionScreenRect({
+function getVisibleSettingsGraphSubstrateCanarySectionWorldRect({
   section,
-  viewport,
-  visibleViewportRect,
+  visibleViewportWorldRect,
 }: {
   section: SettingsGraphSubstrateCanarySceneSection;
-  viewport: GraphViewport;
-  visibleViewportRect: GraphRect;
+  visibleViewportWorldRect: GraphRect;
 }): GraphRect | null {
   const sectionBoundsSize = section.sceneBoundsSize;
   if (!sectionBoundsSize) {
-    return visibleViewportRect;
+    return visibleViewportWorldRect;
   }
 
-  const sectionScreenPosition = worldPointToScreenPoint(
-    section.renderedPosition,
-    viewport,
-  );
-  const sectionScreenRect = {
-    x: sectionScreenPosition.x,
-    y: sectionScreenPosition.y,
-    width: sectionBoundsSize.width * viewport.zoom,
-    height: sectionBoundsSize.height * viewport.zoom,
+  const sectionWorldRect = {
+    x: section.renderedPosition.x,
+    y: section.renderedPosition.y,
+    width: sectionBoundsSize.width,
+    height: sectionBoundsSize.height,
   };
-  return getGraphRectIntersection(sectionScreenRect, visibleViewportRect);
+  return getGraphRectIntersection(sectionWorldRect, visibleViewportWorldRect);
 }
 
 function getGraphRectIntersection(
