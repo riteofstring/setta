@@ -63,87 +63,147 @@ func validateLiveSettingsContract(document Document, requireAllFields bool) erro
 func validateValueAgainstDefault(current any, expected any, path string, requireAllFields bool) error {
 	switch typed := expected.(type) {
 	case map[string]any:
-		currentObject, ok := asObject(current)
-		if !ok {
-			return newValidationError("%s: Input should be an object", path)
-		}
-		for key := range currentObject {
-			if _, ok := typed[key]; ok {
-				continue
-			}
-			return newValidationError("%s.%s: Extra inputs are not permitted", path, key)
-		}
-		for key, defaultValue := range typed {
-			currentValue, ok := currentObject[key]
-			if !ok {
-				if requireAllFields {
-					return newValidationError("%s.%s: Field required", path, key)
-				}
-				continue
-			}
-			if err := validateValueAgainstDefault(currentValue, defaultValue, path+"."+key, requireAllFields); err != nil {
-				return err
-			}
-		}
-		return nil
+		return validateObjectAgainstDefault(current, typed, path, requireAllFields)
 	case []any:
-		currentArray, ok := current.([]any)
-		if !ok {
-			return newValidationError("%s: Input should be an array", path)
-		}
-		if path == "settings.gui.snapGrid" && len(currentArray) != 2 {
-			return newValidationError("%s: Input should contain exactly 2 items", path)
-		}
-		if len(typed) == 0 {
-			return nil
-		}
-		template := typed[0]
-		for i, entry := range currentArray {
-			if err := validateValueAgainstDefault(entry, template, fmt.Sprintf("%s.%d", path, i), requireAllFields); err != nil {
-				return err
-			}
-		}
-		return nil
+		return validateArrayAgainstDefault(current, typed, path, requireAllFields)
 	case string:
-		currentString, ok := current.(string)
-		if !ok {
-			return newValidationError("%s: Input should be a valid string", path)
-		}
-		allowedValues := allowedValuesForPath(path)
-		if len(allowedValues) == 0 {
-			return nil
-		}
-		for _, allowed := range allowedValues {
-			if currentString == allowed {
-				return nil
-			}
-		}
-		return newValidationError("%s: Input should be one of %s", path, formatAllowedValues(allowedValues))
+		return validateStringAgainstDefault(current, path)
 	case bool:
-		if _, ok := current.(bool); !ok {
-			return newValidationError("%s: Input should be a valid boolean", path)
-		}
-		return nil
+		return validateBooleanAgainstDefault(current, path)
 	case float64:
-		currentNumber, ok := asFloat(current)
-		if !ok || math.IsNaN(currentNumber) || math.IsInf(currentNumber, 0) {
-			return newValidationError("%s: Input should be a valid number", path)
-		}
-		return nil
+		return validateNumberAgainstDefault(current, path)
 	case nil:
-		if path == "settings.backend.defaultTerminalShell" {
-			if current == nil {
-				return nil
-			}
-			if _, ok := current.(string); ok {
-				return nil
-			}
-			return newValidationError("%s: Input should be null or a valid string", path)
-		}
-		return nil
+		return validateNilAgainstDefault(current, path)
 	default:
 		return nil
 	}
+}
+
+func validateObjectAgainstDefault(current any, expected map[string]any, path string, requireAllFields bool) error {
+	currentObject, ok := asObject(current)
+	if !ok {
+		return newValidationError("%s: Input should be an object", path)
+	}
+	if err := rejectUnexpectedObjectKeys(currentObject, expected, path); err != nil {
+		return err
+	}
+	return validateExpectedObjectKeys(currentObject, expected, path, requireAllFields)
+}
+
+func rejectUnexpectedObjectKeys(currentObject map[string]any, expected map[string]any, path string) error {
+	for key := range currentObject {
+		if _, ok := expected[key]; ok {
+			continue
+		}
+		return newValidationError("%s.%s: Extra inputs are not permitted", path, key)
+	}
+	return nil
+}
+
+func validateExpectedObjectKeys(
+	currentObject map[string]any,
+	expected map[string]any,
+	path string,
+	requireAllFields bool,
+) error {
+	for key, defaultValue := range expected {
+		currentValue, ok := currentObject[key]
+		if !ok {
+			if requireAllFields {
+				return newValidationError("%s.%s: Field required", path, key)
+			}
+			continue
+		}
+		if err := validateValueAgainstDefault(currentValue, defaultValue, path+"."+key, requireAllFields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateArrayAgainstDefault(current any, expected []any, path string, requireAllFields bool) error {
+	currentArray, ok := current.([]any)
+	if !ok {
+		return newValidationError("%s: Input should be an array", path)
+	}
+	if requiredLength, ok := exactArrayLengthForPath(path); ok && len(currentArray) != requiredLength {
+		return newValidationError("%s: Input should contain exactly %d items", path, requiredLength)
+	}
+	if len(expected) == 0 {
+		return nil
+	}
+	return validateArrayEntriesAgainstDefault(currentArray, expected[0], path, requireAllFields)
+}
+
+func validateArrayEntriesAgainstDefault(currentArray []any, template any, path string, requireAllFields bool) error {
+	for index, entry := range currentArray {
+		if err := validateValueAgainstDefault(entry, template, fmt.Sprintf("%s.%d", path, index), requireAllFields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func exactArrayLengthForPath(path string) (int, bool) {
+	switch path {
+	case "settings.gui.snapGrid":
+		return 2, true
+	default:
+		return 0, false
+	}
+}
+
+func validateStringAgainstDefault(current any, path string) error {
+	currentString, ok := current.(string)
+	if !ok {
+		return newValidationError("%s: Input should be a valid string", path)
+	}
+	return validateAllowedStringValue(path, currentString)
+}
+
+func validateAllowedStringValue(path string, currentString string) error {
+	allowedValues := allowedValuesForPath(path)
+	if len(allowedValues) == 0 {
+		return nil
+	}
+	for _, allowed := range allowedValues {
+		if currentString == allowed {
+			return nil
+		}
+	}
+	return newValidationError("%s: Input should be one of %s", path, formatAllowedValues(allowedValues))
+}
+
+func validateBooleanAgainstDefault(current any, path string) error {
+	if _, ok := current.(bool); !ok {
+		return newValidationError("%s: Input should be a valid boolean", path)
+	}
+	return nil
+}
+
+func validateNumberAgainstDefault(current any, path string) error {
+	currentNumber, ok := asFloat(current)
+	if !ok || math.IsNaN(currentNumber) || math.IsInf(currentNumber, 0) {
+		return newValidationError("%s: Input should be a valid number", path)
+	}
+	return nil
+}
+
+func validateNilAgainstDefault(current any, path string) error {
+	if !pathAllowsNullOrString(path) {
+		return nil
+	}
+	if current == nil {
+		return nil
+	}
+	if _, ok := current.(string); ok {
+		return nil
+	}
+	return newValidationError("%s: Input should be null or a valid string", path)
+}
+
+func pathAllowsNullOrString(path string) bool {
+	return path == "settings.backend.defaultTerminalShell"
 }
 
 func allowedValuesForPath(path string) []string {

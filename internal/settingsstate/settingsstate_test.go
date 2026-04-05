@@ -237,6 +237,20 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 			expectedPath: "sectionSizingPolicy.globals.autoMaxHeight",
 		},
 		{
+			name: "gui snap grid length",
+			mutate: func(document Document) {
+				document["gui"].(map[string]any)["snapGrid"] = []any{8.0}
+			},
+			expectedPath: "gui.snapGrid",
+		},
+		{
+			name: "backend default terminal shell",
+			mutate: func(document Document) {
+				document["backend"].(map[string]any)["defaultTerminalShell"] = 7.0
+			},
+			expectedPath: "backend.defaultTerminalShell",
+		},
+		{
 			name: "language server root",
 			mutate: func(document Document) {
 				document["languageServer"] = []any{"bad"}
