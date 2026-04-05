@@ -3,7 +3,6 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 
 	"setta/internal/frontendbindingmeta"
@@ -89,14 +88,8 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 	if err != nil {
 		return nil, nil, err
 	}
-	coreByName := make(map[string]struct{}, len(coreProperties))
-	for _, property := range coreProperties {
-		coreByName[property.Name] = struct{}{}
-	}
+	memberTypes := make([]reflect.Type, 0, len(members))
 	concreteByType := make(map[reflect.Type][]TypeProperty, len(members))
-	mergedOrder := []string{}
-	mergedByName := map[string]*TypeProperty{}
-	typeExprsByName := map[string][]string{}
 	for _, member := range members {
 		concreteProperties, err := converter.structProperties(
 			member.Type,
@@ -109,46 +102,10 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 		if err != nil {
 			return nil, nil, err
 		}
+		memberTypes = append(memberTypes, member.Type)
 		concreteByType[member.Type] = concreteProperties
-		for _, property := range concreteProperties {
-			if _, ok := coreByName[property.Name]; ok {
-				continue
-			}
-			if _, ok := mergedByName[property.Name]; !ok {
-				property.Optional = true
-				copyProperty := property
-				mergedByName[property.Name] = &copyProperty
-				mergedOrder = append(mergedOrder, property.Name)
-			}
-			if slices.Contains(typeExprsByName[property.Name], property.TypeExpr) {
-				continue
-			}
-			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
-		}
 	}
-	baseProperties := make([]TypeProperty, 0, len(coreProperties)+len(mergedOrder))
-	baseProperties = append(baseProperties, coreProperties...)
-	for _, name := range mergedOrder {
-		property := *mergedByName[name]
-		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
-		baseProperties = append(baseProperties, property)
-	}
-	baseByName := make(map[string]TypeProperty, len(baseProperties))
-	for _, property := range baseProperties {
-		baseByName[property.Name] = property
-	}
-	for memberType, properties := range concreteByType {
-		filtered := properties[:0]
-		for _, property := range properties {
-			baseProperty, ok := baseByName[property.Name]
-			if !ok ||
-				baseProperty.TypeExpr != property.TypeExpr ||
-				baseProperty.Optional != property.Optional {
-				filtered = append(filtered, property)
-			}
-		}
-		concreteByType[memberType] = filtered
-	}
+	baseProperties, concreteByType := mergeBaseAndConcreteObjectProperties(coreProperties, memberTypes, concreteByType)
 	return baseProperties, concreteByType, nil
 }
 
