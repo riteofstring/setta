@@ -51,7 +51,7 @@ type AuthRefreshStatusResponse struct {
 }
 
 type ServerModeResponse struct {
-	Mode string `json:"mode"`
+	Mode openAPIServerMode `json:"mode"`
 }
 
 type SettaHomeInfoResponse struct {
@@ -73,11 +73,41 @@ func RegisterStatusRoutes(router chi.Router, deps StatusRouteDependencies) error
 		deps.ReadyAt = time.Now().UTC()
 	}
 
-	router.Get(RouteGetBackendInitStatus, getBackendInitStatusHandler(deps))
-	router.Get(RouteGetAuthRefreshStatus, getAuthRefreshStatusHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetSettaHomeInfo, getSettaHomeInfoHandler(deps))
+	registerOpenAPIGet[BackendInitStatusResponse](
+		router,
+		"getBackendInitStatus",
+		RouteGetBackendInitStatus,
+		getBackendInitStatusHandler(deps),
+		withOpenAPITags("Status"),
+		withOpenAPISummary("Get the backend initialization status for the current runtime."),
+	)
+	registerOpenAPIGet[AuthRefreshStatusResponse](
+		router,
+		"getAuthRefreshStatus",
+		RouteGetAuthRefreshStatus,
+		getAuthRefreshStatusHandler(deps),
+		withOpenAPITags("Status"),
+		withOpenAPISummary("Get auth cookie refresh timing for the current runtime."),
+	)
+	registerOpenAPIGet[SettaHomeInfoResponse](
+		router.With(RequireIDEMode(deps.ModePolicy)),
+		"getSettaHomeInfo",
+		RouteGetSettaHomeInfo,
+		getSettaHomeInfoHandler(deps),
+		withOpenAPITags("Status"),
+		withOpenAPISummary("Get Setta home and files-path information for the IDE runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	if deps.RevealPath != nil {
-		router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteRevealPathInOSFileExplorer, revealPathInOSFileExplorerHandler(deps.RevealPath))
+		registerOpenAPIPost[RevealPathInOSFileExplorerRequest, openAPIJSONNull](
+			router.With(RequireIDEMode(deps.ModePolicy)),
+			"revealPathInOsFileExplorer",
+			RouteRevealPathInOSFileExplorer,
+			revealPathInOSFileExplorerHandler(deps.RevealPath),
+			withOpenAPITags("Status"),
+			withOpenAPISummary("Reveal a filesystem path in the OS file explorer."),
+			withOpenAPIModeRequirement("ide"),
+		)
 	}
 	return nil
 }

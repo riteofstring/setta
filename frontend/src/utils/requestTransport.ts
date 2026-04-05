@@ -1,4 +1,4 @@
-import { useShareSession } from "state/definitions";
+import { buildShareSessionHeaders } from "./shareSessionHeaders";
 import { buildBackendURL } from "./transportUrlCore";
 
 type AddressParams = Record<
@@ -11,14 +11,6 @@ export type ResponseDataAndStatus<T> = {
   status: number | undefined;
   hasResponse: boolean;
 };
-
-function buildShareSessionHeaders(): Record<string, string> {
-  const shareSession = useShareSession.getState();
-  if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {
-    return {};
-  }
-  return { "X-Share-Session-Id": shareSession.shareSessionId };
-}
 
 async function parseResponse<T>(response: Response): Promise<T | undefined> {
   if (response.status === 204) {

@@ -36,7 +36,15 @@ func RegisterAgenticSummaryCacheRoutes(router chi.Router, deps AgenticSummaryCac
 		return fmt.Errorf("agentic summary cache service is required in ide mode")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAgenticSummaryCacheStatus, getAgenticSummaryCacheStatusHandler(deps.ProjectState, deps.Statuses))
+	registerOpenAPIPost[GetAgenticSummaryCacheStatusRequest, agenticsummarycache.AgenticSummaryCacheStatus](
+		router.With(RequireIDEMode(deps.ModePolicy)),
+		"getAgenticSummaryCacheStatus",
+		RouteGetAgenticSummaryCacheStatus,
+		getAgenticSummaryCacheStatusHandler(deps.ProjectState, deps.Statuses),
+		withOpenAPITags("AgenticSummaryCache"),
+		withOpenAPISummary("Get the cache status for a chat section summary."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

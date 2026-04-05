@@ -52,9 +52,14 @@ func RegisterMCPRoutes(router chi.Router, deps MCPRouteDependencies) error {
 		return fmt.Errorf("llm config path is required")
 	}
 
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(
+	registerOpenAPIPost[MCPRuntimeStatusRequest, MCPRuntimeStatusResponse](
+		router.With(RequireFullIDERuntime(deps.ModePolicy)),
+		"getMcpServerRuntimeStatus",
 		RouteMCPServerRuntimeStatus,
 		mcpRuntimeStatusHandler(deps),
+		withOpenAPITags("MCP"),
+		withOpenAPISummary("Get current MCP runtime status for configured and external servers."),
+		withOpenAPIModeRequirement("full-ide"),
 	)
 	return nil
 }

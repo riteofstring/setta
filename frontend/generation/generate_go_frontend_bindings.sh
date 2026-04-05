@@ -11,6 +11,7 @@ cd "${ROOT_DIR}"
   -routes-out frontend/src/utils/generatedRoutes.ts \
   -types-out frontend/src/utils/generatedTypes.ts \
   -endpoints-out frontend/src/utils/generatedEndpoints.ts
+bash ./frontend/generation/generate_http_openapi_bindings.sh
 
 cd "${ROOT_DIR}/frontend"
 pnpm exec prettier src/utils/generatedRoutes.ts src/utils/generatedTypes.ts src/utils/generatedEndpoints.ts --write

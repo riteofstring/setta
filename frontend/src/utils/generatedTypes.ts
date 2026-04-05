@@ -118,11 +118,6 @@ export type StopRunChainRequest = {
   runId: string;
 };
 
-export type GetAgenticSummaryCacheStatusRequest = {
-  projectConfigId: string;
-  chatSectionId: string;
-};
-
 export type GetLLMResponseRequest = {
   chatId: string | null;
   continueFromChatId: string | null;
@@ -1238,10 +1233,6 @@ export type GetRunnerSummaryRequest = {
   projectConfigId: string;
 };
 
-export type DocstringToMarkdownRequest = {
-  docstring: string;
-};
-
 export type GetEngineConfigRequest = {
   configId: string;
 };
@@ -1839,66 +1830,6 @@ export type GenCodeSuffixCompletionRequest = {
   projectConfigId: string;
   fullText: string;
   position: number;
-};
-
-export type MCPRuntimeStatusRequest = {
-  chatId: string | null;
-  engineConfigId: string | null;
-};
-
-const MCPXTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-type MCPXTransport = ObjectValues<typeof MCPXTransportEnum>;
-
-const RuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-type RuntimeState = ObjectValues<typeof RuntimeStateEnum>;
-
-type ServerRuntimeStatus = {
-  serverId: string;
-  source: string;
-  transport: MCPXTransport;
-  endpoint: string;
-  state: RuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-};
-
-type MCPResolvedRuntimeServer = {
-  serverId: string;
-  transport: MCPXTransport;
-  endpoint: string;
-  state: RuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-  quickInfo: string;
-};
-
-export type MCPRuntimeStatusResponse = {
-  llmConfigPath: string;
-  activeSettaFilesLocation: string;
-  servers: Array<ServerRuntimeStatus>;
-  externalServers: Array<ServerRuntimeStatus>;
-  resolvedServers: Array<MCPResolvedRuntimeServer>;
 };
 
 const ModeEnum = {
@@ -3357,10 +3288,6 @@ export type DeletePromptTemplateRequest = {
   templateId: string;
 };
 
-export type SaveSettingsRequest = {
-  settings: unknown;
-};
-
 export type StartStateMachineRunRequest = {
   projectConfigId: string;
   machineGroupId: string;
@@ -3385,38 +3312,6 @@ export type GetStateMachineRunRequest = {
 export type StateMachineRunControlResponse = {
   alreadyStopped: boolean;
   stoppedRunId?: string | null;
-};
-
-type BackendInitEvent = {
-  message: string;
-  timestamp: string;
-};
-
-export type BackendInitStatusResponse = {
-  events: Array<BackendInitEvent>;
-  isReady: boolean;
-  error: string | null;
-  authCookieRefreshWindowSeconds: number;
-  worktreeName: string | null;
-};
-
-export type AuthRefreshStatusResponse = {
-  authCookieRefreshWindowSeconds: number;
-};
-
-export type ServerModeResponse = {
-  mode: string;
-};
-
-export type SettaHomeInfoResponse = {
-  settaHome: string;
-  globalSettaFilesBase: string;
-  activeSettaFilesLocation: string | null;
-  llmConfigPath: string;
-};
-
-export type RevealPathInOSFileExplorerRequest = {
-  path: string;
 };
 
 export type DeleteTerminalsRequest = {
@@ -3485,81 +3380,6 @@ export type UpdateTranscriptionProfileRequest = {
 
 export type DeleteTranscriptionProfileRequest = {
   profileId: string | null;
-};
-
-export type WorkspaceLaunchErrorPayload = {
-  code: string;
-  message: string;
-};
-
-const LaunchSettaFilesLocationEnum = {
-  auto: "auto",
-  local: "local",
-  global: "global",
-} as const;
-type LaunchSettaFilesLocation = ObjectValues<
-  typeof LaunchSettaFilesLocationEnum
->;
-
-const LaunchResolvedSettaFilesLocationEnum = {
-  local: "local",
-  global: "global",
-} as const;
-type LaunchResolvedSettaFilesLocation = ObjectValues<
-  typeof LaunchResolvedSettaFilesLocationEnum
->;
-
-export type LaunchRequest = {
-  launchIntentToken?: string | null;
-  workspaceRoot?: string | null;
-  profile?: string | null;
-  settaHome?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  sshTarget?: string | null;
-  sshArgs?: string | null;
-  remoteCmd?: string | null;
-  localPort?: number | null;
-};
-
-export type CreateWorkspaceLaunchIntentRequest = {
-  launchRequest: LaunchRequest;
-  returnUrl: string;
-};
-
-export type CreateWorkspaceLaunchIntentResponse = {
-  ok: boolean;
-  launchIntentToken: string | null;
-  requestedAt: number | null;
-  error: WorkspaceLaunchErrorPayload | null;
-};
-
-type LaunchSessionInfo = {
-  id: string;
-  workspacePath: string;
-  workspacePathCanonical: string;
-  host: string;
-  port: number;
-  pid: number;
-  startedAt: string;
-};
-
-export type LaunchResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  returnUrl: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  session: LaunchSessionInfo | null;
-  remoteCmdResolved: string | null;
-  error: WorkspaceLaunchErrorPayload | null;
 };
 
 type PluginConfigValidationResult = {
@@ -6316,7 +6136,7 @@ export type CreateTopLevelSectionResult = {
   panTo?: Position | null;
 };
 
-export type AgenticSummaryCacheStatus = {
+type AgenticSummaryCacheStatus = {
   maxSummariesPerRun: number;
   summarySectionIds: Array<string>;
   cachedSectionIds: Array<string>;
@@ -8700,12 +8520,6 @@ export type RunnerSummarySnapshot = {
 export type WorkspacePythonSignalResponse = {
   folderPath: string;
   hasPython: boolean;
-};
-
-export type RunningBackendVersionHandshake = {
-  sdkVersion: string;
-  coreVersion: string;
-  sdkContractVersion: number;
 };
 
 export type TransferResponse = {

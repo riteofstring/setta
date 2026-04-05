@@ -9,6 +9,11 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
+  getMcpServerRuntimeStatus,
+  revealPathInOsFileExplorer,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
@@ -37,8 +42,6 @@ import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
-  route_get_mcp_server_runtime_status,
-  route_reveal_path_in_os_file_explorer,
   route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
@@ -2492,10 +2495,14 @@ export function ProjectChatSkillsMcpViewer({
       }
       setMcpRuntimeStatusLoading(true);
       setMcpRuntimeStatusError(null);
-      const res = await route_get_mcp_server_runtime_status({
-        chatId: runtimeStatusChatId,
-        engineConfigId: runtimeStatusEngineConfigId,
-      });
+      const res = await callOpenAPI(
+        getMcpServerRuntimeStatus({
+          body: {
+            chatId: runtimeStatusChatId,
+            engineConfigId: runtimeStatusEngineConfigId,
+          },
+        }),
+      );
       if (cancelled) {
         return;
       }
@@ -2987,7 +2994,11 @@ export function ProjectChatSkillsMcpViewer({
     if (!isActionablePath(path)) {
       return;
     }
-    const res = await route_reveal_path_in_os_file_explorer({ path });
+    const res = await callOpenAPI(
+      revealPathInOsFileExplorer({
+        body: { path },
+      }),
+    );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       addTemporaryNotification(

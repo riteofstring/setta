@@ -39,8 +39,24 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 		}
 	}
 
-	router.Post(RouteLoadSettings, loadSettingsHandler(deps))
-	router.Post(RouteSaveSettings, saveSettingsHandler(deps))
+	registerOpenAPIPostNoRequest[settingsstate.FrontendSettingsState](
+		router,
+		"loadSettings",
+		RouteLoadSettings,
+		loadSettingsHandler(deps),
+		withOpenAPITags("Settings"),
+		withOpenAPISummary("Load the frontend settings document."),
+		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
+	)
+	registerOpenAPIPost[SaveSettingsRequest, openAPIJSONNull](
+		router,
+		"saveSettings",
+		RouteSaveSettings,
+		saveSettingsHandler(deps),
+		withOpenAPITags("Settings"),
+		withOpenAPISummary("Validate and save the frontend settings document."),
+		withOpenAPIModeRequirement("not-deployment-and-not-launcher"),
+	)
 	return nil
 }
 

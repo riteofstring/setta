@@ -25,7 +25,15 @@ func RegisterDocstringRoutes(router chi.Router, deps DocstringRouteDependencies)
 		return fmt.Errorf("router is required")
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDocstringToMarkdown, docstringToMarkdownHandler())
+	registerOpenAPIPost[DocstringToMarkdownRequest, string](
+		router.With(RequireIDEMode(deps.ModePolicy)),
+		"docstringToMarkdown",
+		RouteDocstringToMarkdown,
+		docstringToMarkdownHandler(),
+		withOpenAPITags("Docstring"),
+		withOpenAPISummary("Convert a docstring into Markdown."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

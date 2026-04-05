@@ -10,8 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeLoadSettingsMock = vi.fn();
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_load_settings: (...args: unknown[]) => routeLoadSettingsMock(...args),
+vi.mock("openapi/http", () => ({
+  loadSettings: (...args: unknown[]) => routeLoadSettingsMock(...args),
 }));
 
 import { useLoadSettings } from "./settings";
@@ -69,9 +69,9 @@ describe("useLoadSettings", () => {
       },
     });
     routeLoadSettingsMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: loadedSettings,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const { host, root } = await renderSettingsLoader();
@@ -101,14 +101,14 @@ describe("useLoadSettings", () => {
     });
     routeLoadSettingsMock
       .mockResolvedValueOnce({
-        status: 500,
-        hasResponse: true,
-        data: null,
+        data: undefined,
+        error: null,
+        response: new Response(null, { status: 500 }),
       })
       .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
         data: loadedSettings,
+        error: undefined,
+        response: new Response(null, { status: 200 }),
       });
 
     const { host, root } = await renderSettingsLoader();

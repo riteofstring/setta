@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeGetBackendInitStatusMock = vi.fn();
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_backend_init_status: (...args: unknown[]) =>
+vi.mock("openapi/http", () => ({
+  getBackendInitStatus: (...args: unknown[]) =>
     routeGetBackendInitStatusMock(...args),
 }));
 
@@ -62,8 +62,6 @@ describe("BackendInitStatusProvider", () => {
 
   it("shares a single backend init status load across multiple consumers", async () => {
     routeGetBackendInitStatusMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: {
         events: [],
         isReady: true,
@@ -71,6 +69,8 @@ describe("BackendInitStatusProvider", () => {
         authCookieRefreshWindowSeconds: 300,
         worktreeName: "feature/cleanup",
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const { host, root } = await renderBackendInitStatusConsumers();
@@ -95,9 +95,9 @@ describe("BackendInitStatusProvider", () => {
 
   it("surfaces a load failure without polling for another backend init snapshot", async () => {
     routeGetBackendInitStatusMock.mockResolvedValue({
-      status: 503,
-      hasResponse: true,
-      data: null,
+      data: undefined,
+      error: null,
+      response: new Response(null, { status: 503 }),
     });
 
     const { host, root } = await renderBackendInitStatusConsumers();

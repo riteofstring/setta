@@ -2,6 +2,8 @@ import { buildLLMConfigGroups } from "components/Chat/llmConfigUtils";
 import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { saveSettings } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -34,7 +36,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_save_settings } from "utils/generatedEndpoints";
 import {
   AgentProfile,
   ClaudeSettingsSourceEnum,
@@ -395,7 +396,9 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
       completionGuardSaveRequestIdRef.current = requestId;
       setIsSavingCompletionGuard(true);
       void (async () => {
-        const response = await route_save_settings({ settings: nextSettings });
+        const response = await callOpenAPI(
+          saveSettings({ body: { settings: nextSettings } }),
+        );
         if (requestId !== completionGuardSaveRequestIdRef.current) {
           return;
         }

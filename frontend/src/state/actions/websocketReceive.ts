@@ -1,4 +1,9 @@
 import _ from "lodash";
+import {
+  getAuthRefreshStatus,
+  type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
@@ -34,7 +39,6 @@ import { C } from "utils/c";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_binary_upload,
-  route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
@@ -60,7 +64,6 @@ import {
   UISettingRevealResultMessage,
   UISettingRevealResultStatus,
   WebsocketMessageTypeEnum,
-  type AuthRefreshStatusResponse,
   type ContentRef,
   type LSPDiagnosticsPayload,
   type ProjectStateSingleConfigWithCompletedOpIDs,
@@ -348,8 +351,9 @@ async function attemptAuthRecovery(pathname: string) {
     return;
   }
   authRecoveryInFlight = true;
-  const res: AuthRefreshStatusRouteResponse =
-    await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse = await callOpenAPI(
+    getAuthRefreshStatus(),
+  );
   authRecoveryInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
@@ -443,8 +447,9 @@ async function runAuthRefresh() {
     return;
   }
   authRefreshInFlight = true;
-  const res: AuthRefreshStatusRouteResponse =
-    await route_get_auth_refresh_status();
+  const res: AuthRefreshStatusRouteResponse = await callOpenAPI(
+    getAuthRefreshStatus(),
+  );
   authRefreshInFlight = false;
   if (res200(res)) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);

@@ -1,4 +1,4 @@
-import type { LaunchRequest } from "utils/generatedTypes";
+import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
 import { describe, expect, it } from "vitest";
 import { buildLaunchRequestDedupeKey } from "./launchRequestDedupeKey";
 
@@ -34,10 +34,6 @@ describe("buildLaunchRequestDedupeKey", () => {
     const base: LaunchRequest = {
       workspaceRoot: "/tmp/workspace",
       settaFilesLocation: "auto",
-      sshTarget: null,
-      sshArgs: null,
-      remoteCmd: null,
-      localPort: null,
       profile: "dev-a",
       settaHome: "/tmp/setta-home-a",
       settaFilesRoot: "/tmp/state-a",
@@ -57,10 +53,10 @@ describe("buildLaunchRequestDedupeKey", () => {
   });
 
   it("treats omitted optional launch fields the same as explicit nulls", () => {
-    const omittedOptionalFields: LaunchRequest = {
+    const omittedOptionalFields = {
       workspaceRoot: "/tmp/workspace",
     };
-    const explicitNullOptionalFields: LaunchRequest = {
+    const explicitNullOptionalFields = {
       workspaceRoot: "/tmp/workspace",
       profile: null,
       settaHome: null,

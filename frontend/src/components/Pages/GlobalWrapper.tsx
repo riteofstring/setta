@@ -1,3 +1,4 @@
+import type { HttpapiBackendInitStatusResponse as BackendInitStatusResponse } from "openapi/http";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { loadAllProjectMetadata } from "state/actions/project/loadProject";
@@ -15,7 +16,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
-import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
 import {
   resolveDefaultProjectConfigName,

@@ -106,6 +106,7 @@
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
     "generate": "bash ./generation/generate.sh",
     "generate-go-frontend-bindings": "bash ./generation/generate_go_frontend_bindings.sh",
+    "generate-http-openapi-bindings": "bash ./generation/generate_http_openapi_bindings.sh",
     "generate-go-python-types": "bash ./generation/generate_go_python_types.sh",
     "cdp-port": "cd .. && ./scripts/cdp-port.sh",
     "worktree": "cd .. && ./worktree.sh",
@@ -136,6 +137,7 @@
     }
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.80.18",
     "@eslint/js": "9.39.4",
     "@playwright/test": "1.57.0",
     "@types/d3": "7.4.3",

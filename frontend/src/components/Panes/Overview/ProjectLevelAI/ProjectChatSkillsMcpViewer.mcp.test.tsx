@@ -91,11 +91,14 @@ vi.mock("state/definitions", () => ({
     }),
 }));
 
+vi.mock("openapi/http", () => ({
+  getMcpServerRuntimeStatus: routeMocks.getMcpRuntimeStatus,
+  revealPathInOsFileExplorer: vi.fn(),
+}));
+
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_app_gen_skill_content: vi.fn(),
   route_get_app_gen_skills: vi.fn(),
-  route_get_mcp_server_runtime_status: routeMocks.getMcpRuntimeStatus,
-  route_reveal_path_in_os_file_explorer: vi.fn(),
   route_upsert_app_gen_custom_skill: vi.fn(),
 }));
 
@@ -109,7 +112,6 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
     root = createRoot(host);
     routeMocks.getMcpRuntimeStatus.mockReset();
     routeMocks.getMcpRuntimeStatus.mockResolvedValue({
-      status: 200,
       data: {
         llmConfigPath: "/tmp/setta_files/llm_config.json",
         activeSettaFilesLocation: "custom",
@@ -147,6 +149,8 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           },
         ],
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
     window.__SETTA_CHROME_REPRO_ACTIVE__ = false;
   });
@@ -184,7 +188,6 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
 
   it("shows live external runtime transport when chat context is absent", async () => {
     routeMocks.getMcpRuntimeStatus.mockResolvedValue({
-      status: 200,
       data: {
         llmConfigPath: "/tmp/setta_files/llm_config.json",
         activeSettaFilesLocation: "custom",
@@ -237,6 +240,8 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           },
         ],
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     await act(async () => {
@@ -262,7 +267,6 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
 
   it("keeps the row connected when external runtime status is still unknown", async () => {
     routeMocks.getMcpRuntimeStatus.mockResolvedValue({
-      status: 200,
       data: {
         llmConfigPath: "/tmp/setta_files/llm_config.json",
         activeSettaFilesLocation: "custom",
@@ -315,6 +319,8 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           },
         ],
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     await act(async () => {
@@ -345,7 +351,6 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
 
   it("uses configured transport and setta tool count when claude runtime status is partial", async () => {
     routeMocks.getMcpRuntimeStatus.mockResolvedValue({
-      status: 200,
       data: {
         llmConfigPath: "/tmp/setta_files/llm_config.json",
         activeSettaFilesLocation: "custom",
@@ -398,6 +403,8 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           },
         ],
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     await act(async () => {

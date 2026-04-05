@@ -56,9 +56,9 @@ func TestHandlerServesFoundationRoutes(t *testing.T) {
 	handler, err := NewHandler(Dependencies{
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info: stubInfoService{
-			mode: "ide",
+			mode: string(config.ModeIDE),
 			info: RuntimeInfo{
-				Mode: "ide",
+				Mode: string(config.ModeIDE),
 				Paths: RuntimePaths{
 					WorkspaceRoot:      "/tmp/workspace",
 					SettaHome:          "/tmp/.setta",

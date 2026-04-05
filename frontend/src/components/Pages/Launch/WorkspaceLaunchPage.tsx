@@ -1,3 +1,9 @@
+import {
+  launchWorkspace,
+  type HttpapiLaunchResponse as LaunchResponse,
+  type HttpapiWorkspaceLaunchErrorPayload as WorkspaceLaunchErrorPayload,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
@@ -7,11 +13,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import { route_launch } from "utils/generatedEndpoints";
-import type {
-  LaunchResponse,
-  WorkspaceLaunchErrorPayload,
-} from "utils/generatedTypes";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
@@ -165,7 +166,9 @@ export function WorkspaceLaunchPage() {
       const res = await dedupeInFlightJson(
         inFlightLaunchesByKey,
         pending.request,
-        route_launch,
+        async (request) => {
+          return await callOpenAPI(launchWorkspace({ body: request }));
+        },
         buildLaunchRequestDedupeKey,
       );
       if (!isMounted) {

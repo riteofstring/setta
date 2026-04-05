@@ -66,10 +66,13 @@ async function createWorkspaceLaunchIntentToken({
       launchRequest: Record<string, unknown>;
       returnUrl: string;
     }) => {
-      const { route_create_workspace_launch_intent } = await import(
-        "/src/utils/generatedEndpoints"
+      const { createWorkspaceLaunchIntent } = await import("/src/openapi/http");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
+      return await callOpenAPI(
+        createWorkspaceLaunchIntent({
+          body: payload,
+        }),
       );
-      return await route_create_workspace_launch_intent(payload);
     },
     {
       launchRequest,

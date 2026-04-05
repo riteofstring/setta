@@ -1,4 +1,9 @@
 import {
+  getBackendInitStatus,
+  type HttpapiBackendInitStatusResponse as BackendInitStatusResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   createContext,
   useContext,
   useEffect,
@@ -6,8 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { res200 } from "utils/endpointUtils";
-import { route_get_backend_init_status } from "utils/generatedEndpoints";
-import type { BackendInitStatusResponse } from "utils/generatedTypes";
 
 const BackendInitStatusContext =
   createContext<BackendInitStatusResponse | null>(null);
@@ -33,7 +36,7 @@ export function BackendInitStatusProvider({
     let cancelled = false;
 
     void (async () => {
-      const res = await route_get_backend_init_status();
+      const res = await callOpenAPI(getBackendInitStatus());
       if (cancelled) {
         return;
       }

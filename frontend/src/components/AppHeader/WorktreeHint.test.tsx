@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeGetBackendInitStatusMock = vi.fn();
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_backend_init_status: (...args: unknown[]) =>
+vi.mock("openapi/http", () => ({
+  getBackendInitStatus: (...args: unknown[]) =>
     routeGetBackendInitStatusMock(...args),
 }));
 
@@ -51,8 +51,6 @@ describe("WorktreeHint", () => {
 
   it("renders the current worktree name from the Go-owned backend init status route", async () => {
     routeGetBackendInitStatusMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: {
         events: [],
         isReady: true,
@@ -60,6 +58,8 @@ describe("WorktreeHint", () => {
         authCookieRefreshWindowSeconds: 300,
         worktreeName: "feature/cleanup",
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const { host, root } = await renderWorktreeHint();
@@ -79,8 +79,6 @@ describe("WorktreeHint", () => {
 
   it("dismisses the rendered worktree label locally after close", async () => {
     routeGetBackendInitStatusMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: {
         events: [],
         isReady: true,
@@ -88,6 +86,8 @@ describe("WorktreeHint", () => {
         authCookieRefreshWindowSeconds: 300,
         worktreeName: "feature/cleanup",
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const { host, root } = await renderWorktreeHint();
@@ -115,8 +115,6 @@ describe("WorktreeHint", () => {
 
   it("keeps the hint hidden when the backend init status lacks a worktree name", async () => {
     routeGetBackendInitStatusMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: {
         events: [],
         isReady: true,
@@ -124,6 +122,8 @@ describe("WorktreeHint", () => {
         authCookieRefreshWindowSeconds: 300,
         worktreeName: null,
       },
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
 
     const { host, root } = await renderWorktreeHint();

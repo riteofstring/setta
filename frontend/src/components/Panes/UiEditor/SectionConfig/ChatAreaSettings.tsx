@@ -13,6 +13,11 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import {
+  getAgenticSummaryCacheStatus,
+  type AgenticsummarycacheAgenticSummaryCacheStatus as AgenticSummaryCacheStatus,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAgenticEdgeFromSections,
@@ -43,14 +48,12 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_get_agentic_summary_cache_status,
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
-  AgenticSummaryCacheStatus,
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
@@ -509,10 +512,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     setSummaryCacheStatusLoading(true);
     try {
       const response: AgenticSummaryCacheStatusRouteResponse =
-        await route_get_agentic_summary_cache_status({
-          projectConfigId,
-          chatSectionId: sectionId,
-        });
+        await callOpenAPI(
+          getAgenticSummaryCacheStatus({
+            body: {
+              projectConfigId,
+              chatSectionId: sectionId,
+            },
+          }),
+        );
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
         const status =

@@ -1,5 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
+import {
+  createWorkspaceLaunchIntent,
+  getSettaHomeInfo,
+  type HttpapiCreateWorkspaceLaunchIntentResponse as CreateWorkspaceLaunchIntentResponse,
+  type HttpapiLaunchRequest as LaunchRequest,
+  type HttpapiSettaHomeInfoResponse as SettaHomeInfoResponse,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
@@ -10,15 +18,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import {
-  route_create_workspace_launch_intent,
-  route_get_setta_home_info,
-} from "utils/generatedEndpoints";
-import type {
-  CreateWorkspaceLaunchIntentResponse,
-  LaunchRequest,
-  SettaHomeInfoResponse,
-} from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
@@ -52,11 +51,14 @@ export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest: LaunchRequest;
   returnUrl: string;
 }): Promise<CreatePendingWorkspaceLaunchResult> {
-  const response: CreateWorkspaceLaunchIntentRouteResponse =
-    await route_create_workspace_launch_intent({
-      launchRequest,
-      returnUrl,
-    });
+  const response: CreateWorkspaceLaunchIntentRouteResponse = await callOpenAPI(
+    createWorkspaceLaunchIntent({
+      body: {
+        launchRequest,
+        returnUrl,
+      },
+    }),
+  );
   if (!res200(response) || !response.data) {
     const detail = getErrorDetail(response.data);
     return {
@@ -144,7 +146,7 @@ export function WorkspaceSwitcherModal() {
       }
 
       const response: SettaHomeInfoRouteResponse =
-        await route_get_setta_home_info();
+        await callOpenAPI(getSettaHomeInfo());
       if (!isMounted) {
         return;
       }
@@ -221,10 +223,10 @@ export function WorkspaceSwitcherModal() {
     const request: LaunchRequest = {
       workspaceRoot: trimmedWorkspace,
       settaFilesLocation,
-      sshTarget: trimmedSshTarget || null,
-      sshArgs: trimmedSshArgs || null,
-      remoteCmd: trimmedRemoteCmd || null,
-      localPort: parsedLocalPort ?? null,
+      ...(trimmedSshTarget ? { sshTarget: trimmedSshTarget } : {}),
+      ...(trimmedSshArgs ? { sshArgs: trimmedSshArgs } : {}),
+      ...(trimmedRemoteCmd ? { remoteCmd: trimmedRemoteCmd } : {}),
+      ...(parsedLocalPort !== undefined ? { localPort: parsedLocalPort } : {}),
     };
 
     writeWorkspaceSwitcherDraft(request);

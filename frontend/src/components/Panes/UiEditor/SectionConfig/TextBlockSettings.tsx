@@ -1,4 +1,6 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { docstringToMarkdown } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useEffect,
   useRef,
@@ -16,7 +18,6 @@ import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_docstring_to_markdown,
   route_set_text_block_heading_as_section_name,
   route_set_text_block_master_font_size,
   route_set_text_block_meta_control_style,
@@ -61,8 +62,11 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
     }
     let newText = text;
     if (v) {
-      const res: DocstringToMarkdownRouteResponse =
-        await route_docstring_to_markdown({ docstring: text });
+      const res: DocstringToMarkdownRouteResponse = await callOpenAPI(
+        docstringToMarkdown({
+          body: { docstring: text },
+        }),
+      );
       if (res200(res)) {
         newText = res.data;
       }

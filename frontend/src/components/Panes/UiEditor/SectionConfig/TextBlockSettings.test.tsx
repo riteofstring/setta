@@ -20,9 +20,12 @@ import { TextBlockSettings } from "./TextBlockSettings";
 
 const routeDocstringToMarkdownMock = vi.fn();
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_docstring_to_markdown: (...args: unknown[]) =>
+vi.mock("openapi/http", () => ({
+  docstringToMarkdown: (...args: unknown[]) =>
     routeDocstringToMarkdownMock(...args),
+}));
+
+vi.mock("utils/generatedEndpoints", () => ({
   route_set_text_block_heading_as_section_name: vi.fn(),
   route_set_text_block_master_font_size: vi.fn(),
   route_set_text_block_meta_control_style: vi.fn(),
@@ -146,8 +149,8 @@ describe("TextBlockSettings", () => {
     const convertedMarkdown = "Summary line.\n\n#### Args\n\n- `x`: value\n";
     routeDocstringToMarkdownMock.mockResolvedValue({
       data: convertedMarkdown,
-      status: 200,
-      hasResponse: true,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
     const { sectionId, text } = seedTextBlockSection({});
 
@@ -168,7 +171,7 @@ describe("TextBlockSettings", () => {
       // Enabling markdown should run the Go-owned conversion helper first, then
       // persist the converted text into the live section impl.
       expect(routeDocstringToMarkdownMock).toHaveBeenCalledWith({
-        docstring: text,
+        body: { docstring: text },
       });
       expect(
         getCurrEffectiveSectionImplOfType(
@@ -191,9 +194,9 @@ describe("TextBlockSettings", () => {
   it("preserves the original text when conversion fails but still toggles markdown format", async () => {
     const originalText = "Not a supported docstring format";
     routeDocstringToMarkdownMock.mockResolvedValue({
-      data: { detail: "Unknown docstring format." },
-      status: 400,
-      hasResponse: true,
+      data: undefined,
+      error: { detail: "Unknown docstring format." },
+      response: new Response(null, { status: 400 }),
     });
     const { sectionId } = seedTextBlockSection({ text: originalText });
 
@@ -214,7 +217,7 @@ describe("TextBlockSettings", () => {
       // The current product behavior is fail-open: a rejected conversion keeps
       // the original text but still flips the text block into markdown mode.
       expect(routeDocstringToMarkdownMock).toHaveBeenCalledWith({
-        docstring: originalText,
+        body: { docstring: originalText },
       });
       expect(
         getCurrEffectiveSectionImplOfType(

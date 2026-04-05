@@ -1,3 +1,4 @@
+import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
 import {
   afterAll,
   beforeAll,
@@ -7,7 +8,6 @@ import {
   it,
   vi,
 } from "vitest";
-import type { LaunchRequest } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,

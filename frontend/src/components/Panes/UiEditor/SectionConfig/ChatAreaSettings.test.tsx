@@ -33,6 +33,11 @@ import {
 let mockCanEditLayout = true;
 const routeGetAgenticSummaryCacheStatusMock = vi.fn();
 
+vi.mock("openapi/http", () => ({
+  getAgenticSummaryCacheStatus: (...args: unknown[]) =>
+    routeGetAgenticSummaryCacheStatusMock(...args),
+}));
+
 vi.mock(
   "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState",
   () => ({
@@ -69,8 +74,6 @@ vi.mock("utils/generatedEndpoints", async () => {
   const actual = await import("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_agentic_summary_cache_status: (...args: unknown[]) =>
-      routeGetAgenticSummaryCacheStatusMock(...args),
   };
 });
 
@@ -392,8 +395,8 @@ describe("ChatAreaSettings", () => {
         emptySourceSectionIds: [],
         maxSummariesPerRun: 3,
       }),
-      status: 200,
-      hasResponse: true,
+      error: undefined,
+      response: new Response(null, { status: 200 }),
     });
     const { sourceSectionId } = seedChatSections({
       includeSummaryContextEdge: true,
@@ -407,8 +410,10 @@ describe("ChatAreaSettings", () => {
       // Summary links should trigger the Go-owned cache-status read and render
       // the returned cache/missing counts in the settings panel.
       expect(routeGetAgenticSummaryCacheStatusMock).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        chatSectionId: sourceSectionId,
+        body: {
+          projectConfigId: "project-1",
+          chatSectionId: sourceSectionId,
+        },
       });
       expect(host.textContent).toContain("Summary cache");
       expect(host.textContent).toContain("Cached: 1/2. Missing: 1.");
@@ -423,9 +428,9 @@ describe("ChatAreaSettings", () => {
 
   it("renders the Go route error detail when summary cache status fails to load", async () => {
     routeGetAgenticSummaryCacheStatusMock.mockResolvedValue({
-      data: { detail: "cache unavailable" },
-      status: 503,
-      hasResponse: true,
+      data: undefined,
+      error: { detail: "cache unavailable" },
+      response: new Response(null, { status: 503 }),
     });
     const { sourceSectionId } = seedChatSections({
       includeSummaryContextEdge: true,
@@ -439,8 +444,10 @@ describe("ChatAreaSettings", () => {
       // Non-200 responses should surface the backend-provided detail instead of
       // silently hiding the summary-cache status failure.
       expect(routeGetAgenticSummaryCacheStatusMock).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        chatSectionId: sourceSectionId,
+        body: {
+          projectConfigId: "project-1",
+          chatSectionId: sourceSectionId,
+        },
       });
       expect(host.textContent).toContain(
         "Failed to load summary cache status: cache unavailable",

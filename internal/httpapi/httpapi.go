@@ -136,23 +136,16 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 		}
 	}
 
+	openAPIDocument := newOpenAPIDocument()
 	router.Route(apiPrefix, func(r chi.Router) {
 		if deps.Auth != nil && deps.Auth.Enabled() {
 			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}
-		r.Get(RouteGetServerMode, func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, ServerModeResponse{
-				Mode: deps.Info.ServerMode(r.Context()),
-			})
-		})
-		r.Get("/runtimeInfo", func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, deps.Info.RuntimeInfo(r.Context()))
-		})
-		r.Get(RouteSDKRuntimeHandshake, func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, deps.Info.SDKRuntimeHandshake(r.Context()))
-		})
+		apiRouter := wrapRouterWithOpenAPI(r, openAPIDocument)
+		registerCoreRuntimeOpenAPIRoutes(apiRouter, deps.Info)
+		apiRouter.Get("/openapi.json", openAPIDocumentHandler(openAPIDocument))
 		if deps.Register != nil {
-			deps.Register(r)
+			deps.Register(apiRouter)
 		}
 	})
 

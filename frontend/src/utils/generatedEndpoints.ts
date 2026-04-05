@@ -260,12 +260,6 @@ export async function route_create_window_space(
   return await post(GoHTTPRouteHelpers.createWindowSpace(), x);
 }
 
-export async function route_create_workspace_launch_intent(
-  x: gt.CreateWorkspaceLaunchIntentRequest,
-): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
-  return await post(GoHTTPRouteHelpers.createWorkspaceLaunchIntent(), x);
-}
-
 export async function route_decline_rename_refactor(
   x: gt.DeclineRenameRefactorRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -392,12 +386,6 @@ export async function route_delete_window_space(
   return await post(GoHTTPRouteHelpers.deleteWindowSpace(), x);
 }
 
-export async function route_docstring_to_markdown(
-  x: gt.DocstringToMarkdownRequest,
-): Promise<ResponseDataAndStatus<string>> {
-  return await post(GoHTTPRouteHelpers.docstringToMarkdown(), x);
-}
-
 export async function route_file_browser_download(
   token: string,
 ): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
@@ -452,12 +440,6 @@ export async function route_get_agent_runs(): Promise<
   return await get(GoHTTPRouteHelpers.getAgentRuns());
 }
 
-export async function route_get_agentic_summary_cache_status(
-  x: gt.GetAgenticSummaryCacheStatusRequest,
-): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {
-  return await post(GoHTTPRouteHelpers.getAgenticSummaryCacheStatus(), x);
-}
-
 export async function route_get_ai_follow_snapshot(
   x: gt.GetAIFollowSnapshotRequest,
 ): Promise<
@@ -500,18 +482,6 @@ export async function route_get_attachment_download_urls(
   x: gt.GetAttachmentDownloadURLsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.AttachmentDownloadURLEntry>>> {
   return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrls(), x);
-}
-
-export async function route_get_auth_refresh_status(): Promise<
-  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getAuthRefreshStatus());
-}
-
-export async function route_get_backend_init_status(): Promise<
-  ResponseDataAndStatus<gt.BackendInitStatusResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getBackendInitStatus());
 }
 
 export async function route_get_chat_section_chat_id(
@@ -678,12 +648,6 @@ export async function route_get_llmapi_keys(): Promise<
   return await get(GoHTTPRouteHelpers.getLLMAPIKeys());
 }
 
-export async function route_get_mcp_server_runtime_status(
-  x: gt.MCPRuntimeStatusRequest,
-): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
-  return await post(GoHTTPRouteHelpers.getMCPServerRuntimeStatus(), x);
-}
-
 export async function route_get_notifications(
   x: gt.GetNotificationsRequest,
 ): Promise<ResponseDataAndStatus<gt.NotificationList>> {
@@ -718,18 +682,6 @@ export async function route_get_runner_summary(
   x: gt.GetRunnerSummaryRequest,
 ): Promise<ResponseDataAndStatus<gt.RunnerSummarySnapshot>> {
   return await post(GoHTTPRouteHelpers.getRunnerSummary(), x);
-}
-
-export async function route_get_server_mode(): Promise<
-  ResponseDataAndStatus<gt.ServerModeResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getServerMode());
-}
-
-export async function route_get_setta_home_info(): Promise<
-  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getSettaHomeInfo());
 }
 
 export async function route_get_state_machine_run(
@@ -772,12 +724,6 @@ export async function route_interrupt_terminal_processes(
   x: gt.InterruptTerminalProcessesRequest,
 ): Promise<ResponseDataAndStatus<gt.InterruptTerminalProcessesResponse>> {
   return await post(GoHTTPRouteHelpers.interruptTerminalProcesses(), x);
-}
-
-export async function route_launch(
-  x: gt.LaunchRequest,
-): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
-  return await post(GoHTTPRouteHelpers.launch(), x);
 }
 
 export async function route_list_app_deployments(): Promise<
@@ -835,12 +781,6 @@ export async function route_load_project_config(
   x: gt.ProjectLoadRequest,
 ): Promise<ResponseDataAndStatus<gt.SingleConfig>> {
   return await post(GoHTTPRouteHelpers.loadProjectConfig(), x);
-}
-
-export async function route_load_settings(): Promise<
-  ResponseDataAndStatus<gt.SettingsState>
-> {
-  return await post(GoHTTPRouteHelpers.loadSettings(), null);
 }
 
 export async function route_move_param_groups(
@@ -1037,12 +977,6 @@ export async function route_restart_language_server(): Promise<
   return await post(GoHTTPRouteHelpers.restartLanguageServer(), null);
 }
 
-export async function route_reveal_path_in_os_file_explorer(
-  x: gt.RevealPathInOSFileExplorerRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.revealPathInOsFileExplorer(), x);
-}
-
 export async function route_run_code(
   x: gt.RunCodeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1065,18 +999,6 @@ export async function route_save_project(
   x: gt.ManualSaveRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.saveProject(), x);
-}
-
-export async function route_save_settings(
-  x: gt.SaveSettingsRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.saveSettings(), x);
-}
-
-export async function route_sdk_runtime_handshake(): Promise<
-  ResponseDataAndStatus<gt.RunningBackendVersionHandshake>
-> {
-  return await get(GoHTTPRouteHelpers.sdkRuntimeHandshake());
 }
 
 export async function route_set_active_ids(

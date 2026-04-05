@@ -158,8 +158,24 @@ func RegisterWorkspaceLaunchRoutes(router chi.Router, deps WorkspaceLaunchRouteD
 		return fmt.Errorf("workspace local launch service is required")
 	}
 
-	router.Post(RouteCreateWorkspaceLaunchIntent, createWorkspaceLaunchIntentHandler(deps.Auth, deps.Intents))
-	router.Post(RouteLaunch, launchWorkspaceHandler(deps.Auth, deps.Launch))
+	registerOpenAPIPost[CreateWorkspaceLaunchIntentRequest, CreateWorkspaceLaunchIntentResponse](
+		router,
+		"createWorkspaceLaunchIntent",
+		RouteCreateWorkspaceLaunchIntent,
+		createWorkspaceLaunchIntentHandler(deps.Auth, deps.Intents),
+		withOpenAPITags("WorkspaceLaunch"),
+		withOpenAPISummary("Create a launch intent token for a local workspace launch."),
+		withOpenAPIModeRequirement("not-deployment"),
+	)
+	registerOpenAPIPost[LaunchRequest, LaunchResponse](
+		router,
+		"launchWorkspace",
+		RouteLaunch,
+		launchWorkspaceHandler(deps.Auth, deps.Launch),
+		withOpenAPITags("WorkspaceLaunch"),
+		withOpenAPISummary("Launch or reconnect to a local workspace runtime."),
+		withOpenAPIModeRequirement("not-deployment"),
+	)
 	return nil
 }
 

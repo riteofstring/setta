@@ -1,3 +1,4 @@
+import type { HttpapiServerModeResponse } from "openapi/http";
 import {
   resolveGeneratedEndpointOriginForMode,
   resolveGeneratedServerModeCapabilities,
@@ -13,10 +14,9 @@ import {
   type EndpointOrigin as GeneratedEndpointOrigin,
   type ServerModeCapabilities as GeneratedServerModeCapabilities,
   type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
-  type ServerModeResponse,
 } from "./generatedTypes";
 
-export type ServerMode = ServerModeResponse["mode"] | null;
+export type ServerMode = HttpapiServerModeResponse["mode"] | null;
 export type EndpointOrigin = GeneratedEndpointOrigin;
 export type WorkspaceLaunchRouteKind = GeneratedWorkspaceLaunchRouteKind;
 
