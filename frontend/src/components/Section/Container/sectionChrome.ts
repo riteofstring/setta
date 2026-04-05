@@ -28,6 +28,13 @@ type SectionSurfaceClassNameOptions = {
   hideFrameBorder?: boolean;
 };
 
+type ResolveSectionChromeSurfaceDecorationsArgs = {
+  useMetaControlStyle: boolean;
+  isMetaControlSection: boolean;
+  isUserView: boolean;
+  positionAndSizeLocked: boolean;
+};
+
 export type SectionChromeCornerStyle = "large" | "small";
 
 export type SectionChromeJoinedEdge = "none" | "top" | "bottom";
@@ -51,6 +58,28 @@ export type SectionChromeFrameStructure = {
   shellBorderVisible: boolean;
   shellOutlineWidth: 0 | 2 | 4;
   surfaceFrameVisible: boolean;
+};
+
+export type SectionChromeSurfaceLayout = "section-grid" | "single-cell";
+
+export type SectionChromeSurfaceFrameTone = "default" | "transparent-hover";
+
+export type SectionChromeSurfaceHoverElevation = "default" | "raise-on-hover";
+
+export type SectionChromeResizeHandleTone = "default" | "minimal";
+
+export type SectionChromeSurfaceDecorations = {
+  layout: SectionChromeSurfaceLayout;
+  frameTone: SectionChromeSurfaceFrameTone;
+  hoverElevation: SectionChromeSurfaceHoverElevation;
+  resizeHandleTone: SectionChromeResizeHandleTone;
+  showTopDragHandle: boolean;
+};
+
+export type SectionChromeSurfaceDomAdapter = {
+  frameClassName?: string;
+  layoutClassName?: string;
+  metaHoverZIndexClassName: string;
 };
 
 export type SectionChromeShellDecorations = {
@@ -191,6 +220,44 @@ export function resolveSectionChromeFrameStructure({
     shellOutlineWidth,
     surfaceFrameVisible: !hideFrameBorder,
   };
+}
+
+export function resolveSectionChromeSurfaceDecorations({
+  useMetaControlStyle,
+  isMetaControlSection,
+  isUserView,
+  positionAndSizeLocked,
+}: ResolveSectionChromeSurfaceDecorationsArgs): SectionChromeSurfaceDecorations {
+  return {
+    layout: isMetaControlSection ? "single-cell" : "section-grid",
+    frameTone: useMetaControlStyle ? "transparent-hover" : "default",
+    hoverElevation: useMetaControlStyle ? "raise-on-hover" : "default",
+    resizeHandleTone: useMetaControlStyle ? "minimal" : "default",
+    showTopDragHandle:
+      useMetaControlStyle && !isUserView && !positionAndSizeLocked,
+  };
+}
+
+export function getSectionChromeSurfaceDomAdapter(
+  surfaceDecorations: SectionChromeSurfaceDecorations,
+): SectionChromeSurfaceDomAdapter {
+  const adapter: SectionChromeSurfaceDomAdapter = {
+    metaHoverZIndexClassName:
+      surfaceDecorations.hoverElevation === "raise-on-hover"
+        ? "group-hover/card-section:z-[170]"
+        : "",
+  };
+
+  if (surfaceDecorations.frameTone === "transparent-hover") {
+    adapter.frameClassName =
+      "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60";
+  }
+
+  if (surfaceDecorations.layout === "single-cell") {
+    adapter.layoutClassName = "grid-cols-1 grid-rows-1";
+  }
+
+  return adapter;
 }
 
 export function getSectionContainerShellClassName({

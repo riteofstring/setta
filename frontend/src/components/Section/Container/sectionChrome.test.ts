@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  getSectionChromeSurfaceDomAdapter,
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
   resolveSectionChromeFrameStructure,
   resolveSectionChromeShellDecorations,
+  resolveSectionChromeSurfaceDecorations,
 } from "./sectionChrome";
 
 describe("sectionChrome", () => {
@@ -83,6 +85,40 @@ describe("sectionChrome", () => {
     });
   });
 
+  it("resolves renderer-neutral surface decorations for unlocked meta-control shells", () => {
+    expect(
+      resolveSectionChromeSurfaceDecorations({
+        useMetaControlStyle: true,
+        isMetaControlSection: true,
+        isUserView: false,
+        positionAndSizeLocked: false,
+      }),
+    ).toEqual({
+      layout: "single-cell",
+      frameTone: "transparent-hover",
+      hoverElevation: "raise-on-hover",
+      resizeHandleTone: "minimal",
+      showTopDragHandle: true,
+    });
+  });
+
+  it("keeps text-block meta-control surfaces on the default grid while reusing minimal handles", () => {
+    expect(
+      resolveSectionChromeSurfaceDecorations({
+        useMetaControlStyle: true,
+        isMetaControlSection: false,
+        isUserView: false,
+        positionAndSizeLocked: true,
+      }),
+    ).toEqual({
+      layout: "section-grid",
+      frameTone: "transparent-hover",
+      hoverElevation: "raise-on-hover",
+      resizeHandleTone: "minimal",
+      showTopDragHandle: false,
+    });
+  });
+
   it("supports full-bleed section shells without borders or outlines", () => {
     const className = getSectionContainerShellClassName({
       outlineTone: "inactive",
@@ -115,6 +151,23 @@ describe("sectionChrome", () => {
     expect(className).toContain("outline-purple-600");
     expect(className).toContain("ring-amber-400/70");
     expect(className).toContain("setta-ai-gradient-border-active");
+  });
+
+  it("maps surface decorations to the DOM adapter props without re-deriving section state", () => {
+    expect(
+      getSectionChromeSurfaceDomAdapter({
+        layout: "single-cell",
+        frameTone: "transparent-hover",
+        hoverElevation: "raise-on-hover",
+        resizeHandleTone: "minimal",
+        showTopDragHandle: true,
+      }),
+    ).toEqual({
+      frameClassName:
+        "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60",
+      layoutClassName: "grid-cols-1 grid-rows-1",
+      metaHoverZIndexClassName: "group-hover/card-section:z-[170]",
+    });
   });
 
   it("supports full-bleed section surfaces without frame borders", () => {

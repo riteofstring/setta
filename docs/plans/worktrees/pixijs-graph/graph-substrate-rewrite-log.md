@@ -75,6 +75,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `208` | 2026-04-05 20:00 EDT
+  - Subtask: extract the shared section-surface/meta-control appearance contract from `SectionContainerCoreResizabe` and `CustomResizable`.
+  - Production:
+    - added `resolveSectionChromeSurfaceDecorations(...)` and `getSectionChromeSurfaceDomAdapter(...)` in `frontend/src/components/Section/Container/sectionChrome.ts`
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` to resolve surface decorations once and pass the shared contract into `CustomResizable`
+    - updated `frontend/src/components/Utils/Resizable/CustomResizable.tsx` to adapt the shared surface-decoration contract into the current DOM-only surface and resize-handle classes
+  - Tests:
+    - updated `frontend/src/components/Section/Container/sectionChrome.test.ts`
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.test.ts` -> passed (`3 files`, `19 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|SectionContainerCoreResizabe(\\.test)?\\.tsx" || true` -> no matches
+    - note: `CustomResizable.tsx` still has unrelated legacy strict-type noise, so the narrowed sanity stayed on the new chrome contract and section-container wiring
+  - Runtime verification:
+    - refreshed run-039 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-039/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-039/main-ai.log`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-039 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-039 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.0s`)
+      - reference average frame duration `17.04577ms`; worktree average frame duration `17.02836ms`
+      - both sides ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - visible section count stayed `46`; long-task count stayed `1` on both sides
+    - fresh-context CDP sub-agent:
+      - first pass: blocked because the read-only `main` `/settings` tab showed `Unable to load app` / `Failed to check server mode (network error)`
+      - bounded retry: blocked because the refreshed run-039 `main` bootstrap tab rejected the token (`Token rejected. Request a new token and try again`)
+  - Result:
+    - the surface/meta-control appearance seam is now renderer-facing and no longer split between section-container and resizable DOM class logic
+    - deterministic regression coverage stayed green on the normalized `rotaryParamCodeObjDefault` lane
+    - required CDP visual confirmation is blocked by `reference_unhealthy` main-session state rather than renderer drift
+  - Next:
+    - retry the CDP compare on fresh worktree/main sessions next iteration
+    - once the visual gate clears, continue renderer-ownership extraction on section header/title/action appearance if Pixi approval is still unavailable
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `207` | 2026-04-05 19:45 EDT
   - Subtask: extract the outer section-shell decoration state behind one renderer-facing contract so future scene-owned shells do not need to reverse-engineer active/global/scope/AI highlight behavior from `SectionContainerCore`.
   - Why:

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 19:45 EDT
+Last updated: 2026-04-05 20:00 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,62 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `208` extracted the section-surface/meta-control appearance contract behind one renderer-facing surface-decoration seam so future scene-owned shells no longer have to reconstruct transparent hover frames, single-cell meta layout, hover elevation, minimal resize-handle tone, or top drag-handle visibility from both `SectionContainerCoreResizabe` and `CustomResizable`.
+  - Why this slice was needed:
+    - item `207` closed the outer shell-decoration contract, but the next renderer-owned shell layer still would have had to duplicate section-surface/meta-control appearance rules that were split across `SectionContainerCoreResizabe` and `CustomResizable`
+    - transparent meta-style frames, single-cell meta layout, hover z-index lift, minimal resize handles, and top drag-handle visibility were still encoded as DOM-only class logic instead of one reusable renderer contract
+    - approval to add Pixi is still unavailable, so the next bounded renderer-ownership slice had to deepen the existing shell/surface seam rather than reopening parity or controller churn
+  - Production/test change:
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `resolveSectionChromeSurfaceDecorations(...)` as a renderer-neutral contract for section-surface layout, frame tone, hover elevation, resize-handle tone, and top drag-handle visibility
+      - added `getSectionChromeSurfaceDomAdapter(...)` so the current DOM path remains the adapter layer over that contract
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - now resolves surface decorations once and feeds `CustomResizable` from the shared contract instead of recomputing meta-style frame/layout/drag-handle decisions inline
+      - tightened `ChatSectionArea` prop passing to satisfy exact-optional typing on the touched path
+    - updated `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+      - now consumes the shared surface-decoration contract and adapts it to DOM-only surface/resize-handle classes instead of owning separate `isMetaControl` / `frameClassName` / `layoutClassName` appearance state
+    - updated focused tests:
+      - `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - What this slice established:
+    - surface appearance now has one explicit renderer-facing contract adjacent to the shell-decoration contract from item `207`
+    - the DOM resizable path is now the adapter for that contract, not the source of truth for meta-style surface layout and resize-handle appearance
+    - `SectionContainerCoreResizabe` no longer has to coordinate meta-style frame/layout/drag-handle decisions separately from `CustomResizable`
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green on refreshed run-039 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.04577ms`; worktree average frame duration was `17.02836ms`
+      - visible section count stayed `46` on both sides
+      - both sides recorded one long task during the capture window (`55ms` reference, `58ms` worktree)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Utils/Resizable/CustomResizable.test.ts`
+      - result: passed (`3 files`, `19 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|SectionContainerCoreResizabe(\\.test)?\\.tsx" || true`
+      - result: no matches
+      - note: `CustomResizable.tsx` still carries unrelated legacy strict-type noise outside this slice, so the narrowed sanity stayed on the new chrome contract + section-container wiring
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-039/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-039/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-039 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-039 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `39.0s`)
+    - CDP visual check:
+      - result: blocked
+      - classification: `reference_unhealthy`
+      - note: the first fresh-context CDP pass found the read-only `main` `/settings` tab on `Unable to load app` / `Failed to check server mode (network error)` instead of a mounted graph surface
+      - bounded retry: a second fresh-context CDP pass tried the refreshed run-039 bootstrap urls, but the read-only `main` bootstrap tab rejected the token (`Token rejected. Request a new token and try again`), so the live worktree-vs-main graph-surface compare could not complete
+  - Lane status:
+    - this closes the requested section-surface/meta-control appearance extraction from `SectionContainerCoreResizabe` / `CustomResizable`
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, but the required CDP visual confirmation is currently blocked by a read-only `main` session problem rather than renderer drift
+  - Next frontier:
+    - first, rerun the required CDP visual compare on fresh worktree/main sessions once Ralph has rotated the read-only `main` bootstrap/runtime state
+    - if approval is still unavailable after that visual gate clears, keep the next bounded renderer-ownership slice on section header/title/action appearance extraction rather than reopening parity or controller cleanup
 
 - Ralph item `207` extracted the outer section-shell decoration state behind one renderer-facing contract so future scene-owned shells no longer have to reverse-engineer active/global/scope/AI highlight behavior from `SectionContainerCore`.
   - Why this slice was needed:
