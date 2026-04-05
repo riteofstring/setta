@@ -7,7 +7,6 @@ import {
   createCore,
   createProjectConfig,
   createTextBlockSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -55,16 +54,13 @@ function seedTextBlockSection({
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createTextBlockSectionImpl(
-    createUserDefaultTextBlockSectionImpl(),
-    {
-      id: implId,
-      text,
-      format,
-      textDisplayMode: TextBlockDisplayModeEnum.Render,
-      masterFontSizePx,
-    },
-  );
+  const sectionImpl = createTextBlockSectionImpl({
+    id: implId,
+    text,
+    format,
+    textDisplayMode: TextBlockDisplayModeEnum.Render,
+    masterFontSizePx,
+  });
 
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
