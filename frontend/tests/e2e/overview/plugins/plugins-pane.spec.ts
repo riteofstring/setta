@@ -5,16 +5,13 @@ import path from "path";
 import {
   allowExpectedApiError,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
   setOverviewTab,
 } from "../../helpers";
-
-type CreateTopLevelSectionResponse = {
-  sectionId: string;
-};
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 
@@ -43,15 +40,6 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     .first();
   await expect(runtimeSection).not.toContainText("generation=");
   await expect(page.getByText("Install Plugin")).toBeVisible();
-  await expect(page.getByText("restart capability: manual")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Restart Setta", exact: true })
-    .click();
-  await expect(
-    page.getByText(
-      "Manual restart required: setta. Programmatic restart is not available in this runtime.",
-    ),
-  ).toBeVisible();
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
@@ -93,11 +81,18 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
+  const backendPluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-backend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(backendPluginCard).toBeVisible();
   await expect(
-    page.getByText(/^Restart required for \d+ plugins?$/),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Backend changes are pending for: setta-fixture-backend"),
+    backendPluginCard.getByText(/scope=workspace source=local:/),
   ).toBeVisible();
 
   await postBackend(page, "/plugins/link", {
@@ -153,9 +148,12 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   ).toBeVisible();
 
   const paneCommandRunsMetric = page.getByTestId("fixture-pane-command-runs");
+  const paneLastCommandMetric = page.getByTestId("fixture-pane-last-command");
   await expect(paneCommandRunsMetric).toHaveText("0");
   await page.getByTestId("fixture-pane-run-command").click();
   await expect(paneCommandRunsMetric).toHaveText("1");
+  await expect(paneLastCommandMetric).toContainText("fixture-backend:active");
+  await expect(paneLastCommandMetric).toContainText("health:not-registered");
 
   await page.getByTestId("fixture-pane-note-input").fill("plugin ux note");
   await page.getByTestId("fixture-pane-save-note").click();
@@ -199,29 +197,25 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     );
   }
 
-  const created = await postBackend<CreateTopLevelSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId: projectContext.projectConfigId,
-      implType: "Plugin",
-      controlCodeObjType: null,
-      implOverrides: {
-        type: "Plugin",
-        pluginId: "setta-fixture-frontend",
-        kind: "fixture-card",
-        data: {
-          text: "hello plugin",
-        },
+  const created = await createTopLevelSectionFromFrontend(page, {
+    projectConfigId: projectContext.projectConfigId,
+    implType: "Plugin",
+    controlCodeObjType: null,
+    implOverrides: {
+      type: "Plugin",
+      pluginId: "setta-fixture-frontend",
+      kind: "fixture-card",
+      data: {
+        text: "hello plugin",
       },
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.45,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
-      },
-      topLevelSections: null,
-      viewportBounds,
     },
-  );
+    position: {
+      x: viewportBounds.x + viewportBounds.w * 0.45,
+      y: viewportBounds.y + viewportBounds.h * 0.25,
+    },
+    topLevelSections: null,
+    viewportBounds,
+  });
   expect(created?.sectionId).toBeTruthy();
 
   await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
@@ -310,7 +304,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
         sourcePath: "/tmp/setta-fixture-install",
         canonicalSourceKey: "pypi:setta-fixture-install",
         sourceDigestSha256: "sha256:fixture",
-        requestedCapabilities: ["registerPane", "registerMcpTools"],
+        requestedCapabilities: ["writeWorkspacePlugins", "registerPane"],
         trustStatus: "unverified",
         trustWarning: "Source is unverified. Install only from trusted owners.",
         components: ["backend", "frontend"],
@@ -343,7 +337,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     ),
   ).toBeVisible();
   await expect(
-    confirmation.getByText("requested=registerMcpTools, registerPane"),
+    confirmation.getByText("requested=registerPane, writeWorkspacePlugins"),
   ).toBeVisible();
   await expect(
     confirmation.getByText("sourceDigestSha256=sha256:fixture"),
@@ -599,11 +593,10 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
         }
         return {
           ...plugin,
-          requestedCapabilities: ["registerRouter", "registerMcpTools"],
+          requestedCapabilities: ["writeWorkspacePlugins"],
           effectiveCapabilities: [],
           blockedCapabilities: [
-            { capability: "registerMcpTools", reason: "mode_policy" },
-            { capability: "registerRouter", reason: "mode_policy" },
+            { capability: "writeWorkspacePlugins", reason: "mode_policy" },
           ],
         };
       },
@@ -626,10 +619,7 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
 
   await expect(backendPluginCard.getByText("Capabilities")).toBeVisible();
   await expect(
-    backendPluginCard.getByText("registerMcpTools (mode_policy)"),
-  ).toBeVisible();
-  await expect(
-    backendPluginCard.getByText("registerRouter (mode_policy)"),
+    backendPluginCard.getByText("writeWorkspacePlugins (mode_policy)"),
   ).toBeVisible();
   await expect(
     page.getByText(
@@ -1364,62 +1354,74 @@ test("plugins pane updates frontend asset digest query after relink", async ({
   }
 });
 
-test("plugins pane supports programmatic restart action", async ({ page }) => {
-  const restartRequests: Array<Record<string, unknown>> = [];
+test("plugins pane supports live programmatic restart action", async ({
+  page,
+}) => {
+  const backendFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/backend",
+  );
+  let runtimeRequestCount = 0;
+  let restartRequestCount = 0;
   await setOverviewTab(page, "Plugins");
-  await openIsolatedProject(page);
-
   await page.route("**/api/plugins/runtime", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        list: {
-          schemaVersion: 1,
-          serverMode: "ide",
-          restartCapability: {
-            mode: "programmatic",
-            command: null,
-            reason: null,
-          },
-          plugins: [],
-        },
-        status: {
-          schemaVersion: 1,
-          serverMode: "ide",
-          plugins: [],
-        },
-      }),
-    });
+    runtimeRequestCount += 1;
+    await route.continue();
   });
-
   await page.route("**/api/plugins/restart", async (route) => {
-    restartRequests.push({});
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        accepted: true,
-        mode: "programmatic",
-        command: null,
-        reason: null,
-      }),
-    });
+    restartRequestCount += 1;
+    await route.continue();
   });
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: backendFixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
 
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
 
-  await page
-    .getByRole("button", { name: "Restart Setta", exact: true })
-    .click();
-  await expect.poll(() => restartRequests.length).toBe(1);
-  await expect(
-    page
+    const runtimeSection = page
       .locator("section")
-      .filter({ hasText: "Restart request accepted." })
-      .first(),
-  ).toBeVisible();
+      .filter({
+        has: page.getByRole("heading", {
+          name: "Plugin Runtime",
+          exact: true,
+        }),
+      })
+      .first();
+    await expect(runtimeSection).toContainText("mode=ide status=loaded");
+    await expect(runtimeSection).toContainText(
+      "restart capability: programmatic",
+    );
+
+    const restartButton = page.getByRole("button", {
+      name: "Restart Setta",
+      exact: true,
+    });
+    await expect(restartButton).toBeEnabled();
+    const runtimeCountBeforeRestart = runtimeRequestCount;
+    await restartButton.click();
+
+    await expect.poll(() => restartRequestCount).toBe(1);
+    await expect
+      .poll(() => runtimeRequestCount)
+      .toBe(runtimeCountBeforeRestart + 1);
+    await expect(
+      page.getByText("Restart request accepted.").first(),
+    ).toBeVisible();
+  } finally {
+    await postBackend(page, "/plugins/uninstall", {
+      pluginId: "setta-fixture-backend",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });
 
 test("plugins pane shows restart rejection and request-failure messaging", async ({

@@ -1,8 +1,8 @@
 import {
   AgentRun,
-  AgentRunStatusEnum,
   ChatRoleEnum,
   createMessageTextContent,
+  RunStatusEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -36,13 +36,13 @@ function buildRun({
   projectConfigId?: string | null;
   runType?: "llm_chat" | "external_agent" | "scriptable_chat";
   engineConfigId?: string | null;
-  status?: AgentRunStatusEnum;
+  status?: RunStatusEnum;
 }): AgentRun {
   const timestamp = startedAt ?? "2024-01-01T00:00:00Z";
   return {
     id: `run-${chatId}-${messageText}`,
     profileId: null,
-    status: status ?? AgentRunStatusEnum.completed,
+    status: status ?? RunStatusEnum.completed,
     startedAt: timestamp,
     finishedAt: timestamp,
     inputs: {
@@ -238,13 +238,13 @@ describe("chatHistory", () => {
         chatId: "chat-status",
         messageText: "Older running",
         startedAt: "2024-01-01T00:00:00Z",
-        status: AgentRunStatusEnum.running,
+        status: RunStatusEnum.running,
       }),
       buildRun({
         chatId: "chat-status",
         messageText: "Latest completed",
         startedAt: "2024-01-02T00:00:00Z",
-        status: AgentRunStatusEnum.completed,
+        status: RunStatusEnum.completed,
       }),
     ];
 
@@ -259,13 +259,13 @@ describe("chatHistory", () => {
         chatId: "chat-tie",
         messageText: "Tie running",
         startedAt: "2024-01-03T00:00:00Z",
-        status: AgentRunStatusEnum.running,
+        status: RunStatusEnum.running,
       }),
       buildRun({
         chatId: "chat-tie",
         messageText: "Tie completed",
         startedAt: "2024-01-03T00:00:00Z",
-        status: AgentRunStatusEnum.completed,
+        status: RunStatusEnum.completed,
       }),
     ];
 
