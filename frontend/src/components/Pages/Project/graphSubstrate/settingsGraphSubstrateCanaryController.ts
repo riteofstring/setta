@@ -21,6 +21,8 @@ import {
   resolveSettingsGraphSubstrateCanarySections,
   selectSettingsGraphSubstrateCanaryLayoutSections,
 } from "./settingsGraphSubstrateCanaryModel";
+import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
+import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -56,6 +58,10 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     _.isEqual,
   );
   const nodeInternals = useNodeInternals((state) => state.x, _.isEqual);
+  const previousSceneSnapshot = useSettingsGraphSubstrateCanarySceneStore(
+    (state) => state.sceneSnapshot,
+    _.isEqual,
+  );
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
@@ -99,13 +105,19 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     }),
     _.isEqual,
   );
+  const sectionSeedNodes = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanarySectionSeedNodes(
+      nodeInternals,
+      previousSceneSnapshot,
+    );
+  }, [nodeInternals, previousSceneSnapshot]);
   const sections = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySections(
       layoutSections,
-      nodeInternals,
+      sectionSeedNodes,
       sectionSizingPolicy,
     );
-  }, [layoutSections, nodeInternals, sectionSizingPolicy]);
+  }, [layoutSections, sectionSeedNodes, sectionSizingPolicy]);
   const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
     (state) => ({
       overviewTrueWidth: state.overviewTrueWidth,

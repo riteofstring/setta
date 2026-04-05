@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 04:16 EDT
+Last updated: 2026-04-07 04:25 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,42 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `251` tightened the remaining `sharedNode` geometry-authority lane by preferring the previous canary scene snapshot as the controller refresh seed instead of rehydrating that seed from stale global node internals.
+
+  - Why this pass stopped here:
+    - item `250` explicitly left the initial `sharedNode` seed boundary as the next product decision point after the node-internals refresh path was closed
+    - `useSettingsGraphSubstrateCanaryController()` still rebuilt canary sections from `useNodeInternals` alone, so a controller refresh could fall back to an older shared-node seed even when the live canary had already measured a fresher local size
+    - this pass stayed bounded to the controller/model boundary only; global node-internals sync still happens for compatibility, but the canary no longer needs that stale shared seed to rebuild the visible section list after an in-session refresh
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened for this slice; the CDP gate stayed on bounded live canary health rather than an anchor-specific compare
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts)
+      - the canary controller now derives its section seed map from the previous canary scene snapshot before falling back to shared node internals
+    - added [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts)
+      - shared-node sections now prefer the previous scene snapshot's positive `resolvedSize` as the local seed, with width/height fallback only when the snapshot has no fresher measured size
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx)
+      - added a regression proving the controller passes the previous canary shared-node size forward instead of the stale global `nodeInternals` value
+    - added [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts)
+      - locked the merge behavior so local shared-node scene size wins over stale global seed while non-shared sections stay on their existing path
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed (`2 files`, `7 tests`)
+    - CDP visual gate:
+      - done
+      - a fresh-context CDP sub-agent attached successfully without a restart, opened `http://127.0.0.1:3076/settings`, confirmed `All Settings`, and reported a populated canary surface with no blank graph shell, missing graph surface, or detached section body in the viewport
+  - Lane status:
+    - controller refreshes now keep shared-node fallback inside the canary's own last scene snapshot instead of rehydrating the visible section list from stale global node internals
+    - this closes the in-session stale-seed path that item `250` left open after the node-internals refresh fix
+    - the remaining geometry-authority frontier is now the cold-start `sharedNode` seed path when no prior canary scene snapshot exists, not the already-closed controller refresh path
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority slice to the cold-start `sharedNode` seed path: decide whether first-mount fallback can avoid global node internals entirely or whether a dedicated canary-local seed store is needed for that boundary
 
 - Ralph item `250` tightened the remaining `sharedNode` geometry-authority lane by keeping global node internals as a seed only, instead of refreshing that seed from later measured canary sizes.
 

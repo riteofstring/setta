@@ -9787,3 +9787,28 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
     - narrow the next geometry-authority slice to whether the initial `sharedNode` seed can move out of shared node internals into a canary-local authority path without reopening controller-refresh regressions
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 04:25 EDT, Ralph item `251`
+  - Summary: moved the shared-node controller refresh seed to the canary's previous scene snapshot so the visible section list no longer rebuilds from stale global node internals after an in-session refresh.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened for this slice; the visual gate stayed on bounded live canary health rather than an anchor-specific compare
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts` -> passed (`2 files`, `7 tests`)
+    - fresh-context CDP sub-agent -> done; `http://127.0.0.1:3076/settings` was already mounted, `All Settings` was visible, and the canary surface showed populated sections with no blank graph shell, missing graph surface, or detached section body
+  - Result:
+    - controller refreshes now seed shared-node sections from the canary's own last scene snapshot instead of from stale global `nodeInternals`
+    - the local canary keeps the fresher in-session shared-node size even though global node-internals sync still remains for compatibility
+    - the remaining geometry-authority frontier is now the cold-start `sharedNode` seed path when no prior canary scene snapshot exists, not the already-closed controller refresh path
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority slice to the cold-start `sharedNode` seed boundary and decide whether first-mount fallback can avoid global node internals entirely or needs a dedicated canary-local seed store
+  - LOOP_TERMINAL_MARKER: none

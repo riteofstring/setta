@@ -12,6 +12,7 @@ import {
   resolveSettingsGraphSubstrateCanaryViewportTransform,
   useSettingsGraphSubstrateCanaryController,
 } from "./settingsGraphSubstrateCanaryController";
+import { resolveSettingsGraphSubstrateCanarySections } from "./settingsGraphSubstrateCanaryModel";
 import { useSettingsGraphSubstrateCanarySurfaceRuntime } from "./settingsGraphSubstrateCanarySurfaceRuntime";
 
 const hoisted = vi.hoisted(() => ({
@@ -30,9 +31,18 @@ const hoisted = vi.hoisted(() => ({
       viewportInitialized: true,
     },
   },
+  layoutSections: [
+    {
+      sectionId: "layout-a",
+    },
+  ],
+  nodeInternals: new Map<string, Record<string, unknown>>(),
   reactFlowSelectorState: {
     nodeDragThreshold: 8,
     zoomActivationKeyPressed: true,
+  },
+  sceneSnapshotState: {
+    sections: [] as Array<Record<string, unknown>>,
   },
   sections: [
     {
@@ -121,6 +131,10 @@ vi.mock("state/definitions", () => ({
     (selector: (state: typeof hoisted.projectState) => unknown) =>
       selector(hoisted.projectState),
   ),
+  useNodeInternals: vi.fn(
+    (selector: (state: { x: typeof hoisted.nodeInternals }) => unknown) =>
+      selector({ x: hoisted.nodeInternals }),
+  ),
   useSettings: vi.fn(
     (selector: (state: typeof hoisted.settingsState) => unknown) =>
       selector(hoisted.settingsState),
@@ -132,7 +146,20 @@ vi.mock("utils/focusManager", () => ({
 }));
 
 vi.mock("./settingsGraphSubstrateCanaryModel", () => ({
-  selectSettingsGraphSubstrateCanarySections: vi.fn(() => hoisted.sections),
+  resolveSettingsGraphSubstrateCanarySections: vi.fn(() => hoisted.sections),
+  selectSettingsGraphSubstrateCanaryLayoutSections: vi.fn(
+    () => hoisted.layoutSections,
+  ),
+}));
+
+vi.mock("./settingsGraphSubstrateCanarySceneStore", () => ({
+  useSettingsGraphSubstrateCanarySceneStore: vi.fn(
+    (
+      selector: (state: {
+        sceneSnapshot: typeof hoisted.sceneSnapshotState;
+      }) => unknown,
+    ) => selector({ sceneSnapshot: hoisted.sceneSnapshotState }),
+  ),
 }));
 
 vi.mock("./settingsGraphSubstrateCanarySurfaceRuntime", () => ({
@@ -171,8 +198,11 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       zoom: 0.75,
     };
     hoisted.projectState.projectConfig.viewportInitialized = true;
+    hoisted.layoutSections = [{ sectionId: "layout-a" }];
+    hoisted.nodeInternals = new Map();
     hoisted.reactFlowSelectorState.nodeDragThreshold = 8;
     hoisted.reactFlowSelectorState.zoomActivationKeyPressed = true;
+    hoisted.sceneSnapshotState = { sections: [] };
     hoisted.sections = [{ sectionId: "section-a" }];
     hoisted.settingsState.gui.defaultZoomLevel = 1.25;
     hoisted.settingsState.gui.maxZoom = 4;
@@ -201,6 +231,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     hoisted.useMiscSetState.mockClear();
     hoisted.useReactFlowSetState.mockClear();
     vi.mocked(applyActiveSectionChange).mockClear();
+    vi.mocked(resolveSettingsGraphSubstrateCanarySections).mockClear();
     vi.mocked(screenToFlowPosition).mockClear();
     vi.mocked(useTabScope).mockClear();
     vi.mocked(useSettingsGraphSubstrateCanarySurfaceRuntime).mockClear();
@@ -224,9 +255,14 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     });
 
     const scopeArgs = vi.mocked(useTabScope).mock.calls[0]?.[0];
+    const resolvedSectionsArgs = vi.mocked(
+      resolveSettingsGraphSubstrateCanarySections,
+    ).mock.calls[0];
     const runtimeArgs = vi.mocked(useSettingsGraphSubstrateCanarySurfaceRuntime)
       .mock.calls[0]?.[0];
 
+    expect(resolvedSectionsArgs?.[0]).toEqual(hoisted.layoutSections);
+    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.nodeInternals);
     expect(runtimeArgs).toEqual(
       expect.objectContaining({
         defaultZoomLevel: 1.25,
@@ -252,6 +288,57 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     expect(readProbe(host).dataset.transform).toBe(
       "translate(120px, -44px) scale(1.4)",
     );
+  });
+
+  it("prefers the previous canary shared-node seed over stale global node internals when recomputing sections", async () => {
+    hoisted.nodeInternals = new Map([
+      [
+        "section-a",
+        {
+          width: 260,
+          height: 180,
+          sizeAuthority: "sharedNode",
+        },
+      ],
+    ]);
+    hoisted.sceneSnapshotState = {
+      sections: [
+        {
+          sectionId: "section-a",
+          sizeAuthority: "sharedNode",
+          width: 260,
+          height: 180,
+          resolvedSize: { width: 420, height: 315 },
+        },
+      ],
+    };
+
+    await act(async () => {
+      root.render(<ControllerProbe />);
+    });
+
+    const resolvedSectionsArgs = vi.mocked(
+      resolveSettingsGraphSubstrateCanarySections,
+    ).mock.calls[0];
+    const sectionSeedNodes = resolvedSectionsArgs?.[1] as
+      | ReadonlyMap<
+          string,
+          | {
+              height?: number | null;
+              sizeAuthority?: string;
+              width?: number | null;
+            }
+          | undefined
+        >
+      | undefined;
+
+    expect(sectionSeedNodes).toBeDefined();
+    expect(sectionSeedNodes).not.toBe(hoisted.nodeInternals);
+    expect(sectionSeedNodes?.get("section-a")).toEqual({
+      width: 420,
+      height: 315,
+      sizeAuthority: "sharedNode",
+    });
   });
 
   it("routes pane background clicks through the controller-owned pane click handler", async () => {
