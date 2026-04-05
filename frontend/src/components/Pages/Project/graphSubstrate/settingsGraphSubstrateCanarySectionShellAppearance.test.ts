@@ -11,7 +11,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellAppearance", () => {
         isInOtherProjectConfigs: false,
         positionAndSizeLocked: false,
         sectionStyleVars: {
-          "--setta-section-style-border": "#336699",
+          color: "#336699",
         },
         sectionTypeName: SectionTypeEnum.Code,
         useMetaControlStyle: false,
@@ -19,7 +19,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellAppearance", () => {
 
     expect(appearance.hasSectionStyleTheme).toBe(true);
     expect(appearance.sectionStyleVars).toMatchObject({
-      "--setta-section-style-border": "#336699",
+      color: "#336699",
     });
     expect(appearance.frameStructure).toMatchObject({
       cornerStyle: "large",

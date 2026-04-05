@@ -2,12 +2,14 @@ import React, {
   type CSSProperties,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  useMemo,
 } from "react";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
-import { SettingsGraphSubstrateCanarySectionBorder } from "./settingsGraphSubstrateCanarySectionBorder";
-import { SettingsGraphSubstrateCanarySectionOutline } from "./settingsGraphSubstrateCanarySectionOutline";
 import { useSettingsGraphSubstrateCanarySectionShellAppearance } from "./settingsGraphSubstrateCanarySectionShellAppearance";
-import { SettingsGraphSubstrateCanarySectionTopDragHandle } from "./settingsGraphSubstrateCanarySectionTopDragHandle";
+import {
+  resolveSettingsGraphSubstrateCanarySectionShellLayer,
+  SettingsGraphSubstrateCanarySectionShellLayerDomAdapter,
+} from "./settingsGraphSubstrateCanarySectionShellLayer";
 
 type SettingsGraphSubstrateCanarySectionShellProps = {
   children: ReactNode;
@@ -34,6 +36,11 @@ function _SettingsGraphSubstrateCanarySectionShell({
 }: SettingsGraphSubstrateCanarySectionShellProps) {
   const shellAppearance =
     useSettingsGraphSubstrateCanarySectionShellAppearance(section);
+  const shellLayer = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanarySectionShellLayer(
+      shellAppearance,
+    );
+  }, [shellAppearance]);
   let sectionCursor: CSSProperties["cursor"] = "grab";
   if (section.positionAndSizeLocked) {
     sectionCursor = "default";
@@ -63,12 +70,8 @@ function _SettingsGraphSubstrateCanarySectionShell({
       onPointerUpCapture={(event) => finishSectionDrag(event, true)}
       onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
     >
-      <SettingsGraphSubstrateCanarySectionBorder appearance={shellAppearance} />
-      <SettingsGraphSubstrateCanarySectionOutline
-        appearance={shellAppearance}
-      />
-      <SettingsGraphSubstrateCanarySectionTopDragHandle
-        appearance={shellAppearance}
+      <SettingsGraphSubstrateCanarySectionShellLayerDomAdapter
+        shellLayer={shellLayer}
       />
       {children}
     </div>

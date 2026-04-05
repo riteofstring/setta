@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 17:25 EDT
+Last updated: 2026-04-06 17:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,59 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `227` collapses the canary shell chrome trio behind one renderer-facing shell-layer contract and one DOM adapter, so the canary shell no longer exposes separate border/outline/top-drag-handle renderer boundaries.
+  - Why this slice was needed:
+    - item `226` centralized shell appearance, but `SettingsGraphSubstrateCanarySectionShell.tsx` still owned three separate DOM chrome adapters and a future scene-owned shell would still need to reverse-engineer that trio
+    - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to keep moving renderer ownership forward without adding a dependency
+    - collapsing the trio into one shell-layer contract is meaningful boundary deepening; it is not another geometry-authority pass or a pure forwarding hop
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.tsx`
+      - introduced `resolveSettingsGraphSubstrateCanarySectionShellLayer(...)`, which resolves one renderer-facing shell-layer contract for the static shell border, outline, and top drag handle
+      - added `SettingsGraphSubstrateCanarySectionShellLayerDomAdapter`, which renders that contract through one DOM adapter boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - now memoizes one shell-layer contract from shell appearance and renders the single DOM adapter instead of three separate shell-owned chrome components
+    - removed shell-owned trio files:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBorder.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionOutline.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionTopDragHandle.tsx`
+    - added focused test:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts`
+    - updated focused shell tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+  - What this slice established:
+    - the canary shell now exposes one renderer-facing static shell-layer contract instead of three independent DOM-owned chrome entry points
+    - future scene-owned shell rendering can consume the same border/outline/top-drag-handle layer contract without needing to know how the DOM adapter is split
+    - renderer ownership kept moving forward without reopening geometry-authority work or adding more parity-harness churn
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`3 files`, `10 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'settingsGraphSubstrateCanarySectionShell(Layer)?\\.tsx?|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx|settingsGraphSubstrateCanarySectionShellAppearance\\.test\\.ts' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-003 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned (border|top drag handle)' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; both targeted cases timed out inside `ensureAppReady(...)` with `helpers.ts:1187` (`browserContext.cookies: Target page, context or browser has been closed`) before the spec bodies ran
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree settings page at `http://127.0.0.1:3076/settings` showed `All Settings`, a mounted graph surface, and visible `rotaryParamCodeObjDefault`
+      - note: both bootstrap URLs rejected their tokens in this pass, so the spot-check used the direct settings URLs instead of the bootstrap flow
+      - note: the read-only `main` reference at `http://127.0.0.1:3087/settings` was `reference_unhealthy` during this pass, so no fresh side-by-side renderer claim was made
+      - note: no obvious gross graph-surface drift was visible on the worktree shell-layer slice itself during the spot-check
+  - Lane status:
+    - this closes the shell-layer adapter fallback slice that item `226` pointed to when Pixi dependency approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the current Playwright failure is still harness noise rather than slice-specific evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer contract to land the first scene-owned static shell layer while `SettingsGraphSubstrateCanaryDomSectionBody` stays DOM-backed
+    - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the DOM section-body chrome-suppression trio (`forceHideOutline`, `forceTransparentBorder`, `forceHideTopDragHandle`) behind one renderer-facing body adapter boundary rather than reopening geometry or parity work
 
 - Ralph item `226` extracts one renderer-facing canary shell-appearance boundary so the DOM shell layers stop each owning their own section-chrome subscriptions and decoration resolution.
   - Why this slice was needed:
