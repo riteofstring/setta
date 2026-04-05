@@ -5651,3 +5651,37 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - open the next trusted normalized motion lane on another named section that still lacks fresh Gate 1 / Gate 2 evidence, now that `sectionSizingPolicy` top-level drag is closed
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 158
+
+- Item: Open the canonical `chartSectionDefault` normalized top-level drag lane and capture its first trusted worktree-versus-reference evidence.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `157` closed the `sectionSizingPolicy` drag lane cleanly, so the next bounded motion step had to move to another named section instead of repeating the same closed drag path
+    - `chartSectionDefault` already had fit-view plus toolbar-zoom coverage, but it still lacked a trusted normalized top-level drag lane on `All Settings`
+    - the plan's immediate frontier is another named pan-or-drag compare on normalized `All Settings`, with the shared Playwright helpers as the primary oracle
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `chartSectionDefault`, runs shared compare preflight, fits the named section, drags it by the same short top-level delta on both sides, and compares row-anchor drift plus post-drag graph-surface geometry
+  - What this slice established:
+    - the targeted live Playwright lane passed on the current run-018 surfaces, so the deterministic parity oracle currently sees the canary and legacy paths staying within threshold on `chartSectionDefault` top-level drag
+    - fresh-context CDP access worked and the sub-agent normalized `All Settings`, kept `snapToGrid=false`, centered `chartSectionDefault`, and manually applied the same short top-level drag on both sides
+    - that manual CDP read still did not visually converge: the canary moved slightly and stayed compact, while the legacy side still appeared in the larger legacy layout after the drag attempt
+    - treat this as an open named drag lane, not a closed clean lane: the trusted Playwright oracle is green, but the required CDP visual read still reports visible post-drag drift on the chart graph surface
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `33.9s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - checked `Settings` -> `All Settings` on worktree `3076` and read-only `main` `3087`
+    - normalized both sides around canonical section `chartSectionDefault`, then manually applied the short top-level drag for a graph-surface visual read
+    - CDP visual check: done (fresh-context sub-agent; manual post-drag graph-surface read still showed visible drift between worktree canary and read-only `main`)
+- Next action:
+  - reconcile the `chartSectionDefault` drag lane by deciding whether the CDP visual mismatch is a real renderer motion artifact or a non-deterministic manual-drag discrepancy against the trusted Playwright oracle
+- LOOP_TERMINAL_MARKER: none

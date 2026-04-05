@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 05:41 EDT
+Last updated: 2026-04-05 05:58 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,39 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `158` opened the canonical `chartSectionDefault` normalized top-level drag lane and turned it into the next named motion oracle.
+  - Why this slice was needed:
+    - item `157` closed the `sectionSizingPolicy` top-level drag lane cleanly, so the next bounded step had to move to another named section instead of repeating the same closed motion path
+    - `chartSectionDefault` already had fit-view plus toolbar-zoom evidence, but it still lacked a trusted normalized top-level drag lane on `All Settings`
+    - the plan's immediate frontier is one more named pan-or-drag compare on normalized `All Settings`, using the shared Playwright parity helpers as the primary oracle
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the new lane uses canonical target `chartSectionDefault`, runs the shared compare preflight, clears viewport state through the existing normalization flow, fits the named section, and checks that the `dataPath` row stays attached during the same short top-level drag on legacy and canary
+      - the assertions compare row-anchor drift, post-drag layout delta, rect delta, and post-motion graph-surface geometry between read-only `main` and the worktree canary
+  - What this slice established:
+    - the new targeted Playwright lane passed on the live run-018 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `chartSectionDefault` top-level drag behaving within the expected thresholds
+    - fresh-context CDP access worked after reading the browser MCP quickstart, and the sub-agent normalized `All Settings`, kept `snapToGrid=false`, centered `chartSectionDefault`, and manually applied the same short top-level drag on both sides
+    - that manual CDP pass did not visually converge the same way as the deterministic Playwright lane: the canary moved slightly and stayed compact, while the legacy side still appeared in the larger legacy layout after the drag attempt
+    - treat `chartSectionDefault` as an open named drag lane rather than closed cleanly for now: the trusted Playwright oracle passes, but the required CDP visual read still reports visible post-drag drift on the graph surface
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `33.9s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings`
+      - normalized both sides around `chartSectionDefault` and manually applied the short top-level drag for a graph-surface visual read
+    - CDP visual check: done (fresh-context sub-agent; manual post-drag graph-surface read still showed visible worktree-versus-reference drift on `chartSectionDefault`)
+  - Lane status:
+    - keep `chartSectionDefault` as the canonical named top-level drag lane
+    - do not treat this lane as closed yet; the deterministic Playwright oracle is green, but the CDP visual read still needs reconciliation before the lane can be retired
+  - Next frontier:
+    - reconcile the `chartSectionDefault` drag lane by determining whether the CDP visual mismatch is a real renderer motion artifact or a non-deterministic manual-drag discrepancy against the trusted Playwright path
 
 - Ralph item `157` closed the named `sectionSizingPolicy` normalized top-level drag lane by matching legacy drag-threshold start semantics on the canary.
   - Why this slice was needed:
