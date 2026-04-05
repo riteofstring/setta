@@ -14,7 +14,7 @@ import {
   ConnectionTypeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  WebsocketMsgTypeForFrontendEnum,
+  WebsocketMessageTypeEnum,
   createAgentRun,
   createContentRef,
   createLSPDiagnosticsPayload,
@@ -120,7 +120,7 @@ function buildUISettingRevealMessage({
 }) {
   return {
     id,
-    messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+    messageType: WebsocketMessageTypeEnum.UISettingReveal,
     content: {
       projectConfigId: "project-1",
       chatId: null,
@@ -339,7 +339,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-agent-run",
-        messageType: WebsocketMsgTypeForFrontendEnum.AgentRunUpdated,
+        messageType: WebsocketMessageTypeEnum.AgentRunUpdated,
         content: createAgentRun({
           id: "workflow-run-1",
           status: "completed",
@@ -376,7 +376,7 @@ describe("openWebSocket", () => {
     await socket.emit("open");
     await socket.emit("message", {
       data: JSON.stringify({
-        messageType: WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot,
+        messageType: WebsocketMessageTypeEnum.ListenerCoverageSnapshot,
         content: createListenerCoverageSnapshot({
           projectConfigId: "project-1",
           hasRealtimeWildcard: false,
@@ -712,7 +712,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity",
-        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
+        messageType: WebsocketMessageTypeEnum.AllConnections,
         content: [
           {
             id: "frontend-origin",
@@ -748,7 +748,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity-identity",
-        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-handshake" },
       }),
     });
@@ -757,7 +757,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity-stale-snapshot",
-        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
+        messageType: WebsocketMessageTypeEnum.AllConnections,
         content: [],
       }),
     });
@@ -786,7 +786,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-first-identity",
-        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-first" },
       }),
     });
@@ -802,7 +802,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-stale-identity",
-        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-stale" },
       }),
     });
@@ -834,7 +834,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-first-identity",
-        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-first" },
       }),
     });
@@ -849,7 +849,7 @@ describe("openWebSocket", () => {
     await secondSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-second-identity",
-        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
+        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-second-token" },
       }),
     });
@@ -1029,7 +1029,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-1",
-        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        messageType: WebsocketMessageTypeEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1324,7 +1324,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-2",
-        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        messageType: WebsocketMessageTypeEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1399,7 +1399,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-3",
-        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        messageType: WebsocketMessageTypeEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1453,7 +1453,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-4",
-        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        messageType: WebsocketMessageTypeEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,

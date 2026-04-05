@@ -1275,7 +1275,7 @@ func TestRegisterRoutesBackendLogsBroadcastOnlyToMatchingSessionFrontend(t *test
 		t.Fatalf("broadcast backend log event: %v", err)
 	}
 
-	envelope := readUntilMessageType(t, frontendA, backendlogs.MessageTypeBackendLogEvent, 2)
+	envelope := readUntilMessageType(t, frontendA, string(realtime.WebsocketMessageTypeBackendLogEvent), 2)
 
 	var event backendlogs.Event
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {
@@ -1297,8 +1297,8 @@ func TestRegisterRoutesBackendLogsBroadcastOnlyToMatchingSessionFrontend(t *test
 		t.Fatalf("expected fixed backend log timestamp, got %q", event.Timestamp)
 	}
 
-	assertNoRouteEnvelopeOfType(t, frontendB, backendlogs.MessageTypeBackendLogEvent, 300*time.Millisecond)
-	assertNoRouteEnvelopeOfType(t, listener, backendlogs.MessageTypeBackendLogEvent, 300*time.Millisecond)
+	assertNoRouteEnvelopeOfType(t, frontendB, string(realtime.WebsocketMessageTypeBackendLogEvent), 300*time.Millisecond)
+	assertNoRouteEnvelopeOfType(t, listener, string(realtime.WebsocketMessageTypeBackendLogEvent), 300*time.Millisecond)
 }
 
 func TestRegisterRoutesListenerInitBootstrapsProjectByIDAndSendsForceRefresh(t *testing.T) {

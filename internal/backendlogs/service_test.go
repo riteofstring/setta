@@ -55,7 +55,7 @@ func TestServiceLogAndBroadcastScopesToMatchingShareSession(t *testing.T) {
 	}
 
 	envelope := readBackendLogEnvelope(t, frontendA)
-	if envelope.MessageType != MessageTypeBackendLogEvent {
+	if envelope.MessageType != string(realtime.WebsocketMessageTypeBackendLogEvent) {
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
 
@@ -154,7 +154,7 @@ func TestServiceLogAndBroadcastDefaultsUILogThresholdToEffectiveLoggerLevel(t *t
 	}
 
 	envelope := readBackendLogEnvelope(t, frontendDelivered)
-	if envelope.MessageType != MessageTypeBackendLogEvent {
+	if envelope.MessageType != string(realtime.WebsocketMessageTypeBackendLogEvent) {
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
 

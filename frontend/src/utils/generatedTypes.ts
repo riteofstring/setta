@@ -357,37 +357,6 @@ export type PluginRestartResponse = {
   reason: string | null;
 };
 
-export const WebsocketMsgTypeForFrontendEnum = {
-  AllConnections: "AllConnections",
-  FrontendIdentity: "FrontendIdentity",
-  Notification: "Notification",
-  LLMStreamingResponse: "LLMStreamingResponse",
-  LSPDiagnostics: "LSPDiagnostics",
-  NameValidationErrors: "NameValidationErrors",
-  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
-  TerminalMetadata: "TerminalMetadata",
-  UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  UpdateSettings: "UpdateSettings",
-  AllProjectMetadata: "AllProjectMetadata",
-  UpdateArtifacts: "UpdateArtifacts",
-  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
-  LLMConfigUpdated: "LLMConfigUpdated",
-  LLMApiKeysUpdated: "LLMApiKeysUpdated",
-  AgentRunUpdated: "AgentRunUpdated",
-  BackendLogEvent: "BackendLogEvent",
-  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
-  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  UISettingReveal: "UISettingReveal",
-  AgentProfilesUpdated: "AgentProfilesUpdated",
-  PromptTemplatesUpdated: "PromptTemplatesUpdated",
-  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
-  EngineConfigsUpdated: "EngineConfigsUpdated",
-  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
-} as const;
-export type WebsocketMsgTypeForFrontend = ObjectValues<
-  typeof WebsocketMsgTypeForFrontendEnum
->;
-
 export type AgentProfile = {
   id: string;
   name: string;
@@ -5468,6 +5437,36 @@ export function createListenerCoverageSnapshot(
 ): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
 }
+
+export const WebsocketMessageTypeEnum = {
+  Notification: "Notification",
+  AllProjectMetadata: "AllProjectMetadata",
+  AllConnections: "AllConnections",
+  FrontendIdentity: "FrontendIdentity",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  UpdateArtifacts: "UpdateArtifacts",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  UISettingReveal: "UISettingReveal",
+  LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  AgentRunUpdated: "AgentRunUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateSettings: "UpdateSettings",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
+  BackendLogEvent: "BackendLogEvent",
+} as const;
+export type WebsocketMessageType = ObjectValues<
+  typeof WebsocketMessageTypeEnum
+>;
 
 export const NotificationTypeEnum = {
   error: "error",

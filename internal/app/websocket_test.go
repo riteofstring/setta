@@ -638,7 +638,12 @@ func TestAppPromptTemplateWatcherBroadcastsFileChangesAndParseFailures(t *testin
 		t.Fatalf("write invalid prompt template file: %v", err)
 	}
 
-	logEnvelope := readAppRouteEnvelopeUntilType(t, conn, backendlogs.MessageTypeBackendLogEvent, 6)
+	logEnvelope := readAppRouteEnvelopeUntilType(
+		t,
+		conn,
+		realtime.ListenerMessageType(realtime.WebsocketMessageTypeBackendLogEvent),
+		6,
+	)
 	var event backendlogs.Event
 	if err := json.Unmarshal(logEnvelope.Content, &event); err != nil {
 		t.Fatalf("decode backend log event: %v", err)
@@ -5533,7 +5538,12 @@ func TestAppRunCodeBroadcastsBackendLogEvent(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, backendlogs.MessageTypeBackendLogEvent, 4)
+	envelope := readAppRouteEnvelopeUntilType(
+		t,
+		conn,
+		realtime.ListenerMessageType(realtime.WebsocketMessageTypeBackendLogEvent),
+		4,
+	)
 
 	var event backendlogs.Event
 	if err := json.Unmarshal(envelope.Content, &event); err != nil {

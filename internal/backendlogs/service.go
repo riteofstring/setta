@@ -12,10 +12,7 @@ import (
 	"setta/internal/realtime"
 )
 
-const (
-	MessageTypeBackendLogEvent = "BackendLogEvent"
-	uiLogLevelEnv              = "SETTA_UI_LOG_LEVEL"
-)
+const uiLogLevelEnv = "SETTA_UI_LOG_LEVEL"
 
 const criticalLevel = slog.LevelError + 4
 
@@ -43,9 +40,9 @@ type Event struct {
 }
 
 type WebsocketMessage struct {
-	ID          *string `json:"id"`
-	MessageType string  `json:"messageType"`
-	Content     Event   `json:"content"`
+	ID          *string                       `json:"id"`
+	MessageType realtime.WebsocketMessageType `json:"messageType"`
+	Content     Event                         `json:"content"`
 }
 
 type LogRequest struct {
@@ -143,7 +140,7 @@ func (s *Service) LogAndBroadcast(ctx context.Context, request LogRequest) error
 	}
 
 	_, err := s.websocketHub.BroadcastJSON(ctx, WebsocketMessage{
-		MessageType: MessageTypeBackendLogEvent,
+		MessageType: realtime.WebsocketMessageTypeBackendLogEvent,
 		Content:     event,
 	}, selection)
 	return err

@@ -60,12 +60,12 @@ import {
   UISettingRevealContentSchema,
   UISettingRevealResultMessage,
   UISettingRevealResultStatus,
-  WebsocketMsgTypeForFrontendEnum,
+  WebsocketMessageTypeEnum,
   type AuthRefreshStatusResponse,
   type ContentRef,
   type LSPDiagnosticsPayload,
   type ProjectStateSingleConfigWithCompletedOpIDs,
-  type WebsocketMsgTypeForFrontend,
+  type WebsocketMessageType,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -157,7 +157,7 @@ type LatestLSPDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
 type FrontendWebsocketEnvelope = {
   id?: string | null;
-  messageType: WebsocketMsgTypeForFrontend;
+  messageType: WebsocketMessageType;
   content: any;
 };
 type FrontendOutboundMessage =
@@ -530,68 +530,65 @@ async function handleShareSessionRecovery() {
 function receiveMessage(message: string, socketGeneration: number) {
   const m = JSON.parse(message) as FrontendWebsocketEnvelope;
   switch (m.messageType) {
-    case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
+    case WebsocketMessageTypeEnum.FrontendIdentity:
       setFrontendAffinityToken(
         m.content.frontendAffinityToken,
         socketGeneration,
       );
       return;
-    case WebsocketMsgTypeForFrontendEnum.AllConnections:
+    case WebsocketMessageTypeEnum.AllConnections:
       setWebsocketConnections(m.content);
       return;
-    case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
+    case WebsocketMessageTypeEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
+    case WebsocketMessageTypeEnum.LSPDiagnostics:
       return processLspDiagnostics(m.content);
-    case WebsocketMsgTypeForFrontendEnum.NameValidationErrors:
+    case WebsocketMessageTypeEnum.NameValidationErrors:
       return processNameValidationErrors(m.content);
-    case WebsocketMsgTypeForFrontendEnum.Notification:
+    case WebsocketMessageTypeEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
-    case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
+    case WebsocketMessageTypeEnum.ReturnRenameRefactorResults:
       return handleRenameRefactorBroadcast(m.content);
-    case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
-      // TODO
-      return null;
-    case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
+    case WebsocketMessageTypeEnum.UpdateFrontendProjectState:
       if (useServerMode.getState().mode === "app") {
         return processAppProjectStateUpdateFromBackend(m.content);
       }
       return processProjectStateUpdateFromBackend(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
+    case WebsocketMessageTypeEnum.UpdateSettings:
       return updateSettings(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
+    case WebsocketMessageTypeEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
+    case WebsocketMessageTypeEnum.UpdateArtifacts:
       return updateArtifacts(m.content);
-    case WebsocketMsgTypeForFrontendEnum.ListenerCoverageSnapshot:
+    case WebsocketMessageTypeEnum.ListenerCoverageSnapshot:
       return applyListenerCoverageSnapshot(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LLMConfigUpdated:
+    case WebsocketMessageTypeEnum.LLMConfigUpdated:
       return receiveLLMConfigUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.LLMApiKeysUpdated:
+    case WebsocketMessageTypeEnum.LLMApiKeysUpdated:
       return receiveLLMApiKeysSnapshotUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.BackendLogEvent:
+    case WebsocketMessageTypeEnum.BackendLogEvent:
       return addBackendLogEvent(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AIFollowToolArgumentsUpdate:
+    case WebsocketMessageTypeEnum.AIFollowToolArgumentsUpdate:
       return receiveAIFollowToolArgumentsUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
+    case WebsocketMessageTypeEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+    case WebsocketMessageTypeEnum.UISettingReveal:
       enqueueUISettingRevealMessage({
         content: m.content,
         socketGeneration,
       });
       return;
-    case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
+    case WebsocketMessageTypeEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
-    case WebsocketMsgTypeForFrontendEnum.AgentRunUpdated:
+    case WebsocketMessageTypeEnum.AgentRunUpdated:
       return receiveAgentRunUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
+    case WebsocketMessageTypeEnum.PromptTemplatesUpdated:
       return receivePromptTemplatesUpdate(m.content.templates);
-    case WebsocketMsgTypeForFrontendEnum.ExternalAgentConfigsUpdated:
+    case WebsocketMessageTypeEnum.ExternalAgentConfigsUpdated:
       return receiveExternalAgentConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
+    case WebsocketMessageTypeEnum.EngineConfigsUpdated:
       return receiveEngineConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated:
+    case WebsocketMessageTypeEnum.TranscriptionProfilesUpdated:
       return receiveTranscriptionProfilesUpdate(m.content.profiles);
     default:
       return m satisfies never;

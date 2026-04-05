@@ -237,6 +237,7 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(realtime.ListenerForceRefreshContent{}),
 		reflect.TypeOf(realtime.ListenerForceRefreshMessage{}),
 		reflect.TypeOf(realtime.ListenerDependencyMode("")),
+		reflect.TypeOf(realtime.WebsocketMessageType("")),
 		reflect.TypeOf(realtime.NotificationType("")),
 		reflect.TypeOf(realtime.StreamingEventType("")),
 		reflect.TypeOf(realtime.FrontendIdentityContent{}),

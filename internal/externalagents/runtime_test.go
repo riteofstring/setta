@@ -594,7 +594,7 @@ func TestPersistExternalAgentRunFailureBroadcastsBackendLogEvent(t *testing.T) {
 	}
 
 	envelope := readRuntimeBackendLogEnvelope(t, frontend)
-	if envelope.MessageType != backendlogs.MessageTypeBackendLogEvent {
+	if envelope.MessageType != string(realtime.WebsocketMessageTypeBackendLogEvent) {
 		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
 	}
 	var event backendlogs.Event

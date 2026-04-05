@@ -8,36 +8,6 @@ import (
 	"setta/internal/realtime"
 )
 
-type WebsocketMsgTypeForFrontend string
-
-const (
-	WebsocketMsgTypeForFrontendAllConnections               WebsocketMsgTypeForFrontend = "AllConnections"
-	WebsocketMsgTypeForFrontendFrontendIdentity             WebsocketMsgTypeForFrontend = "FrontendIdentity"
-	WebsocketMsgTypeForFrontendNotification                 WebsocketMsgTypeForFrontend = "Notification"
-	WebsocketMsgTypeForFrontendLLMStreamingResponse         WebsocketMsgTypeForFrontend = "LLMStreamingResponse"
-	WebsocketMsgTypeForFrontendLSPDiagnostics               WebsocketMsgTypeForFrontend = "LSPDiagnostics"
-	WebsocketMsgTypeForFrontendNameValidationErrors         WebsocketMsgTypeForFrontend = "NameValidationErrors"
-	WebsocketMsgTypeForFrontendReturnRenameRefactor         WebsocketMsgTypeForFrontend = "ReturnRenameRefactorResults"
-	WebsocketMsgTypeForFrontendTerminalMetadata             WebsocketMsgTypeForFrontend = "TerminalMetadata"
-	WebsocketMsgTypeForFrontendUpdateFrontendProjectState   WebsocketMsgTypeForFrontend = "UpdateFrontendProjectState"
-	WebsocketMsgTypeForFrontendUpdateSettings               WebsocketMsgTypeForFrontend = "UpdateSettings"
-	WebsocketMsgTypeForFrontendAllProjectMetadata           WebsocketMsgTypeForFrontend = "AllProjectMetadata"
-	WebsocketMsgTypeForFrontendUpdateArtifacts              WebsocketMsgTypeForFrontend = "UpdateArtifacts"
-	WebsocketMsgTypeForFrontendListenerCoverageSnapshot     WebsocketMsgTypeForFrontend = "ListenerCoverageSnapshot"
-	WebsocketMsgTypeForFrontendLLMConfigUpdated             WebsocketMsgTypeForFrontend = "LLMConfigUpdated"
-	WebsocketMsgTypeForFrontendLLMAPIKeysUpdated            WebsocketMsgTypeForFrontend = "LLMApiKeysUpdated"
-	WebsocketMsgTypeForFrontendAgentRunUpdated              WebsocketMsgTypeForFrontend = "AgentRunUpdated"
-	WebsocketMsgTypeForFrontendBackendLogEvent              WebsocketMsgTypeForFrontend = "BackendLogEvent"
-	WebsocketMsgTypeForFrontendAIFollowToolArguments        WebsocketMsgTypeForFrontend = "AIFollowToolArgumentsUpdate"
-	WebsocketMsgTypeForFrontendAIFollowToolResult           WebsocketMsgTypeForFrontend = "AIFollowToolResultUpdate"
-	WebsocketMsgTypeForFrontendUISettingReveal              WebsocketMsgTypeForFrontend = "UISettingReveal"
-	WebsocketMsgTypeForFrontendAgentProfilesUpdated         WebsocketMsgTypeForFrontend = "AgentProfilesUpdated"
-	WebsocketMsgTypeForFrontendPromptTemplatesUpdated       WebsocketMsgTypeForFrontend = "PromptTemplatesUpdated"
-	WebsocketMsgTypeForFrontendExternalAgentConfigsUpdated  WebsocketMsgTypeForFrontend = "ExternalAgentConfigsUpdated"
-	WebsocketMsgTypeForFrontendEngineConfigsUpdated         WebsocketMsgTypeForFrontend = "EngineConfigsUpdated"
-	WebsocketMsgTypeForFrontendTranscriptionProfilesUpdated WebsocketMsgTypeForFrontend = "TranscriptionProfilesUpdated"
-)
-
 type websocketJSONFieldSpec struct {
 	PropertyName string
 	Optional     bool
