@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 22:09 EDT
+Last updated: 2026-04-07 00:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,219 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `240` narrowed the sanctioned shell-owned Playwright lane so it now matches the current Pixi ownership contract, but the acceptance gate is still blocked by a remaining browser-only stall inside the first border test.
+  - Why this pass stopped here:
+    - item `239` already proved the named `rotaryParamCodeObjDefault` target is healthy again on the fresh outer-loop runtime, so the next bounded subtask had to be the first failing sanctioned helper lane rather than another generic acceptance rerun
+    - the border test was still asserting against a removed per-section DOM border layer and was also repeating a redundant `All Settings` tab click after the backend already switched the active view mode and applied state locally
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Test-lane change:
+    - updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts)
+      - removed the redundant `All Settings` tab click from the shell-owned border and top-drag-handle tests after the backend `setActiveViewMode` + `applyProjectStateUpdate(...)` setup
+      - updated the border test to assert the root Pixi shell canvas (`graph-substrate-canary-section-pixi-layer`) is mounted and sized, and that the removed per-section DOM border test id is absent, instead of waiting for the old DOM border node
+      - dropped the border test's extra `fitGraphViewportToSection(...)` call because this lane only needs shell-ownership evidence on the default `All Settings` landing for the named visible target
+  - Verification:
+    - formatting:
+      - `pnpm exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - sanctioned Playwright helper:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone'`
+      - result: failed
+      - failure shape:
+        - the helper still times out at `120000ms`
+        - the reported stack still lands in the border test `finally` on `postBackend(page, "/setViewport", ...)` at [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts#L1835)
+        - backend logs again show the initial `setActiveViewMode`, `setViewport`, `getLatestProjectState`, and one local `setTopLevelSectionLayout` request, but nothing later before timeout
+        - that means the stale DOM-border assumption and redundant tab click are no longer the blocker; one remaining browser-only wait inside the border test is still burning the full timeout before cleanup
+    - CDP visual gate:
+      - not run
+      - reason:
+        - this iteration changed only the sanctioned Playwright lane, not product renderer code, and the acceptance gate remains blocked earlier in that same helper lane
+  - Lane status:
+    - item `236` remains uncommitted
+    - the shell-border Playwright lane now reflects the Pixi ownership contract instead of the removed DOM border path
+    - the remaining blocker is one unresolved browser-only stall after setup inside the first border test, not missing named-target state and no longer the stale DOM-border assertion itself
+  - Next frontier:
+    - isolate the first browser-only wait after setup in the single border test, most likely between canary mount, named section visibility, Pixi-layer visibility, or DOM-shell style read
+    - once that specific wait is bounded/fixed, rerun the two sanctioned shell-owned tests together and then retry the required CDP worktree spot-check for item `236`
+
+- Ralph item `239` reran the pending item `236` acceptance gate on the fresh outer-loop runtime and confirmed the named lane subject is healthy again, but the slice is still uncommitted because the sanctioned Playwright helper now times out on the new shell-ownership lane and the required CDP screenshot capture is still not trustworthy on the live worktree.
+  - Why this pass stopped here:
+    - the last two iterations had already repeated the same acceptance-gate retry shape around missing target/session state, so this pass first checked whether the fresh outer bootstrap still lacked `rotaryParamCodeObjDefault`
+    - the fresh worktree runtime no longer reproduces the `worktree_unhealthy` missing-target failure from item `238`, so the blocker has moved from runtime state back to verification on the existing Pixi shell slice
+    - after one bounded fresh-context CDP retry with a narrower capture shape, the visual gate still could not produce a trustworthy worktree screenshot, so this pass should stop with the exact blocker instead of inventing another acceptance retry
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Verification rerun:
+    - direct runtime-health check via bootstrap-auth HTTP on the fresh loop runtime:
+      - worktree `http://127.0.0.1:8076` `/loadProjectConfig(settings)` + `/getLatestProjectState`
+      - read-only `main` `http://127.0.0.1:8087` `/loadProjectConfig(settings)` + `/getLatestProjectState`
+      - result: both sides returned `rotaryParamCodeObjDefault`; the worktree no longer fails named-target preflight on the current outer-loop runtime
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - sanctioned Playwright helper:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone|settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle'`
+      - result: failed
+      - failure shape:
+        - the helper bootstrapped a disposable workspace cleanly and started running the first targeted border test
+        - the first test timed out at `120000ms`
+        - stack landed in the test `finally` during `postBackend(page, "/setViewport", ...)` at [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts#L1845)
+        - backend log shows the initial `setActiveViewMode`, `setViewport`, and `getLatestProjectState` calls completed quickly around `23:53:54`; there was no later matching backend activity before timeout, so this pass does not yet know whether the product assertions failed or the test/cleanup lane stalled locally
+        - the second top-drag-handle test did not run under the helper because max-failures stopped after the first timeout
+    - CDP visual gate:
+      - fresh-context sub-agent could open both `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings`
+      - trustworthy reference evidence:
+        - `main` mounted the graph surface, `All Settings` was active, and the shell layout looked sane
+      - worktree evidence:
+        - page mounted and `All Settings` existed in snapshot
+        - full-page screenshot on the worktree aborted after roughly `109s`
+        - one bounded retry with viewport-only screenshot also aborted before the graph area or `rotaryParamCodeObjDefault` could be captured visually
+      - classification:
+        - CDP visual check: not trustworthy on the worktree in this pass
+  - Lane status:
+    - item `236` remains the active frontier and the named target is healthy again on the fresh loop runtime
+    - the current blocker is sanctioned verification instability on this slice, not missing worktree session state
+    - do not spend the next pass on another generic acceptance rerun; debug the first failing verification lane instead
+  - Next frontier:
+    - diagnose why the sanctioned shell-border Playwright lane stalls/times out under `./scripts/run-playwright-e2e.sh`, starting from the first failing border test and its cleanup/fit-view path
+    - after that lane is trustworthy again, rerun the required CDP spot-check with a capture shape that can actually isolate the worktree graph surface before committing item `236`
+
+- Ralph item `238` retried the pending item `236` acceptance gate again, restored a usable `chrome-devtools-mcp` session after the one allowed in-pass worktree recovery, but the live worktree then failed hard preflight because `rotaryParamCodeObjDefault` was no longer present after the `aireset` reset, so the first Pixi shell slice remains uncommitted.
+  - Why this pass stopped here:
+    - item `236` is still the active product frontier, so the narrowest valid next subtask remained the blocked CDP acceptance gate rather than starting another renderer slice
+    - item `237` ended on browser-tooling debt, so this pass had to spend the one allowed recovery attempt proving whether the blocker was still transport-related before treating it as product/runtime state
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Verification rerun:
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - runtime refresh before CDP:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-003/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-003/main-ai.log`
+      - result: pre-restart worktree debug port `9297`; worktree HTTP on `3076/8076` and read-only `main` HTTP on `3087/8087` were reachable
+    - first fresh-context CDP sub-agent before recovery:
+      - could connect to the raw browser debug endpoint, but the check was not trustworthy because the read-only `main` page stayed in the loading shell and no valid named-lane compare completed
+    - one allowed in-iteration recovery ran:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - restart output reported live worktree frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap session `4c8bf5`, and debug port `9297`
+      - note: the runtime helper again echoed stale frontend `http://127.0.0.1:3076/` from the runtime log, so the retry trusted the live `3075` URL verified over HTTP
+    - second fresh-context CDP sub-agent after recovery:
+      - `chrome-devtools-mcp` was usable in-session
+      - read-only `main` bootstrapped cleanly on `http://127.0.0.1:3087/settings`; `All Settings` and `rotaryParamCodeObjDefault` were present and the screenshot showed intact shell chrome with a non-blank surface
+      - worktree bootstrapped on `http://127.0.0.1:3075/settings` and showed `All Settings`, but hard preflight failed because the named target `rotaryParamCodeObjDefault` was not present in the live worktree page
+    - repo-state confirmation:
+      - `rg -n "rotaryParamCodeObjDefault" setta_files_dev frontend tests backend -S`
+      - result: the named target still exists in repo/generated sources, so the missing lane subject is live-session state after the reset, not a removed code path
+    - classification:
+      - `worktree_unhealthy` after the in-pass `aireset` reset, not renderer drift and no longer a DevTools transport blocker
+  - Lane status:
+    - item `236` remains the active frontier; the local Pixi shell code and focused non-CDP verification are still good, but the slice is not visually accepted or committed
+    - do not start a new product slice while the named worktree lane cannot pass preflight
+    - because the one allowed recovery already ran and the retried gate still lacks the named target on the live worktree, stop here instead of adding more same-pass lifecycle churn
+  - Next frontier:
+    - start the next iteration with a fresh worktree lifecycle bootstrap and re-establish a worktree session where `rotaryParamCodeObjDefault` exists before rerunning the required CDP spot-check
+    - only after the worktree passes named-lane preflight should item `236` be visually accepted and committed
+
+- Ralph item `237` retried the pending item `236` CDP acceptance gate on a fresh outer pass, but the required Chrome DevTools MCP visual check is still blocked after the one allowed worktree recovery, so the first Pixi shell slice remains uncommitted.
+  - Why this pass stopped here:
+    - item `236` already landed the first real Pixi-owned shell border/outline layer in code, so the narrowest valid next subtask was to finish its pending acceptance gate rather than start another product slice
+    - the loop rules require the Chrome DevTools MCP visual check before claiming a frontend slice complete, and the prior iteration explicitly handed off this exact pending gate
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Verification rerun:
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - runtime refresh before CDP:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-002/worktree-ai.log`
+      - result: live debug port `9297`; pre-restart HTTP endpoints on worktree `3076/8076` and read-only `main` `3087/8087` were reachable
+    - CDP visual gate:
+      - result: blocked after one allowed self-recovery
+      - first fresh-context sub-agent:
+        - `chrome-devtools-mcp` page attach failed immediately with `Network.enable timed out`
+        - no trustworthy worktree/reference inspection or screenshot was produced
+      - one allowed in-iteration recovery ran:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - the restarted worktree came back on frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap session `654fe5`, and debug port `9297`
+        - note: the runtime helper still echoed stale frontend `http://127.0.0.1:3076/` from the runtime log, so the live retry had to trust the actual `aireset` output plus HTTP checks
+      - second fresh-context sub-agent after recovery:
+        - could reach the raw browser debug target and confirm both `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings` loaded
+        - the `chrome-devtools-mcp` tool surface itself was still inaccessible in that session, so it could not normalize `All Settings`, inspect `rotaryParamCodeObjDefault`, or produce a trustworthy visual compare
+      - classification:
+        - this remains Chrome DevTools MCP / browser-tooling debt, not new renderer evidence
+  - Lane status:
+    - the first Pixi shell slice is still the active product frontier and its focused non-CDP verification remains green
+    - do not discard the local working tree; this slice is still pending only on the required Chrome DevTools MCP visual gate
+    - because the one allowed self-recovery already ran in this pass, stop here instead of stacking more lifecycle or transport retries
+  - Next frontier:
+    - start the next loop pass with a fresh worktree lifecycle bootstrap and retry only the required Chrome DevTools MCP `All Settings` / `rotaryParamCodeObjDefault` visual spot-check for item `236`
+    - do not start a new product slice until that gate is either completed or the tooling blocker changes materially
+
+- Ralph item `236` lands the first visible Pixi-owned canary shell slice in code, but the required CDP visual gate is still blocked after the one allowed worktree lifecycle restart, so this slice is not committed yet.
+  - Why this slice was chosen:
+    - item `235` cleared the Pixi dependency gate, so the next real product step had to be the first scene-owned renderer insertion rather than another seam-lift or oracle-only pass
+    - shell border/outline chrome was the narrowest non-editing canary surface that could move to Pixi without taking over DOM editors or reopening geometry-authority seams
+    - keeping the DOM body and hover-only top drag handle in place preserves current editing behavior while still proving a real Pixi-owned visual layer
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` regression and spot-check target for this first Pixi shell slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+      - resolves screen-space Pixi shell drawables from the existing canary section data, temporary style-preview state, active-section UI state, and the shared shell appearance contract
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+      - mounts a root-level Pixi canvas and draws section border/outline shell chrome in screen space while DOM bodies/editors remain intact
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - mounts the new Pixi shell layer between the graph background and the DOM viewport
+    - updated shell wrapper files:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.tsx`
+      - the per-section DOM shell layer now only keeps the hover-only top drag handle; visible border/outline ownership moved to the root Pixi layer
+    - added/updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+  - What this slice establishes:
+    - the canary now has a real Pixi-owned shell border/outline layer instead of only DOM shell chrome prep seams
+    - the first visible renderer insertion happens at the canary root in screen space, which avoids scaling a Pixi canvas through the DOM viewport transform
+    - DOM body/editor behavior remains intact because `SectionContainer` still owns the actual body/header content and the hover-only top drag handle stays DOM-owned
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - result: passed (`4 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SettingsGraphSubstrateCanary\\.tsx|settingsGraphSubstrateCanarySectionShell(PixiLayer|PixiModel|Shell|Layer)\\.(tsx|ts|test\\.ts)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx' || true`
+      - result: no matches
+    - CDP visual gate:
+      - result: blocked after one allowed self-recovery
+      - a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - initial CDP attempt could open the live pages but failed before a trustworthy comparison with `Network.enable timed out`
+      - one allowed recovery was used:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - refreshed runtime info reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap session `63f45d`, and debug port `9297`
+      - the post-restart fresh-context CDP retry still failed before inspection:
+        - `list_pages` timed out
+        - `new_page` failed with `Network.enable timed out`
+      - both worktree and reference HTTP endpoints remained up, so this is CDP transport/tooling debt rather than new product evidence
+  - Lane status:
+    - the first Pixi shell slice is implemented locally and its focused non-CDP verification is green
+    - do not discard the local working tree; this slice is pending only on the required CDP visual gate and therefore remains uncommitted
+    - because the one allowed self-recovery already ran in this iteration, do not spend more work inside this pass on additional lifecycle/CDP retries
+  - Next frontier:
+    - restore a usable Chrome DevTools MCP session on a fresh loop pass, rerun the required `All Settings` / `rotaryParamCodeObjDefault` visual spot-check for this exact slice, and only then commit it
+    - once that gate passes, extend the scene-owned surface deeper into shell/body/header visuals instead of reopening DOM-only seams
 
 - Ralph item `235` clears the last external dependency gate by recording the granted approval, pinning `pixi.js@8.17.1` in the frontend, and updating the durable rewrite docs so the next loop resumes at the first scene-owned static shell/header/body slice instead of self-blocking on approval collection.
   - Why this slice was needed:
@@ -8314,12 +8527,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The Pixi dependency gate is now cleared:
   - `frontend/package.json` pins `pixi.js` to exact version `8.17.1`
   - `frontend/pnpm-lock.yaml` locks the install to `pixi.js@8.17.1`
-  - use the accumulated shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while DOM editors remain intact
+  - item `236` now uses those contracts to land the first local Pixi-owned shell border/outline layer while DOM editors remain intact; the only missing acceptance step is the blocked CDP visual gate
 - Keep the broad normalized `rotaryParamCodeObjDefault` lane as regression coverage only:
-  - rerun it plus the required CDP spot-check after the first scene-owned slice lands
+  - rerun it plus the required CDP spot-check first for item `236`, then keep using it as regression coverage for deeper scene-owned slices
   - the repeated headless Playwright failure is still unchanged `ensureAppReady(...)` harness noise, not product evidence
 - Do not reopen geometry-authority, parity-harness, or lifecycle-only lanes by default:
-  - the current worktree and reference runtimes were healthy enough for CDP on `3076/8076/9297` and `3087/8087/9309`
+  - this pass proved the raw browser debug target and `chrome-devtools-mcp` can recover on a fresh `3075` / `8075` worktree session, so browser tooling is no longer the active blocker on this lane
+  - the current blocker is live worktree state: after the in-pass `aireset`, `All Settings` mounted but the named target `rotaryParamCodeObjDefault` was absent on the worktree while still present on read-only `main`
+  - after the in-pass `aireset`, trust the live worktree frontend `3075` / backend `8075` over the stale `3076` frontend value echoed from the runtime log if the same mismatch appears again
+  - before rerunning the visual gate, hard-preflight the worktree for `All Settings` plus named-target existence; if the target is still absent, treat that as `worktree_unhealthy` and recover/narrow the session instead of claiming renderer drift
   - the failing headless Playwright path still dies before the spec body with `browserContext.cookies: Target page, context or browser has been closed`, so another iteration spent only on auth/bootstrap cleanup would be churn
 
 ## Explicit deferrals
@@ -8343,6 +8559,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `235`
-- Latest item: `2026-04-06 235`
+- Active history window: items `001` through `238`
+- Latest item: `2026-04-06 238`
 - Older history archives: none yet

@@ -1793,37 +1793,33 @@ test("settings graph substrate canary renders the shell-owned border without a d
     );
     await applyProjectStateUpdate(page, stateWithoutViewport);
 
-    await page
-      .getByRole("button", { name: "All Settings", exact: true })
-      .click();
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
-    await expect
-      .poll(() => fitGraphViewportToSection(page, targetSectionId))
-      .toBe(true);
-
     const canarySection = page.locator(
       `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
     );
     await expect(canarySection).toBeVisible();
 
-    const shellBorder = canarySection.getByTestId(
-      "graph-substrate-canary-section-border",
+    const shellPixiLayer = page.getByTestId(
+      "graph-substrate-canary-section-pixi-layer",
     );
-    await expect(shellBorder).toBeVisible();
-    await expect(shellBorder).toHaveAttribute("data-border-tone", "default");
+    await expect(shellPixiLayer).toBeVisible();
+    await expect(
+      canarySection.getByTestId("graph-substrate-canary-section-border"),
+    ).toHaveCount(0);
 
-    const shellBorderStyle = await shellBorder.evaluate((node) => {
-      const computedStyle = window.getComputedStyle(node as HTMLElement);
+    const shellPixiCanvasMetrics = await shellPixiLayer.evaluate((node) => {
+      const canvas = node as HTMLCanvasElement;
       return {
-        borderTopColor: computedStyle.borderTopColor,
-        borderTopStyle: computedStyle.borderTopStyle,
-        borderTopWidth: computedStyle.borderTopWidth,
+        clientHeight: canvas.clientHeight,
+        clientWidth: canvas.clientWidth,
+        height: canvas.height,
+        width: canvas.width,
       };
     });
-    expect(shellBorderStyle.borderTopWidth).not.toBe("0px");
-    expect(shellBorderStyle.borderTopStyle).not.toBe("none");
-    expect(shellBorderStyle.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
-    expect(shellBorderStyle.borderTopColor).not.toBe("transparent");
+    expect(shellPixiCanvasMetrics.clientWidth).toBeGreaterThan(0);
+    expect(shellPixiCanvasMetrics.clientHeight).toBeGreaterThan(0);
+    expect(shellPixiCanvasMetrics.width).toBeGreaterThan(0);
+    expect(shellPixiCanvasMetrics.height).toBeGreaterThan(0);
 
     const domShell = canarySection.locator(
       `section[data-section-id="${targetSectionId}"][data-section-type]`,
@@ -1891,9 +1887,6 @@ test("settings graph substrate canary renders the shell-owned top drag handle wi
     );
     await applyProjectStateUpdate(page, stateWithoutViewport);
 
-    await page
-      .getByRole("button", { name: "All Settings", exact: true })
-      .click();
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
 
     const created = await postBackend<{ sectionId?: string }>(
