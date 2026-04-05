@@ -1489,6 +1489,91 @@ test("settings graph substrate canary restores the persisted shared viewport on 
   }
 });
 
+test("settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialPaneState = await getLocalPaneState(page);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const targetSectionId = findSectionIdByName(
+    initialState,
+    "rotaryParamCodeObjDefault",
+  );
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => fitGraphViewportToSection(page, targetSectionId))
+      .toBe(true);
+
+    const baselineSectionSize = await getCanarySceneSectionSize(
+      page,
+      targetSectionId,
+    );
+    expect(baselineSectionSize).not.toBeNull();
+    if (!baselineSectionSize) {
+      throw new Error("Missing baseline canary scene section size.");
+    }
+    expect(baselineSectionSize.resolvedSize).not.toBeNull();
+
+    // Remove persisted and measured layout authority so the canary must keep
+    // using the shared node-internals size for this section.
+    await clearCanarySectionLayoutSizeKeepSharedNodeSize(page, targetSectionId);
+
+    await expect
+      .poll(async () => await getCanarySceneSectionSize(page, targetSectionId))
+      .toEqual({
+        height: null,
+        resolvedSize: baselineSectionSize.resolvedSize,
+        width: null,
+      });
+    await expect
+      .poll(async () => JSON.stringify(await getCanarySceneBounds(page)))
+      .not.toBe("null");
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary renders the shell-owned border without a duplicate DOM border tone", async ({
   page,
 }) => {
@@ -5221,6 +5306,115 @@ async function getActiveTopLevelSectionLayout(
       y: layout.y,
       zIndex: layout.zIndex,
     };
+  }, sectionId);
+}
+
+async function getCanarySceneSectionSize(
+  page: Page,
+  sectionId: string,
+): Promise<{
+  height: number | null;
+  resolvedSize: { width: number; height: number } | null;
+  width: number | null;
+} | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const { useSettingsGraphSubstrateCanarySceneStore } = await import(
+      "/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts"
+    );
+    const section =
+      useSettingsGraphSubstrateCanarySceneStore
+        .getState()
+        .sceneSnapshot.sectionsById.get(targetSectionId) ?? null;
+    if (!section) {
+      return null;
+    }
+    return {
+      height: section.height,
+      resolvedSize: section.resolvedSize,
+      width: section.width,
+    };
+  }, sectionId);
+}
+
+async function getCanarySceneBounds(page: Page): Promise<{
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+} | null> {
+  return page.evaluate(async () => {
+    const { useSettingsGraphSubstrateCanarySceneStore } = await import(
+      "/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts"
+    );
+    return (
+      useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot
+        .sceneBounds ?? null
+    );
+  });
+}
+
+async function clearCanarySectionLayoutSizeKeepSharedNodeSize(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (targetSectionId) => {
+    const { useNodeInternals, useProjectState, useSectionElementSizeRegistry } =
+      await import("/src/state/definitions.ts");
+
+    const currentNode = useNodeInternals.getState().x.get(targetSectionId);
+    if (
+      !currentNode ||
+      typeof currentNode.width !== "number" ||
+      currentNode.width <= 0 ||
+      typeof currentNode.height !== "number" ||
+      currentNode.height <= 0
+    ) {
+      throw new Error("Missing authoritative node-internals size.");
+    }
+
+    useProjectState.setState((state) => {
+      const activeViewModeId = state.projectConfig.activeViewModeId;
+      if (!activeViewModeId) {
+        throw new Error("Missing active view mode.");
+      }
+
+      const viewMode = state.projectConfig.viewModes[activeViewModeId];
+      if (!viewMode) {
+        throw new Error(`Missing active view mode ${activeViewModeId}.`);
+      }
+
+      const sharedLayout =
+        state.projectConfig.topLevelSections[targetSectionId];
+      if (sharedLayout) {
+        sharedLayout.w = null;
+        sharedLayout.h = null;
+      }
+
+      const viewModeLayout = viewMode.topLevelSections[targetSectionId];
+      if (viewModeLayout) {
+        viewModeLayout.w = null;
+        viewModeLayout.h = null;
+      }
+    });
+
+    useSectionElementSizeRegistry.setState((currentSizes) => {
+      if (!(targetSectionId in currentSizes)) {
+        return currentSizes;
+      }
+      const nextSizes = { ...currentSizes };
+      delete nextSizes[targetSectionId];
+      return nextSizes;
+    });
+
+    useNodeInternals.setState((state) => {
+      const nextNodeInternals = new Map(state.x);
+      nextNodeInternals.set(targetSectionId, {
+        ...currentNode,
+        width: currentNode.width,
+        height: currentNode.height,
+      });
+      return { x: nextNodeInternals };
+    });
   }, sectionId);
 }
 

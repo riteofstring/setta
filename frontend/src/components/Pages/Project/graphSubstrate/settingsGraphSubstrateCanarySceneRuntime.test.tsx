@@ -125,6 +125,92 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("seeds missing layout geometry from shared node internals until live measured size becomes available", async () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 120, y: 80 },
+            width: 260,
+            height: 180,
+            zIndex: 2,
+            tempZIndex: 2,
+          },
+        ],
+      ]),
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection()]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 260,
+          height: 180,
+        },
+        sections: [
+          {
+            height: null,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 260, height: 180 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: null,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(1);
+    });
+
+    // Once the local registry publishes a fresh measurement, it should take
+    // over from the shared node-internals seed.
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 420, height: 315 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 420,
+          height: 315,
+        },
+        sections: [
+          {
+            height: null,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: { width: 420, height: 315 },
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: null,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(readSceneRenderCount(host)).toBe(2);
+    });
+  });
+
   it("keeps unlocked layout size authoritative and does not resubscribe to measured-size churn when layout geometry already exists", async () => {
     await act(async () => {
       root.render(
@@ -357,7 +443,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("clears scene bounds once the current section geometry disappears", async () => {
+  it("keeps the last shared section size when local measurement disappears from a still-mounted canary section", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -393,14 +479,19 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: null,
+        sceneBounds: {
+          x: 120,
+          y: 80,
+          width: 280,
+          height: 190,
+        },
         sections: [
           {
             height: null,
             position: { x: 120, y: 80 },
             positionAndSizeLocked: false,
             renderedPosition: { x: 120, y: 80 },
-            resolvedSize: null,
+            resolvedSize: { width: 280, height: 190 },
             sectionId: "section-a",
             tempZIndex: 2,
             width: null,
@@ -409,13 +500,13 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         ],
       });
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: null,
+        height: 190,
         id: "section-a",
         position: { x: 120, y: 80 },
         style: undefined,
         tempZIndex: 2,
         type: undefined,
-        width: null,
+        width: 280,
         zIndex: 2,
       });
     });

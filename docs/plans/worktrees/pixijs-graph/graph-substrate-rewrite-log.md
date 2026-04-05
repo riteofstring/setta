@@ -75,6 +75,58 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `219` | 2026-04-06 15:08 EDT
+  - Subtask: seed missing canary section geometry from shared node internals before the local measured-size registry arrives.
+  - Why:
+    - the last three landed iterations (`216` through `218`) were all shell-ownership moves, so another shell-only affordance hop would have been churn instead of progress on the geometry-authority frontier
+    - `state/actions/sectionInfos.ts` already exposed a typed shared-node-size authority helper for top-level sections, but the canary scene runtime still treated missing `layout.w/h` as a pure canary-local measured-DOM problem
+    - this is a real behavior change on the canary runtime with no new dependency work
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - exported `getAuthoritativeTopLevelSectionNodeSize(...)` for reuse outside the legacy node hydrator
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - now seeds missing section sizes from shared `useNodeInternals` only when persisted `layout.w/h` is missing and the live measured-size registry has not published yet
+      - keeps the measured registry authoritative once it exists
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - added coverage proving shared node internals seed missing geometry until local measured size arrives
+      - updated the missing-measurement regression to match the new shared-size carry-forward behavior for a still-mounted canary section
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally`
+      - the new spec clears persisted `w/h` plus the local measured registry for `rotaryParamCodeObjDefault` and expects the canary scene store to stay resolved from shared node size
+    - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`1 file`, `10 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionInfos\\.ts|settingsGraphSubstrateCanarySceneRuntime(\\.test)?\\.tsx|settings-view-modes\\.spec\\.ts" || true` -> not a useful gate because `sectionInfos.ts` already emits broad baseline strict-type errors outside this slice
+  - Runtime verification:
+    - targeted live-runtime Playwright rerun on the original `3076/8076` runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally' --reporter=line --timeout=30000`
+      - result: blocked before the test body by the same headless `ensureAppReady(...)` failure (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+    - allowed worktree recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: worktree restarted cleanly on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076`, so `curl` confirmed `3075`
+    - targeted live-runtime Playwright retry on the recovered runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps shared node-internals size authoritative when layout size is cleared locally' --reporter=line --timeout=30000`
+      - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure was not isolated to this new spec
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened the live frontend directly at `http://127.0.0.1:3075/settings`
+      - normalized to `All Settings`
+      - visually spot-checked `rotaryParamCodeObjDefault`
+    - CDP visual check:
+      - result: done
+      - the canary surface mounted and `rotaryParamCodeObjDefault` was visibly present and attached on the recovered runtime
+      - note: the recovered bootstrap token was rejected, so the visual verification used the direct frontend URL instead of the bootstrap page
+  - Result:
+    - the canary scene no longer has to start from `null` bounds when `layout.w/h` is missing but the shared node store already knows the section size
+    - live measured size still takes over once it publishes
+    - if a still-mounted canary section temporarily loses its local measured registry entry, the scene keeps the last shared size instead of collapsing immediately
+  - Next:
+    - continue the geometry-authority lane by moving the next remaining canary size/scene seam that still depends on raw `layout.w/h` or canary-local measurement timing, not another shell-affordance hop
+    - do not spend the next iteration on the same headless `ensureAppReady(...)` recovery pattern alone
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `217` | 2026-04-06 01:18 EDT
   - Subtask: move the canary's outer shell border/frame tone onto `SettingsGraphSubstrateCanarySectionShell` while keeping the DOM body border transparent for box-model stability.
   - Why:

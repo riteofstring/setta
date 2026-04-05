@@ -1333,7 +1333,7 @@ export function createNodesMapFromProjectConfigChildren(
   return nodesMap;
 }
 
-function getAuthoritativeTopLevelSectionNodeSize(
+export function getAuthoritativeTopLevelSectionNodeSize(
   layout: { h: number | null; w: number | null },
   currentNode: Node | undefined,
 ) {
