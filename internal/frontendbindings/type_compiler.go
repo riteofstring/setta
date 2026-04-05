@@ -78,7 +78,10 @@ func (c *typeConverter) Declarations() []TypeDeclaration {
 }
 
 func (c *typeConverter) appendAdditionalDeclarationsForType(t reflect.Type) error {
-	extras, ok := additionalDeclarationsForType(c, t)
+	extras, ok, err := discriminatedObjectFamilyAdditionalDeclarations(c, t)
+	if err != nil {
+		return err
+	}
 	if !ok {
 		return nil
 	}
@@ -347,15 +350,6 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	}
 	declaration.CreateBody = createBody
 	return declaration, nil
-}
-
-func reflectedMapFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
-	fieldType, _ = unwrapNullableFieldType(fieldType)
-	if fieldType == nil || fieldType.Kind() != reflect.Map {
-		return false
-	}
-	_, ok := frontendObjectCreateTarget(fieldType.Elem())
-	return ok
 }
 
 func (c *typeConverter) structProperties(

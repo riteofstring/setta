@@ -26,13 +26,6 @@ func buildGoBackedCreateBodyTS(
 		if err != nil {
 			return "", fmt.Errorf("%s.%s: %w", declarationName, field.Name, err)
 		}
-		if tsMetadata.CreateMapValues && !reflectedMapFieldNeedsGeneratedCreate(field.Type) {
-			return "", fmt.Errorf(
-				"%s.%s ts_create_map_values requires map values with generated create support",
-				declarationName,
-				field.Name,
-			)
-		}
 		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
 			if !property.Optional {
@@ -43,6 +36,7 @@ func buildGoBackedCreateBodyTS(
 			orderedKeys = append(orderedKeys, property.Name)
 		}
 		expr, ok, err := buildGenericCreateFieldExprTS(
+			declarationName+"."+field.Name,
 			field.Type,
 			tsMetadata,
 			property,
@@ -78,6 +72,7 @@ func buildGoBackedCreateBodyTS(
 }
 
 func buildGenericCreateFieldExprTS(
+	fieldContext string,
 	fieldType reflect.Type,
 	tsMetadata tsFieldMetadataSpec,
 	property TypeProperty,
@@ -124,6 +119,7 @@ func buildGenericCreateFieldExprTS(
 		if expr, ok := buildGenericMapFieldExprTS(fieldType, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
 			return expr, true, nil
 		}
+		return "", false, fmt.Errorf("%s ts_create_map_values requires map values with generated create support", fieldContext)
 	}
 	return "", false, nil
 }
@@ -215,17 +211,4 @@ func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 		return baseExpr + "." + propertyName
 	}
 	return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
-}
-
-func additionalDeclarationsForType(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
-	declarations := []TypeDeclaration{}
-	if familyDeclarations, ok, err := discriminatedObjectFamilyAdditionalDeclarations(converter, t); err != nil {
-		panic(err)
-	} else if ok {
-		declarations = append(declarations, familyDeclarations...)
-	}
-	if len(declarations) == 0 {
-		return nil, false
-	}
-	return declarations, true
 }
