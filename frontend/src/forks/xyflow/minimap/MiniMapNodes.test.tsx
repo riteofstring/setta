@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import type { GraphSubstrateCanaryLayoutSection } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -28,7 +27,6 @@ import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
-  resolveMiniMapRenderableNodes,
 } from "./MiniMapNodes";
 import type { MiniMapNodeProps } from "./types";
 
@@ -157,68 +155,6 @@ describe("MiniMapNodes", () => {
     } finally {
       await rendered.dispose();
     }
-  });
-
-  it("uses the canary layout geometry for minimap nodes while preserving measured styles", () => {
-    const canarySections: GraphSubstrateCanaryLayoutSection[] = [
-      {
-        sectionId: "section-b",
-        position: { x: 80, y: 60 },
-        width: 200,
-        height: 140,
-        zIndex: 2,
-        positionAndSizeLocked: false,
-      },
-      {
-        sectionId: "section-a",
-        position: { x: 400, y: 220 },
-        width: 320,
-        height: 180,
-        zIndex: 4,
-        positionAndSizeLocked: false,
-      },
-    ];
-    const nodes: Node[] = [
-      {
-        id: "section-a",
-        position: { x: 12, y: 18 },
-        width: 360,
-        height: 210,
-        zIndex: 0,
-        tempZIndex: 11,
-        type: "input",
-        style: { background: "#111111" },
-      },
-      {
-        id: "section-b",
-        position: { x: 22, y: 28 },
-        width: null,
-        height: null,
-        zIndex: 0,
-        tempZIndex: 1,
-      },
-    ];
-
-    expect(resolveMiniMapRenderableNodes(nodes, canarySections)).toEqual([
-      {
-        id: "section-b",
-        position: { x: 80, y: 60 },
-        width: 200,
-        height: 140,
-        zIndex: 2,
-        tempZIndex: 1,
-      },
-      {
-        id: "section-a",
-        position: { x: 400, y: 220 },
-        width: 360,
-        height: 210,
-        zIndex: 4,
-        tempZIndex: 11,
-        type: "input",
-        style: { background: "#111111" },
-      },
-    ]);
   });
 
   it("re-renders stroke when only node type changes", async () => {

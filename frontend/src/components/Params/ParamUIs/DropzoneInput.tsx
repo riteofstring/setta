@@ -11,9 +11,10 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useShareSession } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   DropzoneConfigForFrontend,
@@ -33,7 +34,11 @@ import {
   type DropzoneStatelessAttachment,
   type DropzoneStoredAttachment,
 } from "utils/dropzone";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_delete_artifacts,
@@ -48,6 +53,7 @@ import {
   DropzoneModeEnum,
   FileArtifact,
   SettaNotificationTypeEnum,
+  type ContentRef,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
@@ -92,6 +98,7 @@ type DropzoneStatelessDisplayAttachment =
 const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {
@@ -408,6 +415,9 @@ export function DropzoneInput({
   const { isDeploymentMode } = useShareSession((state) => ({
     isDeploymentMode: state.isDeploymentMode,
   }));
+  const sectionVariantId = useProjectState((state) =>
+    sectionId ? getCurrSectionVariantId(state, sectionId) : "",
+  );
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
   const parsedStatefulValue = useMemo(() => {
@@ -501,6 +511,7 @@ export function DropzoneInput({
     const res = await route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value: updatedValue,
       frontendOpId: null,
@@ -658,7 +669,8 @@ export function DropzoneInput({
           const form = new FormData();
           form.append("file", file, file.name);
           form.append("durable", "false");
-          const res = await route_binary_upload(form);
+          const res: BinaryUploadRouteResponse =
+            await route_binary_upload(form);
           if (!res200(res)) {
             throw new Error("Upload failed");
           }
