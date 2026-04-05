@@ -10145,3 +10145,32 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - inspect whether `resolveSettingsGraphSubstrateCanarySectionSeedNodes(...)` should keep preferring shared-node `resolvedSize` over stored/controller size now that steady-state shared-node observation is gone, or whether seed refresh should also stop taking DOM measurements outside an explicit unresolved bootstrap gap
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 07:18 EDT, Ralph item `263`
+  - Summary: stopped the canary-local shared-node seed cache from preferring local `resolvedSize` over existing shared-node width/height once authoritative geometry already exists.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `15 tests`)
+    - first fresh-context CDP sub-agent -> blocked; `chrome-devtools-local` / Chrome DevTools MCP reported `Failed to connect`
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: restarted the worktree on frontend `3075`, backend `8075`, fresh Setta session `9ecd1f`, and debug port `9297`
+    - post-recovery runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-029/worktree-ai.log`
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: confirmed frontend `3075`, backend `8075`, fresh bootstrap URL for session `9ecd1f`, and reachable Chrome DevTools on debug port `9297`
+    - successful retry after recovery -> done; a fresh-context CDP sub-agent bootstrapped through `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3075/settings`, and confirmed `All Settings` was active with a populated graph surface, visible tag list (`languageServer`, `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`), and many draggable settings cards/nodes instead of a blank shell
+  - Result:
+    - the canary-local shared-node seed cache now keeps existing shared-node width/height authoritative instead of replacing them with local resolved-size fallback
+    - `resolvedSize` remains available only for the explicit unresolved shared-node bootstrap gap, so the local fallback path survives without reopening steady-state DOM measurement churn
+    - this exact seed-precedence slice is complete; do not reopen it unless a downstream caller reintroduces `resolvedSize` as the steady-state shared-node seed source
+  - Next:
+    - inspect whether `sectionSeedNodes` can now become explicit bootstrap-only state by dropping or pruning entries once controller/shared-node geometry has been promoted into the resolved section input, instead of carrying a parallel steady-state authority path
+  - LOOP_TERMINAL_MARKER: none

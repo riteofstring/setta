@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
-  it("prefers the previous canary shared-node resolved size over an earlier shared-node seed", () => {
+  it("keeps existing shared-node width and height authoritative over local resolved-size fallback", () => {
     const seedNodes = new Map<
       string,
       | {
@@ -33,7 +33,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
             width: 260,
             height: 180,
             resolvedSize: { width: 420, height: 315 },
-            sceneBoundsSize: { width: 420, height: 315 },
+            sceneBoundsSize: { width: 260, height: 180 },
             sizeAuthority: "sharedNode",
             zIndex: 2,
             tempZIndex: 2,
@@ -43,7 +43,36 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
       },
     );
 
-    expect(nextSeedNodes).not.toBe(seedNodes);
+    expect(nextSeedNodes).toBe(seedNodes);
+    expect(nextSeedNodes.get("section-a")).toEqual({
+      width: 260,
+      height: 180,
+      sizeAuthority: "sharedNode",
+    });
+  });
+
+  it("uses the local resolved size to bootstrap a shared-node seed only while width and height are still unresolved", () => {
+    const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
+      new Map(),
+      {
+        sections: [
+          {
+            sectionId: "section-a",
+            position: { x: 120, y: 80 },
+            renderedPosition: { x: 120, y: 80 },
+            width: null,
+            height: null,
+            resolvedSize: { width: 420, height: 315 },
+            sceneBoundsSize: null,
+            sizeAuthority: "sharedNode",
+            zIndex: 2,
+            tempZIndex: 2,
+            positionAndSizeLocked: false,
+          },
+        ],
+      },
+    );
+
     expect(nextSeedNodes.get("section-a")).toEqual({
       width: 420,
       height: 315,

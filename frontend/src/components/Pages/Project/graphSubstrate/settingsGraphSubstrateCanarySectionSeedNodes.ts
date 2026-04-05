@@ -50,22 +50,22 @@ export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
 function getSharedNodeLocalSeed(
   section: SettingsGraphSubstrateCanarySceneSnapshot["sections"][number],
 ): SettingsGraphSubstrateCanarySectionSeedNode | null {
-  const resolvedWidth = section.resolvedSize?.width ?? null;
-  const resolvedHeight = section.resolvedSize?.height ?? null;
-  if (hasPositiveSeedSize(resolvedWidth, resolvedHeight)) {
-    return {
-      width: resolvedWidth,
-      height: resolvedHeight,
-      sizeAuthority: "sharedNode",
-    };
-  }
-
   const sectionWidth = section.width ?? null;
   const sectionHeight = section.height ?? null;
   if (hasPositiveSeedSize(sectionWidth, sectionHeight)) {
     return {
       width: sectionWidth,
       height: sectionHeight,
+      sizeAuthority: "sharedNode",
+    };
+  }
+
+  const resolvedWidth = section.resolvedSize?.width ?? null;
+  const resolvedHeight = section.resolvedSize?.height ?? null;
+  if (hasPositiveSeedSize(resolvedWidth, resolvedHeight)) {
+    return {
+      width: resolvedWidth,
+      height: resolvedHeight,
       sizeAuthority: "sharedNode",
     };
   }

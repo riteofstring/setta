@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 07:08 EDT
+Last updated: 2026-04-07 07:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,49 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `263` stopped the canary-local shared-node seed cache from preferring local `resolvedSize` over existing shared-node width/height once authoritative section geometry already exists.
+
+  - Why this pass stopped here:
+    - item `262` explicitly named `resolveSettingsGraphSubstrateCanarySectionSeedNodes(...)` as the next geometry-authority seam, and the smallest real product move was to tighten that seed precedence instead of opening a broader scene-store cleanup lane
+    - `getSharedNodeLocalSeed(...)` still preferred `section.resolvedSize` over `section.width`/`section.height`, so the canary-local cache could still accept local DOM fallback as the steady-state seed even after the scene-bounds contract and observer gate had already moved back to authoritative shared-node geometry
+    - this pass stayed bounded to seed-cache authority plus focused seed/runtime coverage; it does not yet remove `sectionSeedNodes`, change controller promotion, or reopen a parity lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate remained a bounded worktree canary-health check only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts)
+      - shared-node seed resolution now keeps existing section `width`/`height` authoritative before considering `resolvedSize`
+      - `resolvedSize` is now only used to bootstrap a shared-node seed while width/height are still unresolved
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts)
+      - locked that shared-node width/height win over local resolved-size fallback
+      - added focused coverage for the unresolved bootstrap gap where `resolvedSize` still seeds the cache
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `15 tests`)
+    - CDP visual gate:
+      - first fresh-context CDP sub-agent failed before inspection because `chrome-devtools-local` / Chrome DevTools MCP was unavailable (`Failed to connect`)
+      - one allowed recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: restarted the worktree on frontend `3075`, backend `8075`, fresh Setta session `9ecd1f`, and debug port `9297`
+      - post-recovery runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-029/worktree-ai.log`
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: confirmed frontend `3075`, backend `8075`, fresh bootstrap URL for session `9ecd1f`, and reachable Chrome DevTools on debug port `9297`
+      - successful retry after recovery -> done:
+        - fresh-context CDP sub-agent bootstrapped through `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3075/settings`, and confirmed `All Settings` was active with a populated graph surface
+        - observed canary-health markers included the settings overview/tag list (`languageServer`, `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`) plus many draggable settings cards/nodes rather than a blank or detached shell
+  - Lane status:
+    - the canary-local shared-node seed cache no longer promotes local `resolvedSize` over authoritative shared-node width/height, so seed precedence now matches the scene-bounds and observer-gate contracts
+    - `resolvedSize` remains available only for the explicit unresolved shared-node bootstrap gap, preserving the local fallback path without reopening steady-state DOM measurement churn
+    - do not reopen this exact seed-precedence slice unless a downstream caller reintroduces resolved-size preference over authoritative shared-node geometry
+  - Next frontier:
+    - inspect whether the canary-local `sectionSeedNodes` cache can now shrink to explicit bootstrap-only state by dropping or pruning entries once controller/shared-node geometry has been promoted into the resolved section input, instead of carrying a parallel steady-state authority path
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `262` stopped the canary runtime from subscribing steady-state `sharedNode` sections to live DOM size churn once stored/controller geometry already exists; only unresolved sections remain on the `useSectionElementSizes(...)` path.
 
