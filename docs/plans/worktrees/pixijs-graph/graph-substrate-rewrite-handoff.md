@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 09:59 EDT
+Last updated: 2026-04-08 10:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,50 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `310` spent one fresh loop-managed retry on item `308`'s pending
+    visual gate and is still blocked after the one allowed in-pass recovery on
+    the current `run-027` lifecycle:
+    - no product code changed on this pass; the work stayed bounded to
+      re-closing item `308`'s required CDP visual gate on a fresh runtime pair
+    - canonical automated oracle retry on the pre-recovery `run-027` runtime
+      pair did not produce a bounded verdict:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<run-027 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-027 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - output advanced through:
+        - `settings-graph-probe-phase-start reference: bootstrap page`
+        - `settings-graph-probe-phase-start reference: open settings`
+      - then stopped producing any further phase output well past the named
+        deadlines, so the hung rerun was killed instead of being treated as a
+        trustworthy automated verdict
+    - one bounded headless worktree recovery was attempted as required:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+      - refreshed worktree runtime after recovery: frontend `3075` (from
+        restart logs; runtime helper again reported `frontendUrl: null` while
+        Vite was already serving), backend `8075`, debug port `9297`,
+        bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+      - refreshed read-only `main` runtime for the retry: frontend `3087`,
+        backend `8087`, debug port `9309`, bootstrap
+        `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
+    - fresh-context post-recovery CDP retries still did not close the gate:
+      - first fresh-context verifier could not complete a trustworthy compare;
+        snapshot only showed shell-level content and the screenshot attempt
+        timed out
+      - second fresh-context verifier on the recovered worktree could reach the
+        devtools browser endpoint and load worktree `/settings` with title
+        `Settings` and body text `Connected to server`, but
+        `chrome-devtools-mcp` was still not directly usable from that agent
+        session so the side-by-side visual compare never ran
+      - direct main-session CDP fallback remained unhealthy after recovery:
+        - `mcp__chrome_devtools__list_pages()` -> timed out after `120s`
+    - reading:
+      - the landed item-`308` product slice still does not have the required
+        fresh CDP visual gate closed on `run-027`
+      - the blocker is now persistent CDP/tooling availability on the live
+        verification path, not a new renderer finding on the canonical
+        `rotaryParamCodeObjDefault` lane
+      - do not open another product hypothesis until the visual gate closes on
+        a fresh runtime pair; if the next fresh pass still cannot get a usable
+        CDP compare, escalate to tooling replan instead of spending another
+        recovery-only iteration
   - item `309` spent the bounded blocker-resolution pass that item `308`
     requested, but the required visual gate is still blocked after the one
     allowed in-pass recovery on the current `run-026` lifecycle:

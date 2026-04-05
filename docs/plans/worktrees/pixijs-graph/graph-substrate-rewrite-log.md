@@ -11922,3 +11922,57 @@ LOOP_TERMINAL_MARKER: none
     lifecycle and retry the visual smoke for this landed slice before opening
     another product hypothesis
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 10:18 EDT - Ralph item 310
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded blocker-resolution subtask forced by items `308` and
+  `309`: retry the pending visual gate on the fresh `run-027` runtime pair
+  instead of opening another product hypothesis.
+- Landed:
+  - no product code changed on this pass
+  - refreshed the worktree runtime once via the required bounded recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: passed
+    - refreshed worktree runtime after recovery: frontend `3075` (from restart
+      logs; runtime helper again reported `frontendUrl: null` while Vite was
+      already serving), backend `8075`, debug port `9297`, bootstrap
+      `http://127.0.0.1:8075/__setta__/bootstrap#token=...`
+  - refreshed the read-only `main` runtime info for the retry:
+    - frontend `3087`, backend `8087`, debug port `9309`, bootstrap
+      `http://127.0.0.1:8087/__setta__/bootstrap#token=...`
+- Verification:
+  - canonical automated oracle retry on the pre-recovery `run-027` runtime
+    pair:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<run-027 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-027 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: blocked; output advanced through:
+      - `settings-graph-probe-phase-start reference: bootstrap page`
+      - `settings-graph-probe-phase-start reference: open settings`
+    - after that the rerun produced no further phase output well past the named
+      deadlines, so it was killed instead of being recorded as a trustworthy
+      automated verdict
+  - fresh-context CDP retry before recovery:
+    - result: blocked
+    - snapshot only exposed shell-level content on both worktree `3076` and
+      read-only `main` `3087`
+    - the full-page screenshot attempt timed out before a side-by-side visual
+      comparison completed
+  - fresh-context CDP retry after recovery:
+    - result: blocked
+    - the verifier could reach the recovered worktree `/settings` surface and
+      reported title `Settings` with body text `Connected to server`
+    - `chrome-devtools-mcp` was still not directly usable from that verifier
+      session, so the required visual comparison never ran
+  - direct main-session CDP fallback after recovery:
+    - `mcp__chrome_devtools__list_pages()` -> timed out after `120s`
+- Result:
+  - the required CDP visual gate for item `308` is still open after the one
+    allowed recovery on `run-027`
+  - the active blocker is persistent CDP/tooling availability on the live
+    verification path, not a new product regression on the landed overlap-fast
+    path
+  - do not open another product hypothesis from this lane until a fresh runtime
+    pair can complete the visual compare; if the next fresh pass still cannot
+    get a usable CDP session, escalate to tooling replan instead of spending
+    another recovery-only iteration
+- LOOP_TERMINAL_MARKER: none
