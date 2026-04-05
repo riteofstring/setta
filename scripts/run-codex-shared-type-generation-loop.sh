@@ -196,6 +196,8 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Remove handwritten Python route/default inventories that the sidecar replaces.
 - [ ] Do not add tautological tests or explicit-list assertion tests.
 - [ ] Track net handwritten exception surface across `internal/frontendbindings`, `internal/pythonsharedtypes`, `internal/frontendbindingmeta`, touched owner metadata files, and touched generator/schema entrypoints.
+- [ ] Keep total audited migration-surface LOC trending downward now that schema + sidecar bootstrap exists.
+- [ ] Prioritize the remaining dominant leftovers: `internal/frontendbindings/type_compiler.go`, `internal/frontendbindings/type_naming.go`, `internal/pythonsharedtypes/generator.go`, and `internal/pythonsharedtypes/schema_aliases.go`.
 - [ ] Stop when three consecutive iterations fail to achieve a material net reduction.
 - [ ] Keep the repo clean: regenerate, test, run `./gcf.sh`, run `./check_quality.sh`, and commit every non-stop iteration.
 EOF
@@ -242,6 +244,12 @@ Main legacy targets:
 - \`internal/frontendbindingmeta/discriminated_object_families.go\`
 - \`internal/frontendbindingmeta/type_metadata.go\`
 
+Current highest-priority leftovers:
+- \`internal/frontendbindings/type_compiler.go\`
+- \`internal/frontendbindings/type_naming.go\`
+- \`internal/pythonsharedtypes/generator.go\`
+- \`internal/pythonsharedtypes/schema_aliases.go\`
+
 Non-negotiable rules:
 - Do not reopen or redesign the HTTP/OpenAPI endpoint path.
 - Do not keep bespoke TS/Python structural model generators as the end state.
@@ -253,10 +261,16 @@ Non-negotiable rules:
   can express the same thing.
 - Do not add tautological tests that only restate explicit lists, metadata, or
   defaults written in the same change.
+- Do not add tautological owner-metadata tests or explicit-list assertion tests.
 - Do not rely on schema \`default\` alone as a full constructor/default
   mechanism. Constructor defaults and exported values belong in the Go-generated
   sidecar.
 - Do not add \`map[string]any\` or language-shaped handwritten object tables.
+- Do not keep growing \`internal/sharedtypes/schema.go\`,
+  \`internal/sharedtypes/sidecar.go\`, or other shared glue unless the same
+  commit deletes a larger bespoke path from the priority leftovers above.
+- Do not accept net growth in the total audited migration surface now that the
+  schema + sidecar bootstrap already exists.
 - Do not keep tiny cleanups going forever once the loop has plateaued.
 
 Execution workflow for every iteration:
@@ -270,11 +284,14 @@ Execution workflow for every iteration:
   - touched owner-side metadata/default files
   - touched generator/schema entrypoints in \`cmd/\`
 - Pick the highest-leverage remaining migration step toward schema + sidecar,
-  not the smallest random cleanup.
+  prioritizing the four dominant leftovers listed above unless a different path
+  clearly deletes more audited handwritten surface in the same commit.
 - Prefer replacing a bespoke per-language structural path with schema/sidecar
   output over shaving tiny local helper counts.
 - Prefer deleting a whole helper/path/file over shrinking line counts by moving
   logic elsewhere.
+- Prefer total audited migration-surface reduction over touched-file-only or
+  wrapper-only reductions.
 - When generation changes, regenerate before finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
   without committing.
@@ -290,6 +307,10 @@ Material reduction rule:
     explicit enumeration elsewhere
   - replace one bespoke TS/Python structural generation path with schema/sidecar
     output for a meaningful surface area
+- And, after the initial schema + sidecar bootstrap, the total audited
+  migration-surface LOC must be non-increasing. If a candidate iteration grows
+  that total, do not land it unless the same commit still yields a net decrease
+  across the audited migration surface by deleting a larger bespoke path.
 - If three consecutive iterations cannot meet that bar, make no repo changes,
   leave the worktree clean, and emit the stop sentinel.
 
@@ -329,7 +350,8 @@ pre_iteration_command="$(
     --output-dir "${output_dir}" \
     --state-dir "${state_dir}" \
     --complete-exit-code "${complete_exit_code}" \
-    --sentinel "${stop_sentinel}"
+    --sentinel "${stop_sentinel}" \
+    --allow-clean-failures "3"
 )"
 
 loop_args=(

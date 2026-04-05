@@ -83,9 +83,27 @@ enough by itself, such as:
   packages and call that progress.
 - Do not add tautological tests that only restate explicit schema, sidecar,
   member lists, naming tables, or default tables written in the same change.
+- Do not add tautological owner-metadata tests or explicit-list assertion tests.
 - Keep explicit owner metadata only when it expresses real semantics that cannot
   be derived cleanly from Go type information plus the shared schema/sidecar
   model.
+- Now that the schema + sidecar bootstrap exists, total audited migration-surface
+  LOC should trend downward. Do not accept commits that grow shared schema,
+  sidecar, or other glue unless the same commit deletes a larger bespoke path
+  and still leaves the total audited migration surface lower than before.
+
+## Current Priority Order
+
+Highest-leverage remaining leftovers:
+
+- `internal/frontendbindings/type_compiler.go`
+- `internal/frontendbindings/type_naming.go`
+- `internal/pythonsharedtypes/generator.go`
+- `internal/pythonsharedtypes/schema_aliases.go`
+
+Prefer deleting bespoke logic from those files before expanding
+`internal/sharedtypes/schema.go`, `internal/sharedtypes/sidecar.go`, or other
+shared glue.
 
 ## Main Legacy Targets To Delete
 
@@ -167,7 +185,15 @@ After schema + sidecar generation is live:
 - keep only the minimal residual glue needed to:
   - emit schema/sidecar from Go
   - run standard generators
-  - generate thin helper/value-export surfaces from the sidecar
+- generate thin helper/value-export surfaces from the sidecar
+
+## Failure And Retry Discipline
+
+- Transient clean Codex failures should not kill the loop immediately when they
+  leave `HEAD` unchanged and the worktree clean.
+- A small retry budget is acceptable for those failures.
+- Repeated clean failures without forward progress should still stop the loop
+  instead of spinning forever.
 
 ## Verification
 
@@ -197,6 +223,14 @@ A keep-going iteration must achieve at least one of:
   explicit enumeration elsewhere
 - replace one bespoke TS/Python structural generation path with schema/sidecar
   output for a meaningful surface area
+
+And:
+
+- the total audited migration surface should be non-increasing
+- if an iteration cannot keep that total flat or lower, it should stop rather
+  than land more schema/sidecar glue
+- the only acceptable exception is when the same commit deletes a larger bespoke
+  path and the total audited migration surface still ends lower than before
 
 If three consecutive iterations fail to meet that bar, stop instead of
 continuing tiny cleanups.
