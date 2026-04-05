@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 00:52 EDT
+Last updated: 2026-04-08 01:25 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,20 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification state:
+  - item `288` landed a bounded section-entry memoization slice on the canonical lane and kept the deterministic Playwright probes green on the pre-restart `3076/8076` worktree runtime
+  - focused unit coverage now proves viewport-only updates keep section-entry render counts flat when the body mount gate stays unchanged and only rerender the affected entry when that gate flips
+  - the canonical Playwright instrumentation probe remained green on `rotaryParamCodeObjDefault` with the same stable canary counters as item `287`:
+    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+    - focused fit-view baseline: mounted section bodies `1`, Pixi syncs `1`, zoom `1.1900826446280992`
+    - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
+    - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, zoom `1.428099173553719`
+  - the cross-worktree motion-perf probe did not improve on this sample:
+    - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`63ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+    - worktree canary: average `20.56ms`, max `101ms`, `43` samples, `2` long tasks (`158ms` total, `101ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
+  - the required CDP visual gate is now blocked for this slice:
+    - fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md) but `chrome-devtools-mcp` timed out before a usable session (`Network.enable timed out`)
+    - one bounded in-iteration self-recovery ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the worktree onto backend `8075`, bootstrap `8075`, and debug port `9297` (Vite output reported `http://127.0.0.1:3075/`)
+    - a second fresh-context sub-agent still could not get a usable DevTools session after the restart (`list_pages` timed out after `120s`), so no trustworthy CDP visual confirmation was obtained
   - item `287` landed the bounded viewport-motion invalidation reduction on the canonical lane and kept the deterministic probes green on the live `3076/8076` worktree runtime
   - the canonical Playwright instrumentation probe now shows the intended redraw change on `rotaryParamCodeObjDefault`:
     - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
@@ -79,6 +93,7 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
+  - the new section-entry memoization slice narrowed one React viewport-motion rebuild path, but the live probe says that path was not the dominant motion cost on the canonical lane
   - wide-view DOM body ownership is no longer the dominant cost on the checked lane:
     - worktree auto-fit still mounts `0` bodies
     - focused fit-view still mounts `1` body
@@ -88,26 +103,27 @@ This section overrides older "next frontier" notes below when choosing the next 
 - Working hypothesis:
   - the current win is still "one batched shell surface plus aggressive DOM body reduction", not "Pixi solved the whole graph"
   - the live counters now show that pure viewport motion no longer redraws the shell geometry, so the next frontier is not more no-op redraw cleanup
-  - the next product slice should reduce whole-scene fan-out or presentation work on the same canonical `rotaryParamCodeObjDefault` lane
+  - the section-entry memoization slice removed a real rebuild path but did not produce a measured motion win, which keeps the next true product hotspot on broader whole-scene fan-out or presentation work
+  - before more product code lands, the blocked CDP visual gate for item `288` needs one fresh outer-loop retry or explicit tooling reclassification
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- land one bounded production fan-out reduction on the already-green canonical `rotaryParamCodeObjDefault` motion lane
+- on the next fresh loop-managed lifecycle, retry only the blocked Chrome DevTools MCP visual gate for item `288` on the canonical `rotaryParamCodeObjDefault` lane before landing more product code
 
 Recommended next target:
 
-- keep the existing body-gating, scene-sync, shell-redraw, and viewport-transform reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
-- treat the CDP requirement as satisfied for this slice; only reopen a CDP-specific lane if a future visual claim needs new evidence
+- keep the existing body-gating, scene-sync, shell-redraw, viewport-transform, and section-entry memoization reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
 - reuse the same canonical target and the same normalized probes; do not open a new section-specific lane
-- target pure motion-time whole-scene work next: reduce or narrow the scene-section / Pixi-drawable fan-out that still rides pan/zoom on all `46` sections
+- use the next fresh lifecycle bootstrap values instead of the in-iteration `3075/8075` recovery numbers when retrying the CDP gate
+- if the CDP gate succeeds on the next pass, move back to the next true product hotspot: whole-scene presentation/fan-out work on the same `46`-section motion lane
 
 Recommended deliverables for the next iteration:
 
-- one bounded production slice on the canonical `All Settings` canary with `rotaryParamCodeObjDefault` as the focused target
-- focused verification on the existing Playwright instrumentation lane plus the same normalized motion-perf probe
-- record whether the chosen fan-out slice produces a real motion-perf improvement or only reshapes counters, rather than assuming the redraw reduction already solved the lane
+- one bounded CDP-only verification retry on the canonical `All Settings` canary with `rotaryParamCodeObjDefault` as the focused target
+- if that retry succeeds, close the blocked gate in the handoff/history and only then choose the next bounded product slice
+- if that retry still fails on a fresh lifecycle, keep the tooling blocker explicit instead of spending another iteration on adjacent product work plus a second repeated CDP failure
 
 Recommended canonical target:
 
@@ -117,7 +133,7 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another tooling-only or harness-only pass unless a concrete product slice genuinely depends on a new CDP capability
+- another product refactor before the blocked CDP gate for item `288` is resolved or explicitly reclassified
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
 - another baseline-only report unless the next product slice changes the measured motion lane
@@ -125,6 +141,42 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `288` memoized the canary section-entry render path so viewport-only motion no longer rebuilds every mounted section entry when the section snapshot and body-mount gate stay unchanged, but the required Chrome DevTools MCP visual check is still blocked even after the one allowed `./aireset.sh` recovery.
+
+  - Why this pass is blocked:
+    - item `287` explicitly handed the next iteration to one bounded production fan-out reduction on the already-green canonical lane instead of another shell-only invalidation slice
+    - the chosen seam stayed on the measured hotspot: viewport updates were still rerendering the section layer and rebuilding every entry subtree even though the scene snapshot and visible body gate usually stayed stable
+    - deterministic probes were enough to verify the code slice, but the required CDP visual gate failed twice in fresh-context sub-agents: once before recovery (`Network.enable` timeout) and once after the bounded `./aireset.sh` recovery (`list_pages` timeout)
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized instrumentation lane and cross-worktree motion-perf probe; it did not open a new section-specific lane
+  - Product/test change:
+    - updated [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) so section-body descriptors and pointer handlers stay stable and unchanged section entries can remain memoized across viewport-only updates
+    - added [`settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx) to prove viewport-only motion keeps section-entry render counts flat until the body mount gate actually changes
+    - added [`2026-04-08_settings-graph-substrate-canary-section-entry-memoization.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-section-entry-memoization.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-section-entry-memoization.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`2 files`, `14 tests`)
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `22.0s`)
+    - passing instrumentation snapshots stayed flat on the canonical lane:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1`, Pixi syncs `1`, viewport zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, viewport zoom `1.428099173553719`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `42.6s`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`63ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+      - worktree canary: average `20.56ms`, max `101ms`, `43` samples, `2` long tasks (`158ms` total, `101ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
+    - fresh-context Chrome DevTools MCP sub-agents -> blocked twice:
+      - first attempt on the pre-restart `3076/8076` runtime read the quickstart but timed out before a usable session (`Network.enable` timeout)
+      - bounded self-recovery ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the worktree onto backend `8075`, bootstrap `8075`, debug port `9297`, and Vite output `http://127.0.0.1:3075/`
+      - second attempt on the restarted runtime still failed to obtain a usable DevTools session (`list_pages` timed out after `120s`), so no trustworthy CDP visual confirmation was obtained
+  - Lane status:
+    - the bounded code slice is landed and the deterministic probes are still green on `rotaryParamCodeObjDefault`
+    - the measured motion lane did not improve on this sample, so the next true product hotspot remains broader whole-scene presentation/fan-out rather than this React entry rebuild path
+    - the immediate blocker is the missing required CDP visual gate, not another product-code frontier
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `287` moved the Pixi shell drawables into world space and applied viewport motion through the Pixi stage transform, so the canonical `rotaryParamCodeObjDefault` lane no longer redraws shell geometry during pure pan/zoom updates, while the live canary, cross-worktree motion probe, and CDP visual check all completed on the current loop-managed runtimes.
 

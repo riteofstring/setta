@@ -9374,6 +9374,7 @@ LOOP_TERMINAL_MARKER: none
     - CDP visual check: done; fresh-context sub-agent confirmed the worktree `/settings` canary was mounted and healthy enough for a spot-check, `All Settings` was reachable, and no obvious gross header/title chrome drift was visible versus `main` in the shared viewport
   - Next: if Pixi approval is still unavailable, collapse the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly.
   - LOOP_TERMINAL_MARKER: none
+
 - 2026-04-06 18:48 EDT, Ralph item `232`
 
   - Summary: collapsed the `SectionHeader` trailing action strip behind a renderer-facing controls contract by adding `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and the default DOM controls adapter; the header now resolves the action-strip contract once instead of hard-coding diagnostics/run/follow/window/container controls inline.
@@ -9701,6 +9702,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 03:21 EDT, Ralph item `246`
+
   - Summary: made `sectionModel` geometry authoritative once positive model width/height already exists so those sections stop resubscribing to DOM size churn and stop letting measured fallback override their resolved scene size.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
@@ -9732,6 +9734,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 03:45 EDT, Ralph item `247`
+
   - Summary: stopped unresolved `sizeAuthority: "none"` node sizes from auto-promoting into implicit shared-node authority and from persisting back into top-level layout snapshots.
   - Files:
     - `frontend/src/state/actions/topLevelSectionSizeAuthority.ts`
@@ -9763,6 +9766,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 03:58 EDT, Ralph item `248`
+
   - Summary: stopped explicit `sharedNode` fallback sizes from persisting into authoritative top-level layout snapshots, but the required CDP visual gate stayed blocked after the one allowed worktree recovery.
   - Files:
     - `frontend/src/state/actions/sectionInfos.ts`
@@ -9789,6 +9793,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 04:09 EDT, Ralph item `249`
+
   - Summary: cleared the pending verification/commit lane for the `sharedNode` layout-persistence slice after one allowed worktree recovery, without opening a new geometry refactor.
   - Files:
     - `frontend/src/state/actions/sectionInfos.ts`
@@ -9816,6 +9821,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 04:16 EDT, Ralph item `250`
+
   - Summary: stopped refreshing existing `sharedNode` seeds in global node internals from later measured canary sizes, while keeping the local scene snapshot on the fresher measured size.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
@@ -9840,6 +9846,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 04:25 EDT, Ralph item `251`
+
   - Summary: moved the shared-node controller refresh seed to the canary's previous scene snapshot so the visible section list no longer rebuilds from stale global node internals after an in-session refresh.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -9865,6 +9872,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 04:36 EDT, Ralph item `252`
+
   - Summary: added a canary-local shared-node seed cache so in-app remounts can reseed shared-node sections from the canary's own last measured size before falling back to global node internals.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -9893,6 +9901,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 04:53 EDT, Ralph item `253`
+
   - Summary: narrowed the cold-start canary bootstrap so the controller only imports explicit positive `sharedNode` seeds from global node internals instead of forwarding the full global node map.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -9921,6 +9930,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 05:05 EDT, Ralph item `254`
+
   - Summary: cleared the pending verification/commit lane for the filtered bootstrap-seed slice from item `253` after one allowed worktree recovery, without opening a new geometry-authority change.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -9950,6 +9960,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 05:20 EDT, Ralph item `255`
+
   - Summary: removed the controller's remaining first-mount `sharedNode` bootstrap read from global `nodeInternals`, but the required CDP canary-health gate stayed blocked after the one allowed recovery so the slice remains uncommitted.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -9981,6 +9992,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 05:33 EDT, Ralph item `256`
+
   - Summary: cleared the pending verification/commit lane for item `255` after one allowed headless worktree recovery; no new product code beyond the existing controller/bootstrap-seed slice.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -10013,6 +10025,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 05:44 EDT, Ralph item `257`
+
   - Summary: stopped the canary runtime from writing unresolved local measured sizes back into shared `nodeInternals`; measured fallback now stays local to the scene snapshot until a later authoritative section size arrives.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
@@ -10037,6 +10050,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 05:54 EDT, Ralph item `258`
+
   - Summary: stopped `sceneBounds` and targeted `fitView` from treating `sizeAuthority: "none"` measured fallback as authoritative geometry while keeping the same local `resolvedSize` render fallback for visible canary shells.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
@@ -10062,6 +10076,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 06:08 EDT, Ralph item `259`
+
   - Summary: made scene-bounds authority explicit on each canary scene section via `sceneBoundsSize`, so bounds and `fitView` no longer infer authority from `resolvedSize`.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
@@ -10095,6 +10110,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 06:25 EDT, Ralph item `260`
+
   - Summary: narrowed the remaining `sharedNode` measured refresh path so fresh local measurements still update local render/seed fallback but no longer widen authoritative `sceneBoundsSize` ahead of stored/controller size; this slice is not committed yet because the required CDP gate stayed blocked after the one allowed recovery.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
@@ -10131,6 +10147,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 06:47 EDT, Ralph item `261`
+
   - Summary: cleared the pending verification/commit lane for item `260`; no new product code landed beyond the existing shared-node bounds-authority slice.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
@@ -10167,6 +10184,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 07:08 EDT, Ralph item `262`
+
   - Summary: stopped steady-state `sharedNode` sections from subscribing the scene runtime to live DOM size churn once stored/controller geometry already exists.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
@@ -10198,6 +10216,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 07:18 EDT, Ralph item `263`
+
   - Summary: stopped the canary-local shared-node seed cache from preferring local `resolvedSize` over existing shared-node width/height once authoritative geometry already exists.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
@@ -10227,6 +10246,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 07:32 EDT, Ralph item `264`
+
   - Summary: pruned stale shared-node seeds when the current scene resolved layout/section-model authority so the canary-local cache stops acting as a hidden steady-state size source.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
@@ -10257,6 +10277,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 07:39 EDT, Ralph item `265`
+
   - Summary: reran verification for the stale-seed pruning slice, but the canary-health CDP gate stayed blocked because the worktree never restored a listening Chrome DevTools sidecar.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
@@ -10288,8 +10309,9 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - restart the worktree lifecycle from the outer loop, refresh runtime values, rerun the bounded canary-health CDP check for this exact slice, and commit if the graph surface is healthy
   - LOOP_TERMINAL_MARKER: none
- 
+
 - 2026-04-07 07:43 EDT, Progress review checkpoint after loop iteration `31`
+
   - Decision: `replan_and_continue`
   - Evidence of real forward progress:
     - runs `022` through `029` committed a coherent sequence of geometry-authority slices under the current plan: controller bootstrap seeds no longer widen authority, unresolved local fallback no longer escapes through node sync, scene bounds now use explicit `sceneBoundsSize`, shared-node observation stops once authoritative geometry exists, and shared-node seed precedence stays on stored/controller size outside the explicit unresolved bootstrap gap
@@ -10306,6 +10328,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 07:51 EDT, Ralph item `266`
+
   - Summary: spent the one allowed fresh-bootstrap commit-or-stop pass for the stale-seed-pruning slice, and the worktree still came up without a live DevTools sidecar.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
@@ -10340,6 +10363,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: replan_required
 
 - 2026-04-07 12:48 EDT, Ralph item `267`
+
   - Summary: cleared the stale-seed-pruning commit-or-stop lane after the fresh outer-loop bootstrap restored a healthy worktree DevTools sidecar and the bounded canary-health CDP gate passed.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`
@@ -10368,6 +10392,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 13:02 EDT, Ralph item `268`
+
   - Summary: stopped the canary drag bootstrap path from copying local measured fallback size into shared node internals before scene sync could restore authoritative geometry.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`
@@ -10394,6 +10419,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 13:34 EDT, Ralph item `269`
+
   - Summary: renamed the shared scene-snapshot size field from mixed `resolvedSize` semantics to explicit render-only `renderSize`, so local measured fallback no longer looks like authoritative geometry inside the shared canary scene shape.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
@@ -10438,6 +10464,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 13:55 EDT, Ralph item `270`
+
   - Summary: moved the canary shared-node seed cache off the shared scene snapshot render fallback path, so seed bootstrap now reads raw sections plus measured size input instead of feeding local `renderSize` back out of `sceneSnapshot`.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
@@ -10466,6 +10493,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 14:08 EDT, Ralph item `271`
+
   - Summary: cut the minimap projection off from shared `sceneSnapshot.renderSize` fallback, so the canary minimap now uses authoritative scene width/height and only falls back to the shared-node seed cache while size is still unresolved.
   - Files:
     - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`
@@ -10491,6 +10519,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 14:18 EDT, Ralph item `272`
+
   - Summary: cut the Pixi shell layer off the shared `sceneSnapshot.renderSize` fallback, so unresolved shared-node shells now size from `sectionSeedNodes` instead of from the published scene-section render-only field.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
@@ -10517,6 +10546,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 14:32 EDT, Ralph item `273`
+
   - Summary: removed `renderSize` from the published canary scene snapshot/store contract, so shared scene sections now publish only authoritative position plus `sceneBoundsSize` while local render-only fallback stays out of the shared shape.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
@@ -10551,6 +10581,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 14:51 EDT, Ralph item `274`
+
   - Summary: removed measured DOM size from shared scene snapshot/bounds resolution and narrowed the live `useSectionElementSizes(...)` subscription to unresolved shared-node seed bootstrap only, so unresolved `none`/locked sections no longer resubscribe the shared scene runtime to local measurement churn.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
@@ -10589,6 +10620,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 15:04 EDT, Ralph item `275`
+
   - Summary: stopped the canary controller from using canary-local `sectionSeedNodes` as section-size authority, so controller section resolution now reads authoritative node internals only and leaves the seed cache local to shell/minimap fallback.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`
@@ -10614,6 +10646,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 15:16 EDT, Ralph item `276`
+
   - Summary: cleared the canary-local `sectionSeedNodes` cache on runtime unmount so measured shared-node seed fallback no longer survives beyond the mounted canary lifecycle.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneStore.ts`
@@ -10639,6 +10672,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 15:40 EDT, Ralph item `277`
+
   - Summary: landed a canary-only instrumentation snapshot and normalized `All Settings` baseline report, so the live canary now reports mounted scene/body counts, Pixi drawables/syncs, viewport shape, and unresolved seed fallback through a narrow debug seam.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -10671,6 +10705,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 15:59 EDT, Ralph item `278`
+
   - Summary: landed the first production DOM body narrowing slice by mounting canary section bodies only when they are viewport-visible, active, dragging, or still missing authoritative size, which dropped the focused `rotaryParamCodeObjDefault` fit-view from `46` mounted bodies to `1`.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -10704,6 +10739,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 16:27 EDT, Ralph item `279`
+
   - Summary: extended the normalized `All Settings` instrumentation probe so the canonical `rotaryParamCodeObjDefault` lane now proves the viewport-visible body-mount gate stays attached and populated through one blank-pane pan plus one toolbar zoom-in.
   - Files:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
@@ -10731,6 +10767,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 17:01 EDT, Ralph item `280`
+
   - Summary: tightened the canary DOM body gate so inactive sections now need useful visible screen-space, which dropped normalized `All Settings` auto-fit mounted bodies from `42` to `0` while keeping the focused `rotaryParamCodeObjDefault` lane populated through pan and zoom.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
@@ -10762,6 +10799,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 17:22 EDT, Ralph item `281`
+
   - Summary: stabilized the canary scene snapshot and skipped no-op scene-store writes for semantically identical rerenders, which dropped the seeded normalized `All Settings` lane from `4` scene syncs to `2`, but the fresh live worktree runtime became `worktree_unhealthy` after the bounded `aireset` recovery because `graph-substrate-canary` no longer mounted there.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
@@ -10798,6 +10836,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 17:40 EDT, Ralph item `282`
+
   - Summary: fixed the stale runtime-info helper that was mixing an old frontend URL with the current backend/session after manual restarts, then reran the canonical `rotaryParamCodeObjDefault` Playwright lane successfully on the recovered `3075/8075` runtime.
   - Files:
     - `scripts/dev-runtime-info.sh`
@@ -10829,6 +10868,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 18:26 EDT, Ralph item `284`
+
   - Summary: hardened the live canonical `rotaryParamCodeObjDefault` probe so fullscreen-pane startup drift and probe-budget limits no longer masquerade as a canary mount failure, restored the Playwright lane on both the original and restarted worktree sessions, and then hit a dead CDP transport after the one allowed `aireset` recovery.
   - Files:
     - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
@@ -10860,6 +10900,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 18:47 EDT, Ralph item `285`
+
   - Summary: reran the canonical `rotaryParamCodeObjDefault` Playwright lane on the fresh loop-managed `3076/8076` session `208e6a`, confirmed the same healthy normalized canary snapshots as item `284`, and narrowed the remaining CDP issue from dead transport to deferred sub-agent visual-inspection/tooling debt.
   - Files:
     - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
@@ -10888,6 +10929,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 18:56 EDT, Ralph item `286`
+
   - Summary: refreshed the normalized `rotaryParamCodeObjDefault` motion baseline on the live `3076/8076` worktree and read-only `3087/8087` reference runtimes, confirmed the canary counters are still stable, and showed that the next product hotspot is motion-time whole-scene work rather than DOM body ownership.
   - Files:
     - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-normalized-motion-perf-refresh.md`
@@ -10923,6 +10965,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 00:52 EDT, Ralph item `287`
+
   - Summary: moved the Pixi shell drawables into world space and applied viewport motion through the Pixi stage transform so pure pan/zoom no longer redraws shell geometry on the canonical `rotaryParamCodeObjDefault` lane; the live canary probe, cross-worktree motion probe, and CDP visual check all completed on the current loop-managed runtimes.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
@@ -10961,4 +11004,44 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production fan-out/presentation reduction on the `46`-section motion lane
     - use the existing Playwright instrumentation lane plus the cross-worktree motion-perf probe to measure whether that next slice produces a real timing improvement instead of only counter movement
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 01:25 EDT, Ralph item `288`
+  - Summary: memoized the canary section-entry render path so viewport-only motion no longer rebuilds every mounted section entry when the section snapshot/body gate stay unchanged, kept the deterministic `rotaryParamCodeObjDefault` probes green, but blocked on the required CDP visual gate even after the one allowed `./aireset.sh` recovery.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx`
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-section-entry-memoization.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized instrumentation lane and cross-worktree motion-perf probe instead of opening a new section-specific lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-section-entry-memoization.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`2 files`, `14 tests`)
+    - refreshed runtime info minted fresh bootstrap URLs before the Playwright probes on the pre-restart live runtimes:
+      - worktree session `61c111`: `http://127.0.0.1:3076/` / `http://127.0.0.1:8076`
+      - reference session `d807b1`: `http://127.0.0.1:3087/` / `http://127.0.0.1:8087`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `22.0s`)
+    - passing instrumentation snapshots stayed flat on the canonical lane:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1`, Pixi syncs `1`, viewport zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, viewport zoom `1.428099173553719`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `42.6s`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`63ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+      - worktree canary: average `20.56ms`, max `101ms`, `43` samples, `2` long tasks (`158ms` total, `101ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
+    - fresh-context Chrome DevTools MCP sub-agents -> blocked twice:
+      - first attempt on the pre-restart `3076/8076` runtime read `docs/guides/browser-mcp-quickstart.md` but timed out before a usable session (`Network.enable` timeout)
+      - bounded self-recovery ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the worktree onto backend `8075`, bootstrap `8075`, debug port `9297`, and Vite output `http://127.0.0.1:3075/`
+      - second attempt on the restarted runtime still failed to obtain a usable DevTools session (`list_pages` timed out after `120s`), so no trustworthy CDP visual confirmation was obtained
+  - Result:
+    - the section-entry memoization slice is landed and directly covered by focused unit tests
+    - the canonical motion lane stayed correct, but the measured cross-worktree perf sample did not improve and was slower on this run, so this was not the dominant motion hotspot
+    - the remaining blocker for this iteration is the missing required CDP visual gate after one bounded lifecycle recovery
+  - Next:
+    - on the next fresh loop-managed lifecycle, retry only the blocked Chrome DevTools MCP visual gate for item `288` before landing more product code
+    - if that gate succeeds, return to the next real product hotspot: whole-scene presentation/fan-out work on the same canonical `rotaryParamCodeObjDefault` lane
   - LOOP_TERMINAL_MARKER: none
