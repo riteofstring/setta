@@ -18,7 +18,7 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 		BaseType:           frontendBindingBaseSectionImplType,
 		EnumType:           reflect.TypeOf(FrontendSectionType("")),
 		DiscriminatorField: "type",
-		DiscriminatorValue: frontendBindingSectionDiscriminatorValue,
+		DiscriminatorValue: frontendBindingConcreteTypeValueWithSuffix("SectionImpl"),
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
 			defaultValue, err := FrontendSectionImplDefaultValue(value)
 			if err != nil {
@@ -34,23 +34,19 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				UnionName:   "BaseParentSectionImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeHasJSONField(t, "children")
-				},
-				SetName:    "BaseParentSectionImplTypeSet",
-				GuardName:  "isBaseParentSectionImpl",
-				GuardInput: "BaseSectionImplUnion",
+				Predicate:   frontendBindingHasJSONFieldPredicate("children"),
+				SetName:     "BaseParentSectionImplTypeSet",
+				GuardName:   "isBaseParentSectionImpl",
+				GuardInput:  "BaseSectionImplUnion",
 			},
 			{
 				UnionName:   "BaseSectionWithParamsImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeHasJSONField(t, "codeObjVariantMap")
-				},
-				SetName:    "BaseSectionWithParamsImplTypeSet",
-				GuardName:  "isBaseSectionWithParamsImpl",
-				GuardInput: "BaseSectionImplUnion",
+				Predicate:   frontendBindingHasJSONFieldPredicate("codeObjVariantMap"),
+				SetName:     "BaseSectionWithParamsImplTypeSet",
+				GuardName:   "isBaseSectionWithParamsImpl",
+				GuardInput:  "BaseSectionImplUnion",
 			},
 		},
 	}
@@ -61,7 +57,7 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 		BaseType:           frontendBindingBaseCodeObjImplType,
 		EnumType:           reflect.TypeOf(FrontendCodeObjType("")),
 		DiscriminatorField: "type",
-		DiscriminatorValue: frontendBindingCodeObjDiscriminatorValue,
+		DiscriminatorValue: frontendBindingConcreteTypeValueWithSuffix("CodeObjImpl"),
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
 			if value != string(FrontendCodeObjTypeCodeParam) {
 				return nil, false, nil
@@ -73,45 +69,43 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 			{
 				UnionName:   "BaseChildlessCodeObjImplUnion",
 				IncludeBase: true,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingBaseValueParamCodeObjImplType)
-				},
-				SetName:    "BaseChildlessCodeObjImplTypeSet",
-				GuardName:  "isBaseChildlessCodeObjImpl",
-				GuardInput: "BaseCodeObjImplUnion",
+				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingBaseValueParamCodeObjImplType),
+				SetName:     "BaseChildlessCodeObjImplTypeSet",
+				GuardName:   "isBaseChildlessCodeObjImpl",
+				GuardInput:  "BaseCodeObjImplUnion",
 			},
 			{
 				UnionName:   "BaseParamCodeObjImplUnion",
 				LocalUnion:  true,
 				IncludeBase: true,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingParamCodeObjFieldsType)
-				},
-				SetName:    "BaseParamCodeObjImplTypeSet",
-				GuardName:  "isBaseParamCodeObjImpl",
-				GuardInput: "BaseCodeObjImplUnion",
+				Predicate:   frontendBindingEmbedsAnonymousFieldPredicate(frontendBindingParamCodeObjFieldsType),
+				SetName:     "BaseParamCodeObjImplTypeSet",
+				GuardName:   "isBaseParamCodeObjImpl",
+				GuardInput:  "BaseCodeObjImplUnion",
 			},
 			{
 				UnionName:   "BaseParentCodeObjImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeHasJSONField(t, "children")
-				},
-				SetName:    "BaseParentCodeObjImplTypeSet",
-				GuardName:  "isBaseParentCodeObjImpl",
-				GuardInput: "BaseCodeObjImplUnion",
+				Predicate:   frontendBindingHasJSONFieldPredicate("children"),
+				SetName:     "BaseParentCodeObjImplTypeSet",
+				GuardName:   "isBaseParentCodeObjImpl",
+				GuardInput:  "BaseCodeObjImplUnion",
 			},
 		},
 	}
 }
 
-func frontendBindingSectionDiscriminatorValue(t reflect.Type) (string, bool) {
-	return frontendBindingNamedConcreteTypeValue(t, "SectionImpl")
+func frontendBindingHasJSONFieldPredicate(fieldName string) func(reflect.Type) bool {
+	return func(t reflect.Type) bool { return frontendBindingContractTypeHasJSONField(t, fieldName) }
 }
 
-func frontendBindingCodeObjDiscriminatorValue(t reflect.Type) (string, bool) {
-	return frontendBindingNamedConcreteTypeValue(t, "CodeObjImpl")
+func frontendBindingEmbedsAnonymousFieldPredicate(target reflect.Type) func(reflect.Type) bool {
+	return func(t reflect.Type) bool { return frontendBindingContractTypeEmbedsAnonymousField(t, target) }
+}
+
+func frontendBindingConcreteTypeValueWithSuffix(suffix string) func(reflect.Type) (string, bool) {
+	return func(t reflect.Type) (string, bool) { return frontendBindingNamedConcreteTypeValue(t, suffix) }
 }
 
 func frontendBindingNamedConcreteTypeValue(t reflect.Type, suffix string) (string, bool) {

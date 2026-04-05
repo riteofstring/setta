@@ -5,13 +5,9 @@ import (
 	"strings"
 )
 
-type TypeScriptExprProvider interface {
-	FrontendBindingTypeScriptExpr() string
-}
+type TypeScriptExprProvider interface{ FrontendBindingTypeScriptExpr() string }
 
-type UnionTypesProvider interface {
-	FrontendBindingUnionTypes() []reflect.Type
-}
+type UnionTypesProvider interface{ FrontendBindingUnionTypes() []reflect.Type }
 
 type DiscriminatedObjectFamilyProvider interface {
 	FrontendBindingDiscriminatedObjectFamily() DiscriminatedObjectFamily
@@ -27,7 +23,7 @@ func LookupProvider[P any](t reflect.Type) (P, bool) {
 	}
 
 	value := reflect.Zero(t)
-	if value.IsValid() && value.CanInterface() {
+	if value.CanInterface() {
 		if provider, ok := value.Interface().(P); ok {
 			return provider, true
 		}
@@ -36,7 +32,7 @@ func LookupProvider[P any](t reflect.Type) (P, bool) {
 		return zero, false
 	}
 	ptr := reflect.New(t)
-	if !ptr.IsValid() || !ptr.CanInterface() {
+	if !ptr.CanInterface() {
 		return zero, false
 	}
 	provider, ok := ptr.Interface().(P)
