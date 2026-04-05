@@ -20,29 +20,19 @@ const (
 	datamodelGeneratorModule       = "datamodel_code_generator"
 )
 
-type datamodelDeclaration struct {
-	Name  string
-	Block string
-}
-
-type datamodelModule struct {
-	ImportLines  []string
-	Declarations []datamodelDeclaration
-}
-
 var cachedPythonSharedSchemaModule = sync.OnceValues(buildPythonSharedSchemaModule)
 
-func pythonSharedSchemaModule() (datamodelModule, error) { return cachedPythonSharedSchemaModule() }
+func pythonSharedSchemaModule() (string, error) { return cachedPythonSharedSchemaModule() }
 
-func buildPythonSharedSchemaModule() (datamodelModule, error) {
+func buildPythonSharedSchemaModule() (string, error) {
 	document, err := sharedtypes.BuildOpenAPIProjectionDocument()
 	if err != nil {
-		return datamodelModule{}, err
+		return "", err
 	}
 
 	tempDir, err := os.MkdirTemp("", "setta-python-shared-schema-*")
 	if err != nil {
-		return datamodelModule{}, fmt.Errorf("python shared types: create datamodel temp dir: %w", err)
+		return "", fmt.Errorf("python shared types: create datamodel temp dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
@@ -50,15 +40,15 @@ func buildPythonSharedSchemaModule() (datamodelModule, error) {
 	outputPath := filepath.Join(tempDir, "schema.py")
 	payload, err := json.Marshal(document)
 	if err != nil {
-		return datamodelModule{}, fmt.Errorf("python shared types: marshal shared OpenAPI projection: %w", err)
+		return "", fmt.Errorf("python shared types: marshal shared OpenAPI projection: %w", err)
 	}
 	if err := os.WriteFile(inputPath, payload, 0o600); err != nil {
-		return datamodelModule{}, fmt.Errorf("python shared types: write shared OpenAPI projection: %w", err)
+		return "", fmt.Errorf("python shared types: write shared OpenAPI projection: %w", err)
 	}
 
 	pythonBin, err := pythonGeneratorExecutable()
 	if err != nil {
-		return datamodelModule{}, err
+		return "", err
 	}
 
 	cmd := exec.Command(
@@ -89,14 +79,14 @@ func buildPythonSharedSchemaModule() (datamodelModule, error) {
 		if message == "" {
 			message = err.Error()
 		}
-		return datamodelModule{}, fmt.Errorf("python shared types: run %q: %s", strings.Join(cmd.Args, " "), message)
+		return "", fmt.Errorf("python shared types: run %q: %s", strings.Join(cmd.Args, " "), message)
 	}
 
 	module, err := os.ReadFile(outputPath)
 	if err != nil {
-		return datamodelModule{}, fmt.Errorf("python shared types: read datamodel module output: %w", err)
+		return "", fmt.Errorf("python shared types: read datamodel module output: %w", err)
 	}
-	return parseDatamodelModule(string(module))
+	return string(module), nil
 }
 
 func pythonGeneratorExecutable() (string, error) {
@@ -126,34 +116,60 @@ func pythonSharedSchemaDeclarations(
 		return nil, nil, err
 	}
 	imports := map[string]struct{}{}
-	for _, line := range module.ImportLines {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	blocks := []string{}
+	sawDeclaration := false
+	for _, block := range strings.Split(module, "\n\n") {
+		block = strings.TrimSpace(block)
+		if block == "" {
 			continue
 		}
-		imports[line] = struct{}{}
-	}
-	blocks := make([]string, 0, len(module.Declarations))
-	for _, declaration := range module.Declarations {
-		block := declaration.Block
-		declarationImports := map[string]struct{}(nil)
-		if ownerType, ok := sharedtypes.TypeByContractName(declaration.Name); ok &&
-			ownerType != nil &&
-			ownerType.Kind() == reflect.Struct {
-			updatedBlock, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
-				declaration.Name,
-				declaration.Block,
-				ownerType,
-				defaultSourcesByType,
-			)
-			if err != nil {
-				return nil, nil, err
+		lines := strings.Split(block, "\n")
+		header := strings.TrimSpace(lines[0])
+		switch {
+		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
+			continue
+		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") || line == "from __future__ import annotations" {
+					continue
+				}
+				if !strings.HasPrefix(line, "from ") && !strings.HasPrefix(line, "import ") {
+					continue
+				}
+				imports[line] = struct{}{}
 			}
-			declarationImports = extraImports
-			if changed {
-				block = updatedBlock
+			continue
+		}
+
+		declarationImports := map[string]struct{}(nil)
+		if strings.HasPrefix(header, "class ") {
+			declarationName := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
+			if before, _, ok := strings.Cut(declarationName, "("); ok {
+				declarationName = strings.TrimSpace(before)
+			}
+			if declarationName == "" {
+				return nil, nil, fmt.Errorf("python shared types: datamodel class has empty name")
+			}
+
+			ownerType, ok := sharedtypes.TypeByContractName(declarationName)
+			if ok && ownerType != nil && ownerType.Kind() == reflect.Struct {
+				updatedBlock, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
+					declarationName,
+					block,
+					ownerType,
+					defaultSourcesByType,
+				)
+				if err != nil {
+					return nil, nil, err
+				}
+				declarationImports = extraImports
+				if changed {
+					block = updatedBlock
+				}
 			}
 		}
+		sawDeclaration = true
 		mergeImportSet(imports, declarationImports)
 		blocks = append(blocks, block)
 	}
@@ -284,60 +300,6 @@ func trimDatamodelFieldDefault(value string) string {
 		}
 	}
 	return value
-}
-
-func parseDatamodelModule(module string) (datamodelModule, error) {
-	imports := []string{}
-	seen := map[string]struct{}{}
-	declarations := []datamodelDeclaration{}
-	sawDeclaration := false
-
-	for _, block := range strings.Split(module, "\n\n") {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		lines := strings.Split(block, "\n")
-		header := strings.TrimSpace(lines[0])
-		switch {
-		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
-			continue
-		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "#") || line == "from __future__ import annotations" {
-					continue
-				}
-				if !strings.HasPrefix(line, "from ") && !strings.HasPrefix(line, "import ") {
-					continue
-				}
-				if _, duplicate := seen[line]; duplicate {
-					continue
-				}
-				seen[line] = struct{}{}
-				imports = append(imports, line)
-			}
-			continue
-		}
-
-		declaration := datamodelDeclaration{Block: block}
-		if strings.HasPrefix(header, "class ") {
-			name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
-			if before, _, ok := strings.Cut(name, "("); ok {
-				name = strings.TrimSpace(before)
-			}
-			if name == "" {
-				return datamodelModule{}, fmt.Errorf("python shared types: datamodel class has empty name")
-			}
-			declaration.Name = name
-		}
-		sawDeclaration = true
-		declarations = append(declarations, declaration)
-	}
-	return datamodelModule{
-		ImportLines:  imports,
-		Declarations: declarations,
-	}, nil
 }
 
 func isPythonIdentifier(value string) bool {

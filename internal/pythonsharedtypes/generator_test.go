@@ -280,11 +280,23 @@ func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fiel
 		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
 	}
 	contractName := sharedtypes.ContractNameForType(ownerType)
-	for _, declaration := range module.Declarations {
-		if declaration.Name != contractName {
+	for _, block := range strings.Split(module, "\n\n") {
+		block = strings.TrimSpace(block)
+		if block == "" {
 			continue
 		}
-		lines := strings.Split(declaration.Block, "\n")
+		lines := strings.Split(block, "\n")
+		header := strings.TrimSpace(lines[0])
+		if !strings.HasPrefix(header, "class ") {
+			continue
+		}
+		name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
+		if before, _, ok := strings.Cut(name, "("); ok {
+			name = strings.TrimSpace(before)
+		}
+		if name != contractName {
+			continue
+		}
 		for index := 0; index < len(lines); {
 			name, typeExpr, end, ok, err := parseDatamodelField(lines, index)
 			if err != nil {
