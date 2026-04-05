@@ -163,6 +163,11 @@ type pythonDependencyGraphBuilder struct {
 	potentialRefs   map[PythonDependencyKey]map[string][]int
 }
 
+type pythonSectionExportResult struct {
+	node                *PythonSectionNode
+	recordPotentialRefs bool
+}
+
 var pythonDependencyGraphSectionExporters = map[string]struct{}{
 	"Callable":        {},
 	"Dict":            {},
@@ -279,329 +284,397 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 	}
 
 	fullPathName := b.createFullPathName(parent, index, section.Name)
-	switch section.Type {
-	case "Callable":
-		value, err := callableSectionValue(section)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            value,
-				Deps:             map[PythonDependencyKey]bool{},
-				DepOrder:         nil,
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		deps, depOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node.Deps = deps
-		node.DepOrder = depOrder
-		b.addNode(key, node)
-		if literal, ok := value.(LiteralDependencyValue); ok {
+	result, err := b.exportTypedSection(section, fullPathName, isTopLevel, parent)
+	if err != nil {
+		return PythonDependencyKey{}, nil, err
+	}
+	if result.node == nil {
+		return key, nil, nil
+	}
+	b.addNode(key, result.node)
+	if result.recordPotentialRefs {
+		if literal, ok := result.node.Value.(LiteralDependencyValue); ok {
 			if err := b.recordPotentialRefs(key, literal.Payload); err != nil {
 				return PythonDependencyKey{}, nil, err
 			}
 		}
-		return key, node, nil
-	case "Dict":
-		children := make([]string, 0, len(section.ArrayStringField("children")))
-		for _, childID := range section.ArrayStringField("children") {
-			childSection, err := b.export.ResolveSection(childID)
-			if err != nil {
-				return PythonDependencyKey{}, nil, err
-			}
-			if !isPythonDependencyGraphSectionType(childSection.Type) {
-				continue
-			}
-			children = append(children, childID)
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Deps:             map[PythonDependencyKey]bool{},
-				DepOrder:         nil,
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		paramDeps, paramOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		childDeps, childOrder, err := b.exportSections(children, false, node)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node.Deps, node.DepOrder = mergeDependencyCollections(
-			paramDeps,
-			paramOrder,
-			childDeps,
-			childOrder,
-		)
-		b.addNode(key, node)
-		return key, node, nil
-	case "GlobalVariables":
-		if _, _, err := b.exportSectionParams(section, nil, true, section.Policy.IncludeInCodegen); err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		return key, nil, nil
-	case "ListRoot", "Group":
-		children := make([]string, 0, len(section.ArrayStringField("children")))
-		for _, childID := range section.ArrayStringField("children") {
-			childSection, err := b.export.ResolveSection(childID)
-			if err != nil {
-				return PythonDependencyKey{}, nil, err
-			}
-			if !isPythonDependencyGraphSectionType(childSection.Type) {
-				continue
-			}
-			children = append(children, childID)
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Deps:             map[PythonDependencyKey]bool{},
-				DepOrder:         nil,
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		deps, depOrder, err := b.exportSections(children, false, node)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node.Deps = deps
-		node.DepOrder = depOrder
-		b.addNode(key, node)
-		return key, node, nil
-	case "TextBlock":
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: section.StringField("text")},
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Prompt":
-		promptText := section.StringField("renderedText")
-		if b.promptTemplates != nil {
-			promptTemplateID := section.StringField("promptTemplateId")
-			if promptTemplateID != "" {
-				template, err := b.promptTemplates.Get(promptTemplateID)
-				if err != nil {
-					return PythonDependencyKey{}, nil, fmt.Errorf(
-						"codegen: resolve prompt template %q for prompt section %q: %w",
-						promptTemplateID,
-						section.ID,
-						err,
-					)
-				}
-				promptText = template.Template
-			}
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: promptText},
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Plugin":
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: renderPythonLiteral(section.Payload["data"])},
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Chat":
-		value, representation, err := chatSectionValue(section)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            value,
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Draw":
-		value, representation, err := fileBackedSectionValue(
-			section.Policy.Representation,
-			section.StringField("renderedImagePath"),
-			section.ID,
-			"Draw",
-		)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            value,
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Image":
-		value, representation, err := fileBackedSectionValue(
-			section.Policy.Representation,
-			section.StringField("imagePath"),
-			section.ID,
-			"Image",
-		)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            value,
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "TaskBoard":
-		payload := map[string]any{
-			"viewMode": section.Payload["viewMode"],
-			"columns":  section.Payload["columns"],
-			"tasks":    section.Payload["tasks"],
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: renderPythonLiteral(payload)},
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "Spreadsheet":
-		payload := map[string]any{
-			"filePath":                   section.Payload["filePath"],
-			"activeSheet":                section.Payload["activeSheet"],
-			"readOnly":                   section.Payload["readOnly"],
-			"showRowNumbers":             section.Payload["showRowNumbers"],
-			"density":                    section.Payload["density"],
-			"autoReloadOnExternalChange": section.Payload["autoReloadOnExternalChange"],
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            LiteralDependencyValue{Payload: renderPythonLiteral(payload)},
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:    section.Type,
-			Representation: section.Policy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	case "MetaControl":
-		controlParamID := section.StringField("metaControlParamId")
-		controlCodeObj, err := section.ResolveCodeObject(controlParamID)
-		if err != nil {
-			return PythonDependencyKey{}, nil, err
-		}
-		var value PythonDependencyValue
-		if isChildlessPythonCodeObjectType(controlCodeObj.Type) {
-			value = LiteralDependencyValue{Payload: controlCodeObj.StringField("value")}
-		}
-		node := &PythonSectionNode{
-			PythonDependencyNodeBase: PythonDependencyNodeBase{
-				ID:               section.ID,
-				Name:             section.Name,
-				FullPathName:     fullPathName,
-				IsTopLevel:       isTopLevel,
-				Value:            value,
-				Deps:             map[PythonDependencyKey]bool{},
-				IncludeInCodegen: section.Policy.IncludeInCodegen,
-			},
-			SectionType:                section.Type,
-			Representation:             section.Policy.Representation,
-			ControlCodeObjType:         controlCodeObj.Type,
-			ControlCodeObjID:           controlParamID,
-			ControlCodeObjImplID:       controlCodeObj.ImplID,
-			ControlValueRepresentation: controlCodeObj.ValuePolicy.Representation,
-		}
-		b.addNode(key, node)
-		return key, node, nil
-	default:
-		return PythonDependencyKey{}, nil, fmt.Errorf("%w: %s", ErrPythonDependencyGraphSectionType, section.Type)
 	}
+	return key, result.node, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportTypedSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	parent PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	switch section.Type {
+	case "Callable":
+		return b.exportCallableSection(section, fullPathName, isTopLevel, parent)
+	case "Dict":
+		return b.exportDictSection(section, fullPathName, isTopLevel, parent)
+	case "ListRoot", "Group":
+		return b.exportChildSection(section, fullPathName, isTopLevel, parent)
+	case "GlobalVariables":
+		return b.exportGlobalVariablesSection(section, fullPathName, isTopLevel, parent)
+	case "TextBlock":
+		return b.exportTextBlockSection(section, fullPathName, isTopLevel, parent)
+	case "Prompt":
+		return b.exportPromptSection(section, fullPathName, isTopLevel, parent)
+	case "Draw":
+		return b.exportDrawSection(section, fullPathName, isTopLevel, parent)
+	case "Image":
+		return b.exportImageSection(section, fullPathName, isTopLevel, parent)
+	case "Plugin":
+		return b.exportPluginSection(section, fullPathName, isTopLevel, parent)
+	case "MetaControl":
+		return b.exportMetaControlSection(section, fullPathName, isTopLevel, parent)
+	case "Chat":
+		return b.exportChatSection(section, fullPathName, isTopLevel, parent)
+	case "TaskBoard":
+		return b.exportTaskBoardSection(section, fullPathName, isTopLevel, parent)
+	case "Spreadsheet":
+		return b.exportSpreadsheetSection(section, fullPathName, isTopLevel, parent)
+	default:
+		return pythonSectionExportResult{}, fmt.Errorf("%w: %s", ErrPythonDependencyGraphSectionType, section.Type)
+	}
+}
+
+func (b *pythonDependencyGraphBuilder) exportCallableSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	value, err := callableSectionValue(section)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	node := b.newSectionNode(section, fullPathName, isTopLevel)
+	node.Value = value
+	deps, depOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	node.Deps = deps
+	node.DepOrder = depOrder
+	return pythonSectionExportResult{node: node, recordPotentialRefs: true}, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportDictSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	node := b.newSectionNode(section, fullPathName, isTopLevel)
+	paramDeps, paramOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	childDeps, childOrder, err := b.exportChildSectionDeps(section, node)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	node.Deps, node.DepOrder = mergeDependencyCollections(paramDeps, paramOrder, childDeps, childOrder)
+	return pythonSectionExportResult{node: node}, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportGlobalVariablesSection(
+	section projectstate.PythonCodegenSection,
+	_ string,
+	_ bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	if _, _, err := b.exportSectionParams(section, nil, true, section.Policy.IncludeInCodegen); err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	return pythonSectionExportResult{}, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportChildSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	node := b.newSectionNode(section, fullPathName, isTopLevel)
+	deps, depOrder, err := b.exportChildSectionDeps(section, node)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	node.Deps = deps
+	node.DepOrder = depOrder
+	return pythonSectionExportResult{node: node}, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportTextBlockSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	return b.exportLiteralSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		LiteralDependencyValue{Payload: section.StringField("text")},
+		section.Policy.Representation,
+	), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportPromptSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	promptText, err := b.resolvePromptText(section)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	return b.exportLiteralSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		LiteralDependencyValue{Payload: promptText},
+		section.Policy.Representation,
+	), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportDrawSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	return b.exportFileBackedSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		section.StringField("renderedImagePath"),
+		"Draw",
+	)
+}
+
+func (b *pythonDependencyGraphBuilder) exportImageSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	return b.exportFileBackedSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		section.StringField("imagePath"),
+		"Image",
+	)
+}
+
+func (b *pythonDependencyGraphBuilder) exportPluginSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	return b.exportLiteralSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		LiteralDependencyValue{Payload: renderPythonLiteral(section.Payload["data"])},
+		section.Policy.Representation,
+	), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportChatSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	value, representation, err := chatSectionValue(section)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	return b.exportValueSection(section, fullPathName, isTopLevel, value, representation), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportTaskBoardSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	payload := map[string]any{
+		"viewMode": section.Payload["viewMode"],
+		"columns":  section.Payload["columns"],
+		"tasks":    section.Payload["tasks"],
+	}
+	return b.exportLiteralSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		LiteralDependencyValue{Payload: renderPythonLiteral(payload)},
+		section.Policy.Representation,
+	), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportSpreadsheetSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	payload := map[string]any{
+		"filePath":                   section.Payload["filePath"],
+		"activeSheet":                section.Payload["activeSheet"],
+		"readOnly":                   section.Payload["readOnly"],
+		"showRowNumbers":             section.Payload["showRowNumbers"],
+		"density":                    section.Payload["density"],
+		"autoReloadOnExternalChange": section.Payload["autoReloadOnExternalChange"],
+	}
+	return b.exportLiteralSection(
+		section,
+		fullPathName,
+		isTopLevel,
+		LiteralDependencyValue{Payload: renderPythonLiteral(payload)},
+		section.Policy.Representation,
+	), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportMetaControlSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	_ PythonDependencyNode,
+) (pythonSectionExportResult, error) {
+	controlParamID := section.StringField("metaControlParamId")
+	controlCodeObj, err := section.ResolveCodeObject(controlParamID)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	node := b.newSectionNode(section, fullPathName, isTopLevel)
+	if isChildlessPythonCodeObjectType(controlCodeObj.Type) {
+		node.Value = LiteralDependencyValue{Payload: controlCodeObj.StringField("value")}
+	}
+	node.ControlCodeObjType = controlCodeObj.Type
+	node.ControlCodeObjID = controlParamID
+	node.ControlCodeObjImplID = controlCodeObj.ImplID
+	node.ControlValueRepresentation = controlCodeObj.ValuePolicy.Representation
+	return pythonSectionExportResult{node: node}, nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportValueSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	value PythonDependencyValue,
+	representation projectstate.PythonSectionRepresentationMode,
+) pythonSectionExportResult {
+	node := b.newSectionNode(section, fullPathName, isTopLevel)
+	node.Value = value
+	node.Representation = representation
+	return pythonSectionExportResult{node: node}
+}
+
+func (b *pythonDependencyGraphBuilder) exportLiteralSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	value LiteralDependencyValue,
+	representation projectstate.PythonSectionRepresentationMode,
+) pythonSectionExportResult {
+	return b.exportValueSection(section, fullPathName, isTopLevel, value, representation)
+}
+
+func (b *pythonDependencyGraphBuilder) exportFileBackedSection(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+	filePath string,
+	sectionType string,
+) (pythonSectionExportResult, error) {
+	value, representation, err := fileBackedSectionValue(
+		section.Policy.Representation,
+		filePath,
+		section.ID,
+		sectionType,
+	)
+	if err != nil {
+		return pythonSectionExportResult{}, err
+	}
+	return b.exportValueSection(section, fullPathName, isTopLevel, value, representation), nil
+}
+
+func (b *pythonDependencyGraphBuilder) exportChildSectionDeps(
+	section projectstate.PythonCodegenSection,
+	parent PythonDependencyNode,
+) (map[PythonDependencyKey]bool, []PythonDependencyKey, error) {
+	childIDs, err := b.exportableChildSectionIDs(section)
+	if err != nil {
+		return nil, nil, err
+	}
+	return b.exportSections(childIDs, false, parent)
+}
+
+func (b *pythonDependencyGraphBuilder) exportableChildSectionIDs(
+	section projectstate.PythonCodegenSection,
+) ([]string, error) {
+	childIDs := section.ArrayStringField("children")
+	children := make([]string, 0, len(childIDs))
+	for _, childID := range childIDs {
+		childSection, err := b.export.ResolveSection(childID)
+		if err != nil {
+			return nil, err
+		}
+		if !isPythonDependencyGraphSectionType(childSection.Type) {
+			continue
+		}
+		children = append(children, childID)
+	}
+	return children, nil
+}
+
+func (b *pythonDependencyGraphBuilder) newSectionNode(
+	section projectstate.PythonCodegenSection,
+	fullPathName string,
+	isTopLevel bool,
+) *PythonSectionNode {
+	return &PythonSectionNode{
+		PythonDependencyNodeBase: PythonDependencyNodeBase{
+			ID:               section.ID,
+			Name:             section.Name,
+			FullPathName:     fullPathName,
+			IsTopLevel:       isTopLevel,
+			Deps:             map[PythonDependencyKey]bool{},
+			DepOrder:         nil,
+			IncludeInCodegen: section.Policy.IncludeInCodegen,
+		},
+		SectionType:    section.Type,
+		Representation: section.Policy.Representation,
+	}
+}
+
+func (b *pythonDependencyGraphBuilder) resolvePromptText(section projectstate.PythonCodegenSection) (string, error) {
+	promptText := section.StringField("renderedText")
+	if b.promptTemplates == nil {
+		return promptText, nil
+	}
+	promptTemplateID := section.StringField("promptTemplateId")
+	if promptTemplateID == "" {
+		return promptText, nil
+	}
+	template, err := b.promptTemplates.Get(promptTemplateID)
+	if err != nil {
+		return "", fmt.Errorf(
+			"codegen: resolve prompt template %q for prompt section %q: %w",
+			promptTemplateID,
+			section.ID,
+			err,
+		)
+	}
+	return template.Template, nil
 }
 
 func (b *pythonDependencyGraphBuilder) exportSectionParams(
