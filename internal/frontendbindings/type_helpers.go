@@ -661,11 +661,56 @@ func generatedUserDefaultSectionPropertySkipped(
 	name string,
 	ignored map[string]struct{},
 ) bool {
-	if _, skip := generatedUserDefaultSectionIgnoredDefaultProperties[name]; skip {
-		return true
-	}
 	_, skip := ignored[name]
 	return skip
+}
+
+func reflectedUserDefaultIgnoredProperties(t reflect.Type) (map[string]struct{}, error) {
+	ignored := map[string]struct{}{}
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		return ignored, nil
+	}
+	for fieldIndex := 0; fieldIndex < t.NumField(); fieldIndex++ {
+		field := t.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous {
+			embeddedIgnored, err := reflectedUserDefaultIgnoredProperties(field.Type)
+			if err != nil {
+				return nil, err
+			}
+			for name := range embeddedIgnored {
+				ignored[name] = struct{}{}
+			}
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		tsMetadata, err := tsFieldMetadata(field)
+		if err != nil {
+			return nil, err
+		}
+		if tsMetadata.UserDefaultSkip {
+			ignored[name] = struct{}{}
+		}
+	}
+	return ignored, nil
+}
+
+func mergeIgnoredProperties(sets ...map[string]struct{}) map[string]struct{} {
+	merged := map[string]struct{}{}
+	for _, set := range sets {
+		for name := range set {
+			merged[name] = struct{}{}
+		}
+	}
+	return merged
 }
 
 func generatedUserDefaultSectionPropertyRegistry(
@@ -694,23 +739,41 @@ func generatedUserDefaultSectionPropertyRegistry(
 	}
 	registry := make(map[string]TypeProperty, len(properties))
 	propertyOrder := []string{}
-	options := generatedUserDefaultSectionMetadata(sectionName)
-	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, baseProperties)
-	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
-	return registry, propertyOrder, options.IgnoredProperties, nil
+	baseIgnored, err := reflectedUserDefaultIgnoredProperties(reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	propertiesIgnored, err := reflectedUserDefaultIgnoredProperties(implType)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	appendUniqueGeneratedUserDefaultSectionProperties(
+		&propertyOrder,
+		registry,
+		baseProperties,
+		baseIgnored,
+	)
+	appendUniqueGeneratedUserDefaultSectionProperties(
+		&propertyOrder,
+		registry,
+		properties,
+		propertiesIgnored,
+	)
+	return registry, propertyOrder, mergeIgnoredProperties(baseIgnored, propertiesIgnored), nil
 }
 
 func appendUniqueGeneratedUserDefaultSectionProperties(
 	order *[]string,
 	registry map[string]TypeProperty,
 	properties []TypeProperty,
+	ignored map[string]struct{},
 ) {
 	seen := make(map[string]struct{}, len(*order))
 	for _, name := range *order {
 		seen[name] = struct{}{}
 	}
 	for _, property := range properties {
-		if property.Name == "type" {
+		if generatedUserDefaultSectionPropertySkipped(property.Name, ignored) {
 			continue
 		}
 		property.Optional = false
@@ -800,48 +863,6 @@ func generatedUserDefaultSectionPropertyTypeExpr(typeExpr string, defaultValue a
 	return typeExpr + " | null"
 }
 
-type generatedUserDefaultSectionMetadataOptions struct {
-	IgnoredProperties map[string]struct{}
-}
-
-func generatedUserDefaultSectionMetadata(sectionName string) generatedUserDefaultSectionMetadataOptions {
-	switch sectionName {
-	case "Callable":
-		return generatedUserDefaultSectionMetadataOptions{
-			IgnoredProperties: reflectedIgnoredProperties(
-				"callable",
-				"codeObjVariantMap",
-				"pinnedParams",
-				"selectedParams",
-				"ignoreTypeErrors",
-			),
-		}
-	case "Dict":
-		return generatedUserDefaultSectionMetadataOptions{
-			IgnoredProperties: reflectedIgnoredProperties(
-				"codeObjVariantMap",
-				"pinnedParams",
-				"selectedParams",
-				"ignoreTypeErrors",
-				"topLevelParamId",
-				"jsonSourceMissing",
-			),
-		}
-	case "Code":
-		return generatedUserDefaultSectionMetadataOptions{
-			IgnoredProperties: map[string]struct{}{},
-		}
-	case "Chat":
-		return generatedUserDefaultSectionMetadataOptions{
-			IgnoredProperties: map[string]struct{}{},
-		}
-	default:
-		return generatedUserDefaultSectionMetadataOptions{
-			IgnoredProperties: map[string]struct{}{},
-		}
-	}
-}
-
 func generatedSectionImplTypeForSectionName(sectionName string) (reflect.Type, bool) {
 	for _, t := range DiscoveredConvertibleTypes() {
 		name, ok := generatedSectionImplName(t)
@@ -862,11 +883,16 @@ func generatedUserDefaultCodeParamCodeObjPropertyRegistry(
 	if err != nil {
 		return nil, nil, err
 	}
+	ignored, err := reflectedUserDefaultIgnoredProperties(
+		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 	registry := make(map[string]TypeProperty, len(properties))
 	order := []string{}
 	for _, property := range properties {
-		switch property.Name {
-		case "type", "id", "name", "description", "isPreset", "passingStyle":
+		if generatedUserDefaultSectionPropertySkipped(property.Name, ignored) {
 			continue
 		}
 		property.Optional = false

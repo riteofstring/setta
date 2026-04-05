@@ -210,33 +210,33 @@ type FrontendCodeFileBinding struct {
 }
 
 type FrontendBaseSectionImpl struct {
-	Type                    FrontendSectionType `json:"type"`
-	ID                      string              `json:"id"`
-	Name                    string              `json:"name"`
+	Type                    FrontendSectionType `json:"type" ts_user_default_skip:"true"`
+	ID                      string              `json:"id" ts_user_default_skip:"true"`
+	Name                    string              `json:"name" ts_user_default_skip:"true"`
 	IsFrozen                bool                `json:"isFrozen"`
-	IsInOtherProjectConfigs bool                `json:"isInOtherProjectConfigs"`
+	IsInOtherProjectConfigs bool                `json:"isInOtherProjectConfigs" ts_user_default_skip:"true"`
 	TagColor                *string             `json:"tagColor"`
 	StyleColor              *string             `json:"styleColor"`
 	Size                    SectionSize         `json:"size"`
 	AspectRatio             any                 `json:"aspectRatio" ts_type:"boolean | number"`
-	AspectRatioExtraHeight  float64             `json:"aspectRatioExtraHeight"`
-	AspectRatioExtraWidth   float64             `json:"aspectRatioExtraWidth"`
+	AspectRatioExtraHeight  float64             `json:"aspectRatioExtraHeight" ts_user_default_skip:"true"`
+	AspectRatioExtraWidth   float64             `json:"aspectRatioExtraWidth" ts_user_default_skip:"true"`
 	IsMinimized             bool                `json:"isMinimized"`
 	PositionAndSizeLocked   bool                `json:"positionAndSizeLocked"`
-	IsPreset                bool                `json:"isPreset"`
+	IsPreset                bool                `json:"isPreset" ts_user_default_skip:"true"`
 }
 
 type FrontendSectionWithParamsLeadingFields struct {
-	CodeObjVariantMap  map[string]string `json:"codeObjVariantMap"`
+	CodeObjVariantMap  map[string]string `json:"codeObjVariantMap" ts_user_default_skip:"true"`
 	HideUnpinnedParams bool              `json:"hideUnpinnedParams"`
 	ParamFilter        string            `json:"paramFilter"`
 	ColumnWidth        *float64          `json:"columnWidth"`
 }
 
 type FrontendSectionWithParamsTrailingFields struct {
-	PinnedParams     []string             `json:"pinnedParams"`
-	SelectedParams   []string             `json:"selectedParams"`
-	IgnoreTypeErrors TypeErrorIgnoreState `json:"ignoreTypeErrors"`
+	PinnedParams     []string             `json:"pinnedParams" ts_user_default_skip:"true"`
+	SelectedParams   []string             `json:"selectedParams" ts_user_default_skip:"true"`
+	IgnoreTypeErrors TypeErrorIgnoreState `json:"ignoreTypeErrors" ts_user_default_skip:"true"`
 	EdgeInputParams  []string             `json:"edgeInputParams"`
 	EdgeOutputPorts  []EdgePort           `json:"edgeOutputPorts"`
 }
@@ -276,14 +276,14 @@ type FrontendBrowserSectionImpl struct {
 
 type FrontendListRootSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                []string            `json:"children"`
+	Children                []string            `json:"children" ts_user_default_skip:"true"`
 	DefaultChildSectionType FrontendSectionType `json:"defaultChildSectionType"`
 	ViewMode                ListRootViewMode    `json:"viewMode"`
 }
 
 type FrontendGroupSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                []string            `json:"children"`
+	Children                []string            `json:"children" ts_user_default_skip:"true"`
 	IsHorizontalOrientation bool                `json:"isHorizontalOrientation"`
 	OverflowMode            bool                `json:"overflowMode"`
 	DefaultChildSectionType FrontendSectionType `json:"defaultChildSectionType"`
@@ -322,7 +322,7 @@ type FrontendTextBlockSectionImpl struct {
 
 type FrontendPromptSectionImpl struct {
 	FrontendBaseSectionImpl
-	PromptTemplateID *string                `json:"promptTemplateId,omitempty"`
+	PromptTemplateID *string                `json:"promptTemplateId,omitempty" ts_user_default_skip:"true"`
 	Template         string                 `json:"template"`
 	Format           prompttemplates.Format `json:"format"`
 	Inputs           map[string]string      `json:"inputs"`
@@ -333,7 +333,7 @@ type FrontendPromptSectionImpl struct {
 
 type FrontendCodeSectionImpl struct {
 	FrontendBaseSectionImpl
-	Children                  []string                          `json:"children"`
+	Children                  []string                          `json:"children" ts_user_default_skip:"true"`
 	Code                      string                            `json:"code"`
 	CodeFileBinding           *FrontendCodeFileBinding          `json:"codeFileBinding,omitempty"`
 	AttachedTerminalSectionID *string                           `json:"attachedTerminalSectionId,omitempty"`
@@ -350,7 +350,7 @@ type FrontendCallableSectionImpl struct {
 	FrontendSectionWithParamsLeadingFields
 	ConfigLanguage FrontendConfigLanguage `json:"configLanguage"`
 	FrontendSectionWithParamsTrailingFields
-	Callable   *string `json:"callable,omitempty"`
+	Callable   *string `json:"callable,omitempty" ts_user_default_skip:"true"`
 	HideParams bool    `json:"hideParams"`
 }
 
@@ -359,10 +359,10 @@ type FrontendDictSectionImpl struct {
 	FrontendSectionWithParamsLeadingFields
 	ConfigLanguage string `json:"configLanguage"`
 	FrontendSectionWithParamsTrailingFields
-	TopLevelParamID   *string  `json:"topLevelParamId"`
+	TopLevelParamID   *string  `json:"topLevelParamId" ts_user_default_skip:"true"`
 	IsJSONSource      bool     `json:"isJsonSource"`
 	JSONSourceKeys    []string `json:"jsonSourceKeys"`
-	JSONSourceMissing bool     `json:"jsonSourceMissing"`
+	JSONSourceMissing bool     `json:"jsonSourceMissing" ts_user_default_skip:"true"`
 }
 
 type FrontendTaskBoardTask = TaskBoardTask
@@ -391,11 +391,11 @@ type FrontendSpreadsheetSectionImpl struct {
 }
 
 type FrontendBaseCodeObjImpl struct {
-	Type        FrontendCodeObjType `json:"type"`
-	ID          string              `json:"id"`
-	Name        string              `json:"name"`
-	Description string              `json:"description"`
-	IsPreset    bool                `json:"isPreset"`
+	Type        FrontendCodeObjType `json:"type" ts_user_default_skip:"true"`
+	ID          string              `json:"id" ts_user_default_skip:"true"`
+	Name        string              `json:"name" ts_user_default_skip:"true"`
+	Description string              `json:"description" ts_user_default_skip:"true"`
+	IsPreset    bool                `json:"isPreset" ts_user_default_skip:"true"`
 }
 
 type FrontendBaseParamCodeObjImpl struct {
@@ -406,7 +406,7 @@ type FrontendBaseParamCodeObjImpl struct {
 type FrontendParamCodeObjFields struct {
 	CoreNameType     FrontendParamNameType         `json:"coreNameType"`
 	CoreNameEditable bool                          `json:"coreNameEditable"`
-	PassingStyle     FrontendParameterPassingStyle `json:"passingStyle"`
+	PassingStyle     FrontendParameterPassingStyle `json:"passingStyle" ts_user_default_skip:"true"`
 	TypeAnnotation   string                        `json:"typeAnnotation"`
 }
 

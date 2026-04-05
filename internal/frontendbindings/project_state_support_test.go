@@ -160,3 +160,70 @@ func TestGeneratedSectionTypeSetMembersFollowOwnerTraits(t *testing.T) {
 		})
 	}
 }
+
+func TestGeneratedUserDefaultSectionPropertiesFollowOwnerTags(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	properties, err := generatedUserDefaultSectionProperties(converter, "Callable")
+	if err != nil {
+		t.Fatalf("generatedUserDefaultSectionProperties(Callable) error = %v", err)
+	}
+
+	names := make(map[string]struct{}, len(properties))
+	for _, property := range properties {
+		names[property.Name] = struct{}{}
+	}
+
+	for _, name := range []string{
+		"type",
+		"id",
+		"name",
+		"isInOtherProjectConfigs",
+		"aspectRatioExtraHeight",
+		"aspectRatioExtraWidth",
+		"isPreset",
+		"codeObjVariantMap",
+		"pinnedParams",
+		"selectedParams",
+		"ignoreTypeErrors",
+		"callable",
+	} {
+		if _, ok := names[name]; ok {
+			t.Fatalf("Callable user defaults unexpectedly included skipped property %q", name)
+		}
+	}
+
+	for _, name := range []string{"configLanguage", "hideParams", "hideUnpinnedParams", "paramFilter"} {
+		if _, ok := names[name]; !ok {
+			t.Fatalf("Callable user defaults missing property %q", name)
+		}
+	}
+}
+
+func TestGeneratedUserDefaultCodeParamPropertiesFollowOwnerTags(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	properties, err := generatedUserDefaultCodeParamCodeObjProperties(converter)
+	if err != nil {
+		t.Fatalf("generatedUserDefaultCodeParamCodeObjProperties error = %v", err)
+	}
+
+	names := make(map[string]struct{}, len(properties))
+	for _, property := range properties {
+		names[property.Name] = struct{}{}
+	}
+
+	for _, name := range []string{"type", "id", "name", "description", "isPreset", "passingStyle"} {
+		if _, ok := names[name]; ok {
+			t.Fatalf("CodeParam user defaults unexpectedly included skipped property %q", name)
+		}
+	}
+
+	for _, name := range []string{"coreNameType", "coreNameEditable", "typeAnnotation", "defaultVal", "value"} {
+		if _, ok := names[name]; !ok {
+			t.Fatalf("CodeParam user defaults missing property %q", name)
+		}
+	}
+}

@@ -25,14 +25,6 @@ type reflectedObjectDeclarationSpec struct {
 	ExtraProperties           []TypeProperty
 }
 
-func reflectedIgnoredProperties(names ...string) map[string]struct{} {
-	ignored := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		ignored[name] = struct{}{}
-	}
-	return ignored
-}
-
 var discoveredFrontendDefaultValueProviderRegistry = discoveredFrontendDefaultValueProviders()
 
 func reflectedSpecWithDiscoveredDefault(
