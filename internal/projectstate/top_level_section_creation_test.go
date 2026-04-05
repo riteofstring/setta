@@ -1023,6 +1023,49 @@ func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	}
 }
 
+func TestProjectCreateTopLevelSectionSupportsAllRegisteredImplTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, implType := range []string{
+		"Browser",
+		"Callable",
+		"Chart",
+		"Chat",
+		"Code",
+		"Dict",
+		"Draw",
+		"GenPythonCode",
+		"GenPythonMetadata",
+		"GlobalVariables",
+		"Group",
+		"IFrame",
+		"Image",
+		"ListRoot",
+		"MetaControl",
+		"Plugin",
+		"Prompt",
+		"Social",
+		"Spreadsheet",
+		"StateMachineEnd",
+		"StateMachineGate",
+		"StateMachineStart",
+		"TaskBoard",
+		"Terminal",
+		"TextBlock",
+	} {
+		project := testCreateTopLevelSectionProject(t)
+		result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+			ImplType: implType,
+		}, DefaultStructuralMutationSettings())
+		if err != nil {
+			t.Fatalf("create %s top level section: %v", implType, err)
+		}
+		if result.SectionID == "" {
+			t.Fatalf("expected created section id for %s", implType)
+		}
+	}
+}
+
 func TestFrontendSectionImplDefaultValueExposeGoOwnedCodeSectionDefaults(t *testing.T) {
 	t.Parallel()
 

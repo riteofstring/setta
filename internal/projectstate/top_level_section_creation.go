@@ -48,6 +48,40 @@ type createdTopLevelSectionState struct {
 	metaControlParamImpl *CodeObjectImpl
 }
 
+type topLevelSectionImplBuilder func(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error)
+
+var topLevelSectionImplBuilders = map[string]topLevelSectionImplBuilder{
+	"Browser":           newFrontendTopLevelSectionImplBuilder("Browser", createdBrowserSectionDefaults),
+	"Callable":          newFrontendTopLevelSectionImplBuilder("Callable", createdCallableSectionDefaults),
+	"Chart":             newFrontendTopLevelSectionImplBuilder("Chart", createdChartSectionDefaults),
+	"Chat":              newPayloadTopLevelSectionImplBuilder("Chat", SectionKind("chat"), createdChatSectionDefaults),
+	"Code":              buildCreatedCodeTopLevelSectionImpl,
+	"Dict":              newPayloadTopLevelSectionImplBuilder("Dict", SectionKind("dict"), createdDictSectionDefaults),
+	"Draw":              buildCreatedDrawTopLevelSectionImpl,
+	"GenPythonCode":     newGeneratedTopLevelSectionImplBuilder("GenPythonCode", GeneratedSectionKindPythonCode),
+	"GenPythonMetadata": newGeneratedTopLevelSectionImplBuilder("GenPythonMetadata", GeneratedSectionKindPythonMetadata),
+	"GlobalVariables":   newFrontendTopLevelSectionImplBuilder("GlobalVariables", createdGlobalVariablesSectionDefaults),
+	"Group":             newPayloadTopLevelSectionImplBuilder("Group", SectionKind("group"), createdGroupSectionDefaults),
+	"IFrame":            newFrontendTopLevelSectionImplBuilder("IFrame", createdIFrameSectionDefaults),
+	"Image":             newFrontendTopLevelSectionImplBuilder("Image", createdImageSectionDefaults),
+	"ListRoot":          newFrontendTopLevelSectionImplBuilder("ListRoot", createdListRootSectionDefaults),
+	"MetaControl":       buildCreatedMetaControlTopLevelSectionImpl,
+	"Plugin":            newFrontendTopLevelSectionImplBuilder("Plugin", createdPluginSectionDefaults),
+	"Prompt":            newFrontendTopLevelSectionImplBuilder("Prompt", createdPromptSectionDefaults),
+	"Social":            newFrontendTopLevelSectionImplBuilder("Social", createdSocialSectionDefaults),
+	"Spreadsheet":       newFrontendTopLevelSectionImplBuilder("Spreadsheet", createdSpreadsheetSectionDefaults),
+	"StateMachineEnd":   newStateMachineTopLevelSectionImplBuilder("StateMachineEnd", createdStateMachineEndSectionDefaults),
+	"StateMachineGate":  newStateMachineTopLevelSectionImplBuilder("StateMachineGate", createdStateMachineGateSectionDefaults),
+	"StateMachineStart": newStateMachineTopLevelSectionImplBuilder("StateMachineStart", createdStateMachineStartSectionDefaults),
+	"TaskBoard":         buildCreatedTaskBoardTopLevelSectionImpl,
+	"Terminal":          buildCreatedTerminalTopLevelSectionImpl,
+	"TextBlock":         newPayloadTopLevelSectionImplBuilder("TextBlock", SectionKind("textblock"), createdTextBlockSectionDefaults),
+}
+
 func (d *Document) CreateTopLevelSection(
 	projectID string,
 	input CreateTopLevelSectionInput,
@@ -203,36 +237,8 @@ func isFiniteViewportBounds(bounds ViewportBounds) bool {
 }
 
 func isSupportedTopLevelSectionImplType(implType string) bool {
-	switch implType {
-	case "Browser",
-		"Callable",
-		"Chart",
-		"Chat",
-		"Code",
-		"Dict",
-		"Draw",
-		"GenPythonCode",
-		"GenPythonMetadata",
-		"GlobalVariables",
-		"Group",
-		"IFrame",
-		"Image",
-		"ListRoot",
-		"MetaControl",
-		"Plugin",
-		"Prompt",
-		"Social",
-		"Spreadsheet",
-		"StateMachineEnd",
-		"StateMachineGate",
-		"StateMachineStart",
-		"TaskBoard",
-		"Terminal",
-		"TextBlock":
-		return true
-	default:
-		return false
-	}
+	_, ok := topLevelSectionImplBuilders[implType]
+	return ok
 }
 
 func isSupportedMetaControlCodeObjType(codeObjType string) bool {
@@ -366,224 +372,215 @@ func buildCreatedTopLevelSectionImpl(
 	input CreateTopLevelSectionInput,
 	settings StructuralMutationSettings,
 ) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
-	switch input.ImplType {
-	case "Callable":
-		return buildCreatedFrontendSectionImpl(implID, "Callable", createdCallableSectionDefaults(), settings, input.ImplOverrides)
-	case "ListRoot":
-		return buildCreatedFrontendSectionImpl(implID, "ListRoot", createdListRootSectionDefaults(), settings, input.ImplOverrides)
-	case "Browser":
-		return buildCreatedFrontendSectionImpl(implID, "Browser", createdBrowserSectionDefaults(), settings, input.ImplOverrides)
-	case "Chart":
-		return buildCreatedFrontendSectionImpl(implID, "Chart", createdChartSectionDefaults(), settings, input.ImplOverrides)
-	case "Chat":
-		payload, err := buildCreatedSectionPayload(implID, "Chat", createdChatSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("chat"), Payload: payload}, nil, nil, nil, nil
-	case "Code":
-		payload, err := buildCreatedSectionPayload(implID, "Code", createdCodeSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payloadObject, err := rawObjectFromProjectPayload(payload)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		codeLanguage := normalizeCodeLanguage(CodeLanguage(payloadStringField(payloadObject, "codeLanguage")))
-		if codeLanguage == "" {
-			codeLanguage = CodeLanguagePython
-		}
-		return SectionImpl{
-			ID:      implID,
-			Kind:    SectionKindCode,
-			Payload: payload,
-			Code: &CodeSectionImpl{
-				Language: codeLanguage,
-			},
-		}, nil, nil, nil, nil
-	case "Draw":
-		payloadObject, err := buildCreatedSectionObject(implID, "Draw", createdDrawSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		if err := initializeCreatedDrawSectionObject(payloadObject); err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := marshalProjectObject(payloadObject)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payloadObject, err = rawObjectFromProjectPayload(payload)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{
-			ID:      implID,
-			Kind:    SectionKindDraw,
-			Payload: payload,
-			Draw: &DrawSectionImpl{
-				RenderedImagePath: payloadRawStringField(payloadObject, "renderedImagePath"),
-			},
-		}, nil, nil, nil, nil
-	case "Dict":
-		payload, err := buildCreatedSectionPayload(implID, "Dict", createdDictSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("dict"), Payload: payload}, nil, nil, nil, nil
-	case "GenPythonCode":
-		return buildCreatedGeneratedSectionImpl(
-			implID,
-			"GenPythonCode",
-			GeneratedSectionKindPythonCode,
-			createdGeneratedCodeSectionDefaults("GenPythonCode"),
-			settings,
-			input.ImplOverrides,
-		)
-	case "GenPythonMetadata":
-		return buildCreatedGeneratedSectionImpl(
-			implID,
-			"GenPythonMetadata",
-			GeneratedSectionKindPythonMetadata,
-			createdGeneratedCodeSectionDefaults("GenPythonMetadata"),
-			settings,
-			input.ImplOverrides,
-		)
-	case "GlobalVariables":
-		return buildCreatedFrontendSectionImpl(implID, "GlobalVariables", createdGlobalVariablesSectionDefaults(), settings, input.ImplOverrides)
-	case "Group":
-		payload, err := buildCreatedSectionPayload(implID, "Group", createdGroupSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("group"), Payload: payload}, nil, nil, nil, nil
-	case "IFrame":
-		return buildCreatedFrontendSectionImpl(implID, "IFrame", createdIFrameSectionDefaults(), settings, input.ImplOverrides)
-	case "Image":
-		return buildCreatedFrontendSectionImpl(implID, "Image", createdImageSectionDefaults(), settings, input.ImplOverrides)
-	case "MetaControl":
-		controlType := "SliderParam"
-		if input.ControlCodeObjType != nil && strings.TrimSpace(*input.ControlCodeObjType) != "" {
-			controlType = strings.TrimSpace(*input.ControlCodeObjType)
-		}
-		if !isSupportedMetaControlCodeObjType(controlType) {
-			return SectionImpl{}, nil, nil, nil, fmt.Errorf("%w: %q", ErrTopLevelMetaControlCodeObjTypeUnsupported, controlType)
-		}
-		paramCore, paramVariant, paramImpl, err := newMetaControlParam(controlType)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := buildCreatedSectionPayload(
-			implID,
-			"MetaControl",
-			createdMetaControlSectionDefaults(paramCore.ID, paramVariant.ID),
-			settings,
-			input.ImplOverrides,
-		)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("metacontrol"), Payload: payload}, &paramCore, &paramVariant, &paramImpl, nil
-	case "Plugin":
-		return buildCreatedFrontendSectionImpl(implID, "Plugin", createdPluginSectionDefaults(), settings, input.ImplOverrides)
-	case "Prompt":
-		return buildCreatedFrontendSectionImpl(implID, "Prompt", createdPromptSectionDefaults(), settings, input.ImplOverrides)
-	case "Social":
-		return buildCreatedFrontendSectionImpl(implID, "Social", createdSocialSectionDefaults(), settings, input.ImplOverrides)
-	case "Spreadsheet":
-		return buildCreatedFrontendSectionImpl(implID, "Spreadsheet", createdSpreadsheetSectionDefaults(), settings, input.ImplOverrides)
-	case "StateMachineStart":
-		machineGroupID, err := newProjectStateID()
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := buildCreatedSectionPayload(
-			implID,
-			"StateMachineStart",
-			createdStateMachineStartSectionDefaults(machineGroupID),
-			settings,
-			input.ImplOverrides,
-		)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineStart"), Payload: payload}, nil, nil, nil, nil
-	case "StateMachineGate":
-		machineGroupID, err := newProjectStateID()
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := buildCreatedSectionPayload(
-			implID,
-			"StateMachineGate",
-			createdStateMachineGateSectionDefaults(machineGroupID),
-			settings,
-			input.ImplOverrides,
-		)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineGate"), Payload: payload}, nil, nil, nil, nil
-	case "StateMachineEnd":
-		machineGroupID, err := newProjectStateID()
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := buildCreatedSectionPayload(
-			implID,
-			"StateMachineEnd",
-			createdStateMachineEndSectionDefaults(machineGroupID),
-			settings,
-			input.ImplOverrides,
-		)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("StateMachineEnd"), Payload: payload}, nil, nil, nil, nil
-	case "TaskBoard":
-		payloadObject, err := buildCreatedSectionObject(
-			implID,
-			"TaskBoard",
-			createdTaskBoardSectionDefaults(),
-			settings,
-			input.ImplOverrides,
-		)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		if err := initializeCreatedTaskBoardColumns(payloadObject, settings, input.ImplOverrides); err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		payload, err := marshalProjectObject(payloadObject)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{
-			ID:      implID,
-			Kind:    SectionKind("frontend"),
-			Payload: payload,
-		}, nil, nil, nil, nil
-	case "Terminal":
-		payload, err := buildCreatedSectionPayload(implID, "Terminal", createdTerminalSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{
-			ID:       implID,
-			Kind:     SectionKindTerminal,
-			Payload:  payload,
-			Terminal: &TerminalSectionImpl{},
-		}, nil, nil, nil, nil
-	case "TextBlock":
-		payload, err := buildCreatedSectionPayload(implID, "TextBlock", createdTextBlockSectionDefaults(), settings, input.ImplOverrides)
-		if err != nil {
-			return SectionImpl{}, nil, nil, nil, err
-		}
-		return SectionImpl{ID: implID, Kind: SectionKind("textblock"), Payload: payload}, nil, nil, nil, nil
-	default:
+	builder, ok := topLevelSectionImplBuilders[input.ImplType]
+	if !ok {
 		return SectionImpl{}, nil, nil, nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, input.ImplType)
 	}
+	return builder(implID, input, settings)
+}
+
+func newFrontendTopLevelSectionImplBuilder(
+	implType string,
+	defaults func() map[string]any,
+) topLevelSectionImplBuilder {
+	return func(
+		implID string,
+		input CreateTopLevelSectionInput,
+		settings StructuralMutationSettings,
+	) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+		return buildCreatedFrontendSectionImpl(implID, implType, defaults(), settings, input.ImplOverrides)
+	}
+}
+
+func newPayloadTopLevelSectionImplBuilder(
+	implType string,
+	kind SectionKind,
+	defaults func() map[string]any,
+) topLevelSectionImplBuilder {
+	return func(
+		implID string,
+		input CreateTopLevelSectionInput,
+		settings StructuralMutationSettings,
+	) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+		payload, err := buildCreatedSectionPayload(implID, implType, defaults(), settings, input.ImplOverrides)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{ID: implID, Kind: kind, Payload: payload}, nil, nil, nil, nil
+	}
+}
+
+func newGeneratedTopLevelSectionImplBuilder(
+	implType string,
+	generatedKind GeneratedSectionKind,
+) topLevelSectionImplBuilder {
+	return func(
+		implID string,
+		input CreateTopLevelSectionInput,
+		settings StructuralMutationSettings,
+	) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+		return buildCreatedGeneratedSectionImpl(
+			implID,
+			implType,
+			generatedKind,
+			createdGeneratedCodeSectionDefaults(implType),
+			settings,
+			input.ImplOverrides,
+		)
+	}
+}
+
+func newStateMachineTopLevelSectionImplBuilder(
+	implType string,
+	defaults func(string) map[string]any,
+) topLevelSectionImplBuilder {
+	return func(
+		implID string,
+		input CreateTopLevelSectionInput,
+		settings StructuralMutationSettings,
+	) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+		machineGroupID, err := newProjectStateID()
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		payload, err := buildCreatedSectionPayload(implID, implType, defaults(machineGroupID), settings, input.ImplOverrides)
+		if err != nil {
+			return SectionImpl{}, nil, nil, nil, err
+		}
+		return SectionImpl{ID: implID, Kind: SectionKind(implType), Payload: payload}, nil, nil, nil, nil
+	}
+}
+
+func buildCreatedCodeTopLevelSectionImpl(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payload, err := buildCreatedSectionPayload(implID, "Code", createdCodeSectionDefaults(), settings, input.ImplOverrides)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	payloadObject, err := rawObjectFromProjectPayload(payload)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	codeLanguage := normalizeCodeLanguage(CodeLanguage(payloadStringField(payloadObject, "codeLanguage")))
+	if codeLanguage == "" {
+		codeLanguage = CodeLanguagePython
+	}
+	return SectionImpl{
+		ID:      implID,
+		Kind:    SectionKindCode,
+		Payload: payload,
+		Code: &CodeSectionImpl{
+			Language: codeLanguage,
+		},
+	}, nil, nil, nil, nil
+}
+
+func buildCreatedDrawTopLevelSectionImpl(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payloadObject, err := buildCreatedSectionObject(implID, "Draw", createdDrawSectionDefaults(), settings, input.ImplOverrides)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	if err := initializeCreatedDrawSectionObject(payloadObject); err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	payload, err := marshalProjectObject(payloadObject)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	payloadObject, err = rawObjectFromProjectPayload(payload)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{
+		ID:      implID,
+		Kind:    SectionKindDraw,
+		Payload: payload,
+		Draw: &DrawSectionImpl{
+			RenderedImagePath: payloadRawStringField(payloadObject, "renderedImagePath"),
+		},
+	}, nil, nil, nil, nil
+}
+
+func buildCreatedMetaControlTopLevelSectionImpl(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	controlType := "SliderParam"
+	if input.ControlCodeObjType != nil && strings.TrimSpace(*input.ControlCodeObjType) != "" {
+		controlType = strings.TrimSpace(*input.ControlCodeObjType)
+	}
+	if !isSupportedMetaControlCodeObjType(controlType) {
+		return SectionImpl{}, nil, nil, nil, fmt.Errorf("%w: %q", ErrTopLevelMetaControlCodeObjTypeUnsupported, controlType)
+	}
+	paramCore, paramVariant, paramImpl, err := newMetaControlParam(controlType)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	payload, err := buildCreatedSectionPayload(
+		implID,
+		"MetaControl",
+		createdMetaControlSectionDefaults(paramCore.ID, paramVariant.ID),
+		settings,
+		input.ImplOverrides,
+	)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{ID: implID, Kind: SectionKind("metacontrol"), Payload: payload}, &paramCore, &paramVariant, &paramImpl, nil
+}
+
+func buildCreatedTaskBoardTopLevelSectionImpl(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payloadObject, err := buildCreatedSectionObject(
+		implID,
+		"TaskBoard",
+		createdTaskBoardSectionDefaults(),
+		settings,
+		input.ImplOverrides,
+	)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	if err := initializeCreatedTaskBoardColumns(payloadObject, settings, input.ImplOverrides); err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	payload, err := marshalProjectObject(payloadObject)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{
+		ID:      implID,
+		Kind:    SectionKind("frontend"),
+		Payload: payload,
+	}, nil, nil, nil, nil
+}
+
+func buildCreatedTerminalTopLevelSectionImpl(
+	implID string,
+	input CreateTopLevelSectionInput,
+	settings StructuralMutationSettings,
+) (SectionImpl, *CodeObject, *CodeObjectVariant, *CodeObjectImpl, error) {
+	payload, err := buildCreatedSectionPayload(implID, "Terminal", createdTerminalSectionDefaults(), settings, input.ImplOverrides)
+	if err != nil {
+		return SectionImpl{}, nil, nil, nil, err
+	}
+	return SectionImpl{
+		ID:       implID,
+		Kind:     SectionKindTerminal,
+		Payload:  payload,
+		Terminal: &TerminalSectionImpl{},
+	}, nil, nil, nil, nil
 }
 
 func buildCreatedFrontendSectionImpl(
