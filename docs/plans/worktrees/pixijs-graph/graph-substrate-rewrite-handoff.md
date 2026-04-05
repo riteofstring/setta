@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 12:48 EDT
+Last updated: 2026-04-07 13:02 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,47 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `268` removed the remaining drag-bootstrap path that could copy local measured fallback size into shared node internals before the canary scene sync corrected it.
+
+  - Why this pass completed:
+    - the broader geometry-authority frontier still sits in `settingsGraphSubstrateCanarySceneRuntime.ts` and `settingsGraphSubstrateCanarySceneSnapshot.ts`, but the drag controller still had one direct authority leak: `ensureCanaryNode(...)` could seed `addNodes(...)` from `resolvedSize`
+    - the live surface runtime resolves `getSectionById(...)` from `sceneSnapshot.sectionsById`, so both immediate drags and threshold-cleared drags could reach `ensureCanaryNode(...)` with a scene section whose `resolvedSize` came from local measured fallback rather than authoritative width/height
+    - this pass stayed bounded to that drag bootstrap seam plus a focused regression test; it did not widen the scene-store refactor or open another parity lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded worktree canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts) so `ensureCanaryNode(...)` now mirrors only authoritative `section.width` / `section.height` into `nodeInternals`
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts) to lock the real runtime-style case where a scene section has local measured `resolvedSize` fallback but unresolved authoritative width/height
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-002/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `897ec5`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 19900`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed (`1 file`, `5 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary drags one section and persists the top-level layout"`
+      - result: failed in the disposable E2E session before the changed width/height bootstrap path mattered; it timed out waiting for `getByTestId('graph-substrate-canary-section').nth(3)` to become visible after `findDraggableCanarySection(...)` chose a stale index
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary keeps a widened body-heavy section attached during top-level drag"`
+      - result: failed before any width/height persistence assertion; `data-dragging` never flipped to `true` after `mouse.down()` on a widened section whose authoritative size was already positive, so the failure is orthogonal to this unresolved-width/height slice rather than evidence that the new authority guard regressed the changed path
+    - CDP visual gate:
+      - fresh-context CDP sub-agent reached `http://127.0.0.1:3075/settings`
+      - the provided bootstrap token was rejected in fresh context, so the sub-agent normalized directly to the live frontend route before checking the canary
+      - snapshot evidence: mounted settings app with visible `All Settings` and a populated graph/canvas surface with many draggable section nodes
+      - screenshot evidence: non-blank settings surface with populated graph area rather than a detached or empty canvas
+      - final classification: pass
+  - Lane status:
+    - drag bootstrap no longer injects local measured fallback size into shared node internals on unresolved sections
+    - broader measured-size cleanup still remains at the shared scene/runtime layer; this pass did not yet split local render fallback out of `sceneSnapshot`
+  - Next frontier:
+    - continue the geometry-authority cleanup at the shared scene layer, starting with the remaining measured fallback paths in `settingsGraphSubstrateCanarySceneRuntime.ts` and `settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - if the top-level drag lane needs to become gating again, tighten or replace the current disposable Playwright drag coverage with a deterministic named-section start path before using it as primary oracle evidence
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `267` cleared the stale-seed-pruning commit-or-stop lane after the fresh outer-loop bootstrap restored a healthy worktree DevTools sidecar.
 

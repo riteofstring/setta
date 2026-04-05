@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it, vi } from "vitest";
+import { useNodeInternals } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import type {
   SettingsGraphSubstrateCanarySceneSection,
@@ -19,6 +21,7 @@ function createHarness(
     section?: Partial<SettingsGraphSubstrateCanarySceneSection>;
     snapGrid?: [number, number];
     snapToGrid?: boolean;
+    useDefaultEffects?: boolean;
   } = {},
 ) {
   let draggingSectionId: string | null = null;
@@ -36,11 +39,15 @@ function createHarness(
     [];
   const controller: SettingsGraphSubstrateCanarySectionDragController =
     createSettingsGraphSubstrateCanarySectionDragController({
-      effects: {
-        beginSectionDrag,
-        persistSectionDrag,
-        resetSectionTempZIndex,
-      },
+      ...(!options.useDefaultEffects
+        ? {
+            effects: {
+              beginSectionDrag,
+              persistSectionDrag,
+              resetSectionTempZIndex,
+            },
+          }
+        : {}),
       getNodeDragThreshold: () => options.nodeDragThreshold ?? 8,
       getResolvedViewport: () =>
         options.resolvedViewport ?? {
@@ -132,6 +139,11 @@ function toLayoutSection(
 }
 
 describe("settingsGraphSubstrateCanarySectionDragController", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    useNodeInternals.setState({ x: new Map() });
+  });
+
   it("starts an immediate drag session when the threshold is zero", () => {
     const harness = createHarness({
       nodeDragThreshold: 0,
@@ -240,6 +252,51 @@ describe("settingsGraphSubstrateCanarySectionDragController", () => {
     expect(harness.resetSectionTempZIndex).toHaveBeenCalledWith("section-a");
     expect(harness.getDraggingSectionId()).toBeNull();
     expect(harness.getSectionPositionOverride()).toBeNull();
+  });
+
+  it("keeps local measured fallback size out of node internals when drag bootstrap creates a canary node", () => {
+    const section = createSection({
+      height: null,
+      resolvedSize: { width: 280, height: 190 },
+      sceneBoundsSize: null,
+      sizeAuthority: "none",
+      width: null,
+    });
+    const controller = createSettingsGraphSubstrateCanarySectionDragController({
+      getNodeDragThreshold: () => 0,
+      getResolvedViewport: () => ({
+        x: 0,
+        y: 0,
+        zoom: 2,
+      }),
+      getSectionById: () => section,
+      getSnapSettings: () => ({
+        snapGrid: [25, 10],
+        snapToGrid: true,
+      }),
+      onDraggingSectionIdChange() {},
+      onSectionPositionOverrideChange() {},
+    });
+
+    expect(
+      controller.handleSectionPointerDown({
+        button: 0,
+        clientX: 160,
+        clientY: 240,
+        pointerId: 21,
+        section,
+        target: document.body,
+      }),
+    ).toBe(true);
+
+    expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+      height: null,
+      id: "section-a",
+      position: { x: 100, y: 200 },
+      tempZIndex: 3,
+      width: null,
+      zIndex: 3,
+    });
   });
 
   it("ignores blocked targets and locked sections", () => {

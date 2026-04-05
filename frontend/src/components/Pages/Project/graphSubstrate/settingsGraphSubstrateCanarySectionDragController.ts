@@ -273,16 +273,12 @@ function ensureCanaryNode(
   if (useNodeInternals.getState().x.has(section.sectionId)) {
     return;
   }
-  const width =
-    "resolvedSize" in section ? section.resolvedSize?.width : section.width;
-  const height =
-    "resolvedSize" in section ? section.resolvedSize?.height : section.height;
   addNodes([
     {
       id: section.sectionId,
       position: section.position,
-      width,
-      height,
+      width: section.width,
+      height: section.height,
       zIndex: section.zIndex,
       tempZIndex: section.zIndex,
     },

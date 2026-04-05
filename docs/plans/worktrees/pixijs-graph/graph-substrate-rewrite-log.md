@@ -10314,3 +10314,29 @@ LOOP_TERMINAL_MARKER: none
     - resume the geometry-authority cleanup under the shell baseline, starting with the remaining measured paths in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`
     - keep `rotaryParamCodeObjDefault` as the broad regression anchor and use the existing canary-health/parity checks as regression coverage instead of opening new section-specific visual lanes by default
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 13:02 EDT, Ralph item `268`
+  - Summary: stopped the canary drag bootstrap path from copying local measured fallback size into shared node internals before scene sync could restore authoritative geometry.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane opened; the live visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-002/worktree-ai.log` -> frontend `3075`, backend `8075`, session `897ec5`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 19900`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts` -> passed (`1 file`, `5 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary drags one section and persists the top-level layout"` -> failed in the disposable E2E session before the changed width/height bootstrap path mattered; `findDraggableCanarySection(...)` selected an index whose `nth(3)` node was no longer visible
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary keeps a widened body-heavy section attached during top-level drag"` -> failed before any width/height persistence assertion; `data-dragging` never flipped to `true` after `mouse.down()` on a widened section whose authoritative size was already positive, so the failure is orthogonal to this unresolved-width/height slice
+    - fresh-context CDP sub-agent -> pass; bootstrap token was rejected in fresh context, but the sub-agent reached `http://127.0.0.1:3075/settings` directly and confirmed a mounted `All Settings` graph surface with many populated draggable section nodes instead of a blank or detached canvas
+  - Result:
+    - `ensureCanaryNode(...)` now mirrors only authoritative `section.width` / `section.height` into shared `nodeInternals`, so unresolved sections no longer promote local measured `resolvedSize` through drag bootstrap
+    - the broader measured-size cleanup still remains at the shared scene/runtime layer; this pass did not yet split local render fallback out of `sceneSnapshot`
+    - the targeted Playwright drag checks remain noisy in the disposable E2E environment, but their failure modes are upstream of the specific unresolved-width/height bootstrap path changed here
+  - Next:
+    - continue the geometry-authority cleanup at the shared scene layer, starting with the remaining measured fallback paths in `settingsGraphSubstrateCanarySceneRuntime.ts` and `settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - if a drag lane needs to become gating again, tighten the disposable Playwright drag start assumptions or replace them with a deterministic named-section lane before using them as the primary oracle
+  - LOOP_TERMINAL_MARKER: none
