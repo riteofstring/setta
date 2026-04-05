@@ -116,59 +116,46 @@ func buildGenericCreateFieldExprTS(
 		return fmt.Sprintf("%s(%s ?? {})", target.FuncName, optionsExpr), true, nil
 	}
 	if tsMetadata.CreateMapValues {
-		if expr, ok := buildGenericMapFieldExprTS(fieldType, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
-			return expr, true, nil
+		fieldType, nullable := unwrapNullableFieldType(fieldType)
+		if fieldType == nil || fieldType.Kind() != reflect.Map {
+			return "", false, fmt.Errorf("%s ts_create_map_values requires a map field", fieldContext)
 		}
-		return "", false, fmt.Errorf("%s ts_create_map_values requires map values with generated create support", fieldContext)
+		target, ok := frontendObjectCreateTarget(fieldType.Elem())
+		if !ok {
+			return "", false, fmt.Errorf("%s ts_create_map_values requires map values with generated create support", fieldContext)
+		}
+		defaultSource := "{}"
+		if hasDefault {
+			defaultSource = defaultExpr + " ?? {}"
+		}
+		var builder strings.Builder
+		if nullable {
+			builder.WriteString(optionsExpr)
+			builder.WriteString(" === null\n")
+			builder.WriteString("      ? null\n")
+			builder.WriteString("      : ")
+		}
+		builder.WriteString("Object.fromEntries(\n")
+		builder.WriteString("      Object.entries({\n")
+		builder.WriteString("        ...(")
+		builder.WriteString(defaultSource)
+		builder.WriteString("),\n")
+		builder.WriteString("        ...(")
+		builder.WriteString(optionsExpr)
+		builder.WriteString(" ?? {}),\n")
+		builder.WriteString("      }).map(([key, value]) => [\n")
+		builder.WriteString("        key,\n")
+		builder.WriteString("        ")
+		builder.WriteString(target.FuncName)
+		builder.WriteString("(value as Partial<")
+		builder.WriteString(target.TypeName)
+		builder.WriteString(">),\n")
+		builder.WriteString("      ]),\n")
+		builder.WriteString("    ) as ")
+		builder.WriteString(property.TypeExpr)
+		return builder.String(), true, nil
 	}
 	return "", false, nil
-}
-
-func buildGenericMapFieldExprTS(
-	fieldType reflect.Type,
-	resultType string,
-	optionsExpr string,
-	defaultExpr string,
-	hasDefault bool,
-) (string, bool) {
-	fieldType, nullable := unwrapNullableFieldType(fieldType)
-	if fieldType == nil || fieldType.Kind() != reflect.Map {
-		return "", false
-	}
-	target, ok := frontendObjectCreateTarget(fieldType.Elem())
-	if !ok {
-		return "", false
-	}
-	defaultSource := "{}"
-	if hasDefault {
-		defaultSource = defaultExpr + " ?? {}"
-	}
-	var builder strings.Builder
-	if nullable {
-		builder.WriteString(optionsExpr)
-		builder.WriteString(" === null\n")
-		builder.WriteString("      ? null\n")
-		builder.WriteString("      : ")
-	}
-	builder.WriteString("Object.fromEntries(\n")
-	builder.WriteString("      Object.entries({\n")
-	builder.WriteString("        ...(")
-	builder.WriteString(defaultSource)
-	builder.WriteString("),\n")
-	builder.WriteString("        ...(")
-	builder.WriteString(optionsExpr)
-	builder.WriteString(" ?? {}),\n")
-	builder.WriteString("      }).map(([key, value]) => [\n")
-	builder.WriteString("        key,\n")
-	builder.WriteString("        ")
-	builder.WriteString(target.FuncName)
-	builder.WriteString("(value as Partial<")
-	builder.WriteString(target.TypeName)
-	builder.WriteString(">),\n")
-	builder.WriteString("      ]),\n")
-	builder.WriteString("    ) as ")
-	builder.WriteString(resultType)
-	return builder.String(), true
 }
 
 type frontendObjectCreateTargetSpec struct {
