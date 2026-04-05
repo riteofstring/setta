@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"setta/internal/sharedtypes"
-	"setta/internal/stringenumvalues"
 )
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
@@ -35,11 +35,11 @@ type generationContext struct {
 	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
-var pythonSharedEnumFallbackPackages = []string{
-	"setta/internal/projectstate",
-	"setta/internal/artifacts",
-	"setta/internal/runs",
-}
+var (
+	pythonSharedEnumSpecsOnce sync.Once
+	pythonSharedEnumSpecs     map[reflect.Type]contractSpec
+	pythonSharedEnumSpecsErr  error
+)
 
 func buildGenerationContext() (generationContext, error) {
 	sidecar, err := sharedtypes.BuildSemanticSidecar()
@@ -92,15 +92,10 @@ func contractSpecsFromSidecar(
 
 		switch contractKind(strings.TrimSpace(entry.Kind)) {
 		case contractKindEnum:
-			spec, ok, err := enumContractSpecIfConvertible(typ)
+			spec, err := enumContractSpecFromSidecarEntry(name, typ, entry.EnumValues)
 			if err != nil {
 				return nil, err
 			}
-			if !ok {
-				return nil, fmt.Errorf("python shared types: sidecar enum %s has no discovered enum values", name)
-			}
-			spec.Name = name
-			spec.Type = typ
 			specs = append(specs, spec)
 		case contractKindModel:
 			spec, ok := modelContractSpecIfConvertible(typ, defaultSourcesByType)
@@ -207,49 +202,85 @@ func coerceDefaultSourceValue(
 	)
 }
 
-func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
-	values, ok, err := stringenumvalues.Default().Values(t)
-	if err != nil {
-		return contractSpec{}, false, err
+func enumContractSpecFromSidecarEntry(
+	name string,
+	typ reflect.Type,
+	enumValues []sharedtypes.EnumValueEntry,
+) (contractSpec, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return contractSpec{}, fmt.Errorf("python shared types: sidecar enum has empty name")
 	}
-	if ok && len(values) > 0 {
-		discoveredEnumValues := make([]enumValueSpec, 0, len(values))
-		for _, value := range values {
-			discoveredEnumValues = append(discoveredEnumValues, enumValueSpec{
-				Name:  value.Name,
-				Value: value.Value,
-			})
-		}
-		return contractSpec{
-			Name:       pythonSharedContractNameForType(t),
-			Kind:       contractKindEnum,
-			Type:       t,
-			EnumValues: discoveredEnumValues,
-		}, true, nil
-	}
-	values, ok, err = stringenumvalues.Default().ValuesByTypeName(
-		pythonSharedEnumFallbackPackages,
-		t.Name(),
-	)
-	if err != nil {
-		return contractSpec{}, false, err
-	}
-	if !ok || len(values) == 0 {
-		return contractSpec{}, false, nil
-	}
-	discoveredEnumValues := make([]enumValueSpec, 0, len(values))
-	for _, value := range values {
-		discoveredEnumValues = append(discoveredEnumValues, enumValueSpec{
+	resolvedEnumValues := make([]enumValueSpec, 0, len(enumValues))
+	for _, value := range enumValues {
+		resolvedEnumValues = append(resolvedEnumValues, enumValueSpec{
 			Name:  value.Name,
 			Value: value.Value,
 		})
 	}
+	if len(resolvedEnumValues) == 0 {
+		return contractSpec{}, fmt.Errorf("python shared types: sidecar enum %s has no enum values", name)
+	}
 	return contractSpec{
-		Name:       pythonSharedContractNameForType(t),
+		Name:       name,
 		Kind:       contractKindEnum,
-		Type:       t,
-		EnumValues: discoveredEnumValues,
-	}, true, nil
+		Type:       typ,
+		EnumValues: resolvedEnumValues,
+	}, nil
+}
+
+func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil {
+		return contractSpec{}, false, nil
+	}
+	specs, err := pythonSharedEnumContractSpecs()
+	if err != nil {
+		return contractSpec{}, false, err
+	}
+	spec, ok := specs[t]
+	if !ok {
+		return contractSpec{}, false, nil
+	}
+	return spec, true, nil
+}
+
+func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
+	pythonSharedEnumSpecsOnce.Do(func() {
+		sidecar, err := sharedtypes.BuildSemanticSidecar()
+		if err != nil {
+			pythonSharedEnumSpecsErr = err
+			return
+		}
+		specs := map[reflect.Type]contractSpec{}
+		for _, entry := range sidecar.Contracts {
+			if contractKind(strings.TrimSpace(entry.Kind)) != contractKindEnum {
+				continue
+			}
+			name := strings.TrimSpace(entry.Name)
+			if name == "" {
+				continue
+			}
+			typ, ok := sharedtypes.TypeByContractName(name)
+			if !ok {
+				pythonSharedEnumSpecsErr = fmt.Errorf("python shared types: missing discovered type for sidecar enum %s", name)
+				return
+			}
+			spec, err := enumContractSpecFromSidecarEntry(name, typ, entry.EnumValues)
+			if err != nil {
+				pythonSharedEnumSpecsErr = err
+				return
+			}
+			specs[typ] = spec
+		}
+		pythonSharedEnumSpecs = specs
+	})
+	if pythonSharedEnumSpecsErr != nil {
+		return nil, pythonSharedEnumSpecsErr
+	}
+	return pythonSharedEnumSpecs, nil
 }
 
 func modelContractSpecIfConvertible(

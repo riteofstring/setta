@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 	"unicode"
-
-	"setta/internal/stringenumvalues"
 )
 
 type GeneratedTypes struct {
@@ -64,17 +62,7 @@ func Build() (GeneratedTypes, error) {
 		switch spec.Kind {
 		case contractKindEnum:
 			if len(spec.EnumValues) == 0 {
-				enumValues, ok, err := resolveEnumValues(spec)
-				if err != nil {
-					return GeneratedTypes{}, err
-				}
-				if !ok {
-					return GeneratedTypes{}, fmt.Errorf(
-						"python shared types: enum %s has no values",
-						spec.Name,
-					)
-				}
-				spec.EnumValues = enumValues
+				return GeneratedTypes{}, fmt.Errorf("python shared types: enum %s has no values", spec.Name)
 			}
 			needsEnum = true
 			enums = append(enums, spec)
@@ -173,27 +161,6 @@ func Build() (GeneratedTypes, error) {
 	}
 
 	return GeneratedTypes{PythonModule: builder.String()}, nil
-}
-
-func resolveEnumValues(spec contractSpec) ([]enumValueSpec, bool, error) {
-	if spec.Type == nil {
-		return nil, false, nil
-	}
-	values, ok, err := stringenumvalues.Default().Values(spec.Type)
-	if err != nil {
-		return nil, false, err
-	}
-	if !ok {
-		return nil, false, nil
-	}
-	resolved := make([]enumValueSpec, 0, len(values))
-	for _, value := range values {
-		resolved = append(resolved, enumValueSpec{
-			Name:  value.Name,
-			Value: value.Value,
-		})
-	}
-	return resolved, true, nil
 }
 
 func buildModelSpec(

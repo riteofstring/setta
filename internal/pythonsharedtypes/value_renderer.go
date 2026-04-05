@@ -144,16 +144,6 @@ func pythonEnumValueExpr(enumType reflect.Type, rawValue string) (string, bool, 
 	if err != nil || !ok {
 		return "", ok, err
 	}
-	if len(spec.EnumValues) == 0 {
-		enumValues, enumOK, enumErr := resolveEnumValues(spec)
-		if enumErr != nil {
-			return "", false, enumErr
-		}
-		if !enumOK {
-			return "", false, nil
-		}
-		spec.EnumValues = enumValues
-	}
 	for _, enumValue := range spec.EnumValues {
 		if enumValue.Value != rawValue {
 			continue
