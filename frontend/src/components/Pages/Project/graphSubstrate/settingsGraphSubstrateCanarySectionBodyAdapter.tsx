@@ -1,22 +1,62 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
-import React from "react";
+import {
+  resolveSectionChromeSurfaceDecorations,
+  type SectionChromeBodySurface,
+} from "components/Section/Container/sectionChrome";
+import { useSectionChromeAppearance } from "components/Section/Container/sectionChromeAppearance";
+import React, { useMemo } from "react";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 
 export type SettingsGraphSubstrateCanarySectionBodyShellChromeOwner =
   | "section-body"
   | "shell-layer";
 
 export type SettingsGraphSubstrateCanarySectionBody = {
+  positionAndSizeLocked: boolean;
   sectionId: string;
+  sectionTypeName: SectionType;
   shellChromeOwner: SettingsGraphSubstrateCanarySectionBodyShellChromeOwner;
+  styleColor: string | null;
+  textBlockMetaControlStyle: boolean;
 };
 
 export function resolveSettingsGraphSubstrateCanarySectionBody({
+  positionAndSizeLocked,
   sectionId,
+  sectionTypeName,
   shellChromeOwner,
+  styleColor,
+  textBlockMetaControlStyle,
 }: SettingsGraphSubstrateCanarySectionBody): SettingsGraphSubstrateCanarySectionBody {
   return {
+    positionAndSizeLocked,
     sectionId,
+    sectionTypeName,
     shellChromeOwner,
+    styleColor,
+    textBlockMetaControlStyle,
+  };
+}
+
+export function resolveSettingsGraphSubstrateCanarySectionBodySurface({
+  bgColor,
+  positionAndSizeLocked,
+  sectionTypeName,
+  useMetaControlStyle,
+}: {
+  bgColor: string;
+  positionAndSizeLocked: boolean;
+  sectionTypeName: SectionType;
+  useMetaControlStyle: boolean;
+}): SectionChromeBodySurface {
+  return {
+    bgColor,
+    surfaceDecorations: resolveSectionChromeSurfaceDecorations({
+      useMetaControlStyle,
+      isMetaControlSection: sectionTypeName === SectionTypeEnum.MetaControl,
+      isUserView: false,
+      positionAndSizeLocked,
+    }),
   };
 }
 
@@ -35,6 +75,33 @@ function getSectionContainerChromeSuppression(
   }
 }
 
+function useSettingsGraphSubstrateCanarySectionBodySurface(
+  sectionBody: SettingsGraphSubstrateCanarySectionBody,
+): SectionChromeBodySurface {
+  const sectionChromeAppearance = useSectionChromeAppearance({
+    sectionId: sectionBody.sectionId,
+    sectionTypeName: sectionBody.sectionTypeName,
+    styleColor: sectionBody.styleColor,
+    textBlockMetaControlStyle: sectionBody.textBlockMetaControlStyle,
+  });
+
+  return useMemo(
+    () =>
+      resolveSettingsGraphSubstrateCanarySectionBodySurface({
+        bgColor: sectionChromeAppearance.bgColor,
+        positionAndSizeLocked: sectionBody.positionAndSizeLocked,
+        sectionTypeName: sectionBody.sectionTypeName,
+        useMetaControlStyle: sectionChromeAppearance.useMetaControlStyle,
+      }),
+    [
+      sectionChromeAppearance.bgColor,
+      sectionChromeAppearance.useMetaControlStyle,
+      sectionBody.positionAndSizeLocked,
+      sectionBody.sectionTypeName,
+    ],
+  );
+}
+
 type SettingsGraphSubstrateCanarySectionBodyDomAdapterProps = {
   sectionBody: SettingsGraphSubstrateCanarySectionBody;
 };
@@ -42,8 +109,12 @@ type SettingsGraphSubstrateCanarySectionBodyDomAdapterProps = {
 function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
   sectionBody,
 }: SettingsGraphSubstrateCanarySectionBodyDomAdapterProps) {
+  const bodySurfaceOverride =
+    useSettingsGraphSubstrateCanarySectionBodySurface(sectionBody);
+
   return (
     <SectionContainer
+      bodySurfaceOverride={bodySurfaceOverride}
       sectionId={sectionBody.sectionId}
       isTopLevel={true}
       {...getSectionContainerChromeSuppression(sectionBody.shellChromeOwner)}
@@ -54,7 +125,14 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
 export const SettingsGraphSubstrateCanarySectionBodyDomAdapter = React.memo(
   _SettingsGraphSubstrateCanarySectionBodyDomAdapter,
   (previousProps, nextProps) =>
+    previousProps.sectionBody.positionAndSizeLocked ===
+      nextProps.sectionBody.positionAndSizeLocked &&
     previousProps.sectionBody.sectionId === nextProps.sectionBody.sectionId &&
+    previousProps.sectionBody.sectionTypeName ===
+      nextProps.sectionBody.sectionTypeName &&
     previousProps.sectionBody.shellChromeOwner ===
-      nextProps.sectionBody.shellChromeOwner,
+      nextProps.sectionBody.shellChromeOwner &&
+    previousProps.sectionBody.styleColor === nextProps.sectionBody.styleColor &&
+    previousProps.sectionBody.textBlockMetaControlStyle ===
+      nextProps.sectionBody.textBlockMetaControlStyle,
 );

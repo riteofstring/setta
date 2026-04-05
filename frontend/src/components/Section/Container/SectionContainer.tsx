@@ -21,16 +21,42 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
+import type { SectionChromeBodySurface } from "./sectionChrome";
 import { getOutlineColor } from "./utils";
+
+function areBodySurfaceOverridesEqual(
+  previousBodySurfaceOverride: SectionChromeBodySurface | undefined,
+  nextBodySurfaceOverride: SectionChromeBodySurface | undefined,
+) {
+  if (previousBodySurfaceOverride === nextBodySurfaceOverride) {
+    return true;
+  }
+  if (
+    previousBodySurfaceOverride === undefined ||
+    nextBodySurfaceOverride === undefined
+  ) {
+    return false;
+  }
+
+  return (
+    previousBodySurfaceOverride.bgColor === nextBodySurfaceOverride.bgColor &&
+    _.isEqual(
+      previousBodySurfaceOverride.surfaceDecorations,
+      nextBodySurfaceOverride.surfaceDecorations,
+    )
+  );
+}
 
 function _SectionContainer({
   sectionId,
   isTopLevel = false,
+  bodySurfaceOverride,
   dragListeners,
   forceHideOutline = false,
   forceTransparentBorder = false,
   forceHideTopDragHandle = false,
 }: {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   sectionId: string;
   isTopLevel?: boolean;
   dragListeners?: any;
@@ -131,6 +157,7 @@ function _SectionContainer({
             >
               <AgenticEdgeHandles isUserView={isUserView} />
               <SectionContainerCore
+                bodySurfaceOverride={bodySurfaceOverride}
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
@@ -152,6 +179,7 @@ function _SectionContainer({
             <>
               {!isGroup && (
                 <SectionContainerCore
+                  bodySurfaceOverride={bodySurfaceOverride}
                   sectionId={sectionId}
                   isUserView={isUserView}
                   forceHideOutline={forceHideOutline}
@@ -183,6 +211,10 @@ export const SectionContainer = React.memo(
   (previousProps, nextProps) =>
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isTopLevel === nextProps.isTopLevel &&
+    areBodySurfaceOverridesEqual(
+      previousProps.bodySurfaceOverride,
+      nextProps.bodySurfaceOverride,
+    ) &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&

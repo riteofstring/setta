@@ -15,6 +15,7 @@ import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import {
+  type SectionChromeBodySurface,
   getSectionContainerShellClassName,
   resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
@@ -24,6 +25,7 @@ import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   sectionId: string;
   isUserView: boolean;
   forceHideOutline?: boolean;
@@ -35,6 +37,7 @@ type SectionContainerCoreProps = {
 };
 
 function _SectionContainerCore({
+  bodySurfaceOverride,
   sectionId,
   isUserView,
   forceHideOutline = false,
@@ -163,6 +166,7 @@ function _SectionContainerCore({
       ) : null}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
+        bodySurfaceOverride={bodySurfaceOverride}
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -178,6 +182,7 @@ function _SectionContainerCore({
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (previousProps, nextProps) =>
+    previousProps.bodySurfaceOverride === nextProps.bodySurfaceOverride &&
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isUserView === nextProps.isUserView &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&

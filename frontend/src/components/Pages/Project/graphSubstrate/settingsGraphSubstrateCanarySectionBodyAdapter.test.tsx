@@ -3,21 +3,31 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resolveSettingsGraphSubstrateCanarySectionBody,
+  resolveSettingsGraphSubstrateCanarySectionBodySurface,
   SettingsGraphSubstrateCanarySectionBodyDomAdapter,
 } from "./settingsGraphSubstrateCanarySectionBodyAdapter";
 
 const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
     ({
+      bodySurfaceOverride,
       sectionId,
       forceHideOutline,
       forceTransparentBorder,
       forceHideTopDragHandle,
       isTopLevel,
     }: {
+      bodySurfaceOverride?: {
+        bgColor: string;
+        surfaceDecorations: {
+          layout: string;
+          showTopDragHandle: boolean;
+        };
+      };
       forceHideOutline?: boolean;
       forceHideTopDragHandle?: boolean;
       forceTransparentBorder?: boolean;
@@ -33,10 +43,38 @@ const { mockSectionContainer } = vi.hoisted(() => ({
           forceTransparentBorder ? "true" : "false"
         }
         data-is-top-level={isTopLevel ? "true" : "false"}
+        data-surface-bg-color={bodySurfaceOverride?.bgColor ?? ""}
+        data-surface-layout={
+          bodySurfaceOverride?.surfaceDecorations.layout ?? ""
+        }
+        data-surface-show-top-drag-handle={
+          bodySurfaceOverride?.surfaceDecorations.showTopDragHandle
+            ? "true"
+            : "false"
+        }
         data-testid={`section-body-${sectionId}`}
       />
     ),
   ),
+}));
+
+vi.mock("components/Section/Container/sectionChromeAppearance", () => ({
+  useSectionChromeAppearance: ({
+    sectionTypeName,
+    textBlockMetaControlStyle,
+  }: {
+    sectionTypeName: string;
+    textBlockMetaControlStyle: boolean;
+  }) => ({
+    bgColor:
+      sectionTypeName === "MetaControl" || textBlockMetaControlStyle
+        ? "bg-transparent"
+        : "bg-setta-50",
+    hasSectionStyleTheme: false,
+    sectionStyleVars: undefined,
+    useMetaControlStyle:
+      sectionTypeName === "MetaControl" || textBlockMetaControlStyle,
+  }),
 }));
 
 vi.mock("components/Section/Container/SectionContainer", () => ({
@@ -64,8 +102,12 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
   it("suppresses duplicate DOM shell chrome when the shell layer owns the shell visuals", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      positionAndSizeLocked: false,
       sectionId: "section-a",
+      sectionTypeName: SectionTypeEnum.Code,
       shellChromeOwner: "shell-layer",
+      styleColor: null,
+      textBlockMetaControlStyle: false,
     });
 
     await act(async () => {
@@ -78,6 +120,13 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      bodySurfaceOverride: {
+        bgColor: "bg-setta-50",
+        surfaceDecorations: {
+          layout: "section-grid",
+          showTopDragHandle: false,
+        },
+      },
       forceHideOutline: true,
       forceHideTopDragHandle: true,
       forceTransparentBorder: true,
@@ -88,8 +137,12 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
 
   it("keeps the DOM body chrome enabled when the section body owns the shell chrome", async () => {
     const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+      positionAndSizeLocked: false,
       sectionId: "section-b",
+      sectionTypeName: SectionTypeEnum.Code,
       shellChromeOwner: "section-body",
+      styleColor: null,
+      textBlockMetaControlStyle: false,
     });
 
     await act(async () => {
@@ -113,5 +166,25 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
     expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(
       "forceTransparentBorder",
     );
+  });
+
+  it("resolves the body surface contract from the shared chrome surface rules", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionBodySurface({
+        bgColor: "bg-canary-surface",
+        positionAndSizeLocked: false,
+        sectionTypeName: SectionTypeEnum.MetaControl,
+        useMetaControlStyle: true,
+      }),
+    ).toMatchObject({
+      bgColor: "bg-canary-surface",
+      surfaceDecorations: {
+        frameTone: "transparent-hover",
+        hoverElevation: "raise-on-hover",
+        layout: "single-cell",
+        resizeHandleTone: "minimal",
+        showTopDragHandle: true,
+      },
+    });
   });
 });

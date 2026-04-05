@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 17:51 EDT
+Last updated: 2026-04-06 18:10 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,59 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `229` collapses the canary DOM body surface/background treatment behind one renderer-facing body-surface contract, so the canary body path no longer relies on `SectionContainerCoreResizable` to infer that surface implicitly.
+  - Why this slice was needed:
+    - item `228` moved the shell-suppression trio behind one body adapter, but the DOM body still left `bgColor` plus `surfaceDecorations` hidden inside `SectionContainerCoreResizable`
+    - a future scene-owned shell/body surface should be able to consume one body-surface contract without reverse-engineering `SectionContainer` or `sectionChrome` internals
+    - this remains meaningful renderer-boundary deepening; it is not another pure forwarding hop or a return to geometry/parity churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      - expanded `SettingsGraphSubstrateCanarySectionBody` so the canary body contract now carries section type/style/lock state
+      - added `resolveSettingsGraphSubstrateCanarySectionBodySurface(...)` and a canary hook that resolves one renderer-facing DOM body surface contract from the shared chrome rules
+      - the DOM adapter now passes `bodySurfaceOverride` into `SectionContainer` alongside the shell-suppression choice
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - the sections layer now resolves the body contract with section type/style/lock metadata before rendering the DOM adapter
+    - updated shared section-container plumbing:
+      - `frontend/src/components/Section/Container/sectionChrome.ts`
+      - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - added a shared `SectionChromeBodySurface` override contract and threaded it down to the `CustomResizable` owner so the override lands where body surface/background decisions are actually made
+    - added/updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - What this slice established:
+    - the canary now chooses shell ownership plus DOM body-surface treatment at one renderer-facing boundary instead of leaving the surface/background path implicit in the generic section container
+    - `SectionContainerCoreResizable` can accept a renderer-provided surface override without changing the DOM body/editor implementation today
+    - this keeps the DOM-backed canary visually stable while setting up the next scene-owned shell/body work
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed (`3 files`, `15 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx|CoreResizabe\\.test\\.tsx)|settingsGraphSubstrateCanarySectionBodyAdapter(\\.test)?\\.tsx|settingsGraphSubstrateCanarySectionsLayer(\\.test)?\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-005 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned (border|top drag handle)' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; Playwright global setup stalled on the bootstrap URL and ended with `401 (Unauthorized)` before the spec bodies ran
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree `http://127.0.0.1:3076/settings` was healthy, `All Settings` was active, the graph-substrate canary was mounted, and `rotaryParamCodeObjDefault` was visible after light normalization
+      - note: a quick read-only `main` spot-check at `http://127.0.0.1:3087/settings` showed no obvious gross shell/body drift; remaining differences looked like normal viewport/focus state rather than a broken surface
+  - Lane status:
+    - this closes the body-surface fallback slice that item `228` named when Pixi approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the current Playwright failure is bootstrap/auth harness noise rather than product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer plus body-surface contracts to land the first scene-owned static shell/body surface while the DOM editor/body content stays intact
+    - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing section header/title chrome behind one renderer-facing header contract instead of exposing `SectionHeader`/header layout details directly
 
 - Ralph item `228` collapses the canary DOM section-body chrome-suppression trio behind one renderer-facing body adapter boundary, so the canary composition layer no longer names `SectionContainer` shell-suppression flags directly.
   - Why this slice was needed:

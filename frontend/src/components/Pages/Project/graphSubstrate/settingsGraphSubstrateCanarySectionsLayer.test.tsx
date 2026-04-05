@@ -11,12 +11,20 @@ import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstr
 const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
     ({
+      bodySurfaceOverride,
       sectionId,
       isTopLevel,
       forceHideOutline,
       forceTransparentBorder,
       forceHideTopDragHandle,
     }: {
+      bodySurfaceOverride?: {
+        bgColor: string;
+        surfaceDecorations: {
+          layout: string;
+          showTopDragHandle: boolean;
+        };
+      };
       sectionId: string;
       isTopLevel: boolean;
       forceHideOutline?: boolean;
@@ -31,6 +39,15 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         }
         data-force-hide-top-drag-handle={
           forceHideTopDragHandle ? "true" : "false"
+        }
+        data-surface-bg-color={bodySurfaceOverride?.bgColor ?? ""}
+        data-surface-layout={
+          bodySurfaceOverride?.surfaceDecorations.layout ?? ""
+        }
+        data-surface-show-top-drag-handle={
+          bodySurfaceOverride?.surfaceDecorations.showTopDragHandle
+            ? "true"
+            : "false"
         }
         data-testid={`section-content-${sectionId}`}
       >
@@ -236,6 +253,12 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(border?.dataset.borderTone).toBe("default");
     expect(border?.className).toContain("border-white");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      bodySurfaceOverride: {
+        surfaceDecorations: {
+          layout: "section-grid",
+          showTopDragHandle: false,
+        },
+      },
       forceTransparentBorder: true,
       isTopLevel: true,
       sectionId: "section-a",
@@ -262,6 +285,12 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     );
     expect(topDragHandle?.dataset.resizeHandleTone).toBe("minimal");
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      bodySurfaceOverride: {
+        surfaceDecorations: {
+          layout: "single-cell",
+          showTopDragHandle: true,
+        },
+      },
       forceHideTopDragHandle: true,
       isTopLevel: true,
       sectionId: "section-a",

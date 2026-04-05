@@ -1,4 +1,5 @@
 import React, { type PointerEvent as ReactPointerEvent } from "react";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   resolveSettingsGraphSubstrateCanarySectionBody,
@@ -73,8 +74,12 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     <>
       {sceneSections.map((section) => {
         const sectionBody = resolveSettingsGraphSubstrateCanarySectionBody({
+          positionAndSizeLocked: section.positionAndSizeLocked,
           sectionId: section.sectionId,
+          sectionTypeName: section.sectionTypeName ?? SectionTypeEnum.Code,
           shellChromeOwner: "shell-layer",
+          styleColor: section.styleColor ?? null,
+          textBlockMetaControlStyle: section.textBlockMetaControlStyle ?? false,
         });
         return (
           <SettingsGraphSubstrateCanarySectionShell

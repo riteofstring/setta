@@ -75,6 +75,57 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-06 229
+
+- Item: collapse the canary DOM body surface/background treatment behind one renderer-facing body-surface contract.
+- Status: `done`
+- Details:
+  - Why:
+    - item `228` hid the shell-suppression trio behind one body adapter, but the DOM body still left `bgColor` plus `surfaceDecorations` implicit inside `SectionContainerCoreResizable`
+    - a future scene-owned shell/body surface needs one explicit body-surface contract instead of reverse-engineering `SectionContainer` and `sectionChrome` internals
+    - this is still meaningful renderer-boundary work, not another pure forwarding hop or a return to geometry/parity churn
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      - expanded the body contract with section type/style/lock metadata
+      - added `resolveSettingsGraphSubstrateCanarySectionBodySurface(...)` so the canary resolves one renderer-facing body surface from the shared chrome rules
+      - the DOM adapter now passes `bodySurfaceOverride` into `SectionContainer`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+      - the sections layer now resolves the full body contract before rendering the DOM adapter
+    - updated shared section-container plumbing:
+      - `frontend/src/components/Section/Container/sectionChrome.ts`
+      - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - added the shared `SectionChromeBodySurface` override contract and threaded it to the `CustomResizable` owner
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      - now covers the resolved body-surface contract and the DOM adapter override payload
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+      - now proves the shell-owned code/meta-control sections pass the expected body-surface contract through the canary body path
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - added coverage proving an explicit renderer-provided body surface override wins at the `CustomResizable` owner
+  - Verification:
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` -> passed (`3 files`, `15 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx|CoreResizabe\\.test\\.tsx)|settingsGraphSubstrateCanarySectionBodyAdapter(\\.test)?\\.tsx|settingsGraphSubstrateCanarySectionsLayer(\\.test)?\\.tsx' || true` -> no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-005 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary renders the shell-owned (border|top drag handle)' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; Playwright global setup timed out on the bootstrap URL and logged `401 (Unauthorized)` before the spec bodies ran
+    - CDP visual check:
+      - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - worktree `http://127.0.0.1:3076/settings` was healthy, `All Settings` was active, the canary was mounted, and `rotaryParamCodeObjDefault` was visible after light normalization
+      - quick read-only `main` spot-check at `http://127.0.0.1:3087/settings` showed no obvious gross shell/body drift; remaining differences looked like viewport/focus state rather than a broken surface
+- Result:
+  - the canary now chooses shell ownership plus DOM body-surface treatment at one renderer-facing boundary
+  - `SectionContainerCoreResizable` can consume a renderer-provided surface override without changing the DOM editor/body implementation
+  - the slice preserves the current DOM-backed canary while setting up the next scene-owned shell/body step
+- Next action:
+  - if Pixi approval arrives, use the shell-layer plus body-surface contracts to land the first scene-owned static shell/body surface while the DOM body/editor content stays intact
+  - otherwise collapse section header/title chrome behind one renderer-facing header contract instead of exposing `SectionHeader`/header layout details directly
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-06 228
 
 - Item: collapse the canary DOM section-body chrome-suppression trio behind one renderer-facing body adapter boundary.

@@ -68,9 +68,11 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
   CustomResizable: ({
+    bgColor,
     children,
     surfaceDecorations,
   }: {
+    bgColor: string;
     children: ReactNode;
     surfaceDecorations: {
       layout: string;
@@ -80,6 +82,7 @@ vi.mock("components/Utils/Resizable/CustomResizable", () => ({
   }) => (
     <section
       data-testid="mock-custom-resizable"
+      data-bg-color={bgColor}
       data-surface-layout={surfaceDecorations.layout}
       data-resize-handle-tone={surfaceDecorations.resizeHandleTone}
       data-show-top-drag-handle={
@@ -276,6 +279,35 @@ describe("SectionContainerCoreResizable", () => {
       />,
     );
 
+    expect(markup).toContain('data-surface-layout="single-cell"');
+    expect(markup).toContain('data-resize-handle-tone="minimal"');
+    expect(markup).toContain('data-show-top-drag-handle="true"');
+    expect(markup).toContain('data-testid="section-top-drag-handle"');
+  });
+
+  it("prefers an explicit renderer-provided body surface override when supplied", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        bodySurfaceOverride={{
+          bgColor: "bg-canary-body-surface",
+          surfaceDecorations: {
+            frameTone: "transparent-hover",
+            hoverElevation: "raise-on-hover",
+            layout: "single-cell",
+            resizeHandleTone: "minimal",
+            showTopDragHandle: true,
+          },
+        }}
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-bg-color="bg-canary-body-surface"');
     expect(markup).toContain('data-surface-layout="single-cell"');
     expect(markup).toContain('data-resize-handle-tone="minimal"');
     expect(markup).toContain('data-show-top-drag-handle="true"');

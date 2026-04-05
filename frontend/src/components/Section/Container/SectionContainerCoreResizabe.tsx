@@ -48,12 +48,16 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { resolveSectionChromeSurfaceDecorations } from "./sectionChrome";
+import {
+  resolveSectionChromeSurfaceDecorations,
+  type SectionChromeBodySurface,
+} from "./sectionChrome";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
@@ -65,6 +69,7 @@ type SectionContainerCoreResizableProps = {
 };
 
 function _SectionContainerCoreResizable({
+  bodySurfaceOverride,
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
@@ -98,39 +103,44 @@ function _SectionContainerCoreResizable({
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
+  const defaultBgColor = useMetaControlStyle
     ? "bg-transparent"
     : getBgColor(sectionTypeName);
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
   const shouldRenderTextBlockMetaMenu =
     textBlockMetaControlStyle && !isUserView;
-  const surfaceDecorations = resolveSectionChromeSurfaceDecorations({
+  const defaultSurfaceDecorations = resolveSectionChromeSurfaceDecorations({
     useMetaControlStyle,
     isMetaControlSection: isMetaControl,
     isUserView,
     positionAndSizeLocked,
   });
+  const bodySurface = bodySurfaceOverride ?? {
+    bgColor: defaultBgColor,
+    surfaceDecorations: defaultSurfaceDecorations,
+  };
 
   return (
     <CustomResizable
       sectionId={sectionId}
       as="section"
-      bgColor={bgColor}
+      bgColor={bodySurface.bgColor}
       isYouTube={isYouTube}
-      surfaceDecorations={surfaceDecorations}
+      surfaceDecorations={bodySurface.surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
     >
-      {surfaceDecorations.showTopDragHandle && !forceHideTopDragHandle && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100"
-          data-testid="section-top-drag-handle"
-        >
-          <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
-        </div>
-      )}
+      {bodySurface.surfaceDecorations.showTopDragHandle &&
+        !forceHideTopDragHandle && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100"
+            data-testid="section-top-drag-handle"
+          >
+            <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
+          </div>
+        )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
           <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
@@ -180,7 +190,7 @@ function _SectionContainerCoreResizable({
       <CanvasSectionBody
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
+        bgColor={bodySurface.bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
       />

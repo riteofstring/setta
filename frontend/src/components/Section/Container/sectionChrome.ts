@@ -86,6 +86,11 @@ export type SectionChromeSurfaceDecorations = {
   showTopDragHandle: boolean;
 };
 
+export type SectionChromeBodySurface = {
+  bgColor: string;
+  surfaceDecorations: SectionChromeSurfaceDecorations;
+};
+
 export type SectionChromeSurfaceDomAdapter = {
   frameClassName?: string;
   layoutClassName?: string;
