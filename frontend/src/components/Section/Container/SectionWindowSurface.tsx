@@ -14,6 +14,7 @@ import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
+  resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
 import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 
@@ -81,10 +82,18 @@ export function SectionWindowSurface({
     textBlockMetaControlStyle,
   });
   const isRoot = getIsRoot(sectionTypeName);
-  const outerShellClassName = getSectionContainerShellClassName({
+  const shellDecorations = resolveSectionChromeShellDecorations({
     isActiveSection,
     isGlobalVariables: sectionTypeName === SectionTypeEnum.GlobalVariables,
     isInOtherProjectConfigs,
+    showAiHighlight: false,
+    isReadScope: false,
+    isWriteScope: false,
+  });
+  const outerShellClassName = getSectionContainerShellClassName({
+    outlineTone: shellDecorations.outlineTone,
+    scopeHighlight: shellDecorations.scopeHighlight,
+    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,

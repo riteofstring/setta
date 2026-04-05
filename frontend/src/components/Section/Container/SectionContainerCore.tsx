@@ -14,7 +14,10 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
-import { getSectionContainerShellClassName } from "./sectionChrome";
+import {
+  getSectionContainerShellClassName,
+  resolveSectionChromeShellDecorations,
+} from "./sectionChrome";
 import { useSectionChromeAppearance } from "./sectionChromeAppearance";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
@@ -67,9 +70,6 @@ function _SectionContainerCore({
   }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
-  const aiHighlightClassName = showAiHighlight
-    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
-    : "";
   const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
     (state) => ({
       scopeReadMap:
@@ -81,11 +81,6 @@ function _SectionContainerCore({
   );
   const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
   const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
-  const scopeHighlightClassName = isWriteScope
-    ? "ring-2 ring-amber-400/70 ring-inset"
-    : isReadScope
-      ? "ring-2 ring-emerald-400/70 ring-inset"
-      : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
@@ -95,13 +90,21 @@ function _SectionContainerCore({
       styleColor,
       textBlockMetaControlStyle,
     });
+  const shellDecorations = resolveSectionChromeShellDecorations({
+    isActiveSection,
+    isGlobalVariables,
+    isInOtherProjectConfigs,
+    showAiHighlight,
+    isReadScope,
+    isWriteScope,
+  });
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
   const sectionShellClassName = getSectionContainerShellClassName({
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
+    outlineTone: shellDecorations.outlineTone,
+    scopeHighlight: shellDecorations.scopeHighlight,
+    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
@@ -109,8 +112,6 @@ function _SectionContainerCore({
     joinedCorners,
     isJoinedAttachedTerminalChild,
     omitAgenticHandleScopeClass,
-    aiHighlightClassName,
-    scopeHighlightClassName,
   });
   const sectionShellStyle = viewportInteractionActive
     ? ({
@@ -138,7 +139,7 @@ function _SectionContainerCore({
 
   return (
     <section
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${sectionShellClassName} ${shellDecorations.zIndexClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}

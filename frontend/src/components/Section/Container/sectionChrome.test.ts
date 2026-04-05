@@ -3,9 +3,46 @@ import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
   resolveSectionChromeFrameStructure,
+  resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
 
 describe("sectionChrome", () => {
+  it("resolves renderer-neutral shell decorations for active global write-highlighted sections", () => {
+    expect(
+      resolveSectionChromeShellDecorations({
+        isActiveSection: true,
+        isGlobalVariables: true,
+        isInOtherProjectConfigs: false,
+        showAiHighlight: true,
+        isReadScope: false,
+        isWriteScope: true,
+      }),
+    ).toEqual({
+      outlineTone: "global-active",
+      scopeHighlight: "write",
+      showAiHighlight: true,
+      zIndexClassName: "z-[150]",
+    });
+  });
+
+  it("resolves inactive other-project shell decorations without elevation", () => {
+    expect(
+      resolveSectionChromeShellDecorations({
+        isActiveSection: false,
+        isGlobalVariables: false,
+        isInOtherProjectConfigs: true,
+        showAiHighlight: false,
+        isReadScope: true,
+        isWriteScope: false,
+      }),
+    ).toEqual({
+      outlineTone: "other-project-inactive",
+      scopeHighlight: "read",
+      showAiHighlight: false,
+      zIndexClassName: "z-10",
+    });
+  });
+
   it("resolves renderer-neutral frame structure for locked joined shells", () => {
     expect(
       resolveSectionChromeFrameStructure({
@@ -48,9 +85,9 @@ describe("sectionChrome", () => {
 
   it("supports full-bleed section shells without borders or outlines", () => {
     const className = getSectionContainerShellClassName({
-      isActiveSection: false,
-      isGlobalVariables: false,
-      isInOtherProjectConfigs: false,
+      outlineTone: "inactive",
+      scopeHighlight: "none",
+      showAiHighlight: false,
       useMetaControlStyle: false,
       hasSectionStyleTheme: false,
       positionAndSizeLocked: false,
@@ -63,6 +100,21 @@ describe("sectionChrome", () => {
     expect(className).toContain("border-0");
     expect(className).toContain("outline-0");
     expect(className).toContain("rounded-none");
+  });
+
+  it("maps shell decorations to DOM classes without reparsing section state", () => {
+    const className = getSectionContainerShellClassName({
+      outlineTone: "other-project-active",
+      scopeHighlight: "write",
+      showAiHighlight: true,
+      useMetaControlStyle: false,
+      hasSectionStyleTheme: false,
+      positionAndSizeLocked: false,
+    });
+
+    expect(className).toContain("outline-purple-600");
+    expect(className).toContain("ring-amber-400/70");
+    expect(className).toContain("setta-ai-gradient-border-active");
   });
 
   it("supports full-bleed section surfaces without frame borders", () => {

@@ -1,9 +1,7 @@
-import { getOutlineColor } from "./utils";
-
 type SectionContainerShellClassNameOptions = {
-  isActiveSection: boolean;
-  isGlobalVariables: boolean;
-  isInOtherProjectConfigs: boolean;
+  outlineTone: SectionChromeOutlineTone;
+  scopeHighlight: SectionChromeScopeHighlight;
+  showAiHighlight: boolean;
   useMetaControlStyle: boolean;
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
@@ -12,8 +10,6 @@ type SectionContainerShellClassNameOptions = {
   joinedCorners?: "none" | "code-terminal-parent";
   isJoinedAttachedTerminalChild?: boolean;
   omitAgenticHandleScopeClass?: boolean;
-  aiHighlightClassName?: string;
-  scopeHighlightClassName?: string;
   sizeClassName?: string;
   cornerClassName?: string;
 };
@@ -38,6 +34,16 @@ export type SectionChromeJoinedEdge = "none" | "top" | "bottom";
 
 export type SectionChromeShellBorderTone = "default" | "locked" | "transparent";
 
+export type SectionChromeOutlineTone =
+  | "missing-source"
+  | "global-active"
+  | "other-project-active"
+  | "other-project-inactive"
+  | "active"
+  | "inactive";
+
+export type SectionChromeScopeHighlight = "none" | "read" | "write";
+
 export type SectionChromeFrameStructure = {
   cornerStyle: SectionChromeCornerStyle;
   joinedEdge: SectionChromeJoinedEdge;
@@ -47,8 +53,96 @@ export type SectionChromeFrameStructure = {
   surfaceFrameVisible: boolean;
 };
 
+export type SectionChromeShellDecorations = {
+  outlineTone: SectionChromeOutlineTone;
+  scopeHighlight: SectionChromeScopeHighlight;
+  showAiHighlight: boolean;
+  zIndexClassName: string;
+};
+
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+function isSectionChromeOutlineToneActive(
+  outlineTone: SectionChromeOutlineTone,
+) {
+  return (
+    outlineTone === "global-active" ||
+    outlineTone === "other-project-active" ||
+    outlineTone === "active"
+  );
+}
+
+function getSectionChromeOutlineClassName(
+  outlineTone: SectionChromeOutlineTone,
+) {
+  switch (outlineTone) {
+    case "missing-source":
+      return "outline-red-600 dark:outline-red-400";
+    case "global-active":
+      return "outline-green-600 dark:outline-turquoise-400";
+    case "other-project-active":
+      return "outline-purple-600 dark:outline-purple-700";
+    case "other-project-inactive":
+      return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-fuchsia-400";
+    case "active":
+      return "outline-blue-600 dark:outline-blue-700";
+    case "inactive":
+      return "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-cyan-300";
+  }
+}
+
+function getSectionChromeScopeHighlightClassName(
+  scopeHighlight: SectionChromeScopeHighlight,
+) {
+  if (scopeHighlight === "write") {
+    return "ring-2 ring-amber-400/70 ring-inset";
+  }
+  if (scopeHighlight === "read") {
+    return "ring-2 ring-emerald-400/70 ring-inset";
+  }
+  return "";
+}
+
+export function resolveSectionChromeShellDecorations({
+  jsonSourceMissing = false,
+  isActiveSection,
+  isGlobalVariables,
+  isInOtherProjectConfigs,
+  showAiHighlight,
+  isReadScope,
+  isWriteScope,
+}: {
+  jsonSourceMissing?: boolean;
+  isActiveSection: boolean;
+  isGlobalVariables: boolean;
+  isInOtherProjectConfigs: boolean;
+  showAiHighlight: boolean;
+  isReadScope: boolean;
+  isWriteScope: boolean;
+}): SectionChromeShellDecorations {
+  let outlineTone: SectionChromeOutlineTone;
+  if (jsonSourceMissing) {
+    outlineTone = "missing-source";
+  } else if (isActiveSection && isGlobalVariables) {
+    outlineTone = "global-active";
+  } else if (isInOtherProjectConfigs && isActiveSection) {
+    outlineTone = "other-project-active";
+  } else if (isInOtherProjectConfigs) {
+    outlineTone = "other-project-inactive";
+  } else if (isActiveSection) {
+    outlineTone = "active";
+  } else {
+    outlineTone = "inactive";
+  }
+
+  return {
+    outlineTone,
+    scopeHighlight: isWriteScope ? "write" : isReadScope ? "read" : "none",
+    showAiHighlight,
+    zIndexClassName: isActiveSection ? "z-[150]" : "z-10",
+  };
 }
 
 export function resolveSectionChromeFrameStructure({
@@ -100,9 +194,9 @@ export function resolveSectionChromeFrameStructure({
 }
 
 export function getSectionContainerShellClassName({
-  isActiveSection,
-  isGlobalVariables,
-  isInOtherProjectConfigs,
+  outlineTone,
+  scopeHighlight,
+  showAiHighlight,
   useMetaControlStyle,
   hasSectionStyleTheme,
   positionAndSizeLocked,
@@ -111,8 +205,6 @@ export function getSectionContainerShellClassName({
   joinedCorners = "none",
   isJoinedAttachedTerminalChild = false,
   omitAgenticHandleScopeClass = false,
-  aiHighlightClassName,
-  scopeHighlightClassName,
   sizeClassName = "w-min",
   cornerClassName,
 }: SectionContainerShellClassNameOptions): string {
@@ -128,17 +220,11 @@ export function getSectionContainerShellClassName({
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
     : "";
-  const outlineColor = getOutlineColor({
-    jsonSourceMissing: false,
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
-  });
   const sectionStyleOutlineClassName = hasSectionStyleTheme
-    ? isActiveSection
+    ? isSectionChromeOutlineToneActive(outlineTone)
       ? "outline-[color:var(--setta-section-style-outline)]"
       : "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-[color:var(--setta-section-style-outline)]"
-    : outlineColor;
+    : getSectionChromeOutlineClassName(outlineTone);
   const containerBgClass = useMetaControlStyle
     ? "bg-transparent dark:bg-transparent"
     : "bg-white dark:bg-setta-925";
@@ -151,9 +237,14 @@ export function getSectionContainerShellClassName({
   const handleScopeClassName = omitAgenticHandleScopeClass
     ? ""
     : "agentic-handle-scope";
+  const aiHighlightClassName = showAiHighlight
+    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
+    : "";
   const themedHandleScopeClassName = hasSectionStyleTheme
     ? "agentic-handle-scope--themed"
     : "";
+  const scopeHighlightClassName =
+    getSectionChromeScopeHighlightClassName(scopeHighlight);
   const borderColorClassName =
     frameStructure.shellBorderTone === "transparent"
       ? "!border-transparent dark:!border-transparent"

@@ -75,6 +75,59 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `207` | 2026-04-05 19:45 EDT
+  - Subtask: extract the outer section-shell decoration state behind one renderer-facing contract so future scene-owned shells do not need to reverse-engineer active/global/scope/AI highlight behavior from `SectionContainerCore`.
+  - Why:
+    - item `206` established the canary section-shell boundary, but the current DOM section chrome path still kept outer-shell decoration decisions inline inside `SectionContainerCore`
+    - active outline tone, read/write scope rings, AI highlight state, and shell elevation were still expressed as DOM-only class-string logic instead of a reusable renderer contract
+    - Pixi approval is still unavailable, so the next bounded renderer-ownership slice needed to deepen that shell contract rather than reopen parity/controller churn
+  - Production:
+    - updated `frontend/src/components/Section/Container/sectionChrome.ts`
+      - added `resolveSectionChromeShellDecorations(...)` for shell outline tone, scope highlight, AI highlight visibility, and shell z-index emphasis
+      - routed `getSectionContainerShellClassName(...)` through that semantic decoration state so the DOM path stays an adapter over the same contract
+    - updated `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - now resolves shell decorations once and feeds the DOM shell helper from the new contract instead of recomputing AI/scope/z-index inline
+    - updated `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+      - now uses the same shell-decoration resolver for standalone section window shells
+    - updated `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.tsx`
+      - now uses the same shell-decoration resolver for project chat window shells
+      - cleaned exact-optional prop passing at the touched title/header call sites so the narrowed strict-type grep stays meaningful
+  - Tests:
+    - updated `frontend/src/components/Section/Container/sectionChrome.test.ts`
+      - added focused coverage for renderer-neutral shell decorations and the DOM class adapter path
+    - updated `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+      - refreshed the `sectionChrome` mock for the new shell-decoration resolver
+    - updated `frontend/src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx`
+      - refreshed the `sectionChrome` mock for the new shell-decoration resolver
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/sectionChrome.ts src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionWindowSurface.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChrome.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/ChatWindowing/ProjectChatWindowSurface.test.tsx` -> passed (`4 files`, `16 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionChrome\\.ts|sectionChrome\\.test\\.ts|SectionContainerCore\\.tsx|SectionWindowSurface(\\.test)?\\.tsx|ProjectChatWindowSurface(\\.test)?\\.tsx" || true` -> no matches
+  - Runtime verification:
+    - refreshed run-038 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-038/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-038/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-038 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-038 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `35.9s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.04718ms`; worktree average frame duration was `16.62295ms`
+      - visible section count stayed `46` on both sides; both sides recorded one `50ms` long task
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - `page 1` (`3076/settings`) versus `page 2` (`3087/settings`) showed no blocking gross graph-surface drift around `rotaryParamCodeObjDefault`; visible workspace label/chat treatment remained oracle noise
+  - Result:
+    - the outer shell now has one explicit decoration contract that a future scene-owned shell layer can consume directly instead of reparsing DOM-only Tailwind decisions from `SectionContainerCore`
+    - standalone section windows and project chat windows now reuse the same outer-shell decoration contract rather than carrying equivalent inactive shell assumptions separately
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains green, so this stays product architecture work rather than a parity-only reopen
+  - Next:
+    - if Pixi approval arrives, use `SettingsGraphSubstrateCanarySectionShell` plus the shared shell-decoration contract to land the first scene-owned static shell layer while DOM bodies stay in `SettingsGraphSubstrateCanaryDomSectionBody`
+    - if approval is still unavailable, extract the remaining section-surface/meta-control appearance contract from `SectionContainerCoreResizable` / `CustomResizable` instead of reopening parity or controller cleanup
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `206` | 2026-04-05 19:31 EDT
   - Subtask: split the canary sections layer into a section-shell boundary plus a memoized DOM body implementation so shell-only updates stop rerendering `SectionContainer`.
   - Why:

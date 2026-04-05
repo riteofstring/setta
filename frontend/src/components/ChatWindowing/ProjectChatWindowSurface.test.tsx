@@ -16,6 +16,12 @@ vi.mock("components/ChatWindowing/ProjectChatWindowIcon", () => ({
 vi.mock("components/Section/Container/sectionChrome", () => ({
   getSectionContainerShellClassName: () => "mock-section-container-shell",
   getSectionSurfaceClassName: () => "mock-section-surface",
+  resolveSectionChromeShellDecorations: () => ({
+    outlineTone: "inactive",
+    scopeHighlight: "none",
+    showAiHighlight: false,
+    zIndexClassName: "z-10",
+  }),
 }));
 
 vi.mock("components/Section/Container/utils", () => ({
