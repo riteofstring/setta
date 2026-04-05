@@ -1,13 +1,5 @@
-import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { LaunchRequestInput } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,
@@ -15,10 +7,6 @@ import {
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
-
-vi.mock("utils/constants", () => ({
-  HOME_ROUTER_PATH: "/home",
-}));
 
 function buildWorkspaceLaunchIntentHash({
   launchIntentToken,
@@ -121,7 +109,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("reads pending launch from sessionStorage", () => {
-    const request: LaunchRequest = { workspaceRoot: "/tmp/work" };
+    const request: LaunchRequestInput = { workspaceRoot: "/tmp/work" };
     writePendingWorkspaceLaunch({
       request,
       returnUrl: "http://localhost/project",
@@ -172,7 +160,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("roundtrips the workspace switcher draft payload", () => {
-    const request: LaunchRequest = {
+    const request: LaunchRequestInput = {
       workspaceRoot: "/tmp/work",
       settaFilesLocation: "global",
       sshTarget: "user@host",
