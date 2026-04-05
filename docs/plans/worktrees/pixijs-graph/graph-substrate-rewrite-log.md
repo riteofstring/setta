@@ -6401,3 +6401,60 @@ LOOP_TERMINAL_MARKER: none
   - split the remaining pane/drag/wheel interaction bookkeeping out of `SettingsGraphSubstrateCanary.tsx` so viewport interaction state, timeouts, and pointer/wheel coordination stop living directly in the render component
   - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage plus CDP confirmation after the next product slice
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 175
+
+- Item: Extract the canary pane pan/wheel interaction bookkeeping into a dedicated controller module and recheck the broad normalized regression lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `174` already moved viewport-controller behavior out of `SettingsGraphSubstrateCanary.tsx`, but pane pointer/wheel ownership still lived inline with controller-local refs, timeout bookkeeping, and viewport-interaction store writes
+    - that remaining pane interaction path is a real runtime boundary inside the active controller/geometry lane, not another pure forwarding hop
+    - the narrowest next product step was to move pane pan/wheel ownership behind a controller while leaving section drag for a later slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts`
+      - owns pane pan session state, pan-scroll and wheel-zoom idle timers, and viewport-interaction store sync for the canary surface
+      - centralizes wheel-outcome application and local viewport commit behavior behind one controller boundary
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts`
+      - covers controller-owned pane drag routing, pan-scroll idle timeout behavior, wheel-zoom idle timeout behavior, and cleanup cancelling pending idle resets
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now wires the extracted pane interaction controller instead of owning pane pan/wheel refs and timeout coordination inline
+      - keeps section drag behavior in place so the slice remains bounded
+  - What this slice established:
+    - `SettingsGraphSubstrateCanary.tsx` no longer directly owns pane pan state, pan-scroll/wheel-zoom idle timers, or pane wheel coordination; those runtime decisions now live behind a dedicated controller module with focused coverage
+    - the trusted broad normalized pan+zoom title-edit lane remains green after the extraction:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the spec `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the refreshed run-005 surfaces
+    - the required CDP visual confirmation is also green on the same lane:
+      - the fresh-context sub-agent reused the live worktree/main tabs in the connected browser profile on worktree CDP port `9297`
+      - on both sides it selected `All Settings`, restored focus to the graph surface, and pressed `F` for fit view
+      - the `rotaryParamCodeObjDefault` title/body region stayed visually attached with no gross drift or detached-card behavior between worktree canary and read-only `main`
+      - `main` runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare continues to work via the live tabs
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`3 files`, `21 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-005/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-005/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `1.1m`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: reused the already-live worktree/main tabs in the connected browser profile; after `All Settings` normalization and fit view, `rotaryParamCodeObjDefault` stayed visually attached with no gross canary-vs-main drift
+- Lane status:
+  - the controller/interaction-boundary lane advanced in product code again without reopening a stale oracle-only loop
+  - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage only
+- Next action:
+  - extract the remaining section-drag bookkeeping out of `SettingsGraphSubstrateCanary.tsx` so drag-session state, temp z-index handling, and persisted end-position writes stop living directly in the render component
+  - rerun the same broad normalized Playwright lane plus CDP confirmation after that next product slice
+- LOOP_TERMINAL_MARKER: none

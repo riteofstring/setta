@@ -36,8 +36,6 @@ import { isMacOs } from "utils/utils";
 import {
   resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
   resolveSettingsGraphSubstrateCanarySectionDragMovePosition,
-  shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
-  shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
   shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
   shouldStartSettingsGraphSubstrateCanarySectionDrag,
 } from "./settingsGraphSubstrateCanaryInteractions";
@@ -46,6 +44,10 @@ import {
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
+import {
+  createSettingsGraphSubstrateCanaryPaneInteractionController,
+  type SettingsGraphSubstrateCanaryPaneInteractionController,
+} from "./settingsGraphSubstrateCanaryPaneInteractionController";
 import {
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSection,
@@ -58,7 +60,6 @@ import {
   resolveSettingsGraphSubstrateCanarySharedViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
-  resolveSettingsGraphSubstrateCanaryWheelOutcome,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
   shouldPersistSettingsGraphSubstrateCanaryViewport,
   type SettingsGraphSubstrateCanaryViewportOwnership,
@@ -67,7 +68,7 @@ import {
   createSettingsGraphSubstrateCanaryViewportController,
   type SettingsGraphSubstrateCanaryViewportControllerState,
 } from "./settingsGraphSubstrateCanaryViewportController";
-import { translateViewport, type GraphViewport } from "./viewportTransform";
+import type { GraphViewport } from "./viewportTransform";
 
 const ROOT_STYLE: CSSProperties = {
   inset: 0,
@@ -76,8 +77,6 @@ const ROOT_STYLE: CSSProperties = {
   userSelect: "none",
   overflowAnchor: "none",
 };
-
-const WHEEL_ZOOM_IDLE_TIMEOUT_MS = 180;
 
 type ActiveSectionDrag = {
   latestWorldPosition: Position | null;
@@ -88,24 +87,9 @@ type ActiveSectionDrag = {
   originWorldPosition: Position;
 };
 
-type ActiveViewportPan = {
-  pointerId: number;
-  originScreenPoint: Position;
-  originViewport: GraphViewport;
-};
-
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<ActiveSectionDrag | null>(null);
-  const viewportPanStateRef = useRef<ActiveViewportPan | null>(null);
-  const panScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const isPanScrollingRef = useRef(false);
-  const isWheelZoomingRef = useRef(false);
   const viewportOwnershipRef =
     useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
   // Legacy toolbar zoom reads from d3's last locally-owned transform even
@@ -209,18 +193,23 @@ export function SettingsGraphSubstrateCanary() {
       },
       wrapperDimensions: { width: 0, height: 0 },
     });
+  const paneInteractionBehaviorRef = useRef({
+    isMacOs: isMacOs(),
+    maxZoom: 4,
+    minZoom: 0.1,
+    panOnScroll: false,
+    panOnScrollMode,
+    panOnScrollSpeed: 0,
+    zoomActivationKeyPressed: false,
+    zoomOnPinch: false,
+    zoomOnScroll: false,
+  });
+  const paneInteractionControllerRef =
+    useRef<SettingsGraphSubstrateCanaryPaneInteractionController | null>(null);
 
   useEffect(() => {
     return () => {
-      viewportPanStateRef.current = null;
-      if (panScrollTimeoutRef.current) {
-        clearTimeout(panScrollTimeoutRef.current);
-      }
-      if (wheelZoomTimeoutRef.current) {
-        clearTimeout(wheelZoomTimeoutRef.current);
-      }
-      isPanScrollingRef.current = false;
-      isWheelZoomingRef.current = false;
+      paneInteractionControllerRef.current?.cleanup();
       useMisc.setState({ isPanScrolling: false });
       useReactFlow.setState({
         paneDragging: false,
@@ -300,6 +289,36 @@ export function SettingsGraphSubstrateCanary() {
       sharedProjectViewport,
       viewportOwnershipRef.current,
     );
+  paneInteractionBehaviorRef.current = {
+    isMacOs: isMacOs(),
+    maxZoom,
+    minZoom,
+    panOnScroll,
+    panOnScrollMode,
+    panOnScrollSpeed,
+    zoomActivationKeyPressed,
+    zoomOnPinch,
+    zoomOnScroll,
+  };
+
+  if (paneInteractionControllerRef.current === null) {
+    paneInteractionControllerRef.current =
+      createSettingsGraphSubstrateCanaryPaneInteractionController({
+        applyControlledViewportChange,
+        commitLocalViewport(nextViewport) {
+          viewportOwnershipRef.current = "local";
+          toolbarZoomViewportBaseRef.current = nextViewport;
+          setViewport(nextViewport);
+        },
+        getResolvedViewport: () =>
+          canaryViewportStateRef.current.resolvedViewport,
+        getRootBounds: () => rootRef.current?.getBoundingClientRect() ?? null,
+        getWheelBehavior: () => paneInteractionBehaviorRef.current,
+        onViewportPanningChange: setIsViewportPanning,
+        syncViewportInteractionState: syncCanaryViewportInteractionState,
+      });
+  }
+  const paneInteractionController = paneInteractionControllerRef.current;
 
   useLayoutEffect(() => {
     if (sharedProjectViewport === null) {
@@ -641,162 +660,62 @@ export function SettingsGraphSubstrateCanary() {
   }
 
   function handlePanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!resolvedViewport || event.button !== 0) {
-      return;
-    }
     if (
-      shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget(event.target)
+      !paneInteractionController.handlePanePointerDown({
+        button: event.button,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        pointerId: event.pointerId,
+        target: event.target,
+      })
     ) {
       return;
     }
-
-    viewportPanStateRef.current = {
-      pointerId: event.pointerId,
-      originScreenPoint: {
-        x: event.clientX,
-        y: event.clientY,
-      },
-      originViewport: resolvedViewport,
-    };
-    setIsViewportPanning(true);
-    syncCanaryViewportInteractionState({
-      isViewportPanning: true,
-      isPanScrolling: isPanScrollingRef.current,
-      isWheelZooming: isWheelZoomingRef.current,
-    });
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
   function handlePanePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const activePan = viewportPanStateRef.current;
-    if (!activePan || activePan.pointerId !== event.pointerId) {
+    if (
+      !paneInteractionController.handlePanePointerMove({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        pointerId: event.pointerId,
+      })
+    ) {
       return;
     }
-
-    viewportOwnershipRef.current = "local";
-    const nextViewport = translateViewport(activePan.originViewport, {
-      x: event.clientX - activePan.originScreenPoint.x,
-      y: event.clientY - activePan.originScreenPoint.y,
-    });
-    toolbarZoomViewportBaseRef.current = nextViewport;
-    setViewport(nextViewport);
     event.preventDefault();
   }
 
   function finishPanePan(event: ReactPointerEvent<HTMLDivElement>) {
-    const activePan = viewportPanStateRef.current;
-    if (!activePan || activePan.pointerId !== event.pointerId) {
+    if (
+      !paneInteractionController.finishPanePan({
+        pointerId: event.pointerId,
+      })
+    ) {
       return;
     }
-
-    viewportPanStateRef.current = null;
-    setIsViewportPanning(false);
-    syncCanaryViewportInteractionState({
-      isViewportPanning: false,
-      isPanScrolling: isPanScrollingRef.current,
-      isWheelZooming: isWheelZoomingRef.current,
-    });
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }
 
   function handlePaneWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (!resolvedViewport || !rootRef.current) {
-      return;
-    }
-
-    const rootBounds = rootRef.current.getBoundingClientRect();
-    const anchorScreenPoint = {
-      x: event.clientX - rootBounds.left,
-      y: event.clientY - rootBounds.top,
-    };
-    const wheelEvent = {
-      ctrlKey: event.ctrlKey,
-      deltaMode: event.deltaMode,
-      deltaX: event.deltaX,
-      deltaY: event.deltaY,
-      shiftKey: event.shiftKey,
-    };
-    const wheelBehavior = {
-      isMacOs: isMacOs(),
-      isPanScrolling: isPanScrollingRef.current,
-      maxZoom,
-      minZoom,
-      panOnScroll,
-      panOnScrollMode,
-      panOnScrollSpeed,
-      zoomActivationKeyPressed,
-      zoomOnPinch,
-      zoomOnScroll,
-    };
     if (
-      shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
-        event.target,
-        wheelBehavior,
-      )
+      !paneInteractionController.handlePaneWheel({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ctrlKey: event.ctrlKey,
+        deltaMode: event.deltaMode,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        shiftKey: event.shiftKey,
+        target: event.target,
+      })
     ) {
       return;
     }
-    const wheelOutcome = resolveSettingsGraphSubstrateCanaryWheelOutcome(
-      resolvedViewport,
-      anchorScreenPoint,
-      wheelEvent,
-      wheelBehavior,
-    );
-    if (!wheelOutcome) {
-      return;
-    }
-
-    if (wheelOutcome.kind === "pan-scroll") {
-      if (panScrollTimeoutRef.current) {
-        clearTimeout(panScrollTimeoutRef.current);
-      }
-      isPanScrollingRef.current = true;
-      syncCanaryViewportInteractionState({
-        isViewportPanning: viewportPanStateRef.current !== null,
-        isPanScrolling: true,
-        isWheelZooming: isWheelZoomingRef.current,
-      });
-      panScrollTimeoutRef.current = setTimeout(() => {
-        isPanScrollingRef.current = false;
-        syncCanaryViewportInteractionState({
-          isViewportPanning: viewportPanStateRef.current !== null,
-          isPanScrolling: false,
-          isWheelZooming: isWheelZoomingRef.current,
-        });
-      }, 150);
-    } else {
-      if (wheelZoomTimeoutRef.current) {
-        clearTimeout(wheelZoomTimeoutRef.current);
-      }
-      isWheelZoomingRef.current = true;
-      syncCanaryViewportInteractionState({
-        isViewportPanning: viewportPanStateRef.current !== null,
-        isPanScrolling: isPanScrollingRef.current,
-        isWheelZooming: true,
-      });
-      wheelZoomTimeoutRef.current = setTimeout(() => {
-        isWheelZoomingRef.current = false;
-        syncCanaryViewportInteractionState({
-          isViewportPanning: viewportPanStateRef.current !== null,
-          isPanScrolling: isPanScrollingRef.current,
-          isWheelZooming: false,
-        });
-      }, WHEEL_ZOOM_IDLE_TIMEOUT_MS);
-    }
-
-    applyControlledViewportChange((currentViewport) => {
-      return (
-        resolveSettingsGraphSubstrateCanaryWheelOutcome(
-          currentViewport,
-          anchorScreenPoint,
-          wheelEvent,
-          wheelBehavior,
-        )?.nextViewport ?? currentViewport
-      );
-    });
     event.preventDefault();
     event.stopPropagation();
   }
