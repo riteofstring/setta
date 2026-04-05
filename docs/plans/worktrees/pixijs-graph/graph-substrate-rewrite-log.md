@@ -9522,3 +9522,42 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing shell/header visual
     - do not spend a default iteration on the known `setViewport` cleanup timeout unless a later product slice genuinely requires that helper lane to tighten
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 02:53 EDT, Ralph item `245`
+  - Summary: moved the DOM surface-frame pseudo-border into the root Pixi shell canvas by adding renderer-facing surface-frame colors plus a `forceHideFrameBorder` suppression path through the canary DOM surface stack, then verified the live worktree visually in CDP.
+  - Files:
+    - `frontend/src/components/Section/Container/sectionChromeAppearance.ts`
+    - `frontend/src/components/Section/Container/sectionChromeAppearance.test.ts`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Utils/Resizable/CustomResizable.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - the new Playwright acceptance creates a temporary `Code` section because the seeded E2E workspace did not reliably contain the broad anchor
+    - the live CDP spot-check used the visible `basedpyright -> analysis -> diagnosticSeverityOverrides` code section on the worktree canary
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/sectionChromeAppearance.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Utils/Resizable/CustomResizable.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts` -> passed (`4 files`, `20 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionChromeAppearance\\.(ts|test\\.ts)|SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx)|CustomResizable\\.tsx|settingsGraphSubstrateCanarySectionBodyAdapter\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx|settingsGraphSubstrateCanarySectionShellPixi(Model|Layer)\\.(ts|tsx|test\\.ts)|settings-view-modes\\.spec\\.ts' || true` -> still reports the long-standing unrelated `CustomResizable.tsx` type errors already noted in prior items; no new slice-specific type signal was used as a gate
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned surface frame without a duplicate DOM frame border'` -> passed once (`1 test`, `20.3s`)
+    - follow-up rerun note: a later confirmation rerun timed out in `finally` at `postBackend(page, "/setViewport", ...)` before the temp-section delete step, matching the same cleanup-side helper-noise family already recorded on this file; no earlier assertion failure surfaced first
+    - fresh-context CDP sub-agent -> done; opened the live worktree settings canary, inspected the visible `basedpyright -> analysis -> diagnosticSeverityOverrides` code section, and reported that the section surface frame looked intact with no obvious duplicate inner DOM frame seam
+    - reference comparison note: the provided read-only `main` bootstrap token was rejected, so no trustworthy live reference-side comparison was available in this pass
+  - Result:
+    - the surface-frame stroke is now scene-owned by the root Pixi shell canvas on canary sections
+    - the DOM section surface stack now has an explicit `forceHideFrameBorder` seam instead of leaving the pseudo-border implicitly active
+    - this lane should not reopen default helper cleanup work; the remaining rerun timeout is still cleanup-side noise rather than new product evidence
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing header/body visual
+    - if `settings-view-modes.spec.ts` is touched again, do it only to support a future product slice rather than chasing the existing `finally` cleanup noise by itself
+  - LOOP_TERMINAL_MARKER: none

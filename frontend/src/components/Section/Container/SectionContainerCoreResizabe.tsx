@@ -71,6 +71,7 @@ type SectionContainerHeaderRenderer =
 type SectionContainerCoreResizableProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   forceTransparentBackground?: boolean;
+  forceHideFrameBorder?: boolean;
   headerRenderer?: SectionContainerHeaderRenderer | undefined;
   sectionId: string;
   sectionTypeName: SectionType;
@@ -123,6 +124,7 @@ function _SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  forceHideFrameBorder = false,
   forceHideTopDragHandle = false,
 }: SectionContainerCoreResizableProps) {
   const {
@@ -182,6 +184,7 @@ function _SectionContainerCoreResizable({
       as="section"
       bgColor={bodySurface.bgColor}
       forceTransparentBackground={forceTransparentBackground}
+      forceHideFrameBorder={forceHideFrameBorder}
       isYouTube={isYouTube}
       surfaceDecorations={bodySurface.surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}

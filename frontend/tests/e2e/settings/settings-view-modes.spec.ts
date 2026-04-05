@@ -1861,6 +1861,107 @@ test("settings graph substrate canary renders the shell-owned border without a d
   }
 });
 
+test("settings graph substrate canary renders the shell-owned surface frame without a duplicate DOM frame border", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialPaneState = await getLocalPaneState(page);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  let createdSectionId: string | null = null;
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await page
+      .getByRole("button", { name: "All Settings", exact: true })
+      .click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+
+    const created = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Code",
+      },
+    );
+    if (!created?.sectionId) {
+      throw new Error("Missing sectionId when creating code section.");
+    }
+    createdSectionId = created.sectionId;
+
+    const createdState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, createdState);
+
+    await expect
+      .poll(() => fitGraphViewportToSection(page, createdSectionId))
+      .toBe(true);
+
+    const canarySection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${createdSectionId}"]`,
+    );
+    await expect(canarySection).toBeVisible();
+    await expect(
+      page.getByTestId("graph-substrate-canary-section-pixi-layer"),
+    ).toBeVisible();
+
+    const domSurface = page.locator(`#${createdSectionId}-CustomResizable`);
+    await expect(domSurface).toBeVisible();
+    const domSurfaceFrameStyle = await domSurface.evaluate((node) => {
+      const computedStyle = window.getComputedStyle(
+        node as HTMLElement,
+        "::before",
+      );
+      return {
+        borderTopWidth: computedStyle.borderTopWidth,
+      };
+    });
+    expect(domSurfaceFrameStyle.borderTopWidth).toBe("0px");
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    if (createdSectionId) {
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [createdSectionId],
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+    await setLocalPaneState(page, initialPaneState);
+  }
+});
+
 test("settings graph substrate canary renders the shell-owned top drag handle without a duplicate DOM handle", async ({
   page,
 }) => {

@@ -15,6 +15,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       sectionId,
       isTopLevel,
       forceHideOutline,
+      forceHideFrameBorder,
       forceTransparentBorder,
       forceTransparentBackground,
       forceHideTopDragHandle,
@@ -29,12 +30,14 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       sectionId: string;
       isTopLevel: boolean;
       forceHideOutline?: boolean;
+      forceHideFrameBorder?: boolean;
       forceTransparentBackground?: boolean;
       forceTransparentBorder?: boolean;
       forceHideTopDragHandle?: boolean;
     }) => (
       <div
         data-force-hide-outline={forceHideOutline ? "true" : "false"}
+        data-force-hide-frame-border={forceHideFrameBorder ? "true" : "false"}
         data-is-top-level={isTopLevel ? "true" : "false"}
         data-force-transparent-border={
           forceTransparentBorder ? "true" : "false"
@@ -302,6 +305,24 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       },
       forceTransparentBackground: true,
       forceTransparentBorder: true,
+      isTopLevel: true,
+      sectionId: "section-a",
+    });
+  });
+
+  it("suppresses the duplicate DOM surface frame once the root Pixi shell layer owns that stroke", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[createSceneSection()]}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
+      forceHideFrameBorder: true,
       isTopLevel: true,
       sectionId: "section-a",
     });

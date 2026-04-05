@@ -18,6 +18,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       bodySurfaceOverride,
       sectionId,
       forceHideOutline,
+      forceHideFrameBorder,
       forceTransparentBorder,
       forceTransparentBackground,
       forceHideTopDragHandle,
@@ -32,6 +33,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
         };
       };
       forceHideOutline?: boolean;
+      forceHideFrameBorder?: boolean;
       forceTransparentBackground?: boolean;
       forceHideTopDragHandle?: boolean;
       forceTransparentBorder?: boolean;
@@ -41,6 +43,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
     }) => (
       <div
         data-force-hide-outline={forceHideOutline ? "true" : "false"}
+        data-force-hide-frame-border={forceHideFrameBorder ? "true" : "false"}
         data-force-hide-top-drag-handle={
           forceHideTopDragHandle ? "true" : "false"
         }
@@ -141,6 +144,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
         },
       },
       forceHideOutline: true,
+      forceHideFrameBorder: true,
       forceHideTopDragHandle: true,
       forceTransparentBackground: true,
       forceTransparentBorder: true,
@@ -174,6 +178,9 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
     });
     expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(
       "forceHideOutline",
+    );
+    expect(mockSectionContainer.mock.calls[0]?.[0]).not.toHaveProperty(
+      "forceHideFrameBorder",
     );
     expect(mockSectionContainer.mock.calls[0]?.[0]).toMatchObject({
       forceTransparentBackground: false,

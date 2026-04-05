@@ -220,6 +220,23 @@ function syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
           color: drawable.fill.color,
         });
     }
+    if (drawable.surfaceFrame) {
+      graphics
+        .roundRect(
+          drawable.screenX,
+          drawable.screenY,
+          drawable.screenWidth,
+          drawable.screenHeight,
+          drawable.cornerRadius,
+        )
+        .stroke({
+          alignment: drawable.surfaceFrame.alignment,
+          alpha: drawable.surfaceFrame.alpha,
+          color: drawable.surfaceFrame.color,
+          join: "round",
+          width: drawable.surfaceFrame.width,
+        });
+    }
     if (drawable.outline) {
       graphics
         .roundRect(

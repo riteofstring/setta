@@ -36,6 +36,7 @@ type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
   forceHideOutline?: boolean;
+  forceHideFrameBorder?: boolean;
   forceTransparentBorder?: boolean;
   forceHideTopDragHandle?: boolean;
   hideAgenticEdgeHandles?: boolean;
@@ -50,6 +51,7 @@ function _SectionContainerCore({
   sectionId,
   isUserView,
   forceHideOutline = false,
+  forceHideFrameBorder = false,
   forceTransparentBorder = false,
   forceHideTopDragHandle = false,
   hideAgenticEdgeHandles = false,
@@ -185,6 +187,7 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        forceHideFrameBorder={forceHideFrameBorder}
         forceHideTopDragHandle={forceHideTopDragHandle}
       />
     </section>
@@ -200,6 +203,7 @@ export const SectionContainerCore = React.memo(
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isUserView === nextProps.isUserView &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
     previousProps.hideAgenticEdgeHandles === nextProps.hideAgenticEdgeHandles &&

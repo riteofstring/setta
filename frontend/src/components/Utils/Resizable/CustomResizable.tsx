@@ -56,6 +56,7 @@ type CustomResizableProps = {
   sectionId: string;
   bgColor: string;
   forceTransparentBackground?: boolean;
+  forceHideFrameBorder?: boolean;
   isYouTube: boolean;
   surfaceDecorations: SectionChromeSurfaceDecorations;
   positionAndSizeLocked: boolean;
@@ -69,6 +70,7 @@ export function CustomResizable({
   sectionId,
   bgColor,
   forceTransparentBackground = false,
+  forceHideFrameBorder = false,
   isYouTube,
   surfaceDecorations,
   positionAndSizeLocked,
@@ -84,6 +86,7 @@ export function CustomResizable({
       sectionId={sectionId}
       bgColor={bgColor}
       forceTransparentBackground={forceTransparentBackground}
+      forceHideFrameBorder={forceHideFrameBorder}
       isYouTube={isYouTube}
       surfaceDecorations={surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
@@ -105,6 +108,7 @@ function CustomResizableCore({
   sectionId,
   bgColor,
   forceTransparentBackground,
+  forceHideFrameBorder,
   isYouTube,
   surfaceDecorations,
   positionAndSizeLocked,
@@ -408,6 +412,7 @@ function CustomResizableCore({
       as={as}
       bgColor={bgColor}
       forceTransparentBackground={forceTransparentBackground}
+      forceHideFrameBorder={forceHideFrameBorder}
       isYouTube={isYouTube}
       surfaceDecorations={surfaceDecorations}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -440,6 +445,7 @@ function CustomResizableSuperCore({
   as,
   bgColor,
   forceTransparentBackground,
+  forceHideFrameBorder,
   isYouTube,
   surfaceDecorations,
   hasSectionStyleTheme,
@@ -495,6 +501,7 @@ function CustomResizableSuperCore({
     bgColor,
     forceTransparentBackground,
     hasSectionStyleTheme,
+    hideFrameBorder: forceHideFrameBorder,
     positionAndSizeLocked,
     shouldDisablePointerEvents,
     isYouTube,

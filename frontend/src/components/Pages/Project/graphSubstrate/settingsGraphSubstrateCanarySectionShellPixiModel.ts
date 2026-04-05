@@ -1,4 +1,7 @@
-import { resolveSectionChromeAppearance } from "components/Section/Container/sectionChromeAppearance";
+import {
+  resolveSectionChromeAppearance,
+  type SectionChromeStaticColor,
+} from "components/Section/Container/sectionChromeAppearance";
 import type { CSSProperties } from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
@@ -63,6 +66,7 @@ export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   cornerRadius: number;
   fill: SettingsGraphSubstrateCanarySectionShellPixiFill | null;
   outline: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
+  surfaceFrame: SettingsGraphSubstrateCanarySectionShellPixiStroke | null;
   screenHeight: number;
   screenWidth: number;
   screenX: number;
@@ -97,15 +101,17 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
     [];
 
   for (const section of sceneSections) {
+    const isHoveredSection =
+      section.sectionId === hoveredSectionId ||
+      section.sectionId === draggingSectionId;
     const drawable =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
         darkMode,
         isActiveSection:
           activeSectionIdSet.has(section.sectionId) ||
           section.isActiveSection === true,
-        isTopDragHandleVisible:
-          section.sectionId === hoveredSectionId ||
-          section.sectionId === draggingSectionId,
+        isSurfaceFrameHovered: isHoveredSection,
+        isTopDragHandleVisible: isHoveredSection,
         previewStyleColor: previewStyleColors[section.sectionId],
         section,
         viewport,
@@ -121,6 +127,7 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
 function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
   darkMode,
   isActiveSection,
+  isSurfaceFrameHovered,
   isTopDragHandleVisible,
   previewStyleColor,
   section,
@@ -128,6 +135,7 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
 }: {
   darkMode: boolean;
   isActiveSection: boolean;
+  isSurfaceFrameHovered: boolean;
   isTopDragHandleVisible: boolean;
   previewStyleColor: string | null | undefined;
   section: SettingsGraphSubstrateCanarySceneSection;
@@ -182,6 +190,13 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
     darkMode,
     viewport.zoom,
   );
+  const surfaceFrame = resolveSectionShellPixiSurfaceFrameStroke({
+    appearance: shellAppearance,
+    hoverStrokeColor: sectionChromeAppearance.surfaceFrameHoverColor,
+    isHovered: isSurfaceFrameHovered,
+    strokeColor: sectionChromeAppearance.surfaceFrameColor,
+    zoom: viewport.zoom,
+  });
   const topDragHandle = resolveSectionShellPixiTopDragHandle({
     appearance: shellAppearance,
     darkMode,
@@ -192,7 +207,7 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
     zoom: viewport.zoom,
   });
 
-  if (!border && !fill && !outline && !topDragHandle) {
+  if (!border && !fill && !outline && !surfaceFrame && !topDragHandle) {
     return null;
   }
 
@@ -204,6 +219,7 @@ function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({
         : LARGE_CORNER_RADIUS_PX) * viewport.zoom,
     fill,
     outline,
+    surfaceFrame,
     screenHeight: screenSize.height,
     screenWidth: screenSize.width,
     screenX: screenPosition.x,
@@ -278,6 +294,37 @@ function resolveSectionShellPixiOutlineStroke(
     alpha: color.alpha,
     color: color.color,
     width: Math.max(outlineWidth * zoom, MIN_STROKE_WIDTH),
+  };
+}
+
+function resolveSectionShellPixiSurfaceFrameStroke({
+  appearance,
+  hoverStrokeColor,
+  isHovered,
+  strokeColor,
+  zoom,
+}: {
+  appearance: SettingsGraphSubstrateCanarySectionShellAppearance;
+  hoverStrokeColor: SectionChromeStaticColor | null;
+  isHovered: boolean;
+  strokeColor: SectionChromeStaticColor | null;
+  zoom: number;
+}): SettingsGraphSubstrateCanarySectionShellPixiStroke | null {
+  if (!appearance.frameStructure.surfaceFrameVisible) {
+    return null;
+  }
+
+  const color =
+    isHovered && hoverStrokeColor !== null ? hoverStrokeColor : strokeColor;
+  if (!color) {
+    return null;
+  }
+
+  return {
+    alignment: 1,
+    alpha: color.alpha,
+    color: color.color,
+    width: Math.max(zoom, MIN_STROKE_WIDTH),
   };
 }
 

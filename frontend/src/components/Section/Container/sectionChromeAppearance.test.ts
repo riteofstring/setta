@@ -16,6 +16,11 @@ describe("sectionChromeAppearance", () => {
     expect(appearance.backgroundColor).toBe(
       appearance.sectionStyleVars?.["--setta-section-style-bg"],
     );
+    expect(appearance.surfaceFrameColor).toEqual({
+      alpha: 1,
+      color: appearance.sectionStyleVars?.["--setta-section-style-border"],
+    });
+    expect(appearance.surfaceFrameHoverColor).toBeNull();
     expect(appearance.useMetaControlStyle).toBe(false);
     expect(appearance.hasSectionStyleTheme).toBe(true);
     expect(appearance.sectionStyleVars).toMatchObject({
@@ -60,6 +65,11 @@ describe("sectionChromeAppearance", () => {
 
     expect(appearance.bgColor).toBe("bg-transparent");
     expect(appearance.backgroundColor).toBeNull();
+    expect(appearance.surfaceFrameColor).toBeNull();
+    expect(appearance.surfaceFrameHoverColor).toEqual({
+      alpha: 0.6,
+      color: "hsl(219, 26%, 23%)",
+    });
     expect(appearance.useMetaControlStyle).toBe(true);
     expect(appearance.hasSectionStyleTheme).toBe(false);
     expect(appearance.sectionStyleVars).toBeUndefined();
@@ -76,5 +86,10 @@ describe("sectionChromeAppearance", () => {
 
     expect(appearance.bgColor).toBe("bg-setta-50 dark:bg-setta-860");
     expect(appearance.backgroundColor).toBe("hsl(220, 25%, 8.5%)");
+    expect(appearance.surfaceFrameColor).toEqual({
+      alpha: 1,
+      color: "hsl(219, 26%, 23%)",
+    });
+    expect(appearance.surfaceFrameHoverColor).toBeNull();
   });
 });

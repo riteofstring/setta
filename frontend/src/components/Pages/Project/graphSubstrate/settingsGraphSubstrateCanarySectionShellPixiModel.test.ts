@@ -44,6 +44,11 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         color: appearance.sectionStyleVars?.["--setta-section-style-outline"],
         width: 2,
       },
+      surfaceFrame: {
+        alignment: 1,
+        color: appearance.surfaceFrameColor?.color,
+        width: 0.5,
+      },
       screenHeight: 80,
       screenWidth: 120,
       screenX: 110,
@@ -139,7 +144,47 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
       color: "#1d4ed8",
       width: 4,
     });
+    expect(drawables[0]?.surfaceFrame).toMatchObject({
+      color: "hsl(219, 26%, 23%)",
+      width: 1,
+    });
     expect(drawables[0]?.topDragHandle).toBeNull();
+  });
+
+  it("projects the meta-control hover frame into Pixi without needing the DOM surface frame", () => {
+    const drawables =
+      resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
+        activeSectionIds: [],
+        darkMode: false,
+        draggingSectionId: null,
+        hoveredSectionId: "section-a",
+        previewStyleColors: {},
+        sceneSections: [
+          createSceneSection({
+            positionAndSizeLocked: true,
+            sectionTypeName: SectionTypeEnum.MetaControl,
+            styleColor: null,
+            textBlockMetaControlStyle: false,
+          }),
+        ],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      });
+
+    expect(drawables).toEqual([
+      expect.objectContaining({
+        border: null,
+        fill: null,
+        outline: null,
+        sectionId: "section-a",
+        surfaceFrame: {
+          alignment: 1,
+          alpha: 0.6,
+          color: "hsl(220, 26%, 57%)",
+          width: 1,
+        },
+        topDragHandle: null,
+      }),
+    ]);
   });
 });
 

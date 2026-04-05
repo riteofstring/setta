@@ -25,15 +25,25 @@ export type SectionChromeAppearance = {
   bgColor: string;
   hasSectionStyleTheme: boolean;
   sectionStyleVars: React.CSSProperties | undefined;
+  surfaceFrameColor: SectionChromeStaticColor | null;
+  surfaceFrameHoverColor: SectionChromeStaticColor | null;
   useMetaControlStyle: boolean;
+};
+
+export type SectionChromeStaticColor = {
+  alpha: number;
+  color: string;
 };
 
 const SETTA_50 = "hsl(222, 28%, 95%)";
 const SETTA_860 = "hsl(220, 25%, 8.5%)";
 const SETTA_900 = "hsl(220, 27%, 6%)";
 const SETTA_950 = "hsl(220, 25%, 3%)";
+const SETTA_400 = "hsl(220, 26%, 57%)";
+const SETTA_700 = "hsl(219, 26%, 23%)";
 const STONE_100 = "#f5f5f4";
 const STONE_900 = "#171717";
+const WHITE = "#ffffff";
 
 function resolveSectionChromeBackgroundColor({
   darkMode,
@@ -74,6 +84,47 @@ function resolveSectionChromeBackgroundColor({
   }
 }
 
+function resolveSectionChromeSurfaceFrameColors({
+  darkMode,
+  sectionStyleBorderColor,
+  useMetaControlStyle,
+}: {
+  darkMode: boolean;
+  sectionStyleBorderColor: string | null;
+  useMetaControlStyle: boolean;
+}): {
+  surfaceFrameColor: SectionChromeStaticColor | null;
+  surfaceFrameHoverColor: SectionChromeStaticColor | null;
+} {
+  if (sectionStyleBorderColor !== null) {
+    return {
+      surfaceFrameColor: {
+        alpha: 1,
+        color: sectionStyleBorderColor,
+      },
+      surfaceFrameHoverColor: null,
+    };
+  }
+
+  if (useMetaControlStyle) {
+    return {
+      surfaceFrameColor: null,
+      surfaceFrameHoverColor: {
+        alpha: 0.6,
+        color: darkMode ? SETTA_700 : SETTA_400,
+      },
+    };
+  }
+
+  return {
+    surfaceFrameColor: {
+      alpha: 1,
+      color: darkMode ? SETTA_700 : WHITE,
+    },
+    surfaceFrameHoverColor: null,
+  };
+}
+
 export function resolveSectionChromeAppearance({
   darkMode,
   previewStyleColor,
@@ -90,6 +141,12 @@ export function resolveSectionChromeAppearance({
     resolvedStyleColor && !useMetaControlStyle
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
+  const { surfaceFrameColor, surfaceFrameHoverColor } =
+    resolveSectionChromeSurfaceFrameColors({
+      darkMode,
+      sectionStyleBorderColor: sectionStyleTheme?.border ?? null,
+      useMetaControlStyle,
+    });
 
   return {
     backgroundColor: resolveSectionChromeBackgroundColor({
@@ -116,6 +173,8 @@ export function resolveSectionChromeAppearance({
           "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
         } as React.CSSProperties)
       : undefined,
+    surfaceFrameColor,
+    surfaceFrameHoverColor,
     useMetaControlStyle,
   };
 }

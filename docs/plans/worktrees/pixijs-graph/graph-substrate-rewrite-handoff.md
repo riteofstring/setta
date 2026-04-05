@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 02:16 EDT
+Last updated: 2026-04-07 02:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,52 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `245` moved the remaining DOM surface-frame pseudo-border into the root Pixi shell canvas, while suppressing that duplicate DOM frame on canary sections through the existing body/surface stack.
+  - Why this pass stopped here:
+    - item `244` explicitly said to keep moving the first scene-owned shell slice into another non-editing shell/header visual instead of reopening cleanup churn
+    - after fill, border, outline, and top-drag-handle ownership moved into the root shell canvas, the surface-frame pseudo-border in `CustomResizable` was the next real static visual still painted by the DOM surface itself
+    - this pass kept the scope bounded by using the existing `surfaceFrameVisible` contract plus new renderer-facing surface-frame colors, rather than inventing a new lane or extending the same border/handle ownership through more forwarding layers
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the Pixi shell lane
+    - the new surface-frame Playwright acceptance creates a temporary `Code` section because the seeded E2E workspace did not reliably contain the broad anchor section
+    - the live CDP spot-check inspected the visible `basedpyright -> analysis -> diagnosticSeverityOverrides` code section in the worktree canary
+  - Product/test change:
+    - updated [`frontend/src/components/Section/Container/sectionChromeAppearance.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChromeAppearance.ts), [`frontend/src/components/Section/Container/SectionContainer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainer.tsx), [`frontend/src/components/Section/Container/SectionContainerCore.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainerCore.tsx), [`frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx), and [`frontend/src/components/Utils/Resizable/CustomResizable.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Utils/Resizable/CustomResizable.tsx)
+      - added renderer-facing `surfaceFrameColor` / `surfaceFrameHoverColor` values alongside the existing background contract
+      - threaded a new `forceHideFrameBorder` prop through the DOM section surface stack so canary sections can suppress the pseudo-element frame without changing non-canary callers
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+      - the canary body adapter now suppresses the DOM surface frame whenever the shell layer owns shell chrome
+      - the root Pixi shell model/layer now draws a scene-owned surface-frame stroke, including the hover-only meta-control frame path
+    - updated focused tests in [`frontend/src/components/Section/Container/sectionChromeAppearance.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Section/Container/sectionChromeAppearance.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), and [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts)
+      - unit tests now cover renderer-facing surface-frame colors, DOM frame suppression, and the hover-only meta-control surface-frame drawable
+      - added a Playwright lane that creates a temporary code section and asserts its DOM `::before` frame border is suppressed while the shell Pixi canvas is mounted
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Section/Container/sectionChromeAppearance.ts src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Utils/Resizable/CustomResizable.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+      - result: passed (`4 files`, `20 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionChromeAppearance\\.(ts|test\\.ts)|SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx)|CustomResizable\\.tsx|settingsGraphSubstrateCanarySectionBodyAdapter\\.(tsx|test\\.tsx)|settingsGraphSubstrateCanarySectionsLayer\\.test\\.tsx|settingsGraphSubstrateCanarySectionShellPixi(Model|Layer)\\.(ts|tsx|test\\.ts)|settings-view-modes\\.spec\\.ts' || true`
+      - result: still reports the long-standing unrelated `CustomResizable.tsx` type errors already noted in prior handoff items; no new slice-specific type signal was used as a gate
+    - sanctioned Playwright helper:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary renders the shell-owned surface frame without a duplicate DOM frame border'`
+      - result: passed once (`1 test`, `20.3s`) on the temporary code-section lane
+      - follow-up note: a later confirmation rerun timed out in `finally` at `postBackend(page, "/setViewport", ...)` before the temp-section delete step, matching the same cleanup-side helper-noise family already recorded on this file; the visible assertion body did not surface a new product failure before that timeout
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent opened the live worktree settings canary at `http://127.0.0.1:3076/settings` and visually inspected the visible `basedpyright -> analysis -> diagnosticSeverityOverrides` code section
+      - the sub-agent reported that the section surface frame looked intact with no obvious duplicate inner DOM frame seam
+      - the provided read-only `main` bootstrap token was rejected, so no trustworthy live reference-side comparison was possible in this pass
+  - Lane status:
+    - the surface-frame stroke is now scene-owned by the root Pixi shell canvas instead of the DOM surface pseudo-element on canary sections
+    - the DOM section surface stack now has an explicit suppression prop for that frame, so the ownership boundary is no longer implicit in CSS defaults
+    - the new Playwright lane is useful regression coverage, but the file still exhibits the known cleanup-timeout noise in some reruns; do not spend a default iteration on that helper behavior alone
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing header/body visual instead of reopening surface-frame helper cleanup work
+    - if the settings-view-modes helper is touched again, do it only to support a future product slice, not as standalone cleanup churn
 
 - Ralph item `244` moved the shell-owned top drag handle visual out of the per-section DOM shell and into the root Pixi shell canvas, while keeping drag interaction on the existing section root and preserving the duplicate-DOM suppression contract.
   - Why this pass stopped here:

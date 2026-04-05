@@ -70,6 +70,7 @@ function getSectionContainerChromeSuppression(
     case "shell-layer":
       return {
         forceHideOutline: true,
+        forceHideFrameBorder: true,
         forceHideTopDragHandle: true,
         forceTransparentBorder: true,
       };

@@ -56,6 +56,7 @@ function _SectionContainer({
   headerRenderer,
   dragListeners,
   forceHideOutline = false,
+  forceHideFrameBorder = false,
   forceTransparentBorder = false,
   forceHideTopDragHandle = false,
 }: {
@@ -68,6 +69,7 @@ function _SectionContainer({
   isTopLevel?: boolean;
   dragListeners?: any;
   forceHideOutline?: boolean;
+  forceHideFrameBorder?: boolean;
   forceTransparentBorder?: boolean;
   forceHideTopDragHandle?: boolean;
 }) {
@@ -170,6 +172,7 @@ function _SectionContainer({
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
+                forceHideFrameBorder={forceHideFrameBorder}
                 forceTransparentBorder={forceTransparentBorder}
                 forceHideTopDragHandle={forceHideTopDragHandle}
                 hideAgenticEdgeHandles={true}
@@ -194,6 +197,7 @@ function _SectionContainer({
                   sectionId={sectionId}
                   isUserView={isUserView}
                   forceHideOutline={forceHideOutline}
+                  forceHideFrameBorder={forceHideFrameBorder}
                   forceTransparentBorder={forceTransparentBorder}
                   forceHideTopDragHandle={forceHideTopDragHandle}
                 />
@@ -230,6 +234,7 @@ export const SectionContainer = React.memo(
       nextProps.forceTransparentBackground &&
     previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
     _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
