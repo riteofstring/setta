@@ -86,33 +86,23 @@ func registerFrontendHTTPOpenAPIRouteFamily(family string, err error) error {
 }
 
 func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
-	settaHome, settaFilesRoot, globalSettaFiles := "/setta-home", "/setta-files", "/global-setta"
-	deploymentRoot, defaultWorktree := "/deployment", "default"
-	workspaceRoot, profileLookupHome, runtimeRoot := "/workspace", "/profiles", "/runtime"
-	llmConfigPath := settaFilesRoot + "/llm_config.json"
-	resolvedFilesLocal := config.ResolvedFilesLocationLocal
-	launcherHome := launcher.NewHomeService(launcher.HomeServiceOptions{})
-	ideMode := modes.NewPolicy(config.ModeIDE)
-	shareMode := modes.NewPolicy(config.ModeShare)
-	appMode := modes.NewPolicy(config.ModeApp)
-	launcherMode := modes.NewPolicy(config.ModeLauncher)
-	websocketHub := &realtime.WebsocketHub{}
-	projectStateRuntime := &projectstate.Runtime{}
-	deploymentRuntime := &deployments.Runtime{}
+	settaHome, settaFilesRoot := "/setta-home", "/setta-files"
+	ideMode, shareMode, appMode, launcherMode := modes.NewPolicy(config.ModeIDE), modes.NewPolicy(config.ModeShare), modes.NewPolicy(config.ModeApp), modes.NewPolicy(config.ModeLauncher)
+	websocketHub, projectStateRuntime, deploymentRuntime := &realtime.WebsocketHub{}, &projectstate.Runtime{}, &deployments.Runtime{}
 	attachmentService := &chatattachments.Service{}
 
 	registerCoreRuntimeOpenAPIRoutes(router, NewConfigInfoService(config.Config{
 		Server: config.Server{Mode: config.ModeIDE},
 		Paths: config.Paths{
-			WorkspaceRoot:         workspaceRoot,
+			WorkspaceRoot:         "/workspace",
 			SettaHome:             settaHome,
-			ProfileLookupHome:     profileLookupHome,
+			ProfileLookupHome:     "/profiles",
 			SettaFilesRoot:        settaFilesRoot,
-			ResolvedFilesLocation: resolvedFilesLocal,
-			RuntimeRoot:           runtimeRoot,
+			ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+			RuntimeRoot:           "/runtime",
 		},
 		User: config.UserConfig{
-			GlobalSettaFilesBase: globalSettaFiles,
+			GlobalSettaFilesBase: "/global-setta",
 			AutoMode:             config.AutoModeCreateLocal,
 		},
 	}, ""))
@@ -121,8 +111,8 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 		SettaHome:            settaHome,
 		SettaFilesRoot:       settaFilesRoot,
 		RevealPath:           &pathreveal.Service{},
-		WorktreeName:         defaultWorktree,
-		GlobalSettaFilesBase: globalSettaFiles,
+		WorktreeName:         "default",
+		GlobalSettaFilesBase: "/global-setta",
 	})); err != nil {
 		return err
 	}
@@ -189,7 +179,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	})); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("mcp", RegisterMCPRoutes(router, MCPRouteDependencies{ModePolicy: ideMode, LLMConfigPath: llmConfigPath})); err != nil {
+	if err := registerFrontendHTTPOpenAPIRouteFamily("mcp", RegisterMCPRoutes(router, MCPRouteDependencies{ModePolicy: ideMode, LLMConfigPath: settaFilesRoot + "/llm_config.json"})); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("app definition", RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
@@ -207,7 +197,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("artifact", RegisterArtifactRoutes(router, ArtifactRouteDependencies{ModePolicy: ideMode, Artifacts: (*artifacts.Service)(nil), ShareArtifacts: (*shareartifacts.Service)(nil)})); err != nil {
 		return err
 	}
-	if err := registerOpenAPIProjectRouteFamily(router, ideMode, workspaceRoot); err != nil {
+	if err := registerOpenAPIProjectRouteFamily(router, ideMode, "/workspace"); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("git", RegisterGitRoutes(router, GitRouteDependencies{ModePolicy: ideMode, Git: (*gitread.Service)(nil)})); err != nil {
@@ -253,7 +243,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("file browser", RegisterFileBrowserRoutes(router, FileBrowserRouteDependencies{
 		ModePolicy:     ideMode,
-		DeploymentRoot: deploymentRoot,
+		DeploymentRoot: "/deployment",
 		Browser:        (*filebrowser.Service)(nil),
 	})); err != nil {
 		return err
@@ -302,7 +292,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher home", RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{
 		ModePolicy:       launcherMode,
 		DefaultSettaHome: settaHome,
-		Home:             launcherHome,
+		Home:             launcher.NewHomeService(launcher.HomeServiceOptions{}),
 		OpenWorkspace:    &launcher.OpenWorkspaceService{},
 	})); err != nil {
 		return err
