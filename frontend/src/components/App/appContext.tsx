@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { SharePolicy } from "utils/generatedTypes";
+import type { Policy } from "utils/generatedTypes";
 
 import type { AppActionDefinitions, AppDataBindings } from "./appBindings";
 import type { ResolvedAppTheme } from "./appTheme";
@@ -21,7 +21,7 @@ const AppActionContext = createContext<AppActionState>({
 type AppRuntimeContextValue = {
   dataBindings: AppDataBindings;
   actions: AppActionDefinitions;
-  policy: SharePolicy;
+  policy: Policy;
   canEditParams: boolean;
   allowExternalLinks: boolean;
   allowFileDownloads: boolean;
