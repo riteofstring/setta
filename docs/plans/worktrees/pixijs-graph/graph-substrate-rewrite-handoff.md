@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 18:23 EDT
+Last updated: 2026-04-06 18:39 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `231` collapses `SectionHeader` title/actions composition behind one renderer-facing layout contract, so the generic header no longer hard-codes menu/title/trailing-action placement inline at the same boundary a future scene-owned header would need to replace.
+  - Why this slice was needed:
+    - item `230` let the canary choose one header renderer boundary, but `SectionHeader` still hard-coded `MenuButton`, title placement, and trailing actions inside the default DOM header implementation
+    - without a layout seam at that composition boundary, a future scene-owned header would still need to reverse-engineer the DOM title/actions arrangement even after the canary stopped instantiating `SectionHeader` directly from the generic container
+    - this is still a real implementation-choice seam at the nearest layout boundary that chooses how header slots are arranged; it is not another pure forwarding hop through the canary wrappers
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - updated `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - added `SectionHeaderLayoutRenderProps`, optional `layoutRenderer`, and `DefaultSectionHeaderLayoutDomAdapter`
+      - `SectionHeader` now resolves `leadingControls`, `title`, and `actions` once, then hands those slots to one layout renderer instead of hard-coding the menu/title/trailing-actions DOM placement inline
+    - updated `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      - added focused coverage proving a custom layout renderer can own title/actions placement while preserving the current header slot content
+      - cleaned existing test typings on the touched file so the narrowed `tsc` sanity check stays quiet instead of hiding stale local type debt
+  - What this slice established:
+    - the generic header now exposes one renderer-facing layout seam for the title/actions row while preserving existing DOM header behavior by default
+    - future scene-owned header work can replace header layout without reopening the already-closed canary container/header selection lane
+    - this keeps the DOM-backed canary visually stable while moving header ownership one real boundary deeper
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - result: passed (`2 files`, `18 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionHeader(\\.tsx|\\.test\\.tsx)|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-007 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; the run timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed` before the spec body produced product evidence
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree `http://127.0.0.1:3076/settings` was healthy enough for a spot-check, `All Settings` was reachable, and the graph surface was visible
+      - note: the read-only `main` reference at `http://127.0.0.1:3087/settings` was also healthy enough to compare the shared viewport, although the exact `rotaryParamCodeObjDefault` token did not surface through the DOM lookup on that pass
+      - note: the worktree title/header slice was small at the current zoom, so exact alignment was hard to judge, but no obvious gross header/title chrome drift was visible versus `main`
+  - Lane status:
+    - this closes the header-layout fallback slice that item `230` named when Pixi approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the repeated Playwright failure is still bootstrap/auth harness noise rather than product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer, body-surface, header-renderer, and header-layout contracts to land the first scene-owned static shell/header/body surface while the DOM editor/body content stays intact
+    - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly
 
 - Ralph item `230` collapses the canary section header/title chrome behind one renderer-facing header contract, so `SectionContainerCoreResizable` no longer hard-codes the default `SectionHeader` implementation on the canary path.
   - Why this slice was needed:

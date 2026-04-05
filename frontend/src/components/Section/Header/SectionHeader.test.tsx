@@ -10,9 +10,11 @@ import {
   CodeLanguageEnum,
   SectionTypeEnum,
   createChatSectionImpl,
+  createCodeSectionImpl,
   createCore,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
+  createUserDefaultCodeSectionImpl,
   createVariant,
   type Core,
   type SettaLspDiagnostic,
@@ -110,28 +112,16 @@ describe("SectionHeader diagnostics badges", () => {
     isFrozen: false,
   };
 
-  const baseImpl = {
-    type: SectionTypeEnum.Code,
+  const baseImpl = createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
     id: implId,
     name: "Code",
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    tagColor: null,
-    size: { width: 500, height: 300 },
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-    isPreset: false,
     code: "print('hi')",
-    codeFileBinding: null,
     codeLanguage: CodeLanguageEnum.python,
     diagnosticsIgnoreState: {
       muted: false,
       suppressedCodes: [],
     },
-  };
+  });
 
   beforeEach(() => {
     const projectConfig = createProjectConfig({
@@ -191,10 +181,10 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows muted label when diagnostics are muted", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: {
+        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
           ...baseImpl,
           diagnosticsIgnoreState: { muted: true, suppressedCodes: [] },
-        },
+        }),
       },
     });
     syncStoreInitialState(useProjectState);
@@ -207,13 +197,13 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows suppressed count when suppressions exist", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: {
+        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
           ...baseImpl,
           diagnosticsIgnoreState: {
             muted: false,
             suppressedCodes: ["reportFoo", "reportBar"],
           },
-        },
+        }),
       },
     });
     syncStoreInitialState(useProjectState);
@@ -225,7 +215,11 @@ describe("SectionHeader diagnostics badges", () => {
 
   it("renders a color dot when a tag color is set", () => {
     useProjectState.setState((state) => {
-      state.sections[sectionId].sharedModifier = { tagColor: "#ff0000" };
+      const section = state.sections[sectionId];
+      if (!section) {
+        throw new Error(`Missing section ${sectionId}`);
+      }
+      section.sharedModifier = { tagColor: "#ff0000" };
     });
     syncStoreInitialState(useProjectState);
 
@@ -273,6 +267,46 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-tooltip-content="Lock position and size"');
     expect(markup).toContain('data-tooltip-content="Minimize section"');
     expect(markup).toContain('data-tooltip-content="Delete section"');
+  });
+
+  it("allows a custom layout renderer to own title and actions placement", () => {
+    useProjectState.setState((state) => {
+      const section = state.sections[sectionId];
+      if (!section) {
+        throw new Error(`Missing section ${sectionId}`);
+      }
+      section.sharedModifier = { tagColor: "#ff0000" };
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={true}
+        isRoot={false}
+        hasSectionStyleTheme={false}
+        showSectionContainerControls={false}
+        extraControls={<span data-testid="window-controls">window</span>}
+        layoutRenderer={({ actions, leadingControls, title }) => (
+          <div data-testid="custom-header-layout">
+            <div data-slot="leading">{leadingControls}</div>
+            <div data-slot="title">{title}</div>
+            <div data-slot="actions">{actions}</div>
+          </div>
+        )}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="custom-header-layout"');
+    expect(markup).toContain('data-slot="leading"');
+    expect(markup).toContain("Color tag: #ff0000");
+    expect(markup).toContain('data-slot="title"');
+    expect(markup).toContain(">Section<");
+    expect(markup).toContain('data-slot="actions"');
+    expect(markup).toContain('data-testid="window-controls"');
+    expect(markup).toContain("Mute diagnostics");
   });
 });
 
@@ -365,7 +399,6 @@ describe("SectionHeader follow button", () => {
     const markup = renderToStaticMarkup(
       <SectionHeader
         sectionId={sectionId}
-        isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Chat}
         isInOtherProjectConfigs={false}
         isUserView={false}
