@@ -124,30 +124,30 @@ func goJSONFieldOrder(value any) []string {
 		return nil
 	}
 	order := make([]string, 0, valueType.NumField())
-	appendGoJSONFieldOrder(valueType, &order)
-	return order
-}
-
-func appendGoJSONFieldOrder(valueType reflect.Type, order *[]string) {
-	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
-		field := valueType.Field(fieldIndex)
-		if !field.IsExported() {
-			continue
+	var appendOrder func(reflect.Type)
+	appendOrder = func(valueType reflect.Type) {
+		for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+			field := valueType.Field(fieldIndex)
+			if !field.IsExported() {
+				continue
+			}
+			if field.Anonymous {
+				appendOrder(field.Type)
+				continue
+			}
+			tag := strings.TrimSpace(field.Tag.Get("json"))
+			if tag == "" || tag == "-" {
+				continue
+			}
+			name := strings.TrimSpace(strings.Split(tag, ",")[0])
+			if name == "" {
+				continue
+			}
+			order = append(order, name)
 		}
-		if field.Anonymous {
-			appendGoJSONFieldOrder(field.Type, order)
-			continue
-		}
-		tag := strings.TrimSpace(field.Tag.Get("json"))
-		if tag == "" || tag == "-" {
-			continue
-		}
-		name := strings.TrimSpace(strings.Split(tag, ",")[0])
-		if name == "" {
-			continue
-		}
-		*order = append(*order, name)
 	}
+	appendOrder(valueType)
+	return order
 }
 
 func writeTSObjectLiteral(
@@ -197,11 +197,7 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 	case nil:
 		builder.WriteString("null")
 	case bool:
-		if typed {
-			builder.WriteString("true")
-		} else {
-			builder.WriteString("false")
-		}
+		builder.WriteString(strconv.FormatBool(typed))
 	case string:
 		builder.WriteString(strconv.Quote(typed))
 	case float64:
@@ -238,7 +234,18 @@ func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) 
 		builder.WriteString("[]")
 		return
 	}
-	if tsArrayLiteralCanInline(values) {
+	inline := true
+	for _, value := range values {
+		switch value.(type) {
+		case nil, bool, string, float64:
+		default:
+			inline = false
+		}
+		if !inline {
+			break
+		}
+	}
+	if inline {
 		builder.WriteString("[")
 		for index, value := range values {
 			if index > 0 {
@@ -259,18 +266,6 @@ func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) 
 	}
 	builder.WriteString(indent)
 	builder.WriteString("]")
-}
-
-func tsArrayLiteralCanInline(values []any) bool {
-	for _, value := range values {
-		switch value.(type) {
-		case nil, bool, string, float64:
-			continue
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func renderTSObjectKey(key string) string {
