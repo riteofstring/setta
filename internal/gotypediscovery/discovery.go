@@ -124,6 +124,8 @@ func DiscoverPackageTypesInDirWithOptions(
 
 	discovered := make([]DiscoveredType, 0, len(matches))
 	fileSet := token.NewFileSet()
+	files := make([]*ast.File, 0, len(matches))
+	localTypes := map[string]*ast.TypeSpec{}
 	for _, match := range matches {
 		if strings.HasSuffix(match, "_test.go") {
 			continue
@@ -132,6 +134,22 @@ func DiscoverPackageTypesInDirWithOptions(
 		if err != nil {
 			return nil, fmt.Errorf("parse %s: %w", match, err)
 		}
+		files = append(files, file)
+		for _, decl := range file.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok || genDecl.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok || typeSpec.Name == nil {
+					continue
+				}
+				localTypes[typeSpec.Name.Name] = typeSpec
+			}
+		}
+	}
+	for _, file := range files {
 		importPaths := importAliasPaths(file)
 		for _, decl := range file.Decls {
 			genDecl, ok := decl.(*ast.GenDecl)
@@ -148,7 +166,7 @@ func DiscoverPackageTypesInDirWithOptions(
 				if shouldSkipType(genDecl, typeSpec) {
 					continue
 				}
-				kind, ok := classifyType(typeSpec.Type, options)
+				kind, ok := classifyType(typeSpec.Type, options, localTypes, map[string]bool{})
 				if !ok {
 					continue
 				}
@@ -157,7 +175,12 @@ func DiscoverPackageTypesInDirWithOptions(
 					Kind:    kind,
 					IsAlias: typeSpec.Assign.IsValid(),
 				}
-				if targetPackagePath, targetTypeName, ok := selectorTarget(typeSpec.Type, importPaths); ok {
+				if targetPackagePath, targetTypeName, ok := selectorTarget(
+					typeSpec.Type,
+					importPaths,
+					localTypes,
+					map[string]bool{},
+				); ok {
 					entry.TargetPackagePath = targetPackagePath
 					entry.TargetTypeName = targetTypeName
 				}
@@ -324,20 +347,34 @@ func pathAlias(spec *ast.ImportSpec, importPath string) string {
 	return base
 }
 
-func selectorTarget(expr ast.Expr, importPaths map[string]string) (string, string, bool) {
-	selector, ok := expr.(*ast.SelectorExpr)
-	if !ok {
+func selectorTarget(
+	expr ast.Expr,
+	importPaths map[string]string,
+	localTypes map[string]*ast.TypeSpec,
+	resolving map[string]bool,
+) (string, string, bool) {
+	switch typed := expr.(type) {
+	case *ast.SelectorExpr:
+		packageIdent, ok := typed.X.(*ast.Ident)
+		if !ok || packageIdent == nil {
+			return "", "", false
+		}
+		importPath, ok := importPaths[packageIdent.Name]
+		if !ok || strings.TrimSpace(typed.Sel.Name) == "" {
+			return "", "", false
+		}
+		return importPath, typed.Sel.Name, true
+	case *ast.Ident:
+		typeSpec, ok := localTypes[typed.Name]
+		if !ok || resolving[typed.Name] {
+			return "", "", false
+		}
+		resolving[typed.Name] = true
+		defer delete(resolving, typed.Name)
+		return selectorTarget(typeSpec.Type, importPaths, localTypes, resolving)
+	default:
 		return "", "", false
 	}
-	packageIdent, ok := selector.X.(*ast.Ident)
-	if !ok || packageIdent == nil {
-		return "", "", false
-	}
-	importPath, ok := importPaths[packageIdent.Name]
-	if !ok || strings.TrimSpace(selector.Sel.Name) == "" {
-		return "", "", false
-	}
-	return importPath, selector.Sel.Name, true
 }
 
 func shouldSkipType(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) bool {
@@ -441,7 +478,12 @@ func evalStringConstExpr(
 	}
 }
 
-func classifyType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {
+func classifyType(
+	expr ast.Expr,
+	options DiscoverOptions,
+	localTypes map[string]*ast.TypeSpec,
+	resolving map[string]bool,
+) (TypeKind, bool) {
 	switch typed := expr.(type) {
 	case *ast.StructType:
 		if !structMatchesOptions(typed, options) {
@@ -493,7 +535,13 @@ func classifyType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {
 			}
 			return TypeKindFloat, true
 		}
-		return "", false
+		typeSpec, ok := localTypes[typed.Name]
+		if !ok || resolving[typed.Name] {
+			return "", false
+		}
+		resolving[typed.Name] = true
+		defer delete(resolving, typed.Name)
+		return classifyType(typeSpec.Type, options, localTypes, resolving)
 	default:
 		return "", false
 	}

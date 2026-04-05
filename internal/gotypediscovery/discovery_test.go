@@ -127,6 +127,30 @@ func TestDiscoverPackageTypesInDirIncludesSelectorBackedNamedTypes(t *testing.T)
 	}
 }
 
+func TestDiscoverPackageTypesInDirWithOptionsIncludesLocalNamedStructTypes(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageTypesInDirWithOptions(
+		filepath.Join("testdata", "localnamedpkg"),
+		DiscoverOptions{
+			RequireJSONTaggedStructs: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageTypesInDirWithOptions(...) error = %v", err)
+	}
+
+	want := []DiscoveredType{
+		{Name: "TaggedStruct", Kind: TypeKindStruct},
+		{Name: "TaggedNamed", Kind: TypeKindStruct},
+		{Name: "TaggedAlias", Kind: TypeKindStruct, IsAlias: true},
+		{Name: "TaggedNamedChain", Kind: TypeKindStruct},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf("DiscoverPackageTypesInDirWithOptions(...) = %#v, want %#v", discovered, want)
+	}
+}
+
 func TestDiscoverPackageZeroArgFunctionsWithPrefixInDir(t *testing.T) {
 	t.Helper()
 

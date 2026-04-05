@@ -14,7 +14,7 @@ func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
 		),
 	}
-	declarations = append(declarations, generatedContractDeclarations(converter)...)
+	declarations = append(declarations, generatedContractDeclarations()...)
 	return declarations
 }
 

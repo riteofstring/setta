@@ -6046,6 +6046,40 @@ function createSectionSizingPolicy(
   };
 }
 
+type GlobalVariablesSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
+type GenPythonCodeSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonCode;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
+type GenPythonMetadataSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonMetadata;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
 type LSPDiagnosticPosition = {
   line: number;
   character: number;
@@ -8581,40 +8615,6 @@ type JSONValue =
   | string
   | Array<JSONValue>
   | { [key: string]: JSONValue | undefined };
-
-type GlobalVariablesSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GlobalVariables;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
-
-type GenPythonCodeSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GenPythonCode;
-  children: Array<string>;
-  code: string;
-  codeLanguage: string;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
-
-type GenPythonMetadataSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.GenPythonMetadata;
-  children: Array<string>;
-  code: string;
-  codeLanguage: string;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
 
 export type BaseSectionImplUnion =
   | BaseSectionImpl

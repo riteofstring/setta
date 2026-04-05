@@ -1,6 +1,7 @@
 package frontendbindings
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -483,10 +484,12 @@ func generatedSectionImplName(t reflect.Type) (string, bool) {
 		return "", false
 	}
 	sectionName := strings.TrimSuffix(name, "SectionImpl")
-	if _, err := projectstate.FrontendSectionImplDefaultValue(sectionName); err != nil {
-		return "", false
+	for _, enumValue := range mustGeneratedEnumValues(reflect.TypeOf(projectstate.FrontendSectionType(""))) {
+		if enumValue == sectionName {
+			return sectionName, true
+		}
 	}
-	return sectionName, true
+	return "", false
 }
 
 func generatedCodeObjImplName(t reflect.Type) (string, bool) {
@@ -578,6 +581,9 @@ func generatedImplFactorySpecForType(t reflect.Type) (generatedImplFactorySpec, 
 	if sectionName, ok := generatedSectionImplName(t); ok {
 		defaultValue, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
 		if err != nil {
+			if errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported) {
+				return generatedImplFactorySpec{}, false
+			}
 			panic("load generated section impl defaults: " + err.Error())
 		}
 		return generatedImplFactorySpec{

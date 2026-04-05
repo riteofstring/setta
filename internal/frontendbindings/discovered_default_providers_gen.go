@@ -119,6 +119,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(settingsstate.FrontendSettingsState{}): func() any {
 			return settingsstate.FrontendDefaultSettingsState()
 		},
+		reflect.TypeOf(projectstate.FrontendTaskBoardTask{}): func() any {
+			return projectstate.FrontendDefaultTaskBoardTask()
+		},
 		reflect.TypeOf(artifacts.ImageArtifact{}): func() any {
 			return artifacts.FrontendDefaultImageArtifact()
 		},
@@ -214,9 +217,6 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(projectstate.TaskBoardColumn{}): func() any {
 			return projectstate.FrontendDefaultTaskBoardColumn()
-		},
-		reflect.TypeOf(projectstate.TaskBoardTask{}): func() any {
-			return projectstate.FrontendDefaultTaskBoardTask()
 		},
 		reflect.TypeOf(scriptablechat.ToolCall{}): func() any {
 			return scriptablechat.FrontendDefaultToolCall()

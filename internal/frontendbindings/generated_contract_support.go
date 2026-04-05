@@ -25,12 +25,6 @@ type generatedContractTraitSpec struct {
 	GuardInput  string
 }
 
-var generatedSectionVariantAliasTargets = map[string]string{
-	"GenPythonCode":     "Code",
-	"GenPythonMetadata": "Code",
-	"GlobalVariables":   "Dict",
-}
-
 var frontendBaseValueParamCodeObjImplType = reflect.TypeOf(projectstate.FrontendBaseValueParamCodeObjImpl{})
 var frontendParamCodeObjFieldsType = reflect.TypeOf(projectstate.FrontendParamCodeObjFields{})
 
@@ -52,45 +46,10 @@ var generatedCodeObjContractCategory = generatedContractCategorySpec{
 	},
 }
 
-func generatedContractDeclarations(converter *typeConverter) []TypeDeclaration {
-	declarations := generatedSyntheticSectionImplDeclarations(converter)
-	declarations = append(declarations, generatedSectionContractDeclarations()...)
+func generatedContractDeclarations() []TypeDeclaration {
+	declarations := generatedSectionContractDeclarations()
 	declarations = append(declarations, generatedCodeObjContractDeclarations()...)
 	return declarations
-}
-
-func generatedSyntheticSectionImplDeclarations(converter *typeConverter) []TypeDeclaration {
-	declarations := []TypeDeclaration{}
-	for _, sectionName := range mustGeneratedEnumValues(generatedSectionContractCategory.EnumType) {
-		if _, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
-			continue
-		}
-		declaration, ok := generatedSyntheticSectionImplDeclaration(converter, sectionName)
-		if !ok {
-			continue
-		}
-		declarations = append(declarations, declaration)
-	}
-	return declarations
-}
-
-func generatedSyntheticSectionImplDeclaration(
-	converter *typeConverter,
-	sectionName string,
-) (TypeDeclaration, bool) {
-	t, ok := generatedSectionAliasTargetTypeForSectionName(sectionName)
-	if !ok {
-		return TypeDeclaration{}, false
-	}
-	declarationName, ok := generatedSectionImplDeclarationNameForSectionName(sectionName)
-	if !ok {
-		return TypeDeclaration{}, false
-	}
-	declaration, err := generatedSectionImplDeclaration(converter, declarationName, t, sectionName)
-	if err != nil {
-		panic(err)
-	}
-	return declaration, true
 }
 
 func generatedSectionContractDeclarations() []TypeDeclaration {
@@ -316,28 +275,15 @@ func generatedSectionTypeSetMembers(predicate func(reflect.Type) bool) []string 
 }
 
 func generatedSectionImplDeclarationNameForSectionName(sectionName string) (string, bool) {
-	if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
-		return frontendBindingTypeName(t), true
+	t, ok := generatedSectionImplTypeForSectionName(sectionName)
+	if !ok {
+		return "", false
 	}
-	if _, ok := generatedSectionVariantAliasTargets[sectionName]; ok {
-		return normalizedFrontendBindingTypeName(sectionName) + "SectionImpl", true
-	}
-	return "", false
+	return frontendBindingTypeName(t), true
 }
 
 func generatedSectionResolvedImplTypeForSectionName(sectionName string) (reflect.Type, bool) {
-	if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
-		return t, true
-	}
-	return generatedSectionAliasTargetTypeForSectionName(sectionName)
-}
-
-func generatedSectionAliasTargetTypeForSectionName(sectionName string) (reflect.Type, bool) {
-	targetSectionName, ok := generatedSectionVariantAliasTargets[sectionName]
-	if !ok {
-		return nil, false
-	}
-	return generatedSectionImplTypeForSectionName(targetSectionName)
+	return generatedSectionImplTypeForSectionName(sectionName)
 }
 
 func generatedCodeObjImplDeclarationNameForCodeObjName(codeObjName string) (string, bool) {
