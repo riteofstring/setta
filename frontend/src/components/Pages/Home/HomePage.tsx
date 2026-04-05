@@ -9,8 +9,6 @@ import { PaneContainer } from "components/Utils/PaneContainer";
 import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { setAsDefaultProject } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";
@@ -55,11 +53,10 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import {
-  type ProjectConfig,
-  type ProjectConfigMetadata,
-} from "utils/generatedTypes";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
+import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
+
 const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
 const HOME_SELECTED_PROJECT_PANE_NAME = PaneNameEnum.homeSelectedProject;
 const HOME_MIN_PANE_WIDTH = 260;
@@ -80,8 +77,7 @@ export const HOME_SIDE_RAIL_CLASS_NAME = `${APP_CHROME_Z_INDEX_CLASS_NAME} fixed
 export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   HOME_PANE_TITLE_CLASS,
 );
-type HomeProject = ProjectConfigMetadata &
-  Partial<Pick<ProjectConfig, "previewImgColor" | "topLevelSections">>;
+
 export function shouldUseCompactHomeLayout(
   winWidth: number | undefined,
 ): boolean {
@@ -93,6 +89,7 @@ export function shouldUseCompactHomeLayout(
   }
   return false;
 }
+
 export function shouldApplyHomeFileBrowserPath({
   nextPath,
   currentRootPath,
@@ -105,19 +102,20 @@ export function shouldApplyHomeFileBrowserPath({
   }
   return nextPath !== currentRootPath;
 }
+
 export function partitionProjectsByFavoriteStatus({
   projects,
   favoriteProjectConfigIds,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   favoriteProjectConfigIds: Set<string>;
 }): {
-  favoriteProjects: Array<HomeProject>;
-  nonFavoriteProjects: Array<HomeProject>;
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
   totalProjectsCount: number;
 } {
-  const favoriteProjects: Array<HomeProject> = [];
-  const nonFavoriteProjects: Array<HomeProject> = [];
+  const favoriteProjects: Array<ProjectConfig> = [];
+  const nonFavoriteProjects: Array<ProjectConfig> = [];
   for (const project of projects) {
     if (favoriteProjectConfigIds.has(project.id)) {
       favoriteProjects.push(project);
@@ -131,6 +129,7 @@ export function partitionProjectsByFavoriteStatus({
     totalProjectsCount: projects.length,
   };
 }
+
 export function getHomeProjectConfigsSectionTitle(
   hasFavorites: boolean,
 ): string {
@@ -139,11 +138,13 @@ export function getHomeProjectConfigsSectionTitle(
   }
   return "All Projects";
 }
+
 export function shouldOpenProjectOnListRowSpace(
   selectionEnabled: boolean,
 ): boolean {
   return !selectionEnabled;
 }
+
 export function shouldShowCompactHomeSettingsButton({
   isCompactLayout,
   isDeploymentMode,
@@ -153,6 +154,7 @@ export function shouldShowCompactHomeSettingsButton({
 }): boolean {
   return isCompactLayout && !isDeploymentMode;
 }
+
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -162,6 +164,7 @@ export function HomePage() {
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
   const [hasLoadedProjectMetadata, setHasLoadedProjectMetadata] =
     useState(false);
+
   useEffect(() => {
     let isCancelled = false;
     // load manually on first load because websocket might take time to connect
@@ -177,6 +180,7 @@ export function HomePage() {
       isCancelled = true;
     };
   }, []);
+
   if (isCreatingConfig) {
     return (
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
@@ -184,6 +188,7 @@ export function HomePage() {
       </GridWrapper>
     );
   }
+
   return (
     <HomeWorkspaceLayout
       projects={projectMetadata}
@@ -194,6 +199,7 @@ export function HomePage() {
     />
   );
 }
+
 function HomeWorkspaceLayout({
   projects,
   defaultProjectConfigId,
@@ -201,7 +207,7 @@ function HomeWorkspaceLayout({
   isDeploymentMode,
   hasLoadedProjectMetadata,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
   isDeploymentMode: boolean;
@@ -232,6 +238,7 @@ function HomeWorkspaceLayout({
   );
   const { winWidth } = useWindowSize();
   const isCompactLayout = shouldUseCompactHomeLayout(winWidth);
+
   const filteredProjects = useMemo(
     () => matchSorter(projects, searchValue, { keys: ["name"] }),
     [projects, searchValue],
@@ -248,11 +255,13 @@ function HomeWorkspaceLayout({
       }),
     [filteredProjects, favoriteIdSet],
   );
+
   useEffect(() => {
     if (isDeploymentMode) {
       setSelectedProjects([]);
     }
   }, [isDeploymentMode]);
+
   useEffect(() => {
     if (!hasLoadedProjectMetadata) {
       return;
@@ -267,6 +276,7 @@ function HomeWorkspaceLayout({
       useLocalStorage.setState({ favoriteProjectConfigIds: nextFavoriteIds });
     }
   }, [hasLoadedProjectMetadata, projects]);
+
   useEffect(() => {
     const validProjectIds = new Set(projects.map((project) => project.id));
     setSelectedProjects((previousProjects) => {
@@ -282,6 +292,7 @@ function HomeWorkspaceLayout({
       return nextSelectedProjects;
     });
   }, [projects]);
+
   useEffect(() => {
     if (filteredProjects.length === 0) {
       setActiveProjectId(null);
@@ -292,6 +303,7 @@ function HomeWorkspaceLayout({
       setActiveProjectId(filteredProjects[0]?.id ?? null);
     }
   }, [activeProjectId, filteredProjects]);
+
   const selectedDetailProject = useMemo(() => {
     if (selectedProjects.length > 0) {
       const selected = filteredProjects.find(
@@ -313,10 +325,12 @@ function HomeWorkspaceLayout({
     }
     return filteredProjects[0] ?? null;
   }, [activeProjectId, filteredProjects, projects, selectedProjects]);
+
   async function handleCreateConfig() {
     setIsCreatingConfig(true);
     await createAndGoToProjectConfig();
   }
+
   function onSelectProject(projectConfigId: string) {
     setActiveProjectId(projectConfigId);
     if (!selectionEnabled) {
@@ -332,6 +346,7 @@ function HomeWorkspaceLayout({
       return [projectConfigId];
     });
   }
+
   function onToggleProjectSelection(projectConfigId: string) {
     if (!selectionEnabled) {
       return;
@@ -344,6 +359,7 @@ function HomeWorkspaceLayout({
       return [...previousProjects, projectConfigId];
     });
   }
+
   function onClickDelete() {
     openDeleteProjectWarningModal({
       selectedProjectsIdName: selectedProjects.map((s) => ({
@@ -352,20 +368,17 @@ function HomeWorkspaceLayout({
       })),
     });
   }
+
   function onEscapeClearSelectedProjects(e: React.KeyboardEvent) {
     if (e.code === "Escape") {
       setSelectedProjects([]);
     }
   }
+
   async function onSetDefaultProject(projectConfigId: string) {
-    await callOpenAPI(
-      setAsDefaultProject({
-        body: {
-          projectConfigId,
-        },
-      } as Parameters<typeof setAsDefaultProject>[0]),
-    );
+    await router_set_as_default_project({ projectConfigId });
   }
+
   const commonGalleryProps = {
     favoriteProjects,
     nonFavoriteProjects,
@@ -397,6 +410,7 @@ function HomeWorkspaceLayout({
     isCompactLayout,
     isDeploymentMode,
   });
+
   return (
     <>
       {showSidePanes && (
@@ -525,18 +539,22 @@ function HomeWorkspaceLayout({
     </>
   );
 }
+
 function getHomeRailButtonColor(isActive: boolean): string {
   if (isActive) {
     return "text-blue-500";
   }
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }
+
 function toggleHomeWorkspacePaneVisibility() {
   togglePaneVisibility(HOME_WORKSPACE_PANE_NAME);
 }
+
 function toggleHomeSelectedProjectPaneVisibility() {
   togglePaneVisibility(HOME_SELECTED_PROJECT_PANE_NAME);
 }
+
 function HomeLeftIconRail({
   workspacePaneVisible,
   isDeploymentMode,
@@ -556,7 +574,9 @@ function HomeLeftIconRail({
       <button
         type="button"
         data-testid="home-left-rail-workspace-toggle"
-        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(workspacePaneVisible)}`}
+        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
+          workspacePaneVisible,
+        )}`}
         onClick={toggleHomeWorkspacePaneVisibility}
         aria-label="Toggle workspace browser pane"
       >
@@ -567,7 +587,9 @@ function HomeLeftIconRail({
           to={SETTINGS_ROUTER_PATH}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           data-testid="home-left-rail-settings-link"
-          className={`focus-visible:ring-light-blue-500 mb-1 mt-auto inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(false)}`}
+          className={`focus-visible:ring-light-blue-500 mb-1 mt-auto inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
+            false,
+          )}`}
           aria-label="Open settings"
         >
           <IoSettingsOutline size={18} />
@@ -576,6 +598,7 @@ function HomeLeftIconRail({
     </div>
   );
 }
+
 function HomeRightIconRail({
   selectedProjectPaneVisible,
 }: {
@@ -593,7 +616,9 @@ function HomeRightIconRail({
       <button
         type="button"
         data-testid="home-right-rail-selected-project-toggle"
-        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(selectedProjectPaneVisible)}`}
+        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
+          selectedProjectPaneVisible,
+        )}`}
         onClick={toggleHomeSelectedProjectPaneVisibility}
         aria-label="Toggle selected project pane"
       >
@@ -602,6 +627,7 @@ function HomeRightIconRail({
     </div>
   );
 }
+
 function HomeFileBrowserColumn() {
   const { rootPath, pathSeparator, ignorePatterns } = useHomeFileBrowserState(
     (state) => ({
@@ -654,12 +680,14 @@ function HomeFileBrowserColumn() {
     "flex-1 min-w-0 cursor-text truncate bg-transparent pl-6 py-1 text-xs leading-4 outline-0 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
   const browserPathInputClassName =
     "setta-cm-browser-path-input flex-1 min-w-0 h-full cursor-text truncate bg-transparent outline-0 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-6 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:!leading-4 [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-200 [&_.cm-placeholder]:text-setta-300 dark:[&_.cm-placeholder]:text-setta-700 [&_.cm-content]:font-sans";
+
   useEffect(() => {
     if (!rootPath) {
       return;
     }
     setPathInput(rootPath);
   }, [rootPath]);
+
   function applyPath(nextPathValue?: string) {
     const nextPath = (nextPathValue ?? pathInput).trim();
     if (
@@ -676,6 +704,7 @@ function HomeFileBrowserColumn() {
       expandedPaths: { [nextPath]: true },
     });
   }
+
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2 [&_[data-testid='setta-initialized-folder-icon']]:text-blue-500 dark:[&_[data-testid='setta-initialized-folder-icon']]:text-blue-400">
       <div
@@ -728,7 +757,7 @@ function HomeFileBrowserColumn() {
           <button
             type="button"
             className="h-8 rounded-md border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800"
-            onClick={() => applyPath()}
+            onClick={applyPath}
           >
             Go
           </button>
@@ -748,6 +777,7 @@ function HomeFileBrowserColumn() {
     </section>
   );
 }
+
 function HomeProjectGallery({
   favoriteProjects,
   nonFavoriteProjects,
@@ -765,8 +795,8 @@ function HomeProjectGallery({
   galleryViewMode,
   fullScreenSurface = false,
 }: {
-  favoriteProjects: Array<HomeProject>;
-  nonFavoriteProjects: Array<HomeProject>;
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
   totalProjectsCount: number;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -790,6 +820,7 @@ function HomeProjectGallery({
   const galleryBodyClassName = fullScreenSurface
     ? "setta-pane-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto !px-3 py-2"
     : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1";
+
   if (totalProjectsCount === 0) {
     return (
       <section
@@ -807,7 +838,9 @@ function HomeProjectGallery({
       </section>
     );
   }
+
   const inSelectionMode = selectionEnabled && selectedProjects.length > 0;
+
   return (
     <section
       className={gallerySurfaceClassName}
@@ -936,6 +969,7 @@ function HomeProjectGallery({
     </section>
   );
 }
+
 function ProjectGallerySection({
   title,
   children,
@@ -956,6 +990,7 @@ function ProjectGallerySection({
     </section>
   );
 }
+
 function ProjectGridItems({
   projects,
   isFavoriteSection,
@@ -972,7 +1007,7 @@ function ProjectGridItems({
   compactGrid = false,
   dataTestId,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -1001,6 +1036,7 @@ function ProjectGridItems({
     gridTemplateColumns: HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS,
   };
   const showSelectionControls = selectionEnabled && selectedProjects.length > 0;
+
   return (
     <div className={gridClassName} style={gridStyle} data-testid={dataTestId}>
       {projects.map((project) => (
@@ -1024,6 +1060,7 @@ function ProjectGridItems({
     </div>
   );
 }
+
 function ProjectCard({
   project,
   isFavorite,
@@ -1039,7 +1076,7 @@ function ProjectCard({
   onToggleFavoriteProjectConfig,
   showSelectionControls,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
@@ -1066,6 +1103,7 @@ function ProjectCard({
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }
+
   return (
     <article className={itemStyles} data-testid="home-project-card">
       <ThumbnailWrapper
@@ -1099,6 +1137,7 @@ function ProjectCard({
     </article>
   );
 }
+
 function ThumbnailWrapper({
   project,
   onSelectProject,
@@ -1108,7 +1147,7 @@ function ThumbnailWrapper({
   onActivate,
   children,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   onSelectProject: (id: string) => void;
   onOpenProject: () => void;
   projectPath: string | null;
@@ -1142,6 +1181,7 @@ function ThumbnailWrapper({
     </div>
   );
 }
+
 function ThumbnailArea({
   project,
   isSelected,
@@ -1156,7 +1196,7 @@ function ThumbnailArea({
   onSetDefaultProject,
   showSelectionControls,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isSelected: boolean;
   onToggleProjectSelection: (id: string) => void;
   projectPath: string | null;
@@ -1176,6 +1216,7 @@ function ThumbnailArea({
     : hoverControlVisibilityClass;
   const iconButtonBaseClass =
     "nodrag inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2";
+
   function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
       return;
@@ -1189,14 +1230,11 @@ function ThumbnailArea({
     event.preventDefault();
     onOpenProject();
   }
+
   return (
     <ProjectConfigThumbnailSurface
-      {...(project.previewImgColor !== undefined
-        ? { previewImgColor: project.previewImgColor }
-        : {})}
-      {...(project.topLevelSections !== undefined
-        ? { topLevelSections: project.topLevelSections }
-        : {})}
+      previewImgColor={project.previewImgColor}
+      topLevelSections={project.topLevelSections}
       className="group/thumbnail absolute bottom-0 left-0 top-0"
       scalePreview={false}
       previewContainerProps={{ tabIndex: 0, onKeyDown: onThumbnailKeyDown }}
@@ -1273,6 +1311,7 @@ function ThumbnailArea({
     />
   );
 }
+
 function ProjectListItems({
   projects,
   isFavoriteSection,
@@ -1288,7 +1327,7 @@ function ProjectListItems({
   onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
-  projects: Array<HomeProject>;
+  projects: Array<ProjectConfig>;
   isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
@@ -1335,6 +1374,7 @@ function ProjectListItems({
     </div>
   );
 }
+
 function ProjectListItem({
   project,
   isFavorite,
@@ -1350,7 +1390,7 @@ function ProjectListItem({
   onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
-  project: HomeProject;
+  project: ProjectConfig;
   isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
@@ -1373,6 +1413,7 @@ function ProjectListItem({
   const inactiveClasses =
     "border-setta-200 text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-850";
   const rowCursorClass = selectionEnabled ? "cursor-default" : "cursor-pointer";
+
   function openProjectFromRow() {
     if (!projectPath) {
       return;
@@ -1381,6 +1422,7 @@ function ProjectListItem({
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   }
+
   function onRowClick(event: React.MouseEvent<HTMLDivElement>) {
     event.preventDefault();
     if (!selectionEnabled) {
@@ -1389,9 +1431,11 @@ function ProjectListItem({
     }
     onSelectProject(project.id);
   }
+
   function onRowDoubleClick() {
     openProjectFromRow();
   }
+
   function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
       return;
@@ -1411,6 +1455,7 @@ function ProjectListItem({
     }
     onSelectProject(project.id);
   }
+
   return (
     <div
       data-testid="home-project-list-row"
@@ -1481,13 +1526,14 @@ function ProjectListItem({
     </div>
   );
 }
+
 function SelectedProjectDetails({
   project,
   isDefault,
   isDeploymentMode,
   hideTitle = false,
 }: {
-  project: HomeProject | null;
+  project: ProjectConfig | null;
   isDefault: boolean;
   isDeploymentMode: boolean;
   hideTitle?: boolean;
@@ -1495,6 +1541,7 @@ function SelectedProjectDetails({
   const containerClassName = hideTitle
     ? "setta-pane-scroll flex h-full min-h-0 flex-col gap-2 text-xs text-setta-600 dark:text-setta-300"
     : "flex h-full min-h-0 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-4 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40";
+
   if (!project) {
     return (
       <aside
@@ -1512,8 +1559,9 @@ function SelectedProjectDetails({
       </aside>
     );
   }
+
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
-  const topLevelSectionCount = getProjectTopLevelSectionCount(project);
+
   return (
     <aside
       className={containerClassName}
@@ -1532,12 +1580,12 @@ function SelectedProjectDetails({
           Default:{" "}
           <span className="font-semibold">{isDefault ? "Yes" : "No"}</span>
         </p>
-        {topLevelSectionCount === null ? null : (
-          <p>
-            Sections:{" "}
-            <span className="font-semibold">{topLevelSectionCount}</span>
-          </p>
-        )}
+        <p>
+          Sections:{" "}
+          <span className="font-semibold">
+            {getProjectTopLevelSectionCount(project)}
+          </span>
+        </p>
         <p className="truncate">
           ID: <span className="font-mono text-[11px]">{project.id}</span>
         </p>
@@ -1546,7 +1594,9 @@ function SelectedProjectDetails({
         <Link
           to={projectPath}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          className={`inline-flex h-8 items-center justify-center rounded-md bg-blue-500 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-600 focus-visible:ring-2 ${hideTitle ? "mt-2" : "mt-auto"}`}
+          className={`inline-flex h-8 items-center justify-center rounded-md bg-blue-500 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-600 focus-visible:ring-2 ${
+            hideTitle ? "mt-2" : "mt-auto"
+          }`}
         >
           Open Project
         </Link>
@@ -1554,14 +1604,11 @@ function SelectedProjectDetails({
     </aside>
   );
 }
-export function getProjectTopLevelSectionCount(
-  project: Pick<HomeProject, "topLevelSections">,
-): number | null {
-  if (!project.topLevelSections) {
-    return null;
-  }
+
+export function getProjectTopLevelSectionCount(project: ProjectConfig): number {
   return Object.keys(project.topLevelSections).length;
 }
+
 function resolveProjectPath(
   projectName: string,
   isDeploymentMode: boolean,

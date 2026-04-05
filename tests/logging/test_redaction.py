@@ -2,13 +2,12 @@ import json
 from typing import Annotated
 
 from pydantic import BaseModel
-from setta.logging import context as logging_context_module
-from setta.logging.context import push_logging_context, reset_logging_context
+from setta.logging.context import (
+    get_logging_context,
+    push_logging_context,
+    reset_logging_context,
+)
 from setta.logging.redaction import REDACTED_VALUE, Sensitive
-
-
-def _current_context() -> dict[str, str]:
-    return dict(logging_context_module._LOGGING_CONTEXT_VAR.get().data)
 
 
 class TestLoggingRedaction:
@@ -23,7 +22,7 @@ class TestLoggingRedaction:
             }
         )
         try:
-            context = _current_context()
+            context = get_logging_context()
         finally:
             reset_logging_context(token)
 
@@ -36,7 +35,7 @@ class TestLoggingRedaction:
         values = [f"value-{i}" for i in range(50)]
         token = push_logging_context(values={"big_list": values})
         try:
-            context = _current_context()
+            context = get_logging_context()
         finally:
             reset_logging_context(token)
 
