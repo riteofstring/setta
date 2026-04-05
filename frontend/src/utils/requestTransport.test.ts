@@ -3,8 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useServerMode } from "state/definitions";
 import { C_ADDRESSES } from "./c_addresses";
 import { getErrorDetail } from "./endpointUtils";
-import { RouteEnum } from "./generatedTypes";
 import { get, getBinary, post } from "./requestTransport";
+import {
+  BINARY_TRANSPORT_ROUTES,
+  LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES,
+  ROOT_TRANSPORT_ROUTES,
+  SERVER_MODE_BOUNDARY_ROUTES,
+  STATUS_TRANSPORT_ROUTES,
+} from "./transportRouteConstants";
 
 describe("requestTransport URL routing", () => {
   const fetchMock = vi.fn();
@@ -38,10 +44,10 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await get(RouteEnum.GET_SETTA_HOME_INFO);
+    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.getSettaHomeInfo}`,
     );
   });
 
@@ -58,7 +64,7 @@ describe("requestTransport URL routing", () => {
       "http://launcher.example/api",
     );
 
-    await get(RouteEnum.GET_SETTA_HOME_INFO);
+    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -67,37 +73,39 @@ describe("requestTransport URL routing", () => {
   });
 
   it("routes revealPathInOsFileExplorer via backend origin", async () => {
-    await post(RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER, {
+    await post(STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer, {
       path: "/tmp/example",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER}`,
+      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.revealPathInOsFileExplorer}`,
     );
   });
 
   it("routes launcherStatus via backend origin", async () => {
-    await get(RouteEnum.GET_LAUNCHER_STATUS);
+    await get(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_LAUNCHER_STATUS}`,
+      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus}`,
     );
   });
 
   it("routes launcher repair/update/remove via backend origin", async () => {
-    await post(RouteEnum.REPAIR_LAUNCHER, {});
-    await post(RouteEnum.UPDATE_LAUNCHER, { packageSpec: "setta" });
-    await post(RouteEnum.REMOVE_LAUNCHER, {});
+    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.repairLauncher, {});
+    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.updateLauncher, {
+      packageSpec: "setta",
+    });
+    await post(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.removeLauncher, {});
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.REPAIR_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.repairLauncher}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.UPDATE_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.updateLauncher}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.REMOVE_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.removeLauncher}`,
     );
   });
 
@@ -107,26 +115,28 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES);
-    await get(RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS);
-    await post(RouteEnum.LIST_LAUNCHER_DIRECTORY, { path: null });
-    await post(RouteEnum.OPEN_LAUNCHER_WORKSPACE, {
+    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces);
+    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots);
+    await post(SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory, {
+      path: null,
+    });
+    await post(SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace, {
       workspaceRoot: "/tmp/example",
       createIfMissing: false,
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherFilesystemRoots}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.LIST_LAUNCHER_DIRECTORY}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.listLauncherDirectory}`,
     );
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.OPEN_LAUNCHER_WORKSPACE}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.openLauncherWorkspace}`,
     );
   });
 
@@ -137,10 +147,10 @@ describe("requestTransport URL routing", () => {
       modeError: null,
     });
 
-    await get(RouteEnum.GET_SETTA_HOME_INFO);
+    await get(STATUS_TRANSPORT_ROUTES.getSettaHomeInfo);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.BACKEND}${STATUS_TRANSPORT_ROUTES.getSettaHomeInfo}`,
     );
   });
 
@@ -150,11 +160,13 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+      workspaceRoot: "/tmp/workspace",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
     );
   });
 
@@ -164,11 +176,13 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+      workspaceRoot: "/tmp/workspace",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.LAUNCH}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
     );
   });
 
@@ -178,11 +192,13 @@ describe("requestTransport URL routing", () => {
       modeResolved: false,
       modeError: null,
     });
-    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+    await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
+      workspaceRoot: "/tmp/workspace",
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
     );
   });
 
@@ -192,14 +208,14 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+    await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
       launchRequest: { workspaceRoot: "/tmp/workspace" },
       returnUrl: "http://localhost/home",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
     );
   });
 
@@ -209,14 +225,14 @@ describe("requestTransport URL routing", () => {
       modeResolved: true,
       modeError: null,
     });
-    await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+    await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
       launchRequest: { workspaceRoot: "/tmp/workspace" },
       returnUrl: "http://localhost/home",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
     );
   });
 
@@ -228,10 +244,10 @@ describe("requestTransport URL routing", () => {
         modeResolved: true,
         modeError: null,
       });
-      await post(RouteEnum.LAUNCH, {
+      await post(SERVER_MODE_BOUNDARY_ROUTES.launch, {
         launchIntentToken: "intent-token",
       });
-      await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+      await post(SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent, {
         launchRequest: { workspaceRoot: "/tmp/workspace" },
         returnUrl: "http://localhost/home",
       });
@@ -239,27 +255,27 @@ describe("requestTransport URL routing", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.LAUNCH}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.launch}`,
     );
     expect(fetchMock.mock.calls[3]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+      `${C_ADDRESSES.BACKEND}${SERVER_MODE_BOUNDARY_ROUTES.createWorkspaceLaunchIntent}`,
     );
   });
 
   it("serializes launcher recent-workspaces query params", async () => {
-    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
+    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces, {
       setta_home: "/tmp/setta-home",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}?setta_home=%2Ftmp%2Fsetta-home`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}?setta_home=%2Ftmp%2Fsetta-home`,
     );
   });
 
@@ -274,7 +290,7 @@ describe("requestTransport URL routing", () => {
       "http://backend-origin.example",
     );
 
-    await get(RouteEnum.GET_LAUNCHER_STATUS, {
+    await get(LAUNCHER_MANAGEMENT_TRANSPORT_ROUTES.getLauncherStatus, {
       setta_home: "/tmp/scoped-home",
     });
 
@@ -285,32 +301,32 @@ describe("requestTransport URL routing", () => {
   });
 
   it("omits null query params during URL construction", async () => {
-    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
+    await get(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces, {
       setta_home: null,
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}`,
+      `${C_ADDRESSES.LAUNCHER}${SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces}`,
     );
   });
 
   it("routes tools call via backend origin without /api prefix", async () => {
-    await post(RouteEnum.TOOLS_CALL, {
+    await post(ROOT_TRANSPORT_ROUTES.toolsCall, {
       tool: "list_mcp_tools",
       arguments: {},
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.TOOLS_CALL}`,
+      `${C_ADDRESSES.BACKEND_ORIGIN}${ROOT_TRANSPORT_ROUTES.toolsCall}`,
     );
   });
 
   it("keeps binary upload on backend origin", async () => {
-    await post(RouteEnum.BINARY_UPLOAD, new FormData());
+    await post(BINARY_TRANSPORT_ROUTES.upload, new FormData());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.BINARY_UPLOAD}`,
+      `${C_ADDRESSES.BACKEND}${BINARY_TRANSPORT_ROUTES.upload}`,
     );
   });
 
@@ -322,7 +338,7 @@ describe("requestTransport URL routing", () => {
       }),
     );
 
-    const result = await getBinary(RouteEnum.BINARY_DOWNLOAD, {
+    const result = await getBinary(BINARY_TRANSPORT_ROUTES.download, {
       contentId: "abc123",
     });
 
@@ -339,7 +355,7 @@ describe("requestTransport URL routing", () => {
       }),
     );
 
-    const result = await getBinary(RouteEnum.BINARY_DOWNLOAD, {
+    const result = await getBinary(BINARY_TRANSPORT_ROUTES.download, {
       contentId: "missing",
     });
 

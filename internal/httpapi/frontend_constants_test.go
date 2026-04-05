@@ -51,3 +51,47 @@ func TestFrontendValueCUsesAuthoritativeRuntimeValues(t *testing.T) {
 		t.Fatalf("unexpected terminal resize message: got %q want %q", got.WSTerminalResize, wsapi.TerminalMessageTypeResize)
 	}
 }
+
+func TestFrontendValueTransportRouteConstantsUsesAuthoritativeRouteConstants(t *testing.T) {
+	got := FrontendValueTransportRouteConstants()
+
+	if got.APIPrefix != RouteAPIPrefix {
+		t.Fatalf("unexpected api prefix: got %q want %q", got.APIPrefix, RouteAPIPrefix)
+	}
+	if got.Root.BootstrapPage != RouteBootstrapPage {
+		t.Fatalf("unexpected bootstrap route: got %q want %q", got.Root.BootstrapPage, RouteBootstrapPage)
+	}
+	if got.Root.ToolsCall != RouteMCPToolCall {
+		t.Fatalf("unexpected tools call route: got %q want %q", got.Root.ToolsCall, RouteMCPToolCall)
+	}
+	if got.Binary.Upload != RouteBinaryUpload {
+		t.Fatalf("unexpected binary upload route: got %q want %q", got.Binary.Upload, RouteBinaryUpload)
+	}
+	if got.Binary.Download != RouteBinaryDownload {
+		t.Fatalf("unexpected binary download route: got %q want %q", got.Binary.Download, RouteBinaryDownload)
+	}
+	if got.Websocket.Frontend != wsapi.RouteFrontend {
+		t.Fatalf("unexpected frontend websocket route: got %q want %q", got.Websocket.Frontend, wsapi.RouteFrontend)
+	}
+	if got.Websocket.ListenerByID != wsapi.RouteListenerByID {
+		t.Fatalf("unexpected listener websocket route: got %q want %q", got.Websocket.ListenerByID, wsapi.RouteListenerByID)
+	}
+	if got.Websocket.TerminalBySection != wsapi.RouteTerminalBySection {
+		t.Fatalf("unexpected terminal websocket route: got %q want %q", got.Websocket.TerminalBySection, wsapi.RouteTerminalBySection)
+	}
+	if got.ServerModeBoundary.Launch != RouteLaunch {
+		t.Fatalf("unexpected launch route: got %q want %q", got.ServerModeBoundary.Launch, RouteLaunch)
+	}
+	if got.Status.RevealPathInOSFileExplorer != RouteRevealPathInOSFileExplorer {
+		t.Fatalf("unexpected reveal-path route: got %q want %q", got.Status.RevealPathInOSFileExplorer, RouteRevealPathInOSFileExplorer)
+	}
+	if got.LauncherManagement.GetLauncherStatus != RouteGetLauncherStatus {
+		t.Fatalf("unexpected launcher-status route: got %q want %q", got.LauncherManagement.GetLauncherStatus, RouteGetLauncherStatus)
+	}
+	if got.FileBrowser.GetFileBrowserRoot != RouteGetFileBrowserRoot {
+		t.Fatalf("unexpected file-browser root route: got %q want %q", got.FileBrowser.GetFileBrowserRoot, RouteGetFileBrowserRoot)
+	}
+	if got.SettaAPIPresets.CreateTopLevelSection != RouteCreateTopLevelSection {
+		t.Fatalf("unexpected create-top-level-section route: got %q want %q", got.SettaAPIPresets.CreateTopLevelSection, RouteCreateTopLevelSection)
+	}
+}

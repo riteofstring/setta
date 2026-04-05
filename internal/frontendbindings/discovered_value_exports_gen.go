@@ -75,5 +75,12 @@ func DiscoveredFrontendValueExports() []frontendValueExport {
 				return httpapi.FrontendValueToolNameNormalizationConfig()
 			},
 		},
+		{
+			Name: "TransportRouteConstants",
+			Type: reflect.TypeOf(httpapi.FrontendValueTransportRouteConstants()),
+			Value: func() any {
+				return httpapi.FrontendValueTransportRouteConstants()
+			},
+		},
 	}
 }

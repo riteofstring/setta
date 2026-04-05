@@ -8,13 +8,13 @@ import {
   EndpointOriginEnum,
   EndpointOriginPolicyByRoute,
   ModeScopedLauncherRoutesList,
-  RouteEnum,
   ServerModeBoundaryPolicyByMode,
   WorkspaceLaunchRouteKindEnum,
   type EndpointOrigin as GeneratedEndpointOrigin,
   type ServerModeCapabilities as GeneratedServerModeCapabilities,
   type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
 } from "./generatedTypes";
+import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
 export type ServerMode = HttpapiServerModeResponse["mode"] | null;
 export type EndpointOrigin = GeneratedEndpointOrigin;
@@ -24,13 +24,17 @@ export type ServerModeCapabilities = GeneratedServerModeCapabilities;
 
 export const ENDPOINT_ORIGIN_POLICY = EndpointOriginPolicyByRoute;
 
+const NULL_SERVER_MODE_CAPABILITIES: ServerModeCapabilities = {
+  canManageDesktopLauncher: false,
+};
+
 export function resolveServerModeCapabilities(
   mode: ServerMode,
 ): ServerModeCapabilities {
   return resolveGeneratedServerModeCapabilities(
     ServerModeBoundaryPolicyByMode,
     mode,
-    { canManageDesktopLauncher: false },
+    NULL_SERVER_MODE_CAPABILITIES,
   );
 }
 
@@ -49,7 +53,7 @@ export function resolveEndpointOriginForMode(
   serverMode: ServerMode,
 ): EndpointOrigin {
   return resolveGeneratedEndpointOriginForMode(address, serverMode, {
-    bootstrapPage: RouteEnum.BOOTSTRAP_PAGE,
+    bootstrapPage: ROOT_TRANSPORT_ROUTES.bootstrapPage,
     launcherMode: "launcher",
     endpointOriginPolicy: EndpointOriginPolicyByRoute,
     modeScopedLauncherRoutes: new Set<string>(ModeScopedLauncherRoutesList),

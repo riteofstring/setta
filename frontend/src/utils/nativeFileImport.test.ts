@@ -3,9 +3,13 @@ import type {
   FilebrowserRootResponse,
   FilebrowserWriteFileContentResponse,
 } from "openapi/http";
-import { GoHTTPRoutes, GoRoutePrefixes } from "utils/generatedRoutes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
+import {
+  API_ROUTE_PREFIX,
+  BINARY_TRANSPORT_ROUTES,
+  FILE_BROWSER_TRANSPORT_ROUTES,
+} from "./transportRouteConstants";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -23,7 +27,7 @@ function resolveFetchURL(input: unknown): string {
 
 function matchesGoHTTPRoute(input: unknown, routePath: string): boolean {
   const url = new URL(resolveFetchURL(input), "http://setta.test");
-  return url.pathname === `${GoRoutePrefixes.api}${routePath}`;
+  return url.pathname === `${API_ROUTE_PREFIX}${routePath}`;
 }
 
 async function getRequestJSONBody(
@@ -112,7 +116,12 @@ describe("importNativeFileToWorkspace", () => {
     let writePayload: Record<string, unknown> | null = null;
     let writeCallCount = 0;
     fetchMock.mockImplementation(async (input, init) => {
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+        )
+      ) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -121,10 +130,15 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+        )
+      ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
         await getRequestFormData(input, init);
         return jsonResponse({
           contentId: "content-abc",
@@ -133,7 +147,12 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+        )
+      ) {
         writeCallCount += 1;
         writePayload = await getRequestJSONBody(input, init);
         return jsonResponse(
@@ -167,7 +186,12 @@ describe("importNativeFileToWorkspace", () => {
   it("returns upload errors without writing file content", async () => {
     let writeCalled = false;
     fetchMock.mockImplementation(async (input) => {
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+        )
+      ) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -176,13 +200,23 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+        )
+      ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
         return jsonResponse({ detail: "Upload denied." }, 400);
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+        )
+      ) {
         writeCalled = true;
         return jsonResponse({ detail: "unexpected" }, 500);
       }
@@ -202,7 +236,12 @@ describe("importNativeFileToWorkspace", () => {
   it("resolves write conflicts with a suffixed file name", async () => {
     const writePayloads: Array<Record<string, unknown>> = [];
     fetchMock.mockImplementation(async (input, init) => {
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+        )
+      ) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -211,7 +250,12 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+        )
+      ) {
         return jsonResponse(
           buildFolderContentsResponse("/workspace", [
             createFolderContentItem({
@@ -222,7 +266,7 @@ describe("importNativeFileToWorkspace", () => {
           ]),
         );
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -230,7 +274,12 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+        )
+      ) {
         const payload = await getRequestJSONBody(input, init);
         writePayloads.push(payload);
         if (writePayloads.length === 1) {
@@ -273,7 +322,12 @@ describe("importNativeFileToWorkspace", () => {
   it("keeps retrying write conflicts beyond three attempts", async () => {
     const writePayloads: Array<Record<string, unknown>> = [];
     fetchMock.mockImplementation(async (input, init) => {
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFileBrowserRoot)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFileBrowserRoot,
+        )
+      ) {
         return jsonResponse(
           createRootResponse({
             rootPath: "/workspace",
@@ -282,10 +336,15 @@ describe("importNativeFileToWorkspace", () => {
           }),
         );
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.getFolderContents)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.getFolderContents,
+        )
+      ) {
         return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.binaryUpload)) {
+      if (matchesGoHTTPRoute(input, BINARY_TRANSPORT_ROUTES.upload)) {
         return jsonResponse({
           contentId: "content-abc",
           byteLength: 11,
@@ -293,7 +352,12 @@ describe("importNativeFileToWorkspace", () => {
           sha256: null,
         });
       }
-      if (matchesGoHTTPRoute(input, GoHTTPRoutes.writeFileBrowserFileContent)) {
+      if (
+        matchesGoHTTPRoute(
+          input,
+          FILE_BROWSER_TRANSPORT_ROUTES.writeFileBrowserContent,
+        )
+      ) {
         const payload = await getRequestJSONBody(input, init);
         writePayloads.push(payload);
         if (writePayloads.length <= 5) {

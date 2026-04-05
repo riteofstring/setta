@@ -3,6 +3,7 @@ package httpapi
 import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
+	"setta/internal/wsapi"
 )
 
 const frontendAskUserQuestionToolName = "AskUserQuestion"
@@ -42,6 +43,71 @@ type FrontendToolNameNormalization struct {
 	SinglePrefix            string `json:"singlePrefix"`
 	DoublePrefix            string `json:"doublePrefix"`
 	AskUserQuestionToolName string `json:"askUserQuestionToolName"`
+}
+
+type FrontendRootTransportRoutes struct {
+	BootstrapPage string `json:"bootstrapPage"`
+	ToolsCall     string `json:"toolsCall"`
+}
+
+type FrontendBinaryTransportRoutes struct {
+	Upload   string `json:"upload"`
+	Download string `json:"download"`
+}
+
+type FrontendWebsocketTransportRoutes struct {
+	Frontend          string `json:"frontend"`
+	ListenerByID      string `json:"listenerById"`
+	TerminalBySection string `json:"terminalBySection"`
+}
+
+type FrontendServerModeBoundaryRoutes struct {
+	Launch                        string `json:"launch"`
+	CreateWorkspaceLaunchIntent   string `json:"createWorkspaceLaunchIntent"`
+	GetSettaHomeInfo              string `json:"getSettaHomeInfo"`
+	GetLauncherRecentWorkspaces   string `json:"getLauncherRecentWorkspaces"`
+	AddLauncherRecentWorkspace    string `json:"addLauncherRecentWorkspace"`
+	RemoveLauncherRecentWorkspace string `json:"removeLauncherRecentWorkspace"`
+	PinLauncherRecentWorkspace    string `json:"pinLauncherRecentWorkspace"`
+	GetLauncherFilesystemRoots    string `json:"getLauncherFilesystemRoots"`
+	ListLauncherDirectory         string `json:"listLauncherDirectory"`
+	OpenLauncherWorkspace         string `json:"openLauncherWorkspace"`
+}
+
+type FrontendStatusTransportRoutes struct {
+	GetSettaHomeInfo           string `json:"getSettaHomeInfo"`
+	RevealPathInOSFileExplorer string `json:"revealPathInOsFileExplorer"`
+}
+
+type FrontendLauncherManagementTransportRoutes struct {
+	GetLauncherStatus string `json:"getLauncherStatus"`
+	RepairLauncher    string `json:"repairLauncher"`
+	UpdateLauncher    string `json:"updateLauncher"`
+	RemoveLauncher    string `json:"removeLauncher"`
+}
+
+type FrontendFileBrowserTransportRoutes struct {
+	GetFileBrowserRoot      string `json:"getFileBrowserRoot"`
+	GetFolderContents       string `json:"getFolderContents"`
+	WriteFileBrowserContent string `json:"writeFileBrowserContent"`
+}
+
+type FrontendSettaAPIPresetRoutes struct {
+	CreateTopLevelSection string `json:"createTopLevelSection"`
+	GetLatestProjectState string `json:"getLatestProjectState"`
+	SaveProject           string `json:"saveProject"`
+}
+
+type FrontendTransportRoutes struct {
+	APIPrefix          string                                    `json:"apiPrefix"`
+	Root               FrontendRootTransportRoutes               `json:"root"`
+	Binary             FrontendBinaryTransportRoutes             `json:"binary"`
+	Websocket          FrontendWebsocketTransportRoutes          `json:"websocket"`
+	ServerModeBoundary FrontendServerModeBoundaryRoutes          `json:"serverModeBoundary"`
+	Status             FrontendStatusTransportRoutes             `json:"status"`
+	LauncherManagement FrontendLauncherManagementTransportRoutes `json:"launcherManagement"`
+	FileBrowser        FrontendFileBrowserTransportRoutes        `json:"fileBrowser"`
+	SettaAPIPresets    FrontendSettaAPIPresetRoutes              `json:"settaApiPresets"`
 }
 
 func FrontendValueBootstrapProtocol() FrontendBootstrapHandoffProtocol {
@@ -105,5 +171,56 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 		SinglePrefix:            mcpx.DefaultServerID + "_",
 		DoublePrefix:            mcpx.DefaultServerID + mcpx.ToolNameSeparator,
 		AskUserQuestionToolName: frontendAskUserQuestionToolName,
+	}
+}
+
+func FrontendValueTransportRouteConstants() FrontendTransportRoutes {
+	return FrontendTransportRoutes{
+		APIPrefix: RouteAPIPrefix,
+		Root: FrontendRootTransportRoutes{
+			BootstrapPage: RouteBootstrapPage,
+			ToolsCall:     RouteMCPToolCall,
+		},
+		Binary: FrontendBinaryTransportRoutes{
+			Upload:   RouteBinaryUpload,
+			Download: RouteBinaryDownload,
+		},
+		Websocket: FrontendWebsocketTransportRoutes{
+			Frontend:          wsapi.RouteFrontend,
+			ListenerByID:      wsapi.RouteListenerByID,
+			TerminalBySection: wsapi.RouteTerminalBySection,
+		},
+		ServerModeBoundary: FrontendServerModeBoundaryRoutes{
+			Launch:                        RouteLaunch,
+			CreateWorkspaceLaunchIntent:   RouteCreateWorkspaceLaunchIntent,
+			GetSettaHomeInfo:              RouteGetSettaHomeInfo,
+			GetLauncherRecentWorkspaces:   RouteGetLauncherRecentWorkspaces,
+			AddLauncherRecentWorkspace:    RouteAddLauncherRecentWorkspace,
+			RemoveLauncherRecentWorkspace: RouteRemoveLauncherRecentWorkspace,
+			PinLauncherRecentWorkspace:    RoutePinLauncherRecentWorkspace,
+			GetLauncherFilesystemRoots:    RouteGetLauncherFilesystemRoots,
+			ListLauncherDirectory:         RouteListLauncherDirectory,
+			OpenLauncherWorkspace:         RouteOpenLauncherWorkspace,
+		},
+		Status: FrontendStatusTransportRoutes{
+			GetSettaHomeInfo:           RouteGetSettaHomeInfo,
+			RevealPathInOSFileExplorer: RouteRevealPathInOSFileExplorer,
+		},
+		LauncherManagement: FrontendLauncherManagementTransportRoutes{
+			GetLauncherStatus: RouteGetLauncherStatus,
+			RepairLauncher:    RouteRepairLauncher,
+			UpdateLauncher:    RouteUpdateLauncher,
+			RemoveLauncher:    RouteRemoveLauncher,
+		},
+		FileBrowser: FrontendFileBrowserTransportRoutes{
+			GetFileBrowserRoot:      RouteGetFileBrowserRoot,
+			GetFolderContents:       RouteGetFolderContents,
+			WriteFileBrowserContent: RouteWriteFileBrowserContent,
+		},
+		SettaAPIPresets: FrontendSettaAPIPresetRoutes{
+			CreateTopLevelSection: RouteCreateTopLevelSection,
+			GetLatestProjectState: RouteGetLatestProjectState,
+			SaveProject:           RouteSaveProject,
+		},
 	}
 }

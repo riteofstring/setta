@@ -10,37 +10,12 @@ import (
 	"text/template"
 )
 
-//go:embed templates/routes.ts.tmpl
-var routesTemplateText string
-
 //go:embed templates/types.ts.tmpl
 var typesTemplateText string
 
 // setta-go-type-discovery: skip
 type GeneratedBindings struct {
-	RoutesTS string
-	TypesTS  string
-}
-
-type endpointPathParamRenderData struct {
-	Name     string
-	TypeExpr string
-}
-
-type routeEnumEntry struct {
-	EnumName string
-	Path     string
-}
-
-type routeHelperRenderData struct {
-	Name             string
-	FunctionParams   []endpointPathParamRenderData
-	ReturnExpression string
-}
-
-type routeHelperGroupRenderData struct {
-	ConstName string
-	Helpers   []routeHelperRenderData
+	TypesTS string
 }
 
 type emittedSymbol struct {
@@ -49,7 +24,6 @@ type emittedSymbol struct {
 }
 
 var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
-var routePathParamPattern = regexp.MustCompile(`\{([^}]+)\}`)
 
 var tsReservedBindingKeywords = map[string]struct{}{
 	"break": {}, "case": {}, "catch": {}, "class": {}, "const": {}, "continue": {},
@@ -62,32 +36,9 @@ var tsReservedBindingKeywords = map[string]struct{}{
 	"protected": {}, "public": {}, "static": {}, "yield": {},
 }
 
-var generatedRoutesReservedValueSymbols = map[string]string{
-	"RouteEnum":                       "generated routes export",
-	"replaceGeneratedRoutePathParams": "generated routes helper function",
-}
-
 func Build() (GeneratedBindings, error) {
-	return buildBindings(
-		CurrentRouteGroups(),
-		CurrentAdditionalTypeRoots(),
-	)
-}
-
-func buildBindings(
-	routeGroups []RouteGroup,
-	extraTypes []reflect.Type,
-) (GeneratedBindings, error) {
-	if _, err := buildRouteCollectionLookup(routeGroups); err != nil {
-		return GeneratedBindings{}, err
-	}
-
 	converter := newTypeConverter()
-	renderRouteHelpers, err := renderRouteHelperGroups(routeGroups)
-	if err != nil {
-		return GeneratedBindings{}, err
-	}
-	for _, extraType := range extraTypes {
+	for _, extraType := range CurrentAdditionalTypeRoots() {
 		if err := converter.AddRootType(extraType); err != nil {
 			return GeneratedBindings{}, err
 		}
@@ -99,15 +50,6 @@ func buildBindings(
 		return GeneratedBindings{}, err
 	}
 
-	routesTS, err := renderTemplate(routesTemplateText, map[string]any{
-		"RouteGroups":       routeGroups,
-		"RouteHelperGroups": renderRouteHelpers,
-		"RouteEnumEntries":  flattenRouteEnumEntries(routeGroups),
-	})
-	if err != nil {
-		return GeneratedBindings{}, err
-	}
-
 	typesTS, err := renderTemplate(typesTemplateText, map[string]any{
 		"Declarations": declarations,
 	})
@@ -116,71 +58,8 @@ func buildBindings(
 	}
 
 	return GeneratedBindings{
-		RoutesTS: routesTS,
-		TypesTS:  typesTS,
+		TypesTS: typesTS,
 	}, nil
-}
-
-func renderAddressParamsExpr(names []string) string {
-	if len(names) == 0 {
-		return ""
-	}
-	return "{ " + strings.Join(names, ", ") + " }"
-}
-
-func renderRouteHelperGroups(routeGroups []RouteGroup) ([]routeHelperGroupRenderData, error) {
-	helperGroups := make([]routeHelperGroupRenderData, 0, len(routeGroups))
-	for _, group := range routeGroups {
-		if strings.TrimSpace(group.HelperConstName) == "" {
-			continue
-		}
-
-		helpers := make([]routeHelperRenderData, 0, len(group.Routes))
-		for _, route := range group.Routes {
-			paramNames := routePathParamNames(route.Path)
-			if group.HelperOnlyPathParams && len(paramNames) == 0 {
-				continue
-			}
-			functionParams := make([]endpointPathParamRenderData, 0, len(paramNames))
-			for _, paramName := range paramNames {
-				if err := validateTSBindingIdentifier(
-					fmt.Sprintf("route helper %s.%s path param", group.HelperConstName, route.Name),
-					paramName,
-				); err != nil {
-					return nil, err
-				}
-				functionParams = append(functionParams, endpointPathParamRenderData{
-					Name:     paramName,
-					TypeExpr: "string",
-				})
-			}
-
-			returnExpression := group.ConstName + "." + route.Name
-			if len(paramNames) > 0 {
-				returnExpression = fmt.Sprintf(
-					"replaceGeneratedRoutePathParams(%s.%s, %s)",
-					group.ConstName,
-					route.Name,
-					renderAddressParamsExpr(paramNames),
-				)
-			}
-
-			helpers = append(helpers, routeHelperRenderData{
-				Name:             route.Name,
-				FunctionParams:   functionParams,
-				ReturnExpression: returnExpression,
-			})
-		}
-		if len(helpers) == 0 {
-			continue
-		}
-
-		helperGroups = append(helperGroups, routeHelperGroupRenderData{
-			ConstName: group.HelperConstName,
-			Helpers:   helpers,
-		})
-	}
-	return helperGroups, nil
 }
 
 func validateTypeDeclarations(declarations []TypeDeclaration) error {
@@ -413,126 +292,6 @@ func validateTSObjectLiteralPropertyName(context string, name string) error {
 		return fmt.Errorf("%s cannot be %q in generated object literals", context, name)
 	}
 	return nil
-}
-
-func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]string, error) {
-	collections := make(map[string]map[string]string, len(routeGroups))
-	exportedValueSymbols := make(map[string]string, len(generatedRoutesReservedValueSymbols)+len(routeGroups)*2)
-	for symbol, origin := range generatedRoutesReservedValueSymbols {
-		exportedValueSymbols[symbol] = origin
-	}
-	enumNames := make(map[string]string)
-	for _, group := range routeGroups {
-		if group.ConstName == "" {
-			return nil, fmt.Errorf("route group has empty const name")
-		}
-		if err := validateTSBindingIdentifier(
-			fmt.Sprintf("route group %q const name", group.ConstName),
-			group.ConstName,
-		); err != nil {
-			return nil, err
-		}
-		if previousOrigin, exists := exportedValueSymbols[group.ConstName]; exists {
-			return nil, fmt.Errorf(
-				"route group %q const name conflicts with %s %q",
-				group.ConstName,
-				previousOrigin,
-				group.ConstName,
-			)
-		}
-		exportedValueSymbols[group.ConstName] = "generated routes export"
-		if _, exists := collections[group.ConstName]; exists {
-			return nil, fmt.Errorf("duplicate route group %q", group.ConstName)
-		}
-		if group.HelperConstName != "" {
-			if err := validateTSBindingIdentifier(
-				fmt.Sprintf("route group %q helper const name", group.ConstName),
-				group.HelperConstName,
-			); err != nil {
-				return nil, err
-			}
-			if previousOrigin, exists := exportedValueSymbols[group.HelperConstName]; exists {
-				return nil, fmt.Errorf(
-					"route group %q helper const name conflicts with %s %q",
-					group.ConstName,
-					previousOrigin,
-					group.HelperConstName,
-				)
-			}
-			exportedValueSymbols[group.HelperConstName] = "generated routes export"
-		}
-		routes := make(map[string]string, len(group.Routes))
-		for _, route := range group.Routes {
-			if route.Name == "" {
-				return nil, fmt.Errorf("route group %q contains an empty route name", group.ConstName)
-			}
-			if err := validateTSObjectLiteralPropertyName(
-				fmt.Sprintf("route group %q contains route %q", group.ConstName, route.Name),
-				route.Name,
-			); err != nil {
-				return nil, err
-			}
-			if _, exists := routes[route.Name]; exists {
-				return nil, fmt.Errorf("route group %q contains duplicate route %q", group.ConstName, route.Name)
-			}
-			if route.Path == "" {
-				return nil, fmt.Errorf("route group %q route %q has empty path", group.ConstName, route.Name)
-			}
-			if route.EnumName != "" {
-				if err := validateTSObjectLiteralPropertyName(
-					fmt.Sprintf(
-						"route group %q route %q enum name %q",
-						group.ConstName,
-						route.Name,
-						route.EnumName,
-					),
-					route.EnumName,
-				); err != nil {
-					return nil, err
-				}
-				if previousPath, exists := enumNames[route.EnumName]; exists {
-					return nil, fmt.Errorf(
-						"duplicate route enum %q for paths %q and %q",
-						route.EnumName,
-						previousPath,
-						route.Path,
-					)
-				}
-				enumNames[route.EnumName] = route.Path
-			}
-			routes[route.Name] = route.Path
-		}
-		collections[group.ConstName] = routes
-	}
-	return collections, nil
-}
-
-func routePathParamNames(routePath string) []string {
-	matches := routePathParamPattern.FindAllStringSubmatch(routePath, -1)
-	names := make([]string, 0, len(matches))
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
-		}
-		names = append(names, match[1])
-	}
-	return names
-}
-
-func flattenRouteEnumEntries(routeGroups []RouteGroup) []routeEnumEntry {
-	entries := make([]routeEnumEntry, 0)
-	for _, group := range routeGroups {
-		for _, route := range group.Routes {
-			if route.EnumName == "" {
-				continue
-			}
-			entries = append(entries, routeEnumEntry{
-				EnumName: route.EnumName,
-				Path:     route.Path,
-			})
-		}
-	}
-	return entries
 }
 
 func frontendTypeName(t reflect.Type) string {

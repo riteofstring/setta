@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useServerMode } from "state/definitions";
-import {
-  GoHTTPRouteHelpers,
-  GoRootRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
 import { C_ADDRESSES } from "./c_addresses";
+import {
+  ROOT_TRANSPORT_ROUTES,
+  SERVER_MODE_BOUNDARY_ROUTES,
+  WEBSOCKET_TRANSPORT_ROUTES,
+} from "./transportRouteConstants";
 import {
   buildBackendOriginWebsocketURL,
   buildBackendURL,
@@ -29,7 +29,7 @@ describe("transportUrlCore", () => {
     });
 
     const url = new URL(
-      buildBackendURL(GoHTTPRouteHelpers.getLauncherRecentWorkspaces()),
+      buildBackendURL(SERVER_MODE_BOUNDARY_ROUTES.getLauncherRecentWorkspaces),
     );
 
     expect(url.origin).toBe(new URL(C_ADDRESSES.LAUNCHER).origin);
@@ -38,18 +38,18 @@ describe("transportUrlCore", () => {
 
   it("routes backend-origin websocket URLs without the /api prefix", () => {
     const websocketUrl = new URL(
-      buildBackendOriginWebsocketURL(GoWebsocketRouteHelpers.frontend(), {
+      buildBackendOriginWebsocketURL(WEBSOCKET_TRANSPORT_ROUTES.frontend, {
         shareSessionId: "share-session-a",
       }),
     );
     const bootstrapUrl = new URL(
-      buildBackendURL(GoRootRouteHelpers.toolsCall()),
+      buildBackendURL(ROOT_TRANSPORT_ROUTES.toolsCall),
     );
 
-    expect(websocketUrl.pathname).toBe(GoWebsocketRouteHelpers.frontend());
+    expect(websocketUrl.pathname).toBe(WEBSOCKET_TRANSPORT_ROUTES.frontend);
     expect(websocketUrl.searchParams.get("shareSessionId")).toBe(
       "share-session-a",
     );
-    expect(bootstrapUrl.pathname).toBe(GoRootRouteHelpers.toolsCall());
+    expect(bootstrapUrl.pathname).toBe(ROOT_TRANSPORT_ROUTES.toolsCall);
   });
 });

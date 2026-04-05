@@ -2,12 +2,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
   ButtonActionModeEnum,
   HTTPRequestMethodEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { SETTA_API_PRESET_ROUTES } from "utils/transportRouteConstants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MetaControlArea } from "./MetaControlArea";
 const mocked = vi.hoisted(() => ({
@@ -158,7 +158,7 @@ describe("MetaControlArea Setta API button actions", () => {
   });
   it("merges preset defaults before posting Setta API actions", async () => {
     mocked.currentButtonConfig.requestUrl =
-      GoHTTPRouteHelpers.createTopLevelSection();
+      SETTA_API_PRESET_ROUTES.createTopLevelSection;
     mocked.currentButtonConfig.requestBody = "";
     const { host, root } = await renderMetaControlArea();
     try {
@@ -172,7 +172,7 @@ describe("MetaControlArea Setta API button actions", () => {
         actionButton.click();
       });
       expect(mocked.post).toHaveBeenCalledWith(
-        GoHTTPRouteHelpers.createTopLevelSection(),
+        SETTA_API_PRESET_ROUTES.createTopLevelSection,
         {
           projectConfigId: "project-alpha",
           implType: SectionTypeEnum.TextBlock,

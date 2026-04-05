@@ -7,10 +7,6 @@ import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import {
-  GoRootRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
-import {
   ConnectionTypeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -22,23 +18,30 @@ import {
   createProjectConfig,
   createProjectConfigDiagnostics,
 } from "utils/generatedTypes";
+import {
+  ROOT_TRANSPORT_ROUTES,
+  WEBSOCKET_TRANSPORT_ROUTES,
+} from "utils/transportRouteConstants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   routeGetAuthRefreshStatusMock,
   getAgentRunsMock,
   getListenerCoverageMock,
+  getLatestProjectStateMock,
   getLatestLspDiagnosticsMock,
   uploadBinaryMock,
 } = vi.hoisted(() => ({
   routeGetAuthRefreshStatusMock: vi.fn(),
   getAgentRunsMock: vi.fn(),
   getListenerCoverageMock: vi.fn(),
+  getLatestProjectStateMock: vi.fn(),
   getLatestLspDiagnosticsMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
 vi.mock("openapi/http", () => ({
   getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
   getAgentRuns: getAgentRunsMock,
+  getLatestProjectState: getLatestProjectStateMock,
   getLatestLspDiagnostics: getLatestLspDiagnosticsMock,
   getListenerCoverage: getListenerCoverageMock,
   uploadBinary: uploadBinaryMock,
@@ -47,9 +50,6 @@ vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
-}));
-vi.mock("openapi/http", () => ({
-  getLatestProjectState: vi.fn(),
 }));
 vi.mock("state/actions/lspDiagnostics", () => ({
   processLspDiagnostics: vi.fn(),
@@ -203,7 +203,7 @@ function findRevealResultPayload(
   return matchingPayload?.content;
 }
 describe("openWebSocket", () => {
-  const expectedFrontendWebsocketPath = GoWebsocketRouteHelpers.frontend();
+  const expectedFrontendWebsocketPath = WEBSOCKET_TRANSPORT_ROUTES.frontend;
   beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
@@ -292,7 +292,9 @@ describe("openWebSocket", () => {
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     expect(getLatestProjectState).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
+      body: {
+        projectConfigId: "project-1",
+      },
     });
     expect(requestAIFollowSnapshot).toHaveBeenCalledWith("project-1");
     expect(getLatestLspDiagnostics).toHaveBeenCalledWith({
@@ -1415,7 +1417,7 @@ describe("openWebSocket", () => {
     vi.mocked(addTemporaryNotification).mockClear();
     await socket.emit("close", { code: 4401 });
     expect(addTemporaryNotification).toHaveBeenCalledWith(
-      `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()} to continue.`,
+      `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${ROOT_TRANSPORT_ROUTES.bootstrapPage} to continue.`,
     );
   });
 });
