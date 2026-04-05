@@ -4,6 +4,7 @@ package frontendbindings
 
 import (
 	"reflect"
+	agenticsummarycache "setta/internal/agenticsummarycache"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
 	artifacts "setta/internal/artifacts"
@@ -80,14 +81,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginInstallHistoryEntry{}),
 		reflect.TypeOf(plugins.PluginInstallMetadataEntry{}),
 		reflect.TypeOf(plugins.PluginInstallMetadataFile{}),
-		reflect.TypeOf(AgenticSummaryCacheStatus{}),
-		reflect.TypeOf(BackgroundVariant("")),
-		reflect.TypeOf(SelectionMode("")),
-		reflect.TypeOf(PanOnScrollMode("")),
-		reflect.TypeOf(MetaControlSizeMode("")),
-		reflect.TypeOf(SectionSizeMode("")),
-		reflect.TypeOf(AgenticEdgeKind("")),
-		reflect.TypeOf(AgenticEdgeContextMode("")),
 		reflect.TypeOf(WebsocketMsgTypeForFrontend("")),
 		reflect.TypeOf(agentprofiles.Profile{}),
 		reflect.TypeOf(agentruns.EngineType("")),
@@ -157,6 +150,10 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.DeleteSelectedParamsResult{}),
 		reflect.TypeOf(projectstate.DrawAreaLayerItemType("")),
 		reflect.TypeOf(projectstate.DrawAreaLayerItem{}),
+		reflect.TypeOf(projectstate.MetaControlSizeMode("")),
+		reflect.TypeOf(projectstate.SectionSizeMode("")),
+		reflect.TypeOf(projectstate.AgenticEdgeKind("")),
+		reflect.TypeOf(projectstate.AgenticEdgeContextMode("")),
 		reflect.TypeOf(projectstate.FrontendSectionType("")),
 		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
 		reflect.TypeOf(projectstate.FrontendConfigLanguage("")),
@@ -295,6 +292,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.WatchCodeCallableKind("")),
 		reflect.TypeOf(projectstate.WatchCodeFolder{}),
 		reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}),
+		reflect.TypeOf(agenticsummarycache.AgenticSummaryCacheStatus{}),
 		reflect.TypeOf(artifacts.CanvasPoint{}),
 		reflect.TypeOf(artifacts.DrawAreaTransform{}),
 		reflect.TypeOf(artifacts.DrawAreaBrushShape("")),
@@ -355,6 +353,9 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(settingsstate.FrontendSettingsGUI{}),
 		reflect.TypeOf(settingsstate.FrontendSettingsBackend{}),
 		reflect.TypeOf(settingsstate.FrontendSettingsState{}),
+		reflect.TypeOf(settingsstate.BackgroundVariant("")),
+		reflect.TypeOf(settingsstate.SelectionMode("")),
+		reflect.TypeOf(settingsstate.PanOnScrollMode("")),
 		reflect.TypeOf((*settingsstate.RenameRefactorMode)(nil)).Elem(),
 		reflect.TypeOf(scriptablechat.ChatRole("")),
 		reflect.TypeOf(scriptablechat.ChatFileAttachment{}),

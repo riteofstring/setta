@@ -849,20 +849,20 @@ func normalizeAgenticEdgeForUpdate(edge AgenticEdge) (AgenticEdge, error) {
 	return normalized, nil
 }
 
-func normalizeAgenticEdgeKind(value string) (string, error) {
-	switch trimmed := strings.TrimSpace(value); trimmed {
-	case "chat_chat", "section_chat", "chat_section":
+func normalizeAgenticEdgeKind(value AgenticEdgeKind) (AgenticEdgeKind, error) {
+	switch trimmed := AgenticEdgeKind(strings.TrimSpace(string(value))); trimmed {
+	case AgenticEdgeKindChatChat, AgenticEdgeKindSectionChat, AgenticEdgeKindChatSection:
 		return trimmed, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrAgenticEdgeKindInvalid, trimmed)
 	}
 }
 
-func normalizeAgenticEdgeContextMode(value string) (string, error) {
-	switch trimmed := strings.TrimSpace(value); trimmed {
-	case "", "reference_only":
-		return "reference_only", nil
-	case "inline_text", "summary":
+func normalizeAgenticEdgeContextMode(value AgenticEdgeContextMode) (AgenticEdgeContextMode, error) {
+	switch trimmed := AgenticEdgeContextMode(strings.TrimSpace(string(value))); trimmed {
+	case "", AgenticEdgeContextModeReferenceOnly:
+		return AgenticEdgeContextModeReferenceOnly, nil
+	case AgenticEdgeContextModeInlineText, AgenticEdgeContextModeSummary:
 		return trimmed, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrAgenticEdgeContextModeInvalid, trimmed)

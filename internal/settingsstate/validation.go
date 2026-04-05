@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"setta/internal/projectstate"
 )
 
 type ValidationError struct {
@@ -151,18 +153,18 @@ func allowedValuesForPath(path string) []string {
 	case "settings.backend.runSnapshotMode":
 		return []string{"ephemeral", "always", "never"}
 	case "settings.gui.gridPattern":
-		return []string{"lines", "dots", "cross"}
+		return BackgroundVariantValues()
 	case "settings.gui.panOnScrollMode":
-		return []string{"free", "vertical", "horizontal"}
+		return PanOnScrollModeValues()
 	case "settings.gui.selectionMode":
-		return []string{"partial", "full"}
+		return SelectionModeValues()
 	case "settings.stateMachineGateSectionDefault.gateType":
 		return []string{"AND", "OR", "XOR"}
 	}
 
 	if strings.HasPrefix(path, "settings.sectionSizingPolicy.metaControlByType.") &&
 		(strings.HasSuffix(path, ".sizeModeHeight") || strings.HasSuffix(path, ".sizeModeWidth")) {
-		return []string{"any", "auto_only", "manual_only"}
+		return projectstate.MetaControlSizeModeValues()
 	}
 
 	return nil

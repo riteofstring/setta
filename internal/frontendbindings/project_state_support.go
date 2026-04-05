@@ -4,30 +4,6 @@ import (
 	"setta/internal/deployments"
 )
 
-type AgenticSummaryCacheStatus struct {
-	MaxSummariesPerRun     int      `json:"maxSummariesPerRun"`
-	SummarySectionIDs      []string `json:"summarySectionIds"`
-	CachedSectionIDs       []string `json:"cachedSectionIds"`
-	MissingSectionIDs      []string `json:"missingSectionIds"`
-	EmptySourceSectionIDs  []string `json:"emptySourceSectionIds"`
-	ConsideredSectionIDs   []string `json:"consideredSectionIds"`
-	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
-}
-
-type BackgroundVariant string
-
-type SelectionMode string
-
-type PanOnScrollMode string
-
-type MetaControlSizeMode string
-
-type SectionSizeMode string
-
-type AgenticEdgeKind string
-
-type AgenticEdgeContextMode string
-
 type generatedTypeSetSpec struct {
 	Name     string
 	TypeExpr string

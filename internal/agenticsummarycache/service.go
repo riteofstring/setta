@@ -42,7 +42,7 @@ var (
 	ErrChatSectionNotFound    = errors.New("chat section not found in project")
 )
 
-type Status struct {
+type AgenticSummaryCacheStatus struct {
 	MaxSummariesPerRun     int      `json:"maxSummariesPerRun"`
 	SummarySectionIDs      []string `json:"summarySectionIds"`
 	CachedSectionIDs       []string `json:"cachedSectionIds"`
@@ -76,8 +76,8 @@ func (s *Service) Path() string {
 	return s.path
 }
 
-func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID string) (Status, error) {
-	status := Status{
+func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID string) (AgenticSummaryCacheStatus, error) {
+	status := AgenticSummaryCacheStatus{
 		MaxSummariesPerRun:     MaxSummariesPerRun,
 		SummarySectionIDs:      []string{},
 		CachedSectionIDs:       []string{},
@@ -106,14 +106,14 @@ func (s *Service) BuildStatusForChat(project projectstate.Project, chatSectionID
 
 	entries, err := s.readEntries()
 	if err != nil {
-		return Status{}, err
+		return AgenticSummaryCacheStatus{}, err
 	}
 
 	emptyBySectionID := make(map[string]bool, len(summarySectionIDs))
 	for _, sectionID := range summarySectionIDs {
 		source, err := buildSectionSummarySource(project, sectionID)
 		if err != nil {
-			return Status{}, err
+			return AgenticSummaryCacheStatus{}, err
 		}
 
 		isEmptySource := strings.TrimSpace(source.RawText) == ""
@@ -387,13 +387,13 @@ func resolveSummarySectionIDs(project projectstate.Project, chatSectionID string
 	seen := map[string]struct{}{}
 	sectionIDs := make([]string, 0)
 	for _, edge := range edges {
-		if strings.TrimSpace(edge.Kind) != chatSectionEdgeKind {
+		if strings.TrimSpace(string(edge.Kind)) != chatSectionEdgeKind {
 			continue
 		}
 		if strings.TrimSpace(edge.SourceSectionID) != chatSectionID {
 			continue
 		}
-		if strings.TrimSpace(edge.ContextMode) != summaryContextMode {
+		if strings.TrimSpace(string(edge.ContextMode)) != summaryContextMode {
 			continue
 		}
 		targetSectionID := strings.TrimSpace(edge.TargetSectionID)

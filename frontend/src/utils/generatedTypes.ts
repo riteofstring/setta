@@ -357,62 +357,6 @@ export type PluginRestartResponse = {
   reason: string | null;
 };
 
-export type AgenticSummaryCacheStatus = {
-  maxSummariesPerRun: number;
-  summarySectionIds: Array<string>;
-  cachedSectionIds: Array<string>;
-  missingSectionIds: Array<string>;
-  emptySourceSectionIds: Array<string>;
-  consideredSectionIds: Array<string>;
-  wouldAttemptSectionIds: Array<string>;
-};
-export function createAgenticSummaryCacheStatus(
-  options: Partial<AgenticSummaryCacheStatus> = {},
-): AgenticSummaryCacheStatus {
-  return options as AgenticSummaryCacheStatus;
-}
-
-export const BackgroundVariantEnum = {
-  lines: "lines",
-  dots: "dots",
-  cross: "cross",
-} as const;
-type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
-
-export const SelectionModeEnum = {
-  partial: "partial",
-  full: "full",
-} as const;
-type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
-
-export const PanOnScrollModeEnum = {
-  free: "free",
-  vertical: "vertical",
-  horizontal: "horizontal",
-} as const;
-type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
-
-const MetaControlSizeModeEnum = {
-  any: "any",
-  auto_only: "auto_only",
-  manual_only: "manual_only",
-} as const;
-type MetaControlSizeMode = ObjectValues<typeof MetaControlSizeModeEnum>;
-
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   FrontendIdentity: "FrontendIdentity",
@@ -986,6 +930,32 @@ export function createDrawAreaLayerItem(
   );
 }
 
+const MetaControlSizeModeEnum = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
+} as const;
+type MetaControlSizeMode = ObjectValues<typeof MetaControlSizeModeEnum>;
+
+const SectionSizeModeEnum = {
+  auto: "auto",
+} as const;
+type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
+
 export const SectionTypeEnum = {
   Callable: "Callable",
   Dict: "Dict",
@@ -1184,6 +1154,43 @@ export type CodeFileBinding = {
   autoBinding: boolean;
 };
 
+type SectionSizeValue = number | SectionSizeMode;
+
+export type SectionSize = {
+  width: SectionSizeValue;
+  height: SectionSizeValue;
+};
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
+  return options as SectionSize;
+}
+
+type EdgePort = {
+  id: string;
+  accessor: string;
+};
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
+
 type BaseSectionImpl = {
   type: SectionType;
   id: string;
@@ -1245,11 +1252,6 @@ type BaseSectionImpl = {
   data?: Record<string, unknown>;
   schemaVersion?: number | null;
   imagePath?: string;
-};
-
-type EdgePort = {
-  id: string;
-  accessor: string;
 };
 
 export type ChatSectionImpl = BaseSectionImpl &
@@ -1451,6 +1453,19 @@ export function createStateMachineStartSectionImpl(
   );
 }
 
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<
+  typeof StateMachineGateTypeEnum
+>;
+
+type StateMachineGateUIState = {
+  showDetails?: boolean;
+};
+
 type StateMachineGateSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.StateMachineGate;
   machineGroupId: string;
@@ -1511,6 +1526,11 @@ export function createTextBlockSectionImpl(
     resolved.overrides,
   );
 }
+
+export const PromptFormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
 
 export type PromptSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Prompt;
@@ -1727,6 +1747,66 @@ export function createDictSectionImpl(
       jsonSourceMissing: false,
     },
     overrides,
+  );
+}
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return mergeGeneratedOptions<TaskBoardColumn>(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return mergeGeneratedOptions<TaskBoardTask>(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: "none",
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
   );
 }
 
@@ -2864,7 +2944,7 @@ export type AgenticEdge = {
   sourceSectionId: string;
   targetSectionId: string;
   kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
+  contextMode?: AgenticEdgeContextMode;
   style?: Record<string, unknown>;
   hidden?: boolean;
   zIndex?: number;
@@ -2879,11 +2959,8 @@ export function createAgenticEdge(
       sourceSectionId: "",
       targetSectionId: "",
       kind: "section_chat",
-      contextMode: null,
+      contextMode: "reference_only",
       style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
     },
     options,
   );
@@ -3153,74 +3230,6 @@ export type ProjectMetadataEntry = {
   id: string;
 };
 
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = ObjectValues<
-  typeof SpreadsheetGridDensityEnum
->;
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
-};
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  return mergeGeneratedOptions<TaskBoardColumn>(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
-};
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  return mergeGeneratedOptions<TaskBoardTask>(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: "none",
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
 export type CreateNewSectionVariantResult = {
   variantId: string;
 };
@@ -3231,15 +3240,6 @@ export const RenameRefactorModeEnum = {
   NEVER_RENAME: "NEVER_RENAME",
 } as const;
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<
-  typeof StateMachineGateTypeEnum
->;
 
 const StateMachineTargetActionTypeEnum = {
   send_prompt: "send_prompt",
@@ -3276,10 +3276,6 @@ export const StateMachineCountOperatorEnum = {
 export type StateMachineCountOperator = ObjectValues<
   typeof StateMachineCountOperatorEnum
 >;
-
-type StateMachineGateUIState = {
-  showDetails?: boolean;
-};
 
 type StateMachineSourceFilter = {
   type?: StateMachineSourceFilterType;
@@ -3323,18 +3319,6 @@ type StateMachineEdge = {
   selected?: boolean;
 };
 
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
 export type CreateTopLevelSectionResult = {
   sectionId: string;
   metaControlParamId?: string | null;
@@ -3355,6 +3339,21 @@ type WatchCodeRegistryEntry = {
   sectionIds?: Array<string>;
   sectionsCount?: number;
 };
+
+export type AgenticSummaryCacheStatus = {
+  maxSummariesPerRun: number;
+  summarySectionIds: Array<string>;
+  cachedSectionIds: Array<string>;
+  missingSectionIds: Array<string>;
+  emptySourceSectionIds: Array<string>;
+  consideredSectionIds: Array<string>;
+  wouldAttemptSectionIds: Array<string>;
+};
+export function createAgenticSummaryCacheStatus(
+  options: Partial<AgenticSummaryCacheStatus> = {},
+): AgenticSummaryCacheStatus {
+  return options as AgenticSummaryCacheStatus;
+}
 
 export type CanvasPoint = [number, number];
 
@@ -4448,11 +4447,6 @@ export function createSingleConfig(
   );
 }
 
-export const PromptFormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
-
 export type PromptTemplate = {
   id: string;
   name: string;
@@ -4603,6 +4597,26 @@ function createSettingsShortcuts(
     options,
   );
 }
+
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
+
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
+
+export const SelectionModeEnum = {
+  partial: "partial",
+  full: "full",
+} as const;
+type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
 
 type SettingsGUI = {
   snapGrid: [number, number];

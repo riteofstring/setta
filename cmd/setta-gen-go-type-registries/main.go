@@ -134,6 +134,12 @@ func main() {
 					IncludeNonStringScalars:  true,
 				},
 				{
+					PkgPath:                  "setta/internal/agenticsummarycache",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
 					PkgPath:                  "setta/internal/artifacts",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,

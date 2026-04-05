@@ -322,21 +322,12 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"snapGrid":               "[number, number]",
-			"gridPattern":            "BackgroundVariant",
-			"panOnScrollMode":        "PanOnScrollMode",
-			"selectionMode":          "SelectionMode",
 			"sectionTagColorChoices": "Array<ColorPickerChoice>",
 		},
 	},
 	reflect.TypeOf(settingsstate.FrontendSettingsBackend{}): {
 		CreateExprOverrides: map[string]string{
 			"defaultTerminalShell": "null",
-		},
-	},
-	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyTypeEntry{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"sizeModeHeight": "MetaControlSizeMode",
-			"sizeModeWidth":  "MetaControlSizeMode",
 		},
 	},
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}): {
@@ -419,9 +410,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	},
 	reflect.TypeOf(projectstate.AgenticEdge{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"kind":        "AgenticEdgeKind",
-			"contextMode": "AgenticEdgeContextMode | null",
-			"style":       "Record<string, unknown>",
+			"style": "Record<string, unknown>",
 		},
 	},
 	reflect.TypeOf(projectstate.SectionSize{}): {

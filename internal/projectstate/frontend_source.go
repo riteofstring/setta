@@ -88,15 +88,15 @@ type Edge struct {
 }
 
 type AgenticEdge struct {
-	ID              string  `json:"id"`
-	SourceSectionID string  `json:"sourceSectionId"`
-	TargetSectionID string  `json:"targetSectionId"`
-	Kind            string  `json:"kind"`
-	ContextMode     string  `json:"contextMode,omitempty"`
-	Style           RawJSON `json:"style,omitempty"`
-	Hidden          bool    `json:"hidden,omitempty"`
-	ZIndex          int     `json:"zIndex,omitempty"`
-	Selected        bool    `json:"selected,omitempty"`
+	ID              string                 `json:"id"`
+	SourceSectionID string                 `json:"sourceSectionId"`
+	TargetSectionID string                 `json:"targetSectionId"`
+	Kind            AgenticEdgeKind        `json:"kind"`
+	ContextMode     AgenticEdgeContextMode `json:"contextMode,omitempty"`
+	Style           RawJSON                `json:"style,omitempty"`
+	Hidden          bool                   `json:"hidden,omitempty"`
+	ZIndex          int                    `json:"zIndex,omitempty"`
+	Selected        bool                   `json:"selected,omitempty"`
 }
 
 type CodeObject struct {

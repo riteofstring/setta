@@ -102,7 +102,6 @@ func Build() (GeneratedBindings, error) {
 		CurrentRouteGroups(),
 		CurrentEndpoints(),
 		CurrentAdditionalTypeRoots(),
-		CurrentAdditionalDeclarations(),
 	)
 }
 
@@ -110,7 +109,6 @@ func buildBindings(
 	routeGroups []RouteGroup,
 	endpointSpecs []EndpointSpec,
 	extraTypes []reflect.Type,
-	extraDeclarations []TypeDeclaration,
 ) (GeneratedBindings, error) {
 	if err := validateEndpointSpecs(routeGroups, endpointSpecs); err != nil {
 		return GeneratedBindings{}, err
@@ -161,6 +159,7 @@ func buildBindings(
 		})
 	}
 
+	extraDeclarations := CurrentAdditionalDeclarations(converter)
 	declarations := append(converter.Declarations(), extraDeclarations...)
 	if err := validateTypeDeclarations(declarations); err != nil {
 		return GeneratedBindings{}, err

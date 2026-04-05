@@ -14,10 +14,10 @@ type FrontendSectionSizingPolicyCallableTypeEntry struct {
 }
 
 type FrontendMetaControlSizingPolicyTypeEntry struct {
-	MinHeight      float64 `json:"minHeight"`
-	MinWidth       float64 `json:"minWidth"`
-	SizeModeHeight string  `json:"sizeModeHeight"`
-	SizeModeWidth  string  `json:"sizeModeWidth"`
+	MinHeight      float64             `json:"minHeight"`
+	MinWidth       float64             `json:"minWidth"`
+	SizeModeHeight MetaControlSizeMode `json:"sizeModeHeight"`
+	SizeModeWidth  MetaControlSizeMode `json:"sizeModeWidth"`
 }
 
 type FrontendMetaControlSizingPolicyByType struct {
@@ -83,21 +83,21 @@ type FrontendSectionSizingPolicy struct {
 
 func FrontendDefaultMetaControlSizingPolicyByType() FrontendMetaControlSizingPolicyByType {
 	return FrontendMetaControlSizingPolicyByType{
-		ButtonParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		CodeCallable:     frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		CodeParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		ColorPickerParam: frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		DateParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		DropdownParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "auto_only", "any"),
-		DropzoneParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(120, 240, "any", "any"),
-		NestedParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		PasswordParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "auto_only", "any"),
-		RotaryParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		SliderParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "auto_only", "any"),
-		SwitchParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		TextAreaParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(80, 200, "any", "any"),
-		TextParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
-		TimeParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, "any", "any"),
+		ButtonParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		CodeCallable:     frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		CodeParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		ColorPickerParam: frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		DateParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		DropdownParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAutoOnly, MetaControlSizeModeAny),
+		DropzoneParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(120, 240, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		NestedParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		PasswordParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAutoOnly, MetaControlSizeModeAny),
+		RotaryParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		SliderParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAutoOnly, MetaControlSizeModeAny),
+		SwitchParam:      frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		TextAreaParam:    frontendDefaultMetaControlSizingPolicyTypeEntry(80, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		TextParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
+		TimeParam:        frontendDefaultMetaControlSizingPolicyTypeEntry(32, 200, MetaControlSizeModeAny, MetaControlSizeModeAny),
 	}
 }
 
@@ -158,8 +158,8 @@ func FrontendDefaultSectionSizingPolicy() FrontendSectionSizingPolicy {
 func frontendDefaultMetaControlSizingPolicyTypeEntry(
 	minHeight float64,
 	minWidth float64,
-	sizeModeHeight string,
-	sizeModeWidth string,
+	sizeModeHeight MetaControlSizeMode,
+	sizeModeWidth MetaControlSizeMode,
 ) FrontendMetaControlSizingPolicyTypeEntry {
 	return FrontendMetaControlSizingPolicyTypeEntry{
 		MinHeight:      minHeight,

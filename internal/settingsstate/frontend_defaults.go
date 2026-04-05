@@ -80,7 +80,7 @@ type FrontendSettingsShortcuts struct {
 type FrontendSettingsGUI struct {
 	SnapGrid               [2]float64                  `json:"snapGrid"`
 	ShowGridLines          bool                        `json:"showGridLines"`
-	GridPattern            string                      `json:"gridPattern"`
+	GridPattern            BackgroundVariant           `json:"gridPattern"`
 	GridPatternSize        float64                     `json:"gridPatternSize"`
 	GridColor              string                      `json:"gridColor"`
 	GridColorDarkMode      string                      `json:"gridColorDarkMode"`
@@ -92,11 +92,11 @@ type FrontendSettingsGUI struct {
 	PanOnDrag              bool                        `json:"panOnDrag"`
 	PanOnScroll            bool                        `json:"panOnScroll"`
 	PanOnScrollSpeed       float64                     `json:"panOnScrollSpeed"`
-	PanOnScrollMode        string                      `json:"panOnScrollMode"`
+	PanOnScrollMode        PanOnScrollMode             `json:"panOnScrollMode"`
 	ZoomOnScroll           bool                        `json:"zoomOnScroll"`
 	ZoomOnPinch            bool                        `json:"zoomOnPinch"`
 	ZoomOnDoubleClick      bool                        `json:"zoomOnDoubleClick"`
-	SelectionMode          string                      `json:"selectionMode"`
+	SelectionMode          SelectionMode               `json:"selectionMode"`
 	LeftSidePaneShiftsMap  bool                        `json:"leftSidePaneShiftsMap"`
 	TransitionDuration     float64                     `json:"transitionDuration"`
 	SectionTagColorChoices []FrontendColorPickerChoice `json:"sectionTagColorChoices"`

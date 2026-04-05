@@ -34,25 +34,6 @@ var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
 		"markdown",
 		"plaintext",
 	),
-	reflect.TypeOf(BackgroundVariant("")): frontendBindingFixedEnumValues("lines", "dots", "cross"),
-	reflect.TypeOf(SelectionMode("")):     frontendBindingFixedEnumValues("partial", "full"),
-	reflect.TypeOf(PanOnScrollMode("")):   frontendBindingFixedEnumValues("free", "vertical", "horizontal"),
-	reflect.TypeOf(MetaControlSizeMode("")): frontendBindingFixedEnumValues(
-		"any",
-		"auto_only",
-		"manual_only",
-	),
-	reflect.TypeOf(SectionSizeMode("")): frontendBindingFixedEnumValues("auto"),
-	reflect.TypeOf(AgenticEdgeKind("")): frontendBindingFixedEnumValues(
-		"chat_chat",
-		"section_chat",
-		"chat_section",
-	),
-	reflect.TypeOf(AgenticEdgeContextMode("")): frontendBindingFixedEnumValues(
-		"reference_only",
-		"inline_text",
-		"summary",
-	),
 }
 
 var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{

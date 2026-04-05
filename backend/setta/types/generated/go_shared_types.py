@@ -62,6 +62,18 @@ class DrawAreaLayerItemType(str, Enum):
     BrushStroke = "BrushStroke"
 
 
+class AgenticEdgeKind(str, Enum):
+    chat_chat = "chat_chat"
+    section_chat = "section_chat"
+    chat_section = "chat_section"
+
+
+class AgenticEdgeContextMode(str, Enum):
+    reference_only = "reference_only"
+    inline_text = "inline_text"
+    summary = "summary"
+
+
 class SectionType(str, Enum):
     Callable = "Callable"
     Dict = "Dict"
@@ -447,8 +459,8 @@ class AgenticEdge(SettaSharedTypeModel):
     id: str
     sourceSectionId: str
     targetSectionId: str
-    kind: str
-    contextMode: str | None = None
+    kind: AgenticEdgeKind
+    contextMode: AgenticEdgeContextMode | None = None
     style: Any | None = None
     hidden: bool | None = None
     zIndex: int | None = None

@@ -34,7 +34,7 @@ func TestRegisterAgenticSummaryCacheRoutesReturnsStatus(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	var status agenticsummarycache.Status
+	var status agenticsummarycache.AgenticSummaryCacheStatus
 	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil {
 		t.Fatalf("decode status: %v", err)
 	}

@@ -35,10 +35,10 @@ func CurrentRouteGroups() []RouteGroup {
 	return discoveredCurrentRouteGroups()
 }
 
-func CurrentAdditionalDeclarations() []TypeDeclaration {
+func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations := []TypeDeclaration{}
-	declarations = append(declarations, typeMetadataDeclarations()...)
-	declarations = append(declarations, mustGeneratedUserDefaultDeclarations()...)
+	declarations = append(declarations, typeMetadataDeclarations(converter)...)
+	declarations = append(declarations, mustGeneratedUserDefaultDeclarations(converter)...)
 	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, appGenerationSupportDeclarations()...)
 	declarations = append(declarations, nameValidationSupportDeclarations()...)

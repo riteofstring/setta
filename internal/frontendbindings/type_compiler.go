@@ -46,7 +46,7 @@ func (c *typeConverter) Declarations() []TypeDeclaration {
 }
 
 func (c *typeConverter) appendAdditionalDeclarationsForType(t reflect.Type) error {
-	extras, ok := additionalDeclarationsForType(t)
+	extras, ok := additionalDeclarationsForType(c, t)
 	if !ok {
 		return nil
 	}

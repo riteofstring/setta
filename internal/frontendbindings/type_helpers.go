@@ -430,7 +430,7 @@ func specialTypeDeclaration(
 	if declaration, ok, err := artifactTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}
-	if declaration, ok := specialMetadataTypeDeclaration(t); ok {
+	if declaration, ok := specialMetadataTypeDeclaration(converter, t); ok {
 		if err := ensureSpecialDeclarationDependencies(converter, t); err != nil {
 			return TypeDeclaration{}, false, err
 		}
@@ -466,17 +466,17 @@ func ensureSpecialDeclarationDependencies(converter *typeConverter, t reflect.Ty
 	return nil
 }
 
-func mustGeneratedUserDefaultDeclarations() []TypeDeclaration {
+func mustGeneratedUserDefaultDeclarations(converter *typeConverter) []TypeDeclaration {
 	sectionNames := generatedUserDefaultSectionNames()
 	declarations := make([]TypeDeclaration, 0, len(sectionNames)+1)
 	for _, sectionName := range sectionNames {
-		declaration, err := generatedUserDefaultSectionDeclaration(sectionName)
+		declaration, err := generatedUserDefaultSectionDeclaration(converter, sectionName)
 		if err != nil {
 			panic("load generated user default section declaration: " + err.Error())
 		}
 		declarations = append(declarations, declaration)
 	}
-	declaration, err := generatedUserDefaultCodeParamCodeObjDeclaration()
+	declaration, err := generatedUserDefaultCodeParamCodeObjDeclaration(converter)
 	if err != nil {
 		panic("load generated code param user default declaration: " + err.Error())
 	}
@@ -484,8 +484,8 @@ func mustGeneratedUserDefaultDeclarations() []TypeDeclaration {
 	return declarations
 }
 
-func generatedUserDefaultCodeParamCodeObjDeclaration() (TypeDeclaration, error) {
-	properties, err := generatedUserDefaultCodeParamCodeObjProperties()
+func generatedUserDefaultCodeParamCodeObjDeclaration(converter *typeConverter) (TypeDeclaration, error) {
+	properties, err := generatedUserDefaultCodeParamCodeObjProperties(converter)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -496,8 +496,11 @@ func generatedUserDefaultCodeParamCodeObjDeclaration() (TypeDeclaration, error) 
 	), nil
 }
 
-func generatedUserDefaultSectionDeclaration(sectionName string) (TypeDeclaration, error) {
-	properties, err := generatedUserDefaultSectionProperties(sectionName)
+func generatedUserDefaultSectionDeclaration(
+	converter *typeConverter,
+	sectionName string,
+) (TypeDeclaration, error) {
+	properties, err := generatedUserDefaultSectionProperties(converter, sectionName)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -524,12 +527,15 @@ func generatedUserDefaultSectionNames() []string {
 	return names
 }
 
-func generatedUserDefaultSectionProperties(sectionName string) ([]TypeProperty, error) {
+func generatedUserDefaultSectionProperties(
+	converter *typeConverter,
+	sectionName string,
+) ([]TypeProperty, error) {
 	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName)
 	if err != nil {
 		return nil, err
 	}
-	registry, propertyOrder, ignored, err := generatedUserDefaultSectionPropertyRegistry(sectionName)
+	registry, propertyOrder, ignored, err := generatedUserDefaultSectionPropertyRegistry(converter, sectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +596,10 @@ func generatedUserDefaultSectionPropertySkipped(
 	return skip
 }
 
-func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
+func generatedUserDefaultSectionPropertyRegistry(
+	converter *typeConverter,
+	sectionName string,
+) (
 	map[string]TypeProperty,
 	[]string,
 	map[string]struct{},
@@ -601,12 +610,13 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 		return nil, nil, nil, fmt.Errorf("unsupported generated user default section: %s", sectionName)
 	}
 	baseProperties, err := generatedUserDefaultReflectedProperties(
+		converter,
 		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
 	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	properties, err := generatedUserDefaultReflectedProperties(implType)
+	properties, err := generatedUserDefaultReflectedProperties(converter, implType)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -641,8 +651,10 @@ func appendUniqueGeneratedUserDefaultSectionProperties(
 	}
 }
 
-func generatedUserDefaultReflectedProperties(t reflect.Type) ([]TypeProperty, error) {
-	converter := newTypeConverter()
+func generatedUserDefaultReflectedProperties(
+	converter *typeConverter,
+	t reflect.Type,
+) ([]TypeProperty, error) {
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
 		spec.DefaultValue = nil
 		spec.HasCreateExpr = false
@@ -657,9 +669,9 @@ func generatedUserDefaultReflectedProperties(t reflect.Type) ([]TypeProperty, er
 	return converter.structProperties(t, nil, nil, nil)
 }
 
-func generatedUserDefaultCodeParamCodeObjProperties() ([]TypeProperty, error) {
+func generatedUserDefaultCodeParamCodeObjProperties(converter *typeConverter) ([]TypeProperty, error) {
 	defaults := projectstate.FrontendDefaultCodeParamCodeObjImpl()
-	registry, order, err := generatedUserDefaultCodeParamCodeObjPropertyRegistry()
+	registry, order, err := generatedUserDefaultCodeParamCodeObjPropertyRegistry(converter)
 	if err != nil {
 		return nil, err
 	}
@@ -755,8 +767,11 @@ func generatedSectionImplTypeForSectionName(sectionName string) (reflect.Type, b
 	return nil, false
 }
 
-func generatedUserDefaultCodeParamCodeObjPropertyRegistry() (map[string]TypeProperty, []string, error) {
+func generatedUserDefaultCodeParamCodeObjPropertyRegistry(
+	converter *typeConverter,
+) (map[string]TypeProperty, []string, error) {
 	properties, err := generatedUserDefaultReflectedProperties(
+		converter,
 		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
 	)
 	if err != nil {

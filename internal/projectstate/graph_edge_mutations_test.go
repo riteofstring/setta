@@ -282,29 +282,29 @@ func TestProjectCreateAgenticEdgeSupportsDocumentedKindsAndExplicitContextModes(
 		name        string
 		sourceID    string
 		targetID    string
-		kind        string
-		contextMode string
+		kind        AgenticEdgeKind
+		contextMode AgenticEdgeContextMode
 	}{
 		{
 			name:        "chat chat reference only",
 			sourceID:    "chat-source",
 			targetID:    "chat-target",
-			kind:        "chat_chat",
-			contextMode: "reference_only",
+			kind:        AgenticEdgeKindChatChat,
+			contextMode: AgenticEdgeContextModeReferenceOnly,
 		},
 		{
 			name:        "section chat summary",
 			sourceID:    "source-section",
 			targetID:    "chat-target",
-			kind:        "section_chat",
-			contextMode: "summary",
+			kind:        AgenticEdgeKindSectionChat,
+			contextMode: AgenticEdgeContextModeSummary,
 		},
 		{
 			name:        "chat section inline text",
 			sourceID:    "chat-source",
 			targetID:    "source-section",
-			kind:        "chat_section",
-			contextMode: "inline_text",
+			kind:        AgenticEdgeKindChatSection,
+			contextMode: AgenticEdgeContextModeInlineText,
 		},
 	}
 

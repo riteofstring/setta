@@ -649,8 +649,11 @@ func generatedOrdinaryFactoryFallbackExpr(property TypeProperty) (string, bool) 
 	}
 }
 
-func mustGeneratedSectionImplFactoryProperties(t reflect.Type) []TypeProperty {
-	properties, err := generatedUserDefaultReflectedProperties(t)
+func mustGeneratedSectionImplFactoryProperties(
+	converter *typeConverter,
+	t reflect.Type,
+) []TypeProperty {
+	properties, err := generatedUserDefaultReflectedProperties(converter, t)
 	if err != nil {
 		panic("load generated section impl properties: " + err.Error())
 	}
@@ -665,8 +668,11 @@ func generatedSectionImplFactoryDefaultValues(sectionName string) map[string]any
 	return defaults
 }
 
-func generatedSectionImplFactoryUserDefaultPropertyNames(sectionName string) map[string]struct{} {
-	properties, err := generatedUserDefaultSectionProperties(sectionName)
+func generatedSectionImplFactoryUserDefaultPropertyNames(
+	converter *typeConverter,
+	sectionName string,
+) map[string]struct{} {
+	properties, err := generatedUserDefaultSectionProperties(converter, sectionName)
 	if err != nil {
 		panic("load generated user default section properties: " + err.Error())
 	}
@@ -706,17 +712,25 @@ func generatedSectionImplFactoryOptions(
 	return false, "resolved.defaults", overridesExpr, prelude
 }
 
-func generatedSectionImplFactoryEntries(t reflect.Type, sectionName string, defaultsExpr string) []string {
+func generatedSectionImplFactoryEntries(
+	converter *typeConverter,
+	t reflect.Type,
+	sectionName string,
+	defaultsExpr string,
+) []string {
 	return generatedOrdinaryFactoryEntries(
-		mustGeneratedSectionImplFactoryProperties(t),
+		mustGeneratedSectionImplFactoryProperties(converter, t),
 		generatedSectionImplFactoryDefaultValues(sectionName),
 		defaultsExpr,
-		generatedSectionImplFactoryUserDefaultPropertyNames(sectionName),
+		generatedSectionImplFactoryUserDefaultPropertyNames(converter, sectionName),
 		generatedSectionImplFactoryExprOverrides(sectionName),
 	)
 }
 
-func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
+func generatedSectionImplFactoryDeclaration(
+	converter *typeConverter,
+	t reflect.Type,
+) (TypeDeclaration, bool) {
 	sectionName, ok := generatedSectionImplName(t)
 	if !ok {
 		return TypeDeclaration{}, false
@@ -725,7 +739,7 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 	defaultType := generatedSectionImplDefaultTypeName(sectionName)
 	name := "create" + implType
 	useDirectDefaults, defaultsExpr, overridesExpr, prelude := generatedSectionImplFactoryOptions(sectionName)
-	entries := generatedSectionImplFactoryEntries(t, sectionName, defaultsExpr)
+	entries := generatedSectionImplFactoryEntries(converter, t, sectionName, defaultsExpr)
 
 	if useDirectDefaults {
 		return exportedFunctionDeclaration(
@@ -756,12 +770,16 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 	), true
 }
 
-func generatedCodeParamCodeObjFactoryEntries(defaultsExpr string) []string {
-	userDefaultProperties, err := generatedUserDefaultCodeParamCodeObjProperties()
+func generatedCodeParamCodeObjFactoryEntries(
+	converter *typeConverter,
+	defaultsExpr string,
+) []string {
+	userDefaultProperties, err := generatedUserDefaultCodeParamCodeObjProperties(converter)
 	if err != nil {
 		panic("load generated user default code param properties: " + err.Error())
 	}
 	properties, err := generatedUserDefaultReflectedProperties(
+		converter,
 		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
 	)
 	if err != nil {
@@ -780,14 +798,14 @@ func generatedCodeParamCodeObjFactoryEntries(defaultsExpr string) []string {
 	)
 }
 
-func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
+func generatedCodeParamCodeObjFactoryDeclaration(converter *typeConverter) TypeDeclaration {
 	return exportedFunctionDeclaration(
 		"createCodeParamCodeObjImpl",
 		"CodeParamCodeObjImpl",
 		buildResolvedGeneratedFactoryBodyTS(
 			"UserDefaultCodeParamCodeObjImpl",
 			"CodeParamCodeObjImpl",
-			generatedCodeParamCodeObjFactoryEntries("resolved.defaults"),
+			generatedCodeParamCodeObjFactoryEntries(converter, "resolved.defaults"),
 			"",
 			"",
 		),
@@ -822,12 +840,12 @@ func additionalFactoryDeclarations() []TypeDeclaration {
 	}
 }
 
-func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
+func additionalDeclarationsForType(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
 	switch t {
 	case reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}):
-		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
+		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration(converter)}, true
 	}
-	if declaration, ok := generatedSectionImplFactoryDeclaration(t); ok {
+	if declaration, ok := generatedSectionImplFactoryDeclaration(converter, t); ok {
 		return []TypeDeclaration{declaration}, true
 	}
 	return nil, false

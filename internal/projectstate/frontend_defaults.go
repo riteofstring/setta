@@ -239,16 +239,16 @@ func FrontendDefaultStateMachineEdge() map[string]any {
 	}
 }
 
-func FrontendDefaultAgenticEdge() map[string]any {
-	return map[string]any{
-		"id":              "",
-		"sourceSectionId": "",
-		"targetSectionId": "",
-		"kind":            "section_chat",
-		"contextMode":     nil,
-		"style":           map[string]any{},
-		"hidden":          false,
-		"zIndex":          0,
-		"selected":        false,
+func FrontendDefaultAgenticEdge() AgenticEdge {
+	return AgenticEdge{
+		ID:              "",
+		SourceSectionID: "",
+		TargetSectionID: "",
+		Kind:            AgenticEdgeKindSectionChat,
+		ContextMode:     AgenticEdgeContextModeReferenceOnly,
+		Style:           RawJSON([]byte(`{}`)),
+		Hidden:          false,
+		ZIndex:          0,
+		Selected:        false,
 	}
 }
