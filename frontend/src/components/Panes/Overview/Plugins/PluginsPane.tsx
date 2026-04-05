@@ -1,4 +1,15 @@
 import {
+  disablePlugin,
+  enablePlugin,
+  installPlugin,
+  rescanPlugins,
+  rollbackPlugin,
+  uninstallPlugin,
+  updatePlugin,
+  writePluginConfig,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   requestPluginRestart,
@@ -11,11 +22,7 @@ import {
 } from "plugins/runtime";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  useProjectState,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import {
@@ -23,24 +30,12 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import {
-  route_plugins_config,
-  route_plugins_disable,
-  route_plugins_enable,
-  route_plugins_install,
-  route_plugins_rescan,
-  route_plugins_rollback,
-  route_plugins_uninstall,
-  route_plugins_update,
-  route_save_settings,
-} from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
   PluginInstallResponse,
   PluginListEntry,
   PluginRestartCapability,
   PluginStatusEntry,
-  SettingsState,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 import {
@@ -51,43 +46,29 @@ import {
   buildPluginListEntryCardKey,
   buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
-  formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
-  getLanguageServerSettingsValue,
-  getRegisteredCodegenTargets,
-  getRegisteredExternalAgentAdapters,
-  getRegisteredLanguageServers,
   isLinkedLocalPluginSource,
-  parseLanguageServerSettingsDraft,
   parsePluginConfigDraft,
-  setLanguageServerSettingsValue,
-  validateInstallSourceSpec,
 } from "./PluginsPane.helpers";
-
 type InstallScope = "workspace" | "setta_files" | "global";
 type InstallBackend = "auto" | "pip" | "uv";
-
 type PluginActionStatus = {
   type: "error" | "success" | "warning";
   message: string;
 };
-
 type PluginInstallSummary = PluginInstallResponse;
-
 type PluginPaneSummary = {
   id: string;
   title: string;
   description?: string;
   icon?: string;
 };
-
 type PluginCommandSummary = {
   id: string;
   title: string;
   description?: string;
   run: () => void | Promise<void>;
 };
-
 type PluginListEntryCardRuntimeState = {
   serverMode: "ide" | "share" | "app" | "launcher";
   pluginStatus: PluginStatusEntry | null;
@@ -98,14 +79,12 @@ type PluginListEntryCardRuntimeState = {
     message: string;
   } | null;
 };
-
 type PluginsPaneRuntimeSummary = {
   status: string;
   statusMessage: string | null;
   restartCapability: PluginRestartCapability | null;
   serverMode: "ide" | "share" | "app" | "launcher";
 };
-
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
 const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
 const cachedFormattedCapabilitiesText = new WeakMap<string[], string>();
@@ -118,7 +97,6 @@ const cachedBlockedCapabilitiesTooltipText = new WeakMap<
   PluginBlockedCapability[],
   string
 >();
-
 function pluginListEntryCardRuntimeStateEqual(
   a: PluginListEntryCardRuntimeState,
   b: PluginListEntryCardRuntimeState,
@@ -131,7 +109,6 @@ function pluginListEntryCardRuntimeStateEqual(
     a.frontendError === b.frontendError
   );
 }
-
 function pluginsPaneRuntimeSummaryEqual(
   a: PluginsPaneRuntimeSummary,
   b: PluginsPaneRuntimeSummary,
@@ -143,7 +120,6 @@ function pluginsPaneRuntimeSummaryEqual(
     a.serverMode === b.serverMode
   );
 }
-
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
   const [scope, setScope] = useState<InstallScope>("workspace");
@@ -158,7 +134,6 @@ export function PluginsPane() {
   const [installSummary, setInstallSummary] =
     useState<PluginInstallSummary | null>(null);
   const inFlightActionKeysRef = useRef<Set<string>>(new Set());
-
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
   const runtimeSummary = usePluginRuntimeStore(
@@ -166,7 +141,7 @@ export function PluginsPane() {
       status: state.status,
       statusMessage: state.statusMessage,
       restartCapability: state.restartCapability,
-      serverMode: state.serverMode,
+      serverMode: state.serverMode ?? "ide",
     }),
     pluginsPaneRuntimeSummaryEqual,
   );
@@ -191,7 +166,6 @@ export function PluginsPane() {
     () => buildPluginRestartActionPlan(runtimeSummary.restartCapability),
     [runtimeSummary.restartCapability],
   );
-
   async function runAction<T>(
     actionKey: string,
     actionLabel: string,
@@ -260,27 +234,30 @@ export function PluginsPane() {
       });
     }
   }
-
   function isActionBusy(actionKey: string): boolean {
     return busyActionKeys.has(actionKey);
   }
-
   function isAnyPluginActionBusy(pluginId: string): boolean {
     return busyPluginIds.has(pluginId);
   }
-
   async function runEnablePlugin(pluginId: string) {
     await runAction(`enable:${pluginId}`, "Enable plugin", async () =>
-      route_plugins_enable({ pluginId }),
+      callOpenAPI(
+        enablePlugin({ body: { pluginId } } as Parameters<
+          typeof enablePlugin
+        >[0]),
+      ),
     );
   }
-
   async function runDisablePlugin(pluginId: string) {
     await runAction(`disable:${pluginId}`, "Disable plugin", async () =>
-      route_plugins_disable({ pluginId }),
+      callOpenAPI(
+        disablePlugin({ body: { pluginId } } as Parameters<
+          typeof disablePlugin
+        >[0]),
+      ),
     );
   }
-
   function renderStatusRowAction(entry: PluginStatusEntry) {
     if (entry.shadowedBySourcePath !== null) {
       return <span className="text-setta-400 dark:text-setta-500">-</span>;
@@ -305,13 +282,7 @@ export function PluginsPane() {
       />
     );
   }
-
   async function onInstallPlugin() {
-    const sourceErrorMessage = validateInstallSourceSpec(sourceSpec);
-    if (sourceErrorMessage) {
-      setActionStatus({ type: "error", message: sourceErrorMessage });
-      return;
-    }
     setInstallSummary(null);
     const trimmedSourceSpec = sourceSpec.trim();
     const installRequest = {
@@ -321,8 +292,15 @@ export function PluginsPane() {
       enable: enableAfterInstall,
       force: false,
     };
-    const response = await runAction("install", "Install plugin", async () =>
-      route_plugins_install(installRequest),
+    const response = await runAction<PluginInstallResponse>(
+      "install",
+      "Install plugin",
+      async () =>
+        callOpenAPI(
+          installPlugin({ body: installRequest } as Parameters<
+            typeof installPlugin
+          >[0]),
+        ) as Promise<ResponseDataAndStatus<PluginInstallResponse>>,
     );
     if (!response || !response.data) {
       return;
@@ -330,16 +308,14 @@ export function PluginsPane() {
     setInstallSummary(response.data);
     setSourceSpec("");
   }
-
   async function onRescan() {
     if (writeActionsLocked) {
       return;
     }
     await runAction("rescan", "Rescan plugins", async () =>
-      route_plugins_rescan(),
+      callOpenAPI(rescanPlugins()),
     );
   }
-
   async function onRestart() {
     if (writeActionsLocked) {
       return;
@@ -378,6 +354,7 @@ export function PluginsPane() {
     try {
       const restartResult = await requestPluginRestart();
       if (restartResult.kind === "accepted") {
+        await refreshPluginRuntime();
         setActionStatus({
           type: "success",
           message: "Restart request accepted.",
@@ -417,7 +394,6 @@ export function PluginsPane() {
       });
     }
   }
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 overflow-y-auto pb-2">
       <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
@@ -584,7 +560,6 @@ export function PluginsPane() {
                 plugin={plugin}
                 isSettingsProject={isSettingsProject}
                 writeActionsLocked={writeActionsLocked}
-                isActionBusy={isActionBusy}
                 isAnyPluginActionBusy={isAnyPluginActionBusy}
                 runEnablePlugin={runEnablePlugin}
                 runDisablePlugin={runDisablePlugin}
@@ -681,12 +656,10 @@ export function PluginsPane() {
     </div>
   );
 }
-
 type PluginListEntryCardProps = {
   plugin: PluginListEntry;
   isSettingsProject: boolean;
   writeActionsLocked: boolean;
-  isActionBusy: (actionKey: string) => boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
   runEnablePlugin: (pluginId: string) => Promise<void>;
   runDisablePlugin: (pluginId: string) => Promise<void>;
@@ -696,12 +669,10 @@ type PluginListEntryCardProps = {
     operation: () => Promise<ResponseDataAndStatus<T>>,
   ) => Promise<ResponseDataAndStatus<T> | null>;
 };
-
 function PluginListEntryCard({
   plugin,
   isSettingsProject,
   writeActionsLocked,
-  isActionBusy,
   isAnyPluginActionBusy,
   runEnablePlugin,
   runDisablePlugin,
@@ -720,7 +691,6 @@ function PluginListEntryCard({
   );
   const { serverMode, pluginStatus, panes, commands, frontendError } =
     runtimeState;
-
   async function onUpdate() {
     const updateRequest = {
       pluginId: plugin.pluginId,
@@ -728,10 +698,13 @@ function PluginListEntryCard({
       to: null,
     };
     await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
-      route_plugins_update(updateRequest),
+      callOpenAPI(
+        updatePlugin({ body: updateRequest } as Parameters<
+          typeof updatePlugin
+        >[0]),
+      ),
     );
   }
-
   async function onRollback() {
     const rollbackRequest = {
       pluginId: plugin.pluginId,
@@ -740,10 +713,14 @@ function PluginListEntryCard({
     await runAction(
       `rollback:${plugin.pluginId}`,
       "Rollback plugin",
-      async () => route_plugins_rollback(rollbackRequest),
+      async () =>
+        callOpenAPI(
+          rollbackPlugin({ body: rollbackRequest } as Parameters<
+            typeof rollbackPlugin
+          >[0]),
+        ),
     );
   }
-
   async function onUninstall() {
     const uninstallRequest = {
       pluginId: plugin.pluginId,
@@ -752,10 +729,14 @@ function PluginListEntryCard({
     await runAction(
       `uninstall:${plugin.pluginId}`,
       "Uninstall plugin",
-      async () => route_plugins_uninstall(uninstallRequest),
+      async () =>
+        callOpenAPI(
+          uninstallPlugin({ body: uninstallRequest } as Parameters<
+            typeof uninstallPlugin
+          >[0]),
+        ),
     );
   }
-
   const packageManagerManaged = plugin.sourceManager === "package_manager";
   const linkedLocalSource = isLinkedLocalPluginSource(plugin);
   const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
@@ -766,22 +747,12 @@ function PluginListEntryCard({
   const effectiveCapabilities =
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
   const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
-  const registeredLanguageServers = getRegisteredLanguageServers(pluginStatus);
-  const registeredExternalAgentAdapters =
-    getRegisteredExternalAgentAdapters(pluginStatus);
-  const registeredCodegenTargets = getRegisteredCodegenTargets(pluginStatus);
   const capabilityStatusIndex = useMemo(() => {
     return buildCapabilityStatusIndex({
       requestedCapabilities,
       effectiveCapabilities,
       blockedCapabilities,
-      capabilityList: [
-        "registerCommand",
-        "registerPane",
-        "registerLanguageServer",
-        "registerExternalAgentAdapter",
-        "registerCodegenTarget",
-      ],
+      capabilityList: ["registerCommand", "registerPane"],
     });
   }, [blockedCapabilities, effectiveCapabilities, requestedCapabilities]);
   const commandCapabilityStatus =
@@ -795,35 +766,9 @@ function PluginListEntryCard({
     null;
   const paneCapabilityReason =
     capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ?? null;
-  const languageServerCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerLanguageServer",
-    ) ?? "not_requested";
-  const languageServerCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerLanguageServer",
-    ) ?? null;
-  const externalAgentCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerExternalAgentAdapter",
-    ) ?? "not_requested";
-  const externalAgentCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerExternalAgentAdapter",
-    ) ?? null;
-  const codegenCapabilityStatus =
-    capabilityStatusIndex.capabilityStatusByCapability.get(
-      "registerCodegenTarget",
-    ) ?? "not_requested";
-  const codegenCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get(
-      "registerCodegenTarget",
-    ) ?? null;
-
   function onOpenPane(paneId: string) {
     onOverviewTabClick(buildPluginPaneOverviewTabName(plugin.pluginId, paneId));
   }
-
   return (
     <article className="rounded border border-setta-200 bg-setta-50/60 p-2 dark:border-setta-800 dark:bg-setta-950/40">
       <header className="mb-1 flex items-start justify-between gap-2">
@@ -951,187 +896,6 @@ function PluginListEntryCard({
         </section>
       )}
 
-      {registeredLanguageServers.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered Language Servers
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredLanguageServers.map((registration) => (
-              <article
-                key={`${plugin.pluginId}:${registration.name}`}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.language}</span>
-                  <span className="font-mono">{registration.command}</span>
-                  {registration.args.length > 0 ? (
-                    <span className="font-mono">
-                      {registration.args.join(" ")}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  name={registration.name}
-                  {registration.settingsKey
-                    ? ` settingsKey=${registration.settingsKey}`
-                    : ""}
-                </p>
-                {registration.settingsKey ? (
-                  <LanguageServerSettingsEditor
-                    settingsKey={registration.settingsKey}
-                    disabled={writeActionsLocked}
-                  />
-                ) : null}
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : languageServerCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Language servers pending runtime load
-          </p>
-          <p className="mt-1">
-            No language server registrations are active yet. Restart Setta if
-            this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : languageServerCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Language servers unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerLanguageServer",
-              status: languageServerCapabilityStatus,
-              reason: languageServerCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
-
-      {registeredExternalAgentAdapters.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered External Agent Adapters
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredExternalAgentAdapters.map((registration) => (
-              <article
-                key={registration.adapterId}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.name}</span>
-                  <span className="font-mono">{registration.adapterId}</span>
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  runModes=
-                  {registration.runModes.length > 0
-                    ? registration.runModes.join(", ")
-                    : "none"}{" "}
-                  command={registration.command}
-                  {registration.args.length > 0
-                    ? ` ${registration.args.join(" ")}`
-                    : ""}
-                </p>
-                {(registration.defaultModel ||
-                  registration.envVarWhitelist.length > 0) && (
-                  <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                    {registration.defaultModel
-                      ? `defaultModel=${registration.defaultModel}`
-                      : ""}
-                    {registration.defaultModel &&
-                    registration.envVarWhitelist.length > 0
-                      ? " "
-                      : ""}
-                    {registration.envVarWhitelist.length > 0
-                      ? `envVarWhitelist=${registration.envVarWhitelist.join(", ")}`
-                      : ""}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : externalAgentCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            External agent adapters pending runtime load
-          </p>
-          <p className="mt-1">
-            No plugin external agent registrations are active yet. Restart Setta
-            if this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : externalAgentCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            External agent adapters unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerExternalAgentAdapter",
-              status: externalAgentCapabilityStatus,
-              reason: externalAgentCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
-
-      {registeredCodegenTargets.length > 0 ? (
-        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-            Registered Codegen Targets
-          </h5>
-          <div className="mt-2 flex flex-col gap-2">
-            {registeredCodegenTargets.map((registration) => (
-              <article
-                key={registration.targetId}
-                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
-              >
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
-                  <span className="font-semibold">{registration.name}</span>
-                  <span className="font-mono">{registration.language}</span>
-                  <span className="font-mono">{registration.targetId}</span>
-                </div>
-                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
-                  defaultFileName={registration.defaultFileName}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : codegenCapabilityStatus === "effective" ? (
-        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Codegen targets pending runtime load
-          </p>
-          <p className="mt-1">
-            No plugin codegen target registrations are active yet. Restart Setta
-            if this plugin was just installed or updated.
-          </p>
-        </section>
-      ) : codegenCapabilityStatus !== "not_requested" ? (
-        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-          <p className="font-semibold uppercase tracking-wide">
-            Codegen targets unavailable
-          </p>
-          <p className="mt-1">
-            {buildCapabilityUnavailableMessage({
-              capability: "registerCodegenTarget",
-              status: codegenCapabilityStatus,
-              reason: codegenCapabilityReason,
-              serverMode,
-            })}
-          </p>
-        </section>
-      ) : null}
-
       {commands.length > 0 ? (
         <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
           <h5 className="mb-1 text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
@@ -1223,7 +987,6 @@ function PluginListEntryCard({
     </article>
   );
 }
-
 function CapabilityRow({
   label,
   entries,
@@ -1266,13 +1029,11 @@ function CapabilityRow({
     </div>
   );
 }
-
 type PluginConfigFieldDefinition = {
   key: string;
   required: boolean;
   schema: Record<string, unknown>;
 };
-
 function PluginConfigEditor({
   plugin,
   disabled,
@@ -1315,12 +1076,10 @@ function PluginConfigEditor({
     [draftRaw],
   );
   const parsedConfig = parsedDraft.error ? {} : parsedDraft.value;
-
   useEffect(() => {
     setDraftRaw(formatPluginConfigDraft(plugin.config.currentConfig));
     setStatus(null);
   }, [plugin.config.currentConfig, plugin.pluginId, sourceIdentityToken]);
-
   function onFieldValueChange(fieldKey: string, nextValue: unknown) {
     if (parsedDraft.error) {
       return;
@@ -1333,7 +1092,6 @@ function PluginConfigEditor({
     setDraftRaw(formatPluginConfigDraft(nextConfig));
     setStatus(null);
   }
-
   async function onSavePluginConfig() {
     if (parsedDraft.error) {
       setStatus({ type: "error", message: parsedDraft.error });
@@ -1343,10 +1101,14 @@ function PluginConfigEditor({
       `config:${plugin.pluginId}`,
       "Save plugin config",
       async () =>
-        route_plugins_config({
-          pluginId: plugin.pluginId,
-          config: parsedDraft.value,
-        }),
+        callOpenAPI(
+          writePluginConfig({
+            body: {
+              pluginId: plugin.pluginId,
+              config: parsedDraft.value,
+            },
+          } as Parameters<typeof writePluginConfig>[0]),
+        ),
     );
     if (!response) {
       return;
@@ -1356,7 +1118,6 @@ function PluginConfigEditor({
       message: "Plugin config saved.",
     });
   }
-
   return (
     <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
       <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
@@ -1435,7 +1196,6 @@ function PluginConfigEditor({
     </section>
   );
 }
-
 function PluginConfigTopLevelField({
   field,
   config,
@@ -1509,7 +1269,7 @@ function PluginConfigTopLevelField({
           }}
           disabled={disabled}
         />
-        {Boolean(value) ? "Enabled" : "Disabled"}
+        {value ? "Enabled" : "Disabled"}
       </label>
     );
   } else if (schemaType === "integer" || schemaType === "number") {
@@ -1576,7 +1336,6 @@ function PluginConfigTopLevelField({
   if (!input) {
     return null;
   }
-
   return (
     <div className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40">
       <p className="text-[11px] font-semibold text-setta-700 dark:text-setta-200">
@@ -1592,110 +1351,10 @@ function PluginConfigTopLevelField({
     </div>
   );
 }
-
 type SettingsEditorStatus = {
   type: "error" | "success";
   message: string;
 };
-
-function LanguageServerSettingsEditor({
-  settingsKey,
-  disabled,
-}: {
-  settingsKey: string;
-  disabled: boolean;
-}) {
-  const languageServerSettings = useSettings(
-    (state) => state.languageServer as Record<string, unknown>,
-  );
-  const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState<SettingsEditorStatus | null>(null);
-
-  useEffect(() => {
-    const settingsValue = getLanguageServerSettingsValue(
-      languageServerSettings,
-      settingsKey,
-    );
-    setDraft(formatLanguageServerSettingsDraft(settingsValue));
-    setStatus(null);
-  }, [languageServerSettings, settingsKey]);
-
-  async function onSaveSettings() {
-    const parsedSettings = parseLanguageServerSettingsDraft(draft);
-    if (parsedSettings.error) {
-      setStatus({ type: "error", message: parsedSettings.error });
-      return;
-    }
-    const nextLanguageServerSettings = setLanguageServerSettingsValue(
-      languageServerSettings,
-      settingsKey,
-      parsedSettings.value,
-    );
-    const currentSettings = useSettings.getState();
-    const nextSettings: SettingsState = {
-      ...currentSettings,
-      languageServer: nextLanguageServerSettings,
-    };
-    const response = await route_save_settings({ settings: nextSettings });
-    if (!res200(response)) {
-      const errorMessage = buildPluginActionError(
-        "Save language server settings",
-        response,
-      );
-      setStatus({ type: "error", message: errorMessage });
-      addTemporaryNotification(errorMessage, "error");
-      return;
-    }
-    useSettings.setState(nextSettings);
-    setStatus({
-      type: "success",
-      message: "Language server settings saved.",
-    });
-  }
-
-  return (
-    <div className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-        settings.{settingsKey}
-      </p>
-      <textarea
-        className="mt-1 h-24 w-full rounded border border-setta-300 bg-white p-2 font-mono text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-        aria-label={`settings.${settingsKey}`}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        spellCheck={false}
-        disabled={disabled}
-      />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[10px] text-setta-500 dark:text-setta-400">
-          Enter a JSON object for this language server settings key.
-        </p>
-        <button
-          type="button"
-          className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-          onClick={() => {
-            void onSaveSettings();
-          }}
-          disabled={disabled}
-        >
-          Save Settings
-        </button>
-      </div>
-      {status ? (
-        <p
-          className={`mt-2 text-[11px] ${
-            status.type === "error"
-              ? "text-red-700 dark:text-red-300"
-              : "text-green-700 dark:text-green-300"
-          }`}
-        >
-          {status.message}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 function resolveSchemaType(schema: Record<string, unknown>): string | null {
   const rawType = schema.type;
   if (typeof rawType === "string") {
@@ -1711,7 +1370,6 @@ function resolveSchemaType(schema: Record<string, unknown>): string | null {
   }
   return null;
 }
-
 function getSchemaEnumValues(
   schema: Record<string, unknown>,
 ): Array<string | number | boolean> | null {
@@ -1734,7 +1392,6 @@ function getSchemaEnumValues(
   }
   return values;
 }
-
 function getSchemaUiHint(schema: Record<string, unknown>): string | null {
   const rawUiHint = schema["x-setta-ui"];
   if (typeof rawUiHint !== "string") {
@@ -1746,7 +1403,6 @@ function getSchemaUiHint(schema: Record<string, unknown>): string | null {
   }
   return trimmed;
 }
-
 function isSupportedTopLevelPluginConfigField(
   schema: Record<string, unknown>,
 ): boolean {
@@ -1761,7 +1417,6 @@ function isSupportedTopLevelPluginConfigField(
     schemaType === "boolean"
   );
 }
-
 function getTopLevelPluginConfigFields(
   schemaJson: Record<string, unknown> | null,
 ): PluginConfigFieldDefinition[] {
@@ -1781,7 +1436,6 @@ function getTopLevelPluginConfigFields(
       }
     }
   }
-
   const fields: PluginConfigFieldDefinition[] = [];
   for (const [key, value] of Object.entries(properties)) {
     if (!isPlainObject(value)) {
@@ -1796,7 +1450,6 @@ function getTopLevelPluginConfigFields(
   fields.sort((a, b) => a.key.localeCompare(b.key));
   return fields;
 }
-
 function setTopLevelPluginConfigValue(
   config: Record<string, unknown>,
   fieldKey: string,
@@ -1810,7 +1463,6 @@ function setTopLevelPluginConfigValue(
   }
   return nextConfig;
 }
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -1820,7 +1472,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   }
   return true;
 }
-
 function InstallSummaryCard({
   installSummary,
 }: {
@@ -1830,7 +1481,6 @@ function InstallSummaryCard({
     installSummary.requestedCapabilities,
   );
   const sourceDigest = installSummary.sourceDigestSha256 ?? "unavailable";
-
   return (
     <section
       data-testid="plugin-install-confirmation"
@@ -1858,7 +1508,6 @@ function InstallSummaryCard({
     </section>
   );
 }
-
 function ActionButton({
   label,
   onClick,
@@ -1884,7 +1533,6 @@ function ActionButton({
     </button>
   );
 }
-
 function buildPluginActionError<T>(
   actionLabel: string,
   response: ResponseDataAndStatus<T>,
@@ -1910,7 +1558,6 @@ function buildPluginActionError<T>(
   }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }
-
 function buildPluginActionThrownError(
   actionLabel: string,
   error: unknown,
@@ -1923,14 +1570,12 @@ function buildPluginActionThrownError(
   }
   return `${actionLabel} failed: unexpected error.`;
 }
-
 function formatCapabilitiesForTable(capabilities: string[]): string {
   if (capabilities.length === 0) {
     return "none";
   }
   return [...capabilities].sort((a, b) => a.localeCompare(b)).join(", ");
 }
-
 function formatCapabilitiesForTableCached(capabilities: string[]): string {
   const cached = cachedFormattedCapabilitiesText.get(capabilities);
   if (cached) {
@@ -1940,7 +1585,6 @@ function formatCapabilitiesForTableCached(capabilities: string[]): string {
   cachedFormattedCapabilitiesText.set(capabilities, formatted);
   return formatted;
 }
-
 function formatCapabilitiesTooltip(capabilities: string[]): string {
   const cached = cachedCapabilitiesTooltipText.get(capabilities);
   if (cached) {
@@ -1951,7 +1595,6 @@ function formatCapabilitiesTooltip(capabilities: string[]): string {
   cachedCapabilitiesTooltipText.set(capabilities, formatted);
   return formatted;
 }
-
 function formatBlockedCapabilitiesForTable(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -1972,7 +1615,6 @@ function formatBlockedCapabilitiesForTable(
     )
     .join(", ");
 }
-
 function formatBlockedCapabilitiesForTableCached(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -1985,7 +1627,6 @@ function formatBlockedCapabilitiesForTableCached(
   cachedFormattedBlockedCapabilitiesText.set(blockedCapabilities, formatted);
   return formatted;
 }
-
 function formatBlockedCapabilitiesTooltip(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -2005,7 +1646,6 @@ function formatBlockedCapabilitiesTooltip(
   cachedBlockedCapabilitiesTooltipText.set(blockedCapabilities, formatted);
   return formatted;
 }
-
 function getActionStatusClassName(type: PluginActionStatus["type"]): string {
   if (type === "error") {
     return (
