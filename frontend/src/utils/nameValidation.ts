@@ -1,6 +1,6 @@
 import {
   GENERATED_NAME_VALIDATION_CONTRACT,
-  type GeneratedNameValidationContract,
+  type NameValidationContract,
 } from "utils/generatedTypes";
 import {
   isGeneratedPythonIdentifier,
@@ -19,7 +19,7 @@ type ParamNameValidationOptions = {
   skipPathChecks?: boolean;
 };
 
-const generatedNameValidation: GeneratedNameValidationContract =
+const generatedNameValidation: NameValidationContract =
   GENERATED_NAME_VALIDATION_CONTRACT;
 
 const simpleNameAllowedChars = new Set(

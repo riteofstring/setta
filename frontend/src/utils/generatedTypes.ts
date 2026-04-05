@@ -94,6 +94,1827 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
+export type CreateAgentProfileRequest = {
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope: string | null;
+};
+
+export type GetAgentProfileRequest = {
+  profileId: string;
+};
+
+type AgentProfilePayload = {
+  id: string | null;
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope: string | null;
+};
+
+export type UpdateAgentProfileRequest = {
+  profile: AgentProfilePayload | null;
+};
+
+export type DeleteAgentProfileRequest = {
+  profileId: string;
+};
+
+export type GetAgentRunRequest = {
+  runId: string;
+};
+
+export type StartAgentRunRequest = {
+  profileId: string;
+  inputs: Record<string, unknown>;
+};
+
+export type StopAgentRunRequest = {
+  runId: string;
+};
+
+type StepInput = {
+  id: string;
+  name: string;
+  engineConfigId: string;
+  agentProfileId?: string | null;
+  prompt?: string | null;
+  messages?: Array<Record<string, unknown>>;
+  inputs?: Record<string, unknown>;
+  includePreviousOutputs?: boolean | null;
+};
+
+type SpecInput = {
+  id: string;
+  name: string;
+  steps: Array<StepInput>;
+  stopOnFailure?: boolean | null;
+};
+
+export type StartRunChainRequest = {
+  spec: SpecInput;
+  inputs: Record<string, unknown>;
+};
+
+export type StopRunChainRequest = {
+  runId: string;
+};
+
+export type GetAgenticSummaryCacheStatusRequest = {
+  projectConfigId: string;
+  chatSectionId: string;
+};
+
+export type GetLLMResponseRequest = {
+  chatId: string | null;
+  continueFromChatId: string | null;
+  message: Record<string, unknown>;
+  engineConfigId: string;
+  agentProfileId: string | null;
+  thinking: boolean;
+  projectConfigId: string;
+  sectionId: string | null;
+  frontendAffinityToken: string | null;
+  allowUnscoped: boolean;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  appSpecStreamingEnabled?: boolean;
+  permissionMode: string;
+  searchEnabled: boolean;
+  appGenerationMode: string | null;
+  appGenerationByMessageId: Record<string, string>;
+  appGenerationReferenceImageUrl: string | null;
+  appGenerationReferenceImageNotes: string | null;
+};
+
+export type GetExternalAgentChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+
+export type LLMChatIDResponse = string;
+
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
+type ChatContextUsage = {
+  contextWindowTokens: number | null;
+  contextUsedTokens: number | null;
+  estimated: boolean;
+};
+
+export type LLMChatResponse = {
+  messages: Array<Record<string, unknown>>;
+  toolCallArguments: Record<string, string>;
+  waitingForResponse: boolean;
+  llmConfig: LLMConfig | null;
+  contextUsage: ChatContextUsage | null;
+  appGenerationByMessageId: Record<string, string>;
+};
+
+export type GetLLMChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+
+export type ExternalAgentChatResponse = {
+  messages: Array<Record<string, unknown>>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  contextUsage: ChatContextUsage | null;
+  appGenerationByMessageId: Record<string, string>;
+};
+
+export type StopLLMChatResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId: string | null;
+  stoppedMessageId: string | null;
+};
+
+export type StopLLMChatRequest = {
+  chatId: string;
+};
+
+export type GetAIFollowSnapshotRequest = {
+  projectConfigId: string;
+};
+
+export type StopExternalAgentRunRequest = {
+  runId: string;
+};
+
+export type RespondExternalAgentApprovalRequest = {
+  approvalId: string;
+  approved: boolean;
+};
+
+export type RespondExternalAgentQuestionRequest = {
+  toolCallId: string;
+  answers: Record<string, string>;
+};
+
+export type StartTranscriptionSessionRequest = {
+  transcriptionProfileId: string;
+  language: string | null;
+};
+
+export type StartTranscriptionSessionResponse = {
+  sessionId: string;
+  resolvedTransportMode: string;
+  chunkMs: number;
+};
+
+export type AppendTranscriptionAudioRequest = {
+  sessionId: string;
+  audioPcm16Base64: string;
+  sampleRateHz: number;
+  channels: number;
+};
+
+export type StopTranscriptionSessionRequest = {
+  sessionId: string;
+};
+
+export type CancelTranscriptionSessionRequest = {
+  sessionId: string;
+};
+
+export type Delta = {
+  appendText: string;
+  fullText: string;
+  isFinal: boolean;
+};
+
+export type CancelTranscriptionSessionResponse = {
+  ok: boolean;
+};
+
+export type GetAppDefinitionRequest = {
+  frontendOpId?: string | null;
+};
+
+export type AppRoute = {
+  path: string;
+  name?: string;
+  rootKey?: string;
+};
+
+export type SetAppDefinitionRequest = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecPath?: string | null;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+export type ValidateAppDefinitionRequest = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+export type GetAppGenSkillContentRequest = {
+  skillId: string;
+};
+
+export type UpsertAppGenCustomSkillRequest = {
+  skillId: string | null;
+  relativePath: string | null;
+  content: string;
+};
+
+const SaveConflictStrategyEnum = {
+  skip: "skip",
+  backup: "backup",
+  overwrite: "overwrite",
+} as const;
+type SaveConflictStrategy = ObjectValues<typeof SaveConflictStrategyEnum>;
+
+const UploadScopeEnum = {
+  chat: "chat",
+  generic: "generic",
+} as const;
+type UploadScope = ObjectValues<typeof UploadScopeEnum>;
+
+export type UpdateArtifactsRequest = {
+  artifacts: Array<
+    | ImageArtifact
+    | BrushStrokeArtifact
+    | DrawAreaLayerItemTransformArtifact
+    | ChartDataArtifact
+    | FileArtifact
+  >;
+  conflictStrategy?: SaveConflictStrategy | null;
+  uploadScope: UploadScope;
+};
+
+export type GetAttachmentDownloadURLRequest = {
+  artifactId: string;
+  projectConfigId: string | null;
+};
+
+export type GetAttachmentDownloadURLResponse = {
+  url: string;
+  expiresAt: number;
+};
+
+export type GetAttachmentDownloadURLsRequest = {
+  artifactIds: Array<string>;
+  projectConfigId: string | null;
+};
+
+export type AttachmentDownloadURLEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
+
+export type BinaryUploadRequest = FormData;
+
+export type BinaryDownloadRequest = {
+  contentId: string;
+};
+
+export type BinaryDownloadResponse = Uint8Array;
+
+type BootstrapHandoffProtocol = {
+  workspaceHistoryStorageKey: string;
+  workspaceHistoryQueryParam: string;
+  workspaceHistoryHashParam: string;
+  launcherOriginStorageKey: string;
+  launcherOriginHashParam: string;
+  launcherOriginProofHashParam: string;
+  openWorkspaceSwitcherQueryParam: string;
+  openWorkspaceSwitcherHashParam: string;
+  backendOriginOverrideQueryParam: string;
+  maxValueLength: number;
+};
+
+export type DeploymentMetadataResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+
+const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
+} as const;
+export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
+
+type SharePolicyOverrides = {
+  allowParamChanges?: boolean | null;
+  allowVariantChanges?: boolean | null;
+  allowLayoutChanges?: boolean | null;
+  allowRun?: boolean | null;
+  allowLLM?: boolean | null;
+  allowExternalLinks?: boolean | null;
+  allowFileDownloads?: boolean | null;
+  allowMultipleRuns?: boolean | null;
+  runSnapshotMode?: RunSnapshotMode | null;
+};
+
+export type PublishShareDeploymentRequest = {
+  deploymentName: string;
+  projectConfigId: string;
+  sharePolicyOverrides: SharePolicyOverrides | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean | null;
+};
+
+export type PublishAppDeploymentRequest = {
+  deploymentName: string;
+  projectConfigId: string;
+  appPolicyOverrides: SharePolicyOverrides | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean | null;
+};
+
+export type ProjectConfigMetadata = {
+  name: string;
+  id: string;
+};
+
+export type Policy = {
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowLayoutChanges: boolean;
+  allowRun: boolean;
+  allowLLM: boolean;
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowMultipleRuns: boolean;
+  runSnapshotMode: RunSnapshotMode;
+};
+export function createPolicy(options: Partial<Policy> = {}): Policy {
+  return options as Policy;
+}
+
+const TypeEnum = {
+  share: "share",
+  app: "app",
+} as const;
+type Type = ObjectValues<typeof TypeEnum>;
+
+type ListenerConfig = {
+  entrypoint: string;
+  enabled: boolean;
+};
+
+type Manifest = {
+  version: number;
+  deploymentName: string;
+  deploymentType: Type;
+  defaultProjectConfigId: string;
+  deploymentVersion: string;
+  createdAt?: string;
+  listener?: ListenerConfig | null;
+};
+
+export type ShareDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectConfigMetadata>;
+  sharePolicy: Policy;
+  manifest?: Manifest | null;
+};
+
+export type AppDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectConfigMetadata>;
+  appPolicy: Policy;
+  manifest?: Manifest | null;
+};
+
+export type LoadDeploymentProjectConfigRequest = {
+  projectConfigId: string;
+};
+
+export type Core = {
+  id: string;
+  name: string;
+  displayName: string;
+  variants: Array<string>;
+  defaultVariant: string | null;
+  sharedModifier: Record<string, unknown>;
+  unsharedKeys: Array<string>;
+};
+export function createCore(options: Partial<Core> = {}): Core {
+  return mergeGeneratedOptions<Core>(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  );
+}
+
+export type SectionCapabilities = {
+  canRun: boolean;
+  runDisabledReason?: string | null;
+  runRequestSectionId?: string | null;
+  canSelectAsEntryCodeBlock: boolean;
+  entryCodeBlockValue?: string | null;
+};
+export function createSectionCapabilities(
+  options: Partial<SectionCapabilities> = {},
+): SectionCapabilities {
+  return mergeGeneratedOptions<SectionCapabilities>(
+    {
+      canRun: false,
+      runDisabledReason: null,
+      runRequestSectionId: null,
+      canSelectAsEntryCodeBlock: false,
+      entryCodeBlockValue: null,
+    },
+    options,
+  );
+}
+
+export type Variant = {
+  id: string;
+  name: string;
+  impl: string;
+  nonPresetImpls: Array<string>;
+  modifier: Record<string, unknown>;
+  isFrozen: boolean;
+};
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return mergeGeneratedOptions<Variant>(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  );
+}
+
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions<TopLevelSectionLayout>(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+export type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions<ViewMode>(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+
+type ProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  mainRunDisabledReason?: string | null;
+  effectiveEntrySectionId?: string | null;
+};
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  return mergeGeneratedOptions<ProjectRunCapabilities>(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
+    },
+    options,
+  );
+}
+
+export type WatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+
+type WatchCodeRegistryEntry = {
+  callableName: string;
+  kind: string;
+  signatureHash: string;
+  bodyHash: string;
+  sourcePath: string;
+  sectionIds?: Array<string>;
+  sectionsCount?: number;
+};
+
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
+
+export type NormalizedFloatingWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
+  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
+    {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
+
+type WindowSpaceWindow = {
+  surfaceKind?: WindowSpaceSurfaceKind;
+  sectionIdOrNull?: string | null;
+  mode?: ChatWindowMode;
+  title?: string | null;
+  chatId?: string | null;
+  embeddedGitPaneVisible?: boolean;
+  zIndex?: number;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
+};
+export function createWindowSpaceWindow(
+  options: Partial<WindowSpaceWindow> = {},
+): WindowSpaceWindow {
+  const defaults: WindowSpaceWindow = {
+    surfaceKind: "project_chat",
+    sectionIdOrNull: null,
+    mode: "project_ai_mode",
+    title: null,
+    chatId: null,
+    embeddedGitPaneVisible: false,
+    zIndex: 0,
+    normalizedBounds: {
+      height: 1,
+      width: 1,
+      x: 0,
+      y: 0,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
+    normalizedBounds: createNormalizedFloatingWindowBounds(
+      options.normalizedBounds ?? defaults.normalizedBounds,
+    ),
+  };
+}
+
+export type WindowSpaceConfig = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+  id?: string;
+  name?: string;
+  sortIndex?: number;
+};
+export function createWindowSpaceConfig(
+  options: Partial<WindowSpaceConfig> = {},
+): WindowSpaceConfig {
+  return mergeGeneratedOptions<WindowSpaceConfig>(
+    {
+      windowsById: {},
+      order: [],
+      id: "",
+      name: "",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type Edge = {
+  id: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown>;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown>;
+  selected?: boolean;
+};
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
+
+export type AgenticEdge = {
+  id: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode;
+  style?: Record<string, unknown>;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return mergeGeneratedOptions<AgenticEdge>(
+    {
+      id: "",
+      sourceSectionId: "",
+      targetSectionId: "",
+      kind: "section_chat",
+      contextMode: "reference_only",
+      style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
+}
+
+const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+type StateMachineSourceFilterType = ObjectValues<
+  typeof StateMachineSourceFilterTypeEnum
+>;
+
+type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = ObjectValues<
+  typeof StateMachineCountOperatorEnum
+>;
+
+type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+
+const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+type StateMachineTargetActionType = ObjectValues<
+  typeof StateMachineTargetActionTypeEnum
+>;
+
+const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+type StateMachineThreadStrategy = ObjectValues<
+  typeof StateMachineThreadStrategyEnum
+>;
+
+type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
+
+type StateMachineEdge = {
+  id: string;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+
+export type ProjectConfig = {
+  id: string;
+  name: string;
+  showParamDisplayNames: boolean;
+  allowJsonSourceKeyEdits: boolean;
+  previewImgColor?: string;
+  viewport: Viewport | null;
+  viewportInitialized: boolean;
+  viewModes: Record<string, ViewMode>;
+  activeViewModeId: string | null;
+  isEditingViewMode: boolean;
+  hasPythonCodegenTarget: boolean;
+  runCapabilities: ProjectRunCapabilities;
+  codegenTargets: Array<ProjectCodegenTarget>;
+  watchCodeEnabled: boolean;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
+  watchCodeBaselineByPath: Record<string, Array<string>>;
+  entryCodeBlockId: string | null;
+  sectionPathSlugsById: Record<string, string>;
+  sectionIdsByPathSlug: Record<string, Array<string>>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaceSlugsById: Record<string, string>;
+  windowSpaceIdsBySlug: Record<string, Array<string>>;
+  windowSpaces: Record<string, WindowSpaceConfig>;
+  sectionVariantMap: Record<string, string>;
+  activeIds: Array<string>;
+  edges: Array<Edge>;
+  agenticEdges: Array<AgenticEdge>;
+  stateMachineEdges: Array<StateMachineEdge>;
+};
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  return mergeGeneratedOptions<ProjectConfig>(
+    {
+      id: "",
+      name: "",
+      showParamDisplayNames: false,
+      allowJsonSourceKeyEdits: false,
+      previewImgColor: "",
+      viewport: null,
+      viewportInitialized: false,
+      viewModes: {},
+      activeViewModeId: null,
+      isEditingViewMode: false,
+      hasPythonCodegenTarget: false,
+      runCapabilities: {
+        canRunFromMain: false,
+        effectiveEntrySectionId: null,
+        mainRunDisabledReason: null,
+      },
+      codegenTargets: [],
+      watchCodeEnabled: false,
+      watchCodeFolders: [],
+      watchCodeFiles: [],
+      watchCodeRegistry: {},
+      watchCodeBaselineByPath: {},
+      entryCodeBlockId: null,
+      sectionPathSlugsById: {},
+      sectionIdsByPathSlug: {},
+      topLevelSections: {},
+      windowSpaceSlugsById: {},
+      windowSpaceIdsBySlug: {},
+      windowSpaces: {},
+      sectionVariantMap: {},
+      activeIds: [],
+      edges: [],
+      agenticEdges: [],
+      stateMachineEdges: [],
+    },
+    options,
+  );
+}
+
+type SingletonSections = {
+  GlobalVariables: string | null;
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+};
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return mergeGeneratedOptions<SingletonSections>(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  );
+}
+
+type ShownParamIDDetails = {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+};
+
+export type ShownParamIDs = {
+  pinned: ShownParamIDDetails;
+  unpinned: ShownParamIDDetails;
+};
+
+export type CodeFileBinding = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+  autoBinding: boolean;
+};
+
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
+
+export type ChatWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+function createChatWindowBounds(
+  options: Partial<ChatWindowBounds> = {},
+): ChatWindowBounds {
+  return mergeGeneratedOptions<ChatWindowBounds>(
+    {
+      x: 120,
+      y: 120,
+      width: 820,
+      height: 520,
+    },
+    options,
+  );
+}
+
+type ChatWindowDockMetrics = {
+  widthFraction?: number | null;
+  preferredWidthPx?: number | null;
+};
+function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
+  return mergeGeneratedOptions<ChatWindowDockMetrics>(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
+
+export type ProjectChatWindowInstance = {
+  instanceId: string;
+  placement?: ChatWindowPlacement;
+  isMinimized?: boolean;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  bounds?: ChatWindowBounds;
+  dockMetrics?: ChatWindowDockMetrics;
+  zIndex?: number;
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  sectionIdOrNull?: string | null;
+  title?: string | null;
+  lastFocusedAt?: number;
+  chatId?: string | null;
+};
+export function createProjectChatWindowInstance(
+  options: Partial<ProjectChatWindowInstance> = {},
+): ProjectChatWindowInstance {
+  const defaults: ProjectChatWindowInstance = {
+    instanceId: "",
+    placement: "bottom_docked",
+    isMinimized: false,
+    isClosed: false,
+    isMaximized: false,
+    bounds: {
+      height: 520,
+      width: 820,
+      x: 120,
+      y: 120,
+    },
+    dockMetrics: {
+      preferredWidthPx: null,
+      widthFraction: null,
+    },
+    zIndex: 0,
+    lastPlacementBeforeMaximize: null,
+    mode: "project_ai_mode",
+    sectionIdOrNull: null,
+    title: null,
+    lastFocusedAt: 0,
+    chatId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
+    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
+    dockMetrics: createChatWindowDockMetrics(
+      options.dockMetrics ?? defaults.dockMetrics,
+    ),
+  };
+}
+
+export type ProjectChatWindowingState = {
+  instancesById: Record<string, ProjectChatWindowInstance>;
+  order: Array<string>;
+  nextInstanceNumber: number;
+};
+export function createProjectChatWindowingState(
+  options: Partial<ProjectChatWindowingState> = {},
+): ProjectChatWindowingState {
+  return mergeGeneratedOptions<ProjectChatWindowingState>(
+    {
+      instancesById: {},
+      order: [],
+      nextInstanceNumber: 1,
+    },
+    options,
+  );
+}
+
+export type SingleConfig = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionCapabilities: Record<string, SectionCapabilities>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+  projectConfig: ProjectConfig;
+  singletonSections: SingletonSections;
+  parentSectionMap: Record<string, string | null>;
+  shownParamIds: Record<string, ShownParamIDs>;
+  requiredDecodedImages: Array<string>;
+  genCodeBinding: CodeFileBinding | null;
+  projectChatWindowing: ProjectChatWindowingState;
+  artifactGroups?: Record<string, unknown>;
+};
+export function createSingleConfig(
+  options: Partial<SingleConfig> = {},
+): SingleConfig {
+  return mergeGeneratedOptions<SingleConfig>(
+    {
+      sections: {},
+      sectionImpls: {},
+      sectionCapabilities: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      projectConfig: {
+        activeIds: [],
+        activeViewModeId: null,
+        agenticEdges: [],
+        allowJsonSourceKeyEdits: false,
+        codegenTargets: [],
+        edges: [],
+        entryCodeBlockId: null,
+        hasPythonCodegenTarget: false,
+        id: "",
+        isEditingViewMode: false,
+        name: "",
+        previewImgColor: "",
+        runCapabilities: {
+          canRunFromMain: false,
+          effectiveEntrySectionId: null,
+          mainRunDisabledReason: null,
+        },
+        sectionIdsByPathSlug: {},
+        sectionPathSlugsById: {},
+        sectionVariantMap: {},
+        showParamDisplayNames: false,
+        stateMachineEdges: [],
+        topLevelSections: {},
+        viewModes: {},
+        viewport: null,
+        viewportInitialized: false,
+        watchCodeBaselineByPath: {},
+        watchCodeEnabled: false,
+        watchCodeFiles: [],
+        watchCodeFolders: [],
+        watchCodeRegistry: {},
+        windowSpaceIdsBySlug: {},
+        windowSpaceSlugsById: {},
+        windowSpaces: {},
+      },
+      singletonSections: {
+        GenPythonCode: null,
+        GenPythonMetadata: null,
+        GlobalVariables: null,
+      },
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+      projectChatWindowing: {
+        instancesById: {},
+        nextInstanceNumber: 1,
+        order: [],
+      },
+      artifactGroups: {},
+    },
+    options,
+  );
+}
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string;
+  routes?: Array<AppRoute>;
+  dataBindings?: JSONValue;
+  actions?: JSONValue;
+  theme?: JSONValue;
+  assets?: JSONValue;
+};
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return options as AppDefinition;
+}
+
+export type AppDeploymentStateResponse = {
+  projectState: SingleConfig;
+  appDefinition: AppDefinition | null;
+  appSpec: unknown;
+  appPolicy: Policy;
+};
+
+export type RunDetachedRequest = {
+  projectConfigId: string;
+  entrySectionId: string;
+  runSnapshotMode: RunSnapshotMode;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+  tags: Record<string, string>;
+};
+
+const DetachedStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+type DetachedStatus = ObjectValues<typeof DetachedStatusEnum>;
+
+export type RunDetachedResponse = {
+  runId: string;
+  status: DetachedStatus;
+};
+
+export type GetRunStatusRequest = {
+  runId: string;
+};
+
+export type CancelRunRequest = {
+  runId: string;
+};
+
+export type GetRunnerSummaryRequest = {
+  projectConfigId: string;
+};
+
+export type DocstringToMarkdownRequest = {
+  docstring: string;
+};
+
+export type GetEngineConfigRequest = {
+  configId: string;
+};
+
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+type EngineConfigDefaults = {
+  thinking?: boolean | null;
+};
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return mergeGeneratedOptions<EngineConfigDefaults>(
+    {
+      thinking: null,
+    },
+    options,
+  );
+}
+
+export type CreateEngineConfigRequest = {
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
+};
+
+type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  return mergeGeneratedOptions<EngineRuntimeSupport>(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
+type UpdateEngineConfigPayload = {
+  id: string | null;
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
+  runtimeSupport: EngineRuntimeSupport | null;
+};
+
+export type UpdateEngineConfigRequest = {
+  config: UpdateEngineConfigPayload | null;
+};
+
+export type DeleteEngineConfigRequest = {
+  configId: string;
+};
+
+export const ToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+} as const;
+type ToolType = ObjectValues<typeof ToolTypeEnum>;
+
+export const RunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+type RunMode = ObjectValues<typeof RunModeEnum>;
+
+export const SettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+type SettingsMode = ObjectValues<typeof SettingsModeEnum>;
+
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
+
+type ClaudeSettingsPermissions = {
+  allow: Array<string>;
+  ask: Array<string>;
+  deny: Array<string>;
+};
+
+type ClaudeSettingsManaged = {
+  permissions?: ClaudeSettingsPermissions | null;
+  defaultMode?: string | null;
+  mcp?: Record<string, unknown>;
+};
+
+type SettingsManagedBlock = {
+  claude?: ClaudeSettingsManaged | null;
+  codex?: Record<string, unknown>;
+};
+
+export const WorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
+
+export type CreateExternalAgentConfigRequest = {
+  name: string | null;
+  description: string | null;
+  toolType: ToolType | null;
+  runMode: RunMode | null;
+  commandPath: string | null;
+  baseUrl: string | null;
+  defaultModel: string | null;
+  sandboxPolicy: string | null;
+  approvalPolicy: string | null;
+  settingsMode: SettingsMode | null;
+  settingsSources: Array<ClaudeSettingsSource>;
+  settingsFilePath: string | null;
+  settingsManagedBlock: SettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean | null;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: WorkingDirStrategy | null;
+  workingDir: string | null;
+  codexSkipGitRepoCheck: boolean | null;
+};
+
+export type ExternalAgentConfig = {
+  id: string;
+  name: string;
+  description: string;
+  toolType: ToolType;
+  runMode: RunMode;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode: SettingsMode;
+  settingsSources?: Array<ClaudeSettingsSource>;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: SettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: WorkingDirStrategy;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+
+export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
+
+export type GetExternalAgentConfigRequest = {
+  configId: string;
+};
+
+export type UpdateExternalAgentConfigRequest = {
+  config: ExternalAgentConfig | null;
+};
+
+export type DeleteExternalAgentConfigRequest = {
+  configId: string;
+};
+
+type EnvVarStatus = {
+  present: Array<string>;
+  missing: Array<string>;
+};
+
+export type ExternalAgentPreflightStatus = {
+  configId: string;
+  name: string;
+  toolType: ToolType;
+  runMode: RunMode;
+  supported: boolean;
+  available: boolean;
+  issues: Array<string>;
+  sdkVersion: string | null;
+  cliVersion: string | null;
+  baseUrl: string | null;
+  workingDir: string | null;
+  envVars: EnvVarStatus;
+};
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
+  return options as ExternalAgentPreflightStatus;
+}
+
+export type ExternalAgentPreflightStatusList =
+  Array<ExternalAgentPreflightStatus>;
+
+export type CheckIfFileExistsRequest = {
+  filepath: string;
+};
+
+export type CreateFileRequest = {
+  filepath: string;
+};
+
+export type CheckWorkspaceInitializedRequest = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+};
+
+const MissingFolderBehaviorEnum = {
+  error: "error",
+  empty: "empty",
+} as const;
+type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
+
+export type GetFolderContentsRequest = {
+  baseFolderPath?: string | null;
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+  includeMtime?: boolean | null;
+  includeSize?: boolean | null;
+  includeHidden?: boolean | null;
+  includeSettaInitialized?: boolean | null;
+  ignorePatterns?: Array<string> | null;
+  maxEntries?: number | null;
+  missingFolderBehavior?: MissingFolderBehavior | null;
+};
+
+export type GetFileBrowserDownloadURLsRequest = {
+  paths: Array<string>;
+};
+
+export type GetWorkspacePythonSignalRequest = {
+  folderPath: string;
+};
+
+export type GetFileBrowserFileContentRequest = {
+  path: string;
+  maxBytes?: number | null;
+};
+
+export type GetFileBrowserFileStatRequest = {
+  path: string;
+};
+
+export type WriteFileBrowserFileContentRequest = {
+  path: string;
+  contentId: string;
+  expectedMtimeNs?: number | null;
+};
+
+const TransferOperationEnum = {
+  copy: "copy",
+  move: "move",
+} as const;
+type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
+
+export type TransferFileBrowserEntryRequest = {
+  sourcePath: string;
+  destinationFolderPath: string;
+  operation: TransferOperation;
+};
+
+type LauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type RecentWorkspaceEntry = {
+  workspaceRoot: string;
+  pinned: boolean;
+  lastUsedAt: number;
+};
+
+export type LauncherRecentWorkspacesResponse = {
+  ok: boolean;
+  workspaces: Array<RecentWorkspaceEntry>;
+  error: LauncherHomeErrorPayload | null;
+};
+
+export type GetLauncherRecentWorkspacesRequest = {
+  setta_home?: string | null;
+};
+
+export type LauncherRecentWorkspaceRequest = {
+  settaHome: string | null;
+  workspaceRoot: string;
+  pinned: boolean | null;
+};
+
+export type PinLauncherRecentWorkspaceRequest = {
+  settaHome: string | null;
+  workspaceRoot: string;
+  pinned: boolean;
+};
+
+export type LauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string>;
+};
+
+export type LauncherListDirectoryRequest = {
+  path: string | null;
+  cursor: string | null;
+  pageSize: number | null;
+};
+
+export type DirectoryEntry = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+};
+
+export type LauncherListDirectoryResponse = {
+  ok: boolean;
+  currentPath: string | null;
+  parentPath: string | null;
+  entries: Array<DirectoryEntry>;
+  nextCursor: string | null;
+  hasMore: boolean;
+  truncated: boolean;
+  error: LauncherHomeErrorPayload | null;
+};
+
+const FilesLocationEnum = {
+  auto: "auto",
+  local: "local",
+  global: "global",
+} as const;
+type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
+
+export type LauncherOpenWorkspaceRequest = {
+  workspaceRoot: string;
+  settaHome: string | null;
+  profile: string | null;
+  settaFilesRoot: string | null;
+  settaFilesLocation: FilesLocation | null;
+  runtimeRoot: string | null;
+  createIfMissing: boolean;
+};
+
+const ResolvedFilesLocationEnum = {
+  local: "local",
+  global: "global",
+} as const;
+type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
+
+export type LauncherOpenWorkspaceResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: ResolvedFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  error: LauncherHomeErrorPayload | null;
+};
+
+type LauncherOperationErrorPayload = {
+  code: string;
+  message: string;
+};
+
+const LauncherOpenModeEnum = {
+  Browser: "browser",
+  ChromeApp: "chrome-app",
+} as const;
+type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
+
+const LauncherWorkspaceBehaviorEnum = {
+  LastUsedOrPrompt: "last_used_or_prompt",
+  AlwaysPrompt: "always_prompt",
+} as const;
+type LauncherWorkspaceBehavior = ObjectValues<
+  typeof LauncherWorkspaceBehaviorEnum
+>;
+
+const LauncherUpdateCapabilityEnum = {
+  InApp: "in_app",
+  InstallerManaged: "installer_managed",
+  Unsupported: "unsupported",
+} as const;
+type LauncherUpdateCapability = ObjectValues<
+  typeof LauncherUpdateCapabilityEnum
+>;
+
+export type LauncherStatusResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+};
+export function createLauncherStatusResponse(
+  options: Partial<LauncherStatusResponse> = {},
+): LauncherStatusResponse {
+  return options as LauncherStatusResponse;
+}
+
+export type LauncherUpdateResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+  packageSpec?: string | null;
+  fromVersion?: string | null;
+  toVersion?: string | null;
+};
+
+export type LauncherRequestBase = {
+  settaHome: string | null;
+};
+
+export type GetLauncherStatusRequest = {
+  setta_home?: string | null;
+};
+
+export type SetupLauncherRequest = {
+  settaHome?: string | null;
+  channel?: string | null;
+  installSource?: string | null;
+  openMode?: string | null;
+  workspaceBehavior?: string | null;
+  installArtifacts?: boolean | null;
+  artifactOptions?: Record<string, string> | null;
+};
+
+export type UpdateLauncherRequest = {
+  settaHome: string | null;
+  packageSpec: string | null;
+};
+
+export type ForceRefreshProjectRequest = {
+  projectConfigId: string;
+};
+
+export type ListenerCoverageRequest = {
+  projectConfigId: string;
+};
+
+export type SetLLMAPIKeysRequest = {
+  apiKeys: Record<string, string>;
+  expectedRevision: number;
+};
+
+export type LLMAPIKeysSnapshot = {
+  apiKeys: Record<string, string>;
+  revision: number;
+  corrupt: boolean;
+  errorCode: string | null;
+  message: string | null;
+};
+
+export type TypeCheckRequest = {
+  projectConfigId: string;
+};
+
+export type GetLatestLSPDiagnosticsRequest = {
+  projectConfigId: string;
+};
+
+export type SetTypeErrorIgnoreRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  ignoreTypeErrors: boolean;
+};
+
+export type SetCodeSectionDiagnosticsMuteRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  mute: boolean;
+};
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  code: unknown;
+  suppress: boolean;
+};
+
+export type ClearTextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+};
+
+export type TextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  fullText: string;
+  position: number;
+};
+
+export type OutputAccessorCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
+};
+
+export type CodeAreaCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
+};
+
+export type GenCodePrefixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+
+export type GenCodeSuffixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+
+export type MCPRuntimeStatusRequest = {
+  chatId: string | null;
+  engineConfigId: string | null;
+};
+
+const MCPXTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+type MCPXTransport = ObjectValues<typeof MCPXTransportEnum>;
+
+const RuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+type RuntimeState = ObjectValues<typeof RuntimeStateEnum>;
+
+type ServerRuntimeStatus = {
+  serverId: string;
+  source: string;
+  transport: MCPXTransport;
+  endpoint: string;
+  state: RuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+
+type MCPResolvedRuntimeServer = {
+  serverId: string;
+  transport: MCPXTransport;
+  endpoint: string;
+  state: RuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+  quickInfo: string;
+};
+
+export type MCPRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string;
+  servers: Array<ServerRuntimeStatus>;
+  externalServers: Array<ServerRuntimeStatus>;
+  resolvedServers: Array<MCPResolvedRuntimeServer>;
+};
+
 const ModeEnum = {
   IDE: "ide",
   Share: "share",
@@ -101,6 +1922,1659 @@ const ModeEnum = {
   Launcher: "launcher",
 } as const;
 type Mode = ObjectValues<typeof ModeEnum>;
+
+export type PluginsRescanResponse = {
+  schemaVersion: number;
+  serverMode: Mode;
+  installedPlugins: number;
+  activePlugins: number;
+};
+
+export type PluginEnableDisableRequest = {
+  pluginId: string;
+};
+
+const PluginScopeEnum = {
+  Workspace: "workspace",
+  SettaFiles: "setta_files",
+  Global: "global",
+} as const;
+type PluginScope = ObjectValues<typeof PluginScopeEnum>;
+
+export type PluginLinkRequest = {
+  localPluginRoot: string;
+  scope: PluginScope | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+
+const PluginInstallerBackendEnum = {
+  Auto: "auto",
+  Pip: "pip",
+  UV: "uv",
+} as const;
+type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
+
+export type PluginInstallRequest = {
+  sourceSpec: string;
+  scope: PluginScope | null;
+  installer: PluginInstallerBackend | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+
+export type PluginUninstallRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+
+export type PluginUpdateRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+  to: string | null;
+};
+
+export type PluginRollbackRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+
+export type PluginConfigWriteRequest = {
+  pluginId: string;
+  config: Record<string, unknown>;
+};
+
+export type PluginLockApplyRequest = {
+  check: boolean;
+};
+
+export type ProjectStateSingleConfigWithCompletedOpIDs = {
+  projectState: SingleConfig;
+  completedOpIds: Array<string>;
+  pendingOpIds: Array<string>;
+};
+export function createProjectStateSingleConfigWithCompletedOpIDs(
+  options: Partial<ProjectStateSingleConfigWithCompletedOpIDs> = {},
+): ProjectStateSingleConfigWithCompletedOpIDs {
+  const defaults: ProjectStateSingleConfigWithCompletedOpIDs = {
+    projectState: {
+      artifactGroups: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      codeObjs: {},
+      genCodeBinding: null,
+      parentSectionMap: {},
+      projectChatWindowing: {
+        instancesById: {},
+        nextInstanceNumber: 1,
+        order: [],
+      },
+      projectConfig: {
+        activeIds: [],
+        activeViewModeId: null,
+        agenticEdges: [],
+        allowJsonSourceKeyEdits: false,
+        codegenTargets: [],
+        edges: [],
+        entryCodeBlockId: null,
+        hasPythonCodegenTarget: false,
+        id: "",
+        isEditingViewMode: false,
+        name: "",
+        previewImgColor: "",
+        runCapabilities: {
+          canRunFromMain: false,
+          effectiveEntrySectionId: null,
+          mainRunDisabledReason: null,
+        },
+        sectionIdsByPathSlug: {},
+        sectionPathSlugsById: {},
+        sectionVariantMap: {},
+        showParamDisplayNames: false,
+        stateMachineEdges: [],
+        topLevelSections: {},
+        viewModes: {},
+        viewport: null,
+        viewportInitialized: false,
+        watchCodeBaselineByPath: {},
+        watchCodeEnabled: false,
+        watchCodeFiles: [],
+        watchCodeFolders: [],
+        watchCodeRegistry: {},
+        windowSpaceIdsBySlug: {},
+        windowSpaceSlugsById: {},
+        windowSpaces: {},
+      },
+      requiredDecodedImages: [],
+      sectionCapabilities: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      sections: {},
+      shownParamIds: {},
+      singletonSections: {
+        GenPythonCode: null,
+        GenPythonMetadata: null,
+        GlobalVariables: null,
+      },
+    },
+    completedOpIds: [],
+    pendingOpIds: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
+      defaults,
+      options,
+    ),
+    projectState: createSingleConfig(
+      options.projectState ?? defaults.projectState,
+    ),
+  };
+}
+
+export type ProjectConfigMutationResponse = {
+  projectConfig: ProjectConfig;
+};
+
+export type WindowSpaceMutationResponse = {
+  projectConfig: ProjectConfig;
+  windowSpaceId?: string | null;
+};
+
+export type SetProjectConfigCodegenTargetsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codegenTargets: Array<JSONValue>;
+};
+
+export type SetGenCodePrefixRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodePrefix: string;
+};
+
+export type SetGenCodeSuffixRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodeSuffix: string;
+};
+
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
+type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+
+export type GetLatestProjectStateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+
+export type UndoRequest = {
+  projectConfigId: string;
+  steps: number;
+};
+
+export type RedoRequest = {
+  projectConfigId: string;
+  steps: number;
+};
+
+export type GetPasswordParamValueRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+
+export type GetPasswordParamValueResponse = {
+  value: string;
+};
+
+export type DeleteSectionVariantOrAskRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type DeleteJSONSourceFileAndVariantRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  filepath: string;
+};
+
+export type CreateNewSectionVariantRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type CreateNewSectionVariantResult = {
+  variantId: string;
+};
+
+export type SetSectionVariantRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type SetDefaultSectionVariantRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type SetSectionVariantSortOrderRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  orderedVariantIds: Array<string>;
+};
+
+export type ToggleVariantFrozenRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+};
+
+export type ToggleVariantJSONSourceRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type SetVariantJSONSourceKeysRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  jsonSourceKeys: Array<string>;
+};
+
+export type SetSectionVariantNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+  name: string;
+};
+
+export type DeleteSectionsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+export type DeleteSelectedParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoIds: Array<string>;
+};
+
+export type PrepareSectionsForCopyRequest = {
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+
+type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
+export type Position = {
+  x: number;
+  y: number;
+};
+
+export type PasteSectionsRequest = {
+  projectConfigId: string;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  position: Position;
+  asRef: boolean;
+};
+
+export type CreateEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type: string;
+  label: string | null;
+  style: Record<string, unknown> | null;
+  animated: boolean;
+  hidden: boolean;
+  zIndex: number;
+  data: Record<string, unknown> | null;
+};
+
+export type UpdateEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: Edge;
+};
+
+export type DeleteEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+
+export type ReconnectEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+};
+
+export type SetEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<Edge>;
+};
+
+export type CreateStateMachineEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id: string | null;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter: StateMachineSourceFilter | null;
+  sourceActivationCountCondition: StateMachineSourceActivationCountCondition | null;
+  targetAction: StateMachineTargetAction | null;
+  style: Record<string, unknown> | null;
+  hidden: boolean;
+  zIndex: number;
+  selected: boolean;
+};
+
+export type UpdateStateMachineEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: StateMachineEdge;
+};
+
+export type DeleteStateMachineEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+
+export type SetStateMachineEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<StateMachineEdge>;
+};
+
+export type CreateAgenticEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  id: string | null;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: string;
+  contextMode: string | null;
+  style: Record<string, unknown> | null;
+  hidden: boolean;
+  zIndex: number;
+};
+
+export type UpdateAgenticEdgeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edge: AgenticEdge;
+};
+
+export type DeleteAgenticEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edgeIds: Array<string>;
+};
+
+export type SetAgenticEdgesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  edges: Array<AgenticEdge>;
+};
+
+export type MoveSectionsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+  newParentId: string | null;
+  newIndex: number | null;
+  positionsById: Record<string, Position> | null;
+};
+
+export type MoveParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+
+type MoveParamGroupRequest = {
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+
+export type MoveParamGroupsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  moves: Array<MoveParamGroupRequest>;
+};
+
+export type IndentParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+
+export type UnindentParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+
+export type AddKwargRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type DeleteKwargRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type CreateChildSectionsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  parentId: string;
+  implType: string;
+  numChildren: number;
+  startIdx: number | null;
+};
+
+export type CreateChildSectionsViaIncrementerRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  implType: string;
+  numChildren: number;
+};
+
+export type DeleteChildSectionsViaDecrementerRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  numChildren: number;
+};
+
+export type ViewportBounds = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type CreateTopLevelSectionRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  implType: string;
+  controlCodeObjType: string | null;
+  implOverrides: Record<string, unknown>;
+  position: Position | null;
+  name: string | null;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  viewportBounds: ViewportBounds | null;
+};
+
+export type CreateViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+
+export type SetActiveViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  activeViewModeId: string;
+};
+
+export type ToggleIsEditingViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+
+export type ToggleSectionVisibilityRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+export type GroupSectionsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+export type UngroupGroupsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  groupIds: Array<string>;
+};
+
+export type ToggleViewModeUserFacingRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type ToggleViewModeTabRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type SetViewModeNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+  name: string;
+};
+
+export type SetViewModeSortOrderRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  orderedViewModeIds: Array<string>;
+};
+
+export type DeleteViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewModeId: string;
+};
+
+export type SetTopLevelSectionLayoutRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+};
+
+export type AutoLayoutTopLevelSectionsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  margin: number | null;
+};
+
+export type SetShowParamDisplayNamesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  showParamDisplayNames: boolean;
+};
+
+export type SetSectionNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  name: string;
+};
+
+export type SetCodeFileBindingRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  binding: CodeFileBindingUpdate;
+};
+
+export type AcceptRenameRefactorRequest = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+
+export type DeclineRenameRefactorRequest = {
+  projectConfigId: string;
+  frontendOpId: string;
+};
+
+export type TogglePositionLocksRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+
+export type ToggleMinimizedRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+type sectionSizeValueRequest = number | SectionSizeMode;
+
+type sectionSizeRequest = {
+  width: sectionSizeValueRequest;
+  height: sectionSizeValueRequest;
+};
+
+export type SetSectionSizesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionSizes: Record<string, sectionSizeRequest>;
+};
+
+export type SetCallableRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  callableName: string;
+  refetchParams: boolean;
+};
+
+export type SetActiveIDsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  activeIds: Array<string>;
+};
+
+export type SetViewportRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  viewport: Viewport | null;
+};
+
+export type SetCodeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  code: string;
+};
+
+export type FormatCodeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type SetSectionTagColorRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  tagColor: string | null;
+};
+
+export type SetSectionStyleColorRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  styleColor: string | null;
+};
+
+export type SetSectionParamFilterRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  value: string;
+};
+
+export type SetMetaControlShowSectionTitleRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  showSectionTitle: boolean;
+};
+
+export type SetSectionColumnWidthRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+};
+
+export type SetSectionEdgeInputsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeInputParams: Array<string>;
+};
+
+type EdgePort = {
+  id: string;
+  accessor: string;
+};
+
+export type SetSectionEdgeOutputsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeOutputPorts: Array<EdgePort>;
+};
+
+export type SetParentDefaultChildSectionTypeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  defaultChildSectionType: string;
+};
+
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
+
+export type SetListRootViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: ListRootViewMode;
+};
+
+export type ToggleGroupOrientationRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type SetGroupOverflowModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  overflowMode: boolean;
+};
+
+export type SetCallableHideParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideParams: boolean;
+};
+
+export type SetSectionHideUnpinnedParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideUnpinnedParams: boolean;
+};
+
+export type SetSectionPinnedParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  pinnedParams: Array<string>;
+};
+
+export type ToggleParamSelectedRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+
+export type UnselectAllParamsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+
+export type SetBrowserColumnWidthsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  columnWidth: number | null;
+  typesColumnWidth: number | null;
+};
+
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
+
+export type SetBrowserAreaViewModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: BrowserAreaViewMode;
+};
+
+export type SetBrowserHideColumnRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  hideColumn: boolean;
+};
+
+export const BrowserSearchScopeEnum = {
+  recursive: "recursive",
+  local: "local",
+} as const;
+type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
+
+export type BrowserSavedSearch = {
+  id: string;
+  name: string;
+  query: string;
+  searchScope: BrowserSearchScope;
+  typeFilters: BrowserSavedSearchTypeFilters;
+  color: string;
+  quickInfo: string;
+};
+
+export type SetBrowserSavedSearchesRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+
+export type SetSpreadsheetFilePathRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  filePath: string;
+  activeSheet: string | null;
+};
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
+
+export type SetSpreadsheetSectionSettingsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return mergeGeneratedOptions<TaskBoardColumn>(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return mergeGeneratedOptions<TaskBoardTask>(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: "none",
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type SetTaskBoardSectionStateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+
+export type SetImageAreaImagePathRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  imagePath: string;
+};
+
+export type SetSocialURLRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  url: string;
+};
+
+export type DrawAreaLayerItem = {
+  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
+  dataPath: string;
+  transformId: string;
+};
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  return mergeGeneratedOptions<DrawAreaLayerItem>(
+    {
+      type: "BrushStroke",
+      dataPath: "",
+      transformId: "",
+    },
+    options,
+  );
+}
+
+export type AppendDrawAreaLayerItemRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  layerIdx: number;
+  element: DrawAreaLayerItem;
+};
+
+export type SetChartAreaDataPathRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  dataPath: string;
+};
+
+export const ChartTypeEnum = {
+  line: "line",
+  scatter: "scatter",
+} as const;
+export type ChartType = ObjectValues<typeof ChartTypeEnum>;
+
+export type SetChartTypeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chartType: ChartType;
+};
+
+type ChartSettingsUpdate = {
+  type: ChartType;
+  xAxisColumn: string | null;
+  secondYAxisColumns: Array<string>;
+  categoryColumn: string | null;
+  xAxisLog: boolean;
+  y1AxisLog: boolean;
+  y2AxisLog: boolean;
+  yAxisLog: boolean;
+};
+
+export type SetChartSettingsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chartSettings: ChartSettingsUpdate;
+  changedSettings: Array<string>;
+};
+
+export type SetTextBlockTextRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  text: string;
+};
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
+
+export type SetTextBlockDisplayModeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  textDisplayMode: TextBlockDisplayMode;
+};
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
+export type SetTextBlockFormatRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: TextBlockFormat;
+};
+
+export type SetTextBlockHeadingAsSectionNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  headingAsSectionName: boolean;
+};
+
+export type SetTextBlockMetaControlStyleRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  metaControlStyle: boolean;
+};
+
+export type SetTextBlockMasterFontSizeRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  masterFontSizePx: number;
+};
+
+export type SetPromptTemplateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  template: string;
+};
+
+export type SetPromptTemplateLinkRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  promptTemplateId?: string | null;
+};
+
+export type SetPromptInputsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  inputs: Record<string, string>;
+};
+
+export const FormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type Format = ObjectValues<typeof FormatEnum>;
+
+export type SetPromptFormatRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: Format;
+};
+
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
+const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
+
+export type SetChatSectionSettingsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+};
+
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<
+  typeof StateMachineGateTypeEnum
+>;
+
+export type SetStateMachineSectionSettingsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  machineGroupId: string;
+  label: string;
+  gateType?: StateMachineGateType | null;
+};
+
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
+export type SetChatSectionStateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  state: ChatSectionState;
+};
+
+export type GetChatSectionChatIDRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type SetChatSectionChatIDRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chatId: string | null;
+};
+
+export type WindowSpaceState = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+};
+export function createWindowSpaceState(
+  options: Partial<WindowSpaceState> = {},
+): WindowSpaceState {
+  return mergeGeneratedOptions<WindowSpaceState>(
+    {
+      windowsById: {},
+      order: [],
+    },
+    options,
+  );
+}
+
+export type CreateWindowSpaceRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  state: WindowSpaceState;
+  name?: string | null;
+};
+
+export type SetWindowSpaceNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  windowSpaceId: string;
+  name: string;
+};
+
+export type SetWindowSpaceSortOrderRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  orderedWindowSpaceIds: Array<string>;
+};
+
+export type DeleteWindowSpaceRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  windowSpaceId: string;
+};
+
+export type SetProjectChatWindowingStateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  state: ProjectChatWindowingState;
+};
+
+export type SetProjectChatWindowChatIDRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  instanceId: string;
+  chatId: string | null;
+};
+
+export type SetWatchCodeEnabledRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  enabled: boolean;
+};
+
+export type SetWatchCodeInputsRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+};
+
+export type ChangeParamImplRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  selectedId: string;
+};
+
+export type SetParamEnteredValueRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  sectionVariantId: string;
+  paramInfoId: string;
+  value: string;
+};
+
+export type UpdateParamImplConfigRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  newConfig: Record<string, unknown>;
+};
+
+export type SetCodeSectionAttachedTerminalRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  terminalSectionId: string | null;
+};
+
+export type SetCodeObjNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  name: string;
+};
+
+export type SetCodeObjDisplayNameRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  displayName: string;
+};
+
+export type ProjectLoadRequest = {
+  projectConfigName: string;
+};
+
+export type ManualSaveRequest = {
+  projectConfigId: string;
+};
+
+export type SaveAsNewProjectConfigRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  newConfigName: string;
+  withRefs: boolean;
+};
+
+export type CreateProjectConfigRequest = {
+  previewImgColor: string;
+};
+
+export type DeleteProjectConfigsResponse = boolean;
+
+export type DeleteProjectConfigsRequest = {
+  ids: Array<string>;
+};
+
+export type SetProjectConfigNameRequest = {
+  projectConfigId: string;
+  newName: string;
+};
+
+export type SetDefaultProjectConfigRequest = {
+  projectConfigId: string;
+};
+
+export type GetNotificationsRequest = {
+  projectConfigId: string;
+};
+
+export type DeleteNotificationRequest = {
+  notificationId: string;
+};
+
+export const NotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
+
+export type Notification = {
+  id: string;
+  projectConfigId: string;
+  type: NotificationType;
+  message: string;
+  temporary: boolean;
+  timestamp: string;
+  metadata: Record<string, unknown>;
+  read_status: boolean;
+};
+export function createNotification(
+  options: Partial<Notification> = {},
+): Notification {
+  return options as Notification;
+}
+
+export type NotificationList = Array<Notification>;
+
+export type DeleteNotificationResponse = {
+  success: boolean;
+};
+
+export type CreatePromptTemplateRequest = {
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: Format | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type Template = {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  format: Format;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type GetPromptTemplateRequest = {
+  templateId: string;
+};
+
+type PromptTemplatePayload = {
+  id: string | null;
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: Format | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type UpdatePromptTemplateRequest = {
+  template: PromptTemplatePayload | null;
+};
+
+export type DeletePromptTemplateRequest = {
+  templateId: string;
+};
+
+export type SaveSettingsRequest = {
+  settings: unknown;
+};
+
+export type StartStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+  startSectionId?: string | null;
+};
+
+export type StopStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+
+export type ResetStateMachineRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+
+export type GetStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+
+export type StateMachineRunControlResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+};
+
+type BackendInitEvent = {
+  message: string;
+  timestamp: string;
+};
+
+export type BackendInitStatusResponse = {
+  events: Array<BackendInitEvent>;
+  isReady: boolean;
+  error: string | null;
+  authCookieRefreshWindowSeconds: number;
+  worktreeName: string | null;
+};
+
+export type AuthRefreshStatusResponse = {
+  authCookieRefreshWindowSeconds: number;
+};
+
+export type ServerModeResponse = {
+  mode: string;
+};
+
+export type SettaHomeInfoResponse = {
+  settaHome: string;
+  globalSettaFilesBase: string;
+  activeSettaFilesLocation: string | null;
+  llmConfigPath: string;
+};
+
+export type RevealPathInOSFileExplorerRequest = {
+  path: string;
+};
+
+export type DeleteTerminalsRequest = {
+  sectionIds: Array<string>;
+};
+
+export type InterruptTerminalProcessesRequest = {
+  projectId: string;
+};
+
+export type InterruptTerminalProcessesResponse = {
+  interruptedSessionCount: number;
+};
+
+export type ContentRef = {
+  contentId: string;
+  byteLength: number;
+  mimeType?: string;
+  sha256?: string;
+};
+export function createContentRef(
+  options: Partial<ContentRef> = {},
+): ContentRef {
+  return options as ContentRef;
+}
+
+export type RunCodeRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  terminalSectionId: string;
+  cliId: string;
+  runSnapshotMode: RunSnapshotMode | null;
+  drawSnapshotsBySectionId: Record<string, ContentRef>;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+};
+
+const TransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+type TransportMode = ObjectValues<typeof TransportModeEnum>;
+
+export type CreateTranscriptionProfileRequest = {
+  name: string | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: TransportMode | null;
+  chunkMs: number | null;
+  language: string | null;
+};
+
+type TranscriptionProfilePayload = {
+  id: string | null;
+  name: string | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: TransportMode | null;
+  chunkMs: number | null;
+  supportsRealtimeTranscription: boolean | null;
+  language: string | null;
+};
+
+export type UpdateTranscriptionProfileRequest = {
+  profile: TranscriptionProfilePayload | null;
+};
+
+export type DeleteTranscriptionProfileRequest = {
+  profileId: string | null;
+};
+
+export type WorkspaceLaunchErrorPayload = {
+  code: string;
+  message: string;
+};
+
+const LaunchSettaFilesLocationEnum = {
+  Auto: "auto",
+  Local: "local",
+  Global: "global",
+} as const;
+type LaunchSettaFilesLocation = ObjectValues<
+  typeof LaunchSettaFilesLocationEnum
+>;
+
+const LaunchResolvedSettaFilesLocationEnum = {
+  Local: "local",
+  Global: "global",
+} as const;
+type LaunchResolvedSettaFilesLocation = ObjectValues<
+  typeof LaunchResolvedSettaFilesLocationEnum
+>;
+
+export type LaunchRequest = {
+  launchIntentToken?: string | null;
+  workspaceRoot?: string | null;
+  profile?: string | null;
+  settaHome?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  sshTarget?: string | null;
+  sshArgs?: string | null;
+  remoteCmd?: string | null;
+  localPort?: number | null;
+};
+
+export type CreateWorkspaceLaunchIntentRequest = {
+  launchRequest: LaunchRequest;
+  returnUrl: string;
+};
+
+export type CreateWorkspaceLaunchIntentResponse = {
+  ok: boolean;
+  launchIntentToken: string | null;
+  requestedAt: number | null;
+  error: WorkspaceLaunchErrorPayload | null;
+};
+
+type LaunchSessionInfo = {
+  id: string;
+  workspacePath: string;
+  workspacePathCanonical: string;
+  host: string;
+  port: number;
+  pid: number;
+  startedAt: string;
+};
+
+export type LaunchResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  returnUrl: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  session: LaunchSessionInfo | null;
+  remoteCmdResolved: string | null;
+  error: WorkspaceLaunchErrorPayload | null;
+};
 
 type PluginConfigValidationResult = {
   ok: boolean;
@@ -111,20 +3585,6 @@ export type PluginConfigWriteResponse = {
   config: Record<string, unknown>;
   validation: PluginConfigValidationResult;
 };
-
-const PluginScopeEnum = {
-  Workspace: "workspace",
-  SettaFiles: "setta_files",
-  Global: "global",
-} as const;
-type PluginScope = ObjectValues<typeof PluginScopeEnum>;
-
-const PluginInstallerBackendEnum = {
-  Auto: "auto",
-  Pip: "pip",
-  UV: "uv",
-} as const;
-type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
 
 export type PluginLockWriteResponse = {
   lockfilePath: string;
@@ -369,40 +3829,6 @@ export type AgentProfile = {
   memoryScope?: string | null;
 };
 
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-type EngineConfigDefaults = {
-  thinking?: boolean | null;
-};
-function createEngineConfigDefaults(
-  options: Partial<EngineConfigDefaults> = {},
-): EngineConfigDefaults {
-  return mergeGeneratedOptions<EngineConfigDefaults>(
-    {
-      thinking: null,
-    },
-    options,
-  );
-}
-
-type EngineRuntimeSupport = {
-  thinking: boolean;
-};
-function createEngineRuntimeSupport(
-  options: Partial<EngineRuntimeSupport> = {},
-): EngineRuntimeSupport {
-  return mergeGeneratedOptions<EngineRuntimeSupport>(
-    {
-      thinking: false,
-    },
-    options,
-  );
-}
-
 export type EngineConfig = {
   id: string;
   name: string;
@@ -487,16 +3913,6 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   );
 }
 
-const DetachedStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-type DetachedStatus = ObjectValues<typeof DetachedStatusEnum>;
-
 export type DetachedRun = {
   runId: string;
   status: DetachedStatus;
@@ -510,86 +3926,6 @@ export type DetachedRun = {
   projectConfigId: string;
   entrySectionId: string | null;
   tags: Record<string, string>;
-};
-
-type EnvVarStatus = {
-  present: Array<string>;
-  missing: Array<string>;
-};
-
-export const ToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-} as const;
-type ToolType = ObjectValues<typeof ToolTypeEnum>;
-
-export const RunModeEnum = {
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-  app_server: "app_server",
-} as const;
-type RunMode = ObjectValues<typeof RunModeEnum>;
-
-export const ClaudeSettingsSourceEnum = {
-  user: "user",
-  project: "project",
-  local: "local",
-} as const;
-type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
-
-type ClaudeSettingsPermissions = {
-  allow: Array<string>;
-  ask: Array<string>;
-  deny: Array<string>;
-};
-
-type ClaudeSettingsManaged = {
-  permissions?: ClaudeSettingsPermissions | null;
-  defaultMode?: string | null;
-  mcp?: Record<string, unknown>;
-};
-
-export const WorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
-
-export const SettingsModeEnum = {
-  read_only: "read_only",
-  managed_local: "managed_local",
-  managed_project: "managed_project",
-  explicit_path: "explicit_path",
-} as const;
-type SettingsMode = ObjectValues<typeof SettingsModeEnum>;
-
-type SettingsManagedBlock = {
-  claude?: ClaudeSettingsManaged | null;
-  codex?: Record<string, unknown>;
-};
-
-export type ExternalAgentConfig = {
-  id: string;
-  name: string;
-  description: string;
-  toolType: ToolType;
-  runMode: RunMode;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode: SettingsMode;
-  settingsSources?: Array<ClaudeSettingsSource>;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: SettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: WorkingDirStrategy;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
 };
 
 const LLMTransportEnum = {
@@ -611,20 +3947,6 @@ type ServerConfig = {
   encoding_error_handler?: string;
 };
 
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string;
-  base_url?: string;
-  api_key_env?: string;
-  other_params?: Record<string, unknown>;
-  mcpServerIds?: Array<string>;
-  temporary?: boolean;
-};
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
-}
-
 export type AllConfigs = {
   configs: Record<string, LLMConfig>;
   mcpServers: Record<string, ServerConfig>;
@@ -632,28 +3954,6 @@ export type AllConfigs = {
   default_config_id?: string;
   codexMcpImportedAt?: string;
 };
-
-export type AppRoute = {
-  path: string;
-  name?: string;
-  rootKey?: string;
-};
-
-export type AppDefinition = {
-  appSpecVersion?: string;
-  catalogId?: string;
-  appSpecPath?: string;
-  routes?: Array<AppRoute>;
-  dataBindings?: JSONValue;
-  actions?: JSONValue;
-  theme?: JSONValue;
-  assets?: JSONValue;
-};
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return options as AppDefinition;
-}
 
 export type AppDefinitionReadResult = {
   appSpec: unknown;
@@ -685,35 +3985,12 @@ export type AppDefinitionMutationResult = {
   appDefinition?: AppDefinition | null;
 };
 
-export const BrowserAreaViewModeEnum = {
-  list: "list",
-  thumbnail: "thumbnail",
-  carousel: "carousel",
-} as const;
-export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
-
 export type BrowserSavedSearchTypeFilters = {
   image: boolean;
   video: boolean;
   audio: boolean;
   text: boolean;
   data: boolean;
-};
-
-export type BrowserSavedSearch = {
-  id: string;
-  name: string;
-  query: string;
-  searchScope: BrowserSearchScope;
-  typeFilters: BrowserSavedSearchTypeFilters;
-  color: string;
-  quickInfo: string;
 };
 
 const SignatureHelpStatusEnum = {
@@ -782,60 +4059,6 @@ function createScatterChartSettings(
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
 
-export const ChartTypeEnum = {
-  line: "line",
-  scatter: "scatter",
-} as const;
-export type ChartType = ObjectValues<typeof ChartTypeEnum>;
-
-type ChartSettingsUpdate = {
-  type: ChartType;
-  xAxisColumn: string | null;
-  secondYAxisColumns: Array<string>;
-  categoryColumn: string | null;
-  xAxisLog: boolean;
-  y1AxisLog: boolean;
-  y2AxisLog: boolean;
-  yAxisLog: boolean;
-};
-
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
-const ChatDictationModeEnum = {
-  auto: "auto",
-  browser: "browser",
-  provider: "provider",
-} as const;
-type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-
-export const ListRootViewModeEnum = {
-  default: "default",
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
-
 export type CreateChildSectionsResult = {
   sectionIds: Array<string>;
 };
@@ -844,28 +4067,9 @@ export const ClipboardDataTypeEnum = {
   Sections: "Sections",
 } as const;
 
-type ClipboardProjectStateCore = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-};
-
-type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-
 export type SectionsClipboardData = {
   type: typeof ClipboardDataTypeEnum.Sections;
   data: ClipboardProjectStateCoreWithSectionVariantMap;
-};
-
-export type Position = {
-  x: number;
-  y: number;
 };
 
 type TypeErrorIgnoreState = {
@@ -882,24 +4086,6 @@ export type DeleteSectionsResult = {
   sectionIds: Array<string>;
 };
 
-export type DrawAreaLayerItem = {
-  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
-  dataPath: string;
-  transformId: string;
-};
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  return mergeGeneratedOptions<DrawAreaLayerItem>(
-    {
-      type: "BrushStroke",
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  );
-}
-
 const MetaControlSizeModeEnum = {
   any: "any",
   auto_only: "auto_only",
@@ -911,20 +4097,6 @@ const SectionSizeModeEnum = {
   auto: "auto",
 } as const;
 type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
-
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -1118,12 +4290,6 @@ export type TaskBoardRecurringMonth = ObjectValues<
   typeof TaskBoardRecurringMonthEnum
 >;
 
-export type CodeFileBinding = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-  autoBinding: boolean;
-};
-
 type SectionSizeValue = number | SectionSizeMode;
 
 export type SectionSize = {
@@ -1144,108 +4310,9 @@ export function createSectionSize(
   };
 }
 
-type EdgePort = {
-  id: string;
-  accessor: string;
-};
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<
-  typeof StateMachineGateTypeEnum
->;
-
 type StateMachineGateUIState = {
   showDetails?: boolean;
 };
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
-
-export const FormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type Format = ObjectValues<typeof FormatEnum>;
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
-};
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  return mergeGeneratedOptions<TaskBoardColumn>(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
-};
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  return mergeGeneratedOptions<TaskBoardTask>(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: "none",
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = ObjectValues<
-  typeof SpreadsheetGridDensityEnum
->;
 
 type BaseSectionImpl = {
   type: SectionType;
@@ -3112,117 +6179,6 @@ function createSectionSizingPolicy(
   };
 }
 
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-export type ViewportBounds = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions<TopLevelSectionLayout>(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
-
-export type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions<ViewMode>(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-
-export type Edge = {
-  id: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown>;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown>;
-  selected?: boolean;
-};
-
-export type AgenticEdge = {
-  id: string;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode;
-  style?: Record<string, unknown>;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  return mergeGeneratedOptions<AgenticEdge>(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: "section_chat",
-      contextMode: "reference_only",
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
-}
-
 type LSPDiagnosticPosition = {
   line: number;
   character: number;
@@ -3270,226 +6226,14 @@ export function createLSPDiagnosticsPayload(
   return options as LSPDiagnosticsPayload;
 }
 
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
-
-export type ChatWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+export type NameValidationContract = {
+  projectReservedNames: Array<string>;
+  pythonKeywords: Array<string>;
+  simpleNameAllowedChars: Array<string>;
+  pythonIdentifierStartChars: Array<string>;
+  pythonIdentifierContinueChars: Array<string>;
+  slugReplacementChars: Array<string>;
 };
-function createChatWindowBounds(
-  options: Partial<ChatWindowBounds> = {},
-): ChatWindowBounds {
-  return mergeGeneratedOptions<ChatWindowBounds>(
-    {
-      x: 120,
-      y: 120,
-      width: 820,
-      height: 520,
-    },
-    options,
-  );
-}
-
-type ChatWindowDockMetrics = {
-  widthFraction?: number | null;
-  preferredWidthPx?: number | null;
-};
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  return mergeGeneratedOptions<ChatWindowDockMetrics>(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
-}
-
-export type ProjectChatWindowInstance = {
-  instanceId: string;
-  placement?: ChatWindowPlacement;
-  isMinimized?: boolean;
-  isClosed?: boolean;
-  isMaximized?: boolean;
-  bounds?: ChatWindowBounds;
-  dockMetrics?: ChatWindowDockMetrics;
-  zIndex?: number;
-  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
-  mode?: ChatWindowMode;
-  sectionIdOrNull?: string | null;
-  title?: string | null;
-  lastFocusedAt?: number;
-  chatId?: string | null;
-};
-export function createProjectChatWindowInstance(
-  options: Partial<ProjectChatWindowInstance> = {},
-): ProjectChatWindowInstance {
-  const defaults: ProjectChatWindowInstance = {
-    instanceId: "",
-    placement: "bottom_docked",
-    isMinimized: false,
-    isClosed: false,
-    isMaximized: false,
-    bounds: {
-      height: 520,
-      width: 820,
-      x: 120,
-      y: 120,
-    },
-    dockMetrics: {
-      preferredWidthPx: null,
-      widthFraction: null,
-    },
-    zIndex: 0,
-    lastPlacementBeforeMaximize: null,
-    mode: "project_ai_mode",
-    sectionIdOrNull: null,
-    title: null,
-    lastFocusedAt: 0,
-    chatId: null,
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
-    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
-    dockMetrics: createChatWindowDockMetrics(
-      options.dockMetrics ?? defaults.dockMetrics,
-    ),
-  };
-}
-
-export type ProjectChatWindowingState = {
-  instancesById: Record<string, ProjectChatWindowInstance>;
-  order: Array<string>;
-  nextInstanceNumber: number;
-};
-export function createProjectChatWindowingState(
-  options: Partial<ProjectChatWindowingState> = {},
-): ProjectChatWindowingState {
-  return mergeGeneratedOptions<ProjectChatWindowingState>(
-    {
-      instancesById: {},
-      order: [],
-      nextInstanceNumber: 1,
-    },
-    options,
-  );
-}
-
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
-
-export type NormalizedFloatingWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
-}
-
-type WindowSpaceWindow = {
-  surfaceKind?: WindowSpaceSurfaceKind;
-  sectionIdOrNull?: string | null;
-  mode?: ChatWindowMode;
-  title?: string | null;
-  chatId?: string | null;
-  embeddedGitPaneVisible?: boolean;
-  zIndex?: number;
-  normalizedBounds?: NormalizedFloatingWindowBounds;
-};
-export function createWindowSpaceWindow(
-  options: Partial<WindowSpaceWindow> = {},
-): WindowSpaceWindow {
-  const defaults: WindowSpaceWindow = {
-    surfaceKind: "project_chat",
-    sectionIdOrNull: null,
-    mode: "project_ai_mode",
-    title: null,
-    chatId: null,
-    embeddedGitPaneVisible: false,
-    zIndex: 0,
-    normalizedBounds: {
-      height: 1,
-      width: 1,
-      x: 0,
-      y: 0,
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
-    normalizedBounds: createNormalizedFloatingWindowBounds(
-      options.normalizedBounds ?? defaults.normalizedBounds,
-    ),
-  };
-}
-
-export type WindowSpaceState = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-};
-export function createWindowSpaceState(
-  options: Partial<WindowSpaceState> = {},
-): WindowSpaceState {
-  return mergeGeneratedOptions<WindowSpaceState>(
-    {
-      windowsById: {},
-      order: [],
-    },
-    options,
-  );
-}
-
-export type WindowSpaceConfig = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-  id?: string;
-  name?: string;
-  sortIndex?: number;
-};
-export function createWindowSpaceConfig(
-  options: Partial<WindowSpaceConfig> = {},
-): WindowSpaceConfig {
-  return mergeGeneratedOptions<WindowSpaceConfig>(
-    {
-      windowsById: {},
-      order: [],
-      id: "",
-      name: "",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
 
 export const CodeLanguageEnum = {
   python: "python",
@@ -3503,22 +6247,6 @@ export const CodeLanguageEnum = {
   plaintext: "plaintext",
 } as const;
 
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
-export type ProjectConfigMetadata = {
-  name: string;
-  id: string;
-};
-
-export type CreateNewSectionVariantResult = {
-  variantId: string;
-};
-
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
   ALWAYS_RENAME: "ALWAYS_RENAME",
@@ -3526,103 +6254,10 @@ export const RenameRefactorModeEnum = {
 } as const;
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
-const StateMachineTargetActionTypeEnum = {
-  send_prompt: "send_prompt",
-  reset_thread: "reset_thread",
-} as const;
-type StateMachineTargetActionType = ObjectValues<
-  typeof StateMachineTargetActionTypeEnum
->;
-
-const StateMachineThreadStrategyEnum = {
-  continue_current_thread: "continue_current_thread",
-  new_thread_before_send: "new_thread_before_send",
-} as const;
-type StateMachineThreadStrategy = ObjectValues<
-  typeof StateMachineThreadStrategyEnum
->;
-
-const StateMachineSourceFilterTypeEnum = {
-  run_completed: "run_completed",
-  run_failed: "run_failed",
-  signal: "signal",
-} as const;
-type StateMachineSourceFilterType = ObjectValues<
-  typeof StateMachineSourceFilterTypeEnum
->;
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
-export type StateMachineCountOperator = ObjectValues<
-  typeof StateMachineCountOperatorEnum
->;
-
-type StateMachineSourceFilter = {
-  type?: StateMachineSourceFilterType;
-  signalName?: string | null;
-  payloadField?: string | null;
-  equals?: string | null;
-};
-
-type StateMachineSourceActivationCountCondition = {
-  operator?: StateMachineCountOperator;
-  value: number;
-};
-
-type StateMachineTargetAction = {
-  type?: StateMachineTargetActionType;
-  promptTemplateId?: string | null;
-  promptSectionId?: string | null;
-  inlinePrompt?: string | null;
-  promptInputs?: Record<string, string>;
-  threadStrategy?: StateMachineThreadStrategy;
-  stopIfRunning?: boolean;
-  engineConfigId?: string | null;
-  agentProfileId?: string | null;
-  permissionMode?: string | null;
-  searchEnabled?: boolean | null;
-};
-
-type StateMachineEdge = {
-  id: string;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-
 export type CreateTopLevelSectionResult = {
   sectionId: string;
   metaControlParamId?: string | null;
   panTo?: Position | null;
-};
-
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
-type WatchCodeRegistryEntry = {
-  callableName: string;
-  kind: string;
-  signatureHash: string;
-  bodyHash: string;
-  sourcePath: string;
-  sectionIds?: Array<string>;
-  sectionsCount?: number;
 };
 
 export type AgenticSummaryCacheStatus = {
@@ -3793,19 +6428,6 @@ export const ArtifactTypeEnum = {
 } as const;
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
-const UploadScopeEnum = {
-  chat: "chat",
-  generic: "generic",
-} as const;
-type UploadScope = ObjectValues<typeof UploadScopeEnum>;
-
-const SaveConflictStrategyEnum = {
-  skip: "skip",
-  backup: "backup",
-  overwrite: "overwrite",
-} as const;
-type SaveConflictStrategy = ObjectValues<typeof SaveConflictStrategyEnum>;
-
 const SaveStatusEnum = {
   saved: "saved",
   unchanged: "unchanged",
@@ -3847,18 +6469,6 @@ export type ArtifactSaveResult = {
   backupPath?: string | null;
   message?: string | null;
 };
-
-export type ContentRef = {
-  contentId: string;
-  byteLength: number;
-  mimeType?: string;
-  sha256?: string;
-};
-export function createContentRef(
-  options: Partial<ContentRef> = {},
-): ContentRef {
-  return options as ContentRef;
-}
 
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
@@ -4487,291 +7097,6 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions<Core>(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-export type SectionCapabilities = {
-  canRun: boolean;
-  runDisabledReason?: string | null;
-  runRequestSectionId?: string | null;
-  canSelectAsEntryCodeBlock: boolean;
-  entryCodeBlockValue?: string | null;
-};
-export function createSectionCapabilities(
-  options: Partial<SectionCapabilities> = {},
-): SectionCapabilities {
-  return mergeGeneratedOptions<SectionCapabilities>(
-    {
-      canRun: false,
-      runDisabledReason: null,
-      runRequestSectionId: null,
-      canSelectAsEntryCodeBlock: false,
-      entryCodeBlockValue: null,
-    },
-    options,
-  );
-}
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions<Variant>(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-type ProjectRunCapabilities = {
-  canRunFromMain: boolean;
-  mainRunDisabledReason?: string | null;
-  effectiveEntrySectionId?: string | null;
-};
-export function createProjectRunCapabilities(
-  options: Partial<ProjectRunCapabilities> = {},
-): ProjectRunCapabilities {
-  return mergeGeneratedOptions<ProjectRunCapabilities>(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  );
-}
-
-export type ProjectConfig = {
-  id: string;
-  name: string;
-  showParamDisplayNames: boolean;
-  allowJsonSourceKeyEdits: boolean;
-  previewImgColor?: string;
-  viewport: Viewport | null;
-  viewportInitialized: boolean;
-  viewModes: Record<string, ViewMode>;
-  activeViewModeId: string | null;
-  isEditingViewMode: boolean;
-  hasPythonCodegenTarget: boolean;
-  runCapabilities: ProjectRunCapabilities;
-  codegenTargets: Array<ProjectCodegenTarget>;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
-  watchCodeBaselineByPath: Record<string, Array<string>>;
-  entryCodeBlockId: string | null;
-  sectionPathSlugsById: Record<string, string>;
-  sectionIdsByPathSlug: Record<string, Array<string>>;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  windowSpaceSlugsById: Record<string, string>;
-  windowSpaceIdsBySlug: Record<string, Array<string>>;
-  windowSpaces: Record<string, WindowSpaceConfig>;
-  sectionVariantMap: Record<string, string>;
-  activeIds: Array<string>;
-  edges: Array<Edge>;
-  agenticEdges: Array<AgenticEdge>;
-  stateMachineEdges: Array<StateMachineEdge>;
-};
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return mergeGeneratedOptions<ProjectConfig>(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      hasPythonCodegenTarget: false,
-      runCapabilities: {
-        canRunFromMain: false,
-        effectiveEntrySectionId: null,
-        mainRunDisabledReason: null,
-      },
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      sectionPathSlugsById: {},
-      sectionIdsByPathSlug: {},
-      topLevelSections: {},
-      windowSpaceSlugsById: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
-    },
-    options,
-  );
-}
-
-type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return mergeGeneratedOptions<SingletonSections>(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
-type ShownParamIDDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-export type ShownParamIDs = {
-  pinned: ShownParamIDDetails;
-  unpinned: ShownParamIDDetails;
-};
-
-export type SingleConfig = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionCapabilities: Record<string, SectionCapabilities>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-  projectConfig: ProjectConfig;
-  singletonSections: SingletonSections;
-  parentSectionMap: Record<string, string | null>;
-  shownParamIds: Record<string, ShownParamIDs>;
-  requiredDecodedImages: Array<string>;
-  genCodeBinding: CodeFileBinding | null;
-  projectChatWindowing: ProjectChatWindowingState;
-  artifactGroups?: Record<string, unknown>;
-};
-export function createSingleConfig(
-  options: Partial<SingleConfig> = {},
-): SingleConfig {
-  return mergeGeneratedOptions<SingleConfig>(
-    {
-      sections: {},
-      sectionImpls: {},
-      sectionCapabilities: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      projectConfig: {
-        activeIds: [],
-        activeViewModeId: null,
-        agenticEdges: [],
-        allowJsonSourceKeyEdits: false,
-        codegenTargets: [],
-        edges: [],
-        entryCodeBlockId: null,
-        hasPythonCodegenTarget: false,
-        id: "",
-        isEditingViewMode: false,
-        name: "",
-        previewImgColor: "",
-        runCapabilities: {
-          canRunFromMain: false,
-          effectiveEntrySectionId: null,
-          mainRunDisabledReason: null,
-        },
-        sectionIdsByPathSlug: {},
-        sectionPathSlugsById: {},
-        sectionVariantMap: {},
-        showParamDisplayNames: false,
-        stateMachineEdges: [],
-        topLevelSections: {},
-        viewModes: {},
-        viewport: null,
-        viewportInitialized: false,
-        watchCodeBaselineByPath: {},
-        watchCodeEnabled: false,
-        watchCodeFiles: [],
-        watchCodeFolders: [],
-        watchCodeRegistry: {},
-        windowSpaceIdsBySlug: {},
-        windowSpaceSlugsById: {},
-        windowSpaces: {},
-      },
-      singletonSections: {
-        GenPythonCode: null,
-        GenPythonMetadata: null,
-        GlobalVariables: null,
-      },
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      projectChatWindowing: {
-        instancesById: {},
-        nextInstanceNumber: 1,
-        order: [],
-      },
-      artifactGroups: {},
-    },
-    options,
-  );
-}
-
-export type Template = {
-  id: string;
-  name: string;
-  description: string;
-  template: string;
-  format: Format;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
 export type ColorPickerChoice = {
   color: string;
   description: string;
@@ -5019,13 +7344,6 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
     options,
   );
 }
-
-const RunSnapshotModeEnum = {
-  ephemeral: "ephemeral",
-  always: "always",
-  never: "never",
-} as const;
-export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
 
 type SettingsBackend = {
   showDefaultConfigOnLoad: boolean;
@@ -5817,14 +8135,6 @@ export type WebsocketMessageType = ObjectValues<
   typeof WebsocketMessageTypeEnum
 >;
 
-export const NotificationTypeEnum = {
-  error: "error",
-  warning: "warning",
-  info: "info",
-  save: "save",
-} as const;
-export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
-
 export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
   DELTA: "delta",
@@ -6250,13 +8560,6 @@ export function createConnection(
   );
 }
 
-const TransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-type TransportMode = ObjectValues<typeof TransportModeEnum>;
-
 export type TranscriptionProfile = {
   id: string;
   name: string;
@@ -6465,556 +8768,6 @@ export type DiffResponse = {
   isTruncated: boolean;
 };
 
-export type AcceptRenameRefactorRequest = {
-  projectConfigId: string;
-  frontendOpId: string;
-};
-
-export type AddKwargRequest = {
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type LauncherRecentWorkspaceRequest = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean | null;
-};
-
-export type RecentWorkspaceEntry = {
-  workspaceRoot: string;
-  pinned: boolean;
-  lastUsedAt: number;
-};
-
-type LauncherHomeErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type LauncherRecentWorkspacesResponse = {
-  ok: boolean;
-  workspaces: Array<RecentWorkspaceEntry>;
-  error: LauncherHomeErrorPayload | null;
-};
-
-export type Policy = {
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowLayoutChanges: boolean;
-  allowRun: boolean;
-  allowLLM: boolean;
-  allowExternalLinks: boolean;
-  allowFileDownloads: boolean;
-  allowMultipleRuns: boolean;
-  runSnapshotMode: RunSnapshotMode;
-};
-export function createPolicy(options: Partial<Policy> = {}): Policy {
-  return options as Policy;
-}
-
-const TypeEnum = {
-  share: "share",
-  app: "app",
-} as const;
-type Type = ObjectValues<typeof TypeEnum>;
-
-type ListenerConfig = {
-  entrypoint: string;
-  enabled: boolean;
-};
-
-type Manifest = {
-  version: number;
-  deploymentName: string;
-  deploymentType: Type;
-  defaultProjectConfigId: string;
-  deploymentVersion: string;
-  createdAt?: string;
-  listener?: ListenerConfig | null;
-};
-
-export type AppDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectConfigMetadata>;
-  appPolicy: Policy;
-  manifest?: Manifest | null;
-};
-
-export type DeploymentMetadataResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-
-export type LoadDeploymentProjectConfigRequest = {
-  projectConfigId: string;
-};
-
-export type AppDeploymentStateResponse = {
-  projectState: SingleConfig;
-  appDefinition: AppDefinition | null;
-  appSpec: unknown;
-  appPolicy: Policy;
-};
-
-export type AppendDrawAreaLayerItemRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  layerIdx: number;
-  element: DrawAreaLayerItem;
-};
-
-export type AppendTranscriptionAudioRequest = {
-  sessionId: string;
-  audioPcm16Base64: string;
-  sampleRateHz: number;
-  channels: number;
-};
-
-export type Delta = {
-  appendText: string;
-  fullText: string;
-  isFinal: boolean;
-};
-
-export type AutoLayoutTopLevelSectionsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  margin: number | null;
-};
-
-export type BinaryDownloadRequest = {
-  contentId: string;
-};
-
-export type BinaryDownloadResponse = Uint8Array;
-
-export type BinaryUploadRequest = FormData;
-
-export type CancelRunRequest = {
-  runId: string;
-};
-
-export type CancelTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type CancelTranscriptionSessionResponse = {
-  ok: boolean;
-};
-
-export type ChangeParamImplRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-  selectedId: string;
-};
-
-export type CheckIfFileExistsRequest = {
-  filepath: string;
-};
-
-export type CheckWorkspaceInitializedRequest = {
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-};
-
-export type ClearTextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-};
-
-export type CodeAreaCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type CreateAgentProfileRequest = {
-  name: string | null;
-  description: string | null;
-  systemPrompt: string | null;
-  enableBackgroundSummaryFill: boolean | null;
-  enableLlmChatTitles: boolean | null;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-export type CreateAgenticEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id: string | null;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: string;
-  contextMode: string | null;
-  style: Record<string, unknown> | null;
-  hidden: boolean;
-  zIndex: number;
-};
-
-export type CreateChildSectionsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  parentId: string;
-  implType: string;
-  numChildren: number;
-  startIdx: number | null;
-};
-
-export type CreateChildSectionsViaIncrementerRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  implType: string;
-  numChildren: number;
-};
-
-export type CreateEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type: string;
-  label: string | null;
-  style: Record<string, unknown> | null;
-  animated: boolean;
-  hidden: boolean;
-  zIndex: number;
-  data: Record<string, unknown> | null;
-};
-
-export type CreateEngineConfigRequest = {
-  name: string | null;
-  engineType: EngineType | null;
-  settaLlmConfigId: string | null;
-  externalAgentConfigId: string | null;
-  defaults: EngineConfigDefaults | null;
-};
-
-export type CreateExternalAgentConfigRequest = {
-  name: string | null;
-  description: string | null;
-  toolType: ToolType | null;
-  runMode: RunMode | null;
-  commandPath: string | null;
-  baseUrl: string | null;
-  defaultModel: string | null;
-  sandboxPolicy: string | null;
-  approvalPolicy: string | null;
-  settingsMode: SettingsMode | null;
-  settingsSources: Array<ClaudeSettingsSource>;
-  settingsFilePath: string | null;
-  settingsManagedBlock: SettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean | null;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: WorkingDirStrategy | null;
-  workingDir: string | null;
-  codexSkipGitRepoCheck: boolean | null;
-};
-
-export type CreateFileRequest = {
-  filepath: string;
-};
-
-export type CreateNewSectionVariantRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type CreateProjectConfigRequest = {
-  previewImgColor: string;
-};
-
-export type CreatePromptTemplateRequest = {
-  name: string | null;
-  description: string | null;
-  template: string | null;
-  format: Format | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type CreateStateMachineEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id: string | null;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter: StateMachineSourceFilter | null;
-  sourceActivationCountCondition: StateMachineSourceActivationCountCondition | null;
-  targetAction: StateMachineTargetAction | null;
-  style: Record<string, unknown> | null;
-  hidden: boolean;
-  zIndex: number;
-  selected: boolean;
-};
-
-export type CreateTopLevelSectionRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  implType: string;
-  controlCodeObjType: string | null;
-  implOverrides: Record<string, unknown>;
-  position: Position | null;
-  name: string | null;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  viewportBounds: ViewportBounds | null;
-};
-
-export type CreateTranscriptionProfileRequest = {
-  name: string | null;
-  transcriptionLlmConfigId: string | null;
-  transportMode: TransportMode | null;
-  chunkMs: number | null;
-  language: string | null;
-};
-
-export type CreateViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-
-export type CreateWindowSpaceRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  state: WindowSpaceState;
-  name?: string | null;
-};
-
-export type WindowSpaceMutationResponse = {
-  projectConfig: ProjectConfig;
-  windowSpaceId?: string | null;
-};
-
-const LaunchSettaFilesLocationEnum = {
-  Auto: "auto",
-  Local: "local",
-  Global: "global",
-} as const;
-type LaunchSettaFilesLocation = ObjectValues<
-  typeof LaunchSettaFilesLocationEnum
->;
-
-export type LaunchRequest = {
-  launchIntentToken?: string | null;
-  workspaceRoot?: string | null;
-  profile?: string | null;
-  settaHome?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  sshTarget?: string | null;
-  sshArgs?: string | null;
-  remoteCmd?: string | null;
-  localPort?: number | null;
-};
-
-export type CreateWorkspaceLaunchIntentRequest = {
-  launchRequest: LaunchRequest;
-  returnUrl: string;
-};
-
-export type WorkspaceLaunchErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type CreateWorkspaceLaunchIntentResponse = {
-  ok: boolean;
-  launchIntentToken: string | null;
-  requestedAt: number | null;
-  error: WorkspaceLaunchErrorPayload | null;
-};
-
-export type DeclineRenameRefactorRequest = {
-  projectConfigId: string;
-  frontendOpId: string;
-};
-
-export type DeleteAgentProfileRequest = {
-  profileId: string;
-};
-
-export type DeleteAgenticEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-
-export type DeleteChildSectionsViaDecrementerRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  numChildren: number;
-};
-
-export type DeleteEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-
-export type DeleteEngineConfigRequest = {
-  configId: string;
-};
-
-export type DeleteExternalAgentConfigRequest = {
-  configId: string;
-};
-
-export type DeleteJSONSourceFileAndVariantRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-  filepath: string;
-};
-
-export type DeleteKwargRequest = {
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type DeleteNotificationRequest = {
-  notificationId: string;
-};
-
-export type DeleteNotificationResponse = {
-  success: boolean;
-};
-
-export type DeleteProjectConfigsRequest = {
-  ids: Array<string>;
-};
-
-export type DeleteProjectConfigsResponse = boolean;
-
-export type DeletePromptTemplateRequest = {
-  templateId: string;
-};
-
-export type DeleteSectionVariantOrAskRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-
-export type DeleteSectionsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-
-export type DeleteSelectedParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoIds: Array<string>;
-};
-
-export type DeleteStateMachineEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeIds: Array<string>;
-};
-
-export type DeleteTerminalsRequest = {
-  sectionIds: Array<string>;
-};
-
-export type DeleteTranscriptionProfileRequest = {
-  profileId: string | null;
-};
-
-export type DeleteViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-
-export type ProjectConfigMutationResponse = {
-  projectConfig: ProjectConfig;
-};
-
-export type DeleteWindowSpaceRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  windowSpaceId: string;
-};
-
-export type DocstringToMarkdownRequest = {
-  docstring: string;
-};
-
-export type ForceRefreshProjectRequest = {
-  projectConfigId: string;
-};
-
-export type FormatCodeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type GenCodePrefixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GenCodeSuffixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GetAgentProfileRequest = {
-  profileId: string;
-};
-
-export type GetAgentRunRequest = {
-  runId: string;
-};
-
-export type GetAgenticSummaryCacheStatusRequest = {
-  projectConfigId: string;
-  chatSectionId: string;
-};
-
-export type GetAIFollowSnapshotRequest = {
-  projectConfigId: string;
-};
-
-export type GetAppDefinitionRequest = {
-  frontendOpId?: string | null;
-};
-
-export type GetAppGenSkillContentRequest = {
-  skillId: string;
-};
-
 export type SkillContent = {
   skillId: string;
   content: string;
@@ -7039,105 +8792,6 @@ export type GetSkillsResponse = {
   customSkillCreateRootActionable: boolean;
 };
 
-export type GetAttachmentDownloadURLRequest = {
-  artifactId: string;
-  projectConfigId: string | null;
-};
-
-export type GetAttachmentDownloadURLResponse = {
-  url: string;
-  expiresAt: number;
-};
-
-export type GetAttachmentDownloadURLsRequest = {
-  artifactIds: Array<string>;
-  projectConfigId: string | null;
-};
-
-export type AttachmentDownloadURLEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
-};
-
-export type AuthRefreshStatusResponse = {
-  authCookieRefreshWindowSeconds: number;
-};
-
-type BackendInitEvent = {
-  message: string;
-  timestamp: string;
-};
-
-export type BackendInitStatusResponse = {
-  events: Array<BackendInitEvent>;
-  isReady: boolean;
-  error: string | null;
-  authCookieRefreshWindowSeconds: number;
-  worktreeName: string | null;
-};
-
-export type GetChatSectionChatIDRequest = {
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type GetEngineConfigRequest = {
-  configId: string;
-};
-
-export type GetExternalAgentChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-type ChatContextUsage = {
-  contextWindowTokens: number | null;
-  contextUsedTokens: number | null;
-  estimated: boolean;
-};
-
-export type ExternalAgentChatResponse = {
-  messages: Array<Record<string, unknown>>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage: ChatContextUsage | null;
-  appGenerationByMessageId: Record<string, string>;
-};
-
-export type GetExternalAgentConfigRequest = {
-  configId: string;
-};
-
-export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
-
-export type ExternalAgentPreflightStatus = {
-  configId: string;
-  name: string;
-  toolType: ToolType;
-  runMode: RunMode;
-  supported: boolean;
-  available: boolean;
-  issues: Array<string>;
-  sdkVersion: string | null;
-  cliVersion: string | null;
-  baseUrl: string | null;
-  workingDir: string | null;
-  envVars: EnvVarStatus;
-};
-export function createExternalAgentPreflightStatus(
-  options: Partial<ExternalAgentPreflightStatus> = {},
-): ExternalAgentPreflightStatus {
-  return options as ExternalAgentPreflightStatus;
-}
-
-export type ExternalAgentPreflightStatusList =
-  Array<ExternalAgentPreflightStatus>;
-
-export type GetFileBrowserDownloadURLsRequest = {
-  paths: Array<string>;
-};
-
 export type FileBrowserDownloadURLEntry = {
   path: string;
   url: string;
@@ -7148,11 +8802,6 @@ export function createFileBrowserDownloadURLEntry(
 ): FileBrowserDownloadURLEntry {
   return options as FileBrowserDownloadURLEntry;
 }
-
-export type GetFileBrowserFileContentRequest = {
-  path: string;
-  maxBytes?: number | null;
-};
 
 export type FileContentResponse = {
   path: string;
@@ -7166,10 +8815,6 @@ export function createFileContentResponse(
 ): FileContentResponse {
   return options as FileContentResponse;
 }
-
-export type GetFileBrowserFileStatRequest = {
-  path: string;
-};
 
 export type FileStatResponse = {
   path: string;
@@ -7192,25 +8837,6 @@ export function createRootResponse(
 ): RootResponse {
   return options as RootResponse;
 }
-
-const MissingFolderBehaviorEnum = {
-  error: "error",
-  empty: "empty",
-} as const;
-type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
-
-export type GetFolderContentsRequest = {
-  baseFolderPath?: string | null;
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-  includeMtime?: boolean | null;
-  includeSize?: boolean | null;
-  includeHidden?: boolean | null;
-  includeSettaInitialized?: boolean | null;
-  ignorePatterns?: Array<string> | null;
-  maxEntries?: number | null;
-  missingFolderBehavior?: MissingFolderBehavior | null;
-};
 
 const FolderContentItemTypeEnum = {
   folder: "folder",
@@ -7235,321 +8861,6 @@ export function createFolderContentItem(
 export type ListFolderResponse = {
   folderPath: string;
   items: Array<FolderContentItem>;
-};
-
-export type GetLatestLSPDiagnosticsRequest = {
-  projectConfigId: string;
-};
-
-export type GetLatestProjectStateRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-
-export type ProjectStateSingleConfigWithCompletedOpIDs = {
-  projectState: SingleConfig;
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
-};
-export function createProjectStateSingleConfigWithCompletedOpIDs(
-  options: Partial<ProjectStateSingleConfigWithCompletedOpIDs> = {},
-): ProjectStateSingleConfigWithCompletedOpIDs {
-  const defaults: ProjectStateSingleConfigWithCompletedOpIDs = {
-    projectState: {
-      artifactGroups: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      codeObjs: {},
-      genCodeBinding: null,
-      parentSectionMap: {},
-      projectChatWindowing: {
-        instancesById: {},
-        nextInstanceNumber: 1,
-        order: [],
-      },
-      projectConfig: {
-        activeIds: [],
-        activeViewModeId: null,
-        agenticEdges: [],
-        allowJsonSourceKeyEdits: false,
-        codegenTargets: [],
-        edges: [],
-        entryCodeBlockId: null,
-        hasPythonCodegenTarget: false,
-        id: "",
-        isEditingViewMode: false,
-        name: "",
-        previewImgColor: "",
-        runCapabilities: {
-          canRunFromMain: false,
-          effectiveEntrySectionId: null,
-          mainRunDisabledReason: null,
-        },
-        sectionIdsByPathSlug: {},
-        sectionPathSlugsById: {},
-        sectionVariantMap: {},
-        showParamDisplayNames: false,
-        stateMachineEdges: [],
-        topLevelSections: {},
-        viewModes: {},
-        viewport: null,
-        viewportInitialized: false,
-        watchCodeBaselineByPath: {},
-        watchCodeEnabled: false,
-        watchCodeFiles: [],
-        watchCodeFolders: [],
-        watchCodeRegistry: {},
-        windowSpaceIdsBySlug: {},
-        windowSpaceSlugsById: {},
-        windowSpaces: {},
-      },
-      requiredDecodedImages: [],
-      sectionCapabilities: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      sections: {},
-      shownParamIds: {},
-      singletonSections: {
-        GenPythonCode: null,
-        GenPythonMetadata: null,
-        GlobalVariables: null,
-      },
-    },
-    completedOpIds: [],
-    pendingOpIds: [],
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectStateSingleConfigWithCompletedOpIDs>(
-      defaults,
-      options,
-    ),
-    projectState: createSingleConfig(
-      options.projectState ?? defaults.projectState,
-    ),
-  };
-}
-
-export type LauncherFilesystemRootsResponse = {
-  ok: boolean;
-  roots: Array<string>;
-};
-
-export type GetLauncherRecentWorkspacesRequest = {
-  setta_home?: string | null;
-};
-
-export type GetLauncherStatusRequest = {
-  setta_home?: string | null;
-};
-
-const LauncherOpenModeEnum = {
-  Browser: "browser",
-  ChromeApp: "chrome-app",
-} as const;
-type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
-
-const LauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last_used_or_prompt",
-  AlwaysPrompt: "always_prompt",
-} as const;
-type LauncherWorkspaceBehavior = ObjectValues<
-  typeof LauncherWorkspaceBehaviorEnum
->;
-
-const LauncherUpdateCapabilityEnum = {
-  InApp: "in_app",
-  InstallerManaged: "installer_managed",
-  Unsupported: "unsupported",
-} as const;
-type LauncherUpdateCapability = ObjectValues<
-  typeof LauncherUpdateCapabilityEnum
->;
-
-type LauncherOperationErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type LauncherStatusResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-};
-export function createLauncherStatusResponse(
-  options: Partial<LauncherStatusResponse> = {},
-): LauncherStatusResponse {
-  return options as LauncherStatusResponse;
-}
-
-export type ListenerCoverageRequest = {
-  projectConfigId: string;
-};
-
-export type GetLLMChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-export type LLMChatResponse = {
-  messages: Array<Record<string, unknown>>;
-  toolCallArguments: Record<string, string>;
-  waitingForResponse: boolean;
-  llmConfig: LLMConfig | null;
-  contextUsage: ChatContextUsage | null;
-  appGenerationByMessageId: Record<string, string>;
-};
-
-export type GetLLMResponseRequest = {
-  chatId: string | null;
-  continueFromChatId: string | null;
-  message: Record<string, unknown>;
-  engineConfigId: string;
-  agentProfileId: string | null;
-  thinking: boolean;
-  projectConfigId: string;
-  sectionId: string | null;
-  frontendAffinityToken: string | null;
-  allowUnscoped: boolean;
-  branchParentChatId: string | null;
-  branchFromMessageId: string | null;
-  appSpecStreamingEnabled?: boolean;
-  permissionMode: string;
-  searchEnabled: boolean;
-  appGenerationMode: string | null;
-  appGenerationByMessageId: Record<string, string>;
-  appGenerationReferenceImageUrl: string | null;
-  appGenerationReferenceImageNotes: string | null;
-};
-
-export type LLMChatIDResponse = string;
-
-export type LLMAPIKeysSnapshot = {
-  apiKeys: Record<string, string>;
-  revision: number;
-  corrupt: boolean;
-  errorCode: string | null;
-  message: string | null;
-};
-
-export type MCPRuntimeStatusRequest = {
-  chatId: string | null;
-  engineConfigId: string | null;
-};
-
-const MCPXTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-type MCPXTransport = ObjectValues<typeof MCPXTransportEnum>;
-
-const RuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-type RuntimeState = ObjectValues<typeof RuntimeStateEnum>;
-
-type ServerRuntimeStatus = {
-  serverId: string;
-  source: string;
-  transport: MCPXTransport;
-  endpoint: string;
-  state: RuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-};
-
-type MCPResolvedRuntimeServer = {
-  serverId: string;
-  transport: MCPXTransport;
-  endpoint: string;
-  state: RuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-  quickInfo: string;
-};
-
-export type MCPRuntimeStatusResponse = {
-  llmConfigPath: string;
-  activeSettaFilesLocation: string;
-  servers: Array<ServerRuntimeStatus>;
-  externalServers: Array<ServerRuntimeStatus>;
-  resolvedServers: Array<MCPResolvedRuntimeServer>;
-};
-
-export type GetNotificationsRequest = {
-  projectConfigId: string;
-};
-
-export type Notification = {
-  id: string;
-  projectConfigId: string;
-  type: NotificationType;
-  message: string;
-  temporary: boolean;
-  timestamp: string;
-  metadata: Record<string, unknown>;
-  read_status: boolean;
-};
-export function createNotification(
-  options: Partial<Notification> = {},
-): Notification {
-  return options as Notification;
-}
-
-export type NotificationList = Array<Notification>;
-
-export type GetPasswordParamValueRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-};
-
-export type GetPasswordParamValueResponse = {
-  value: string;
-};
-
-export type GetPromptTemplateRequest = {
-  templateId: string;
-};
-
-export type GetRunStatusRequest = {
-  runId: string;
-};
-
-export type GetRunnerSummaryRequest = {
-  projectConfigId: string;
 };
 
 type RunnerSummaryVariant = {
@@ -7577,370 +8888,9 @@ export type RunnerSummarySnapshot = {
   sections: Array<RunnerSummarySection>;
 };
 
-export type ServerModeResponse = {
-  mode: string;
-};
-
-export type SettaHomeInfoResponse = {
-  settaHome: string;
-  globalSettaFilesBase: string;
-  activeSettaFilesLocation: string | null;
-  llmConfigPath: string;
-};
-
-export type GetStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type GetWorkspacePythonSignalRequest = {
-  folderPath: string;
-};
-
 export type WorkspacePythonSignalResponse = {
   folderPath: string;
   hasPython: boolean;
-};
-
-export type GroupSectionsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-
-export type IndentParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-};
-
-export type InterruptTerminalProcessesRequest = {
-  projectId: string;
-};
-
-export type InterruptTerminalProcessesResponse = {
-  interruptedSessionCount: number;
-};
-
-const LaunchResolvedSettaFilesLocationEnum = {
-  Local: "local",
-  Global: "global",
-} as const;
-type LaunchResolvedSettaFilesLocation = ObjectValues<
-  typeof LaunchResolvedSettaFilesLocationEnum
->;
-
-type LaunchSessionInfo = {
-  id: string;
-  workspacePath: string;
-  workspacePathCanonical: string;
-  host: string;
-  port: number;
-  pid: number;
-  startedAt: string;
-};
-
-export type LaunchResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  returnUrl: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  session: LaunchSessionInfo | null;
-  remoteCmdResolved: string | null;
-  error: WorkspaceLaunchErrorPayload | null;
-};
-
-export type LauncherListDirectoryRequest = {
-  path: string | null;
-  cursor: string | null;
-  pageSize: number | null;
-};
-
-export type DirectoryEntry = {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isSymlink: boolean;
-};
-
-export type LauncherListDirectoryResponse = {
-  ok: boolean;
-  currentPath: string | null;
-  parentPath: string | null;
-  entries: Array<DirectoryEntry>;
-  nextCursor: string | null;
-  hasMore: boolean;
-  truncated: boolean;
-  error: LauncherHomeErrorPayload | null;
-};
-
-export type ProjectLoadRequest = {
-  projectConfigName: string;
-};
-
-type MoveParamGroupRequest = {
-  paramIds: Array<string>;
-  newParentId: string;
-  newIndex: number;
-};
-
-export type MoveParamGroupsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  moves: Array<MoveParamGroupRequest>;
-};
-
-export type MoveParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-  newParentId: string;
-  newIndex: number;
-};
-
-export type MoveSectionsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-  newParentId: string | null;
-  newIndex: number | null;
-  positionsById: Record<string, Position> | null;
-};
-
-const FilesLocationEnum = {
-  auto: "auto",
-  local: "local",
-  global: "global",
-} as const;
-type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
-
-export type LauncherOpenWorkspaceRequest = {
-  workspaceRoot: string;
-  settaHome: string | null;
-  profile: string | null;
-  settaFilesRoot: string | null;
-  settaFilesLocation: FilesLocation | null;
-  runtimeRoot: string | null;
-  createIfMissing: boolean;
-};
-
-const ResolvedFilesLocationEnum = {
-  local: "local",
-  global: "global",
-} as const;
-type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
-
-export type LauncherOpenWorkspaceResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: ResolvedFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  error: LauncherHomeErrorPayload | null;
-};
-
-export type OutputAccessorCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type PasteSectionsRequest = {
-  projectConfigId: string;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-  position: Position;
-  asRef: boolean;
-};
-
-export type PinLauncherRecentWorkspaceRequest = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean;
-};
-
-export type PluginConfigWriteRequest = {
-  pluginId: string;
-  config: Record<string, unknown>;
-};
-
-export type PluginEnableDisableRequest = {
-  pluginId: string;
-};
-
-export type PluginInstallRequest = {
-  sourceSpec: string;
-  scope: PluginScope | null;
-  installer: PluginInstallerBackend | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-export type PluginLinkRequest = {
-  localPluginRoot: string;
-  scope: PluginScope | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-export type PluginLockApplyRequest = {
-  check: boolean;
-};
-
-export type PluginsRescanResponse = {
-  schemaVersion: number;
-  serverMode: Mode;
-  installedPlugins: number;
-  activePlugins: number;
-};
-
-export type PluginRollbackRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginUninstallRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginUpdateRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-  to: string | null;
-};
-
-export type PrepareSectionsForCopyRequest = {
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-
-type SharePolicyOverrides = {
-  allowParamChanges?: boolean | null;
-  allowVariantChanges?: boolean | null;
-  allowLayoutChanges?: boolean | null;
-  allowRun?: boolean | null;
-  allowLLM?: boolean | null;
-  allowExternalLinks?: boolean | null;
-  allowFileDownloads?: boolean | null;
-  allowMultipleRuns?: boolean | null;
-  runSnapshotMode?: RunSnapshotMode | null;
-};
-
-export type PublishAppDeploymentRequest = {
-  deploymentName: string;
-  projectConfigId: string;
-  appPolicyOverrides: SharePolicyOverrides | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean | null;
-};
-
-export type PublishShareDeploymentRequest = {
-  deploymentName: string;
-  projectConfigId: string;
-  sharePolicyOverrides: SharePolicyOverrides | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean | null;
-};
-
-export type ReconnectEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edgeId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-};
-
-export type RedoRequest = {
-  projectConfigId: string;
-  steps: number;
-};
-
-export type LauncherRequestBase = {
-  settaHome: string | null;
-};
-
-export type ResetStateMachineRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type StateMachineRunControlResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-};
-
-export type RespondExternalAgentApprovalRequest = {
-  approvalId: string;
-  approved: boolean;
-};
-
-export type RespondExternalAgentQuestionRequest = {
-  toolCallId: string;
-  answers: Record<string, string>;
-};
-
-export type RevealPathInOSFileExplorerRequest = {
-  path: string;
-};
-
-export type RunCodeRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  terminalSectionId: string;
-  cliId: string;
-  runSnapshotMode: RunSnapshotMode | null;
-  drawSnapshotsBySectionId: Record<string, ContentRef>;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-};
-
-export type RunDetachedRequest = {
-  projectConfigId: string;
-  entrySectionId: string;
-  runSnapshotMode: RunSnapshotMode;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-  tags: Record<string, string>;
-};
-
-export type RunDetachedResponse = {
-  runId: string;
-  status: DetachedStatus;
-};
-
-export type SaveAsNewProjectConfigRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  newConfigName: string;
-  withRefs: boolean;
-};
-
-export type ManualSaveRequest = {
-  projectConfigId: string;
-};
-
-export type SaveSettingsRequest = {
-  settings: unknown;
 };
 
 export type RunningBackendVersionHandshake = {
@@ -7949,920 +8899,10 @@ export type RunningBackendVersionHandshake = {
   sdkContractVersion: number;
 };
 
-export type SetActiveIDsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  activeIds: Array<string>;
-};
-
-export type SetActiveViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  activeViewModeId: string;
-};
-
-export type SetAgenticEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<AgenticEdge>;
-};
-
-export type SetAppDefinitionRequest = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecPath?: string | null;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-export type SetDefaultProjectConfigRequest = {
-  projectConfigId: string;
-};
-
-export type SetBrowserAreaViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: BrowserAreaViewMode;
-};
-
-export type SetBrowserColumnWidthsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-  typesColumnWidth: number | null;
-};
-
-export type SetBrowserHideColumnRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideColumn: boolean;
-};
-
-export type SetBrowserSavedSearchesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  savedSearches: Array<BrowserSavedSearch>;
-};
-
-export type SetCallableRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  callableName: string;
-  refetchParams: boolean;
-};
-
-export type SetCallableHideParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideParams: boolean;
-};
-
-export type SetChartAreaDataPathRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  dataPath: string;
-};
-
-export type SetChartSettingsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartSettings: ChartSettingsUpdate;
-  changedSettings: Array<string>;
-};
-
-export type SetChartTypeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartType: ChartType;
-};
-
-export type SetChatSectionChatIDRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chatId: string | null;
-};
-
-export type SetChatSectionSettingsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-};
-
-export type SetChatSectionStateRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  state: ChatSectionState;
-};
-
-export type SetCodeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  code: string;
-};
-
-type CodeFileBindingUpdate = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-};
-
-export type SetCodeFileBindingRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  binding: CodeFileBindingUpdate;
-};
-
-export type SetCodeObjDisplayNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codeObjId: string;
-  displayName: string;
-};
-
-export type SetCodeObjNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codeObjId: string;
-  name: string;
-};
-
-export type SetCodeSectionAttachedTerminalRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  terminalSectionId: string | null;
-};
-
-export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  code: unknown;
-  suppress: boolean;
-};
-
-export type SetCodeSectionDiagnosticsMuteRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  mute: boolean;
-};
-
-export type SetDefaultSectionVariantRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-
-export type SetEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<Edge>;
-};
-
-export type SetGenCodePrefixRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  genCodePrefix: string;
-};
-
-export type SetGenCodeSuffixRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  genCodeSuffix: string;
-};
-
-export type SetGroupOverflowModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  overflowMode: boolean;
-};
-
-export type SetImageAreaImagePathRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  imagePath: string;
-};
-
-export type SetListRootViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: ListRootViewMode;
-};
-
-export type SetLLMAPIKeysRequest = {
-  apiKeys: Record<string, string>;
-  expectedRevision: number;
-};
-
-export type SetMetaControlShowSectionTitleRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  showSectionTitle: boolean;
-};
-
-export type SetParamEnteredValueRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  sectionVariantId: string;
-  paramInfoId: string;
-  value: string;
-};
-
-export type SetParentDefaultChildSectionTypeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  defaultChildSectionType: string;
-};
-
-export type SetProjectChatWindowChatIDRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  instanceId: string;
-  chatId: string | null;
-};
-
-export type SetProjectChatWindowingStateRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  state: ProjectChatWindowingState;
-};
-
-export type SetProjectConfigCodegenTargetsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codegenTargets: Array<JSONValue>;
-};
-
-export type SetProjectConfigNameRequest = {
-  projectConfigId: string;
-  newName: string;
-};
-
-export type SetPromptFormatRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  format: Format;
-};
-
-export type SetPromptInputsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  inputs: Record<string, string>;
-};
-
-export type SetPromptTemplateRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  template: string;
-};
-
-export type SetPromptTemplateLinkRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  promptTemplateId?: string | null;
-};
-
-export type SetSectionColumnWidthRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  columnWidth: number | null;
-};
-
-export type SetSectionEdgeInputsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeInputParams: Array<string>;
-};
-
-export type SetSectionEdgeOutputsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeOutputPorts: Array<EdgePort>;
-};
-
-export type SetSectionHideUnpinnedParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  hideUnpinnedParams: boolean;
-};
-
-export type SetSectionNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  name: string;
-};
-
-export type SetSectionParamFilterRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  value: string;
-};
-
-export type SetSectionPinnedParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  pinnedParams: Array<string>;
-};
-
-type sectionSizeValueRequest = number | SectionSizeMode;
-
-type sectionSizeRequest = {
-  width: sectionSizeValueRequest;
-  height: sectionSizeValueRequest;
-};
-
-export type SetSectionSizesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionSizes: Record<string, sectionSizeRequest>;
-};
-
-export type SetSectionStyleColorRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  styleColor: string | null;
-};
-
-export type SetSectionTagColorRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  tagColor: string | null;
-};
-
-export type SetSectionVariantRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-
-export type SetSectionVariantNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  variantId: string;
-  name: string;
-};
-
-export type SetSectionVariantSortOrderRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  orderedVariantIds: Array<string>;
-};
-
-export type SetShowParamDisplayNamesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  showParamDisplayNames: boolean;
-};
-
-export type SetSocialURLRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  url: string;
-};
-
-export type SetSpreadsheetFilePathRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  filePath: string;
-  activeSheet: string | null;
-};
-
-export type SetSpreadsheetSectionSettingsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-
-export type SetStateMachineEdgesRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edges: Array<StateMachineEdge>;
-};
-
-export type SetStateMachineSectionSettingsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  machineGroupId: string;
-  label: string;
-  gateType?: StateMachineGateType | null;
-};
-
-export type SetTaskBoardSectionStateRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn>;
-  tasks: Array<TaskBoardTask>;
-};
-
-export type SetTextBlockDisplayModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  textDisplayMode: TextBlockDisplayMode;
-};
-
-export type SetTextBlockFormatRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  format: TextBlockFormat;
-};
-
-export type SetTextBlockHeadingAsSectionNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  headingAsSectionName: boolean;
-};
-
-export type SetTextBlockMasterFontSizeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  masterFontSizePx: number;
-};
-
-export type SetTextBlockMetaControlStyleRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  metaControlStyle: boolean;
-};
-
-export type SetTextBlockTextRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  text: string;
-};
-
-export type SetTopLevelSectionLayoutRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-};
-
-export type SetTypeErrorIgnoreRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  ignoreTypeErrors: boolean;
-};
-
-export type SetVariantJSONSourceKeysRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-  jsonSourceKeys: Array<string>;
-};
-
-export type SetViewModeNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-  name: string;
-};
-
-export type SetViewModeSortOrderRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  orderedViewModeIds: Array<string>;
-};
-
-export type SetViewportRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewport: Viewport | null;
-};
-
-export type SetWatchCodeEnabledRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  enabled: boolean;
-};
-
-export type SetWatchCodeInputsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-};
-
-export type SetWindowSpaceNameRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  windowSpaceId: string;
-  name: string;
-};
-
-export type SetWindowSpaceSortOrderRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  orderedWindowSpaceIds: Array<string>;
-};
-
-export type SetupLauncherRequest = {
-  settaHome?: string | null;
-  channel?: string | null;
-  installSource?: string | null;
-  openMode?: string | null;
-  workspaceBehavior?: string | null;
-  installArtifacts?: boolean | null;
-  artifactOptions?: Record<string, string> | null;
-};
-
-export type ShareDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectConfigMetadata>;
-  sharePolicy: Policy;
-  manifest?: Manifest | null;
-};
-
-export type StartAgentRunRequest = {
-  profileId: string;
-  inputs: Record<string, unknown>;
-};
-
-type StepInput = {
-  id: string;
-  name: string;
-  engineConfigId: string;
-  agentProfileId?: string | null;
-  prompt?: string | null;
-  messages?: Array<Record<string, unknown>>;
-  inputs?: Record<string, unknown>;
-  includePreviousOutputs?: boolean | null;
-};
-
-type SpecInput = {
-  id: string;
-  name: string;
-  steps: Array<StepInput>;
-  stopOnFailure?: boolean | null;
-};
-
-export type StartRunChainRequest = {
-  spec: SpecInput;
-  inputs: Record<string, unknown>;
-};
-
-export type StartStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-  startSectionId?: string | null;
-};
-
-export type StartTranscriptionSessionRequest = {
-  transcriptionProfileId: string;
-  language: string | null;
-};
-
-export type StartTranscriptionSessionResponse = {
-  sessionId: string;
-  resolvedTransportMode: string;
-  chunkMs: number;
-};
-
-export type StopAgentRunRequest = {
-  runId: string;
-};
-
-export type StopExternalAgentRunRequest = {
-  runId: string;
-};
-
-export type StopLLMChatRequest = {
-  chatId: string;
-};
-
-export type StopLLMChatResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId: string | null;
-  stoppedMessageId: string | null;
-};
-
-export type StopRunChainRequest = {
-  runId: string;
-};
-
-export type StopStateMachineRunRequest = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type StopTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type TextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  fullText: string;
-  position: number;
-};
-
-export type ToggleGroupOrientationRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type ToggleIsEditingViewModeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-
-export type ToggleMinimizedRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-};
-
-export type ToggleParamSelectedRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-};
-
-export type TogglePositionLocksRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-
-export type ToggleSectionVisibilityRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionIds: Array<string>;
-};
-
-export type ToggleVariantFrozenRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  variantId: string;
-};
-
-export type ToggleVariantJSONSourceRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-
-export type ToggleViewModeTabRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-
-export type ToggleViewModeUserFacingRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  viewModeId: string;
-};
-
-const TransferOperationEnum = {
-  copy: "copy",
-  move: "move",
-} as const;
-type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
-
-export type TransferFileBrowserEntryRequest = {
-  sourcePath: string;
-  destinationFolderPath: string;
-  operation: TransferOperation;
-};
-
 export type TransferResponse = {
   sourcePath: string;
   destinationPath: string;
   operation: TransferOperation;
-};
-
-export type TypeCheckRequest = {
-  projectConfigId: string;
-};
-
-export type UndoRequest = {
-  projectConfigId: string;
-  steps: number;
-};
-
-export type UngroupGroupsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  groupIds: Array<string>;
-};
-
-export type UnindentParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramIds: Array<string>;
-};
-
-export type UnselectAllParamsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-};
-
-type AgentProfilePayload = {
-  id: string | null;
-  name: string | null;
-  description: string | null;
-  systemPrompt: string | null;
-  enableBackgroundSummaryFill: boolean | null;
-  enableLlmChatTitles: boolean | null;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-export type UpdateAgentProfileRequest = {
-  profile: AgentProfilePayload | null;
-};
-
-export type UpdateAgenticEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: AgenticEdge;
-};
-
-export type UpdateArtifactsRequest = {
-  artifacts: Array<
-    | ImageArtifact
-    | BrushStrokeArtifact
-    | DrawAreaLayerItemTransformArtifact
-    | ChartDataArtifact
-    | FileArtifact
-  >;
-  conflictStrategy?: SaveConflictStrategy | null;
-  uploadScope: UploadScope;
-};
-
-export type UpdateEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: Edge;
-};
-
-type UpdateEngineConfigPayload = {
-  id: string | null;
-  name: string | null;
-  engineType: EngineType | null;
-  settaLlmConfigId: string | null;
-  externalAgentConfigId: string | null;
-  defaults: EngineConfigDefaults | null;
-  runtimeSupport: EngineRuntimeSupport | null;
-};
-
-export type UpdateEngineConfigRequest = {
-  config: UpdateEngineConfigPayload | null;
-};
-
-export type UpdateExternalAgentConfigRequest = {
-  config: ExternalAgentConfig | null;
-};
-
-export type UpdateLauncherRequest = {
-  settaHome: string | null;
-  packageSpec: string | null;
-};
-
-export type LauncherUpdateResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-  packageSpec?: string | null;
-  fromVersion?: string | null;
-  toVersion?: string | null;
-};
-
-export type UpdateParamImplConfigRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-  newConfig: Record<string, unknown>;
-};
-
-type PromptTemplatePayload = {
-  id: string | null;
-  name: string | null;
-  description: string | null;
-  template: string | null;
-  format: Format | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type UpdatePromptTemplateRequest = {
-  template: PromptTemplatePayload | null;
-};
-
-export type UpdateStateMachineEdgeRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  edge: StateMachineEdge;
-};
-
-type TranscriptionProfilePayload = {
-  id: string | null;
-  name: string | null;
-  transcriptionLlmConfigId: string | null;
-  transportMode: TransportMode | null;
-  chunkMs: number | null;
-  supportsRealtimeTranscription: boolean | null;
-  language: string | null;
-};
-
-export type UpdateTranscriptionProfileRequest = {
-  profile: TranscriptionProfilePayload | null;
-};
-
-export type UpsertAppGenCustomSkillRequest = {
-  skillId: string | null;
-  relativePath: string | null;
-  content: string;
 };
 
 export type UpsertCustomSkillResponse = {
@@ -8872,24 +8912,6 @@ export type UpsertCustomSkillResponse = {
   skillDocPath: string;
   skill: SkillEntry;
   skillContent: SkillContent;
-};
-
-export type ValidateAppDefinitionRequest = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-export type WriteFileBrowserFileContentRequest = {
-  path: string;
-  contentId: string;
-  expectedMtimeNs?: number | null;
 };
 
 export type WriteFileContentResponse = {
@@ -9732,15 +9754,6 @@ export const GeneratedAppGenerationModeEnum = {
 
 export const GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
 
-export type GeneratedNameValidationContract = {
-  projectReservedNames: ReadonlyArray<string>;
-  pythonKeywords: ReadonlyArray<string>;
-  simpleNameAllowedChars: ReadonlyArray<string>;
-  pythonIdentifierStartChars: ReadonlyArray<string>;
-  pythonIdentifierContinueChars: ReadonlyArray<string>;
-  slugReplacementChars: ReadonlyArray<string>;
-};
-
 export const GENERATED_NAME_VALIDATION_CONTRACT = {
   projectReservedNames: ["home", "settings"],
   pythonKeywords: [
@@ -9971,7 +9984,7 @@ export const GENERATED_NAME_VALIDATION_CONTRACT = {
     "z",
   ],
   slugReplacementChars: ["[", "]", '"', "'", " "],
-} as const satisfies GeneratedNameValidationContract;
+} satisfies NameValidationContract;
 
 export const GENERATED_DEFAULT_APP_POLICY = {
   allowParamChanges: true,
@@ -10006,19 +10019,6 @@ function generatedSafeParseFieldPath(
   return fieldName === "" ? propertyName : fieldName + "." + propertyName;
 }
 
-type GeneratedBootstrapProtocol = {
-  workspaceHistoryStorageKey: string;
-  workspaceHistoryQueryParam: string;
-  workspaceHistoryHashParam: string;
-  launcherOriginStorageKey: string;
-  launcherOriginHashParam: string;
-  launcherOriginProofHashParam: string;
-  openWorkspaceSwitcherQueryParam: string;
-  openWorkspaceSwitcherHashParam: string;
-  backendOriginOverrideQueryParam: string;
-  maxValueLength: number;
-};
-
 export const GENERATED_BOOTSTRAP_PROTOCOL = {
   workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
   workspaceHistoryQueryParam: "__setta_workspace_history",
@@ -10030,7 +10030,7 @@ export const GENERATED_BOOTSTRAP_PROTOCOL = {
   openWorkspaceSwitcherHashParam: "osw",
   backendOriginOverrideQueryParam: "__setta_backend_origin",
   maxValueLength: 8192,
-} as const satisfies GeneratedBootstrapProtocol;
+} satisfies BootstrapHandoffProtocol;
 
 type FrontendConstants = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;

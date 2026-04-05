@@ -1,18 +1,13 @@
 package frontendbindings
 
-import "setta/internal/projectstate"
+import (
+	"reflect"
+
+	"setta/internal/projectstate"
+)
 
 func nameValidationSupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
-		objectDeclaration(
-			"GeneratedNameValidationContract",
-			TypeProperty{Name: "projectReservedNames", TypeExpr: "ReadonlyArray<string>"},
-			TypeProperty{Name: "pythonKeywords", TypeExpr: "ReadonlyArray<string>"},
-			TypeProperty{Name: "simpleNameAllowedChars", TypeExpr: "ReadonlyArray<string>"},
-			TypeProperty{Name: "pythonIdentifierStartChars", TypeExpr: "ReadonlyArray<string>"},
-			TypeProperty{Name: "pythonIdentifierContinueChars", TypeExpr: "ReadonlyArray<string>"},
-			TypeProperty{Name: "slugReplacementChars", TypeExpr: "ReadonlyArray<string>"},
-		),
 		constDeclaration(
 			"GENERATED_NAME_VALIDATION_CONTRACT",
 			true,
@@ -27,5 +22,5 @@ func buildGeneratedNameValidationContractExprTS() string {
 		"frontend name validation contract",
 		contract,
 		goJSONFieldOrder(contract),
-	) + " as const satisfies GeneratedNameValidationContract"
+	) + " satisfies " + BindingTypeName(reflect.TypeOf(projectstate.FrontendNameValidationContract{}))
 }
