@@ -6296,3 +6296,51 @@ LOOP_TERMINAL_MARKER: none
   - restore the read-only `main` reference CDP session and rerun the pending side-by-side visual gate for the broad normalized `shared title editing working after normalized pan and zoom` lane
   - once that gate clears, continue with splitting the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx`
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 173
+
+- Item: Rerun the pending visual gate for item `172` and determine whether the blocker is still `reference_unhealthy` or a real worktree regression.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `172` ended with product code landed but the required visual gate still marked blocked by an assumed `main` CDP availability problem
+    - before taking the next geometry-authority slice, the loop needed to clear or falsify that blocker instead of carrying stale handoff guidance forward
+    - resolving whether the gate was external-oracle trouble or a product regression is meaningful progress on its own because it changes the next frontier
+  - Production/test change:
+    - none; verification and handoff/history refresh only
+  - What this slice established:
+    - the old `reference_unhealthy` explanation is stale on the current run-003 surfaces:
+      - `main` frontend (`3087`) and backend (`8087`) are serving
+      - a fresh-context CDP sub-agent could open the current `main` bootstrap url inside the already-connected worktree browser and load `http://127.0.0.1:3087/settings`
+      - runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but that no longer blocks visual comparison
+    - the broad shared title/body region still looks visually attached after normalized fit view plus one toolbar zoom-in in CDP, so there is no newly obvious gross visual drift from that quick visual pass alone
+    - the trusted Playwright oracle for the actual pan+zoom+edit lane now fails reproducibly on the worktree canary:
+      - target section: `rotaryParamCodeObjDefault`
+      - spec: `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary`
+      - result: failed twice with fresh auth on the worktree canary leg after `titleInput.press("Enter")`
+      - failure point: the backend-state poll inside `captureTitleEditAfterPanAndZoom(...)` timed out waiting for the edited title to persist back to project state
+      - the reference leg executes first, so the new blocker is not `main`; it is the worktree canary title-edit persistence path after motion
+    - one intermediate retry failed in Playwright global setup because an older bootstrap token had expired and the bootstrap route returned 401; treat that run as auth noise, not product evidence
+- Verification:
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-003/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-003/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports stale default CDP port with no pid
+  - targeted live-runtime Playwright reruns:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed twice on the worktree canary leg with `Timeout 10000ms exceeded while waiting on the predicate` at `captureTitleEditAfterPanAndZoom(...)`
+    - note: one extra retry with an older token failed during Playwright global setup with a bootstrap 401 and is not product evidence
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done; `main` can be compared by opening it in the already-connected worktree browser
+  - CDP visual check:
+    - result: done
+    - note: normalized worktree `3076/settings` and read-only `main` `3087/settings`, treated stale bootstrap tabs/worktree-label chrome as oracle noise, and saw no gross title/body drift after fit view plus one toolbar zoom-in
+- Lane status:
+  - close the stale `reference_unhealthy` explanation from item `172`
+  - keep the item `172` gate open because the worktree canary now fails the trusted broad pan+zoom title-edit oracle
+- Next action:
+  - investigate/fix the worktree canary title-edit persistence failure after normalized pan+zoom on `rotaryParamCodeObjDefault`
+  - once fixed, rerun the same Playwright lane plus CDP confirmation before resuming the planned `SettingsGraphSubstrateCanary.tsx` controller split
+- LOOP_TERMINAL_MARKER: none
