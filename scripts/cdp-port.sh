@@ -143,6 +143,26 @@ profile_suffix() {
   basename "$root" | tr ' ' '_'
 }
 
+resolve_python_bin() {
+  if [[ -n "${VIRTUAL_ENV:-}" ]] && [[ -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    echo "${VIRTUAL_ENV}/bin/python"
+    return 0
+  fi
+  if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+    echo "${ROOT_DIR}/.venv/bin/python"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
+  return 1
+}
+
 INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
 INSTANCE_OFFSET="$(instance_offset "${INSTANCE_NAME}")"
 DEFAULT_DEBUG_PORT=$((9222 + INSTANCE_OFFSET))
@@ -159,13 +179,20 @@ print_output() {
   local port="$1"
   local source="$2"
   local pid="$3"
+  local python_bin=""
 
   if [[ "${OUTPUT_JSON}" != "1" ]]; then
     echo "${port}"
     return 0
   fi
 
-  python - "$port" "$source" "$pid" "$WORKTREE_ROOT" "$PROFILE_DIR" "$MCP_RUN_DIR" "$RUNTIME_METADATA_PATH" <<'PY'
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    echo "Could not find a Python interpreter for --json output." >&2
+    exit 1
+  fi
+
+  "${python_bin}" - "$port" "$source" "$pid" "$WORKTREE_ROOT" "$PROFILE_DIR" "$MCP_RUN_DIR" "$RUNTIME_METADATA_PATH" <<'PY'
 import json
 import sys
 
@@ -206,7 +233,7 @@ port_from_pid() {
 
 read_runtime_metadata_port() {
   local python_bin=""
-  python_bin="$(command -v python3 || command -v python || true)"
+  python_bin="$(resolve_python_bin || true)"
   [[ -n "${python_bin}" ]] || return 1
   [[ -f "${RUNTIME_METADATA_PATH}" ]] || return 1
 

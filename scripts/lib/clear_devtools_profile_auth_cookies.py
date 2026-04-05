@@ -4,6 +4,7 @@ import argparse
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Optional
 
 _COOKIE_DB_RELATIVE_PATH = Path("Default") / "Cookies"
 _LOOPBACK_HOST_KEYS = ("127.0.0.1", "localhost", ".localhost")
@@ -66,7 +67,7 @@ def clear_profile_auth_cookies(profile_dir: Path) -> int:
         connection.close()
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     removed_count = clear_profile_auth_cookies(Path(args.profile_dir))

@@ -166,7 +166,7 @@ def test_start_browser_mcp_keeps_headless_browser_alive_after_launcher_exit(
         f"""#!/usr/bin/env bash
 set -euo pipefail
 printf '%s' "$$" > "{chrome_pid_path}"
-sleep 5
+sleep 15
 """,
     )
     _write_executable(

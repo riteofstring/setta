@@ -1,3 +1,4 @@
+import ast
 import sqlite3
 import subprocess
 import sys
@@ -80,6 +81,11 @@ def test_cleanup_script_removes_loopback_setta_auth_cookies_only(
         ("127.0.0.1", "shareSessionId"),
         ("example.com", "setta_auth_foreign_dddddd"),
     ]
+
+
+def test_cleanup_script_parses_with_python39_grammar() -> None:
+    source = SCRIPT_PATH.read_text(encoding="utf-8")
+    ast.parse(source, filename=str(SCRIPT_PATH), feature_version=(3, 9))
 
 
 def test_cleanup_script_is_noop_when_cookie_db_is_missing(tmp_path: Path) -> None:

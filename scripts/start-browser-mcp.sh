@@ -97,12 +97,20 @@ if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
 fi
 
 resolve_python_bin() {
-  if command -v python >/dev/null 2>&1; then
-    echo "python"
+  if [[ -n "${VIRTUAL_ENV:-}" ]] && [[ -x "${VIRTUAL_ENV}/bin/python" ]]; then
+    echo "${VIRTUAL_ENV}/bin/python"
+    return 0
+  fi
+  if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+    echo "${ROOT_DIR}/.venv/bin/python"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
     echo "python3"
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
     return 0
   fi
   return 1
