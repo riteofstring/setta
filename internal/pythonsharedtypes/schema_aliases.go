@@ -259,8 +259,8 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 
 func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.StructField, error) {
 	fieldsByJSONName := make(map[string]reflect.StructField, ownerType.NumField())
-	for _, field := range visibleFields(ownerType) {
-		if strings.TrimSpace(field.Tag.Get("json")) == "" {
+	for _, field := range reflect.VisibleFields(ownerType) {
+		if !field.IsExported() || field.Anonymous || field.Tag.Get("json") == "-" {
 			continue
 		}
 		jsonName, err := fieldJSONName(field)

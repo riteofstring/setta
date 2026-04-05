@@ -173,8 +173,8 @@ class ChartSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: ChartSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -212,16 +212,6 @@ class ChatRole(StrEnum):
     tool = "tool"
 
 
-class ChatSectionImplBranches(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    branchFromMessageId: str | None
-    createdAt: int
-    messages: list[dict[str, Any]]
-    parentBranchId: str | None
-
-
 class ChatSectionImplSizeHeight(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -250,17 +240,17 @@ class ChatSectionImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    activeBranchId: str | None
+    activeBranchId: ID | None = None
     agentProfileId: str | None = None
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    branches: dict[str, ChatSectionImplBranches]
+    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
     chatId: str | None = None
     dictationMode: ChatDictationMode
     engineConfigId: str | None = None
     id: str
-    inputText: str
+    inputText: str = ""
     isFrozen: bool
     isInOtherProjectConfigs: bool
     isMinimized: bool
@@ -272,13 +262,13 @@ class ChatSectionImpl(BaseModel):
     positionAndSizeLocked: bool
     searchEnabled: bool
     size: ChatSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     thinking: bool
-    toolCallArguments: dict[str, str]
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
     transcriptionProfileId: str | None = None
     type: str
-    waitingForResponse: bool
+    waitingForResponse: bool = False
 
 
 class ChatSendAction(StrEnum):
@@ -442,8 +432,8 @@ class CodeSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: CodeSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -561,7 +551,7 @@ class DictSectionImpl(BaseModel):
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
     codeObjVariantMap: dict[str, str]
-    columnWidth: float | None
+    columnWidth: float | None = None
     configLanguage: str
     edgeInputParams: list[str]
     edgeOutputPorts: list[DictSectionImplEdgeOutputPort]
@@ -581,8 +571,8 @@ class DictSectionImpl(BaseModel):
     positionAndSizeLocked: bool
     selectedParams: list[str]
     size: DictSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     topLevelParamId: str | None = None
     type: str
 
@@ -716,8 +706,8 @@ class GenPythonCodeSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: GenPythonCodeSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -766,8 +756,8 @@ class GenPythonMetadataSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: GenPythonMetadataSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -819,7 +809,7 @@ class GlobalVariablesSectionImpl(BaseModel):
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
     codeObjVariantMap: dict[str, str]
-    columnWidth: float | None
+    columnWidth: float | None = None
     configLanguage: str
     edgeInputParams: list[str]
     edgeOutputPorts: list[GlobalVariablesSectionImplEdgeOutputPort]
@@ -839,8 +829,8 @@ class GlobalVariablesSectionImpl(BaseModel):
     positionAndSizeLocked: bool
     selectedParams: list[str]
     size: GlobalVariablesSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     topLevelParamId: str | None = None
     type: str
 
@@ -1216,8 +1206,8 @@ class PromptSectionImpl(BaseModel):
     renderError: str | None = None
     renderedText: str
     size: PromptSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     template: str
     type: str
 
@@ -1730,8 +1720,8 @@ class SpreadsheetSectionImpl(BaseModel):
     readOnly: bool
     showRowNumbers: bool
     size: SpreadsheetSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -1784,8 +1774,8 @@ class StateMachineEndSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: StateMachineEndSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -1882,8 +1872,8 @@ class StateMachineStartSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: StateMachineStartSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -2032,8 +2022,8 @@ class TerminalSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: TerminalSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -2107,8 +2097,8 @@ class TextBlockSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: TextBlockSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     text: str
     textDisplayMode: TextBlockDisplayMode
     type: str
@@ -2388,8 +2378,8 @@ class BrowserSectionImpl(BaseModel):
     positionAndSizeLocked: bool
     savedSearches: list[BrowserSavedSearch]
     size: BrowserSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode
@@ -2458,7 +2448,7 @@ class CallableSectionImpl(BaseModel):
     aspectRatioExtraWidth: float
     callable: str | None = None
     codeObjVariantMap: dict[str, str]
-    columnWidth: float | None
+    columnWidth: float | None = None
     configLanguage: ConfigLanguage
     edgeInputParams: list[str]
     edgeOutputPorts: list[CallableSectionImplEdgeOutputPort]
@@ -2476,8 +2466,8 @@ class CallableSectionImpl(BaseModel):
     positionAndSizeLocked: bool
     selectedParams: list[str]
     size: CallableSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -2602,8 +2592,8 @@ class GroupSectionImpl(BaseModel):
     overflowMode: bool
     positionAndSizeLocked: bool
     size: GroupSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
 
 
@@ -2624,8 +2614,8 @@ class ListRootSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: ListRootSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
     viewMode: ListRootViewMode
 
@@ -2755,8 +2745,8 @@ class StateMachineGateSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: StateMachineGateSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: str
     ui: StateMachineGateUIState
 
@@ -2804,8 +2794,8 @@ class TaskBoardSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: TaskBoardSectionImplSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     tasks: list[TaskBoardTask]
     type: str
     viewMode: TaskBoardViewMode

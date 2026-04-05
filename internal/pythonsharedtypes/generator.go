@@ -15,6 +15,8 @@ type GeneratedTypes struct {
 	PythonModule string
 }
 
+const generatedPythonSharedTypesImportPrefix = "from setta.types.generated.go_shared_types import "
+
 type fieldSpec struct {
 	Name        string
 	TypeExpr    string
@@ -144,40 +146,21 @@ func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
 	}
 }
 
-func mergePythonImportTagLines(
-	dst map[string]struct{},
-	importTag string,
-) {
-	for _, line := range strings.Split(importTag, "\n") {
-		filtered := filteredPythonImportLine(line)
-		if filtered == "" {
-			continue
-		}
-		dst[filtered] = struct{}{}
-	}
-}
-
 func filteredPythonImportLine(line string) string {
 	trimmed := strings.TrimSpace(line)
-	if trimmed == "" {
+	if trimmed == "" || strings.HasPrefix(trimmed, generatedPythonSharedTypesImportPrefix) {
 		return ""
 	}
-	module, imported, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
+	_, imported, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
 	if !ok {
 		return trimmed
 	}
-	kept := make([]string, 0)
 	for _, name := range strings.Split(imported, ",") {
-		name = strings.TrimSpace(name)
-		if name == "" || isLocalPythonContractImportName(name) {
-			continue
+		if !isLocalPythonContractImportName(name) {
+			return trimmed
 		}
-		kept = append(kept, name)
 	}
-	if len(kept) == 0 {
-		return ""
-	}
-	return fmt.Sprintf("from %s import %s", strings.TrimSpace(module), strings.Join(kept, ", "))
+	return ""
 }
 
 func isLocalPythonContractImportName(name string) bool {
@@ -187,21 +170,6 @@ func isLocalPythonContractImportName(name string) bool {
 	}
 	_, local := sharedtypes.TypeByContractName(name)
 	return local
-}
-
-func visibleFields(modelType reflect.Type) []reflect.StructField {
-	fields := make([]reflect.StructField, 0, modelType.NumField())
-	for index := 0; index < modelType.NumField(); index++ {
-		field := modelType.Field(index)
-		if !field.IsExported() {
-			continue
-		}
-		if field.Tag.Get("json") == "-" {
-			continue
-		}
-		fields = append(fields, field)
-	}
-	return fields
 }
 
 func fieldJSONName(field reflect.StructField) (string, error) {
@@ -223,7 +191,13 @@ func pythonPatchedFieldTypeExpr(
 	imports := map[string]struct{}{}
 	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
 	if importTag != "" {
-		mergePythonImportTagLines(imports, importTag)
+		for _, line := range strings.Split(importTag, "\n") {
+			filtered := filteredPythonImportLine(line)
+			if filtered == "" {
+				continue
+			}
+			imports[filtered] = struct{}{}
+		}
 	}
 	override := strings.TrimSpace(field.Tag.Get("py_type"))
 	if override != "" {
