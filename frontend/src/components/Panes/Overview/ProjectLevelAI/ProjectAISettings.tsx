@@ -39,14 +39,14 @@ import {
   AgentProfile,
   ClaudeSettingsSourceEnum,
   ExternalAgentConfig,
-  ExternalAgentRunModeEnum,
-  ExternalAgentSettingsModeEnum,
-  ExternalAgentToolTypeEnum,
-  ExternalAgentWorkingDirStrategyEnum,
-  PromptFormatEnum,
-  PromptTemplate,
+  FormatEnum,
+  RunModeEnum,
+  SettingsModeEnum,
+  Template,
+  ToolTypeEnum,
   TranscriptionProfile,
   TranscriptionTransportModeEnum,
+  WorkingDirStrategyEnum,
   createSettingsState,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -127,16 +127,14 @@ type ExternalAgentConfigDraft = {
   claudeDenyText: string;
 };
 
-type PromptFormatValue =
-  (typeof PromptFormatEnum)[keyof typeof PromptFormatEnum];
+type PromptFormatValue = (typeof FormatEnum)[keyof typeof FormatEnum];
 type ExternalAgentToolTypeValue =
-  (typeof ExternalAgentToolTypeEnum)[keyof typeof ExternalAgentToolTypeEnum];
-type ExternalAgentRunModeValue =
-  (typeof ExternalAgentRunModeEnum)[keyof typeof ExternalAgentRunModeEnum];
+  (typeof ToolTypeEnum)[keyof typeof ToolTypeEnum];
+type ExternalAgentRunModeValue = (typeof RunModeEnum)[keyof typeof RunModeEnum];
 type ExternalAgentSettingsModeValue =
-  (typeof ExternalAgentSettingsModeEnum)[keyof typeof ExternalAgentSettingsModeEnum];
+  (typeof SettingsModeEnum)[keyof typeof SettingsModeEnum];
 type ExternalAgentWorkingDirStrategyValue =
-  (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
+  (typeof WorkingDirStrategyEnum)[keyof typeof WorkingDirStrategyEnum];
 type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 type TranscriptionTransportModeValue =
@@ -1189,7 +1187,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const [inputSchemaError, setInputSchemaError] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
 
-  const formatOptions = useMemo(() => Object.values(PromptFormatEnum), []);
+  const formatOptions = useMemo(() => Object.values(FormatEnum), []);
 
   useEffect(() => {
     if (isCreating) {
@@ -1220,7 +1218,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         template: "",
-        format: PromptFormatEnum.Jinja,
+        format: FormatEnum.Jinja,
         inputSchemaText: "{}",
         metadataText: "{}",
       });
@@ -1524,20 +1522,14 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<ExternalAgentConfigDraft | null>(null);
 
-  const toolTypeOptions = useMemo(
-    () => Object.values(ExternalAgentToolTypeEnum),
-    [],
-  );
-  const runModeOptions = useMemo(
-    () => Object.values(ExternalAgentRunModeEnum),
-    [],
-  );
+  const toolTypeOptions = useMemo(() => Object.values(ToolTypeEnum), []);
+  const runModeOptions = useMemo(() => Object.values(RunModeEnum), []);
   const workingDirOptions = useMemo(
-    () => Object.values(ExternalAgentWorkingDirStrategyEnum),
+    () => Object.values(WorkingDirStrategyEnum),
     [],
   );
   const settingsModeOptions = useMemo(
-    () => Object.values(ExternalAgentSettingsModeEnum),
+    () => Object.values(SettingsModeEnum),
     [],
   );
   const settingsSourceOptions = useMemo(
@@ -1547,7 +1539,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
 
   const defaultToolType = toolTypeOptions.length
     ? toolTypeOptions[0]
-    : ExternalAgentToolTypeEnum.codex;
+    : ToolTypeEnum.codex;
 
   useEffect(() => {
     if (isCreating) {
@@ -1584,13 +1576,13 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         toolType: defaultToolType,
-        runMode: ExternalAgentRunModeEnum.sdk,
+        runMode: RunModeEnum.sdk,
         commandPath: "",
         baseUrl: "",
         defaultModel: "",
         sandboxPolicy: "",
         approvalPolicy: "",
-        settingsMode: ExternalAgentSettingsModeEnum.managed_local,
+        settingsMode: SettingsModeEnum.managed_local,
         settingsSources: [
           ClaudeSettingsSourceEnum.project,
           ClaudeSettingsSourceEnum.local,
@@ -1598,7 +1590,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         settingsFilePath: "",
         settingsAllowSettaEdits: true,
         envVarWhitelistText: "",
-        workingDirStrategy: ExternalAgentWorkingDirStrategyEnum.project_root,
+        workingDirStrategy: WorkingDirStrategyEnum.project_root,
         workingDir: "",
         claudeAllowText: "",
         claudeAskText: DEFAULT_CLAUDE_ASK_RULES.join("\n"),
@@ -1632,7 +1624,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     const envVarWhitelist = parseListInput(draft.envVarWhitelistText);
     let settingsSources: Array<ClaudeSettingsSourceValue> | null = null;
     if (
-      draft.toolType === ExternalAgentToolTypeEnum.claude_code &&
+      draft.toolType === ToolTypeEnum.claude_code &&
       draft.settingsSources.length > 0
     ) {
       settingsSources = draft.settingsSources;
@@ -1713,16 +1705,16 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         const toolType = value as ExternalAgentToolTypeValue;
         let nextRunMode = prev.runMode;
         if (
-          toolType === ExternalAgentToolTypeEnum.codex &&
-          prev.runMode === ExternalAgentRunModeEnum.sdk
+          toolType === ToolTypeEnum.codex &&
+          prev.runMode === RunModeEnum.sdk
         ) {
-          nextRunMode = ExternalAgentRunModeEnum.app_server;
+          nextRunMode = RunModeEnum.app_server;
         }
         if (
-          toolType !== ExternalAgentToolTypeEnum.codex &&
-          prev.runMode === ExternalAgentRunModeEnum.app_server
+          toolType !== ToolTypeEnum.codex &&
+          prev.runMode === RunModeEnum.app_server
         ) {
-          nextRunMode = ExternalAgentRunModeEnum.sdk;
+          nextRunMode = RunModeEnum.sdk;
         }
         return { ...prev, toolType, runMode: nextRunMode };
       }
@@ -1733,16 +1725,15 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
-  const isClaudeTool =
-    draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
-  const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
+  const isClaudeTool = draft?.toolType === ToolTypeEnum.claude_code;
+  const needsBaseUrl = draft?.runMode === RunModeEnum.server;
   const commandPathPlaceholder =
-    draft?.toolType === ExternalAgentToolTypeEnum.codex &&
-    draft?.runMode === ExternalAgentRunModeEnum.app_server
+    draft?.toolType === ToolTypeEnum.codex &&
+    draft?.runMode === RunModeEnum.app_server
       ? "codex"
       : "node";
   const isExplicitSettingsPath =
-    draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
+    draft?.settingsMode === SettingsModeEnum.explicit_path;
 
   return (
     <div className="flex flex-col gap-3">
@@ -1921,12 +1912,12 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                 <Field
                   label="Approval Policy"
                   hint={
-                    draft.toolType === ExternalAgentToolTypeEnum.claude_code
+                    draft.toolType === ToolTypeEnum.claude_code
                       ? "Claude Code permission mode. Choose YOLO to bypass approval prompts when chat permissions stay at config_toml_custom; /permissions yolo still overrides per run."
                       : undefined
                   }
                 >
-                  {draft.toolType === ExternalAgentToolTypeEnum.claude_code ? (
+                  {draft.toolType === ToolTypeEnum.claude_code ? (
                     <select
                       value={draft.approvalPolicy}
                       onChange={(event) =>
@@ -2196,9 +2187,7 @@ function buildTranscriptionProfileDraft(
   };
 }
 
-function buildPromptTemplateDraft(
-  template: PromptTemplate,
-): PromptTemplateDraft {
+function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
   return {
     name: template.name ?? "",
     description: template.description ?? "",
@@ -2222,11 +2211,10 @@ function buildExternalAgentConfigDraft(
     defaultModel: config.defaultModel ?? "",
     sandboxPolicy: config.sandboxPolicy ?? "",
     approvalPolicy: config.approvalPolicy ?? "",
-    settingsMode:
-      config.settingsMode ?? ExternalAgentSettingsModeEnum.managed_local,
+    settingsMode: config.settingsMode ?? SettingsModeEnum.managed_local,
     settingsSources:
       config.settingsSources ??
-      (config.toolType === ExternalAgentToolTypeEnum.claude_code
+      (config.toolType === ToolTypeEnum.claude_code
         ? [ClaudeSettingsSourceEnum.project, ClaudeSettingsSourceEnum.local]
         : []),
     settingsFilePath: config.settingsFilePath ?? "",
@@ -2252,7 +2240,7 @@ function buildSettingsManagedBlock(
     existingBlock && typeof existingBlock === "object"
       ? { ...existingBlock }
       : {};
-  if (draft.toolType === ExternalAgentToolTypeEnum.claude_code) {
+  if (draft.toolType === ToolTypeEnum.claude_code) {
     const claudePermissions = {
       allow: parseListInput(draft.claudeAllowText),
       ask: parseListInput(draft.claudeAskText),

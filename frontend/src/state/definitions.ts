@@ -30,7 +30,7 @@ import {
   AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
-  AllLLMConfigs,
+  AllConfigs,
   AllProjectMetadata,
   AppDefinition,
   BaseChatMessageUnion,
@@ -52,12 +52,12 @@ import {
   LLMConfig,
   LSPDiagnostic,
   Notification,
-  PromptTemplate,
+  Policy,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
   SettingsState,
-  SharePolicy,
   SingleConfig,
+  Template,
   TranscriptionProfile,
 } from "utils/generatedTypes";
 import {
@@ -210,7 +210,7 @@ type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
+  sharePolicy: Policy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
   deploymentMode: "share" | "app" | null;
@@ -909,7 +909,7 @@ type ZustandAIStore = {
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
   projectChatActivityAccordionOpenByDefault: boolean;
   projectChatActivityChildrenOpenByDefault: boolean;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
   agentProfiles: Array<AgentProfile>;
@@ -924,7 +924,7 @@ type ZustandAIStore = {
     | "terminal_error";
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
-  promptTemplates: Array<PromptTemplate>;
+  promptTemplates: Array<Template>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
   promptTemplatesLoading: boolean;

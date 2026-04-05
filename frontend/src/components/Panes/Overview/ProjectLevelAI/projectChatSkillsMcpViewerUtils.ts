@@ -13,9 +13,9 @@ import {
 } from "state/actions/agentRunUtils";
 import {
   EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
+  ToolTypeEnum,
   type AgentRun,
-  type AllLLMConfigs,
+  type AllConfigs,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
@@ -123,10 +123,10 @@ function getApplicableRootIds({
   if (engineType !== EngineTypeEnum.external_agent) {
     return [];
   }
-  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+  if (externalAgentToolType === ToolTypeEnum.codex) {
     return CODEX_APPLICABLE_ROOT_IDS;
   }
-  if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
+  if (externalAgentToolType === ToolTypeEnum.claude_code) {
     return CLAUDE_APPLICABLE_ROOT_IDS;
   }
   return [];
@@ -143,10 +143,10 @@ function getEngineLabel({
     return "Setta LLM";
   }
   if (engineType === EngineTypeEnum.external_agent) {
-    if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+    if (externalAgentToolType === ToolTypeEnum.codex) {
       return "Codex";
     }
-    if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
+    if (externalAgentToolType === ToolTypeEnum.claude_code) {
       return "Claude";
     }
     return "external agent";
@@ -272,7 +272,7 @@ function collectActiveSkillNames({
   if (engineType !== EngineTypeEnum.external_agent) {
     return { activeByName, hasStructuredMetadata };
   }
-  if (externalAgentToolType !== ExternalAgentToolTypeEnum.codex) {
+  if (externalAgentToolType !== ToolTypeEnum.codex) {
     return { activeByName, hasStructuredMetadata };
   }
   const activitySource = "codex_skill_tool";
@@ -404,7 +404,7 @@ export function buildSkillStatusBySkillId({
   });
   const requiresStructuredMetadata =
     engineType === EngineTypeEnum.external_agent &&
-    externalAgentToolType === ExternalAgentToolTypeEnum.codex;
+    externalAgentToolType === ToolTypeEnum.codex;
   const { activeByName: activeSkillNames, hasStructuredMetadata } =
     collectActiveSkillNames({
       engineType,
@@ -520,7 +520,7 @@ type McpServersByConfigPath = {
 };
 
 function resolveMcpServerEndpoint(
-  config: AllLLMConfigs["mcpServers"][string],
+  config: AllConfigs["mcpServers"][string],
 ): string {
   if (typeof config.url === "string" && config.url.length > 0) {
     return config.url;
@@ -547,7 +547,7 @@ export function groupMcpServersByConfigPath({
   settaFilesLocation,
   runtimeServers = [],
 }: {
-  mcpServers: AllLLMConfigs["mcpServers"] | undefined;
+  mcpServers: AllConfigs["mcpServers"] | undefined;
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
   runtimeServers?: Array<McpServerListEntry>;
@@ -1017,7 +1017,7 @@ export function buildSlashCommandsByEngine({
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   apiKeys: APIKeys;
   externalAgentHealth: ExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;

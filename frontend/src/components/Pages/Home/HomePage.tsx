@@ -56,7 +56,7 @@ import {
 import { route_set_as_default_project } from "utils/generatedEndpoints";
 import {
   type ProjectConfig,
-  type ProjectMetadataEntry,
+  type ProjectConfigMetadata,
 } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
@@ -81,7 +81,7 @@ export const HOME_RIGHT_PANE_TITLE_CLASS_NAME = withRightPaneTitleClearance(
   HOME_PANE_TITLE_CLASS,
 );
 
-type HomeProject = ProjectMetadataEntry &
+type HomeProject = ProjectConfigMetadata &
   Partial<Pick<ProjectConfig, "previewImgColor" | "topLevelSections">>;
 
 export function shouldUseCompactHomeLayout(

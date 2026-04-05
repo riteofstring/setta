@@ -441,14 +441,14 @@ export function createEngineConfig(
   };
 }
 
-export const AgentRunStatusEnum = {
+export const RunStatusEnum = {
   queued: "queued",
   running: "running",
   completed: "completed",
   failed: "failed",
   cancelled: "cancelled",
 } as const;
-type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
+type RunStatus = ObjectValues<typeof RunStatusEnum>;
 
 type RunEvent = {
   id: string;
@@ -460,7 +460,7 @@ type RunEvent = {
 export type AgentRun = {
   id: string;
   profileId?: string | null;
-  status: AgentRunStatus;
+  status: RunStatus;
   startedAt?: string | null;
   finishedAt?: string | null;
   inputs?: Record<string, unknown> | null;
@@ -487,7 +487,7 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   );
 }
 
-const DetachedRunStatusEnum = {
+const DetachedStatusEnum = {
   queued: "queued",
   running: "running",
   exited: "exited",
@@ -495,11 +495,11 @@ const DetachedRunStatusEnum = {
   canceled: "canceled",
   lost: "lost",
 } as const;
-type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
+type DetachedStatus = ObjectValues<typeof DetachedStatusEnum>;
 
 export type DetachedRun = {
   runId: string;
-  status: DetachedRunStatus;
+  status: DetachedStatus;
   createdAtMs: number;
   startedAtMs: number | null;
   exitedAtMs: number | null;
@@ -512,67 +512,61 @@ export type DetachedRun = {
   tags: Record<string, string>;
 };
 
-type ExternalAgentEnvVarStatus = {
+type EnvVarStatus = {
   present: Array<string>;
   missing: Array<string>;
 };
 
-export const ExternalAgentToolTypeEnum = {
+export const ToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
 } as const;
-type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
+type ToolType = ObjectValues<typeof ToolTypeEnum>;
 
-export const ExternalAgentRunModeEnum = {
+export const RunModeEnum = {
   mcp: "mcp",
   server: "server",
   sdk: "sdk",
   app_server: "app_server",
 } as const;
-type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
+type RunMode = ObjectValues<typeof RunModeEnum>;
 
-const ExternalAgentClaudeSettingsSourceEnum = {
+export const ClaudeSettingsSourceEnum = {
   user: "user",
   project: "project",
   local: "local",
 } as const;
-type ExternalAgentClaudeSettingsSource = ObjectValues<
-  typeof ExternalAgentClaudeSettingsSourceEnum
->;
+type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
 
-type ExternalAgentClaudeSettingsPermissions = {
+type ClaudeSettingsPermissions = {
   allow: Array<string>;
   ask: Array<string>;
   deny: Array<string>;
 };
 
-type ExternalAgentClaudeSettingsManaged = {
-  permissions?: ExternalAgentClaudeSettingsPermissions | null;
+type ClaudeSettingsManaged = {
+  permissions?: ClaudeSettingsPermissions | null;
   defaultMode?: string | null;
   mcp?: Record<string, unknown>;
 };
 
-export const ExternalAgentWorkingDirStrategyEnum = {
+export const WorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
   custom: "custom",
 } as const;
-type ExternalAgentWorkingDirStrategy = ObjectValues<
-  typeof ExternalAgentWorkingDirStrategyEnum
->;
+type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
 
-export const ExternalAgentSettingsModeEnum = {
+export const SettingsModeEnum = {
   read_only: "read_only",
   managed_local: "managed_local",
   managed_project: "managed_project",
   explicit_path: "explicit_path",
 } as const;
-type ExternalAgentSettingsMode = ObjectValues<
-  typeof ExternalAgentSettingsModeEnum
->;
+type SettingsMode = ObjectValues<typeof SettingsModeEnum>;
 
-type ExternalAgentSettingsManagedBlock = {
-  claude?: ExternalAgentClaudeSettingsManaged | null;
+type SettingsManagedBlock = {
+  claude?: ClaudeSettingsManaged | null;
   codex?: Record<string, unknown>;
 };
 
@@ -580,33 +574,33 @@ export type ExternalAgentConfig = {
   id: string;
   name: string;
   description: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
+  toolType: ToolType;
+  runMode: RunMode;
   commandPath?: string | null;
   baseUrl?: string | null;
   defaultModel?: string | null;
   sandboxPolicy?: string | null;
   approvalPolicy?: string | null;
-  settingsMode: ExternalAgentSettingsMode;
-  settingsSources?: Array<ExternalAgentClaudeSettingsSource>;
+  settingsMode: SettingsMode;
+  settingsSources?: Array<ClaudeSettingsSource>;
   settingsFilePath?: string | null;
-  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsManagedBlock?: SettingsManagedBlock | null;
   settingsAllowSettaEdits: boolean;
   envVarWhitelist: Array<string>;
-  workingDirStrategy: ExternalAgentWorkingDirStrategy;
+  workingDirStrategy: WorkingDirStrategy;
   workingDir?: string | null;
   codexSkipGitRepoCheck?: boolean | null;
 };
 
-const MCPServerTransportEnum = {
+const LLMTransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
   stdio: "stdio",
 } as const;
-type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
+type LLMTransport = ObjectValues<typeof LLMTransportEnum>;
 
-type MCPServerConfig = {
-  transport: MCPServerTransport;
+type ServerConfig = {
+  transport: LLMTransport;
   url?: string;
   command?: string;
   args?: Array<string>;
@@ -631,18 +625,13 @@ export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
   return options as LLMConfig;
 }
 
-export type AllLLMConfigs = {
+export type AllConfigs = {
   configs: Record<string, LLMConfig>;
-  mcpServers: Record<string, MCPServerConfig>;
+  mcpServers: Record<string, ServerConfig>;
   defaultMcpServerIds: Array<string>;
   default_config_id?: string;
   codexMcpImportedAt?: string;
 };
-export function createAllLLMConfigs(
-  options: Partial<AllLLMConfigs> = {},
-): AllLLMConfigs {
-  return options as AllLLMConfigs;
-}
 
 export type AppRoute = {
   path: string;
@@ -1183,10 +1172,10 @@ export const TextBlockDisplayModeEnum = {
 } as const;
 type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
 
-export const PromptFormatEnum = {
+export const FormatEnum = {
   Jinja: "Jinja",
 } as const;
-export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+export type Format = ObjectValues<typeof FormatEnum>;
 
 export const TaskBoardViewModeEnum = {
   task_list: "task_list",
@@ -1299,7 +1288,7 @@ type BaseSectionImpl = {
   ui?: StateMachineGateUIState;
   dataPath?: string;
   chartSettings?: BaseChartSettingsUnion;
-  format?: TextBlockFormat | PromptFormat;
+  format?: TextBlockFormat | Format;
   masterFontSizePx?: number;
   headingAsSectionName?: boolean;
   metaControlStyle?: boolean;
@@ -1634,7 +1623,7 @@ export function createTextBlockSectionImpl(
 export type PromptSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Prompt;
   template: string;
-  format: PromptFormat;
+  format: Format;
   inputs: Record<string, string>;
   renderedText: string;
   missingVariables: Array<string>;
@@ -3519,7 +3508,7 @@ export const CodeFileAccessModeEnum = {
 } as const;
 export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
 
-export type ProjectMetadataEntry = {
+export type ProjectConfigMetadata = {
   name: string;
   id: string;
 };
@@ -4767,12 +4756,12 @@ export function createSingleConfig(
   );
 }
 
-export type PromptTemplate = {
+export type Template = {
   id: string;
   name: string;
   description: string;
   template: string;
-  format: PromptFormat;
+  format: Format;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -6233,20 +6222,18 @@ export function createConnection(
   );
 }
 
-export const TranscriptionTransportModeEnum = {
+const TransportModeEnum = {
   auto: "auto",
   file: "file",
   realtime: "realtime",
 } as const;
-type TranscriptionTransportMode = ObjectValues<
-  typeof TranscriptionTransportModeEnum
->;
+type TransportMode = ObjectValues<typeof TransportModeEnum>;
 
 export type TranscriptionProfile = {
   id: string;
   name: string;
   transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
+  transportMode: TransportMode;
   chunkMs: number;
   supportsRealtimeTranscription: boolean;
   language?: string | null;
@@ -6325,10 +6312,10 @@ export type CodeMirrorCompletion = {
 
 export type AllProjectMetadata = {
   defaultProjectConfigId: string | null;
-  projectMetadata: Array<ProjectMetadataEntry>;
+  projectMetadata: Array<ProjectConfigMetadata>;
 };
 
-export type GitCommit = {
+export type Commit = {
   hash: string;
   parents: Array<string>;
   authorName: string;
@@ -6337,51 +6324,38 @@ export type GitCommit = {
   subject: string;
   decorations: Array<string>;
 };
-export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
-  return options as GitCommit;
-}
 
-export type GitLogRequest = {
+export type LogRequest = {
   rev: string;
   allRefs: boolean;
   offset: number;
   pageSize: number;
 };
 
-export type GitLogResponse = {
+export type LogResponse = {
   repoRoot: string;
   headBranch: string | null;
-  commits: Array<GitCommit>;
+  commits: Array<Commit>;
   offset: number;
   pageSize: number;
   nextOffset: number | null;
   hasMore: boolean;
   isCapped: boolean;
 };
-export function createGitLogResponse(
-  options: Partial<GitLogResponse> = {},
-): GitLogResponse {
-  return options as GitLogResponse;
-}
 
-export type GitCommitChangedFile = {
+export type CommitChangedFile = {
   path: string;
   oldPath: string | null;
   status: string;
   additions: number | null;
   deletions: number | null;
 };
-export function createGitCommitChangedFile(
-  options: Partial<GitCommitChangedFile> = {},
-): GitCommitChangedFile {
-  return options as GitCommitChangedFile;
-}
 
-export type GitCommitDetailsRequest = {
+export type CommitDetailsRequest = {
   commitHash: string;
 };
 
-export type GitCommitDetailsResponse = {
+export type CommitDetailsResponse = {
   repoRoot: string;
   commitHash: string;
   parents: Array<string>;
@@ -6393,22 +6367,17 @@ export type GitCommitDetailsResponse = {
   committerTimeMs: number;
   subject: string;
   body: string;
-  files: Array<GitCommitChangedFile>;
+  files: Array<CommitChangedFile>;
   isTruncated: boolean;
 };
-export function createGitCommitDetailsResponse(
-  options: Partial<GitCommitDetailsResponse> = {},
-): GitCommitDetailsResponse {
-  return options as GitCommitDetailsResponse;
-}
 
-export type GitCommitFileDiffRequest = {
+export type CommitFileDiffRequest = {
   commitHash: string;
   path: string;
   oldPath: string | null;
 };
 
-export type GitCommitFileDiffResponse = {
+export type CommitFileDiffResponse = {
   repoRoot: string;
   commitHash: string;
   path: string;
@@ -6416,31 +6385,26 @@ export type GitCommitFileDiffResponse = {
   isTruncated: boolean;
 };
 
-const GitDiffModeEnum = {
+const DiffModeEnum = {
   unstaged: "unstaged",
   staged: "staged",
 } as const;
-export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
+export type DiffMode = ObjectValues<typeof DiffModeEnum>;
 
-type GitRepoInfo = {
+type RepoInfo = {
   isGitRepo: boolean;
   repoRoot: string | null;
   headBranch: string | null;
   headCommit: string | null;
 };
 
-export type GitStatusEntry = {
+export type StatusEntry = {
   path: string;
   oldPath: string | null;
   indexStatus: string;
   worktreeStatus: string;
   kind: string;
 };
-export function createGitStatusEntry(
-  options: Partial<GitStatusEntry> = {},
-): GitStatusEntry {
-  return options as GitStatusEntry;
-}
 
 export type GitWorktreeEntry = {
   path: string;
@@ -6452,28 +6416,23 @@ export type GitWorktreeEntry = {
   prunableReason: string | null;
 };
 
-export type GitStatusResponse = {
-  repo: GitRepoInfo;
-  entries: Array<GitStatusEntry>;
+export type StatusResponse = {
+  repo: RepoInfo;
+  entries: Array<StatusEntry>;
   isTruncated: boolean;
   worktrees: Array<GitWorktreeEntry>;
 };
-export function createGitStatusResponse(
-  options: Partial<GitStatusResponse> = {},
-): GitStatusResponse {
-  return options as GitStatusResponse;
-}
 
-export type GitDiffRequest = {
+export type DiffRequest = {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
 };
 
-export type GitDiffResponse = {
+export type DiffResponse = {
   repoRoot: string;
   path: string;
-  mode: GitDiffMode;
+  mode: DiffMode;
   diff: string;
   isTruncated: boolean;
 };
@@ -6511,7 +6470,7 @@ export type LauncherRecentWorkspacesResponse = {
   error: LauncherHomeErrorPayload | null;
 };
 
-export type SharePolicy = {
+export type Policy = {
   allowParamChanges: boolean;
   allowVariantChanges: boolean;
   allowLayoutChanges: boolean;
@@ -6522,31 +6481,29 @@ export type SharePolicy = {
   allowMultipleRuns: boolean;
   runSnapshotMode: RunSnapshotMode;
 };
-export function createSharePolicy(
-  options: Partial<SharePolicy> = {},
-): SharePolicy {
-  return options as SharePolicy;
+export function createPolicy(options: Partial<Policy> = {}): Policy {
+  return options as Policy;
 }
 
-const DeploymentTypeEnum = {
+const TypeEnum = {
   share: "share",
   app: "app",
 } as const;
-type DeploymentType = ObjectValues<typeof DeploymentTypeEnum>;
+type Type = ObjectValues<typeof TypeEnum>;
 
-type DeploymentListenerConfig = {
+type ListenerConfig = {
   entrypoint: string;
   enabled: boolean;
 };
 
-type DeploymentManifest = {
+type Manifest = {
   version: number;
   deploymentName: string;
-  deploymentType: DeploymentType;
+  deploymentType: Type;
   defaultProjectConfigId: string;
   deploymentVersion: string;
   createdAt?: string;
-  listener?: DeploymentListenerConfig | null;
+  listener?: ListenerConfig | null;
 };
 
 export type AppDeploymentSessionResponse = {
@@ -6555,9 +6512,9 @@ export type AppDeploymentSessionResponse = {
   shareSessionId: string;
   sessionRunCount: number;
   defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  appPolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
+  projectMetadata: Array<ProjectConfigMetadata>;
+  appPolicy: Policy;
+  manifest?: Manifest | null;
 };
 
 export type DeploymentMetadataResponse = {
@@ -6578,7 +6535,7 @@ export type AppDeploymentStateResponse = {
   projectState: SingleConfig;
   appDefinition: AppDefinition | null;
   appSpec: unknown;
-  appPolicy: SharePolicy;
+  appPolicy: Policy;
 };
 
 export type AppendDrawAreaLayerItemRequest = {
@@ -6728,20 +6685,20 @@ export type CreateEngineConfigRequest = {
 export type CreateExternalAgentConfigRequest = {
   name: string | null;
   description: string | null;
-  toolType: ExternalAgentToolType | null;
-  runMode: ExternalAgentRunMode | null;
+  toolType: ToolType | null;
+  runMode: RunMode | null;
   commandPath: string | null;
   baseUrl: string | null;
   defaultModel: string | null;
   sandboxPolicy: string | null;
   approvalPolicy: string | null;
-  settingsMode: ExternalAgentSettingsMode | null;
-  settingsSources: Array<ExternalAgentClaudeSettingsSource>;
+  settingsMode: SettingsMode | null;
+  settingsSources: Array<ClaudeSettingsSource>;
   settingsFilePath: string | null;
-  settingsManagedBlock: ExternalAgentSettingsManagedBlock | null;
+  settingsManagedBlock: SettingsManagedBlock | null;
   settingsAllowSettaEdits: boolean | null;
   envVarWhitelist: Array<string>;
-  workingDirStrategy: ExternalAgentWorkingDirStrategy | null;
+  workingDirStrategy: WorkingDirStrategy | null;
   workingDir: string | null;
   codexSkipGitRepoCheck: boolean | null;
 };
@@ -6764,7 +6721,7 @@ export type CreatePromptTemplateRequest = {
   name: string | null;
   description: string | null;
   template: string | null;
-  format: PromptFormat | null;
+  format: Format | null;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -6802,7 +6759,7 @@ export type CreateTopLevelSectionRequest = {
 export type CreateTranscriptionProfileRequest = {
   name: string | null;
   transcriptionLlmConfigId: string | null;
-  transportMode: TranscriptionTransportMode | null;
+  transportMode: TransportMode | null;
   chunkMs: number | null;
   language: string | null;
 };
@@ -7129,8 +7086,8 @@ export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
 export type ExternalAgentPreflightStatus = {
   configId: string;
   name: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
+  toolType: ToolType;
+  runMode: RunMode;
   supported: boolean;
   available: boolean;
   issues: Array<string>;
@@ -7138,7 +7095,7 @@ export type ExternalAgentPreflightStatus = {
   cliVersion: string | null;
   baseUrl: string | null;
   workingDir: string | null;
-  envVars: ExternalAgentEnvVarStatus;
+  envVars: EnvVarStatus;
 };
 export function createExternalAgentPreflightStatus(
   options: Partial<ExternalAgentPreflightStatus> = {},
@@ -7468,12 +7425,12 @@ export type MCPRuntimeStatusRequest = {
   engineConfigId: string | null;
 };
 
-const TransportEnum = {
+const MCPXTransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
   stdio: "stdio",
 } as const;
-type Transport = ObjectValues<typeof TransportEnum>;
+type MCPXTransport = ObjectValues<typeof MCPXTransportEnum>;
 
 const RuntimeStateEnum = {
   connected: "connected",
@@ -7488,7 +7445,7 @@ type RuntimeState = ObjectValues<typeof RuntimeStateEnum>;
 type ServerRuntimeStatus = {
   serverId: string;
   source: string;
-  transport: Transport;
+  transport: MCPXTransport;
   endpoint: string;
   state: RuntimeState;
   lastAttemptAt: string | null;
@@ -7502,7 +7459,7 @@ type ServerRuntimeStatus = {
 
 type MCPResolvedRuntimeServer = {
   serverId: string;
-  transport: Transport;
+  transport: MCPXTransport;
   endpoint: string;
   state: RuntimeState;
   lastAttemptAt: string | null;
@@ -7558,8 +7515,6 @@ export type GetPasswordParamValueResponse = {
 export type GetPromptTemplateRequest = {
   templateId: string;
 };
-
-export type PromptTemplateList = Array<PromptTemplate>;
 
 export type GetRunStatusRequest = {
   runId: string;
@@ -7942,7 +7897,7 @@ export type RunDetachedRequest = {
 
 export type RunDetachedResponse = {
   runId: string;
-  status: DetachedRunStatus;
+  status: DetachedStatus;
 };
 
 export type SaveAsNewProjectConfigRequest = {
@@ -8250,7 +8205,7 @@ export type SetPromptFormatRequest = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
-  format: PromptFormat;
+  format: Format;
 };
 
 export type SetPromptInputsRequest = {
@@ -8553,9 +8508,9 @@ export type ShareDeploymentSessionResponse = {
   shareSessionId: string;
   sessionRunCount: number;
   defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  sharePolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
+  projectMetadata: Array<ProjectConfigMetadata>;
+  sharePolicy: Policy;
+  manifest?: Manifest | null;
 };
 
 export type StartAgentRunRequest = {
@@ -8850,7 +8805,7 @@ type PromptTemplatePayload = {
   name: string | null;
   description: string | null;
   template: string | null;
-  format: PromptFormat | null;
+  format: Format | null;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -8869,7 +8824,7 @@ type TranscriptionProfilePayload = {
   id: string | null;
   name: string | null;
   transcriptionLlmConfigId: string | null;
-  transportMode: TranscriptionTransportMode | null;
+  transportMode: TransportMode | null;
   chunkMs: number | null;
   supportsRealtimeTranscription: boolean | null;
   language: string | null;
@@ -9492,7 +9447,7 @@ type UserDefaultPromptSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   template: string;
-  format: PromptFormat;
+  format: Format;
   inputs: Record<string, string>;
   renderedText: string;
   missingVariables: Array<string>;
@@ -10033,7 +9988,7 @@ export const GENERATED_DEFAULT_APP_POLICY = {
   allowFileDownloads: false,
   allowMultipleRuns: true,
   runSnapshotMode: "ephemeral",
-} as const satisfies SharePolicy;
+} as const satisfies Policy;
 
 type SafeParseSuccess<T> = {
   success: true;

@@ -7,12 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppConfigs, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
-import type { SharePolicy } from "utils/generatedTypes";
+import type { Policy } from "utils/generatedTypes";
 import {
   createAppDefinition,
+  createPolicy,
   createProjectConfig,
   createSectionCapabilities,
-  createSharePolicy,
   createSingletonSections,
 } from "utils/generatedTypes";
 
@@ -61,7 +61,7 @@ vi.mock("@json-render/react", async () => {
 function renderApp(
   appSpec: unknown | null,
   options: {
-    appPolicy?: SharePolicy | null;
+    appPolicy?: Policy | null;
     appDefinition?: ReturnType<typeof createAppDefinition> | null;
     defaultConfigId?: string | null;
     shareSessionId?: string | null;
@@ -115,7 +115,7 @@ describe("AppRenderer", () => {
       root: { key: "root", type: "Stack" },
       elements: {},
     };
-    const policy = createSharePolicy({ allowRun: false });
+    const policy = createPolicy({ allowRun: false });
     const markup = renderApp(appSpec, { appPolicy: policy });
 
     expect(markup).toContain('data-can-run="false"');
@@ -127,7 +127,7 @@ describe("AppRenderer", () => {
       root: { key: "root", type: "Stack" },
       elements: {},
     };
-    const policy = createSharePolicy({ allowRun: true });
+    const policy = createPolicy({ allowRun: true });
     const markup = renderApp(appSpec, { appPolicy: policy });
 
     expect(markup).toContain('data-can-run="true"');
@@ -160,7 +160,7 @@ describe("AppRenderer", () => {
         },
       },
     });
-    const policy = createSharePolicy({
+    const policy = createPolicy({
       allowParamChanges: true,
       allowVariantChanges: true,
       allowRun: true,
@@ -235,7 +235,7 @@ describe("AppRenderer", () => {
         },
       },
     });
-    const policy = createSharePolicy({
+    const policy = createPolicy({
       allowParamChanges: true,
       allowVariantChanges: true,
       allowRun: true,
@@ -308,7 +308,7 @@ describe("AppRenderer", () => {
         },
       },
     });
-    const policy = createSharePolicy({ allowFileDownloads: true });
+    const policy = createPolicy({ allowFileDownloads: true });
     const dom = new JSDOM("<!doctype html><html><body></body></html>", {
       url: "http://localhost:3000",
       pretendToBeVisual: true,

@@ -20,7 +20,7 @@ import {
   route_get_attachment_download_url,
   route_run_code,
 } from "utils/generatedEndpoints";
-import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
+import type { AppDefinition, Policy } from "utils/generatedTypes";
 import {
   resolveMainRunRequest,
   resolveRunRequest,
@@ -45,7 +45,7 @@ type RawUIElement = {
 type AppRendererProps = {
   appSpec: unknown | null;
   appDefinition: AppDefinition | null | undefined;
-  appPolicy?: SharePolicy | null;
+  appPolicy?: Policy | null;
   defaultConfigId?: string | null;
   rootKeyOverride?: string | null;
 };

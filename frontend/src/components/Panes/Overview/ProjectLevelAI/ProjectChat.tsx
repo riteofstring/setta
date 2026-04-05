@@ -68,7 +68,7 @@ import {
 import { getDefaultChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
-  AllLLMConfigs,
+  AllConfigs,
   BaseChatMessageUnion,
   EngineConfig,
   EngineTypeEnum,
@@ -165,7 +165,7 @@ type ResolveProjectChatSelectedEngineIdAfterEngineConfigsLoadInput = {
 type ResolveProjectChatSelectedLLMUnavailableReasonInput = {
   engineType: EngineTypeEnum | null;
   selectedLLMConfigId: string | null;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
 };
 
@@ -2312,7 +2312,7 @@ function findPreferredEngineId({
   externalAgentHealthInitialLoadComplete,
 }: {
   engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
   externalAgentHealth: ExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
@@ -2360,7 +2360,7 @@ function isEngineUsable({
   externalAgentHealthInitialLoadComplete,
 }: {
   config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
   externalAgentHealth: ExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;

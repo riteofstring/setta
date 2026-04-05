@@ -226,7 +226,7 @@ export async function route_create_project_config(
 
 export async function route_create_prompt_template(
   x: gt.CreatePromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+): Promise<ResponseDataAndStatus<gt.Template>> {
   return await post(GoHTTPRouteHelpers.createPromptTemplate(), x);
 }
 
@@ -587,31 +587,31 @@ export async function route_get_folder_contents(
 }
 
 export async function route_get_git_commit_details(
-  x: gt.GitCommitDetailsRequest,
-): Promise<ResponseDataAndStatus<gt.GitCommitDetailsResponse>> {
+  x: gt.CommitDetailsRequest,
+): Promise<ResponseDataAndStatus<gt.CommitDetailsResponse>> {
   return await post(GoHTTPRouteHelpers.getGitCommitDetails(), x);
 }
 
 export async function route_get_git_commit_file_diff(
-  x: gt.GitCommitFileDiffRequest,
-): Promise<ResponseDataAndStatus<gt.GitCommitFileDiffResponse>> {
+  x: gt.CommitFileDiffRequest,
+): Promise<ResponseDataAndStatus<gt.CommitFileDiffResponse>> {
   return await post(GoHTTPRouteHelpers.getGitCommitFileDiff(), x);
 }
 
 export async function route_get_git_diff(
-  x: gt.GitDiffRequest,
-): Promise<ResponseDataAndStatus<gt.GitDiffResponse>> {
+  x: gt.DiffRequest,
+): Promise<ResponseDataAndStatus<gt.DiffResponse>> {
   return await post(GoHTTPRouteHelpers.getGitDiff(), x);
 }
 
 export async function route_get_git_log(
-  x: gt.GitLogRequest,
-): Promise<ResponseDataAndStatus<gt.GitLogResponse>> {
+  x: gt.LogRequest,
+): Promise<ResponseDataAndStatus<gt.LogResponse>> {
   return await post(GoHTTPRouteHelpers.getGitLog(), x);
 }
 
 export async function route_get_git_status(): Promise<
-  ResponseDataAndStatus<gt.GitStatusResponse>
+  ResponseDataAndStatus<gt.StatusResponse>
 > {
   return await post(GoHTTPRouteHelpers.getGitStatus(), null);
 }
@@ -661,7 +661,7 @@ export async function route_get_llm_chat(
 }
 
 export async function route_get_llm_config(): Promise<
-  ResponseDataAndStatus<gt.AllLLMConfigs>
+  ResponseDataAndStatus<gt.AllConfigs>
 > {
   return await get(GoHTTPRouteHelpers.getLLMConfig());
 }
@@ -698,12 +698,12 @@ export async function route_get_password_param_value(
 
 export async function route_get_prompt_template(
   x: gt.GetPromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+): Promise<ResponseDataAndStatus<gt.Template>> {
   return await post(GoHTTPRouteHelpers.getPromptTemplate(), x);
 }
 
 export async function route_get_prompt_templates(): Promise<
-  ResponseDataAndStatus<gt.PromptTemplateList>
+  ResponseDataAndStatus<Array<gt.Template>>
 > {
   return await get(GoHTTPRouteHelpers.getPromptTemplates());
 }
@@ -1269,8 +1269,8 @@ export async function route_set_list_root_view_mode(
 }
 
 export async function route_set_llm_config(
-  x: gt.AllLLMConfigs,
-): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
+  x: gt.AllConfigs,
+): Promise<ResponseDataAndStatus<gt.AllConfigs>> {
   return await post(GoHTTPRouteHelpers.setLLMConfig(), x);
 }
 
@@ -1824,7 +1824,7 @@ export async function route_update_param_impl_config(
 
 export async function route_update_prompt_template(
   x: gt.UpdatePromptTemplateRequest,
-): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+): Promise<ResponseDataAndStatus<gt.Template>> {
   return await post(GoHTTPRouteHelpers.updatePromptTemplate(), x);
 }
 

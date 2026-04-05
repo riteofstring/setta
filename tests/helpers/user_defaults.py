@@ -26,10 +26,9 @@ from setta.types.generated.go_shared_types import (
     DrawAreaMode,
     DropzoneMode,
     EdgePort,
-    HttpRequestMethod,
     ListRootViewMode,
     ParamNameType,
-    PromptFormat,
+    Format,
     SectionType,
     SpreadsheetGridDensity,
     StateMachineGateType,
@@ -61,6 +60,19 @@ CodeLanguageKey = CodeLanguage | str
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
+
+
+# The generated Python shared-types surface prunes this frontend-only enum, so
+# the test helper keeps the tiny value set local instead of depending on a
+# non-public generated name.
+class HttpRequestMethod(str, Enum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
 
 
 class CodeSectionDiagnosticsIgnoreState(BaseModel, extra="forbid"):
@@ -286,7 +298,7 @@ class UserDefaultPromptSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     )
     promptTemplateId: ID | None = None
     template: str = ""
-    format: PromptFormat = PromptFormat.Jinja
+    format: Format = Format.Jinja
     inputs: dict[str, str] = Field(default_factory=dict)
     renderedText: str = ""
     missingVariables: list[str] = Field(default_factory=list)

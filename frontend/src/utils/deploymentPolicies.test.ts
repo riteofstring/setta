@@ -4,14 +4,11 @@ import {
   createDefaultSharePolicy,
   resolveAppPolicy,
 } from "./deploymentPolicies";
-import {
-  GENERATED_DEFAULT_APP_POLICY,
-  createSharePolicy,
-} from "./generatedTypes";
+import { GENERATED_DEFAULT_APP_POLICY, createPolicy } from "./generatedTypes";
 
 describe("deploymentPolicies", () => {
   it("reuses generated share defaults", () => {
-    expect(createDefaultSharePolicy()).toEqual(createSharePolicy());
+    expect(createDefaultSharePolicy()).toEqual(createPolicy());
   });
 
   it("reuses generated app defaults", () => {
@@ -19,7 +16,7 @@ describe("deploymentPolicies", () => {
   });
 
   it("preserves an explicit app policy", () => {
-    const policy = createSharePolicy({ allowLLM: true, allowRun: false });
+    const policy = createPolicy({ allowLLM: true, allowRun: false });
 
     expect(resolveAppPolicy(policy)).toBe(policy);
   });

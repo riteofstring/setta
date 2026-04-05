@@ -22,8 +22,8 @@ import {
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
 import {
-  AgentRunStatusEnum,
   EngineTypeEnum,
+  RunStatusEnum,
   createAgentRun,
   createAllLLMConfigs,
   createAssistantChatMessage,
@@ -272,7 +272,7 @@ function buildManagedChatRun({
 }) {
   return createAgentRun({
     id: `run-${chatId}`,
-    status: AgentRunStatusEnum.completed,
+    status: RunStatusEnum.completed,
     startedAt: "2026-03-07T00:00:00Z",
     finishedAt: "2026-03-07T00:00:01Z",
     inputs: {

@@ -77,7 +77,7 @@ import {
 } from "utils/conversationSearch";
 import {
   EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
+  ToolTypeEnum,
   type EngineConfig,
   type ExternalAgentConfig,
 } from "utils/generatedTypes";
@@ -2488,12 +2488,10 @@ function resolveThreadAgentBadgeLabel({
     if (!externalAgentConfig) {
       return null;
     }
-    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.codex) {
+    if (externalAgentConfig.toolType === ToolTypeEnum.codex) {
       return "codex";
     }
-    if (
-      externalAgentConfig.toolType === ExternalAgentToolTypeEnum.claude_code
-    ) {
+    if (externalAgentConfig.toolType === ToolTypeEnum.claude_code) {
       return "claude";
     }
     return null;

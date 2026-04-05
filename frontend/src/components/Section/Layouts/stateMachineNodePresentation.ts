@@ -1,6 +1,6 @@
 import { getLatestStateMachineRun } from "state/actions/stateMachineRuns";
 import {
-  AgentRunStatusEnum,
+  RunStatusEnum,
   SectionTypeEnum,
   type AgentRun,
 } from "utils/generatedTypes";
@@ -96,7 +96,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: false,
     };
   }
-  if (run.status === AgentRunStatusEnum.running) {
+  if (run.status === RunStatusEnum.running) {
     return {
       statusLabel: "Running",
       statusClasses:
@@ -105,7 +105,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: true,
     };
   }
-  if (run.status === AgentRunStatusEnum.completed) {
+  if (run.status === RunStatusEnum.completed) {
     return {
       statusLabel: "Completed",
       statusClasses:
@@ -114,7 +114,7 @@ function getMachineRunPresentation(run: AgentRun | null): {
       hasRun: true,
     };
   }
-  if (run.status === AgentRunStatusEnum.failed) {
+  if (run.status === RunStatusEnum.failed) {
     return {
       statusLabel: "Failed",
       statusClasses:

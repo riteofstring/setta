@@ -1,19 +1,17 @@
 import {
   GENERATED_DEFAULT_APP_POLICY,
-  createSharePolicy,
-  type SharePolicy,
+  createPolicy,
+  type Policy,
 } from "./generatedTypes";
 
-export function createDefaultAppPolicy(): SharePolicy {
-  return createSharePolicy({ ...GENERATED_DEFAULT_APP_POLICY });
+export function createDefaultAppPolicy(): Policy {
+  return createPolicy({ ...GENERATED_DEFAULT_APP_POLICY });
 }
 
-export function createDefaultSharePolicy(): SharePolicy {
-  return createSharePolicy();
+export function createDefaultSharePolicy(): Policy {
+  return createPolicy();
 }
 
-export function resolveAppPolicy(
-  appPolicy: SharePolicy | null | undefined,
-): SharePolicy {
+export function resolveAppPolicy(appPolicy: Policy | null | undefined): Policy {
   return appPolicy ?? createDefaultAppPolicy();
 }

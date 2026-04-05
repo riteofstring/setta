@@ -275,14 +275,11 @@ func frontendBindingTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
-	if name, ok := frontendBindingTypeNameOverrides[t]; ok && strings.TrimSpace(name) != "" {
-		return name
-	}
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok && spec.DeclarationName != "" {
 		return spec.DeclarationName
 	}
-	if ownerName, ok := ownerFrontendBindingTypeName(t); ok && strings.TrimSpace(ownerName) != "" {
-		return ownerName
+	if name, ok := frontendBindingPublicTypeNames()[t]; ok && strings.TrimSpace(name) != "" {
+		return name
 	}
 	return normalizedFrontendBindingTypeName(t.Name())
 }

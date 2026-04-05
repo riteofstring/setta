@@ -6,14 +6,14 @@ import {
   ChatRoleEnum,
   createMessageTextContent,
   createMessageThinkingContent,
-  createSharePolicy,
-  type SharePolicy,
+  createPolicy,
+  type Policy,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatMessageList, buildCopyTextForMessage } from "./ChatMessages";
 
-function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
-  return createSharePolicy(overrides);
+function buildSharePolicy(overrides: Partial<Policy> = {}): Policy {
+  return createPolicy(overrides);
 }
 
 function syncStoreInitialState(store: {

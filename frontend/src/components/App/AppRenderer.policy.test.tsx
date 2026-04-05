@@ -7,8 +7,8 @@ import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
+  createPolicy,
   createProjectConfig,
-  createSharePolicy,
   createSingletonSections,
   createTextBlockSectionImpl,
   createUserDefaultCallableSectionImpl,
@@ -145,7 +145,7 @@ describe("AppRenderer policy enforcement", () => {
           artifactId: "artifacts/report.txt",
         },
       },
-      policy: createSharePolicy({
+      policy: createPolicy({
         allowParamChanges: false,
         allowFileDownloads: false,
         allowExternalLinks: false,
@@ -343,7 +343,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createSharePolicy({ allowRun: true }),
+      policy: createPolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,
@@ -417,7 +417,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createSharePolicy({ allowRun: true }),
+      policy: createPolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,

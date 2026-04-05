@@ -5,8 +5,8 @@ import {
   route_stop_state_machine_run,
 } from "utils/generatedEndpoints";
 import {
-  AgentRunStatusEnum,
   NotificationTypeEnum,
+  RunStatusEnum,
   createAgentRun,
   createProjectConfig,
 } from "utils/generatedTypes";
@@ -93,7 +93,7 @@ describe("stateMachineRuns", () => {
       [
         createAgentRun({
           id: "chat-run",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "chat",
@@ -103,7 +103,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "other-machine",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:10Z",
           inputs: {
             runType: "state_machine",
@@ -113,7 +113,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "older-machine-run",
-          status: AgentRunStatusEnum.completed,
+          status: RunStatusEnum.completed,
           startedAt: "2024-01-01T00:00:10Z",
           finishedAt: "2024-01-01T00:00:20Z",
           inputs: {
@@ -124,7 +124,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "latest-machine-run",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:30Z",
           inputs: {
             runType: "state_machine",
@@ -152,7 +152,7 @@ describe("stateMachineRuns", () => {
       [
         createAgentRun({
           id: "completed-machine-run",
-          status: AgentRunStatusEnum.completed,
+          status: RunStatusEnum.completed,
           startedAt: "2024-01-01T00:00:10Z",
           finishedAt: "2024-01-01T00:00:20Z",
           inputs: {
@@ -170,7 +170,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "reset-machine-run",
-          status: AgentRunStatusEnum.cancelled,
+          status: RunStatusEnum.cancelled,
           startedAt: "2024-01-01T00:00:30Z",
           finishedAt: "2024-01-01T00:00:31Z",
           inputs: {
@@ -207,7 +207,7 @@ describe("stateMachineRuns", () => {
       [
         createAgentRun({
           id: "share-session-2-run",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:40Z",
           inputs: {
             runType: "state_machine",
@@ -218,7 +218,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "shareless-run",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:35Z",
           inputs: {
             runType: "state_machine",
@@ -228,7 +228,7 @@ describe("stateMachineRuns", () => {
         }),
         createAgentRun({
           id: "share-session-1-run",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:30Z",
           inputs: {
             runType: "state_machine",
@@ -257,7 +257,7 @@ describe("stateMachineRuns", () => {
       hasResponse: true,
       data: createAgentRun({
         id: "machine-run-1",
-        status: AgentRunStatusEnum.running,
+        status: RunStatusEnum.running,
         inputs: {
           runType: "state_machine",
           projectConfigId: "project-1",
@@ -282,7 +282,7 @@ describe("stateMachineRuns", () => {
       useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1"),
     ).toMatchObject({
       id: "machine-run-1",
-      status: AgentRunStatusEnum.running,
+      status: RunStatusEnum.running,
       inputs: {
         runType: "state_machine",
         projectConfigId: "project-1",
@@ -297,7 +297,7 @@ describe("stateMachineRuns", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-1",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "state_machine",
@@ -328,7 +328,7 @@ describe("stateMachineRuns", () => {
       .agentRuns.find((run) => run.id === "machine-run-1");
     expect(stoppedRun).toMatchObject({
       id: "machine-run-1",
-      status: AgentRunStatusEnum.cancelled,
+      status: RunStatusEnum.cancelled,
     });
     expect(stoppedRun?.finishedAt).toEqual(expect.any(String));
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
@@ -356,7 +356,7 @@ describe("stateMachineRuns", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-2",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "state_machine",
             projectConfigId: "project-1",
@@ -385,7 +385,7 @@ describe("stateMachineRuns", () => {
       useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-2"),
     ).toMatchObject({
       id: "machine-run-2",
-      status: AgentRunStatusEnum.cancelled,
+      status: RunStatusEnum.cancelled,
       outputs: {
         machineStateCleared: true,
       },

@@ -11,8 +11,8 @@ import {
   route_stop_state_machine_run,
 } from "utils/generatedEndpoints";
 import {
-  AgentRunStatusEnum,
   NotificationTypeEnum,
+  RunStatusEnum,
   type AgentRun,
 } from "utils/generatedTypes";
 import {
@@ -106,7 +106,7 @@ function markStateMachineRunStoppedForMachineGroup(
       didChange = true;
       return {
         ...run,
-        status: AgentRunStatusEnum.cancelled,
+        status: RunStatusEnum.cancelled,
         finishedAt,
       };
     });
@@ -150,7 +150,7 @@ function clearStateMachineRunForMachineGroup(
       nextOutputs.machineStateCleared = true;
       return {
         ...run,
-        status: AgentRunStatusEnum.cancelled,
+        status: RunStatusEnum.cancelled,
         outputs: nextOutputs,
       };
     });

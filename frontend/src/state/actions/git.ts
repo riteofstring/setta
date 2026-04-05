@@ -14,13 +14,13 @@ import {
   route_get_git_status,
 } from "utils/generatedEndpoints";
 import {
-  type GitCommitDetailsResponse,
-  type GitCommitFileDiffResponse,
-  type GitDiffMode,
-  type GitDiffResponse,
-  type GitLogResponse,
-  type GitStatusEntry,
-  type GitStatusResponse,
+  type CommitDetailsResponse,
+  type CommitFileDiffResponse,
+  type DiffMode,
+  type DiffResponse,
+  type LogResponse,
+  type StatusEntry,
+  type StatusResponse,
 } from "utils/generatedTypes";
 import {
   appendGitGraphRows,
@@ -36,13 +36,13 @@ let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
 
-type GitStatusRouteResponse = ResponseDataAndStatus<GitStatusResponse>;
-type GitDiffRouteResponse = ResponseDataAndStatus<GitDiffResponse>;
-type GitLogRouteResponse = ResponseDataAndStatus<GitLogResponse>;
+type GitStatusRouteResponse = ResponseDataAndStatus<StatusResponse>;
+type GitDiffRouteResponse = ResponseDataAndStatus<DiffResponse>;
+type GitLogRouteResponse = ResponseDataAndStatus<LogResponse>;
 type GitCommitDetailsRouteResponse =
-  ResponseDataAndStatus<GitCommitDetailsResponse>;
+  ResponseDataAndStatus<CommitDetailsResponse>;
 type GitCommitFileDiffRouteResponse =
-  ResponseDataAndStatus<GitCommitFileDiffResponse>;
+  ResponseDataAndStatus<CommitFileDiffResponse>;
 
 function getCurrentGitGraphProjectConfigId(): string | null {
   const projectConfigId = useProjectState.getState().projectConfig.id;
@@ -66,7 +66,7 @@ function createClearedGitGraphSelectionState() {
 }
 
 export function buildGitDiffAvailabilityByPath(
-  entries: readonly GitStatusEntry[],
+  entries: readonly StatusEntry[],
 ): Map<string, { hasStaged: boolean; hasUnstaged: boolean }> {
   const availabilityByPath = new Map<
     string,
@@ -185,7 +185,7 @@ async function refreshGitDiff({
 }: {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
   skipPreloadState?: boolean;
 }): Promise<void> {
   const requestId = (diffRequestId += 1);
@@ -266,7 +266,7 @@ export async function openGitDiffOverlay({
 }: {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
 }): Promise<void> {
   const { hasStaged, hasUnstaged } = computeDiffAvailability(path);
   useGitStore.setState((state) => ({
@@ -288,7 +288,7 @@ export async function openGitDiffOverlay({
   await refreshGitDiff({ path, oldPath, mode, skipPreloadState: true });
 }
 
-export async function setGitDiffMode(mode: GitDiffMode): Promise<void> {
+export async function setGitDiffMode(mode: DiffMode): Promise<void> {
   const overlay = useGitStore.getState().overlay;
   if (overlay.kind !== "diff") {
     return;

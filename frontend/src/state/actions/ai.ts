@@ -91,8 +91,7 @@ import {
 import {
   AgentProfile,
   AgentRun,
-  AgentRunStatusEnum,
-  AllLLMConfigs,
+  AllConfigs,
   AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
@@ -121,10 +120,11 @@ import {
   MessageFinalizedEvent,
   MessageStartEvent,
   NotificationTypeEnum,
-  PromptTemplate,
+  RunStatusEnum,
   StartTranscriptionSessionResponse,
   StopLLMChatResponse,
   StreamingEventTypeEnum,
+  Template,
   ToolArgumentPreviewDeltaEvent,
   ToolCallDeltaEvent,
   ToolChatMessage,
@@ -646,8 +646,8 @@ export async function loadLLMConfig() {
 }
 
 export async function saveLLMConfig(
-  config: AllLLMConfigs,
-): Promise<AllLLMConfigs | null> {
+  config: AllConfigs,
+): Promise<AllConfigs | null> {
   const res = await route_set_llm_config(config);
   if (!res200(res)) {
     useAIStore.setState({
@@ -760,7 +760,7 @@ export async function loadLLMApiKeys() {
   }
 }
 
-export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
+export function receiveLLMConfigUpdate(payload: AllConfigs) {
   useAIStore.setState({
     allLLMConfigs: payload,
     allLLMConfigsInitialLoadComplete: true,
@@ -1055,7 +1055,7 @@ export async function loadPromptTemplates(force: boolean = false) {
   }
 }
 
-export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+export function receivePromptTemplatesUpdate(payload: Array<Template>) {
   useAIStore.setState({
     promptTemplates: payload,
     promptTemplatesInitialLoadComplete: true,
@@ -1347,7 +1347,7 @@ export async function deleteTranscriptionProfile(
 
 export async function createPromptTemplate(
   payload: CreatePromptTemplateRequest,
-): Promise<PromptTemplate | null> {
+): Promise<Template | null> {
   const res = await route_create_prompt_template(payload);
   if (!res200(res)) {
     useAIStore.setState({
@@ -1366,7 +1366,7 @@ export async function createPromptTemplate(
 
 export async function updatePromptTemplate(
   payload: UpdatePromptTemplateRequest,
-): Promise<PromptTemplate | null> {
+): Promise<Template | null> {
   const res = await route_update_prompt_template(payload);
   if (!res200(res)) {
     useAIStore.setState({
@@ -1897,7 +1897,7 @@ async function stopExternalChatResponse({
   const response = await route_stop_external_agent_run({ runId });
   if (res200(response)) {
     void loadAgentRuns();
-    if (response.data?.status === AgentRunStatusEnum.cancelled) {
+    if (response.data?.status === RunStatusEnum.cancelled) {
       applyConfirmedExternalStopInterruption(chatId, localSnapshot);
       return true;
     }
@@ -2763,7 +2763,7 @@ async function findLatestRunningExternalRunId(
     return null;
   }
   const runs = agentRuns.filter((run) => {
-    if (run.status !== AgentRunStatusEnum.running) {
+    if (run.status !== RunStatusEnum.running) {
       return false;
     }
     const inputs = run.inputs ?? {};
@@ -2923,14 +2923,14 @@ function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
   if (outputMessages) {
     return buildChatSectionState(
       outputMessages,
-      run.status === AgentRunStatusEnum.running,
+      run.status === RunStatusEnum.running,
     );
   }
 
   const inputMessages = extractRunMessages(run.inputs) ?? [];
   return buildChatSectionState(
     inputMessages,
-    run.status === AgentRunStatusEnum.running,
+    run.status === RunStatusEnum.running,
   );
 }
 

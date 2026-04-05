@@ -7,7 +7,7 @@ import { mutateAndSaveLLMApiKeys } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
-  AllLLMConfigs,
+  AllConfigs,
   LLMAPIKeysSnapshot,
   LLMConfig,
 } from "utils/generatedTypes";
@@ -273,7 +273,7 @@ type ApiKeyEntry = {
 };
 
 export function buildApiKeyEntries(
-  allLLMConfigs: AllLLMConfigs | null,
+  allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys,
 ): ApiKeyEntry[] {
   const entriesByKey = new Map<string, ApiKeyEntry>();

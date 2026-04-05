@@ -1,6 +1,10 @@
 package frontendbindings
 
-import "setta/internal/deployments"
+import (
+	"reflect"
+
+	"setta/internal/deployments"
+)
 
 func deploymentPolicySupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
@@ -17,5 +21,5 @@ func buildGeneratedDefaultAppPolicyExprTS() string {
 		"frontend default app policy",
 		deployments.DefaultAppPolicy(),
 		goJSONFieldOrder(deployments.Policy{}),
-	) + " as const satisfies SharePolicy"
+	) + " as const satisfies " + BindingTypeName(reflect.TypeOf(deployments.Policy{}))
 }

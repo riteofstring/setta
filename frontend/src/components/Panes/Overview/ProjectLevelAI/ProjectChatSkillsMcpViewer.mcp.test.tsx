@@ -5,10 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
-} from "utils/generatedTypes";
+import { EngineTypeEnum, ToolTypeEnum } from "utils/generatedTypes";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 
 declare global {
@@ -169,7 +166,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           chatId="chat-alpha"
           engineConfigId="engine-codex"
           engineType={EngineTypeEnum.external_agent}
-          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          externalAgentToolType={ToolTypeEnum.codex}
           viewMode="mcp"
         />,
       );
@@ -249,7 +246,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           chatId={null}
           engineConfigId="engine-codex"
           engineType={EngineTypeEnum.external_agent}
-          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          externalAgentToolType={ToolTypeEnum.codex}
           viewMode="mcp"
         />,
       );
@@ -327,7 +324,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           chatId="chat-alpha"
           engineConfigId="engine-codex"
           engineType={EngineTypeEnum.external_agent}
-          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          externalAgentToolType={ToolTypeEnum.codex}
           viewMode="mcp"
         />,
       );
@@ -410,7 +407,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           chatId="chat-alpha"
           engineConfigId="engine-claude-code"
           engineType={EngineTypeEnum.external_agent}
-          externalAgentToolType={ExternalAgentToolTypeEnum.claude_code}
+          externalAgentToolType={ToolTypeEnum.claude_code}
           viewMode="mcp"
         />,
       );
@@ -439,7 +436,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           chatId="chat-alpha"
           engineConfigId="engine-codex"
           engineType={EngineTypeEnum.external_agent}
-          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          externalAgentToolType={ToolTypeEnum.codex}
           viewMode="mcp"
         />,
       );

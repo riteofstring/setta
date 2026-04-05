@@ -7,8 +7,8 @@ import {
 } from "state/definitions";
 import {
   createAppDefinition,
+  createPolicy,
   createProjectConfig,
-  createSharePolicy,
   createSingletonSections,
   type AppDeploymentSessionResponse,
   type SingleConfig,
@@ -82,7 +82,7 @@ function buildAppSessionResponse(
     sessionRunCount: 1,
     defaultProjectConfigId: defaultProject.id,
     projectMetadata: [defaultProject],
-    appPolicy: createSharePolicy({ allowRun: true }),
+    appPolicy: createPolicy({ allowRun: true }),
     manifest: null,
     ...overrides,
   };
@@ -243,7 +243,7 @@ describe("app deployment actions", () => {
         projectState,
         appDefinition,
         appSpec,
-        appPolicy: createSharePolicy({ allowRun: true }),
+        appPolicy: createPolicy({ allowRun: true }),
       },
     });
 
@@ -291,7 +291,7 @@ describe("app deployment actions", () => {
           projectState,
           appDefinition: null,
           appSpec: null,
-          appPolicy: createSharePolicy({ allowRun: true }),
+          appPolicy: createPolicy({ allowRun: true }),
         },
       });
     routeCreateAppSessionCurrentMock.mockResolvedValue({

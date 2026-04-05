@@ -10,7 +10,7 @@ import "testUtils/reactRefreshPreamble";
 import {
   createContentRef,
   createImageArtifact,
-  createSharePolicy,
+  createPolicy,
 } from "utils/generatedTypes";
 
 const generatedEndpoints = vi.hoisted(() => ({
@@ -71,7 +71,7 @@ async function renderRegistryNode(): Promise<RenderedRegistryNode> {
             },
           },
           actions: {},
-          policy: createSharePolicy(),
+          policy: createPolicy(),
           canEditParams: true,
           allowExternalLinks: true,
           allowFileDownloads: true,

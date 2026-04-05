@@ -1,4 +1,4 @@
-import { AllLLMConfigs, LLMAPIKeysSnapshot } from "utils/generatedTypes";
+import { AllConfigs, LLMAPIKeysSnapshot } from "utils/generatedTypes";
 
 type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
@@ -8,7 +8,7 @@ type LLMConfigGroup = {
 };
 
 export function buildLLMConfigGroups(
-  allLLMConfigs: AllLLMConfigs | null,
+  allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys | null | undefined,
   options: { includeConfigsWithoutApiKey?: boolean } = {},
 ): Array<LLMConfigGroup> {
@@ -74,9 +74,7 @@ export function resolveSelectableLLMConfigId(
   return null;
 }
 
-export function pickDefaultConfigId(
-  config: AllLLMConfigs | null,
-): string | null {
+export function pickDefaultConfigId(config: AllConfigs | null): string | null {
   if (!config) {
     return null;
   }

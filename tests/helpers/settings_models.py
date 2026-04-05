@@ -2,8 +2,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from setta.types.generated.go_shared_types import RunSnapshotMode
-
 # Test helper copy of the former backend settings models.
 
 INFINITE_MAX_HEIGHT = 100000
@@ -41,6 +39,15 @@ class PanOnScrollMode(str, Enum):
     free = "free"
     vertical = "vertical"
     horizontal = "horizontal"
+
+
+# The generated Python shared-types surface prunes this deployment-only enum,
+# so the test helper keeps the tiny value set local instead of importing a
+# non-public generated name.
+class RunSnapshotMode(str, Enum):
+    ephemeral = "ephemeral"
+    always = "always"
+    never = "never"
 
 
 class RenameRefactorMode(str, Enum):

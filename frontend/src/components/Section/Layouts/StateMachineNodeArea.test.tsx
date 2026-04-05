@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  AgentRunStatusEnum,
+  RunStatusEnum,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
   createAgentRun,
@@ -202,7 +202,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-1",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "state_machine",
@@ -298,7 +298,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-gate-unrelated",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "state_machine",
@@ -466,7 +466,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-activity",
-          status: AgentRunStatusEnum.cancelled,
+          status: RunStatusEnum.cancelled,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:02Z",
           inputs: {
@@ -532,7 +532,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-reset",
-          status: AgentRunStatusEnum.cancelled,
+          status: RunStatusEnum.cancelled,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:03Z",
           inputs: {
@@ -586,7 +586,7 @@ describe("StateMachineNodeArea", () => {
       JSON.stringify(
         createAgentRun({
           id: "machine-run-live",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2024-01-01T00:00:00Z",
           inputs: {
             runType: "state_machine",
@@ -633,7 +633,7 @@ describe("StateMachineNodeArea", () => {
       agentRuns: [
         createAgentRun({
           id: "machine-run-failed",
-          status: AgentRunStatusEnum.failed,
+          status: RunStatusEnum.failed,
           startedAt: "2024-01-01T00:00:00Z",
           finishedAt: "2024-01-01T00:00:03Z",
           inputs: {

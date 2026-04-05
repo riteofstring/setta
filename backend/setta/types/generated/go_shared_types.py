@@ -365,7 +365,7 @@ class CodeObjValueRepresentationMode(str, Enum):
     file_read = "file_read"
 
 
-class PromptFormat(str, Enum):
+class Format(str, Enum):
     Jinja = "Jinja"
 
 

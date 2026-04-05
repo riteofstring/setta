@@ -5,8 +5,8 @@ import {
   useShareSession,
 } from "state/definitions";
 import {
+  createPolicy,
   createProjectConfig,
-  createSharePolicy,
   createSingletonSections,
   type ShareDeploymentSessionResponse,
   type SingleConfig,
@@ -87,7 +87,7 @@ function buildShareSessionResponse(
     sessionRunCount: 2,
     defaultProjectConfigId: defaultProject.id,
     projectMetadata: [defaultProject],
-    sharePolicy: createSharePolicy(),
+    sharePolicy: createPolicy(),
     manifest: null,
     ...overrides,
   };
@@ -241,7 +241,7 @@ describe("share deployment actions", () => {
   it("loads a share project config and requests AI follow when policy allows it", async () => {
     const projectState = buildProjectState("project-beta", "Beta");
     setDeploymentShareState({
-      sharePolicy: createSharePolicy({ allowLLM: true }),
+      sharePolicy: createPolicy({ allowLLM: true }),
     });
     routeLoadShareProjectConfigMock.mockResolvedValue({
       status: 200,

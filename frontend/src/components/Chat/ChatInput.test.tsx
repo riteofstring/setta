@@ -2,7 +2,7 @@ import { type ComponentProps, type CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { type SharePolicy } from "utils/generatedTypes";
+import { type Policy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatInput } from "./ChatInput";
 import { type ChatSlashCommandDefinition } from "./chatComposerControls";
@@ -18,7 +18,7 @@ import {
   resolveSlashCommandRequest,
 } from "./chatInputHelpers";
 
-function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
+function buildSharePolicy(overrides: Partial<Policy> = {}): Policy {
   return {
     allowParamChanges: true,
     allowVariantChanges: true,
