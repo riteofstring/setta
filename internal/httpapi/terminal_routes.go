@@ -44,7 +44,7 @@ type RunCodeRequest struct {
 	SectionID                string                              `json:"sectionId"`
 	TerminalSectionID        string                              `json:"terminalSectionId"`
 	CLIID                    string                              `json:"cliId"`
-	RunSnapshotMode          runs.RunSnapshotMode                `json:"runSnapshotMode"`
+	RunSnapshotMode          runs.RunSnapshotMode                `json:"runSnapshotMode" ts_type:"RunSnapshotMode | null"`
 	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef `json:"drawSnapshotsBySectionId"`
 	SectionVariantOverrides  map[string]string                   `json:"sectionVariantOverrides"`
 	ParamOverrides           map[string]string                   `json:"paramOverrides"`

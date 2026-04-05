@@ -4,17 +4,13 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
-	"setta/internal/httpapi"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
-	"setta/internal/transcriptionprofiles"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -63,87 +59,13 @@ var artifactAliasDeclarations = map[reflect.Type]TypeDeclaration{
 	),
 }
 
-var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDeclarationSpec{
-	reflect.TypeOf(artifacts.BrushStroke{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"points": `Array<CanvasPoint | "BREAK">`,
-		},
-	},
-	reflect.TypeOf(artifacts.BrushStrokeWithTransform{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"points": `Array<CanvasPoint | "BREAK">`,
-		},
-	},
-	reflect.TypeOf(projectstate.DrawAreaLayerItem{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke",
-		},
-	},
-	reflect.TypeOf(artifacts.DrawAreaLayer{}): {
-		CreateExprOverrides: map[string]string{
-			"name": "createRandomName()",
-		},
-	},
-	reflect.TypeOf(artifacts.ImageArtifact{}): {
-		CreateExprOverrides: map[string]string{
-			"id":    "createPngArtifactId()",
-			"value": "createContentRef()",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.Image",
-		},
-	},
-	reflect.TypeOf(artifacts.BrushStrokeArtifact{}): {
-		CreateExprOverrides: map[string]string{
-			"id":    "createJsonArtifactId()",
-			"value": "createBrushStroke()",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.BrushStroke",
-		},
-	},
-	reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}): {
-		CreateExprOverrides: map[string]string{
-			"id":    "createJsonArtifactId()",
-			"value": "createDrawAreaLayerItemTransform()",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform",
-		},
-	},
-	reflect.TypeOf(artifacts.ChartDataArtifact{}): {
-		CreateExprOverrides: map[string]string{
-			"id": "createCsvArtifactId()",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.ChartData",
-		},
-	},
-	reflect.TypeOf(artifacts.FileArtifact{}): {
-		CreateExprOverrides: map[string]string{
-			"id":    "createFileArtifactId()",
-			"value": "createContentRef()",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof ArtifactTypeEnum.File",
-		},
-	},
-}
-
 func artifactTypeDeclaration(
-	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
 	if declaration, ok := artifactAliasDeclarations[t]; ok {
 		return declaration, true, nil
 	}
-	spec, ok := artifactReflectedObjectDeclarationSpecs[t]
-	if !ok {
-		return TypeDeclaration{}, false, nil
-	}
-	spec = reflectedSpecWithDiscoveredDefault(t, spec)
-	declaration, err := converter.reflectedObjectDeclaration(t, spec)
-	return declaration, true, err
+	return TypeDeclaration{}, false, nil
 }
 
 var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDeclarationSpec{
@@ -151,10 +73,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		PropertyTypeExprOverrides: map[string]string{
 			"dependencies": "Array<BaseDependencyKeyUnion>",
 		},
-	},
-	reflect.TypeOf(agentruns.EngineRuntimeSupport{}): {
-		DefaultValue:  agentruns.EngineRuntimeSupport{},
-		HasCreateExpr: true,
 	},
 	reflect.TypeOf(agentruns.EngineConfig{}): {
 		DefaultValue:         agentruns.EngineConfig{EngineType: agentruns.EngineTypeSettaLLM},
@@ -165,39 +83,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"externalAgentConfigId": true,
 			"runtimeSupport":        true,
 			"settaLlmConfigId":      true,
-		},
-	},
-	reflect.TypeOf(agentprofiles.Profile{}): {
-		PropertyOptionalOverrides: map[string]bool{
-			"engineConfigId": true,
-			"memoryScope":    true,
-		},
-	},
-	reflect.TypeOf(transcriptionprofiles.Profile{}): {
-		PropertyOptionalOverrides: map[string]bool{
-			"language": true,
-		},
-	},
-	reflect.TypeOf(agentruns.Run{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"inputs":  "Record<string, unknown> | null",
-			"outputs": "Record<string, unknown> | null",
-		},
-	},
-	reflect.TypeOf(httpapi.RunCodeRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"runSnapshotMode": "RunSnapshotMode | null",
-		},
-	},
-	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"snapGrid":               "[number, number]",
-			"sectionTagColorChoices": "Array<ColorPickerChoice>",
-		},
-	},
-	reflect.TypeOf(settingsstate.FrontendSettingsBackend{}): {
-		CreateExprOverrides: map[string]string{
-			"defaultTerminalShell": "null",
 		},
 	},
 	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}): {
@@ -216,14 +101,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 	},
-	reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}): {
-		DefaultValue: httpapi.ProjectStateSingleConfigWithCompletedOpIDs{
-			ProjectState:   projectview.FrontendDefaultSingleConfig(),
-			CompletedOpIDs: []string{},
-			PendingOpIDs:   []string{},
-		},
-		HasCreateExpr: true,
-	},
 	reflect.TypeOf(deployments.Policy{}): {
 		DefaultValue:  deployments.DefaultPolicy(),
 		HasCreateExpr: true,
@@ -233,18 +110,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"width":  "SectionSizeModeEnum.auto",
 			"height": "SectionSizeModeEnum.auto",
 		},
-	},
-	reflect.TypeOf(projectstate.ChatWindowBounds{}): {
-		DefaultValue:  projectstate.DefaultChatWindowBounds(),
-		HasCreateExpr: true,
-	},
-	reflect.TypeOf(projectstate.ProjectChatWindowingState{}): {
-		DefaultValue:  projectstate.DefaultProjectChatWindowingState(),
-		HasCreateExpr: true,
-	},
-	reflect.TypeOf(projectstate.NormalizedFloatingWindowBounds{}): {
-		DefaultValue:  projectstate.DefaultNormalizedFloatingWindowBounds(),
-		HasCreateExpr: true,
 	},
 	reflect.TypeOf(projectview.SectionCodegenPolicy{}): {
 		DefaultValue:         projectview.FrontendDefaultPythonSectionCodegenPolicy(),
@@ -277,82 +142,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"language":           "typeof ProjectCodegenLanguageEnum.python",
 			"sectionPolicy":      "SectionCodegenPolicy",
 			"codeObjValuePolicy": "CodeObjValuePolicy",
-		},
-	},
-	reflect.TypeOf(plugins.PluginListEntry{}): {
-		IgnoredProperties: reflectedIgnoredProperties("components"),
-	},
-	reflect.TypeOf(plugins.PluginStatusEntry{}): {
-		IgnoredProperties: reflectedIgnoredProperties("components"),
-	},
-	reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"kind": "string",
-		},
-	},
-	reflect.TypeOf(projectstate.FrontendCodeFileBinding{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"access_mode": "CodeFileAccessMode",
-		},
-	},
-	reflect.TypeOf(projectstate.CodeSectionDiagnosticsIgnoreState{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"suppressedCodes": "Array<string | number>",
-		},
-	},
-	reflect.TypeOf(httpapi.CreateEdgeRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type":     "string",
-			"style":    "Record<string, unknown> | null",
-			"animated": "boolean",
-			"hidden":   "boolean",
-			"zIndex":   "number",
-			"data":     "Record<string, unknown> | null",
-		},
-	},
-	reflect.TypeOf(httpapi.CreateStateMachineEdgeRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"style":    "Record<string, unknown> | null",
-			"hidden":   "boolean",
-			"zIndex":   "number",
-			"selected": "boolean",
-		},
-	},
-	reflect.TypeOf(httpapi.CreateAgenticEdgeRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"style":  "Record<string, unknown> | null",
-			"hidden": "boolean",
-			"zIndex": "number",
-		},
-	},
-	reflect.TypeOf(httpapi.MoveSectionsRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"positionsById": "Record<string, Position> | null",
-		},
-	},
-	reflect.TypeOf(httpapi.UpdateArtifactsRequest{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"artifacts": "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>",
-		},
-	},
-	reflect.TypeOf(realtime.UpdateArtifactsContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"artifacts":  "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>",
-			"updateType": `"update" | "delete"`,
-		},
-	},
-	reflect.TypeOf(realtime.UISettingRevealTarget{}): {
-		PropertyOptionalOverrides: map[string]bool{
-			"revealActivationSteps": false,
-		},
-	},
-	reflect.TypeOf(realtime.UISettingRevealResultStatus{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"status": `"revealed" | "failed"`,
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"errorCode":    true,
-			"errorMessage": true,
 		},
 	},
 }

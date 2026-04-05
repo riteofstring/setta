@@ -201,7 +201,7 @@ type UISettingRevealTarget struct {
 	Strategy              string                          `json:"strategy"`
 	AnchorID              *string                         `json:"anchorId,omitempty"`
 	PluginRevealKey       *string                         `json:"pluginRevealKey,omitempty"`
-	RevealActivationSteps []UISettingRevealActivationStep `json:"revealActivationSteps,omitempty"`
+	RevealActivationSteps []UISettingRevealActivationStep `json:"revealActivationSteps,omitempty" ts_optional:"false"`
 }
 
 type UISettingRevealContent struct {
@@ -221,9 +221,9 @@ type UISettingRevealMessage struct {
 
 type UISettingRevealResultStatus struct {
 	SettingID    string  `json:"settingId"`
-	Status       string  `json:"status"`
-	ErrorCode    *string `json:"errorCode"`
-	ErrorMessage *string `json:"errorMessage"`
+	Status       string  `json:"status" ts_type:"\"revealed\" | \"failed\""`
+	ErrorCode    *string `json:"errorCode" ts_optional:"true"`
+	ErrorMessage *string `json:"errorMessage" ts_optional:"true"`
 }
 
 type UISettingRevealResultContent struct {
@@ -365,8 +365,8 @@ type AgentRunUpdatedMessage struct {
 }
 
 type UpdateArtifactsContent struct {
-	Artifacts  []any  `json:"artifacts"`
-	UpdateType string `json:"updateType"`
+	Artifacts  []any  `json:"artifacts" ts_type:"Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>"`
+	UpdateType string `json:"updateType" ts_type:"\"update\" | \"delete\""`
 }
 
 type UpdateArtifactsMessage struct {

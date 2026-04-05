@@ -364,11 +364,11 @@ type CreateEdgeRequest struct {
 	TargetPortID    string          `json:"targetPortId"`
 	Type            string          `json:"type"`
 	Label           *string         `json:"label"`
-	Style           json.RawMessage `json:"style"`
+	Style           json.RawMessage `json:"style" ts_type:"Record<string, unknown> | null"`
 	Animated        bool            `json:"animated"`
 	Hidden          bool            `json:"hidden"`
 	ZIndex          int             `json:"zIndex"`
-	Data            json.RawMessage `json:"data"`
+	Data            json.RawMessage `json:"data" ts_type:"Record<string, unknown> | null"`
 }
 
 type UpdateEdgeRequest struct {
@@ -413,7 +413,7 @@ type CreateStateMachineEdgeRequest struct {
 	SourceFilter                   *projectstate.StateMachineSourceFilter                   `json:"sourceFilter"`
 	SourceActivationCountCondition *projectstate.StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition"`
 	TargetAction                   *projectstate.StateMachineTargetAction                   `json:"targetAction"`
-	Style                          json.RawMessage                                          `json:"style"`
+	Style                          json.RawMessage                                          `json:"style" ts_type:"Record<string, unknown> | null"`
 	Hidden                         bool                                                     `json:"hidden"`
 	ZIndex                         int                                                      `json:"zIndex"`
 	Selected                       bool                                                     `json:"selected"`
@@ -445,7 +445,7 @@ type CreateAgenticEdgeRequest struct {
 	TargetSectionID string          `json:"targetSectionId"`
 	Kind            string          `json:"kind"`
 	ContextMode     *string         `json:"contextMode"`
-	Style           json.RawMessage `json:"style"`
+	Style           json.RawMessage `json:"style" ts_type:"Record<string, unknown> | null"`
 	Hidden          bool            `json:"hidden"`
 	ZIndex          int             `json:"zIndex"`
 }
@@ -474,7 +474,7 @@ type MoveSectionsRequest struct {
 	SectionIDs    []string                         `json:"sectionIds"`
 	NewParentID   *string                          `json:"newParentId"`
 	NewIndex      *int                             `json:"newIndex"`
-	PositionsByID map[string]projectstate.Position `json:"positionsById"`
+	PositionsByID map[string]projectstate.Position `json:"positionsById" ts_type:"Record<string, Position> | null"`
 }
 
 type MoveParamsRequest struct {

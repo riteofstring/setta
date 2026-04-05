@@ -1,5 +1,7 @@
 package scriptablechat
 
+import "time"
+
 func FrontendDefaultMessageTextContent() MessageTextContent {
 	return MessageTextContent{
 		Type: "text",
@@ -60,18 +62,18 @@ func FrontendDefaultUserChatMessage() UserChatMessage {
 	}
 }
 
-func FrontendDefaultToolChatMessage() map[string]any {
-	return map[string]any{
-		"id":           "",
-		"role":         ChatRoleTool,
-		"createdAt":    0,
-		"tool_call_id": "",
-		"tool_name":    nil,
-		"arguments":    map[string]any{},
-		"result":       nil,
-		"content":      []any{},
-		"is_error":     false,
-		"started_at":   "",
-		"completed_at": nil,
+func FrontendDefaultToolChatMessage() ToolChatMessage {
+	return ToolChatMessage{
+		ID:          "",
+		Role:        ChatRoleTool,
+		CreatedAt:   0,
+		ToolCallID:  "",
+		ToolName:    nil,
+		Arguments:   map[string]any{},
+		Result:      nil,
+		Content:     []map[string]any{},
+		IsError:     false,
+		StartedAt:   time.Time{},
+		CompletedAt: nil,
 	}
 }

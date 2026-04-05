@@ -123,6 +123,6 @@ type ToolChatMessage struct {
 	Result      any              `json:"result" py_default:"None" ts_type:"JSONValue"`
 	Content     []map[string]any `json:"content" py_type:"list[TextContent | ImageContent | EmbeddedResource | ToolReferenceContent]" py_import:"from mcp.types import EmbeddedResource, ImageContent, TextContent" py_default:"Field(default_factory=list)" ts_type:"Array<ToolReferenceContent | Record<string, unknown>>"`
 	IsError     bool             `json:"is_error" py_default:"False"`
-	StartedAt   time.Time        `json:"started_at" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)"`
+	StartedAt   time.Time        `json:"started_at" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)" ts_create_expr:"\"\""`
 	CompletedAt *time.Time       `json:"completed_at,omitempty"`
 }

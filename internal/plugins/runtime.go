@@ -59,7 +59,7 @@ type PluginListEntry struct {
 	Frontend              PluginFrontendDescriptor `json:"frontend"`
 	Content               PluginContentDescriptor  `json:"content"`
 	Config                PluginConfigDescriptor   `json:"config"`
-	Components            []string                 `json:"components"`
+	Components            []string                 `json:"components" ts_skip:"true"`
 	EffectiveCapabilities []string                 `json:"effectiveCapabilities"`
 	EnablementSource      *PluginEnablementSource  `json:"enablementSource"`
 	RestartRequired       bool                     `json:"restartRequired"`

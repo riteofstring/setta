@@ -104,6 +104,18 @@ func FrontendDefaultChatWindowDockMetrics() ChatWindowDockMetrics {
 	return ChatWindowDockMetrics{}
 }
 
+func FrontendDefaultChatWindowBounds() ChatWindowBounds {
+	return DefaultChatWindowBounds()
+}
+
+func FrontendDefaultNormalizedFloatingWindowBounds() NormalizedFloatingWindowBounds {
+	return DefaultNormalizedFloatingWindowBounds()
+}
+
+func FrontendDefaultProjectChatWindowingState() ProjectChatWindowingState {
+	return DefaultProjectChatWindowingState()
+}
+
 func FrontendDefaultProjectChatWindowInstance() ProjectChatWindowInstance {
 	return ProjectChatWindowInstance{
 		InstanceID:  "",

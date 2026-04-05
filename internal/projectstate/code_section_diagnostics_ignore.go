@@ -15,7 +15,7 @@ var (
 
 type CodeSectionDiagnosticsIgnoreState struct {
 	Muted           bool  `json:"muted"`
-	SuppressedCodes []any `json:"suppressedCodes"`
+	SuppressedCodes []any `json:"suppressedCodes" ts_type:"Array<string | number>"`
 }
 
 func (p Project) CodeSectionDiagnosticsIgnoreStateForSection(sectionID string) (CodeSectionDiagnosticsIgnoreState, error) {

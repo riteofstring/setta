@@ -26,7 +26,7 @@ type BrushStroke struct {
 	StrokeStyle              string             `json:"strokeStyle"`
 	LineWidth                float64            `json:"lineWidth"`
 	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []any              `json:"points"`
+	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">"`
 	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
 }
 
@@ -34,7 +34,7 @@ type BrushStrokeWithTransform struct {
 	StrokeStyle              string             `json:"strokeStyle"`
 	LineWidth                float64            `json:"lineWidth"`
 	LineCap                  DrawAreaBrushShape `json:"lineCap"`
-	Points                   []any              `json:"points"`
+	Points                   []any              `json:"points" ts_type:"Array<CanvasPoint | \"BREAK\">"`
 	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
 	Transform                DrawAreaTransform  `json:"transform"`
 }
@@ -45,20 +45,20 @@ type DrawAreaLayerItemTransform struct {
 }
 
 type DrawAreaLayer struct {
-	Name         string                           `json:"name"`
+	Name         string                           `json:"name" ts_create_expr:"createRandomName()"`
 	Elements     []projectstate.DrawAreaLayerItem `json:"elements"`
 	Visible      bool                             `json:"visible"`
 	LayerOpacity float64                          `json:"layerOpacity"`
 }
 
 type BrushStrokeArtifact struct {
-	Type  ArtifactType `json:"type"`
-	ID    string       `json:"id"`
-	Value BrushStroke  `json:"value"`
+	Type  ArtifactType `json:"type" ts_type:"typeof ArtifactTypeEnum.BrushStroke"`
+	ID    string       `json:"id" ts_create_expr:"createJsonArtifactId()"`
+	Value BrushStroke  `json:"value" ts_create_expr:"createBrushStroke()"`
 }
 
 type DrawAreaLayerItemTransformArtifact struct {
-	Type  ArtifactType               `json:"type"`
-	ID    string                     `json:"id"`
-	Value DrawAreaLayerItemTransform `json:"value"`
+	Type  ArtifactType               `json:"type" ts_type:"typeof ArtifactTypeEnum.DrawAreaLayerItemTransform"`
+	ID    string                     `json:"id" ts_create_expr:"createJsonArtifactId()"`
+	Value DrawAreaLayerItemTransform `json:"value" ts_create_expr:"createDrawAreaLayerItemTransform()"`
 }

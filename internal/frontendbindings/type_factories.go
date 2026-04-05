@@ -279,6 +279,68 @@ func reflectedFieldTypesByJSONName(structType reflect.Type) (map[string]reflect.
 	return fields, nil
 }
 
+func reflectedFieldCreateExprOverridesByJSONName(structType reflect.Type) (map[string]string, error) {
+	overrides := map[string]string{}
+	for structType.Kind() == reflect.Pointer {
+		structType = structType.Elem()
+	}
+	if structType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("field create expr overrides require a struct type, got %s", structType.String())
+	}
+	for fieldIndex := range structType.NumField() {
+		field := structType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous {
+			embeddedOverrides, err := reflectedFieldCreateExprOverridesByJSONName(field.Type)
+			if err != nil {
+				return nil, err
+			}
+			for name, expr := range embeddedOverrides {
+				if _, exists := overrides[name]; !exists {
+					overrides[name] = expr
+				}
+			}
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		tsMetadata, err := tsFieldMetadata(field)
+		if err != nil {
+			return nil, err
+		}
+		if tsMetadata.Skip || strings.TrimSpace(tsMetadata.CreateExpr) == "" {
+			continue
+		}
+		overrides[name] = tsMetadata.CreateExpr
+	}
+	return overrides, nil
+}
+
+func mergedFieldCreateExprOverrides(
+	structType reflect.Type,
+	explicitOverrides map[string]string,
+) (map[string]string, error) {
+	tagOverrides, err := reflectedFieldCreateExprOverridesByJSONName(structType)
+	if err != nil {
+		return nil, err
+	}
+	if len(tagOverrides) == 0 && len(explicitOverrides) == 0 {
+		return nil, nil
+	}
+	merged := make(map[string]string, len(tagOverrides)+len(explicitOverrides))
+	for name, expr := range tagOverrides {
+		merged[name] = expr
+	}
+	for name, expr := range explicitOverrides {
+		merged[name] = expr
+	}
+	return merged, nil
+}
+
 func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 	if tsIdentifierPattern.MatchString(propertyName) {
 		return baseExpr + "." + propertyName

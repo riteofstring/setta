@@ -6,6 +6,7 @@ import (
 	"reflect"
 	agentruns "setta/internal/agentruns"
 	artifacts "setta/internal/artifacts"
+	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	realtime "setta/internal/realtime"
@@ -36,6 +37,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(artifacts.ChartDataArtifact{}): func() any {
 			return artifacts.FrontendDefaultChartDataArtifact()
+		},
+		reflect.TypeOf(projectstate.ChatWindowBounds{}): func() any {
+			return projectstate.FrontendDefaultChatWindowBounds()
 		},
 		reflect.TypeOf(projectstate.ChatWindowDockMetrics{}): func() any {
 			return projectstate.FrontendDefaultChatWindowDockMetrics()
@@ -75,6 +79,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(agentruns.EngineConfigDefaults{}): func() any {
 			return agentruns.FrontendDefaultEngineConfigDefaults()
+		},
+		reflect.TypeOf(agentruns.EngineRuntimeSupport{}): func() any {
+			return agentruns.FrontendDefaultEngineRuntimeSupport()
 		},
 		reflect.TypeOf(artifacts.FileArtifact{}): func() any {
 			return artifacts.FrontendDefaultFileArtifact()
@@ -118,8 +125,14 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(scriptablechat.MessageThinkingContent{}): func() any {
 			return scriptablechat.FrontendDefaultMessageThinkingContent()
 		},
+		reflect.TypeOf(projectstate.NormalizedFloatingWindowBounds{}): func() any {
+			return projectstate.FrontendDefaultNormalizedFloatingWindowBounds()
+		},
 		reflect.TypeOf(projectstate.ProjectChatWindowInstance{}): func() any {
 			return projectstate.FrontendDefaultProjectChatWindowInstance()
+		},
+		reflect.TypeOf(projectstate.ProjectChatWindowingState{}): func() any {
+			return projectstate.FrontendDefaultProjectChatWindowingState()
 		},
 		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}): func() any {
 			return projectview.FrontendDefaultProjectCodegenPluginTarget()
@@ -132,6 +145,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(projectview.ProjectRunCapabilities{}): func() any {
 			return projectview.FrontendDefaultProjectRunCapabilities()
+		},
+		reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}): func() any {
+			return httpapi.FrontendDefaultProjectStateSingleConfigWithCompletedOpIDs()
 		},
 		reflect.TypeOf(agentruns.Run{}): func() any {
 			return agentruns.FrontendDefaultRun()

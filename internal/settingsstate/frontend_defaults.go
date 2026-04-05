@@ -78,7 +78,7 @@ type FrontendSettingsShortcuts struct {
 }
 
 type FrontendSettingsGUI struct {
-	SnapGrid               [2]float64                  `json:"snapGrid"`
+	SnapGrid               [2]float64                  `json:"snapGrid" ts_type:"[number, number]"`
 	ShowGridLines          bool                        `json:"showGridLines"`
 	GridPattern            BackgroundVariant           `json:"gridPattern"`
 	GridPatternSize        float64                     `json:"gridPatternSize"`
@@ -99,7 +99,7 @@ type FrontendSettingsGUI struct {
 	SelectionMode          SelectionMode               `json:"selectionMode"`
 	LeftSidePaneShiftsMap  bool                        `json:"leftSidePaneShiftsMap"`
 	TransitionDuration     float64                     `json:"transitionDuration"`
-	SectionTagColorChoices []FrontendColorPickerChoice `json:"sectionTagColorChoices"`
+	SectionTagColorChoices []FrontendColorPickerChoice `json:"sectionTagColorChoices" ts_type:"Array<ColorPickerChoice>"`
 }
 
 type FrontendSettingsBackend struct {
@@ -109,7 +109,7 @@ type FrontendSettingsBackend struct {
 	AutobackupFreq                         float64                         `json:"autobackupFreq"`
 	AutobackupKeepLastN                    float64                         `json:"autobackupKeepLastN"`
 	ClearTerminalBeforeMarkingAsReady      bool                            `json:"clearTerminalBeforeMarkingAsReady"`
-	DefaultTerminalShell                   *string                         `json:"defaultTerminalShell,omitempty"`
+	DefaultTerminalShell                   *string                         `json:"defaultTerminalShell,omitempty" ts_create_expr:"null"`
 	ExportDbReadableOnSave                 bool                            `json:"exportDbReadableOnSave"`
 	ExportDbReadableWithVariantsOnSave     bool                            `json:"exportDbReadableWithVariantsOnSave"`
 	AutoRefetchCallableParamsOnLspMismatch bool                            `json:"autoRefetchCallableParamsOnLspMismatch"`

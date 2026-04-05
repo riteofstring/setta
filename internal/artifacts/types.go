@@ -87,16 +87,16 @@ type ArtifactSaveResult struct {
 }
 
 type ImageArtifact struct {
-	Type  ArtifactType             `json:"type"`
-	ID    string                   `json:"id"`
-	Value binarypayload.ContentRef `json:"value"`
+	Type  ArtifactType             `json:"type" ts_type:"typeof ArtifactTypeEnum.Image"`
+	ID    string                   `json:"id" ts_create_expr:"createPngArtifactId()"`
+	Value binarypayload.ContentRef `json:"value" ts_create_expr:"createContentRef()"`
 }
 
 type ChartDataValue map[string][]any
 
 type ChartDataArtifact struct {
-	Type  ArtifactType   `json:"type"`
-	ID    string         `json:"id"`
+	Type  ArtifactType   `json:"type" ts_type:"typeof ArtifactTypeEnum.ChartData"`
+	ID    string         `json:"id" ts_create_expr:"createCsvArtifactId()"`
 	Value ChartDataValue `json:"value"`
 }
 
@@ -107,7 +107,7 @@ type JSONArtifact struct {
 }
 
 type FileArtifact struct {
-	Type  ArtifactType             `json:"type"`
-	ID    string                   `json:"id"`
-	Value binarypayload.ContentRef `json:"value"`
+	Type  ArtifactType             `json:"type" ts_type:"typeof ArtifactTypeEnum.File"`
+	ID    string                   `json:"id" ts_create_expr:"createFileArtifactId()"`
+	Value binarypayload.ContentRef `json:"value" ts_create_expr:"createContentRef()"`
 }

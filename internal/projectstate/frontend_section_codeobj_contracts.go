@@ -205,7 +205,7 @@ const (
 
 type FrontendCodeFileBinding struct {
 	CanonicalPath string             `json:"canonical_path"`
-	AccessMode    CodeFileAccessMode `json:"access_mode"`
+	AccessMode    CodeFileAccessMode `json:"access_mode" ts_type:"CodeFileAccessMode"`
 	AutoBinding   bool               `json:"autoBinding"`
 }
 

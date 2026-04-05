@@ -48,7 +48,7 @@ type ShareArtifactService interface {
 }
 
 type UpdateArtifactsRequest struct {
-	Artifacts        []artifacts.RawArtifact         `json:"artifacts"`
+	Artifacts        []artifacts.RawArtifact         `json:"artifacts" ts_type:"Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>"`
 	ConflictStrategy *artifacts.SaveConflictStrategy `json:"conflictStrategy,omitempty"`
 	UploadScope      artifacts.UploadScope           `json:"uploadScope"`
 }

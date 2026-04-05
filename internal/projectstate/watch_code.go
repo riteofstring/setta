@@ -34,7 +34,7 @@ type WatchCodeFolder struct {
 
 type WatchCodeRegistryEntry struct {
 	CallableName  string                `json:"callableName"`
-	Kind          WatchCodeCallableKind `json:"kind"`
+	Kind          WatchCodeCallableKind `json:"kind" ts_type:"string"`
 	SignatureHash string                `json:"signatureHash"`
 	BodyHash      string                `json:"bodyHash"`
 	SourcePath    string                `json:"sourcePath"`

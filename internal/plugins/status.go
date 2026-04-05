@@ -41,7 +41,7 @@ type PluginStatusEntry struct {
 	RequestedCapabilities       []string                           `json:"requestedCapabilities"`
 	EffectiveCapabilities       []string                           `json:"effectiveCapabilities"`
 	BlockedCapabilities         []PluginBlockedCapability          `json:"blockedCapabilities"`
-	Components                  []string                           `json:"components"`
+	Components                  []string                           `json:"components" ts_skip:"true"`
 	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget    `json:"registeredCodegenTargets"`
 	RegisteredBackendRoutes     []PluginRegisteredBackendRoute     `json:"registeredBackendRoutes"`
 	RegisteredStaticDirs        []PluginRegisteredStaticDir        `json:"registeredStaticDirs"`

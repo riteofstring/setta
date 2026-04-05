@@ -318,6 +318,10 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	if len(spec.ExtraProperties) > 0 {
 		properties = append(properties, spec.ExtraProperties...)
 	}
+	createExprOverrides, err := mergedFieldCreateExprOverrides(t, spec.CreateExprOverrides)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
 	declarationName := frontendBindingTypeName(t)
 	declaration := objectDeclaration(declarationName, properties...)
 	if spec.UseGenericCreateBody {
@@ -328,7 +332,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 			t,
 			spec.DefaultValue,
 			properties,
-			spec.CreateExprOverrides,
+			createExprOverrides,
 		)
 		if err != nil {
 			return TypeDeclaration{}, err
@@ -338,13 +342,13 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		declaration.CreateBody = spec.CreateBody
 	} else if spec.HasCreateExpr {
 		context := "frontend create defaults " + declarationName
-		if len(spec.CreateExprOverrides) > 0 {
+		if len(createExprOverrides) > 0 {
 			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(
 				context,
 				declarationName,
 				spec.DefaultValue,
 				properties,
-				spec.CreateExprOverrides,
+				createExprOverrides,
 			)
 		} else {
 			declaration.CreateExpr = buildGoBackedCreateExprTS(
@@ -515,9 +519,10 @@ func (c *typeConverter) renderTupleTypeExprWithQualifier(
 }
 
 type tsFieldMetadataSpec struct {
-	TypeExpr string
-	Optional *bool
-	Skip     bool
+	TypeExpr   string
+	Optional   *bool
+	CreateExpr string
+	Skip       bool
 }
 
 func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
@@ -533,6 +538,10 @@ func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
 			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_optional value %q", tag)
 		}
 		spec.Optional = &optional
+	}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_create_expr")); tag != "" {
+		spec.CreateExpr = tag
 	}
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {

@@ -281,14 +281,15 @@ func main() {
 		},
 	}
 
-	var frontendEntries []registryEntry
+	var frontendDefaultProviderEntries []registryEntry
 	for _, target := range targets {
 		entries, err := discoverRegistryEntries(target)
 		if err != nil {
 			fail("discover %s: %v", target.OutputPath, err)
 		}
-		if target.OutputPath == "internal/frontendbindings/discovered_type_roots_gen.go" {
-			frontendEntries = append([]registryEntry(nil), entries...)
+		if target.OutputPath == "internal/frontendbindings/discovered_type_roots_gen.go" ||
+			target.OutputPath == "internal/frontendbindings/discovered_endpoint_contract_types_gen.go" {
+			frontendDefaultProviderEntries = append(frontendDefaultProviderEntries, entries...)
 		}
 		contents := renderRegistry(target, entries)
 		if !*write {
@@ -300,7 +301,7 @@ func main() {
 		}
 	}
 
-	if err := writeFrontendDefaultProviderRegistry(frontendEntries, *write); err != nil {
+	if err := writeFrontendDefaultProviderRegistry(frontendDefaultProviderEntries, *write); err != nil {
 		fail("write %s: %v", frontendDefaultProviderOutputPath, err)
 	}
 }

@@ -1,15 +1,21 @@
 package agentruns
 
+import "time"
+
 func FrontendDefaultEngineConfigDefaults() EngineConfigDefaults {
 	return EngineConfigDefaults{}
 }
 
-func FrontendDefaultRunEvent() map[string]any {
-	return map[string]any{
-		"id":        "",
-		"timestamp": "",
-		"type":      "",
-		"payload":   map[string]any{},
+func FrontendDefaultEngineRuntimeSupport() EngineRuntimeSupport {
+	return EngineRuntimeSupport{}
+}
+
+func FrontendDefaultRunEvent() RunEvent {
+	return RunEvent{
+		ID:        "",
+		Timestamp: time.Time{},
+		Type:      "",
+		Payload:   map[string]any{},
 	}
 }
 

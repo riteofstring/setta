@@ -35,6 +35,15 @@ func TestFrontendDefaultsMaterializeGeneratorValues(t *testing.T) {
 	if !reflect.DeepEqual(window.NormalizedBounds, DefaultNormalizedFloatingWindowBounds()) {
 		t.Fatalf("expected default normalized bounds, got %#v", window.NormalizedBounds)
 	}
+	if !reflect.DeepEqual(FrontendDefaultChatWindowBounds(), DefaultChatWindowBounds()) {
+		t.Fatalf("expected chat window bounds defaults to mirror owner defaults")
+	}
+	if !reflect.DeepEqual(FrontendDefaultNormalizedFloatingWindowBounds(), DefaultNormalizedFloatingWindowBounds()) {
+		t.Fatalf("expected normalized floating bounds defaults to mirror owner defaults")
+	}
+	if !reflect.DeepEqual(FrontendDefaultProjectChatWindowingState(), DefaultProjectChatWindowingState()) {
+		t.Fatalf("expected project chat windowing defaults to mirror owner defaults")
+	}
 
 	action := FrontendDefaultStateMachineTargetAction()
 	if action.Type != StateMachineTargetActionTypeSendPrompt {
@@ -66,6 +75,9 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(DrawAreaLayerItem{}), field: "Type", tagName: "ts_type", tagValue: "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke"},
 		{typ: reflect.TypeOf(TaskBoardTask{}), field: "ColumnID", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(TaskBoardTask{}), field: "Recurrence", tagName: "ts_type", tagValue: "TaskBoardTaskRecurrence"},
+		{typ: reflect.TypeOf(WatchCodeRegistryEntry{}), field: "Kind", tagName: "ts_type", tagValue: "string"},
+		{typ: reflect.TypeOf(FrontendCodeFileBinding{}), field: "AccessMode", tagName: "ts_type", tagValue: "CodeFileAccessMode"},
+		{typ: reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}), field: "SuppressedCodes", tagName: "ts_type", tagValue: "Array<string | number>"},
 		{typ: reflect.TypeOf(StateMachineSourceFilter{}), field: "Type", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(StateMachineTargetAction{}), field: "ThreadStrategy", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(StateMachineEdge{}), field: "Style", tagName: "ts_type", tagValue: "Record<string, unknown> | null"},

@@ -30,9 +30,9 @@ type Profile struct {
 	SystemPrompt                string   `json:"systemPrompt"`
 	EnableBackgroundSummaryFill bool     `json:"enableBackgroundSummaryFill"`
 	EnableLlmChatTitles         bool     `json:"enableLlmChatTitles"`
-	EngineConfigID              *string  `json:"engineConfigId"`
+	EngineConfigID              *string  `json:"engineConfigId" ts_optional:"true"`
 	ToolAllowlist               []string `json:"toolAllowlist"`
-	MemoryScope                 *string  `json:"memoryScope"`
+	MemoryScope                 *string  `json:"memoryScope" ts_optional:"true"`
 }
 
 type Store struct {

@@ -46,7 +46,7 @@ const (
 
 type RunEvent struct {
 	ID        string         `json:"id"`
-	Timestamp time.Time      `json:"timestamp"`
+	Timestamp time.Time      `json:"timestamp" ts_create_expr:"\"\""`
 	Type      string         `json:"type"`
 	Payload   map[string]any `json:"payload,omitempty"`
 }
@@ -57,8 +57,8 @@ type Run struct {
 	Status     RunStatus        `json:"status"`
 	StartedAt  *time.Time       `json:"startedAt,omitempty"`
 	FinishedAt *time.Time       `json:"finishedAt,omitempty"`
-	Inputs     map[string]any   `json:"inputs,omitempty"`
-	Outputs    map[string]any   `json:"outputs,omitempty"`
+	Inputs     map[string]any   `json:"inputs,omitempty" ts_type:"Record<string, unknown> | null"`
+	Outputs    map[string]any   `json:"outputs,omitempty" ts_type:"Record<string, unknown> | null"`
 	ToolCalls  []map[string]any `json:"toolCalls"`
 	Cost       *float64         `json:"cost,omitempty"`
 	Events     []RunEvent       `json:"events"`
