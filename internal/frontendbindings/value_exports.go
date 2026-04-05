@@ -2,18 +2,13 @@ package frontendbindings
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
+
+	"setta/internal/sharedvalueexports"
 )
 
-type frontendValueExport struct {
-	Name  string
-	Type  reflect.Type
-	Value func() any
-}
-
 func discoveredValueDeclarations(converter *typeConverter) []TypeDeclaration {
-	exports := DiscoveredFrontendValueExports()
+	exports := sharedvalueexports.DiscoveredValueExports()
 	declarations := make([]TypeDeclaration, 0, len(exports))
 	for _, export := range exports {
 		declaration, err := discoveredValueDeclaration(converter, export)
@@ -27,7 +22,7 @@ func discoveredValueDeclarations(converter *typeConverter) []TypeDeclaration {
 
 func discoveredValueDeclaration(
 	converter *typeConverter,
-	export frontendValueExport,
+	export sharedvalueexports.ValueExport,
 ) (TypeDeclaration, error) {
 	if strings.TrimSpace(export.Name) == "" {
 		return TypeDeclaration{}, fmt.Errorf("frontend value export has empty name")

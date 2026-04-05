@@ -9,8 +9,8 @@ import (
 	"unicode"
 
 	"setta/internal/frontendbindingmeta"
-	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
+	"setta/internal/sharedvalueexports"
 	"setta/internal/wsapi"
 )
 
@@ -140,7 +140,7 @@ func buildDefaultEntries() []DefaultEntry {
 }
 
 func buildExportedValueEntries() []ExportedValueEntry {
-	exports := frontendbindings.DiscoveredFrontendValueExports()
+	exports := sharedvalueexports.DiscoveredValueExports()
 	entries := make([]ExportedValueEntry, 0, len(exports))
 	for _, export := range exports {
 		typeName := strings.TrimSpace(ContractNameForType(export.Type))

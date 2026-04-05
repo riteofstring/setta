@@ -7,4 +7,5 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${ROOT_DIR}"
 ./scripts/go.sh run ./cmd/setta-gen-go-shared-schema \
   -schema-out frontend/generation/non_http_shared/schema.json \
-  -sidecar-out frontend/generation/non_http_shared/sidecar.json
+  -sidecar-out frontend/generation/non_http_shared/sidecar.json \
+  -openapi-out frontend/generation/non_http_shared/openapi.json

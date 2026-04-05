@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"setta/internal/frontendbindings"
+	"setta/internal/sharedvalueexports"
 )
 
 func DiscoveredTypes() []reflect.Type {
@@ -27,7 +28,7 @@ func DiscoveredTypes() []reflect.Type {
 	for _, t := range frontendbindings.DiscoveredConvertibleTypes() {
 		add(t)
 	}
-	for _, export := range frontendbindings.DiscoveredFrontendValueExports() {
+	for _, export := range sharedvalueexports.DiscoveredValueExports() {
 		add(export.Type)
 	}
 	for _, t := range discoveredAdditionalTypes() {

@@ -33,10 +33,13 @@ func writeJSON(path string, value any) error {
 func main() {
 	schemaOutputPath := flag.String("schema-out", "", "path to the generated shared JSON Schema output file")
 	sidecarOutputPath := flag.String("sidecar-out", "", "path to the generated shared semantic sidecar output file")
+	openAPIOutputPath := flag.String("openapi-out", "", "path to the generated non-HTTP OpenAPI 3.1 projection output file")
 	flag.Parse()
 
-	if strings.TrimSpace(*schemaOutputPath) == "" && strings.TrimSpace(*sidecarOutputPath) == "" {
-		fmt.Fprintln(os.Stderr, "setta-gen-go-shared-schema: at least one of -schema-out or -sidecar-out is required")
+	if strings.TrimSpace(*schemaOutputPath) == "" &&
+		strings.TrimSpace(*sidecarOutputPath) == "" &&
+		strings.TrimSpace(*openAPIOutputPath) == "" {
+		fmt.Fprintln(os.Stderr, "setta-gen-go-shared-schema: at least one of -schema-out, -sidecar-out, or -openapi-out is required")
 		os.Exit(2)
 	}
 
@@ -59,6 +62,18 @@ func main() {
 			os.Exit(1)
 		}
 		if err := writeJSON(*sidecarOutputPath, sidecar); err != nil {
+			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if strings.TrimSpace(*openAPIOutputPath) != "" {
+		document, err := sharedtypes.BuildOpenAPIProjectionDocument()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
+			os.Exit(1)
+		}
+		if err := writeJSON(*openAPIOutputPath, document); err != nil {
 			fmt.Fprintf(os.Stderr, "setta-gen-go-shared-schema: %v\n", err)
 			os.Exit(1)
 		}

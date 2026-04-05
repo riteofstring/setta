@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"setta/internal/sharedvalueexports"
 )
 
 type frontendBindingKnownWord struct {
@@ -133,7 +135,7 @@ func frontendBindingNamedTypes() []reflect.Type {
 	for _, t := range DiscoveredConvertibleTypes() {
 		visit(t)
 	}
-	for _, export := range DiscoveredFrontendValueExports() {
+	for _, export := range sharedvalueexports.DiscoveredValueExports() {
 		visit(export.Type)
 	}
 

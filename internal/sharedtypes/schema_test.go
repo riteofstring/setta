@@ -2,6 +2,7 @@ package sharedtypes
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/httpapi"
@@ -191,5 +192,42 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 	}
 	if got := updateArtifactsSchema.Properties["artifacts"].Items.Ref; got != "#/$defs/BaseArtifactUnion" {
 		t.Fatalf("UpdateArtifactsContent.artifacts items ref = %q, want %q", got, "#/$defs/BaseArtifactUnion")
+	}
+}
+
+func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildOpenAPIProjectionDocument()
+	if err != nil {
+		t.Fatalf("BuildOpenAPIProjectionDocument() error = %v", err)
+	}
+
+	if got := document["openapi"]; got != OpenAPIProjectionVersion {
+		t.Fatalf("OpenAPI projection version = %#v, want %q", got, OpenAPIProjectionVersion)
+	}
+
+	components, ok := document["components"].(map[string]any)
+	if !ok {
+		t.Fatalf("OpenAPI projection components type = %T, want map[string]any", document["components"])
+	}
+	schemas, ok := components["schemas"].(map[string]any)
+	if !ok {
+		t.Fatalf("OpenAPI projection schemas type = %T, want map[string]any", components["schemas"])
+	}
+	baseArtifactUnion, ok := schemas["BaseArtifactUnion"].(map[string]any)
+	if !ok {
+		t.Fatalf("BaseArtifactUnion projection type = %T, want map[string]any", schemas["BaseArtifactUnion"])
+	}
+	anyOf, ok := baseArtifactUnion["anyOf"].([]any)
+	if !ok || len(anyOf) == 0 {
+		t.Fatalf("BaseArtifactUnion anyOf type = %T, want non-empty []any", baseArtifactUnion["anyOf"])
+	}
+	firstRef, ok := anyOf[0].(map[string]any)["$ref"].(string)
+	if !ok {
+		t.Fatalf("BaseArtifactUnion first anyOf ref type = %T, want string", anyOf[0])
+	}
+	if !strings.HasPrefix(firstRef, "#/components/schemas/") {
+		t.Fatalf("BaseArtifactUnion first anyOf ref = %q, want OpenAPI components ref", firstRef)
 	}
 }

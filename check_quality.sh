@@ -147,7 +147,7 @@ is_frontend_candidate() {
   esac
 
   case "${path}" in
-    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts)
+    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*)
       return 1
       ;;
     *.js|*.jsx|*.ts|*.tsx)
