@@ -11315,3 +11315,34 @@ LOOP_TERMINAL_MARKER: none
   - the worktree canary visibility check never completed because `chrome-devtools-mcp` calls timed out and a direct CDP `Runtime.evaluate` hung
 - Next frontier: a different remaining transform-subscriber / shared-store mirror consumer on the same canonical lane; do not reopen the viewport-persistence debounce hypothesis by default.
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 05:41 EDT - Ralph item 297
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked one different bounded product hypothesis on the remaining transform-subscriber / shared-store mirror lane: extend the existing pointer-event suppression path so `viewportInteractionActive` also disables inner section pointer events during active viewport motion.
+- Added a temporary experiment in `frontend/src/state/hooks/keyActivations.ts` plus temporary focused hook coverage, then measured the same normalized cross-worktree motion probe on the live `3077/8077` worktree and `3088/8088` read-only `main` runtimes.
+- Temporary-branch verification passed before the revert:
+  - `pnpm -C frontend exec prettier --check src/state/hooks/keyActivations.ts src/state/hooks/keyActivations.test.tsx`
+  - `pnpm -C frontend exec vitest run src/state/hooks/keyActivations.test.tsx src/components/Section/Layouts/CodeArea.test.tsx`
+- A worktree-only instrumentation rerun on the temporary branch failed before the spec body completed:
+  - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary exposes live instrumentation on normalized All Settings' --reporter=line --max-failures=1 --timeout=180000`
+  - failure: `browserContext.cookies: Target page, context or browser has been closed` during pane-state normalization in `graphSubstrateParityProbe.ts`
+- The normalized cross-worktree motion probe passed on the temporary branch:
+  - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --max-failures=1 --timeout=180000`
+- Motion-perf result regressed materially on the temporary branch:
+  - legacy `main`: average `18.56ms`, max `116.8ms`, long-task total `185ms`, long-task max `117ms`, samples `44`, visible section count `46`
+  - worktree canary: average `21.11ms`, max `100.1ms`, long-task total `320ms`, long-task max `112ms`, samples `45`, visible section count `1`
+- Because the measured lane moved in the wrong direction, reverted the temporary code and test immediately. No production code from the experiment remains landed.
+- CDP visual verification stayed blocked after the one allowed recovery:
+  - the first fresh-context Chrome DevTools MCP sub-agent failed before meaningful page work, reporting `Network.enable` / browser-tool invocation failures
+  - ran the one allowed recovery: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - refreshed runtime info after recovery; the live worktree moved to frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, debug port `9297`
+  - main reference runtime refreshed as frontend `http://127.0.0.1:3088/`, backend `http://127.0.0.1:8088`, bootstrap `http://127.0.0.1:8088/__setta__/bootstrap#token=...`, debug port `9309`
+  - a second fresh-context CDP sub-agent still could not access browser page tools at all, so the required visual gate could not run
+- Result:
+  - the "viewport-interaction pointer suppression" hypothesis is closed and should not be retried by default on this canonical lane
+  - required CDP visual verification was not run because browser-tool / transport access remained unavailable after the one allowed lifecycle recovery
+- Next frontier:
+  - start the next fresh iteration by re-establishing one bounded chrome-devtools smoke-check on the restarted `3075/8075` worktree before another transform-consumer/shared-store mirror product slice
+  - after CDP is healthy again, return to a different remaining transform-subscriber / shared-store mirror hotspot on `rotaryParamCodeObjDefault`
+- LOOP_TERMINAL_MARKER: none

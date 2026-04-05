@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 05:04 EDT
+Last updated: 2026-04-08 05:41 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -63,6 +63,18 @@ This section overrides older "next frontier" notes below when choosing the next 
 
 - Current live verification state:
   - item `293` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
+  - item `297` tested and closed one additional transform-subscriber / shared-store mirror hypothesis on the same lane:
+    - temporary product experiment: extend the existing pointer-event suppression hook so `viewportInteractionActive` also disables inner section pointer events during active canary motion
+    - the same cross-worktree motion-perf probe on the live worktree/reference runtimes moved in the wrong direction:
+      - legacy `main`: average `18.56ms`, max `116.8ms`, `44` samples, long-task total `185ms`, root DOM `7628`, target section DOM `132`, visible section count `46`
+      - worktree canary with the temporary suppression: average `21.11ms`, max `100.1ms`, `45` samples, long-task total `320ms`, root DOM `131`, target section DOM `128`, visible section count `1`
+    - because the lane regressed materially, the temporary product/test change was reverted; this closes the viewport-interaction pointer-suppression hypothesis without leaving production code behind
+  - the required CDP visual retry for item `297` is blocked again after the one allowed in-pass lifecycle recovery:
+    - headless `./aireset.sh` recovery succeeded and refreshed the worktree runtime to frontend `http://127.0.0.1:3075/`, backend `http://127.0.0.1:8075`, bootstrap `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, debug port `9297`
+    - two fresh-context CDP sub-agents still could not complete the visual check:
+      - first retry failed before page inspection because chrome-devtools MCP hung on browser-tool startup (`Network.enable` timeout)
+      - second retry on the restarted runtime could read the quickstart, but the chrome-devtools MCP browser tools were not accessible in that session at all
+    - the required visual check is therefore still pending due transport/tool access, not due a renderer regression claim
   - the production probes from the prior pass still stand:
     - worktree-only instrumentation probe stayed stable on the focused lane:
       - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
@@ -108,30 +120,35 @@ This section overrides older "next frontier" notes below when choosing the next 
   - item `295` narrows that further:
     - removing Pixi host-size layout reads from the viewport-present path was not a measured win on the canonical lane
     - the remaining hotspot is now more likely deeper viewport-sync / shared-store mirror work than Pixi host size reads, DOM shell fan-out, or presented-subset ownership
+  - item `297` narrows that further:
+    - forcing viewport-interaction pointer suppression through the shared section-surface hook was not a measured win on the canonical lane
+    - the remaining hotspot is therefore still deeper transform-subscriber / shared-store mirror work, not this shared pointer-suppression path
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
   - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
+  - the viewport-interaction pointer-suppression hypothesis is now closed unless a future trace explicitly shows hover/focus pointer churn dominating the lane
   - the next true product hotspot is still the remaining focused viewport-sync / shared-store mirror work that runs after presentation gating, interaction-state dedupe, and the failed persistence-debounce experiment
-  - the blocked smoke gate is no longer the blocker, so the next iteration should return to one bounded production reduction on the same canonical lane instead of reopening transport triage
+  - CDP transport has regressed again after the in-pass recovery, so the next iteration must begin by re-establishing a trustworthy chrome-devtools MCP smoke check on the fresh outer lifecycle before taking another product slice
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- land one bounded production reduction in the remaining focused transform-subscriber / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
+- first clear the renewed chrome-devtools MCP blocker on the restarted worktree lifecycle, then return to one bounded production reduction in the remaining focused transform-subscriber / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
 
 Recommended next target:
 
-- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe transform-subscriber / shared-store mirror work
-- prefer a different focused transform-consumer reduction over another viewport-persistence debounce experiment, Pixi host-size experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
-- keep the CDP work bounded to the required visual confirmation for the chosen product slice; do not spend the default pass re-proving the smoke gate that is now green
+- because item `297` already used the one allowed in-pass recovery and CDP still remained inaccessible, start the next fresh outer iteration by retrying one bounded chrome-devtools MCP smoke check on the restarted `3075/8075` worktree plus read-only `3088/8088` `main` runtime
+- once CDP transport is trustworthy again, stay on the same normalized motion lane and choose a different transform-consumer reduction
+- prefer a different focused transform-consumer reduction over another viewport-persistence debounce experiment, Pixi host-size experiment, viewport-interaction pointer-suppression experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
 
 Recommended deliverables for the next iteration:
 
-- one bounded production change on `rotaryParamCodeObjDefault`
+- one bounded CDP smoke retry on the fresh loop-managed runtime
+- then one bounded production change on `rotaryParamCodeObjDefault` only if the browser tools are available again
 - focused automated verification on the exact hot path that changed
-- required CDP confirmation for that slice, using the smoke-check recovery knowledge only if transport regresses again
+- required CDP confirmation for that slice
 
 Recommended canonical target:
 
@@ -151,6 +168,38 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `297` tested one bounded viewport-interaction pointer-suppression hypothesis on `rotaryParamCodeObjDefault`, found that the canonical motion lane regressed, reverted the temporary code, and then hit a renewed CDP transport blocker even after the one allowed headless `./aireset.sh` recovery.
+
+  - Why this pass completed:
+    - item `296` already closed the viewport-persistence debounce hypothesis and explicitly handed the next iteration to a different remaining transform-subscriber / shared-store mirror hotspot
+    - the chosen slice was a real product hypothesis on the measured motion lane, not another support-only probe
+    - the result is now explicit and durable: this suppression path is not a win and should not be reopened by default
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Product/test change:
+    - temporary experiment only: extended [`keyActivations.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/hooks/keyActivations.ts) so `viewportInteractionActive` also disabled pointer events, and added temporary hook coverage
+    - reverted that temporary product/test change after live verification showed a clear regression, so no production code from the experiment remains landed
+    - added [`2026-04-08_settings-graph-substrate-canary-viewport-interaction-pointer-suppression-hypothesis.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-interaction-pointer-suppression-hypothesis.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/state/hooks/keyActivations.ts src/state/hooks/keyActivations.test.tsx` -> passed on the temporary experiment branch before the revert
+    - `pnpm -C frontend exec vitest run src/state/hooks/keyActivations.test.tsx src/components/Section/Layouts/CodeArea.test.tsx` -> passed on the temporary experiment branch before the revert (`2 files`, `5 tests`)
+    - one worktree-only instrumentation rerun on the temporary experiment branch failed with `Target page, context or browser has been closed` during compare-pane normalization, so no additional focused instrumentation snapshot was recorded
+    - `cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed on the temporary experiment branch (`1 passed`, `1.6m`)
+    - normalized motion-perf output on the temporary experiment branch:
+      - legacy `main`: average `18.56ms`, max `116.8ms`, `44` samples, long-task total `185ms`, root DOM `7628`, target section DOM `132`, visible section count `46`
+      - worktree canary: average `21.11ms`, max `100.1ms`, `45` samples, long-task total `320ms`, root DOM `131`, target section DOM `128`, visible section count `1`
+    - required CDP retry after revert -> blocked:
+      - first fresh-context sub-agent failed before page inspection because chrome-devtools MCP hung on `Network.enable`
+      - one allowed headless `./aireset.sh` recovery succeeded and restarted the worktree runtime at `3075/8075` with debug port `9297`
+      - second fresh-context sub-agent on the restarted runtime could read the quickstart but still could not access any chrome-devtools MCP browser tools, so it could not inspect either Settings page
+      - `CDP visual check: not run (chrome-devtools MCP tools were not accessible after one in-pass headless ./aireset.sh recovery)`
+  - Lane status:
+    - the viewport-interaction pointer-suppression hypothesis is closed and should not be retried by default
+    - the next product hotspot remains a different transform-subscriber / shared-store mirror path on the same canonical lane
+    - the current blocker is renewed CDP transport access on the restarted worktree lifecycle, not a new renderer claim
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `296` tested one bounded viewport-sync / shared-store mirror hypothesis on `rotaryParamCodeObjDefault`, found that deferring the debounced viewport-persistence scheduling during active interaction bursts was not a measured win on the canonical motion lane, reverted the temporary code, and handed the next pass to a different remaining transform-subscriber / shared-store mirror hotspot.
 
