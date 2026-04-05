@@ -89,8 +89,8 @@ import {
   DependencyValueTypeEnum,
   EngineTypeEnum,
   LiteralDependencyValue,
+  NotificationTypeEnum,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -1275,7 +1275,7 @@ function ManagedChatArea({
     notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
     addPersistentNotification(
       externalEngineIssueMessage,
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
 

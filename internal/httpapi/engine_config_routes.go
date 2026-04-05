@@ -42,15 +42,15 @@ type CreateEngineConfigRequest struct {
 	Defaults              *agentruns.EngineConfigDefaults `json:"defaults"`
 }
 
-type updateEngineConfigRequest struct {
-	Config *updateEngineConfigPayload `json:"config"`
+type UpdateEngineConfigRequest struct {
+	Config *UpdateEngineConfigPayload `json:"config"`
 }
 
 type DeleteEngineConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
-type updateEngineConfigPayload struct {
+type UpdateEngineConfigPayload struct {
 	ID                    *string                         `json:"id"`
 	Name                  *string                         `json:"name"`
 	EngineType            *agentruns.EngineType           `json:"engineType"`
@@ -173,7 +173,7 @@ func updateEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updateEngineConfigRequest](r)
+		payload, err := decodeStrictJSONBody[UpdateEngineConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -283,7 +283,7 @@ func buildCreatedEngineConfig(payload CreateEngineConfigRequest) (agentruns.Engi
 	return config, nil
 }
 
-func buildUpdatedEngineConfig(payload *updateEngineConfigPayload) (agentruns.EngineConfig, *engineConfigRouteError) {
+func buildUpdatedEngineConfig(payload *UpdateEngineConfigPayload) (agentruns.EngineConfig, *engineConfigRouteError) {
 	if payload == nil {
 		return agentruns.EngineConfig{}, &engineConfigRouteError{
 			Status:  http.StatusBadRequest,

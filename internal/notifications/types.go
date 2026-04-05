@@ -4,15 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"setta/internal/realtime"
 )
 
-type Type string
+type NotificationType = realtime.NotificationType
 
 const (
-	TypeError   Type = "error"
-	TypeWarning Type = "warning"
-	TypeInfo    Type = "info"
-	TypeSave    Type = "save"
+	NotificationTypeError   NotificationType = realtime.NotificationTypeError
+	NotificationTypeWarning NotificationType = realtime.NotificationTypeWarning
+	NotificationTypeInfo    NotificationType = realtime.NotificationTypeInfo
+	NotificationTypeSave    NotificationType = realtime.NotificationTypeSave
 )
 
 var (
@@ -22,14 +24,14 @@ var (
 )
 
 type Notification struct {
-	ID              string         `json:"id"`
-	ProjectConfigID string         `json:"projectConfigId"`
-	Type            Type           `json:"type"`
-	Message         string         `json:"message"`
-	Temporary       bool           `json:"temporary"`
-	Timestamp       string         `json:"timestamp"`
-	Metadata        map[string]any `json:"metadata"`
-	ReadStatus      bool           `json:"read_status"`
+	ID              string           `json:"id"`
+	ProjectConfigID string           `json:"projectConfigId"`
+	Type            NotificationType `json:"type"`
+	Message         string           `json:"message"`
+	Temporary       bool             `json:"temporary"`
+	Timestamp       string           `json:"timestamp"`
+	Metadata        map[string]any   `json:"metadata"`
+	ReadStatus      bool             `json:"read_status"`
 }
 
 func (n Notification) normalized() (Notification, error) {
@@ -45,7 +47,7 @@ func (n Notification) normalized() (Notification, error) {
 	}
 
 	switch normalized.Type {
-	case TypeError, TypeWarning, TypeInfo, TypeSave:
+	case NotificationTypeError, NotificationTypeWarning, NotificationTypeInfo, NotificationTypeSave:
 	default:
 		return Notification{}, fmt.Errorf("%w: %q", ErrNotificationTypeInvalid, normalized.Type)
 	}

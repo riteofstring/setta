@@ -13,9 +13,9 @@ import "testUtils/reactRefreshPreamble";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import { route_get_notifications } from "utils/generatedEndpoints";
 import {
+  createNotification,
   createProjectConfig,
-  createSettaNotification,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
@@ -98,9 +98,9 @@ describe("NotificationsArea", () => {
   it("loads notifications through the Go route for the active project", async () => {
     vi.mocked(route_get_notifications).mockResolvedValue({
       data: [
-        createSettaNotification({
+        createNotification({
           id: "notif-1",
-          type: SettaNotificationTypeEnum.warning,
+          type: NotificationTypeEnum.warning,
           message: "Save needed",
           timestamp: "2026-03-12T10:00:00Z",
           read_status: false,

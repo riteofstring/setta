@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"setta/internal/externalagents"
+	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/transcriptionsessions"
@@ -23,8 +23,7 @@ var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discove
 
 func mergedWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	overrides := DiscoveredWrapperTypeOverrides()
-	overrides[reflect.TypeOf((*externalagents.ChatContextUsage)(nil)).Elem()] = reflect.TypeOf((*ChatContextUsage)(nil)).Elem()
-	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*TranscriptionSessionDeltaResponse)(nil)).Elem()
+	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*httpapi.TranscriptionSessionDeltaResponse)(nil)).Elem()
 	return overrides
 }
 

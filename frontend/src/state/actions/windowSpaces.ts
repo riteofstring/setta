@@ -35,7 +35,7 @@ import {
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
@@ -989,7 +989,7 @@ async function restoreWorkspaceProjectChatThreadBindings(
   ) {
     addTemporaryNotification(
       "Failed to restore saved chat threads.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
     return;
   }
@@ -1046,7 +1046,7 @@ async function restoreWorkspaceProjectChatThreadBindings(
   if (encounteredFailure) {
     addTemporaryNotification(
       "Failed to restore one or more saved chat threads.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }
@@ -1179,10 +1179,7 @@ export async function restoreWindowSpaceInWorkspace(
   const blockedRestoreMessage =
     getBlockedWindowSpaceRestoreMessage(threadBindings);
   if (blockedRestoreMessage) {
-    addTemporaryNotification(
-      blockedRestoreMessage,
-      SettaNotificationTypeEnum.error,
-    );
+    addTemporaryNotification(blockedRestoreMessage, NotificationTypeEnum.error);
     return;
   }
   replaceProjectChatWindowingState(layoutWindowing, {
@@ -1201,7 +1198,7 @@ export async function restoreWindowSpaceInWorkspace(
     });
     addTemporaryNotification(
       "Failed to restore saved chat threads.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }
@@ -1241,7 +1238,7 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     });
     addTemporaryNotification(
       `Failed to sync window layout before saving${statusSuffix}${detailSuffix}`,
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
     return null;
   }
@@ -1280,7 +1277,7 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     });
     addTemporaryNotification(
       `Failed to save window space${statusSuffix}${detailSuffix}`,
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
     return null;
   }

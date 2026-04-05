@@ -43,15 +43,17 @@ type CreatePromptTemplateRequest struct {
 	Metadata    map[string]any          `json:"metadata"`
 }
 
+type PromptTemplateList []prompttemplates.Template
+
 type GetPromptTemplateRequest struct {
 	TemplateID string `json:"templateId"`
 }
 
-type updatePromptTemplateRequest struct {
-	Template *promptTemplatePayload `json:"template"`
+type UpdatePromptTemplateRequest struct {
+	Template *PromptTemplatePayload `json:"template"`
 }
 
-type promptTemplatePayload struct {
+type PromptTemplatePayload struct {
 	ID          *string                 `json:"id"`
 	Name        *string                 `json:"name"`
 	Description *string                 `json:"description"`
@@ -268,7 +270,7 @@ func updatePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updatePromptTemplateRequest](r)
+		payload, err := decodeStrictJSONBody[UpdatePromptTemplateRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -546,7 +548,7 @@ func buildCreatedPromptTemplate(payload CreatePromptTemplateRequest) (prompttemp
 	return template, nil
 }
 
-func buildUpdatedPromptTemplate(payload updatePromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {
+func buildUpdatedPromptTemplate(payload UpdatePromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {
 	if payload.Template == nil {
 		return prompttemplates.Template{}, &promptTemplateRouteError{
 			Status:  http.StatusBadRequest,

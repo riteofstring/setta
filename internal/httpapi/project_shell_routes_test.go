@@ -959,14 +959,14 @@ func TestRegisterProjectShellRoutesReturnsProjectNotifications(t *testing.T) {
 		{
 			ID:              "notification-1",
 			ProjectConfigID: "project-alpha",
-			Type:            notifications.TypeInfo,
+			Type:            notifications.NotificationTypeInfo,
 			Message:         "Alpha note",
 			Timestamp:       "2026-03-10T10:00:00Z",
 		},
 		{
 			ID:              "notification-2",
 			ProjectConfigID: "project-beta",
-			Type:            notifications.TypeWarning,
+			Type:            notifications.NotificationTypeWarning,
 			Message:         "Beta note",
 			Timestamp:       "2026-03-10T11:00:00Z",
 		},
@@ -1023,7 +1023,7 @@ func TestRegisterProjectShellRoutesDeletesNotification(t *testing.T) {
 		{
 			ID:              "notification-1",
 			ProjectConfigID: "project-alpha",
-			Type:            notifications.TypeInfo,
+			Type:            notifications.NotificationTypeInfo,
 			Message:         "Alpha note",
 			Timestamp:       "2026-03-10T10:00:00Z",
 		},

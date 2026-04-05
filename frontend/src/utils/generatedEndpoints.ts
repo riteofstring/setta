@@ -53,7 +53,7 @@ export async function route_append_draw_area_layer_item(
 
 export async function route_append_transcription_audio(
   x: gt.AppendTranscriptionAudioRequest,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+): Promise<ResponseDataAndStatus<gt.Delta>> {
   return await post(GoHTTPRouteHelpers.appendTranscriptionAudio(), x);
 }
 
@@ -85,7 +85,7 @@ export async function route_binary_upload(
 }
 
 export async function route_cancel_run(
-  x: gt.CancelRunRequestInput,
+  x: gt.CancelRunRequest,
 ): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
   return await post(GoHTTPRouteHelpers.cancelRun(), x);
 }
@@ -127,7 +127,7 @@ export async function route_code_area_completion(
 }
 
 export async function route_create_agent_profile(
-  x: gt.CreateAgentProfileRequestInput,
+  x: gt.CreateAgentProfileRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.createAgentProfile(), x);
 }
@@ -163,13 +163,13 @@ export async function route_create_edge(
 }
 
 export async function route_create_engine_config(
-  x: gt.CreateEngineConfigRequestInput,
+  x: gt.CreateEngineConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.createEngineConfig(), x);
 }
 
 export async function route_create_external_agent_config(
-  x: gt.CreateExternalAgentConfigRequestInput,
+  x: gt.CreateExternalAgentConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
   return await post(GoHTTPRouteHelpers.createExternalAgentConfig(), x);
 }
@@ -193,7 +193,7 @@ export async function route_create_project_config(
 }
 
 export async function route_create_prompt_template(
-  x: gt.CreatePromptTemplateRequestInput,
+  x: gt.CreatePromptTemplateRequest,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post(GoHTTPRouteHelpers.createPromptTemplate(), x);
 }
@@ -217,7 +217,7 @@ export async function route_create_top_level_section(
 }
 
 export async function route_create_transcription_profile(
-  x: gt.CreateTranscriptionProfileRequestInput,
+  x: gt.CreateTranscriptionProfileRequest,
 ): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
   return await post(GoHTTPRouteHelpers.createTranscriptionProfile(), x);
 }
@@ -247,7 +247,7 @@ export async function route_decline_rename_refactor(
 }
 
 export async function route_delete_agent_profile(
-  x: gt.DeleteAgentProfileRequestInput,
+  x: gt.DeleteAgentProfileRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteAgentProfile(), x);
 }
@@ -277,13 +277,13 @@ export async function route_delete_edges(
 }
 
 export async function route_delete_engine_config(
-  x: gt.DeleteEngineConfigRequestInput,
+  x: gt.DeleteEngineConfigRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteEngineConfig(), x);
 }
 
 export async function route_delete_external_agent_config(
-  x: gt.DeleteExternalAgentConfigRequestInput,
+  x: gt.DeleteExternalAgentConfigRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteExternalAgentConfig(), x);
 }
@@ -313,7 +313,7 @@ export async function route_delete_project_configs(
 }
 
 export async function route_delete_prompt_template(
-  x: gt.DeletePromptTemplateRequestInput,
+  x: gt.DeletePromptTemplateRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deletePromptTemplate(), x);
 }
@@ -349,7 +349,7 @@ export async function route_delete_terminals(
 }
 
 export async function route_delete_transcription_profile(
-  x: gt.DeleteTranscriptionProfileRequestInput,
+  x: gt.DeleteTranscriptionProfileRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.deleteTranscriptionProfile(), x);
 }
@@ -403,7 +403,7 @@ export async function route_gen_code_suffix_completion(
 }
 
 export async function route_get_agent_profile(
-  x: gt.GetAgentProfileRequestInput,
+  x: gt.GetAgentProfileRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.getAgentProfile(), x);
 }
@@ -415,7 +415,7 @@ export async function route_get_agent_profiles(): Promise<
 }
 
 export async function route_get_agent_run(
-  x: gt.GetAgentRunRequestInput,
+  x: gt.GetAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.getAgentRun(), x);
 }
@@ -503,12 +503,12 @@ export async function route_get_backend_init_status(): Promise<
 
 export async function route_get_chat_section_chat_id(
   x: gt.GetChatSectionChatIDRequest,
-): Promise<ResponseDataAndStatus<gt.GetChatSectionChatIDResponse>> {
+): Promise<ResponseDataAndStatus<gt.ChatSectionChatIDResponse>> {
   return await post(GoHTTPRouteHelpers.getChatSectionChatId(), x);
 }
 
 export async function route_get_engine_config(
-  x: gt.GetEngineConfigRequestInput,
+  x: gt.GetEngineConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.getEngineConfig(), x);
 }
@@ -521,18 +521,18 @@ export async function route_get_engine_configs(): Promise<
 
 export async function route_get_external_agent_chat(
   x: gt.GetExternalAgentChatRequest,
-): Promise<ResponseDataAndStatus<gt.GetExternalAgentChatResponse>> {
+): Promise<ResponseDataAndStatus<gt.ExternalAgentChatResponse>> {
   return await post(GoHTTPRouteHelpers.getExternalAgentChat(), x);
 }
 
 export async function route_get_external_agent_config(
-  x: gt.GetExternalAgentConfigRequestInput,
+  x: gt.GetExternalAgentConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
   return await post(GoHTTPRouteHelpers.getExternalAgentConfig(), x);
 }
 
 export async function route_get_external_agent_configs(): Promise<
-  ResponseDataAndStatus<gt.ExternalAgentConfigListResponse>
+  ResponseDataAndStatus<gt.ExternalAgentConfigList>
 > {
   return await get(GoHTTPRouteHelpers.getExternalAgentConfigs());
 }
@@ -643,7 +643,7 @@ export async function route_get_listener_coverage(
 
 export async function route_get_llm_chat(
   x: gt.GetLLMChatRequest,
-): Promise<ResponseDataAndStatus<gt.GetLLMChatResponse>> {
+): Promise<ResponseDataAndStatus<gt.LLMChatResponse>> {
   return await post(GoHTTPRouteHelpers.getLLMChat(), x);
 }
 
@@ -655,12 +655,12 @@ export async function route_get_llm_config(): Promise<
 
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequest,
-): Promise<ResponseDataAndStatus<gt.GetLLMResponseResponse>> {
+): Promise<ResponseDataAndStatus<gt.LLMChatIDResponse>> {
   return await post(GoHTTPRouteHelpers.getLLMResponse(), x);
 }
 
 export async function route_get_llmapi_keys(): Promise<
-  ResponseDataAndStatus<gt.ManagedAPIKeysSnapshot>
+  ResponseDataAndStatus<gt.LLMAPIKeysSnapshot>
 > {
   return await get(GoHTTPRouteHelpers.getLLMAPIKeys());
 }
@@ -673,7 +673,7 @@ export async function route_get_mcp_server_runtime_status(
 
 export async function route_get_notifications(
   x: gt.GetNotificationsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.NotificationList>> {
   return await post(GoHTTPRouteHelpers.getNotifications(), x);
 }
 
@@ -684,25 +684,25 @@ export async function route_get_password_param_value(
 }
 
 export async function route_get_prompt_template(
-  x: gt.GetPromptTemplateRequestInput,
+  x: gt.GetPromptTemplateRequest,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post(GoHTTPRouteHelpers.getPromptTemplate(), x);
 }
 
 export async function route_get_prompt_templates(): Promise<
-  ResponseDataAndStatus<gt.PromptTemplateListResponse>
+  ResponseDataAndStatus<gt.PromptTemplateList>
 > {
   return await get(GoHTTPRouteHelpers.getPromptTemplates());
 }
 
 export async function route_get_run_status(
-  x: gt.GetRunStatusRequestInput,
+  x: gt.GetRunStatusRequest,
 ): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
   return await post(GoHTTPRouteHelpers.getRunStatus(), x);
 }
 
 export async function route_get_runner_summary(
-  x: gt.GetRunnerSummaryRequestInput,
+  x: gt.GetRunnerSummaryRequest,
 ): Promise<ResponseDataAndStatus<gt.RunnerSummarySnapshot>> {
   return await post(GoHTTPRouteHelpers.getRunnerSummary(), x);
 }
@@ -737,7 +737,7 @@ export async function route_get_share_deployment_state(
 }
 
 export async function route_get_state_machine_run(
-  x: gt.GetStateMachineRunRequestInput,
+  x: gt.GetStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.getStateMachineRun(), x);
 }
@@ -1054,7 +1054,7 @@ export async function route_repair_launcher(
 }
 
 export async function route_reset_state_machine(
-  x: gt.ResetStateMachineRequestInput,
+  x: gt.ResetStateMachineRequest,
 ): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
   return await post(GoHTTPRouteHelpers.resetStateMachine(), x);
 }
@@ -1090,7 +1090,7 @@ export async function route_run_code(
 }
 
 export async function route_run_detached(
-  x: gt.RunDetachedRequestInput,
+  x: gt.RunDetachedRequest,
 ): Promise<ResponseDataAndStatus<gt.RunDetachedResponse>> {
   return await post(GoHTTPRouteHelpers.runDetached(), x);
 }
@@ -1216,7 +1216,7 @@ export async function route_set_chat_section_settings(
 }
 
 export async function route_set_chat_section_state(
-  x: gt.SetChatSectionStateRequestInput,
+  x: gt.SetChatSectionStateRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.setChatSectionState(), x);
 }
@@ -1315,8 +1315,8 @@ export async function route_set_llm_config(
 }
 
 export async function route_set_llmapi_keys(
-  x: gt.SetLLMAPIKeysRequestInput,
-): Promise<ResponseDataAndStatus<gt.ManagedAPIKeysSnapshot>> {
+  x: gt.SetLLMAPIKeysRequest,
+): Promise<ResponseDataAndStatus<gt.LLMAPIKeysSnapshot>> {
   return await post(GoHTTPRouteHelpers.setLLMAPIKeys(), x);
 }
 
@@ -1609,19 +1609,19 @@ export async function route_setup_launcher(
 }
 
 export async function route_start_agent_run(
-  x: gt.StartAgentRunRequestInput,
+  x: gt.StartAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startAgentRun(), x);
 }
 
 export async function route_start_run_chain(
-  x: gt.StartRunChainRequestInput,
+  x: gt.StartRunChainRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startRunChain(), x);
 }
 
 export async function route_start_state_machine_run(
-  x: gt.StartStateMachineRunRequestInput,
+  x: gt.StartStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.startStateMachineRun(), x);
 }
@@ -1633,7 +1633,7 @@ export async function route_start_transcription_session(
 }
 
 export async function route_stop_agent_run(
-  x: gt.StopAgentRunRequestInput,
+  x: gt.StopAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopAgentRun(), x);
 }
@@ -1651,20 +1651,20 @@ export async function route_stop_llm_chat(
 }
 
 export async function route_stop_run_chain(
-  x: gt.StopRunChainRequestInput,
+  x: gt.StopRunChainRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
   return await post(GoHTTPRouteHelpers.stopRunChain(), x);
 }
 
 export async function route_stop_state_machine_run(
-  x: gt.StopStateMachineRunRequestInput,
+  x: gt.StopStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.StateMachineRunControlResponse>> {
   return await post(GoHTTPRouteHelpers.stopStateMachineRun(), x);
 }
 
 export async function route_stop_transcription_session(
   x: gt.StopTranscriptionSessionRequest,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+): Promise<ResponseDataAndStatus<gt.Delta>> {
   return await post(GoHTTPRouteHelpers.stopTranscriptionSession(), x);
 }
 
@@ -1773,7 +1773,7 @@ export async function route_unselect_all_params(
 }
 
 export async function route_update_agent_profile(
-  x: gt.UpdateAgentProfileRequestInput,
+  x: gt.UpdateAgentProfileRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentProfile>> {
   return await post(GoHTTPRouteHelpers.updateAgentProfile(), x);
 }
@@ -1797,13 +1797,13 @@ export async function route_update_edge(
 }
 
 export async function route_update_engine_config(
-  x: gt.UpdateEngineConfigRequestInput,
+  x: gt.UpdateEngineConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.EngineConfig>> {
   return await post(GoHTTPRouteHelpers.updateEngineConfig(), x);
 }
 
 export async function route_update_external_agent_config(
-  x: gt.UpdateExternalAgentConfigRequestInput,
+  x: gt.UpdateExternalAgentConfigRequest,
 ): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
   return await post(GoHTTPRouteHelpers.updateExternalAgentConfig(), x);
 }
@@ -1821,7 +1821,7 @@ export async function route_update_param_impl_config(
 }
 
 export async function route_update_prompt_template(
-  x: gt.UpdatePromptTemplateRequestInput,
+  x: gt.UpdatePromptTemplateRequest,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post(GoHTTPRouteHelpers.updatePromptTemplate(), x);
 }
@@ -1833,7 +1833,7 @@ export async function route_update_state_machine_edge(
 }
 
 export async function route_update_transcription_profile(
-  x: gt.UpdateTranscriptionProfileRequestInput,
+  x: gt.UpdateTranscriptionProfileRequest,
 ): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
   return await post(GoHTTPRouteHelpers.updateTranscriptionProfile(), x);
 }

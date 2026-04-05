@@ -24,9 +24,9 @@ import {
   DateControlModeEnum,
   DateSelectionMode,
   DateSelectionModeEnum,
+  NotificationTypeEnum,
   Position,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSectionWithResult } from "./createSections";
@@ -376,7 +376,7 @@ async function applyMetaControlParamConfigAfterCreate(
     addTemporaryNotification(
       getErrorDetail(response.data) ??
         "Failed to apply meta control configuration after section creation.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }

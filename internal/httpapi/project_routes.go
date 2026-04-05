@@ -1288,6 +1288,8 @@ type GetChatSectionChatIDRequest struct {
 	SectionID string `json:"sectionId"`
 }
 
+type ChatSectionChatIDResponse string
+
 type SetChatSectionChatIDRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/managedchat"
 )
 
 const RunTypeExternalAgent = "external_agent"
@@ -39,11 +40,7 @@ type ChatState struct {
 	ToolCallArguments  map[string]string `json:"toolCallArguments"`
 }
 
-type ChatContextUsage struct {
-	ContextWindowTokens *int `json:"contextWindowTokens"`
-	ContextUsedTokens   *int `json:"contextUsedTokens"`
-	Estimated           bool `json:"estimated"`
-}
+type ChatContextUsage = managedchat.ChatContextUsage
 
 type HydratedChat struct {
 	Messages                 []map[string]any  `json:"messages"`

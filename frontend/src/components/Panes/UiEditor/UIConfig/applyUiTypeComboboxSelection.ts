@@ -13,7 +13,7 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { CALENDAR_PRESET_ID, CodeObjTypeFilterKey } from "./UITypeCombobox";
 
@@ -45,7 +45,7 @@ export async function applyUiTypeComboboxSelection(args: {
     if (!res200(changeRes)) {
       addTemporaryNotification(
         getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
       return;
     }
@@ -64,7 +64,7 @@ export async function applyUiTypeComboboxSelection(args: {
       addTemporaryNotification(
         getErrorDetail(configRes.data) ??
           "Failed to apply calendar preset configuration.",
-        SettaNotificationTypeEnum.error,
+        NotificationTypeEnum.error,
       );
       return;
     }
@@ -81,7 +81,7 @@ export async function applyUiTypeComboboxSelection(args: {
   if (!res200(changeRes)) {
     addTemporaryNotification(
       getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }

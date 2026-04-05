@@ -73,7 +73,7 @@ import {
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
@@ -1216,7 +1216,7 @@ function ProjectChatSurface({
     notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
     addPersistentNotification(
       externalEngineIssueMessage,
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
 

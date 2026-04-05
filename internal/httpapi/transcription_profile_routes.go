@@ -27,7 +27,7 @@ type TranscriptionProfileRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type createTranscriptionProfileRequest struct {
+type CreateTranscriptionProfileRequest struct {
 	Name                     *string                              `json:"name"`
 	TranscriptionLLMConfigID *string                              `json:"transcriptionLlmConfigId"`
 	TransportMode            *transcriptionprofiles.TransportMode `json:"transportMode"`
@@ -35,15 +35,15 @@ type createTranscriptionProfileRequest struct {
 	Language                 *string                              `json:"language"`
 }
 
-type updateTranscriptionProfileRequest struct {
-	Profile *transcriptionProfilePayload `json:"profile"`
+type UpdateTranscriptionProfileRequest struct {
+	Profile *TranscriptionProfilePayload `json:"profile"`
 }
 
-type deleteTranscriptionProfileRequest struct {
+type DeleteTranscriptionProfileRequest struct {
 	ProfileID *string `json:"profileId"`
 }
 
-type transcriptionProfilePayload struct {
+type TranscriptionProfilePayload struct {
 	ID                       *string                              `json:"id"`
 	Name                     *string                              `json:"name"`
 	TranscriptionLLMConfigID *string                              `json:"transcriptionLlmConfigId"`
@@ -172,7 +172,7 @@ func createTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[createTranscriptionProfileRequest](r)
+		payload, err := decodeStrictJSONBody[CreateTranscriptionProfileRequest](r)
 		if err != nil {
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -208,7 +208,7 @@ func updateTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updateTranscriptionProfileRequest](r)
+		payload, err := decodeStrictJSONBody[UpdateTranscriptionProfileRequest](r)
 		if err != nil {
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -249,7 +249,7 @@ func deleteTranscriptionProfileHandler(deps TranscriptionProfileRouteDependencie
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[deleteTranscriptionProfileRequest](r)
+		payload, err := decodeStrictJSONBody[DeleteTranscriptionProfileRequest](r)
 		if err != nil {
 			writeValidationError(w, http.StatusUnprocessableEntity, err.Error())
 			return
@@ -311,7 +311,7 @@ func writeTranscriptionProfileServiceError(w http.ResponseWriter, r *http.Reques
 
 func buildCreatedTranscriptionProfile(
 	w http.ResponseWriter,
-	payload createTranscriptionProfileRequest,
+	payload CreateTranscriptionProfileRequest,
 ) (transcriptionprofiles.Profile, bool) {
 	name, llmConfigID, transportMode, chunkMs, ok := validateTranscriptionProfileFields(
 		w,
@@ -339,7 +339,7 @@ func buildCreatedTranscriptionProfile(
 
 func buildUpdatedTranscriptionProfile(
 	w http.ResponseWriter,
-	payload *transcriptionProfilePayload,
+	payload *TranscriptionProfilePayload,
 ) (transcriptionprofiles.Profile, bool) {
 	name, llmConfigID, transportMode, chunkMs, ok := validateTranscriptionProfileFields(
 		w,

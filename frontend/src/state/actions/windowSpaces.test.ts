@@ -14,8 +14,8 @@ import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  NotificationTypeEnum,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
   createChatSectionImpl,
   createCore,
   createProjectChatWindowingState,
@@ -1416,7 +1416,7 @@ describe("window-space share policy gating", () => {
     );
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Cannot restore this window space because deployment policy disallows restoring saved chat threads.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   });
 });
@@ -1816,7 +1816,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(createdWindowSpaceId).toBeNull();
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Failed to save window space (404): Not Found",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
   });
@@ -1958,7 +1958,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     expect(routeCreateWindowSpaceMock).not.toHaveBeenCalled();
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Failed to sync window layout before saving (404): Not Found",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   });
 });
@@ -2616,7 +2616,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Failed to restore saved chat threads.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   });
 

@@ -6,7 +6,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AgentRunStatusEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   createAgentRun,
   createProjectConfig,
 } from "utils/generatedTypes";
@@ -347,7 +347,7 @@ describe("stateMachineRuns", () => {
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "machine group missing",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   });
 

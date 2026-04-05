@@ -52,7 +52,7 @@ import {
   CodeObjTypeEnum,
   DropzoneModeEnum,
   FileArtifact,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   type ContentRef,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -124,7 +124,7 @@ function notifyOversizedFiles(files: File[], limitLabel: string): void {
       ", ",
     )}${suffix}.`;
   }
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyReadFailures(files: File[]): void {
@@ -136,7 +136,7 @@ function notifyReadFailures(files: File[]): void {
     files.length > names.length ? ` +${files.length - names.length} more` : "";
   const noun = files.length === 1 ? "file" : "files";
   const message = `Failed to read ${files.length} ${noun}: ${names.join(", ")}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyUploadFailures(files: File[]): void {
@@ -150,7 +150,7 @@ function notifyUploadFailures(files: File[]): void {
   const message = `Failed to upload ${files.length} ${noun}: ${names.join(
     ", ",
   )}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
@@ -160,7 +160,7 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   const names = files.slice(0, 3).map((file) => file.name);
   if (files.length === 1) {
     const message = `File "${names[0]}" would exceed the ${limitLabel} total payload limit.`;
-    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(message, NotificationTypeEnum.warning);
     return;
   }
   const suffix =
@@ -168,12 +168,12 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   const message = `Skipped ${files.length} files to stay under ${limitLabel} total payload: ${names.join(
     ", ",
   )}${suffix}.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyDisallowedMime(files: File[], allowedLabel: string): void {
@@ -185,13 +185,13 @@ function notifyDisallowedMime(files: File[], allowedLabel: string): void {
       ? "A file was skipped due to type restrictions."
       : "Some files were skipped due to type restrictions.";
   const message = `${prefix} ${allowedLabel}`.trim();
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function notifyInvalidStatefulValue(): void {
   const message =
     "Dropzone value is not valid JSON. Clear it before adding attachments.";
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 function splitFilesBySize(
@@ -521,7 +521,7 @@ export function DropzoneInput({
     }
     const detail = getErrorDetail(res.data);
     const message = detail ?? "Failed to update attachments.";
-    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(message, NotificationTypeEnum.warning);
     if (artifactIds.length > 0) {
       const deleteRes = await route_delete_artifacts({
         artifacts: artifactIds.map((artifactId) => ({
@@ -533,10 +533,7 @@ export function DropzoneInput({
         const deleteDetail = getErrorDetail(deleteRes.data);
         const deleteMessage =
           deleteDetail ?? "Failed to clean up uploaded attachments.";
-        addTemporaryNotification(
-          deleteMessage,
-          SettaNotificationTypeEnum.warning,
-        );
+        addTemporaryNotification(deleteMessage, NotificationTypeEnum.warning);
       }
     }
     onChange(previousValue, { skipBackendUpdate: true });
@@ -717,7 +714,7 @@ export function DropzoneInput({
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to upload attachments.";
-        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+        addTemporaryNotification(message, NotificationTypeEnum.warning);
         return;
       }
       const newAttachments: DropzoneStoredAttachment[] = successfulUploads.map(
@@ -834,7 +831,7 @@ export function DropzoneInput({
         const detail = getErrorDetail(res.data);
         const message =
           detail ?? "Failed to import server files into attachments.";
-        addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+        addTemporaryNotification(message, NotificationTypeEnum.warning);
         return;
       }
       const newAttachments: DropzoneStoredAttachment[] = res.data.map(
@@ -871,7 +868,7 @@ export function DropzoneInput({
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachment.";
-      addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+      addTemporaryNotification(message, NotificationTypeEnum.warning);
       return false;
     }
     return true;

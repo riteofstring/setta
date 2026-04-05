@@ -757,7 +757,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"zIndex": "number",
 		},
 	},
-	reflect.TypeOf(SetChatSectionStateRequestInput{}):               reflectedOptionalPropertiesSpec("frontendOpId"),
+	reflect.TypeOf(httpapi.SetChatSectionStateRequest{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(SetStateMachineSectionSettingsRequestInput{}):    reflectedOptionalPropertiesSpec("frontendOpId", "gateType"),
 	reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{}): reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(UpdateEdgeRequestInput{}):                        reflectedOptionalPropertiesSpec("frontendOpId"),

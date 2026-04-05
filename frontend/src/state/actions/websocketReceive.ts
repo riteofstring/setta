@@ -47,9 +47,9 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
+  NotificationTypeEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
-  SettaNotificationTypeEnum,
   UISettingRevealContent,
   UISettingRevealContentSchema,
   UISettingRevealResultStatus,
@@ -995,7 +995,7 @@ function maybeWarnRealtimeOversize(message: string) {
     return;
   }
   lastRealtimeBinaryOversizeWarningAt = now;
-  addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
 async function uploadRealtimeBinaryPayload(

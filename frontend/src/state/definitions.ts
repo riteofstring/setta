@@ -50,10 +50,10 @@ import {
   ListenerCoverageSnapshot,
   LLMConfig,
   LSPDiagnostic,
+  Notification,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaNotification,
   SettingsState,
   SharePolicy,
   SingleConfig,
@@ -476,7 +476,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
+type ZustandNotificationState = { notifications: Array<Notification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({

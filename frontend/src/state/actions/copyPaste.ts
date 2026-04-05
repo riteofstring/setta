@@ -13,8 +13,8 @@ import {
 import {
   BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
+  NotificationTypeEnum,
   SectionsClipboardDataResponse,
-  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
@@ -36,10 +36,7 @@ export async function copy() {
       await navigator.clipboard.writeText(JSON.stringify(res.data));
       addTemporaryNotification("Copied to clipboard");
     } else {
-      addTemporaryNotification(
-        "Copying failed!",
-        SettaNotificationTypeEnum.error,
-      );
+      addTemporaryNotification("Copying failed!", NotificationTypeEnum.error);
     }
   }
 }

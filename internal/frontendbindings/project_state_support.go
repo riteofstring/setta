@@ -121,8 +121,6 @@ type GetNotificationsRequestInput httpapi.GetNotificationsRequest
 
 type DeleteNotificationRequestInput httpapi.DeleteNotificationRequest
 
-type NotificationsResponse []SettaNotification
-
 type DeleteNotificationResponse httpapi.DeleteNotificationResponse
 
 type DocstringToMarkdownResponse string

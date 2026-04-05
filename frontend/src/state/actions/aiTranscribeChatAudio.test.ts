@@ -4,7 +4,7 @@ import {
   route_start_transcription_session,
   route_stop_transcription_session,
 } from "utils/generatedEndpoints";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { NotificationTypeEnum } from "utils/generatedTypes";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -101,7 +101,7 @@ describe("transcription session actions", () => {
     expect(response).toBeNull();
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Provider transcription failed.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   });
 

@@ -77,18 +77,18 @@ type GetExternalAgentChatRequest struct {
 	ProjectConfigID *string `json:"projectConfigId"`
 }
 
+type LLMChatIDResponse string
+
+type LLMChatResponse managedchat.HydratedChat
+
 type GetLLMChatRequest struct {
 	ChatID          string  `json:"chatId"`
 	ProjectConfigID *string `json:"projectConfigId"`
 }
 
-type GetExternalAgentChatResponse struct {
-	Messages                 []map[string]any                 `json:"messages"`
-	WaitingForResponse       bool                             `json:"waitingForResponse"`
-	ToolCallArguments        map[string]string                `json:"toolCallArguments"`
-	ContextUsage             *externalagents.ChatContextUsage `json:"contextUsage"`
-	AppGenerationByMessageID map[string]string                `json:"appGenerationByMessageId"`
-}
+type ExternalAgentChatResponse externalagents.HydratedChat
+
+type StopLLMChatResponse managedchat.StopResult
 
 type StopLLMChatRequest struct {
 	ChatID string `json:"chatId"`
@@ -199,7 +199,7 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 		}
 		result, err := deps.ManagedChats.StartChat(managedRequest)
 		if err == nil {
-			writeJSON(w, http.StatusOK, result.ChatID)
+			writeJSON(w, http.StatusOK, LLMChatIDResponse(result.ChatID))
 			return
 		}
 		if !errors.Is(err, agentruns.ErrManagedLLMEngineRequired) {
@@ -232,7 +232,7 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 			writeGetLLMResponseError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, resultExternal.ChatID)
+		writeJSON(w, http.StatusOK, LLMChatIDResponse(resultExternal.ChatID))
 	}
 }
 
@@ -274,7 +274,7 @@ func getLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, hydrated)
+		writeJSON(w, http.StatusOK, LLMChatResponse(hydrated))
 	}
 }
 
@@ -304,7 +304,7 @@ func stopLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, stopped)
+		writeJSON(w, http.StatusOK, StopLLMChatResponse(stopped))
 	}
 }
 
@@ -346,13 +346,7 @@ func getExternalAgentChatHandler(deps AIRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, GetExternalAgentChatResponse{
-			Messages:                 hydrated.Messages,
-			WaitingForResponse:       hydrated.WaitingForResponse,
-			ToolCallArguments:        hydrated.ToolCallArguments,
-			ContextUsage:             hydrated.ContextUsage,
-			AppGenerationByMessageID: hydrated.AppGenerationByMessageID,
-		})
+		writeJSON(w, http.StatusOK, ExternalAgentChatResponse(hydrated))
 	}
 }
 

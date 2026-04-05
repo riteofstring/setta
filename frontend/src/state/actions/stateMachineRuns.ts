@@ -12,7 +12,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AgentRunStatusEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   type AgentRun,
 } from "utils/generatedTypes";
 import {
@@ -251,7 +251,7 @@ async function runStateMachineMutation<TSuccess>({
   if (!res200(res)) {
     addTemporaryNotification(
       getErrorDetail(res.data) ?? failureMessage,
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     return false;
   }

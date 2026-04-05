@@ -357,380 +357,6 @@ export type PluginRestartResponse = {
   reason: string | null;
 };
 
-export const SettaNotificationTypeEnum = {
-  error: "error",
-  warning: "warning",
-  info: "info",
-  save: "save",
-} as const;
-export type SettaNotificationType = ObjectValues<
-  typeof SettaNotificationTypeEnum
->;
-
-export type SettaNotification = {
-  id: string;
-  projectConfigId: string;
-  type: SettaNotificationType;
-  message: string;
-  temporary: boolean;
-  timestamp: string;
-  metadata: Record<string, unknown>;
-  read_status: boolean;
-};
-export function createSettaNotification(
-  options: Partial<SettaNotification> = {},
-): SettaNotification {
-  return options as SettaNotification;
-}
-
-type ChatContextUsage = {
-  contextWindowTokens: number | null;
-  contextUsedTokens: number | null;
-  estimated: boolean;
-};
-
-export type ManagedAPIKeysSnapshot = {
-  apiKeys: Record<string, string>;
-  revision: number;
-  corrupt: boolean;
-  errorCode: string | null;
-  message: string | null;
-};
-
-export type APIKeys = Record<string, string>;
-
-export type SetLLMAPIKeysRequestInput = {
-  apiKeys: APIKeys;
-  expectedRevision: number;
-};
-
-export type CreateAgentProfileRequestInput = {
-  name: string | null;
-  description: string | null;
-  systemPrompt: string | null;
-  enableBackgroundSummaryFill: boolean | null;
-  enableLlmChatTitles: boolean | null;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-export type GetAgentProfileRequestInput = {
-  profileId: string;
-};
-
-export type DeleteAgentProfileRequestInput = {
-  profileId: string;
-};
-
-export const PromptFormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
-
-export type PromptTemplate = {
-  id: string;
-  name: string;
-  description: string;
-  template: string;
-  format: PromptFormat;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type PromptTemplateListResponse = Array<PromptTemplate>;
-
-export type GetPromptTemplateRequestInput = {
-  templateId: string;
-};
-
-export type CreatePromptTemplateRequestInput = {
-  name: string | null;
-  description: string | null;
-  template: string | null;
-  format: PromptFormat | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type UpdatePromptTemplateRequestInput = {
-  template: PromptTemplate;
-};
-
-export type DeletePromptTemplateRequestInput = {
-  templateId: string;
-};
-
-export const ExternalAgentToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-} as const;
-type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
-
-export const ExternalAgentRunModeEnum = {
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-  app_server: "app_server",
-} as const;
-type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
-
-export const ExternalAgentSettingsModeEnum = {
-  read_only: "read_only",
-  managed_local: "managed_local",
-  managed_project: "managed_project",
-  explicit_path: "explicit_path",
-} as const;
-type ExternalAgentSettingsMode = ObjectValues<
-  typeof ExternalAgentSettingsModeEnum
->;
-
-export const ClaudeSettingsSourceEnum = {
-  user: "user",
-  project: "project",
-  local: "local",
-} as const;
-type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
-
-type ClaudeSettingsPermissions = {
-  allow: Array<string>;
-  ask: Array<string>;
-  deny: Array<string>;
-};
-
-type ClaudeSettingsManaged = {
-  permissions?: ClaudeSettingsPermissions | null;
-  defaultMode?: string | null;
-  mcp?: Record<string, unknown>;
-};
-
-type ExternalAgentSettingsManagedBlock = {
-  claude?: ClaudeSettingsManaged | null;
-  codex?: Record<string, unknown>;
-};
-
-export const ExternalAgentWorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-type ExternalAgentWorkingDirStrategy = ObjectValues<
-  typeof ExternalAgentWorkingDirStrategyEnum
->;
-
-export type ExternalAgentConfig = {
-  id: string;
-  name: string;
-  description: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode: ExternalAgentSettingsMode;
-  settingsSources?: Array<ClaudeSettingsSource>;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: ExternalAgentWorkingDirStrategy;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
-};
-
-export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
-
-type ExternalAgentEnvVarStatus = {
-  present: Array<string>;
-  missing: Array<string>;
-};
-
-export type ExternalAgentPreflightStatus = {
-  configId: string;
-  name: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
-  supported: boolean;
-  available: boolean;
-  issues: Array<string>;
-  sdkVersion: string | null;
-  cliVersion: string | null;
-  baseUrl: string | null;
-  workingDir: string | null;
-  envVars: ExternalAgentEnvVarStatus;
-};
-export function createExternalAgentPreflightStatus(
-  options: Partial<ExternalAgentPreflightStatus> = {},
-): ExternalAgentPreflightStatus {
-  return options as ExternalAgentPreflightStatus;
-}
-
-export type GetExternalAgentConfigRequestInput = {
-  configId: string;
-};
-
-export type CreateExternalAgentConfigRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  toolType?: ExternalAgentToolType | null;
-  runMode?: ExternalAgentRunMode | null;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode?: ExternalAgentSettingsMode | null;
-  settingsSources?: Array<ClaudeSettingsSource> | null;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
-  settingsAllowSettaEdits?: boolean | null;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy?: ExternalAgentWorkingDirStrategy | null;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
-};
-
-export type UpdateExternalAgentConfigRequestInput = {
-  config: ExternalAgentConfig;
-};
-
-export type DeleteExternalAgentConfigRequestInput = {
-  configId: string;
-};
-
-export type DeleteTranscriptionProfileRequestInput = {
-  profileId: string;
-};
-
-export type GetLLMResponseResponse = string;
-
-export type StopLLMChatResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId: string | null;
-  stoppedMessageId: string | null;
-};
-
-export type TranscriptionSessionDeltaResponse = {
-  appendText: string;
-  fullText: string;
-  isFinal: boolean;
-};
-
-export type GetAgentRunRequestInput = {
-  runId: string;
-};
-
-export type StartAgentRunRequestInput = {
-  profileId: string;
-  inputs: Record<string, unknown>;
-};
-
-export type StopAgentRunRequestInput = {
-  runId: string;
-};
-
-export type StartStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-  startSectionId?: string | null;
-};
-
-export type StopStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type ResetStateMachineRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type GetStateMachineRunRequestInput = {
-  projectConfigId: string;
-  machineGroupId: string;
-};
-
-export type StateMachineRunControlResponse = {
-  alreadyStopped: boolean;
-  stoppedRunId?: string | null;
-};
-
-const RunSnapshotModeEnum = {
-  ephemeral: "ephemeral",
-  always: "always",
-  never: "never",
-} as const;
-export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
-
-export type RunDetachedRequestInput = {
-  projectConfigId: string;
-  entrySectionId: string;
-  runSnapshotMode: RunSnapshotMode;
-  sectionVariantOverrides: Record<string, string>;
-  paramOverrides: Record<string, string>;
-  tags: Record<string, string>;
-};
-
-const DetachedRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
-
-export type RunDetachedResponse = {
-  runId: string;
-  status: DetachedRunStatus;
-};
-
-export type GetRunStatusRequestInput = {
-  runId: string;
-};
-
-export type CancelRunRequestInput = {
-  runId: string;
-};
-
-export type GetRunnerSummaryRequestInput = {
-  projectConfigId: string;
-};
-
-type RunChainStepInput = {
-  id: string;
-  name: string;
-  engineConfigId: string;
-  agentProfileId?: string | null;
-  prompt?: string | null;
-  messages?: Array<Record<string, unknown>>;
-  inputs?: Record<string, unknown>;
-  includePreviousOutputs?: boolean | null;
-};
-
-type RunChainSpecInput = {
-  id: string;
-  name: string;
-  steps: Array<RunChainStepInput>;
-  stopOnFailure?: boolean | null;
-};
-
-export type StartRunChainRequestInput = {
-  spec: RunChainSpecInput;
-  inputs: Record<string, unknown>;
-};
-
-export type StopRunChainRequestInput = {
-  runId: string;
-};
-
-export type GetEngineConfigRequestInput = {
-  configId: string;
-};
-
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
@@ -750,34 +376,6 @@ function createEngineConfigDefaults(
     options,
   );
 }
-
-export type CreateEngineConfigRequestInput = {
-  name: string | null;
-  engineType: EngineType | null;
-  settaLlmConfigId: string | null;
-  externalAgentConfigId: string | null;
-  defaults: EngineConfigDefaults | null;
-};
-
-export type DeleteEngineConfigRequestInput = {
-  configId: string;
-};
-
-export type AgentProfile = {
-  id: string;
-  name: string;
-  description: string;
-  systemPrompt: string;
-  enableBackgroundSummaryFill: boolean;
-  enableLlmChatTitles: boolean;
-  engineConfigId?: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope?: string | null;
-};
-
-export type UpdateAgentProfileRequestInput = {
-  profile: AgentProfile;
-};
 
 type EngineRuntimeSupport = {
   thinking: boolean;
@@ -821,9 +419,19 @@ export function createEngineConfig(
   };
 }
 
-export type UpdateEngineConfigRequestInput = {
-  config: EngineConfig;
+export type AgentProfile = {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
 };
+
+export type AgentProfileList = Array<AgentProfile>;
 
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
@@ -834,14 +442,6 @@ type TranscriptionTransportMode = ObjectValues<
   typeof TranscriptionTransportModeEnum
 >;
 
-export type CreateTranscriptionProfileRequestInput = {
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  language?: string | null;
-};
-
 export type TranscriptionProfile = {
   id: string;
   name: string;
@@ -851,71 +451,6 @@ export type TranscriptionProfile = {
   supportsRealtimeTranscription: boolean;
   language?: string | null;
 };
-
-export type UpdateTranscriptionProfileRequestInput = {
-  profile: TranscriptionProfile;
-};
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-
-export type SetChatSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  state: ChatSectionState;
-};
-
-export type GetChatSectionChatIDResponse = string;
-
-export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
-
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string;
-  base_url?: string;
-  api_key_env?: string;
-  other_params?: Record<string, unknown>;
-  mcpServerIds?: Array<string>;
-  temporary?: boolean;
-};
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
-}
-
-export type GetLLMChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  llmConfig?: LLMConfig | null;
-  contextUsage?: ChatContextUsage | null;
-};
-
-export type ExternalAgentChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage?: ChatContextUsage | null;
-};
-
-export type AgentProfileList = Array<AgentProfile>;
 
 export type TranscriptionProfileList = Array<TranscriptionProfile>;
 
@@ -968,6 +503,16 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 export type AgentRunList = Array<AgentRun>;
 
 export type EngineConfigList = Array<EngineConfig>;
+
+const DetachedRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
 
 export type DetachedRun = {
   runId: string;
@@ -1071,6 +616,8 @@ export type LLMStreamingResponse = {
   projectConfigId?: string | null;
 };
 
+export type APIKeys = Record<string, string>;
+
 const MCPServerTransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
@@ -1090,6 +637,20 @@ type MCPServerConfig = {
   encoding_error_handler?: string;
 };
 
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
 export type AllLLMConfigs = {
   configs: Record<string, LLMConfig>;
   mcpServers: Record<string, MCPServerConfig>;
@@ -1101,6 +662,125 @@ export function createAllLLMConfigs(
   options: Partial<AllLLMConfigs> = {},
 ): AllLLMConfigs {
   return options as AllLLMConfigs;
+}
+
+export const PromptFormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+
+export type PromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  format: PromptFormat;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export const ExternalAgentToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+} as const;
+type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
+
+export const ExternalAgentRunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
+
+export const ExternalAgentSettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+type ExternalAgentSettingsMode = ObjectValues<
+  typeof ExternalAgentSettingsModeEnum
+>;
+
+export const ExternalAgentWorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+type ExternalAgentWorkingDirStrategy = ObjectValues<
+  typeof ExternalAgentWorkingDirStrategyEnum
+>;
+
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
+
+type ClaudeSettingsPermissions = {
+  allow: Array<string>;
+  ask: Array<string>;
+  deny: Array<string>;
+};
+
+type ClaudeSettingsManaged = {
+  permissions?: ClaudeSettingsPermissions | null;
+  defaultMode?: string | null;
+  mcp?: Record<string, unknown>;
+};
+
+type ExternalAgentSettingsManagedBlock = {
+  claude?: ClaudeSettingsManaged | null;
+  codex?: Record<string, unknown>;
+};
+
+export type ExternalAgentConfig = {
+  id: string;
+  name: string;
+  description: string;
+  toolType: ExternalAgentToolType;
+  runMode: ExternalAgentRunMode;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode: ExternalAgentSettingsMode;
+  settingsSources?: Array<ClaudeSettingsSource>;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: ExternalAgentWorkingDirStrategy;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+
+type ExternalAgentEnvVarStatus = {
+  present: Array<string>;
+  missing: Array<string>;
+};
+
+export type ExternalAgentPreflightStatus = {
+  configId: string;
+  name: string;
+  toolType: ExternalAgentToolType;
+  runMode: ExternalAgentRunMode;
+  supported: boolean;
+  available: boolean;
+  issues: Array<string>;
+  sdkVersion: string | null;
+  cliVersion: string | null;
+  baseUrl: string | null;
+  workingDir: string | null;
+  envVars: ExternalAgentEnvVarStatus;
+};
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
+  return options as ExternalAgentPreflightStatus;
 }
 
 export type BinaryUploadRequestInput = FormData;
@@ -2046,6 +1726,13 @@ export type DeploymentMetadata = {
 
 export type DeploymentMetadataList = Array<DeploymentMetadata>;
 
+const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
+} as const;
+export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
+
 export type SharePolicy = {
   allowParamChanges: boolean;
   allowVariantChanges: boolean;
@@ -2591,8 +2278,6 @@ export type GetNotificationsRequestInput = {
 export type DeleteNotificationRequestInput = {
   notificationId: string;
 };
-
-export type NotificationsResponse = Array<SettaNotification>;
 
 export type DeleteNotificationResponse = {
   success: boolean;
@@ -5929,6 +5614,28 @@ export function createToolChatMessage(
   );
 }
 
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
+
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
 type UserDefaultChatSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -7984,6 +7691,16 @@ export type AppendTranscriptionAudioRequest = {
   channels: number;
 };
 
+export type Delta = {
+  appendText: string;
+  fullText: string;
+  isFinal: boolean;
+};
+
+export type CancelRunRequest = {
+  runId: string;
+};
+
 export type CancelTranscriptionSessionRequest = {
   sessionId: string;
 };
@@ -8011,6 +7728,17 @@ export type CodeAreaCompletionRequest = {
   sectionId: string;
   fullText: string;
   position: number;
+};
+
+export type CreateAgentProfileRequest = {
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope: string | null;
 };
 
 export type CreateAgenticEdgeRequest = {
@@ -8061,6 +7789,44 @@ export type CreateEdgeRequest = {
   data: JSONValue;
 };
 
+export type CreateEngineConfigRequest = {
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
+};
+
+export type CreateExternalAgentConfigRequest = {
+  name: string | null;
+  description: string | null;
+  toolType: ExternalAgentToolType | null;
+  runMode: ExternalAgentRunMode | null;
+  commandPath: string | null;
+  baseUrl: string | null;
+  defaultModel: string | null;
+  sandboxPolicy: string | null;
+  approvalPolicy: string | null;
+  settingsMode: ExternalAgentSettingsMode | null;
+  settingsSources: Array<ClaudeSettingsSource>;
+  settingsFilePath: string | null;
+  settingsManagedBlock: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean | null;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: ExternalAgentWorkingDirStrategy | null;
+  workingDir: string | null;
+  codexSkipGitRepoCheck: boolean | null;
+};
+
+export type CreatePromptTemplateRequest = {
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: PromptFormat | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
 export type CreateStateMachineEdgeRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
@@ -8077,6 +7843,14 @@ export type CreateStateMachineEdgeRequest = {
   hidden: boolean;
   zIndex: number;
   selected: boolean;
+};
+
+export type CreateTranscriptionProfileRequest = {
+  name: string | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: TranscriptionTransportMode | null;
+  chunkMs: number | null;
+  language: string | null;
 };
 
 export type CreateWindowSpaceRequest = {
@@ -8131,6 +7905,18 @@ export type CreateWorkspaceLaunchIntentResponse = {
   error: WorkspaceLaunchErrorPayload | null;
 };
 
+export type DeleteAgentProfileRequest = {
+  profileId: string;
+};
+
+export type DeleteEngineConfigRequest = {
+  configId: string;
+};
+
+export type DeleteExternalAgentConfigRequest = {
+  configId: string;
+};
+
 export type DeleteJSONSourceFileAndVariantRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -8138,10 +7924,18 @@ export type DeleteJSONSourceFileAndVariantRequest = {
   filepath: string;
 };
 
+export type DeletePromptTemplateRequest = {
+  templateId: string;
+};
+
 export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
   variantId: string;
+};
+
+export type DeleteTranscriptionProfileRequest = {
+  profileId: string | null;
 };
 
 export type ProjectConfigMutationResponse = {
@@ -8172,6 +7966,14 @@ export type GenCodeSuffixCompletionRequest = {
   projectConfigId: string;
   fullText: string;
   position: number;
+};
+
+export type GetAgentProfileRequest = {
+  profileId: string;
+};
+
+export type GetAgentRunRequest = {
+  runId: string;
 };
 
 export type GetAgenticSummaryCacheStatusRequest = {
@@ -8257,18 +8059,36 @@ export type GetChatSectionChatIDRequest = {
   sectionId: string;
 };
 
+export type ChatSectionChatIDResponse = string;
+
+export type GetEngineConfigRequest = {
+  configId: string;
+};
+
 export type GetExternalAgentChatRequest = {
   chatId: string;
   projectConfigId: string | null;
 };
 
-export type GetExternalAgentChatResponse = {
+type ChatContextUsage = {
+  contextWindowTokens: number | null;
+  contextUsedTokens: number | null;
+  estimated: boolean;
+};
+
+export type ExternalAgentChatResponse = {
   messages: Array<Record<string, unknown>>;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
   contextUsage: ChatContextUsage | null;
   appGenerationByMessageId: Record<string, string>;
 };
+
+export type GetExternalAgentConfigRequest = {
+  configId: string;
+};
+
+export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
 
 type SectionTypeErrors = {
   callable: Array<string>;
@@ -8481,6 +8301,15 @@ export type GetLLMChatRequest = {
   projectConfigId: string | null;
 };
 
+export type LLMChatResponse = {
+  messages: Array<Record<string, unknown>>;
+  toolCallArguments: Record<string, string>;
+  waitingForResponse: boolean;
+  llmConfig: LLMConfig | null;
+  contextUsage: ChatContextUsage | null;
+  appGenerationByMessageId: Record<string, string>;
+};
+
 export type GetLLMResponseRequest = {
   chatId: string | null;
   continueFromChatId: string | null;
@@ -8501,6 +8330,16 @@ export type GetLLMResponseRequest = {
   appGenerationByMessageId: Record<string, string>;
   appGenerationReferenceImageUrl: string | null;
   appGenerationReferenceImageNotes: string | null;
+};
+
+export type LLMChatIDResponse = string;
+
+export type LLMAPIKeysSnapshot = {
+  apiKeys: Record<string, string>;
+  revision: number;
+  corrupt: boolean;
+  errorCode: string | null;
+  message: string | null;
 };
 
 export type MCPRuntimeStatusRequest = {
@@ -8563,6 +8402,32 @@ export type MCPRuntimeStatusResponse = {
   resolvedServers: Array<MCPResolvedRuntimeServer>;
 };
 
+export const NotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
+
+export type Notification = {
+  id: string;
+  projectConfigId: string;
+  type: NotificationType;
+  message: string;
+  temporary: boolean;
+  timestamp: string;
+  metadata: Record<string, unknown>;
+  read_status: boolean;
+};
+export function createNotification(
+  options: Partial<Notification> = {},
+): Notification {
+  return options as Notification;
+}
+
+export type NotificationList = Array<Notification>;
+
 export type GetPasswordParamValueRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -8571,6 +8436,20 @@ export type GetPasswordParamValueRequest = {
 
 export type GetPasswordParamValueResponse = {
   value: string;
+};
+
+export type GetPromptTemplateRequest = {
+  templateId: string;
+};
+
+export type PromptTemplateList = Array<PromptTemplate>;
+
+export type GetRunStatusRequest = {
+  runId: string;
+};
+
+export type GetRunnerSummaryRequest = {
+  projectConfigId: string;
 };
 
 type RunnerSummaryVariant = {
@@ -8607,6 +8486,11 @@ export type SettaHomeInfoResponse = {
   globalSettaFilesBase: string;
   activeSettaFilesLocation: string | null;
   llmConfigPath: string;
+};
+
+export type GetStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
 };
 
 const LaunchResolvedSettaFilesLocationEnum = {
@@ -8773,6 +8657,16 @@ export type LauncherRequestBase = {
   settaHome: string | null;
 };
 
+export type ResetStateMachineRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+};
+
+export type StateMachineRunControlResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+};
+
 export type RespondExternalAgentApprovalRequest = {
   approvalId: string;
   approved: boolean;
@@ -8796,6 +8690,20 @@ export type RunCodeRequest = {
   drawSnapshotsBySectionId: Record<string, ContentRef>;
   sectionVariantOverrides: Record<string, string>;
   paramOverrides: Record<string, string>;
+};
+
+export type RunDetachedRequest = {
+  projectConfigId: string;
+  entrySectionId: string;
+  runSnapshotMode: RunSnapshotMode;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+  tags: Record<string, string>;
+};
+
+export type RunDetachedResponse = {
+  runId: string;
+  status: DetachedRunStatus;
 };
 
 export type SaveSettingsRequest = {
@@ -8852,6 +8760,13 @@ export type SetChatSectionChatIDRequest = {
   chatId: string | null;
 };
 
+export type SetChatSectionStateRequest = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  state: ChatSectionState;
+};
+
 export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -8863,6 +8778,11 @@ export type SetCodeSectionDiagnosticsMuteRequest = {
   projectConfigId: string;
   sectionId: string;
   mute: boolean;
+};
+
+export type SetLLMAPIKeysRequest = {
+  apiKeys: Record<string, string>;
+  expectedRevision: number;
 };
 
 export type SetParentDefaultChildSectionTypeRequest = {
@@ -8965,6 +8885,40 @@ export type SetupLauncherRequest = {
   artifactOptions?: Record<string, string> | null;
 };
 
+export type StartAgentRunRequest = {
+  profileId: string;
+  inputs: Record<string, unknown>;
+};
+
+type StepInput = {
+  id: string;
+  name: string;
+  engineConfigId: string;
+  agentProfileId?: string | null;
+  prompt?: string | null;
+  messages?: Array<Record<string, unknown>>;
+  inputs?: Record<string, unknown>;
+  includePreviousOutputs?: boolean | null;
+};
+
+type SpecInput = {
+  id: string;
+  name: string;
+  steps: Array<StepInput>;
+  stopOnFailure?: boolean | null;
+};
+
+export type StartRunChainRequest = {
+  spec: SpecInput;
+  inputs: Record<string, unknown>;
+};
+
+export type StartStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
+  startSectionId?: string | null;
+};
+
 export type StartTranscriptionSessionRequest = {
   transcriptionProfileId: string;
   language: string | null;
@@ -8976,12 +8930,31 @@ export type StartTranscriptionSessionResponse = {
   chunkMs: number;
 };
 
+export type StopAgentRunRequest = {
+  runId: string;
+};
+
 export type StopExternalAgentRunRequest = {
   runId: string;
 };
 
 export type StopLLMChatRequest = {
   chatId: string;
+};
+
+export type StopLLMChatResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId: string | null;
+  stoppedMessageId: string | null;
+};
+
+export type StopRunChainRequest = {
+  runId: string;
+};
+
+export type StopStateMachineRunRequest = {
+  projectConfigId: string;
+  machineGroupId: string;
 };
 
 export type StopTranscriptionSessionRequest = {
@@ -8998,6 +8971,40 @@ export type TextFieldCompletionRequest = {
 
 export type TypeCheckRequest = {
   projectConfigId: string;
+};
+
+type AgentProfilePayload = {
+  id: string | null;
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope: string | null;
+};
+
+export type UpdateAgentProfileRequest = {
+  profile: AgentProfilePayload | null;
+};
+
+type UpdateEngineConfigPayload = {
+  id: string | null;
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
+  runtimeSupport: EngineRuntimeSupport | null;
+};
+
+export type UpdateEngineConfigRequest = {
+  config: UpdateEngineConfigPayload | null;
+};
+
+export type UpdateExternalAgentConfigRequest = {
+  config: ExternalAgentConfig | null;
 };
 
 export type UpdateLauncherRequest = {
@@ -9029,6 +9036,34 @@ export type LauncherUpdateResponse = {
   packageSpec?: string | null;
   fromVersion?: string | null;
   toVersion?: string | null;
+};
+
+type PromptTemplatePayload = {
+  id: string | null;
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: PromptFormat | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type UpdatePromptTemplateRequest = {
+  template: PromptTemplatePayload | null;
+};
+
+type TranscriptionProfilePayload = {
+  id: string | null;
+  name: string | null;
+  transcriptionLlmConfigId: string | null;
+  transportMode: TranscriptionTransportMode | null;
+  chunkMs: number | null;
+  supportsRealtimeTranscription: boolean | null;
+  language: string | null;
+};
+
+export type UpdateTranscriptionProfileRequest = {
+  profile: TranscriptionProfilePayload | null;
 };
 
 export type UpsertAppGenCustomSkillRequest = {

@@ -44,11 +44,11 @@ type GetAgentProfileRequest struct {
 	ProfileID string `json:"profileId"`
 }
 
-type updateAgentProfileRequest struct {
-	Profile *agentProfilePayload `json:"profile"`
+type UpdateAgentProfileRequest struct {
+	Profile *AgentProfilePayload `json:"profile"`
 }
 
-type agentProfilePayload struct {
+type AgentProfilePayload struct {
 	ID                          *string  `json:"id"`
 	Name                        *string  `json:"name"`
 	Description                 *string  `json:"description"`
@@ -252,7 +252,7 @@ func updateAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updateAgentProfileRequest](r)
+		payload, err := decodeStrictJSONBody[UpdateAgentProfileRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -373,7 +373,7 @@ func buildCreatedAgentProfile(payload CreateAgentProfileRequest) (agentprofiles.
 	return profile, nil
 }
 
-func buildUpdatedAgentProfile(payload updateAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {
+func buildUpdatedAgentProfile(payload UpdateAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {
 	if payload.Profile == nil {
 		return agentprofiles.Profile{}, &agentProfileRouteError{
 			Status:  http.StatusBadRequest,

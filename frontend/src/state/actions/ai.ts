@@ -67,17 +67,17 @@ import {
   route_get_external_agent_chat,
   route_get_external_agent_configs,
   route_get_external_agent_health,
-  route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
+  route_get_llmapi_keys,
   route_get_prompt_templates,
   route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
-  route_set_llm_api_keys,
   route_set_llm_config,
+  route_set_llmapi_keys,
   route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
@@ -102,27 +102,27 @@ import {
   ChatPermissionModeEnum,
   ChatRoleEnum,
   ChatSectionState,
-  CreateAgentProfileRequestInput,
-  CreateExternalAgentConfigRequestInput,
+  CreateAgentProfileRequest,
+  CreateExternalAgentConfigRequest,
   createMessageTextContent,
-  CreatePromptTemplateRequestInput,
-  CreateTranscriptionProfileRequestInput,
-  DeleteAgentProfileRequestInput,
-  DeleteExternalAgentConfigRequestInput,
-  DeletePromptTemplateRequestInput,
-  DeleteTranscriptionProfileRequestInput,
+  CreatePromptTemplateRequest,
+  CreateTranscriptionProfileRequest,
+  DeleteAgentProfileRequest,
+  DeleteExternalAgentConfigRequest,
+  DeletePromptTemplateRequest,
+  DeleteTranscriptionProfileRequest,
   EngineConfig,
   ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
-  GetLLMChatResponse,
+  LLMAPIKeysSnapshot,
+  LLMChatResponse,
   LLMStreamingResponse,
-  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageStartEvent,
+  NotificationTypeEnum,
   PromptTemplate,
-  SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
   StopLLMChatResponse,
   StreamingEventTypeEnum,
@@ -132,11 +132,11 @@ import {
   ToolResultEvent,
   TranscriptionProfile,
   TranscriptionSessionDeltaResponse,
-  UpdateAgentProfileRequestInput,
-  UpdateEngineConfigRequestInput,
-  UpdateExternalAgentConfigRequestInput,
-  UpdatePromptTemplateRequestInput,
-  UpdateTranscriptionProfileRequestInput,
+  UpdateAgentProfileRequest,
+  UpdateEngineConfigRequest,
+  UpdateExternalAgentConfigRequest,
+  UpdatePromptTemplateRequest,
+  UpdateTranscriptionProfileRequest,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
@@ -313,7 +313,7 @@ function handleTranscriptionEndpointError(
     status: responseStatus,
   });
   if (!options.suppressNotification) {
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
   }
   if (options.throwOnError) {
     throw error;
@@ -745,7 +745,7 @@ export async function loadLLMApiKeys() {
     return;
   }
   llmApiKeysLoadPromise = (async () => {
-    const res = await route_get_llm_api_keys();
+    const res = await route_get_llmapi_keys();
     if (res200(res)) {
       receiveLLMApiKeysSnapshotUpdate(res.data);
       return;
@@ -767,9 +767,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
-export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshot,
-) {
+export function receiveLLMApiKeysSnapshotUpdate(payload: LLMAPIKeysSnapshot) {
   const isCorrupt =
     payload.corrupt === true ||
     payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
@@ -807,7 +805,7 @@ function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
 }
 
 async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
-  const res = await route_get_llm_api_keys();
+  const res = await route_get_llmapi_keys();
   if (res200(res)) {
     receiveLLMApiKeysSnapshotUpdate(res.data);
     return true;
@@ -823,7 +821,7 @@ async function persistLLMApiKeysMutation(
   for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
     const state = useAIStore.getState();
     const nextApiKeys = mutation(state.apiKeys);
-    const res = await route_set_llm_api_keys({
+    const res = await route_set_llmapi_keys({
       apiKeys: nextApiKeys,
       expectedRevision: state.apiKeysRevision,
     });
@@ -1209,7 +1207,7 @@ function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
 }
 
 export async function createAgentProfile(
-  payload: CreateAgentProfileRequestInput,
+  payload: CreateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
   const res = await route_create_agent_profile(payload);
   if (!res200(res)) {
@@ -1228,7 +1226,7 @@ export async function createAgentProfile(
 }
 
 export async function updateAgentProfile(
-  payload: UpdateAgentProfileRequestInput,
+  payload: UpdateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
   const res = await route_update_agent_profile(payload);
   if (!res200(res)) {
@@ -1247,7 +1245,7 @@ export async function updateAgentProfile(
 }
 
 export async function deleteAgentProfile(
-  payload: DeleteAgentProfileRequestInput,
+  payload: DeleteAgentProfileRequest,
 ): Promise<boolean> {
   const res = await route_delete_agent_profile(payload);
   if (!res200(res)) {
@@ -1265,7 +1263,7 @@ export async function deleteAgentProfile(
 }
 
 export async function updateEngineConfig(
-  payload: UpdateEngineConfigRequestInput,
+  payload: UpdateEngineConfigRequest,
 ): Promise<EngineConfig | null> {
   const res = await route_update_engine_config(payload);
   if (!res200(res)) {
@@ -1284,7 +1282,7 @@ export async function updateEngineConfig(
 }
 
 export async function createTranscriptionProfile(
-  payload: CreateTranscriptionProfileRequestInput,
+  payload: CreateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
   const res = await route_create_transcription_profile(payload);
   if (!res200(res)) {
@@ -1303,7 +1301,7 @@ export async function createTranscriptionProfile(
 }
 
 export async function updateTranscriptionProfile(
-  payload: UpdateTranscriptionProfileRequestInput,
+  payload: UpdateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
   const res = await route_update_transcription_profile(payload);
   if (!res200(res)) {
@@ -1322,7 +1320,7 @@ export async function updateTranscriptionProfile(
 }
 
 export async function deleteTranscriptionProfile(
-  payload: DeleteTranscriptionProfileRequestInput,
+  payload: DeleteTranscriptionProfileRequest,
 ): Promise<boolean> {
   const res = await route_delete_transcription_profile(payload);
   if (!res200(res)) {
@@ -1347,7 +1345,7 @@ export async function deleteTranscriptionProfile(
 }
 
 export async function createPromptTemplate(
-  payload: CreatePromptTemplateRequestInput,
+  payload: CreatePromptTemplateRequest,
 ): Promise<PromptTemplate | null> {
   const res = await route_create_prompt_template(payload);
   if (!res200(res)) {
@@ -1366,7 +1364,7 @@ export async function createPromptTemplate(
 }
 
 export async function updatePromptTemplate(
-  payload: UpdatePromptTemplateRequestInput,
+  payload: UpdatePromptTemplateRequest,
 ): Promise<PromptTemplate | null> {
   const res = await route_update_prompt_template(payload);
   if (!res200(res)) {
@@ -1385,7 +1383,7 @@ export async function updatePromptTemplate(
 }
 
 export async function deletePromptTemplate(
-  payload: DeletePromptTemplateRequestInput,
+  payload: DeletePromptTemplateRequest,
 ): Promise<boolean> {
   const res = await route_delete_prompt_template(payload);
   if (!res200(res)) {
@@ -1403,7 +1401,7 @@ export async function deletePromptTemplate(
 }
 
 export async function createExternalAgentConfig(
-  payload: CreateExternalAgentConfigRequestInput,
+  payload: CreateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
   const res = await route_create_external_agent_config(payload);
   if (!res200(res)) {
@@ -1422,7 +1420,7 @@ export async function createExternalAgentConfig(
 }
 
 export async function updateExternalAgentConfig(
-  payload: UpdateExternalAgentConfigRequestInput,
+  payload: UpdateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
   const res = await route_update_external_agent_config(payload);
   if (!res200(res)) {
@@ -1441,7 +1439,7 @@ export async function updateExternalAgentConfig(
 }
 
 export async function deleteExternalAgentConfig(
-  payload: DeleteExternalAgentConfigRequestInput,
+  payload: DeleteExternalAgentConfigRequest,
 ): Promise<boolean> {
   const res = await route_delete_external_agent_config(payload);
   if (!res200(res)) {
@@ -1892,7 +1890,7 @@ async function stopExternalChatResponse({
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
-    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
     return false;
   }
   const response = await route_stop_external_agent_run({ runId });
@@ -1911,7 +1909,7 @@ async function stopExternalChatResponse({
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
-    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
     return false;
   }
   const refreshState = await refreshChatAndResolveWaiting();
@@ -1924,7 +1922,7 @@ async function stopExternalChatResponse({
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
-  addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
   return false;
 }
 
@@ -2011,7 +2009,7 @@ export async function stopProjectChatResponse(
   }
   addTemporaryNotification(
     "Failed to stop project chat.",
-    SettaNotificationTypeEnum.warning,
+    NotificationTypeEnum.warning,
   );
   return false;
 }
@@ -2064,7 +2062,7 @@ export async function stopManagedSectionChatResponse(
   }
   addTemporaryNotification(
     "Failed to stop section chat.",
-    SettaNotificationTypeEnum.warning,
+    NotificationTypeEnum.warning,
   );
   return false;
 }
@@ -2199,7 +2197,7 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
+): Promise<ChatHydrationProbeResult<LLMChatResponse>> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2246,9 +2244,9 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: GetLLMChatResponse;
+  payload: LLMChatResponse;
 }): void {
-  const managedHydrationPayload = payload as GetLLMChatResponse & {
+  const managedHydrationPayload = payload as LLMChatResponse & {
     toolCallArguments?: Record<string, string>;
     appGenerationByMessageId?: Record<string, string>;
   };
@@ -2540,7 +2538,7 @@ export async function submitMessage(
       err instanceof Error && err.message.trim()
         ? err.message
         : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
     rollbackOptimisticUserMessage(
       chatId,
       userMessageId,
@@ -2686,7 +2684,7 @@ export async function submitEditedMessage({
         (res.status
           ? `AI request failed (status ${res.status}).`
           : "AI request failed.");
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+      addTemporaryNotification(detail, NotificationTypeEnum.warning);
       clearPendingChatDetails(resolvedPendingSurfaceId);
       if (sectionId) {
         await setSectionChatId(parentChatId);
@@ -2720,7 +2718,7 @@ export async function submitEditedMessage({
       err instanceof Error && err.message.trim()
         ? err.message
         : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
     clearPendingChatDetails(resolvedPendingSurfaceId);
     if (sectionId) {
       await setSectionChatId(parentChatId);
@@ -3049,7 +3047,7 @@ function handleAgenticScopeViolation(
     return;
   }
   const notice = `${violation.message} Add the missing agentic edge(s) shown on the canvas. Use Project Chat for full access.`;
-  addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(notice, NotificationTypeEnum.warning);
   const timeoutId = globalThis.setTimeout(() => {
     scopeViolationToastTimeouts.delete(projectConfigId);
   }, SCOPE_VIOLATION_TIMEOUT_MS);

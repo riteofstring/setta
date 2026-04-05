@@ -2505,7 +2505,7 @@ func TestAppServesProjectShellRenameAndNotificationRoutes(t *testing.T) {
 		{
 			ID:              "notification-1",
 			ProjectConfigID: "project-alpha",
-			Type:            notifications.TypeInfo,
+			Type:            notifications.NotificationTypeInfo,
 			Message:         "Alpha note",
 			Timestamp:       "2026-03-10T10:00:00Z",
 		},

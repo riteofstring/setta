@@ -133,6 +133,8 @@ var endpointResponseTypeOverrides = map[string]reflect.Type{
 	"GET RouteAppDeploymentVersions":           reflect.TypeOf(DeploymentMetadataList(nil)),
 	"GET RouteAppDeploymentLatest":             reflect.TypeOf(DeploymentMetadata{}),
 	"POST RouteAppDeployments":                 reflect.TypeOf(DeploymentMetadata{}),
+	"POST RouteGetLLMResponse":                 reflect.TypeOf(httpapi.LLMChatIDResponse("")),
+	"POST RouteGetChatSectionChatID":           reflect.TypeOf(httpapi.ChatSectionChatIDResponse("")),
 }
 
 func CurrentEndpoints() []EndpointSpec {
@@ -601,6 +603,7 @@ func exportRouteParamFieldName(name string) string {
 func newNamedTypeRegistry() namedTypeRegistry {
 	qualified := map[string]reflect.Type{}
 	byName := map[string][]reflect.Type{}
+	visited := map[reflect.Type]struct{}{}
 
 	register := func(t reflect.Type) {
 		if t == nil {
@@ -619,16 +622,39 @@ func newNamedTypeRegistry() namedTypeRegistry {
 		qualified[key] = t
 		byName[t.Name()] = append(byName[t.Name()], t)
 	}
+	var registerRecursive func(t reflect.Type)
+	registerRecursive = func(t reflect.Type) {
+		if t == nil {
+			return
+		}
+		for t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		if _, ok := visited[t]; ok {
+			return
+		}
+		visited[t] = struct{}{}
+
+		register(t)
+
+		switch t.Kind() {
+		case reflect.Slice, reflect.Array:
+			registerRecursive(t.Elem())
+		case reflect.Map:
+			registerRecursive(t.Key())
+			registerRecursive(t.Elem())
+		}
+	}
 
 	for _, t := range DiscoveredConvertibleTypes() {
-		register(t)
+		registerRecursive(t)
 	}
 	for _, t := range DiscoveredEndpointContractTypes() {
-		register(t)
+		registerRecursive(t)
 	}
 	for owner, wrapper := range discoveredWrapperTypeOverrides {
-		register(owner)
-		register(wrapper)
+		registerRecursive(owner)
+		registerRecursive(wrapper)
 	}
 
 	return namedTypeRegistry{

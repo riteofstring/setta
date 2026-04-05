@@ -31,7 +31,7 @@ type ExternalAgentConfigRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type createExternalAgentConfigRequest struct {
+type CreateExternalAgentConfigRequest struct {
 	Name                    *string                                     `json:"name"`
 	Description             *string                                     `json:"description"`
 	ToolType                *externalagentconfigs.ToolType              `json:"toolType"`
@@ -52,11 +52,13 @@ type createExternalAgentConfigRequest struct {
 	CodexSkipGitRepoCheck   *bool                                       `json:"codexSkipGitRepoCheck"`
 }
 
+type ExternalAgentConfigList []externalagentconfigs.Config
+
 type GetExternalAgentConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
-type updateExternalAgentConfigRequest struct {
+type UpdateExternalAgentConfigRequest struct {
 	Config *externalagentconfigs.Config `json:"config"`
 }
 
@@ -78,6 +80,8 @@ type ExternalAgentPreflightStatus struct {
 	WorkingDir *string                           `json:"workingDir"`
 	EnvVars    externalagentconfigs.EnvVarStatus `json:"envVars"`
 }
+
+type ExternalAgentPreflightStatusList []ExternalAgentPreflightStatus
 
 func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConfigRouteDependencies) error {
 	if router == nil {
@@ -231,7 +235,7 @@ func createExternalAgentConfigHandler(service *externalagentconfigs.Service, web
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[createExternalAgentConfigRequest](r)
+		payload, err := decodeStrictJSONBody[CreateExternalAgentConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -261,7 +265,7 @@ func updateExternalAgentConfigHandler(service *externalagentconfigs.Service, web
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updateExternalAgentConfigRequest](r)
+		payload, err := decodeStrictJSONBody[UpdateExternalAgentConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -361,7 +365,7 @@ func buildExternalAgentHealthResponse(status externalagentconfigs.Status) Extern
 	return response
 }
 
-func buildCreatedExternalAgentConfig(payload createExternalAgentConfigRequest) externalagentconfigs.Config {
+func buildCreatedExternalAgentConfig(payload CreateExternalAgentConfigRequest) externalagentconfigs.Config {
 	config := externalagentconfigs.Config{
 		ID: newExternalAgentConfigID(),
 	}

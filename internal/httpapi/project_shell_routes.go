@@ -91,6 +91,8 @@ type DeleteNotificationRequest struct {
 	NotificationID string `json:"notificationId"`
 }
 
+type NotificationList []notifications.Notification
+
 type DeleteNotificationResponse struct {
 	Success bool `json:"success"`
 }

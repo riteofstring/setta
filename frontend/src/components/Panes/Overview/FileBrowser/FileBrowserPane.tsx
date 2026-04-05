@@ -72,7 +72,7 @@ import {
   FileBrowserRootResponse,
   GetFileBrowserDownloadURLsResponse,
   GetFolderContentsResponse,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
   TransferFileBrowserEntryResponse,
 } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
@@ -1360,7 +1360,7 @@ export function FileBrowserPane({
       ) {
         addTemporaryNotification(
           "Cannot move or copy a folder into itself.",
-          SettaNotificationTypeEnum.warning,
+          NotificationTypeEnum.warning,
         );
         return null;
       }
@@ -1375,7 +1375,7 @@ export function FileBrowserPane({
         addTemporaryNotification(
           detail ??
             `Failed to ${operation === "move" ? "move" : "copy"} file browser entry.`,
-          SettaNotificationTypeEnum.error,
+          NotificationTypeEnum.error,
         );
         return null;
       }

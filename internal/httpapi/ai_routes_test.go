@@ -1668,7 +1668,7 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload GetExternalAgentChatResponse
+	var payload ExternalAgentChatResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -2209,7 +2209,7 @@ func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	var payload GetExternalAgentChatResponse
+	var payload ExternalAgentChatResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

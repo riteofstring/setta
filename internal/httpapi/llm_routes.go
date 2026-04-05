@@ -22,10 +22,12 @@ type LLMRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type updateAPIKeysRequest struct {
+type SetLLMAPIKeysRequest struct {
 	APIKeys          map[string]string `json:"apiKeys"`
 	ExpectedRevision int               `json:"expectedRevision"`
 }
+
+type LLMAPIKeysSnapshot llmconfig.ManagedAPIKeysSnapshot
 
 func RegisterLLMRoutes(router chi.Router, deps LLMRouteDependencies) error {
 	if router == nil {
@@ -107,10 +109,10 @@ func getLLMAPIKeysHandler(deps LLMRouteDependencies) http.HandlerFunc {
 
 		snapshot := deps.Service.ManagedAPIKeysSnapshot()
 		if snapshot.ErrorCode != nil {
-			writeJSON(w, managedAPIKeysErrorStatus(snapshot), snapshot)
+			writeJSON(w, managedAPIKeysErrorStatus(snapshot), LLMAPIKeysSnapshot(snapshot))
 			return
 		}
-		writeJSON(w, http.StatusOK, snapshot)
+		writeJSON(w, http.StatusOK, LLMAPIKeysSnapshot(snapshot))
 	}
 }
 
@@ -121,7 +123,7 @@ func setLLMAPIKeysHandler(deps LLMRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[updateAPIKeysRequest](r)
+		payload, err := decodeStrictJSONBody[SetLLMAPIKeysRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -133,7 +135,7 @@ func setLLMAPIKeysHandler(deps LLMRouteDependencies) http.HandlerFunc {
 
 		snapshot, status := deps.Service.SaveManagedAPIKeys(payload.APIKeys, payload.ExpectedRevision)
 		if status != llmconfig.ManagedAPIKeysWriteStatusSuccess {
-			writeJSON(w, managedAPIKeysWriteStatusCode(status), snapshot)
+			writeJSON(w, managedAPIKeysWriteStatusCode(status), LLMAPIKeysSnapshot(snapshot))
 			return
 		}
 
@@ -146,7 +148,7 @@ func setLLMAPIKeysHandler(deps LLMRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, snapshot)
+		writeJSON(w, http.StatusOK, LLMAPIKeysSnapshot(snapshot))
 	}
 }
 
