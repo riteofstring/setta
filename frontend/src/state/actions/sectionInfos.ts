@@ -1314,11 +1314,15 @@ export function createNodesMapFromProjectConfigChildren(
       sectionImpl.styleColor.trim() !== ""
         ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
         : null;
+    const authoritativeSize = getAuthoritativeTopLevelSectionNodeSize(
+      layout,
+      currentNode,
+    );
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
-      width: currentNode ? currentNode.width : layout.w,
-      height: currentNode ? currentNode.height : layout.h,
+      width: authoritativeSize.width,
+      height: authoritativeSize.height,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
       type: sectionImpl?.type,
@@ -1327,6 +1331,25 @@ export function createNodesMapFromProjectConfigChildren(
   }
 
   return nodesMap;
+}
+
+function getAuthoritativeTopLevelSectionNodeSize(
+  layout: { h: number | null; w: number | null },
+  currentNode: Node | undefined,
+) {
+  if (
+    typeof layout.w === "number" &&
+    layout.w > 0 &&
+    typeof layout.h === "number" &&
+    layout.h > 0
+  ) {
+    return { width: layout.w, height: layout.h };
+  }
+
+  return {
+    width: currentNode?.width ?? layout.w,
+    height: currentNode?.height ?? layout.h,
+  };
 }
 
 export function setSectionChildren(

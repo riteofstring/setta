@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 21:23 EDT
+Last updated: 2026-04-05 21:40 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,55 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `214` makes positive top-level layout `w/h` authoritative when shared node internals are rebuilt from backend project state.
+  - Why this slice was needed:
+    - item `213` unified the canary's size-authority rule, but `createNodesMapFromProjectConfigChildren(...)` in `frontend/src/state/actions/sectionInfos.ts` still rehydrated `currentNode.width/height` ahead of backend layout during project-state rebuilds
+    - that meant shared node internals could keep reviving stale measured size or a stale `null` size even when the current `All Settings` layout already had positive authoritative `w/h`
+    - this is a real shared read-boundary authority seam, not another forwarding or oracle-only pass
+  - Production/test change:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - added `getAuthoritativeTopLevelSectionNodeSize(...)`
+      - `createNodesMapFromProjectConfigChildren(...)` now uses positive layout `w/h` whenever both dimensions are present and only falls back to the current node size when layout geometry is still missing
+    - updated `frontend/src/state/actions/sectionInfos.test.ts`
+      - added coverage proving layout size wins when current node dimensions disagree
+      - updated the stale-`null` case so positive layout size is restored during rebuilds
+      - added coverage proving current node size only survives when layout geometry is missing
+  - What this slice established:
+    - shared node internals now follow the same positive-layout-first authority rule that the canary scene runtime already uses
+    - backend project-state rebuilds no longer rehydrate stale measured width/height back into live node state when current layout geometry already exists
+    - current node size remains available only as the fallback path for sections whose current layout size is still missing
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      - result: passed (`1 file`, `27 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionInfos(\\.test)?\\.ts" || true`
+      - result: not a useful gate here because `sectionInfos.ts` and `sectionInfos.test.ts` already have broad baseline strict-type errors outside this slice; the command did not isolate a new regression signal
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-045/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-045/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-045 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh run-045 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `39.2s`)
+      - both sides ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.05173ms`; worktree average frame duration was `17.03282ms`
+      - visible section count stayed `46` on both sides
+    - CDP visual check:
+      - result: done, but not yet a trustworthy acceptance gate
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, reloaded only the healthy mounted `/settings` tabs, and ignored stale/bootstrap-error tabs
+      - note: the bounded retry still left the worktree `3076` tab in a broader overview-style `All Settings` framing while read-only `main` `3087` resolved to the focused `rotaryParamCodeObjDefault` card
+      - note: because the deterministic normalized Playwright lane still converged to identical transforms and visible-section counts, treat this as unresolved live mounted-session camera-state drift / an untrusted visual gate rather than confirmed renderer drift from this slice
+  - Lane status:
+    - this closes the shared node hydration size-authority seam from item `213` at the `sectionInfos.ts` read boundary
+    - the broad normalized `rotaryParamCodeObjDefault` Playwright lane remains green regression coverage
+  - Next frontier:
+    - investigate why the reloaded mounted worktree `/settings` CDP session on `3076` still lands in overview-style `All Settings` framing while read-only `main` resolves to focused `rotaryParamCodeObjDefault`, despite the deterministic normalized Playwright lane matching transforms
+    - do not reopen new parity-only lanes; target the live viewport/camera-state hydration path that blocks trustworthy CDP confirmation
 
 - Ralph item `213` makes positive layout `w/h` authoritative for unlocked canary sections too, so the scene runtime no longer subscribes those sections to shared DOM size churn once current project layout geometry already exists.
   - Why this slice was needed:
