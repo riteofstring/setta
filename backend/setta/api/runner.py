@@ -18,7 +18,7 @@ from setta.sdk_contracts.generated import (
     RunnerSummarySnapshot,
     RunningBackendVersionHandshake,
 )
-from setta.sessions.registry import SessionRegistry
+from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.generated.go_shared_types import (
     DependencyKeyType,
@@ -137,6 +137,38 @@ def _normalize_param_key(key: object) -> tuple[ID, ID]:
         section_id, param_id = key
         return section_id, param_id
     raise ValueError(f"Unsupported param override key: {key!r}")
+
+
+def _normalize_backend_host(host: str | None) -> str | None:
+    if host is None:
+        return None
+    cleaned = host.strip()
+    if cleaned.startswith("[") and cleaned.endswith("]"):
+        cleaned = cleaned[1:-1]
+    if cleaned == "0.0.0.0" or cleaned == "localhost":
+        return "127.0.0.1"
+    if cleaned == "::":
+        return "::1"
+    return cleaned
+
+
+def _build_cookie_headers(cookie_name: str, cookie_value: str) -> dict[str, str]:
+    return {"Cookie": f"{cookie_name}={cookie_value}"}
+
+
+def _build_session_cookie_headers(session_id: str, secret: bytes) -> dict[str, str]:
+    cookie_value = AUTH_COOKIE_MANAGER.mint(session_id, secret)
+    return _build_cookie_headers(auth_cookie_name(session_id), cookie_value)
+
+
+def _bootstrap_cookie_headers(cookie_map: dict[str, str]) -> dict[str, str]:
+    cookie_name = select_auth_cookie_name(list(cookie_map.keys()))
+    if not cookie_name:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    cookie_value = cookie_map.get(cookie_name)
+    if not cookie_value:
+        raise ValueError("Bootstrap response did not include auth cookie.")
+    return _build_cookie_headers(cookie_name, cookie_value)
 
 
 class RunPlan:
@@ -358,86 +390,78 @@ class SettaRunner:
     def _resolve_auth_headers(self) -> dict[str, str]:
         if self._auth_headers is not None:
             return dict(self._auth_headers)
-        if self._bootstrap_token is not None:
-            origin = origin_from_backend_url(self._base_url)
-            consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
-            response = self._session.post(
-                consume_url,
-                json={"token": self._bootstrap_token},
-            )
-            response.raise_for_status()
-            cookie_map = response.cookies.get_dict()
-            cookie_names = list(cookie_map.keys())
-            if not cookie_names:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            cookie_name = select_auth_cookie_name(cookie_names)
-            if not cookie_name:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            cookie_value = cookie_map.get(cookie_name)
-            if not cookie_value:
-                raise ValueError("Bootstrap response did not include auth cookie.")
-            cookie_header = f"{cookie_name}={cookie_value}"
-            return {"Cookie": cookie_header}
-        session_info = load_current_session_secret()
-        if session_info is not None:
-            session_metadata, secret = session_info
-            cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-            return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
-
-        def normalize_host(host: str | None) -> str | None:
-            if host is None:
-                return None
-            cleaned = host.strip()
-            if cleaned.startswith("[") and cleaned.endswith("]"):
-                cleaned = cleaned[1:-1]
-            if cleaned == "0.0.0.0" or cleaned == "localhost":
-                return "127.0.0.1"
-            if cleaned == "::":
-                return "::1"
-            return cleaned
-
-        sessions_root = resolve_sessions_root(self._workspace_root)
-        if sessions_root is None:
-            cookie_header = None
-        else:
-            registry = SessionRegistry(sessions_root=sessions_root)
-            sessions = registry.find_sessions_by_workspace(self._workspace_root)
-            if not sessions:
-                cookie_header = None
-            else:
-                parsed_base_url = urlparse(self._base_url)
-                base_host = normalize_host(parsed_base_url.hostname)
-                base_port = parsed_base_url.port
-                if base_host is not None or base_port is not None:
-                    matching = [
-                        session
-                        for session in sessions
-                        if (
-                            (base_port is None or session.port == base_port)
-                            and (
-                                base_host is None
-                                or normalize_host(session.host) == base_host
-                            )
-                        )
-                    ]
-                    if matching:
-                        sessions = matching
-                sessions.sort(key=lambda session: session.startedAt, reverse=True)
-                selected = sessions[0]
-                secret_path = registry.resolve_secret_path(selected)
-                if not secret_path.exists():
-                    cookie_header = None
-                else:
-                    secret = secret_path.read_bytes()
-                    token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
-                    cookie_header = f"{auth_cookie_name(selected.id)}={token}"
-        if cookie_header is not None:
-            return {"Cookie": cookie_header}
+        for resolver in (
+            self._resolve_bootstrap_auth_headers,
+            self._resolve_current_session_auth_headers,
+            self._resolve_workspace_session_auth_headers,
+        ):
+            headers = resolver()
+            if headers is not None:
+                return headers
         raise ValueError(
             "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
             "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
             "workspace)."
         )
+
+    def _resolve_bootstrap_auth_headers(self) -> dict[str, str] | None:
+        if self._bootstrap_token is None:
+            return None
+        origin = origin_from_backend_url(self._base_url)
+        consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
+        response = self._session.post(
+            consume_url,
+            json={"token": self._bootstrap_token},
+        )
+        response.raise_for_status()
+        return _bootstrap_cookie_headers(response.cookies.get_dict())
+
+    def _resolve_current_session_auth_headers(self) -> dict[str, str] | None:
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return None
+        session_metadata, secret = session_info
+        return _build_session_cookie_headers(session_metadata.id, secret)
+
+    def _resolve_workspace_session_auth_headers(self) -> dict[str, str] | None:
+        sessions_root = resolve_sessions_root(self._workspace_root)
+        if sessions_root is None:
+            return None
+        registry = SessionRegistry(sessions_root=sessions_root)
+        sessions = registry.find_sessions_by_workspace(self._workspace_root)
+        if not sessions:
+            return None
+        selected = self._select_workspace_session(sessions)
+        secret_path = registry.resolve_secret_path(selected)
+        if not secret_path.exists():
+            return None
+        return _build_session_cookie_headers(selected.id, secret_path.read_bytes())
+
+    def _select_workspace_session(
+        self, sessions: list[SessionMetadata]
+    ) -> SessionMetadata:
+        matching_sessions = self._matching_workspace_sessions(sessions)
+        if matching_sessions:
+            sessions = matching_sessions
+        sessions.sort(key=lambda session: session.startedAt, reverse=True)
+        return sessions[0]
+
+    def _matching_workspace_sessions(
+        self, sessions: list[SessionMetadata]
+    ) -> list[SessionMetadata]:
+        parsed_base_url = urlparse(self._base_url)
+        base_host = _normalize_backend_host(parsed_base_url.hostname)
+        base_port = parsed_base_url.port
+        if base_host is None and base_port is None:
+            return []
+        return [
+            session
+            for session in sessions
+            if (base_port is None or session.port == base_port)
+            and (
+                base_host is None or _normalize_backend_host(session.host) == base_host
+            )
+        ]
 
     def _resolve_project_config_id(self, ref: str | None) -> ID:
         project_name = ref or self._project_name

@@ -7,27 +7,30 @@ from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
 
-_HTTP_TOKEN_SEPARATORS = set("()<>@,;:/[]?={} \t")
-_HTTP_TOKEN_SEPARATORS.update({"\\", '"'})
+_warned_auth_cookie_name_values: set[tuple[str, str]] = set()
 
 
-def normalize_cookie_name(
-    raw: str | None, *, default: str = go_shared_constants.DEFAULT_AUTH_COOKIE_NAME
-) -> str:
-    if raw is None:
-        return default
-    trimmed = raw.strip()
-    if not trimmed:
-        return default
+def _resolved_auth_cookie_name() -> str:
+    resolved = (
+        get_setta_paths().auth_cookie_name
+        or go_shared_constants.DEFAULT_AUTH_COOKIE_NAME
+    )
+    raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
+    if raw_auth_cookie_name is None:
+        return resolved
+    trimmed_auth_cookie_name = raw_auth_cookie_name.strip()
+    if not trimmed_auth_cookie_name or trimmed_auth_cookie_name == resolved:
+        return resolved
 
-    def is_token_char(ch: str) -> bool:
-        codepoint = ord(ch)
-        if codepoint < 0x21 or codepoint > 0x7E:
-            return False
-        return ch not in _HTTP_TOKEN_SEPARATORS
-
-    sanitized = "".join(ch if is_token_char(ch) else "_" for ch in trimmed)
-    return sanitized or default
+    warning_key = (trimmed_auth_cookie_name, resolved)
+    if warning_key not in _warned_auth_cookie_name_values:
+        logger.warning(
+            "Sanitized SETTA_AUTH_COOKIE_NAME=%r to %r",
+            trimmed_auth_cookie_name,
+            resolved,
+        )
+        _warned_auth_cookie_name_values.add(warning_key)
+    return resolved
 
 
 class classproperty:
@@ -53,19 +56,10 @@ class C:
     def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
         return get_setta_paths().runtime_sessions_root
 
-    _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
-    AUTH_COOKIE_NAME = normalize_cookie_name(
-        _raw_auth_cookie_name,
-        default=go_shared_constants.DEFAULT_AUTH_COOKIE_NAME,
-    )
-    if _raw_auth_cookie_name is not None:
-        _trimmed_auth_cookie_name = _raw_auth_cookie_name.strip()
-        if _trimmed_auth_cookie_name and _trimmed_auth_cookie_name != AUTH_COOKIE_NAME:
-            logger.warning(
-                "Sanitized SETTA_AUTH_COOKIE_NAME=%r to %r",
-                _trimmed_auth_cookie_name,
-                AUTH_COOKIE_NAME,
-            )
+    @classproperty
+    def AUTH_COOKIE_NAME(cls) -> str:
+        return _resolved_auth_cookie_name()
+
     AUTH_COOKIE_MAX_AGE_SECONDS = go_shared_constants.AUTH_COOKIE_MAX_AGE_SECONDS
     BOOTSTRAP_TOKEN_TTL_SECONDS = go_shared_constants.BOOTSTRAP_TOKEN_TTL_SECONDS
     LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5

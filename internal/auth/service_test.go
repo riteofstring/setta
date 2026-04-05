@@ -669,6 +669,20 @@ func TestNormalizeCookieBaseNameDefaultsAndSanitizesHTTPToken(t *testing.T) {
 	}
 }
 
+func TestResolveCookieBaseNamePrefersSanitizedEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	got := ResolveCookieBaseName("profile_cookie", func(key string) (string, bool) {
+		if key != "SETTA_AUTH_COOKIE_NAME" {
+			return "", false
+		}
+		return " setta auth ", true
+	})
+	if got != "setta_auth" {
+		t.Fatalf("ResolveCookieBaseName() = %q, want %q", got, "setta_auth")
+	}
+}
+
 func TestServiceCookieNameRejectsBlankSessionID(t *testing.T) {
 	t.Parallel()
 

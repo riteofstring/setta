@@ -255,6 +255,17 @@ func ExtractBearerToken(headers http.Header) string {
 }
 
 func defaultSettings(profileCookieName string, envLookup func(string) (string, bool)) Settings {
+	return Settings{
+		CookieBaseName:      ResolveCookieBaseName(profileCookieName, envLookup),
+		CookieTTL:           defaultAuthCookieTTL,
+		CookieRefreshWindow: defaultAuthRefreshWindow,
+		CookieSameSite:      http.SameSiteLaxMode,
+		CookieSecure:        false,
+		BootstrapTokenTTL:   defaultBootstrapTokenTTL,
+	}
+}
+
+func ResolveCookieBaseName(profileCookieName string, envLookup func(string) (string, bool)) string {
 	cookieName := profileCookieName
 	if envLookup == nil {
 		envLookup = func(string) (string, bool) { return "", false }
@@ -262,15 +273,7 @@ func defaultSettings(profileCookieName string, envLookup func(string) (string, b
 	if envValue := lookupTrimmed(envLookup, "SETTA_AUTH_COOKIE_NAME"); envValue != "" {
 		cookieName = envValue
 	}
-
-	return Settings{
-		CookieBaseName:      normalizeCookieName(cookieName, defaultAuthCookieName),
-		CookieTTL:           defaultAuthCookieTTL,
-		CookieRefreshWindow: defaultAuthRefreshWindow,
-		CookieSameSite:      http.SameSiteLaxMode,
-		CookieSecure:        false,
-		BootstrapTokenTTL:   defaultBootstrapTokenTTL,
-	}
+	return normalizeCookieName(cookieName, defaultAuthCookieName)
 }
 
 func normalizeCookieName(raw string, fallback string) string {

@@ -268,7 +268,7 @@ func loadMCPBridgeCurrentSession(
 	if currentSession == nil {
 		return nil, "", nil
 	}
-	return currentSession, commandCfg.Paths.AuthCookieName, nil
+	return currentSession, auth.ResolveCookieBaseName(commandCfg.Paths.AuthCookieName, envLookup), nil
 }
 
 func loadMCPBridgeCookieBaseNameFromSession(
@@ -293,7 +293,7 @@ func loadMCPBridgeCookieBaseNameFromSession(
 	if err != nil {
 		return "", fmt.Errorf("resolve auth cookie name for current session: %w", err)
 	}
-	return resolvedCfg.Paths.AuthCookieName, nil
+	return auth.ResolveCookieBaseName(resolvedCfg.Paths.AuthCookieName, envLookup), nil
 }
 
 func resolveMCPCommandConfig(

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"setta/internal/auth"
 	"setta/internal/config"
 )
 
@@ -82,10 +83,10 @@ func runPaths(args []string, global globalFlags, stdout io.Writer, stderr io.Wri
 	if parsed.envOutput {
 		return writePathsEnv(stdout, cfg.Paths)
 	}
-	return writeJSONPayload(stdout, buildPathsPayload(cfg.Paths))
+	return writeJSONPayload(stdout, buildPathsPayload(cfg.Paths, auth.ResolveCookieBaseName(cfg.Paths.AuthCookieName, envLookup)))
 }
 
-func buildPathsPayload(paths config.Paths) pathsPayload {
+func buildPathsPayload(paths config.Paths, authCookieName string) pathsPayload {
 	return pathsPayload{
 		WorkspaceRoot:          paths.WorkspaceRoot,
 		SettaHome:              paths.SettaHome,
@@ -97,12 +98,12 @@ func buildPathsPayload(paths config.Paths) pathsPayload {
 		UsesExplicitSettaFiles: paths.UsesExplicitSettaFiles,
 		RuntimeRoot:            paths.RuntimeRoot,
 		RuntimeWithinSettaRoot: runtimeWithinSettaRoot(paths),
-		AuthCookieName:         paths.AuthCookieName,
+		AuthCookieName:         authCookieName,
 	}
 }
 
 func writePathsEnv(writer io.Writer, paths config.Paths) error {
-	payload := buildPathsPayload(paths)
+	payload := buildPathsPayload(paths, "")
 	lines := []string{
 		"WORKSPACE_ROOT=" + payload.WorkspaceRoot,
 		"SETTA_HOME=" + payload.SettaHome,

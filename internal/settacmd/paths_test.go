@@ -54,6 +54,9 @@ func TestRunPathsEmitsJSONByDefault(t *testing.T) {
 	if !payload.RuntimeWithinSettaRoot {
 		t.Fatal("expected runtime root to be within setta files root")
 	}
+	if payload.AuthCookieName != "setta_auth" {
+		t.Fatalf("expected default auth cookie name, got %q", payload.AuthCookieName)
+	}
 }
 
 func TestRunPathsEnvOutputIncludesResolvedRoots(t *testing.T) {
@@ -160,5 +163,41 @@ func TestRunPathsCWDOverrideControlsDefaultWorkspaceResolution(t *testing.T) {
 	}
 	if payload.WorkspaceRoot != resolvedCWD {
 		t.Fatalf("expected workspace root %q, got %q", resolvedCWD, payload.WorkspaceRoot)
+	}
+}
+
+func TestRunPathsResolvesSanitizedAuthCookieNameFromEnv(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaHome := settaHomeForTest(t)
+
+	var stdout bytes.Buffer
+	err := runPaths(
+		nil,
+		globalFlags{
+			workspaceRoot: workspaceRoot,
+			settaHome:     settaHome,
+		},
+		&stdout,
+		&bytes.Buffer{},
+		func(key string) (string, bool) {
+			if key != "SETTA_AUTH_COOKIE_NAME" {
+				return "", false
+			}
+			return " setta auth ", true
+		},
+		workspaceRoot,
+	)
+	if err != nil {
+		t.Fatalf("run paths: %v", err)
+	}
+
+	var payload pathsPayload
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("decode paths payload: %v", err)
+	}
+	if payload.AuthCookieName != "setta_auth" {
+		t.Fatalf("expected sanitized auth cookie name, got %q", payload.AuthCookieName)
 	}
 }
