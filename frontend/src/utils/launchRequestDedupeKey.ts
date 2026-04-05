@@ -1,4 +1,4 @@
-import type { LaunchRequestInput } from "utils/generatedTypes";
+import type { LaunchRequest } from "utils/generatedTypes";
 
 type SerializableValue =
   | null
@@ -54,9 +54,7 @@ function stableStringify(value: SerializableValue): string {
   return `{${entries}}`;
 }
 
-export function buildLaunchRequestDedupeKey(
-  request: LaunchRequestInput,
-): string {
+export function buildLaunchRequestDedupeKey(request: LaunchRequest): string {
   const canonicalRequest: Record<string, SerializableValue> = {};
   const requestEntries = Object.entries(request as Record<string, unknown>)
     .filter(([, value]) => value !== null && value !== undefined)
