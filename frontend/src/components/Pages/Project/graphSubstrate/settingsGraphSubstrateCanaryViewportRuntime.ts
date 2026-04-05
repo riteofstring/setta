@@ -1,3 +1,4 @@
+import { setViewportOverride } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   useEffect,
@@ -7,6 +8,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { debouncedDispatchViewportUpdate } from "state/actions/sectionInfos";
 import { useLocalStorage, useMisc, useSettings } from "state/definitions";
 import {
   measureSettingsGraphSubstrateCanaryMotionAttribution,
@@ -91,6 +93,7 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
       wrapperDimensions: { width: 0, height: 0 },
     });
+  const hasPublishedReactFlowTransformRef = useRef(false);
 
   const fallbackViewport = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryFallbackViewport(
@@ -309,6 +312,20 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     };
   }, [resolvedViewport, sceneSnapshot, wrapperDimensions]);
 
+  useLayoutEffect(() => {
+    if (!rootRef.current || !resolvedViewport) {
+      setViewportOverride(null);
+      return;
+    }
+    setViewportOverride({
+      domNode: rootRef.current,
+      viewport: resolvedViewport,
+    });
+    return () => {
+      setViewportOverride(null);
+    };
+  }, [resolvedViewport, rootRef]);
+
   function applyControlledViewportChange(
     buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,
   ) {
@@ -409,29 +426,75 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       return;
     }
 
+    const currentReactFlowState = useReactFlow.getState();
+    if (
+      currentReactFlowState.domNode === rootRef.current &&
+      currentReactFlowState.height === wrapperDimensions.height &&
+      currentReactFlowState.viewportPersistenceEnabled ===
+        shouldPersistResolvedViewport &&
+      currentReactFlowState.width === visibleViewportSize.width
+    ) {
+      return;
+    }
+
+    useReactFlow.setState({
+      domNode: rootRef.current,
+      height: wrapperDimensions.height,
+      viewportPersistenceEnabled: shouldPersistResolvedViewport,
+      width: visibleViewportSize.width,
+    });
+  }, [
+    resolvedViewport,
+    rootRef,
+    shouldPersistResolvedViewport,
+    visibleViewportSize.width,
+    wrapperDimensions.height,
+  ]);
+
+  useEffect(() => {
+    if (!resolvedViewport) {
+      return;
+    }
+    if (wrapperDimensions.width <= 0 || wrapperDimensions.height <= 0) {
+      return;
+    }
+
+    const currentReactFlowState = useReactFlow.getState();
+    const shouldPublishTransform =
+      !hasPublishedReactFlowTransformRef.current ||
+      currentReactFlowState.transform[2] !== resolvedViewport.zoom ||
+      viewportOwnershipRef.current !== "local";
+    if (!shouldPublishTransform) {
+      return;
+    }
+
     measureSettingsGraphSubstrateCanaryMotionAttribution(
       "reactFlowViewportPublish",
       () => {
         useReactFlow.setState({
-          domNode: rootRef.current,
           fitViewOnInit: false,
           fitViewOnInitDone: true,
-          height: wrapperDimensions.height,
           transform: [
             resolvedViewport.x,
             resolvedViewport.y,
             resolvedViewport.zoom,
           ],
-          viewportPersistenceEnabled: shouldPersistResolvedViewport,
-          width: visibleViewportSize.width,
         });
+        hasPublishedReactFlowTransformRef.current = true;
       },
     );
+  }, [resolvedViewport, wrapperDimensions.height, wrapperDimensions.width]);
+
+  useEffect(() => {
+    if (!resolvedViewport || !shouldPersistResolvedViewport) {
+      return;
+    }
+    debouncedDispatchViewportUpdate();
   }, [
-    resolvedViewport,
+    resolvedViewport?.x,
+    resolvedViewport?.y,
+    resolvedViewport?.zoom,
     shouldPersistResolvedViewport,
-    visibleViewportSize.width,
-    wrapperDimensions.height,
   ]);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import initialReactFlowState from "forks/xyflow/core/store/initialState";
 import { act, useEffect, useRef } from "react";
@@ -391,6 +392,59 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
 
     expect(readResolvedViewport(host)).toEqual(localViewport);
     expect(renderSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps pan-only canary motion authoritative without republishing the React Flow transform", async () => {
+    const initialViewport = { x: 40, y: -20, zoom: 1.25 };
+    const panOnlyViewport = { x: 180, y: 60, zoom: 1.25 };
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={initialViewport}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await resizeObserverController.trigger([
+      {
+        element: readViewportProbe(host),
+        height: 600,
+        width: 1000,
+      },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(initialViewport);
+    });
+    expect(useReactFlow.getState().transform).toEqual([
+      initialViewport.x,
+      initialViewport.y,
+      initialViewport.zoom,
+    ]);
+
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={panOnlyViewport}
+          sceneSnapshot={createSceneSnapshot()}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readResolvedViewport(host)).toEqual(panOnlyViewport);
+    });
+
+    expect(useReactFlow.getState().transform).toEqual([
+      initialViewport.x,
+      initialViewport.y,
+      initialViewport.zoom,
+    ]);
+    expect(getViewport()).toEqual(panOnlyViewport);
   });
 });
 

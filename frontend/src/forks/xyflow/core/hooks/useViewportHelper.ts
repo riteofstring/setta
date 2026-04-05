@@ -17,6 +17,13 @@ import {
 
 type ViewportTransform = Partial<Viewport>;
 
+type ViewportOverrideState = {
+  domNode: HTMLDivElement | null;
+  viewport: Viewport;
+};
+
+let viewportOverrideState: ViewportOverrideState | null = null;
+
 function getViewportTransitionResources(options?: ViewportTransitionOptions) {
   const { d3Zoom, d3Selection, domNode } = useReactFlow.getState();
   if (
@@ -65,7 +72,7 @@ export function resetZoom() {
 }
 
 export function getZoom() {
-  return useReactFlow.getState().transform[2];
+  return getViewport().zoom;
 }
 
 function setViewport(
@@ -87,8 +94,24 @@ function setViewport(
 }
 
 export function getViewport(): Viewport {
+  if (viewportOverrideState) {
+    return viewportOverrideState.viewport;
+  }
   const [x, y, zoom] = useReactFlow.getState().transform;
   return { x, y, zoom };
+}
+
+export function setViewportOverride(
+  nextOverrideState: ViewportOverrideState | null,
+) {
+  viewportOverrideState = nextOverrideState;
+  if (
+    typeof window !== "undefined" &&
+    nextOverrideState !== null &&
+    nextOverrideState.viewport.zoom > 0
+  ) {
+    window.reactFlowZoom = nextOverrideState.viewport.zoom;
+  }
 }
 
 export function setCenter(x: number, y: number, options?: ViewportZoomOptions) {
@@ -118,7 +141,9 @@ export function setCenter(x: number, y: number, options?: ViewportZoomOptions) {
 }
 
 export function screenToFlowPosition(position: Position, ignoreGrid = false) {
-  const { transform, domNode } = useReactFlow.getState();
+  const reactFlowState = useReactFlow.getState();
+  const domNode = viewportOverrideState?.domNode ?? reactFlowState.domNode;
+  const viewport = getViewport();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
 
@@ -134,7 +159,7 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false) {
 
   return pointToRendererPoint(
     relativePosition,
-    transform,
+    [viewport.x, viewport.y, viewport.zoom],
     snapToGrid,
     snapGrid,
     ignoreGrid,
@@ -142,9 +167,7 @@ export function screenToFlowPosition(position: Position, ignoreGrid = false) {
 }
 
 export function updateMapPosition(widthDiff: number) {
-  const {
-    transform: [x, y, zoom],
-  } = useReactFlow.getState();
+  const { x, y, zoom } = getViewport();
   setViewport(
     { x: x + widthDiff, y, zoom },
     {

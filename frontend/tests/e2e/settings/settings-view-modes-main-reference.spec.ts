@@ -12613,14 +12613,16 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     expect(
       worktreeResult.perf.motionAttribution?.reactFlowViewportPublish.count ??
         0,
-    ).toBeGreaterThan(0);
+    ).toBe(0);
     expect(
       worktreeResult.perf.motionAttribution
         ?.reactFlowTransformSubscriptionCallback.count ?? 0,
-    ).toBeGreaterThan(0);
-    expect(worktreeResult.perf.dominantCanaryMotionAttributionOwner).toBe(
-      "reactFlowViewportPublish",
-    );
+    ).toBe(0);
+    expect(
+      worktreeResult.perf.motionAttribution?.reactFlowTransformFollowerCallback
+        .count ?? 0,
+    ).toBe(0);
+    expect(worktreeResult.perf.dominantCanaryMotionAttributionOwner).toBeNull();
     expect(referenceResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(worktreeResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(referenceResult.perf.sectionDomNodeCount).toBeGreaterThan(0);

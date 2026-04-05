@@ -11401,3 +11401,38 @@ LOOP_TERMINAL_MARKER: none
   - keep `rotaryParamCodeObjDefault` as the canonical lane and land one bounded product reduction on the `reactFlowViewportPublish` path
   - keep the CDP blocker explicit and retry it only inside that next product slice instead of spending a standalone browser-only pass
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 07:19 EDT - Ralph item 299
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the next bounded product slice from the handoff: remove the measured `reactFlowViewportPublish` hotspot from local pan-only canary motion without reopening the already-closed persistence, host-size, or pointer-suppression hypotheses.
+- Landed:
+  - a viewport-override seam in `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` so shared viewport reads can use the authoritative canary viewport without depending on `useReactFlow.transform` during local pan-only motion
+  - a narrowed publish path in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts` so the React Flow store only gets metadata syncs, the initial canary transform publish, and later zoom-driven transform publishes
+  - focused runtime coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+  - updated canonical probe expectations in `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - perf note `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pan-only-reactflow-publish-removal.md`
+- Focused verification passed:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/forks/xyflow/core/hooks/useViewportHelper.test.ts` (`2 files`, `12 tests`)
+  - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/hooks/useViewportHelper.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- Canonical Playwright perf lane:
+  - plain `status --connect-info` / runtime-info bootstrap tokens were rejected with `401`, so fresh one-time bootstrap tokens had to be minted manually from the live `setta_files_dev/runtime/sessions` registries for both the worktree and read-only `main`
+  - with valid fresh tokens, one run reached the updated product path and printed the new measurement window before failing only on the old assertion shape:
+    - legacy `main`: average `17.05ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible sections `46`
+    - worktree canary: average `17.76ms`, max `50.1ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible sections `1`
+    - worktree motion attribution on that run:
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `interactionMiscStateSync`: `1`
+      - `interactionReactFlowStateSync`: `1`
+      - `viewportPersistenceDispatch`: `0`
+  - after updating the spec expectation to match that new zero-publish contract, repeated reruns still started the test and then hung after the banner without yielding a verdict, even with freshly minted one-time tokens on both sides
+- CDP visual gate:
+  - fresh-context sub-agent completed the required check and confirmed both worktree `3076` and read-only `main` `3087` `/settings` pages rendered the All Settings graph surface instead of sticking on a blank/spinner shell
+  - the only note was that the worktree center canvas looked whiter / emptier than `main`; no hard render failure was observed
+- Result:
+  - the `reactFlowViewportPublish` hotspot is removed from the measured motion burst and should not be reopened by default
+  - the next immediate blocker is the canonical Playwright probe hanging after the test banner once the updated expectation should pass
+  - the next product hotspot is no longer named; the next useful pass should first restore a trustworthy automated verdict on this same lane
+- LOOP_TERMINAL_MARKER: none
