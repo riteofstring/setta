@@ -23,9 +23,9 @@ import {
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 import type {
+  GetGitCommitDetailsResponse,
   GitCommit,
   GitCommitChangedFile,
-  GitCommitDetailsResponse,
 } from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
 import {
@@ -1611,7 +1611,7 @@ function ExpandedCommitRow({
   details,
   selectedFilePath,
 }: {
-  details: GitCommitDetailsResponse;
+  details: GetGitCommitDetailsResponse;
   selectedFilePath: string | null;
 }) {
   const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");

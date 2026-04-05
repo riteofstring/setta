@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useGitStore } from "state/git";
-import { createGitStatusResponse } from "utils/generatedTypes";
+import { createGetGitStatusResponse } from "utils/generatedTypes";
 import { GitPane } from "./GitPane";
 
 let mockCanEditLayout = true;
@@ -44,7 +44,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGitStatusResponse({
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -71,7 +71,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGitStatusResponse({
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -98,7 +98,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGitStatusResponse({
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -124,7 +124,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGitStatusResponse({
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",
@@ -173,7 +173,7 @@ describe("GitPane", () => {
     useGitStore.setState((state) => ({
       ...state,
       status: {
-        response: createGitStatusResponse({
+        response: createGetGitStatusResponse({
           repo: {
             isGitRepo: true,
             repoRoot: "/repo",

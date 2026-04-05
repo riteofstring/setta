@@ -1,17 +1,15 @@
-from setta.llm.chat_toolkit.section_sync import (
-    apply_stream_delta,
-    build_chat_section_state,
-)
+from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
 from setta.mcp.tool_metadata import ToolArgumentPreviewKind
-from setta.types.generated.go_shared_types import (
+from setta.types.chat_messages import (
     AssistantChatMessage,
+    MessageTextContent,
+    ToolChatMessage,
+)
+from setta.types.chat_stream_events import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
-    MessageTextContent,
     MessageTextDelta,
-    StreamingEventType,
-    ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCallDeltaEvent,
     ToolResultEvent,
@@ -23,15 +21,12 @@ class TestChatSectionSync:
         state = build_chat_section_state(messages=[], input_text="draft")
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(type="text", text="")],
+            content=[MessageTextContent(text="")],
         )
 
         started = apply_stream_delta(
             state=state,
-            chunk=MessageStartEvent(
-                type=StreamingEventType.message_start,
-                message=assistant.model_dump(mode="python"),
-            ),
+            chunk=MessageStartEvent(message=assistant),
         )
 
         assert started.waitingForResponse
@@ -39,9 +34,8 @@ class TestChatSectionSync:
         assert started.messages[0].id == "assistant-1"
 
         delta = MessageDeltaEvent(
-            type=StreamingEventType.delta,
             message_id="assistant-1",
-            content=[MessageTextDelta(type="text_delta", index=0, text="Hello")],
+            content=[MessageTextDelta(index=0, text="Hello")],
         )
         updated = apply_stream_delta(state=started, chunk=delta)
 
@@ -53,22 +47,18 @@ class TestChatSectionSync:
         state = build_chat_section_state(messages=[])
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(type="text", text="")],
+            content=[MessageTextContent(text="")],
         )
 
         started = apply_stream_delta(
             state=state,
-            chunk=MessageStartEvent(
-                type=StreamingEventType.message_start,
-                message=assistant.model_dump(mode="python"),
-            ),
+            chunk=MessageStartEvent(message=assistant),
         )
 
         assistant.content[0].text += "Hi"
         delta = MessageDeltaEvent(
-            type=StreamingEventType.delta,
             message_id="assistant-1",
-            content=[MessageTextDelta(type="text_delta", index=0, text="Hi")],
+            content=[MessageTextDelta(index=0, text="Hi")],
         )
         updated = apply_stream_delta(state=started, chunk=delta)
 
@@ -80,7 +70,6 @@ class TestChatSectionSync:
     def test_tool_call_and_preview_deltas_update_arguments(self) -> None:
         state = build_chat_section_state(messages=[])
         tool_delta = ToolCallDeltaEvent(
-            type="tool_call_delta",
             message_id="assistant-1",
             tool_call_id="tool-1",
             arguments_delta='{"value":',
@@ -92,7 +81,6 @@ class TestChatSectionSync:
         assert updated.toolCallArguments["tool-1"] == '{"value":'
 
         preview_delta = ToolArgumentPreviewDeltaEvent(
-            type=StreamingEventType.tool_argument_preview_delta,
             message_id="assistant-1",
             tool_call_id="tool-1",
             tool_name="setta__tool",
@@ -108,7 +96,7 @@ class TestChatSectionSync:
     def test_tool_result_and_finalized_clear_waiting_state(self) -> None:
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(type="text", text="Hello")],
+            content=[MessageTextContent(text="Hello")],
         )
         state = build_chat_section_state(
             messages=[assistant],
@@ -126,10 +114,7 @@ class TestChatSectionSync:
         )
         updated = apply_stream_delta(
             state=state,
-            chunk=ToolResultEvent(
-                type=StreamingEventType.tool_result,
-                result=tool_message.model_dump(mode="python"),
-            ),
+            chunk=ToolResultEvent(result=tool_message),
         )
 
         assert len(updated.messages) == 2
@@ -137,10 +122,7 @@ class TestChatSectionSync:
 
         finalized = apply_stream_delta(
             state=updated,
-            chunk=MessageFinalizedEvent(
-                type=StreamingEventType.message_finalized,
-                message=assistant.model_dump(mode="python"),
-            ),
+            chunk=MessageFinalizedEvent(message=assistant),
         )
 
         assert not finalized.waitingForResponse

@@ -10,8 +10,6 @@ import type {
 import {
   createCodeSectionImpl,
   createCore,
-  createProjectStateSingleConfigWithCompletedOpIDs,
-  createSingleConfig,
   createUserDefaultCodeSectionImpl,
   createVariant,
   SectionTypeEnum,
@@ -202,8 +200,8 @@ function buildBackendProjectStateUpdate({
   completedOpIds?: Array<string>;
 }) {
   const currentState = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIDs({
-    projectState: createSingleConfig({
+  return {
+    projectState: {
       projectConfig: {
         ...currentState.projectConfig,
         id: projectConfigId,
@@ -221,9 +219,10 @@ function buildBackendProjectStateUpdate({
       shownParamIds: { ...currentState.shownParamIds },
       requiredDecodedImages: [...currentState.requiredDecodedImages],
       genCodeBinding: currentState.genCodeBinding ?? null,
-    }),
+    },
     completedOpIds,
-  });
+    pendingOpIds: [],
+  };
 }
 
 describe("receiveUISettingReveal", () => {
