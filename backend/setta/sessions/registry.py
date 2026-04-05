@@ -77,15 +77,11 @@ class SessionRegistry:
         metadata_path = session_dir / SESSION_METADATA_FILENAME
         if not metadata_path.exists():
             return None
-        metadata = self._read_metadata_path(metadata_path, prune_invalid=prune_stale)
-        if metadata is None:
-            return None
-        if prune_stale and self._is_session_stale(metadata):
-            self.delete_session(metadata.id)
-            return None
-        if track_suspicious and self._is_session_suspicious(metadata):
-            self._suspicious_session_ids.add(metadata.id)
-        return metadata
+        return self._load_active_metadata(
+            metadata_path,
+            prune_stale=prune_stale,
+            track_suspicious=track_suspicious,
+        )
 
     def create_session(
         self,
@@ -144,27 +140,20 @@ class SessionRegistry:
         self, prune_stale: bool = True, track_suspicious: bool = False
     ) -> list[SessionMetadata]:
         self._suspicious_session_ids.clear()
-        sessions: list[SessionMetadata] = []
         if not self._sessions_root.exists():
-            return sessions
-        for session_dir in sorted(self._sessions_root.iterdir()):
-            if not session_dir.is_dir():
-                continue
-            metadata_path = session_dir / SESSION_METADATA_FILENAME
-            if not metadata_path.exists():
-                continue
-            metadata = self._read_metadata_path(
-                metadata_path, prune_invalid=prune_stale
+            return []
+        return [
+            metadata
+            for metadata_path in self._iter_session_metadata_paths()
+            if (
+                metadata := self._load_active_metadata(
+                    metadata_path,
+                    prune_stale=prune_stale,
+                    track_suspicious=track_suspicious,
+                )
             )
-            if metadata is None:
-                continue
-            if prune_stale and self._is_session_stale(metadata):
-                self.delete_session(metadata.id)
-                continue
-            if track_suspicious and self._is_session_suspicious(metadata):
-                self._suspicious_session_ids.add(metadata.id)
-            sessions.append(metadata)
-        return sessions
+            is not None
+        ]
 
     def find_sessions_by_workspace(
         self,
@@ -243,6 +232,31 @@ class SessionRegistry:
 
     def _session_dir(self, session_id: str) -> Path:
         return self._sessions_root / session_id
+
+    def _iter_session_metadata_paths(self) -> list[Path]:
+        return [
+            session_dir / SESSION_METADATA_FILENAME
+            for session_dir in sorted(self._sessions_root.iterdir())
+            if session_dir.is_dir()
+            and (session_dir / SESSION_METADATA_FILENAME).exists()
+        ]
+
+    def _load_active_metadata(
+        self,
+        metadata_path: Path,
+        *,
+        prune_stale: bool,
+        track_suspicious: bool,
+    ) -> SessionMetadata | None:
+        metadata = self._read_metadata_path(metadata_path, prune_invalid=prune_stale)
+        if metadata is None:
+            return None
+        if prune_stale and self._is_session_stale(metadata):
+            self.delete_session(metadata.id)
+            return None
+        if track_suspicious and self._is_session_suspicious(metadata):
+            self._suspicious_session_ids.add(metadata.id)
+        return metadata
 
     def _write_metadata(self, metadata: SessionMetadata) -> None:
         path = self._session_dir(metadata.id) / SESSION_METADATA_FILENAME
