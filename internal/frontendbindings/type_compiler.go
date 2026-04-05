@@ -12,18 +12,6 @@ import (
 
 var timeType = reflect.TypeOf(time.Time{})
 
-func mustTSLiteralValueFromGoValue(context string, value any) any {
-	payload, err := marshalTSLiteralJSON(value, false)
-	if err != nil {
-		panic(context + ": marshal Go default: " + err.Error())
-	}
-	var normalized any
-	if err := json.Unmarshal(payload, &normalized); err != nil {
-		panic(context + ": decode Go default: " + err.Error())
-	}
-	return normalized
-}
-
 func renderTSLiteralValue(value any, indent string) string {
 	payload, err := marshalTSLiteralJSON(value, indent != "")
 	if err != nil {
@@ -53,7 +41,6 @@ type typeConverter struct{}
 
 type reflectedStructProperty struct {
 	Property                     TypeProperty
-	FieldIndex                   []int
 	Nullable                     bool
 	CreateExpr                   string
 	CreateTargetTypeName         string
@@ -99,7 +86,7 @@ func frontendBindingTypeName(t reflect.Type) string {
 
 func BindingTypeName(t reflect.Type) string { return frontendBindingTypeName(t) }
 
-func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {
+func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultLiteral any) (TypeDeclaration, error) {
 	typeName := frontendBindingTypeName(t)
 	propertySpecs, err := c.structPropertySpecs(t)
 	if err != nil {
@@ -108,7 +95,7 @@ func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaul
 	createBody, err := buildGoBackedCreateBodyTS(
 		"frontend create defaults "+typeName,
 		typeName,
-		defaultValue,
+		defaultLiteral,
 		propertySpecs,
 	)
 	if err != nil {
@@ -129,28 +116,21 @@ func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaul
 func buildGoBackedCreateBodyTS(
 	context string,
 	declarationName string,
-	defaultValue any,
+	defaultLiteral any,
 	properties []reflectedStructProperty,
 ) (string, error) {
-	if defaultValue == nil {
+	if defaultLiteral == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	normalizedDefaults := mustTSLiteralValueFromGoValue(context, defaultValue)
-	defaultValuesByName, ok := normalizedDefaults.(map[string]any)
+	defaultValuesByName, ok := defaultLiteral.(map[string]any)
 	if !ok {
-		panic(context + ": Go default did not decode to an object")
+		return "", fmt.Errorf("%s default literal did not decode to an object", context)
 	}
-	reflectedDefaults := reflect.ValueOf(defaultValue)
 	defaultsObject := make(map[string]any, len(properties))
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
-		value, hasDefault := resolvedGoBackedCreatePropertyDefault(
-			context,
-			reflectedDefaults,
-			defaultValuesByName,
-			propertySpec,
-		)
+		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
 			if !property.Optional {
 				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
@@ -171,26 +151,6 @@ func buildGoBackedCreateBodyTS(
 	}
 	ensureNoUnexpectedGoBackedCreateDefaults(context, defaultValuesByName, defaultsObject)
 	return renderGoBackedCreateBody(declarationName, defaultsObject, fieldBuilder.String()), nil
-}
-
-func resolvedGoBackedCreatePropertyDefault(
-	context string,
-	reflectedDefaults reflect.Value,
-	defaultValuesByName map[string]any,
-	propertySpec reflectedStructProperty,
-) (any, bool) {
-	property := propertySpec.Property
-	value, hasDefault := defaultValuesByName[property.Name]
-	fieldValue, hasFieldValue := reflectedStructFieldValue(reflectedDefaults, propertySpec.FieldIndex)
-	if !hasFieldValue {
-		return value, hasDefault
-	}
-	fieldContext := context + "." + property.Name
-	if !hasDefault {
-		value = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
-		hasDefault = true
-	}
-	return mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, value), true
 }
 
 func appendGoBackedCreateFieldAssignment(
@@ -240,66 +200,6 @@ func renderGoBackedCreateBody(
 	builder.WriteString(fieldAssignments)
 	builder.WriteString("  };")
 	return builder.String()
-}
-
-func reflectedStructFieldValue(value reflect.Value, fieldIndex []int) (reflect.Value, bool) {
-	for _, index := range fieldIndex {
-		for value.IsValid() && value.Kind() == reflect.Pointer {
-			if value.IsNil() {
-				return reflect.Value{}, false
-			}
-			value = value.Elem()
-		}
-		if !value.IsValid() || value.Kind() != reflect.Struct || index >= value.NumField() {
-			return reflect.Value{}, false
-		}
-		value = value.Field(index)
-	}
-	if !value.IsValid() {
-		return reflect.Value{}, false
-	}
-	return value, true
-}
-
-func mergeTSLiteralValueFromFieldValue(context string, value reflect.Value, normalized any) any {
-	if !value.IsValid() {
-		return normalized
-	}
-	for value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return nil
-		}
-		value = value.Elem()
-	}
-	if value.Kind() != reflect.Struct {
-		return normalized
-	}
-	object, ok := normalized.(map[string]any)
-	if !ok {
-		return normalized
-	}
-	valueType := value.Type()
-	for _, field := range reflect.VisibleFields(valueType) {
-		if !field.IsExported() || field.Anonymous {
-			continue
-		}
-		fieldValue, ok := reflectedStructFieldValue(value, field.Index)
-		if !ok {
-			continue
-		}
-		name, _, skip := jsonFieldName(field)
-		if skip {
-			continue
-		}
-		fieldContext := context + "." + name
-		normalizedField, ok := object[name]
-		if !ok {
-			object[name] = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
-			continue
-		}
-		object[name] = mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, normalizedField)
-	}
-	return object
 }
 
 func buildGenericCreateFieldExprTS(
@@ -439,7 +339,6 @@ func (c *typeConverter) namedStructPropertySpec(
 			TypeExpr: typeExpr,
 			Optional: optional,
 		},
-		FieldIndex:                   append([]int(nil), field.Index...),
 		Nullable:                     nullable,
 		CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
 		CreateTargetTypeName:         createTargetTypeName,

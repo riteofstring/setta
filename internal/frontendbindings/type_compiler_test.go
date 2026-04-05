@@ -270,7 +270,7 @@ type testNestedOmitEmptyDefaults struct {
 	Inner TestNestedOmitEmptyDefaultsInner `json:"inner"`
 }
 
-func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *testing.T) {
+func TestBuildGoBackedCreateBodyTSUsesNormalizedZeroValueDefaults(t *testing.T) {
 	t.Parallel()
 
 	converter := newTypeConverter()
@@ -282,7 +282,10 @@ func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *t
 	createBody, err := buildGoBackedCreateBodyTS(
 		"test omit empty defaults",
 		"TestOmitEmptyDefaults",
-		testOmitEmptyDefaults{},
+		map[string]any{
+			"count":   float64(0),
+			"enabled": false,
+		},
 		propertySpecs,
 	)
 	if err != nil {
@@ -296,7 +299,7 @@ func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *t
 	}
 }
 
-func TestBuildGoBackedCreateBodyTSRestoresNestedOmitEmptyDefaults(t *testing.T) {
+func TestBuildGoBackedCreateBodyTSUsesNormalizedNestedDefaults(t *testing.T) {
 	t.Parallel()
 
 	converter := newTypeConverter()
@@ -308,7 +311,11 @@ func TestBuildGoBackedCreateBodyTSRestoresNestedOmitEmptyDefaults(t *testing.T) 
 	createBody, err := buildGoBackedCreateBodyTS(
 		"test nested omit empty defaults",
 		"TestNestedOmitEmptyDefaults",
-		testNestedOmitEmptyDefaults{},
+		map[string]any{
+			"inner": map[string]any{
+				"enabled": false,
+			},
+		},
 		propertySpecs,
 	)
 	if err != nil {
@@ -344,18 +351,18 @@ func assertNoTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name 
 func goBackedCreateDeclarationForTest(t *testing.T, typ reflect.Type) TypeDeclaration {
 	t.Helper()
 
-	defaultValue, ok, err := semanticDefaultValueForType(
+	defaultLiteral, ok, err := semanticDefaultLiteralForType(
 		canonicalFrontendBindingType(typ),
 		semanticDefaultProfileFrontend,
 	)
 	if err != nil {
-		t.Fatalf("semanticDefaultValueForType(%v): %v", typ, err)
+		t.Fatalf("semanticDefaultLiteralForType(%v): %v", typ, err)
 	}
 	if !ok {
-		t.Fatalf("semanticDefaultValueForType(%v) returned no default", typ)
+		t.Fatalf("semanticDefaultLiteralForType(%v) returned no default", typ)
 	}
 
-	declaration, err := newTypeConverter().goBackedCreateFunctionDeclaration(typ, defaultValue)
+	declaration, err := newTypeConverter().goBackedCreateFunctionDeclaration(typ, defaultLiteral)
 	if err != nil {
 		t.Fatalf("goBackedCreateFunctionDeclaration(%v): %v", typ, err)
 	}

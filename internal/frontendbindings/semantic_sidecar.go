@@ -119,15 +119,15 @@ func semanticCreateFunctionDeclaration(
 	typ reflect.Type,
 	familyDefault json.RawMessage,
 ) (TypeDeclaration, error) {
-	defaultValue, ok, err := semanticDefaultValueForType(typ, semanticDefaultProfileFrontend)
+	defaultLiteral, ok, err := semanticDefaultLiteralForType(typ, semanticDefaultProfileFrontend)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
 	if ok {
-		return converter.goBackedCreateFunctionDeclaration(typ, defaultValue)
+		return converter.goBackedCreateFunctionDeclaration(typ, defaultLiteral)
 	}
 	if len(familyDefault) > 0 {
-		defaultValue, err := decodeSemanticDefaultValue(typ, familyDefault)
+		defaultLiteral, err := decodeSemanticJSONValue(familyDefault)
 		if err != nil {
 			return TypeDeclaration{}, fmt.Errorf(
 				"frontend semantic sidecar family default %s: %w",
@@ -135,7 +135,7 @@ func semanticCreateFunctionDeclaration(
 				err,
 			)
 		}
-		return converter.goBackedCreateFunctionDeclaration(typ, defaultValue)
+		return converter.goBackedCreateFunctionDeclaration(typ, defaultLiteral)
 	}
 	return exportedFunctionDeclaration(
 		"create"+typeName,
@@ -227,36 +227,13 @@ func semanticDefaultValueForType(
 	t reflect.Type,
 	profile string,
 ) (any, bool, error) {
-	manifest, err := loadSemanticSidecarManifest()
+	typeName, matched, err := semanticDefaultEntryForType(t, profile)
 	if err != nil {
 		return nil, false, err
-	}
-
-	typeName := strings.TrimSpace(frontendBindingTypeName(t))
-	profile = strings.TrimSpace(profile)
-	if typeName == "" || profile == "" {
-		return nil, false, nil
-	}
-
-	var matched *semanticDefaultEntry
-	for index := range manifest.Defaults {
-		entry := &manifest.Defaults[index]
-		if strings.TrimSpace(entry.Type) != typeName || strings.TrimSpace(entry.Profile) != profile {
-			continue
-		}
-		if matched != nil {
-			return nil, false, fmt.Errorf(
-				"frontend semantic sidecar has duplicate default %s for profile %s",
-				typeName,
-				profile,
-			)
-		}
-		matched = entry
 	}
 	if matched == nil {
 		return nil, false, nil
 	}
-
 	value, err := decodeSemanticDefaultValue(canonicalFrontendBindingType(t), matched.Value)
 	if err != nil {
 		return nil, false, fmt.Errorf(
@@ -267,6 +244,63 @@ func semanticDefaultValueForType(
 		)
 	}
 	return value, true, nil
+}
+
+func semanticDefaultLiteralForType(
+	t reflect.Type,
+	profile string,
+) (any, bool, error) {
+	typeName, matched, err := semanticDefaultEntryForType(t, profile)
+	if err != nil {
+		return nil, false, err
+	}
+	if matched == nil {
+		return nil, false, nil
+	}
+
+	value, err := decodeSemanticJSONValue(matched.Value)
+	if err != nil {
+		return nil, false, fmt.Errorf(
+			"frontend semantic sidecar default %s for profile %s: %w",
+			typeName,
+			profile,
+			err,
+		)
+	}
+	return value, true, nil
+}
+
+func semanticDefaultEntryForType(
+	t reflect.Type,
+	profile string,
+) (string, *semanticDefaultEntry, error) {
+	manifest, err := loadSemanticSidecarManifest()
+	if err != nil {
+		return "", nil, err
+	}
+
+	typeName := strings.TrimSpace(frontendBindingTypeName(t))
+	profile = strings.TrimSpace(profile)
+	if typeName == "" || profile == "" {
+		return typeName, nil, nil
+	}
+
+	var matched *semanticDefaultEntry
+	for index := range manifest.Defaults {
+		entry := &manifest.Defaults[index]
+		if strings.TrimSpace(entry.Type) != typeName || strings.TrimSpace(entry.Profile) != profile {
+			continue
+		}
+		if matched != nil {
+			return "", nil, fmt.Errorf(
+				"frontend semantic sidecar has duplicate default %s for profile %s",
+				typeName,
+				profile,
+			)
+		}
+		matched = entry
+	}
+	return typeName, matched, nil
 }
 
 func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {
