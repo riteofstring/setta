@@ -1,4 +1,11 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  createProjectConfig as createProjectConfigRequest,
+  getLatestLspDiagnostics,
+  loadAllProjectMetadata as loadAllProjectMetadataRequest,
+  loadProjectConfig as loadProjectConfigRequest,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
@@ -21,16 +28,11 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_create_project_config,
-  route_get_latest_lsp_diagnostics,
-  route_load_all_project_metadata,
-  route_load_project_config,
-} from "utils/generatedEndpoints";
-import {
-  type ProjectStateSingleConfig,
-  type ProjectStateSingleConfigInput,
+  type AllProjectMetadata,
+  type LSPDiagnosticsPayload,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
@@ -42,16 +44,32 @@ import {
 } from "../projectChatWindowingEphemeral";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
-
+type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
+type LatestLspDiagnosticsRouteResponse =
+  ResponseDataAndStatus<LSPDiagnosticsPayload>;
+type LoadAllProjectMetadataRouteResponse =
+  ResponseDataAndStatus<AllProjectMetadata>;
+type CreateProjectConfigRouteResponse = ResponseDataAndStatus<string>;
+type LoadProjectStateInput = SingleConfig | Partial<SingleConfig>;
 export async function loadProjectConfig({ projectConfigName }) {
-  const res = await route_load_project_config({ projectConfigName });
+  const res = (await callOpenAPI(
+    loadProjectConfigRequest({
+      body: {
+        projectConfigName,
+      },
+    } as Parameters<typeof loadProjectConfigRequest>[0]),
+  )) as LoadProjectConfigRouteResponse;
   if (res200(res)) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: loadedProjectState.projectConfig.id,
-      });
+      const diagnosticsRes = (await callOpenAPI(
+        getLatestLspDiagnostics({
+          body: {
+            projectConfigId: loadedProjectState.projectConfig.id,
+          },
+        } as Parameters<typeof getLatestLspDiagnostics>[0]),
+      )) as LatestLspDiagnosticsRouteResponse;
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
@@ -63,11 +81,14 @@ export async function loadProjectConfig({ projectConfigName }) {
     return false;
   }
 }
-
 function validateLoadedProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
-  if (projectState.projectConfig.windowSpaces === undefined) {
+  projectState: LoadProjectStateInput,
+): SingleConfig {
+  const projectConfig = projectState.projectConfig;
+  if (!projectConfig) {
+    throw new Error("Loaded project state is missing projectConfig.");
+  }
+  if (projectConfig.windowSpaces === undefined) {
     throw new Error(
       "Loaded project state is missing projectConfig.windowSpaces.",
     );
@@ -75,12 +96,9 @@ function validateLoadedProjectState(
   if (projectState.projectChatWindowing === undefined) {
     throw new Error("Loaded project state is missing projectChatWindowing.");
   }
-  return projectState as ProjectStateSingleConfig;
+  return projectState as SingleConfig;
 }
-
-export async function loadProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-) {
+export async function loadProjectState(projectState: LoadProjectStateInput) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;
@@ -136,7 +154,6 @@ export async function loadProjectState(
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
   return true;
 }
-
 export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
@@ -144,7 +161,13 @@ export function useCreateAndGoToProjectConfig() {
     if (!previewImgColor) {
       throw new Error();
     }
-    const res = await route_create_project_config({ previewImgColor });
+    const res = (await callOpenAPI(
+      createProjectConfigRequest({
+        body: {
+          previewImgColor,
+        },
+      } as Parameters<typeof createProjectConfigRequest>[0]),
+    )) as CreateProjectConfigRouteResponse;
     if (res200(res)) {
       useLocalStorage.setState({
         overviewTab: OverviewTabNameEnum.ProjectAIChat,
@@ -153,14 +176,12 @@ export function useCreateAndGoToProjectConfig() {
     }
   };
 }
-
 function getRandomProjectConfigPreviewImgColor() {
   const randomIndex = Math.floor(
     Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
   );
   return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
 }
-
 export function useNavigateToAnotherConfig() {
   const navigate = useNavigate();
   return (projectConfigName: string) => {
@@ -169,15 +190,19 @@ export function useNavigateToAnotherConfig() {
     });
   };
 }
-
 export async function loadAllProjectMetadata(): Promise<boolean> {
   const mode = await initializeServerMode();
   if (mode !== "ide") {
     return false;
   }
-  const res = await route_load_all_project_metadata();
+  const res = (await callOpenAPI(
+    loadAllProjectMetadataRequest(),
+  )) as LoadAllProjectMetadataRouteResponse;
   if (res200(res)) {
-    useAllProjectMetadata.setState(res.data);
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: res.data.defaultProjectConfigId,
+      projectMetadata: res.data.projectMetadata ?? [],
+    });
     return true;
   }
   return false;
