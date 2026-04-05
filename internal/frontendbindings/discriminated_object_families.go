@@ -12,9 +12,7 @@ import (
 
 type discriminatedObjectFamilyMember struct {
 	Type     reflect.Type
-	TypeName string
 	EnumExpr string
-	TypeExpr string
 }
 
 var frontendBindingDiscriminatedFamiliesOnce sync.Once
@@ -185,7 +183,7 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 		concreteProperties, err := converter.structProperties(
 			member.Type,
 			map[string]string{
-				family.DiscriminatorField: member.TypeExpr,
+				family.DiscriminatorField: "typeof " + member.EnumExpr,
 			},
 			nil,
 			nil,
@@ -235,14 +233,26 @@ func discriminatedObjectFamilyTraitDeclarations(
 	}
 	baseUnionName := frontendBindingTypeName(family.BaseType) + "Union"
 	baseTypeName := frontendBindingTypeName(family.BaseType)
+	baseMemberTypeNames := make([]string, 0, len(members))
+	for _, member := range members {
+		baseMemberTypeNames = append(baseMemberTypeNames, frontendBindingTypeName(member.Type))
+	}
 	declarations := []TypeDeclaration{
 		aliasUnionDeclaration(
 			baseUnionName,
-			append([]string{baseTypeName}, discriminatedObjectFamilyMemberTypeNames(members, nil)...)...,
+			append([]string{baseTypeName}, baseMemberTypeNames...)...,
 		),
 	}
 	for _, trait := range family.Traits {
-		memberTypeNames := discriminatedObjectFamilyMemberTypeNames(members, trait.Predicate)
+		memberTypeNames := []string{}
+		memberEnumExprs := []string{}
+		for _, member := range members {
+			if trait.Predicate != nil && !trait.Predicate(member.Type) {
+				continue
+			}
+			memberTypeNames = append(memberTypeNames, frontendBindingTypeName(member.Type))
+			memberEnumExprs = append(memberEnumExprs, member.EnumExpr)
+		}
 		if strings.TrimSpace(trait.UnionName) != "" {
 			memberNames := memberTypeNames
 			if trait.IncludeBase {
@@ -258,7 +268,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 			declarations = append(declarations, setDeclaration(
 				trait.SetName,
 				frontendBindingTypeName(family.EnumType),
-				discriminatedObjectFamilyMemberEnumExprs(members, trait.Predicate)...,
+				memberEnumExprs...,
 			))
 		}
 		if strings.TrimSpace(trait.GuardName) != "" {
@@ -339,40 +349,10 @@ func discriminatedObjectFamilyMembers(
 		enumExpr := enumExprsByValue[value]
 		members = append(members, discriminatedObjectFamilyMember{
 			Type:     memberType,
-			TypeName: frontendBindingTypeName(memberType),
 			EnumExpr: enumExpr,
-			TypeExpr: "typeof " + enumExpr,
 		})
 	}
 	return members, nil
-}
-
-func discriminatedObjectFamilyMemberTypeNames(
-	members []discriminatedObjectFamilyMember,
-	predicate func(reflect.Type) bool,
-) []string {
-	values := []string{}
-	for _, member := range members {
-		if predicate != nil && !predicate(member.Type) {
-			continue
-		}
-		values = append(values, member.TypeName)
-	}
-	return values
-}
-
-func discriminatedObjectFamilyMemberEnumExprs(
-	members []discriminatedObjectFamilyMember,
-	predicate func(reflect.Type) bool,
-) []string {
-	values := []string{}
-	for _, member := range members {
-		if predicate != nil && !predicate(member.Type) {
-			continue
-		}
-		values = append(values, member.EnumExpr)
-	}
-	return values
 }
 
 func discriminatedObjectFamilyPropertyMap(properties []TypeProperty) map[string]TypeProperty {
