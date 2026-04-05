@@ -289,4 +289,48 @@ describe("settingsGraphSubstrateCanaryModel", () => {
       },
     ]);
   });
+
+  it("does not synthesize a shared-node size from partial layout and node-internals dimensions", () => {
+    const sections = resolveSettingsGraphSubstrateCanarySections(
+      [
+        {
+          height: null,
+          position: { x: 120, y: 100 },
+          positionAndSizeLocked: false,
+          sectionId: "section-a",
+          sectionTypeName: SectionTypeEnum.Code,
+          styleColor: null,
+          tempZIndex: 1,
+          textBlockMetaControlStyle: false,
+          width: 280,
+          zIndex: 1,
+        },
+      ],
+      new Map([
+        [
+          "section-a",
+          {
+            width: null,
+            height: 190,
+          },
+        ],
+      ]),
+    );
+
+    expect(sections).toEqual([
+      {
+        height: null,
+        position: { x: 120, y: 100 },
+        positionAndSizeLocked: false,
+        sectionId: "section-a",
+        sectionTypeName: SectionTypeEnum.Code,
+        sizeAuthority: "none",
+        styleColor: null,
+        tempZIndex: 1,
+        textBlockMetaControlStyle: false,
+        width: null,
+        zIndex: 1,
+      },
+    ]);
+  });
 });

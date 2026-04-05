@@ -816,6 +816,76 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     });
   });
 
+  it("does not synthesize a mixed authoritative size from partial layout and current-node dimensions", () => {
+    const sectionId = "section-visible";
+    const variantId = "variant-visible";
+    const implId = "impl-visible";
+    const layout = { x: 30, y: 40, zIndex: 2, w: 320, h: null };
+    const projectState = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map([
+        [
+          sectionId,
+          {
+            id: sectionId,
+            position: { x: 5, y: 10 },
+            width: null,
+            height: 240,
+            zIndex: 5,
+            tempZIndex: 5,
+          },
+        ],
+      ]),
+    );
+
+    expect(nodesMap.get(sectionId)).toMatchObject({
+      position: { x: layout.x, y: layout.y },
+      width: null,
+      height: null,
+      zIndex: layout.zIndex,
+      tempZIndex: layout.zIndex,
+    });
+  });
+
   it("uses layout size when the current node is missing", () => {
     const sectionId = "section-visible";
     const variantId = "variant-visible";

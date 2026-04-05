@@ -1337,19 +1337,35 @@ export function getAuthoritativeTopLevelSectionNodeSize(
   layout: { h: number | null; w: number | null },
   currentNode: Pick<Node, "height" | "width"> | undefined,
 ) {
-  if (
-    typeof layout.w === "number" &&
-    layout.w > 0 &&
-    typeof layout.h === "number" &&
-    layout.h > 0
-  ) {
+  if (hasPositiveTopLevelSectionNodeSize(layout.w, layout.h)) {
     return { width: layout.w, height: layout.h };
   }
 
+  const currentNodeWidth = currentNode?.width ?? null;
+  const currentNodeHeight = currentNode?.height ?? null;
+  if (hasPositiveTopLevelSectionNodeSize(currentNodeWidth, currentNodeHeight)) {
+    return {
+      width: currentNodeWidth,
+      height: currentNodeHeight,
+    };
+  }
+
   return {
-    width: currentNode?.width ?? layout.w,
-    height: currentNode?.height ?? layout.h,
+    width: null,
+    height: null,
   };
+}
+
+function hasPositiveTopLevelSectionNodeSize(
+  width: number | null | undefined,
+  height: number | null | undefined,
+) {
+  return (
+    typeof width === "number" &&
+    width > 0 &&
+    typeof height === "number" &&
+    height > 0
+  );
 }
 
 export function setSectionChildren(

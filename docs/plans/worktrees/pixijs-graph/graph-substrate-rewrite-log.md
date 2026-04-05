@@ -8640,6 +8640,58 @@ LOOP_TERMINAL_MARKER: none
     - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `221` | 2026-04-06 15:35 EDT
+  - Subtask: make shared top-level size hydration pair-only so the reader/canary model cannot fabricate a size from mixed partial layout and node-internals dimensions.
+  - Why:
+    - item `220` moved shared-node size authority up to the canary section model/controller boundary, but `getAuthoritativeTopLevelSectionNodeSize(...)` still merged `width` and `height` per-dimension across `layout` and `currentNode`
+    - that let stale `layout.w` plus live `currentNode.height` (or the inverse) masquerade as a real authoritative size, which violated the explicit `layout` vs `sharedNode` vs `none` size-authority model
+    - this is still a real geometry-authority reader seam, not another forwarding hop or an oracle-only pass
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `getAuthoritativeTopLevelSectionNodeSize(...)` now accepts only paired positive dimensions from one source (`layout` first, then current node) and otherwise returns `null` size
+      - added `hasPositiveTopLevelSectionNodeSize(...)` so the shared reader uses the same pair-only rule as the canary model
+  - Tests:
+    - updated `frontend/src/state/actions/sectionInfos.test.ts`
+      - added coverage proving `createNodesMapFromProjectConfigChildren(...)` clears mixed partial `layout`/`currentNode` geometry instead of synthesizing a size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - added coverage proving `resolveSettingsGraphSubstrateCanarySections(...)` resolves that mixed state to `sizeAuthority: "none"`
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state`
+      - the new spec leaves only `layoutWidth` and `nodeHeight` for `rotaryParamCodeObjDefault` and expects the canary scene size to resolve back to `null`
+    - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` -> passed (`2 files`, `35 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionInfos\\.ts\\(134[4-9]|sectionInfos\\.ts\\(135[0-6]' || true` -> no matches
+      - note: full `tsc --noEmit` output remains broadly noisy in `sectionInfos.ts` / `sectionInfos.test.ts`, so the full file still is not a useful green gate here
+  - Runtime verification:
+    - first targeted live-runtime Playwright rerun on the original `3076/8076` runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-003 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state' --reporter=line --timeout=30000`
+      - result: blocked before the test body by the same headless `ensureAppReady(...)` timeout (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+    - allowed worktree recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: worktree restarted cleanly on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log, so `curl` was used to confirm `3075`
+    - retry on the recovered `3075/8075` runtime:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state' --reporter=line --timeout=30000`
+      - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure is still harness-health noise rather than slice-specific behavior
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked
+      - the live worktree CDP port was reachable, but the `chrome-devtools-mcp` tool surface was not callable from that sub-agent session
+    - CDP visual check:
+      - result: done
+      - main-session fallback read `docs/guides/browser-mcp-quickstart.md`, used the already-open direct `/settings` page at worktree `3075`, and activated `All Settings`
+      - `rotaryParamCodeObjDefault` remained present in the overview, and the matching `graph-substrate-canary-section` still had a non-zero rect (`x=1352.4`, `y=243.2`, `w=55.2`, `h=26.6`)
+      - a viewport screenshot with a temporary red overlay confirmed the target section was still mounted on the canary surface instead of collapsing to a blank/missing node
+  - Result:
+    - the shared reader and the canary model now agree that a section only has size authority when one source provides both positive dimensions together
+    - mixed partial `layout`/`currentNode` geometry now resolves to `null` size instead of silently reintroducing a hybrid pair
+    - the remaining risk moved to the writer side, where some top-level layout persistence paths still store `w` and `h` independently
+  - Next:
+    - enforce the same pair-only size rule in the top-level layout writers that still persist split `w` / `h` pairs, starting with `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)`
+    - do not spend the next iteration on the same Playwright lifecycle recovery alone unless the live runtime is actually down
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `218` | 2026-04-06 01:48 EDT
   - Subtask: move the canary's top drag handle onto `SettingsGraphSubstrateCanarySectionShell` and suppress the duplicate DOM handle in the section body.
   - Why:

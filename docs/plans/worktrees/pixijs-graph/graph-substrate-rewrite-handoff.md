@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 15:23 EDT
+Last updated: 2026-04-06 15:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,61 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `221` makes shared top-level size hydration pair-only, so the canary/shared reader can no longer fabricate a "valid" section size by mixing one dimension from persisted layout and the other from live node state.
+  - Why this slice was needed:
+    - item `220` moved shared-node size authority up to the canary section model/controller boundary, but `getAuthoritativeTopLevelSectionNodeSize(...)` in `frontend/src/state/actions/sectionInfos.ts` still merged `width` and `height` independently across layout and current node state
+    - that let both the shared reader and the canary model synthesize a positive size from stale `layout.w` plus `currentNode.height` (or the inverse), which contradicts the explicit `layout` vs `sharedNode` vs `none` size-authority model
+    - this is a real geometry-authority fix at the shared read boundary, not another forwarding hop or oracle-only pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this geometry-authority slice
+  - Production/test change:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `getAuthoritativeTopLevelSectionNodeSize(...)` now accepts only paired positive dimensions from one source (`layout` first, then current node) and otherwise returns `null` size instead of a mixed pair
+      - added a local `hasPositiveTopLevelSectionNodeSize(...)` helper so the shared read boundary uses the same pair-only rule as the canary model
+    - updated `frontend/src/state/actions/sectionInfos.test.ts`
+      - added coverage proving `createNodesMapFromProjectConfigChildren(...)` now clears mixed partial `layout`/`currentNode` geometry instead of synthesizing a size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - added coverage proving `resolveSettingsGraphSubstrateCanarySections(...)` resolves that mixed partial state to `sizeAuthority: "none"`
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state`
+      - the new spec leaves only `layoutWidth` and `nodeHeight` for `rotaryParamCodeObjDefault` and expects the canary scene size to resolve back to `null`
+  - What this slice established:
+    - the shared read boundary and the canary section model now agree that a section only has size authority when one source provides both positive dimensions together
+    - partial layout/current-node mixes now collapse to `null` size instead of silently reintroducing hybrid geometry
+    - the next remaining risk is on the writer side: some top-level layout persistence paths still store `w` and `h` independently, so they can keep generating split pairs that the reader now correctly rejects
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - result: passed (`2 files`, `35 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'sectionInfos\\.ts\\(134[4-9]|sectionInfos\\.ts\\(135[0-6]' || true`
+      - result: no matches; the new `currentNode` narrowing regression introduced during the first pass was fixed before closing the slice
+      - note: full `tsc --noEmit` output remains broadly noisy in `sectionInfos.ts` / `sectionInfos.test.ts`, so the full file still is not a useful green gate here
+    - targeted live-runtime Playwright reruns:
+      - first attempt on the original `3076/8076` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-003 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state' --reporter=line --timeout=30000`
+        - result: blocked before the test body by the same headless `ensureAppReady(...)` failure (`helpers.ts:1187`, `browserContext.cookies: Target page, context or browser has been closed`)
+      - allowed worktree recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: worktree restarted cleanly on backend `8075`, debug port `9297`, and actual frontend `3075`; `./scripts/dev-runtime-info.sh` still reported stale frontend `3076` from the runtime log, so `curl` was used to confirm `3075`
+      - retry on the recovered `3075/8075` runtime:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<recovered token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary does not synthesize mixed size authority from partial layout and shared node state' --reporter=line --timeout=30000`
+        - result: hit the same `ensureAppReady(...)` browser-context shutdown before the test body, so the failure is still harness-health noise rather than slice-specific behavior
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md` but could not call the `chrome-devtools-mcp` tool surface from its own session, so the visual gate fell back to the main session after the same quickstart read
+      - note: the live worktree page at `http://127.0.0.1:3075/settings` was already open in Chrome DevTools MCP; `All Settings` was activated and `rotaryParamCodeObjDefault` remained present in the overview
+      - note: the target `graph-substrate-canary-section` for `rotaryParamCodeObjDefault` still had a non-zero DOM rect (`x=1352.4`, `y=243.2`, `w=55.2`, `h=26.6`), and a viewport screenshot with a temporary red overlay confirmed the target section was still mounted on the canary surface instead of collapsing to a blank/missing node
+  - Lane status:
+    - this closes the mixed-dimension branch of the shared read-side size-authority seam without reopening the shell-ownership lane
+    - the headless Playwright harness is still unhealthy on this worktree (`ensureAppReady(...)` dies before the test body even after the allowed restart), so do not spend the next iteration on the same recovery pattern alone
+  - Next frontier:
+    - continue the geometry-authority lane at the writer side by enforcing the same pair-only size rule in the top-level layout persistence paths that still store `w` and `h` independently, starting with `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)`
+    - if that writer seam is not the next slice, choose another remaining raw `layout.w/h` / canary-local measurement timing dependency, not another shell-affordance move
 
 - Ralph item `220` moves shared-node size authority up to the canary section model/controller boundary, so the scene runtime no longer owns a second local node-internals fallback merge.
   - Why this slice was needed:
