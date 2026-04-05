@@ -496,18 +496,8 @@ func specialTypeDeclaration(
 	if declaration, ok, err := ownerProvidedTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}
-	if declaration, ok := specialMetadataTypeDeclaration(converter, t); ok {
-		return declaration, true, nil
+	if declaration, ok, err := discriminatedObjectFamilyTypeDeclaration(converter, t); ok || err != nil {
+		return declaration, ok, err
 	}
 	return TypeDeclaration{}, false, nil
-}
-
-func generatedSectionImplTypeForSectionName(sectionName string) (reflect.Type, bool) {
-	for _, t := range DiscoveredConvertibleTypes() {
-		name, ok := generatedSectionImplName(t)
-		if ok && name == sectionName {
-			return t, true
-		}
-	}
-	return nil, false
 }

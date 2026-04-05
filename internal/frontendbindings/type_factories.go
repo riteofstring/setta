@@ -1,13 +1,10 @@
 package frontendbindings
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
-
-	"setta/internal/projectstate"
 )
 
 type genericCreateFieldSpec struct {
@@ -469,135 +466,6 @@ func orderedTypePropertyNames(properties []TypeProperty) []string {
 	return names
 }
 
-func generatedSectionImplName(t reflect.Type) (string, bool) {
-	if t == nil || t.Kind() != reflect.Struct {
-		return "", false
-	}
-	if !generatedFrontendSectionContractType(t) {
-		return "", false
-	}
-	name := normalizedFrontendBindingTypeName(t.Name())
-	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
-		return "", false
-	}
-	if !strings.HasSuffix(name, "SectionImpl") {
-		return "", false
-	}
-	sectionName := strings.TrimSuffix(name, "SectionImpl")
-	for _, enumValue := range mustGeneratedEnumValues(reflect.TypeOf(projectstate.FrontendSectionType(""))) {
-		if enumValue == sectionName {
-			return sectionName, true
-		}
-	}
-	return "", false
-}
-
-func generatedCodeObjImplName(t reflect.Type) (string, bool) {
-	if t == nil || t.Kind() != reflect.Struct {
-		return "", false
-	}
-	if !generatedFrontendCodeObjContractType(t) {
-		return "", false
-	}
-	name := normalizedFrontendBindingTypeName(t.Name())
-	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
-		return "", false
-	}
-	if !strings.HasSuffix(name, "CodeObjImpl") {
-		return "", false
-	}
-	return name, true
-}
-
-func generatedFrontendSectionContractType(t reflect.Type) bool {
-	return generatedContractTypeEmbedsAnonymousField(
-		t,
-		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
-	)
-}
-
-func generatedFrontendCodeObjContractType(t reflect.Type) bool {
-	return generatedContractTypeEmbedsAnonymousField(
-		t,
-		reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
-	)
-}
-
-func generatedContractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
-	if t == nil || target == nil || t.Kind() != reflect.Struct {
-		return false
-	}
-	for index := 0; index < t.NumField(); index++ {
-		field := t.Field(index)
-		if !field.Anonymous {
-			continue
-		}
-		fieldType := field.Type
-		if fieldType == target {
-			return true
-		}
-		if fieldType.Kind() == reflect.Pointer {
-			fieldType = fieldType.Elem()
-		}
-		if fieldType.Kind() == reflect.Struct &&
-			generatedContractTypeEmbedsAnonymousField(fieldType, target) {
-			return true
-		}
-	}
-	return false
-}
-
-func generatedSectionImplTypeExpr(sectionName string) string {
-	return "SectionTypeEnum." + sectionName
-}
-
-type generatedImplFactorySpec struct {
-	DefaultValue any
-}
-
-func generatedImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	spec, ok := generatedImplFactorySpecForType(t)
-	if !ok {
-		return TypeDeclaration{}, false
-	}
-	implType := frontendBindingTypeName(t)
-	return exportedFunctionDeclaration(
-		"create"+implType,
-		implType,
-		buildGeneratedImplFactoryBodyTS(
-			"frontend generated impl defaults "+implType,
-			implType,
-			spec.DefaultValue,
-		),
-		TypeProperty{
-			Name:         "options",
-			TypeExpr:     "Partial<" + implType + ">",
-			DefaultValue: "{}",
-		},
-	), true
-}
-
-func generatedImplFactorySpecForType(t reflect.Type) (generatedImplFactorySpec, bool) {
-	if sectionName, ok := generatedSectionImplName(t); ok {
-		defaultValue, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
-		if err != nil {
-			if errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported) {
-				return generatedImplFactorySpec{}, false
-			}
-			panic("load generated section impl defaults: " + err.Error())
-		}
-		return generatedImplFactorySpec{
-			DefaultValue: defaultValue,
-		}, true
-	}
-	if t == reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}) {
-		return generatedImplFactorySpec{
-			DefaultValue: projectstate.FrontendDefaultCodeParamCodeObjImpl(),
-		}, true
-	}
-	return generatedImplFactorySpec{}, false
-}
-
 func buildGeneratedImplFactoryBodyTS(
 	context string,
 	implType string,
@@ -640,8 +508,10 @@ func additionalFactoryDeclarations() []TypeDeclaration {
 
 func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
 	declarations := []TypeDeclaration{}
-	if declaration, ok := generatedImplFactoryDeclaration(t); ok {
-		declarations = append(declarations, declaration)
+	if familyDeclarations, ok, err := discriminatedObjectFamilyAdditionalDeclarations(t); err != nil {
+		panic(err)
+	} else if ok {
+		declarations = append(declarations, familyDeclarations...)
 	}
 	if len(declarations) == 0 {
 		return nil, false

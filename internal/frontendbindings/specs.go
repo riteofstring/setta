@@ -36,8 +36,12 @@ func CurrentRouteGroups() []RouteGroup {
 }
 
 func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
-	declarations := []TypeDeclaration{}
-	declarations = append(declarations, typeMetadataDeclarations(converter)...)
+	declarations := []TypeDeclaration{
+		aliasDeclaration(
+			"JSONValue",
+			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+		),
+	}
 	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)
 	return declarations
