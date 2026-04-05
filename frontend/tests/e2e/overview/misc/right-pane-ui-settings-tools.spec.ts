@@ -21,7 +21,7 @@ type RevealUISettingResult = {
   emittedRevealCount: number;
   statuses: Array<{
     status: "revealed" | "failed";
-    error: ToolError | null;
+    error?: ToolError | null;
   }>;
 };
 
@@ -42,6 +42,10 @@ type CallToolResponse<TStructured> = {
     text?: string;
   }>;
 };
+
+function expectNoToolError(error: ToolError | null | undefined): void {
+  expect(error ?? null).toBeNull();
+}
 
 async function callMcpTool<TStructured>(
   page: Page,
@@ -501,7 +505,7 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
       `Unexpected reveal result: ${JSON.stringify(revealResult)}`,
     ).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expect(revealResult.statuses[0]?.error).toBeNull();
+    expectNoToolError(revealResult.statuses[0]?.error);
 
     const rightPaneShell = page.getByTestId("ui-editor-tab-content-shell");
     await expect(rightPaneShell).toBeVisible();
@@ -583,9 +587,7 @@ test("right-pane reveal_ui_setting cancels a queued durable active-id sync befor
     );
 
     await setFrontendActiveIds(page, []);
-    await expect
-      .poll(async () => readFrontendActiveIds(page))
-      .toEqual([]);
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
 
     // Frontend active ids stay in the live UI store using the real section ids.
     expect(temporaryInitialSectionId).toBeTruthy();
@@ -628,7 +630,7 @@ test("right-pane reveal_ui_setting cancels a queued durable active-id sync befor
     const revealResult = await revealResultPromise;
     expect(revealResult.emittedRevealCount).toBe(1);
     expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expect(revealResult.statuses[0]?.error).toBeNull();
+    expectNoToolError(revealResult.statuses[0]?.error);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
