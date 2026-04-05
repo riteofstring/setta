@@ -14,6 +14,7 @@ type genericCreateFieldSpec struct {
 
 type reflectedFieldCreateSpec struct {
 	Type            reflect.Type
+	CreateExpr      string
 	CreateMapValues bool
 }
 
@@ -23,7 +24,7 @@ func buildGenericGoBackedCreateBodyTS(
 	structType reflect.Type,
 	defaultValue any,
 	properties []TypeProperty,
-	exprOverrides map[string]string,
+	fieldSpecsByName map[string]reflectedFieldCreateSpec,
 ) (string, error) {
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
@@ -33,7 +34,7 @@ func buildGenericGoBackedCreateBodyTS(
 		structType,
 		defaultValue,
 		properties,
-		exprOverrides,
+		fieldSpecsByName,
 	)
 	if err != nil {
 		return "", err
@@ -65,12 +66,8 @@ func buildGenericCreateFieldSpecs(
 	structType reflect.Type,
 	defaultValue any,
 	properties []TypeProperty,
-	exprOverrides map[string]string,
+	fieldSpecsByName map[string]reflectedFieldCreateSpec,
 ) ([]genericCreateFieldSpec, error) {
-	fieldSpecsByName, err := reflectedFieldCreateSpecsByJSONName(structType)
-	if err != nil {
-		return nil, err
-	}
 	defaults := mustTSLiteralObjectFromGoValue(context, defaultValue)
 	specs := []genericCreateFieldSpec{}
 	for _, property := range properties {
@@ -78,14 +75,9 @@ func buildGenericCreateFieldSpecs(
 		if !ok {
 			return nil, fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
 		}
-		explicitDefaultExpr := ""
-		if exprOverrides != nil {
-			explicitDefaultExpr = strings.TrimSpace(exprOverrides[property.Name])
-		}
 		createFieldSpec, ok, err := buildGenericCreateFieldSpec(
 			fieldSpec,
 			property,
-			explicitDefaultExpr,
 			renderTSPropertyAccessExpr("defaults", property.Name),
 			renderTSPropertyAccessExpr("options", property.Name),
 			defaults,
@@ -103,7 +95,6 @@ func buildGenericCreateFieldSpecs(
 func buildGenericCreateFieldSpec(
 	fieldSpec reflectedFieldCreateSpec,
 	property TypeProperty,
-	explicitDefaultExpr string,
 	defaultExpr string,
 	optionsExpr string,
 	defaults map[string]any,
@@ -111,6 +102,7 @@ func buildGenericCreateFieldSpec(
 	defaultExpr = strings.TrimSpace(defaultExpr)
 	optionsExpr = strings.TrimSpace(optionsExpr)
 	_, hasDefault := defaults[property.Name]
+	explicitDefaultExpr := strings.TrimSpace(fieldSpec.CreateExpr)
 	if explicitDefaultExpr != "" {
 		return genericCreateFieldSpec{
 			Name: property.Name,
@@ -296,51 +288,11 @@ func reflectedFieldCreateSpecsByJSONName(structType reflect.Type) (map[string]re
 		}
 		fields[name] = reflectedFieldCreateSpec{
 			Type:            field.Type,
+			CreateExpr:      strings.TrimSpace(tsMetadata.CreateExpr),
 			CreateMapValues: tsMetadata.CreateMapValues,
 		}
 	}
 	return fields, nil
-}
-
-func reflectedFieldCreateExprOverridesByJSONName(structType reflect.Type) (map[string]string, error) {
-	overrides := map[string]string{}
-	for structType.Kind() == reflect.Pointer {
-		structType = structType.Elem()
-	}
-	if structType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("field create expr overrides require a struct type, got %s", structType.String())
-	}
-	for fieldIndex := range structType.NumField() {
-		field := structType.Field(fieldIndex)
-		if !field.IsExported() {
-			continue
-		}
-		if field.Anonymous {
-			embeddedOverrides, err := reflectedFieldCreateExprOverridesByJSONName(field.Type)
-			if err != nil {
-				return nil, err
-			}
-			for name, expr := range embeddedOverrides {
-				if _, exists := overrides[name]; !exists {
-					overrides[name] = expr
-				}
-			}
-			continue
-		}
-		name, _, skip := jsonFieldName(field)
-		if skip {
-			continue
-		}
-		tsMetadata, err := tsFieldMetadata(field)
-		if err != nil {
-			return nil, err
-		}
-		if tsMetadata.Skip || strings.TrimSpace(tsMetadata.CreateExpr) == "" {
-			continue
-		}
-		overrides[name] = tsMetadata.CreateExpr
-	}
-	return overrides, nil
 }
 
 func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
@@ -355,27 +307,9 @@ func buildGoBackedCreateExprTS(
 	resultType string,
 	value any,
 	properties []TypeProperty,
+	fieldSpecsByName map[string]reflectedFieldCreateSpec,
 ) string {
-	filteredDefaults := filterObjectByTypeProperties(
-		context,
-		mustTSLiteralObjectFromGoValue(context, value),
-		properties,
-	)
-	return buildTSMergeGeneratedOptionsExprFromTSObject(
-		filteredDefaults,
-		orderedTypePropertyNames(properties),
-		"options",
-		resultType,
-	)
-}
-
-func buildGoBackedCreateExprWithExprOverridesTS(
-	context string,
-	resultType string,
-	value any,
-	properties []TypeProperty,
-	exprOverrides map[string]string,
-) string {
+	exprOverrides := fieldCreateExprOverridesByPropertyName(properties, fieldSpecsByName)
 	filteredDefaults := filterObjectByTypePropertiesWithExprOverrides(
 		context,
 		mustTSLiteralObjectFromGoValue(context, value),
@@ -390,14 +324,6 @@ func buildGoBackedCreateExprWithExprOverridesTS(
 		exprOverrides,
 		resultType,
 	)
-}
-
-func filterObjectByTypeProperties(
-	context string,
-	object map[string]any,
-	properties []TypeProperty,
-) map[string]any {
-	return filterObjectByTypePropertiesWithExprOverrides(context, object, properties, nil)
 }
 
 func filterObjectByTypePropertiesWithExprOverrides(
@@ -423,6 +349,24 @@ func filterObjectByTypePropertiesWithExprOverrides(
 		filtered[property.Name] = value
 	}
 	return filtered
+}
+
+func fieldCreateExprOverridesByPropertyName(
+	properties []TypeProperty,
+	fieldSpecsByName map[string]reflectedFieldCreateSpec,
+) map[string]string {
+	var overrides map[string]string
+	for _, property := range properties {
+		fieldSpec, ok := fieldSpecsByName[property.Name]
+		if !ok || fieldSpec.CreateExpr == "" {
+			continue
+		}
+		if overrides == nil {
+			overrides = map[string]string{}
+		}
+		overrides[property.Name] = fieldSpec.CreateExpr
+	}
+	return overrides
 }
 
 func orderedTypePropertyNames(properties []TypeProperty) []string {

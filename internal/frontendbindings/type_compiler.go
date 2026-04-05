@@ -322,7 +322,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
-	createExprOverrides, err := reflectedFieldCreateExprOverridesByJSONName(t)
+	fieldSpecsByName, err := reflectedFieldCreateSpecsByJSONName(t)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -331,10 +331,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		return TypeDeclaration{}, fmt.Errorf("%s has no Go default value", declarationName)
 	}
 	declaration := objectDeclaration(declarationName, properties...)
-	useGenericCreateBody, err := reflectedStructNeedsGenericCreateBody(t, properties)
-	if err != nil {
-		return TypeDeclaration{}, err
-	}
+	useGenericCreateBody := reflectedStructNeedsGenericCreateBody(properties, fieldSpecsByName)
 	if useGenericCreateBody {
 		context := "frontend create defaults " + declarationName
 		createBody, err := buildGenericGoBackedCreateBodyTS(
@@ -343,42 +340,28 @@ func (c *typeConverter) reflectedObjectDeclaration(
 			t,
 			spec.DefaultValue,
 			properties,
-			createExprOverrides,
+			fieldSpecsByName,
 		)
 		if err != nil {
 			return TypeDeclaration{}, err
 		}
 		declaration.CreateBody = createBody
 	} else {
-		context := "frontend create defaults " + declarationName
-		if len(createExprOverrides) > 0 {
-			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(
-				context,
-				declarationName,
-				spec.DefaultValue,
-				properties,
-				createExprOverrides,
-			)
-		} else {
-			declaration.CreateExpr = buildGoBackedCreateExprTS(
-				context,
-				declarationName,
-				spec.DefaultValue,
-				properties,
-			)
-		}
+		declaration.CreateExpr = buildGoBackedCreateExprTS(
+			"frontend create defaults "+declarationName,
+			declarationName,
+			spec.DefaultValue,
+			properties,
+			fieldSpecsByName,
+		)
 	}
 	return declaration, nil
 }
 
 func reflectedStructNeedsGenericCreateBody(
-	structType reflect.Type,
 	properties []TypeProperty,
-) (bool, error) {
-	fieldSpecs, err := reflectedFieldCreateSpecsByJSONName(structType)
-	if err != nil {
-		return false, err
-	}
+	fieldSpecs map[string]reflectedFieldCreateSpec,
+) bool {
 	needsGenericCreateBody := false
 	for _, property := range properties {
 		fieldSpec, ok := fieldSpecs[property.Name]
@@ -390,13 +373,13 @@ func reflectedStructNeedsGenericCreateBody(
 			continue
 		}
 		if reflectedMapFieldNeedsGeneratedCreate(fieldSpec.Type) {
-			return false, nil
+			return false
 		}
 		if reflectedNamedStructFieldNeedsGeneratedCreate(fieldSpec.Type) {
 			needsGenericCreateBody = true
 		}
 	}
-	return needsGenericCreateBody, nil
+	return needsGenericCreateBody
 }
 
 func reflectedNamedStructFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
