@@ -398,7 +398,7 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
 	builder.WriteString(" = ")
-	builder.WriteString(renderTSObjectLiteralExpr(defaultsObject, orderedKeys, "  "))
+	builder.WriteString(renderTSLiteralExpr(defaultsObject, orderedKeys, "  "))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions<")

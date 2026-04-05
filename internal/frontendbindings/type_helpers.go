@@ -217,15 +217,13 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 	}
 }
 
-func renderTSLiteralExpr(value any) string {
+func renderTSLiteralExpr(value any, orderedKeys []string, indent string) string {
 	var builder strings.Builder
-	writeTSLiteralValue(&builder, "", value)
-	return builder.String()
-}
-
-func renderTSObjectLiteralExpr(object map[string]any, orderedKeys []string, indent string) string {
-	var builder strings.Builder
-	writeTSObjectLiteral(&builder, indent, object, orderedKeys)
+	if object, ok := value.(map[string]any); ok {
+		writeTSObjectLiteral(&builder, indent, object, orderedKeys)
+	} else {
+		writeTSLiteralValue(&builder, indent, value)
+	}
 	return builder.String()
 }
 
@@ -282,7 +280,7 @@ func formatTSNumberLiteral(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
-func ownerProvidedTypeDeclaration(
+func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
@@ -295,40 +293,29 @@ func ownerProvidedTypeDeclaration(
 	}
 
 	provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t)
-	if !ok {
-		return TypeDeclaration{}, false, nil
-	}
-	memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
-	if len(memberTypes) == 0 {
-		return TypeDeclaration{}, false, fmt.Errorf("%s returned no frontend union members", t.String())
-	}
-
-	members := make([]string, 0, len(memberTypes))
-	seen := map[string]struct{}{}
-	for _, memberType := range memberTypes {
-		memberExpr, err := converter.renderTypeExpr(memberType)
-		if err != nil {
-			return TypeDeclaration{}, false, fmt.Errorf("%s union member %v: %w", t.String(), memberType, err)
+	if ok {
+		memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
+		if len(memberTypes) == 0 {
+			return TypeDeclaration{}, false, fmt.Errorf("%s returned no frontend union members", t.String())
 		}
-		if _, duplicate := seen[memberExpr]; duplicate {
-			continue
+
+		members := make([]string, 0, len(memberTypes))
+		seen := map[string]struct{}{}
+		for _, memberType := range memberTypes {
+			memberExpr, err := converter.renderTypeExpr(memberType)
+			if err != nil {
+				return TypeDeclaration{}, false, fmt.Errorf("%s union member %v: %w", t.String(), memberType, err)
+			}
+			if _, duplicate := seen[memberExpr]; duplicate {
+				continue
+			}
+			seen[memberExpr] = struct{}{}
+			members = append(members, memberExpr)
 		}
-		seen[memberExpr] = struct{}{}
-		members = append(members, memberExpr)
-	}
-	if len(members) == 0 {
-		return TypeDeclaration{}, false, fmt.Errorf("%s returned no renderable frontend union members", t.String())
-	}
-
-	return aliasUnionDeclaration(frontendBindingTypeName(t), members...), true, nil
-}
-
-func specialTypeDeclaration(
-	converter *typeConverter,
-	t reflect.Type,
-) (TypeDeclaration, bool, error) {
-	if declaration, ok, err := ownerProvidedTypeDeclaration(converter, t); ok || err != nil {
-		return declaration, ok, err
+		if len(members) == 0 {
+			return TypeDeclaration{}, false, fmt.Errorf("%s returned no renderable frontend union members", t.String())
+		}
+		return aliasUnionDeclaration(frontendBindingTypeName(t), members...), true, nil
 	}
 	if declaration, ok, err := discriminatedObjectFamilyTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
