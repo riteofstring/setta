@@ -161,6 +161,25 @@ func TestGeneratedSectionTypeSetMembersFollowOwnerTraits(t *testing.T) {
 	}
 }
 
+func TestGeneratedSectionUnionMembersIncludeSyntheticAliasSections(t *testing.T) {
+	t.Parallel()
+
+	got := generatedContractUnionMembers(
+		generatedSectionContractCategory,
+		generatedSectionImplHasChildren,
+	)
+	want := []string{
+		"ListRootSectionImpl",
+		"GroupSectionImpl",
+		"CodeSectionImpl",
+		"GenPythonCodeSectionImpl",
+		"GenPythonMetadataSectionImpl",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("generatedContractUnionMembers(section parent) = %#v, want %#v", got, want)
+	}
+}
+
 func TestGeneratedUserDefaultSectionPropertiesFollowOwnerTags(t *testing.T) {
 	t.Parallel()
 

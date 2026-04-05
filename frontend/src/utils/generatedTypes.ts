@@ -8893,16 +8893,8 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
-type BaseParentSectionImplUnion = BaseSectionImpl & {
-  children: Array<string>;
-};
-
-type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
-  codeObjVariantMap: Record<string, string>;
-};
-
-export type BaseDictSectionImplUnion = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+type GlobalVariablesSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GlobalVariables;
   codeObjVariantMap: Record<string, string>;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -8919,7 +8911,24 @@ export type BaseDictSectionImplUnion = BaseSectionImpl & {
   jsonSourceMissing: boolean;
 };
 
+type GenPythonCodeSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonCode;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
+type GenPythonMetadataSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.GenPythonMetadata;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
 export type BaseSectionImplUnion =
+  | BaseSectionImpl
   | CallableSectionImpl
   | DictSectionImpl
   | ListRootSectionImpl
@@ -8930,13 +8939,68 @@ export type BaseSectionImplUnion =
   | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
+  | GlobalVariablesSectionImpl
   | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
   | TaskBoardSectionImpl
-  | SpreadsheetSectionImpl
-  | BaseSectionImpl;
+  | SpreadsheetSectionImpl;
+
+type BaseParentSectionImplUnion =
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl;
+
+const BaseParentSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.ListRoot,
+  SectionTypeEnum.Group,
+  SectionTypeEnum.Code,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
+]);
+
+export function isBaseParentSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseParentSectionImplUnion {
+  return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+export type BaseDictSectionImplUnion =
+  | DictSectionImpl
+  | GlobalVariablesSectionImpl;
+
+const BaseDictSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+export function isBaseDictSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseDictSectionImplUnion {
+  return BaseDictSectionImplTypeSet.has(x.type);
+}
+
+type BaseSectionWithParamsImplUnion =
+  | CallableSectionImpl
+  | DictSectionImpl
+  | GlobalVariablesSectionImpl;
+
+const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Callable,
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+export function isBaseSectionWithParamsImpl(
+  x: BaseSectionImplUnion,
+): x is BaseSectionWithParamsImplUnion {
+  return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
 
 export type BaseCodeObjImplUnion =
   | BaseCodeObjImpl
@@ -8971,6 +9035,27 @@ export type BaseChildlessCodeObjImplUnion =
   | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl;
 
+const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
+]);
+
+export function isBaseChildlessCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseChildlessCodeObjImplUnion {
+  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+}
+
 type BaseParamCodeObjImplUnion =
   | BaseCodeObjImpl
   | CodeParamCodeObjImpl
@@ -8988,9 +9073,75 @@ type BaseParamCodeObjImplUnion =
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
 
+export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+export function isBaseParamCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParamCodeObjImplUnion {
+  return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
 type BaseParentCodeObjImplUnion =
   | CodeCallableCodeObjImpl
   | NestedParamCodeObjImpl;
+
+const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeCallable,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParentCodeObjImplUnion {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export const ControlCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
+]);
+
+export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+]);
 
 type UserDefaultCallableSectionImpl = {
   isFrozen: boolean;
@@ -9958,130 +10109,6 @@ export function createDefaultAppPolicy(
     },
     options,
   );
-}
-
-const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeCallable,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-export const ControlCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.ListRoot,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.Code,
-  SectionTypeEnum.GenPythonCode,
-  SectionTypeEnum.GenPythonMetadata,
-]);
-
-const BaseDictSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParamCodeObjImplUnion {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParentCodeObjImplUnion {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseParentSectionImplUnion {
-  return BaseParentSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseDictSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseDictSectionImplUnion {
-  return BaseDictSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImplUnion,
-): x is BaseSectionWithParamsImplUnion {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
 type SafeParseSuccess<T> = {

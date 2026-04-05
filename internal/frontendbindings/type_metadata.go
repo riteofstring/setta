@@ -10,7 +10,7 @@ import (
 )
 
 func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
-	return []TypeDeclaration{
+	declarations := []TypeDeclaration{
 		aliasDeclaration("BuiltinCodeLanguage", "CodeLanguage"),
 		aliasDeclaration("MessageContentDelta", "MessageTextDelta | MessageThinkingDelta"),
 		aliasDeclaration(
@@ -42,27 +42,9 @@ func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 			"ProjectCodegenTarget",
 			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 		),
-		generatedBaseParentSectionImplUnionDeclaration(converter),
-		generatedBaseSectionWithParamsImplUnionDeclaration(converter),
-		generatedBaseDictSectionImplUnionDeclaration(converter),
-		generatedBaseSectionImplUnionDeclaration(),
-		generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", true, nil),
-		generatedCodeObjUnionDeclaration(
-			"BaseChildlessCodeObjImplUnion",
-			true,
-			generatedCodeObjImplIsChildless,
-		),
-		generatedCodeObjUnionDeclaration(
-			"BaseParamCodeObjImplUnion",
-			true,
-			generatedCodeObjImplIsParam,
-		),
-		generatedCodeObjUnionDeclaration(
-			"BaseParentCodeObjImplUnion",
-			false,
-			generatedCodeObjImplHasChildren,
-		),
 	}
+	declarations = append(declarations, generatedContractDeclarations(converter)...)
+	return declarations
 }
 
 var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
@@ -98,92 +80,6 @@ func specialMetadataTypeDeclaration(converter *typeConverter, t reflect.Type) (T
 	return generatedConcreteCodeObjMetadataDeclaration(converter, t)
 }
 
-func generatedBaseParentSectionImplUnionDeclaration(converter *typeConverter) TypeDeclaration {
-	return aliasIntersectionDeclarationFromProperties(
-		"BaseParentSectionImplUnion",
-		"BaseSectionImpl",
-		[]TypeProperty{{Name: "children", TypeExpr: "Array<string>"}},
-	)
-}
-
-func generatedBaseSectionWithParamsImplUnionDeclaration(converter *typeConverter) TypeDeclaration {
-	return aliasIntersectionDeclarationFromProperties(
-		"BaseSectionWithParamsImplUnion",
-		"BaseSectionImpl",
-		[]TypeProperty{{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>"}},
-	)
-}
-
-func generatedBaseDictSectionImplUnionDeclaration(converter *typeConverter) TypeDeclaration {
-	properties, err := generatedSectionImplAliasProperties(
-		converter,
-		reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
-		"Dict",
-	)
-	if err != nil {
-		panic(err)
-	}
-	properties = append([]TypeProperty(nil), properties...)
-	for index := range properties {
-		if properties[index].Name == "type" {
-			properties[index].TypeExpr = "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"
-			break
-		}
-	}
-	return aliasIntersectionDeclarationFromProperties(
-		"BaseDictSectionImplUnion",
-		"BaseSectionImpl",
-		properties,
-	)
-}
-
-func generatedBaseSectionImplUnionDeclaration() TypeDeclaration {
-	members := append(generatedSectionImplTypeNames(), "BaseSectionImpl")
-	return aliasUnionDeclaration("BaseSectionImplUnion", members...)
-}
-
-func generatedSectionImplTypeNames() []string {
-	names := []string{}
-	for _, sectionName := range mustGeneratedEnumValues(
-		reflect.TypeOf(projectstate.FrontendSectionType("")),
-	) {
-		if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
-			names = append(names, frontendBindingTypeName(t))
-		}
-	}
-	return names
-}
-
-func generatedCodeObjUnionDeclaration(
-	name string,
-	includeBase bool,
-	predicate func(reflect.Type) bool,
-) TypeDeclaration {
-	members := make([]string, 0, 16)
-	if includeBase {
-		members = append(members, "BaseCodeObjImpl")
-	}
-	members = append(members, generatedCodeObjImplTypeNamesMatching(predicate)...)
-	return aliasUnionDeclaration(name, members...)
-}
-
-func generatedCodeObjImplTypeNamesMatching(predicate func(reflect.Type) bool) []string {
-	names := []string{}
-	for _, codeObjName := range mustGeneratedEnumValues(
-		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
-	) {
-		t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName)
-		if !ok {
-			continue
-		}
-		if predicate != nil && !predicate(t) {
-			continue
-		}
-		names = append(names, frontendBindingTypeName(t))
-	}
-	return names
-}
-
 func generatedConcreteSectionMetadataDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
@@ -195,7 +91,12 @@ func generatedConcreteSectionMetadataDeclaration(
 	if !ok {
 		return TypeDeclaration{}, false
 	}
-	declaration, err := generatedSectionImplAliasDeclaration(converter, t, sectionName)
+	declaration, err := generatedSectionImplDeclaration(
+		converter,
+		frontendBindingTypeName(t),
+		t,
+		sectionName,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -240,8 +141,9 @@ func generatedBaseCodeObjImplDeclaration(converter *typeConverter) TypeDeclarati
 	)
 }
 
-func generatedSectionImplAliasDeclaration(
+func generatedSectionImplDeclaration(
 	converter *typeConverter,
+	declarationName string,
 	t reflect.Type,
 	sectionName string,
 ) (TypeDeclaration, error) {
@@ -250,7 +152,7 @@ func generatedSectionImplAliasDeclaration(
 		return TypeDeclaration{}, err
 	}
 	return aliasIntersectionDeclarationFromProperties(
-		frontendBindingTypeName(t),
+		declarationName,
 		"BaseSectionImpl",
 		properties,
 	), nil

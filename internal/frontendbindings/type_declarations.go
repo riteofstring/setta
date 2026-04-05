@@ -94,12 +94,12 @@ func aliasIntersectionDeclarationFromProperties(
 	return aliasDeclaration(name, baseExpr+" & "+renderInlineAliasObject(properties, extraLines...))
 }
 
-func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
+func unionAliasExpr(members ...string) string {
 	if len(members) == 0 {
-		return aliasDeclaration(name, "never")
+		return "never"
 	}
 	if len(members) == 1 {
-		return aliasDeclaration(name, members[0])
+		return members[0]
 	}
 	var builder strings.Builder
 	builder.WriteString(members[0])
@@ -107,7 +107,15 @@ func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
 		builder.WriteString("\n  | ")
 		builder.WriteString(member)
 	}
-	return aliasDeclaration(name, builder.String())
+	return builder.String()
+}
+
+func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
+	return aliasDeclaration(name, unionAliasExpr(members...))
+}
+
+func localUnionDeclaration(name string, members ...string) TypeDeclaration {
+	return localAliasDeclaration(name, "", unionAliasExpr(members...))
 }
 
 func aliasDeclaration(name string, alias string) TypeDeclaration {
