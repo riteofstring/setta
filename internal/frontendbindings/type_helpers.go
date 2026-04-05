@@ -292,8 +292,5 @@ func specialTypeDeclaration(
 		}
 		return aliasUnionDeclaration(frontendBindingTypeName(t), members...), true, nil
 	}
-	if declaration, ok, err := discriminatedObjectFamilyTypeDeclaration(converter, t); ok || err != nil {
-		return declaration, ok, err
-	}
 	return TypeDeclaration{}, false, nil
 }

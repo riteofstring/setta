@@ -80,18 +80,6 @@ func (c *typeConverter) Declarations() []TypeDeclaration {
 	return c.declarations
 }
 
-func (c *typeConverter) appendAdditionalDeclarationsForType(t reflect.Type) error {
-	extras, ok, err := discriminatedObjectFamilyAdditionalDeclarations(c, t)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return nil
-	}
-	c.declarations = append(c.declarations, extras...)
-	return nil
-}
-
 func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 	return c.renderTypeExprWithQualifier(t, "")
 }
@@ -186,11 +174,18 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 	}
 	c.seen[t] = struct{}{}
 
+	if declarations, ok, err := discriminatedObjectFamilyDeclarations(c, t); err != nil {
+		return err
+	} else if ok {
+		c.declarations = append(c.declarations, declarations...)
+		return nil
+	}
+
 	if decl, ok, err := specialTypeDeclaration(c, t); err != nil {
 		return err
 	} else if ok {
 		c.declarations = append(c.declarations, decl)
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	}
 
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
@@ -199,7 +194,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, declaration)
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	}
 
 	if values, ok, err := discoveredFrontendEnumValues(t); err != nil {
@@ -210,7 +205,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:       "enum",
 			EnumValues: values,
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	}
 
 	switch t.Kind() {
@@ -224,21 +219,21 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:       "object",
 			Properties: properties,
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	case reflect.String:
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: "string",
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	case reflect.Bool:
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: "boolean",
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
@@ -247,7 +242,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: "number",
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	case reflect.Slice, reflect.Array:
 		aliasExpr := ""
 		if t.Kind() == reflect.Array {
@@ -271,7 +266,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: aliasExpr,
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	case reflect.Map:
 		keyExpr, err := c.renderMapKeyExpr(t.Key())
 		if err != nil {
@@ -286,7 +281,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr),
 		})
-		return c.appendAdditionalDeclarationsForType(t)
+		return nil
 	default:
 		return fmt.Errorf("unsupported named Go type for TS declaration: %s", t.String())
 	}

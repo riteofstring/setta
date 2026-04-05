@@ -70,46 +70,7 @@ func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.Discr
 	return frontendbindingmeta.DiscriminatedObjectFamily{}, false
 }
 
-func discriminatedObjectFamilyTypeDeclaration(
-	converter *typeConverter,
-	t reflect.Type,
-) (TypeDeclaration, bool, error) {
-	family, ok := discriminatedObjectFamilyForType(t)
-	if !ok {
-		return TypeDeclaration{}, false, nil
-	}
-	t = canonicalFrontendBindingType(t)
-	members, err := discriminatedObjectFamilyMembers(family)
-	if err != nil {
-		return TypeDeclaration{}, false, err
-	}
-	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
-	if err != nil {
-		return TypeDeclaration{}, false, err
-	}
-	if t == family.BaseType {
-		return aliasObjectDeclarationFromProperties(
-			frontendBindingTypeName(family.BaseType),
-			baseProperties,
-			family.BaseExtraLines...,
-		), true, nil
-	}
-	memberProperties, ok := concreteByType[t]
-	if !ok {
-		return TypeDeclaration{}, false, fmt.Errorf(
-			"%s family is missing concrete properties for %s",
-			frontendBindingTypeName(family.BaseType),
-			t.String(),
-		)
-	}
-	return aliasIntersectionDeclarationFromProperties(
-		frontendBindingTypeName(t),
-		frontendBindingTypeName(family.BaseType),
-		memberProperties,
-	), true, nil
-}
-
-func discriminatedObjectFamilyAdditionalDeclarations(
+func discriminatedObjectFamilyDeclarations(
 	converter *typeConverter,
 	t reflect.Type,
 ) ([]TypeDeclaration, bool, error) {
@@ -118,23 +79,56 @@ func discriminatedObjectFamilyAdditionalDeclarations(
 		return nil, false, nil
 	}
 	t = canonicalFrontendBindingType(t)
+	members, err := discriminatedObjectFamilyMembers(family)
+	if err != nil {
+		return nil, false, err
+	}
+	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
+	if err != nil {
+		return nil, false, err
+	}
 	if t == family.BaseType {
-		declarations, err := discriminatedObjectFamilyTraitDeclarations(family)
-		return declarations, err == nil && len(declarations) > 0, err
+		declarations := []TypeDeclaration{
+			aliasObjectDeclarationFromProperties(
+				frontendBindingTypeName(family.BaseType),
+				baseProperties,
+				family.BaseExtraLines...,
+			),
+		}
+		traits, err := discriminatedObjectFamilyTraitDeclarations(family, members)
+		if err != nil {
+			return nil, false, err
+		}
+		return append(declarations, traits...), true, nil
+	}
+	memberProperties, ok := concreteByType[t]
+	if !ok {
+		return nil, false, fmt.Errorf(
+			"%s family is missing concrete properties for %s",
+			frontendBindingTypeName(family.BaseType),
+			t.String(),
+		)
+	}
+	declarations := []TypeDeclaration{
+		aliasIntersectionDeclarationFromProperties(
+			frontendBindingTypeName(t),
+			frontendBindingTypeName(family.BaseType),
+			memberProperties,
+		),
 	}
 	if family.DefaultValueForDiscriminator == nil {
-		return nil, false, nil
+		return declarations, true, nil
 	}
 	value, ok := family.DiscriminatorValue(t)
 	if !ok {
-		return nil, false, nil
+		return declarations, true, nil
 	}
 	defaultValue, ok, err := family.DefaultValueForDiscriminator(value)
 	if err != nil {
 		return nil, false, err
 	}
 	if !ok {
-		return nil, false, nil
+		return declarations, true, nil
 	}
 	typeName := frontendBindingTypeName(t)
 	propertySpecs, err := converter.structPropertySpecs(t, nil, nil, nil)
@@ -150,7 +144,7 @@ func discriminatedObjectFamilyAdditionalDeclarations(
 	if err != nil {
 		return nil, false, err
 	}
-	return []TypeDeclaration{
+	return append(declarations,
 		exportedFunctionDeclaration(
 			"create"+typeName,
 			typeName,
@@ -161,7 +155,7 @@ func discriminatedObjectFamilyAdditionalDeclarations(
 				DefaultValue: "{}",
 			},
 		),
-	}, true, nil
+	), true, nil
 }
 
 func discriminatedObjectFamilyDeclarationPropertiesForMembers(
@@ -245,11 +239,8 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 
 func discriminatedObjectFamilyTraitDeclarations(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
+	members []discriminatedObjectFamilyMember,
 ) ([]TypeDeclaration, error) {
-	members, err := discriminatedObjectFamilyMembers(family)
-	if err != nil {
-		return nil, err
-	}
 	baseUnionName := frontendBindingTypeName(family.BaseType) + "Union"
 	baseTypeName := frontendBindingTypeName(family.BaseType)
 	baseMemberTypeNames := make([]string, 0, len(members))
