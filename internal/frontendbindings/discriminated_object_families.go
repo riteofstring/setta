@@ -242,7 +242,8 @@ func discriminatedObjectFamilyTraitDeclarations(
 func discriminatedObjectFamilyMembers(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 ) ([]discriminatedObjectFamilyMember, error) {
-	if strings.TrimSpace(family.ConcreteTypeSuffix) == "" {
+	suffix := strings.TrimSpace(family.ConcreteTypeSuffix)
+	if suffix == "" {
 		return nil, fmt.Errorf("%s family is missing discriminator metadata", frontendBindingTypeName(family.BaseType))
 	}
 	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
@@ -258,55 +259,43 @@ func discriminatedObjectFamilyMembers(
 		enumExprsByValue[enumValue.Value] = enumTypeName + "Enum." + enumValue.Name
 	}
 
-	membersByValue := make(map[string]reflect.Type, len(enumValues))
-	for _, candidate := range DiscoveredConvertibleTypes() {
-		candidate = canonicalFrontendBindingType(candidate)
-		if candidate == nil || candidate == family.BaseType {
-			continue
-		}
-		candidateProvider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](candidate)
+	members := make([]discriminatedObjectFamilyMember, 0, len(enumValues))
+	for _, enumValue := range enumValues {
+		candidate, ok := frontendBindingNamedTypeByPackageAndName(
+			family.BaseType.PkgPath(),
+			"Frontend"+enumValue.Value+suffix,
+		)
 		if !ok {
-			continue
-		}
-		candidateFamily := candidateProvider.FrontendBindingDiscriminatedObjectFamily()
-		if canonicalFrontendBindingType(candidateFamily.BaseType) != family.BaseType {
 			continue
 		}
 		value, ok := family.DiscriminatorValue(candidate)
-		if !ok {
-			continue
-		}
-		if _, ok := enumExprsByValue[value]; !ok {
+		if !ok || value != enumValue.Value {
 			return nil, fmt.Errorf(
-				"%s family includes %s with unknown discriminator %q",
+				"%s family member %s does not resolve discriminator %q",
 				frontendBindingTypeName(family.BaseType),
 				candidate.String(),
-				value,
+				enumValue.Value,
 			)
 		}
-		if existing, duplicate := membersByValue[value]; duplicate {
-			if existing == candidate {
-				continue
-			}
+		candidateProvider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](candidate)
+		if !ok {
 			return nil, fmt.Errorf(
-				"%s family maps discriminator %q to both %s and %s",
+				"%s family member %s is missing discriminated metadata",
 				frontendBindingTypeName(family.BaseType),
-				value,
-				existing.String(),
 				candidate.String(),
 			)
 		}
-		membersByValue[value] = candidate
-	}
-
-	members := make([]discriminatedObjectFamilyMember, 0, len(membersByValue))
-	for _, enumValue := range enumValues {
-		memberType, ok := membersByValue[enumValue.Value]
-		if !ok {
-			continue
+		candidateFamily := candidateProvider.FrontendBindingDiscriminatedObjectFamily()
+		if canonicalFrontendBindingType(candidateFamily.BaseType) != family.BaseType {
+			return nil, fmt.Errorf(
+				"%s family member %s resolves to %s",
+				frontendBindingTypeName(family.BaseType),
+				candidate.String(),
+				frontendBindingTypeName(candidateFamily.BaseType),
+			)
 		}
 		members = append(members, discriminatedObjectFamilyMember{
-			Type:     memberType,
+			Type:     candidate,
 			EnumExpr: enumExprsByValue[enumValue.Value],
 		})
 	}

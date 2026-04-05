@@ -31,6 +31,15 @@ func frontendBindingPublicTypeNames() map[reflect.Type]string {
 	return frontendBindingTypeNamesByType
 }
 
+func frontendBindingNamedTypeByPackageAndName(pkgPath string, name string) (reflect.Type, bool) {
+	for typ := range frontendBindingPublicTypeNames() {
+		if typ.PkgPath() == pkgPath && typ.Name() == name {
+			return typ, true
+		}
+	}
+	return nil, false
+}
+
 func buildFrontendBindingTypeNames() map[reflect.Type]string {
 	types := frontendBindingNamedTypes()
 	knownWords := frontendBindingKnownWordsFromTypes(types)

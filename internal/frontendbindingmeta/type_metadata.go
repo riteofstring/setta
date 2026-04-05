@@ -2,7 +2,6 @@ package frontendbindingmeta
 
 import (
 	"reflect"
-	"strings"
 )
 
 type TypeScriptExprProvider interface{ FrontendBindingTypeScriptExpr() string }
@@ -18,23 +17,15 @@ func LookupProvider[P any](t reflect.Type) (P, bool) {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	if t == nil || strings.TrimSpace(t.PkgPath()) == "" {
+	if t == nil || t.PkgPath() == "" {
 		return zero, false
 	}
-
-	value := reflect.Zero(t)
-	if value.CanInterface() {
-		if provider, ok := value.Interface().(P); ok {
-			return provider, true
-		}
+	if provider, ok := reflect.Zero(t).Interface().(P); ok {
+		return provider, true
 	}
 	if t.Kind() == reflect.Interface {
 		return zero, false
 	}
-	ptr := reflect.New(t)
-	if !ptr.CanInterface() {
-		return zero, false
-	}
-	provider, ok := ptr.Interface().(P)
+	provider, ok := reflect.New(t).Interface().(P)
 	return provider, ok
 }

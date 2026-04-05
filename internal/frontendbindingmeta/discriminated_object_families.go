@@ -37,14 +37,12 @@ func (family DiscriminatedObjectFamily) DiscriminatorValue(t reflect.Type) (stri
 	if t == nil || t.Kind() != reflect.Struct || suffix == "" {
 		return "", false
 	}
-	name := t.Name()
-	if !strings.HasPrefix(name, "Frontend") ||
-		strings.HasPrefix(name, "FrontendBase") ||
-		!strings.HasSuffix(name, suffix) {
+	name, ok := strings.CutPrefix(t.Name(), "Frontend")
+	if !ok || strings.HasPrefix(name, "Base") {
 		return "", false
 	}
-	value := strings.TrimSuffix(strings.TrimPrefix(name, "Frontend"), suffix)
-	if value == "" || strings.HasPrefix(value, "UserDefault") {
+	value, ok := strings.CutSuffix(name, suffix)
+	if !ok || value == "" || strings.HasPrefix(value, "UserDefault") {
 		return "", false
 	}
 	return value, true
