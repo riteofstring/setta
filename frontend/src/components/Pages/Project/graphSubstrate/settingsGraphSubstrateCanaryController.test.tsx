@@ -337,7 +337,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     });
   });
 
-  it("falls back to global node internals when the canary-local seed cache is empty", async () => {
+  it("falls back only to explicit shared-node bootstrap seeds when the canary-local seed cache is empty", async () => {
     hoisted.nodeInternals = new Map([
       [
         "section-a",
@@ -345,6 +345,14 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
           width: 260,
           height: 180,
           sizeAuthority: "sharedNode",
+        },
+      ],
+      [
+        "section-b",
+        {
+          width: 550,
+          height: 78,
+          sizeAuthority: "sectionModel",
         },
       ],
     ]);
@@ -357,7 +365,18 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       resolveSettingsGraphSubstrateCanarySections,
     ).mock.calls[0];
 
-    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.nodeInternals);
+    expect(resolvedSectionsArgs?.[1]).toEqual(
+      new Map([
+        [
+          "section-a",
+          {
+            width: 260,
+            height: 180,
+            sizeAuthority: "sharedNode",
+          },
+        ],
+      ]),
+    );
   });
 
   it("routes pane background clicks through the controller-owned pane click handler", async () => {

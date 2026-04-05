@@ -22,6 +22,7 @@ import {
   selectSettingsGraphSubstrateCanaryLayoutSections,
 } from "./settingsGraphSubstrateCanaryModel";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
+import { resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -108,7 +109,7 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     if (canarySectionSeedNodes.size > 0) {
       return canarySectionSeedNodes;
     }
-    return nodeInternals;
+    return resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes(nodeInternals);
   }, [canarySectionSeedNodes, nodeInternals]);
   const sections = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySections(
