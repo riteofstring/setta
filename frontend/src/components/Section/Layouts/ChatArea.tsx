@@ -18,7 +18,6 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
-  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -36,9 +35,12 @@ import {
   BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
-import { setChatSectionChatId, setChatSectionState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getRunInputString,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
@@ -57,7 +59,11 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -75,41 +81,133 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
+  route_set_chat_section_chat_id,
+  route_set_chat_section_state,
+} from "utils/generatedEndpoints";
+import {
+  AgentRun,
   AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
-  ChatSendEvent,
-  ChatStopEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   EngineTypeEnum,
   LiteralDependencyValue,
-  NotificationTypeEnum,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
-import {
-  buildManagedZeroScopeBannerSessionKey,
-  formatHistoryTimestamp,
-  getHistoryPlaceholderText,
-  getManagedChatRunRefreshKey,
-  resolveManagedChatRunType,
-  shouldExitManagedChatHistory,
-  shouldPersistInitializedChatState,
-  toSortedHistoryEntries,
-  type ChatSectionHistoryEntry,
-} from "./chatAreaUtils";
-type ChatActionPayload = ChatSendEvent | ChatStopEvent;
+
+type ChatSendActionPayload = {
+  action: "send";
+  sectionId: string;
+  messageId: string;
+  text: string;
+  attachments: ChatFileAttachment[];
+  role: ChatRoleEnum;
+  timestampMs: number;
+  managed: boolean;
+};
+
+type ChatStopActionPayload = {
+  action: "stop";
+  sectionId: string;
+  timestampMs: number;
+  managed: boolean;
+};
+
+type ChatActionPayload = ChatSendActionPayload | ChatStopActionPayload;
+
 type ChatSectionChatId = string | null;
-type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
+const MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
+const MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
+
+export function shouldExitManagedChatHistory({
+  previousChatId,
+  nextChatId,
+  previousWaitingForResponse,
+  nextWaitingForResponse,
+}: {
+  previousChatId: ChatSectionChatId | undefined;
+  nextChatId: ChatSectionChatId;
+  previousWaitingForResponse: boolean;
+  nextWaitingForResponse: boolean;
+}): boolean {
+  if (previousChatId !== undefined && previousChatId !== nextChatId) {
+    return true;
+  }
+  return !previousWaitingForResponse && nextWaitingForResponse;
+}
+
+export function getManagedChatRunRefreshKey({
+  agentRuns,
+  sectionId,
+  chatId,
+  runType,
+}: {
+  agentRuns: Array<AgentRun>;
+  sectionId: string;
+  chatId: string | null;
+  runType: ChatRunType | null;
+}): string | null {
+  if (!chatId || !runType) {
+    return null;
+  }
+  let latestMatchingRun: AgentRun | null = null;
+  let latestUpdatedMs = -1;
+  for (const run of agentRuns) {
+    if (getRunInputString(run, "runType") !== runType) {
+      continue;
+    }
+    if (getRunInputString(run, "sectionId") !== sectionId) {
+      continue;
+    }
+    if (getRunInputString(run, "chatId") !== chatId) {
+      continue;
+    }
+    const updatedMs = getRunLastUpdatedMs(run);
+    if (updatedMs <= latestUpdatedMs) {
+      continue;
+    }
+    latestMatchingRun = run;
+    latestUpdatedMs = updatedMs;
+  }
+  if (!latestMatchingRun) {
+    return null;
+  }
+  return `${latestMatchingRun.id}:${latestMatchingRun.status}:${latestUpdatedMs}`;
+}
+
+function buildManagedZeroScopeBannerSessionKey(
+  projectConfigId: string,
+  sectionId: string,
+): string {
+  return `setta:managed-zero-scope-banner-dismissed:${projectConfigId}:${sectionId}`;
+}
+
+export function resolveManagedChatHistoryPollIntervalMs({
+  hasLoadError,
+  hasRunningHistoryEntry,
+}: {
+  hasLoadError: boolean;
+  hasRunningHistoryEntry: boolean;
+}): number | null {
+  if (hasRunningHistoryEntry) {
+    return MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
+  }
+  if (hasLoadError) {
+    return MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
+  }
+  return null;
+}
+
 type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
@@ -119,11 +217,17 @@ type EmitChatSendActionArgs = {
   managed: boolean;
   timestampMs: number;
 };
+
 type EmitChatStopActionArgs = {
   sectionId: string;
   managed: boolean;
   timestampMs: number;
 };
+
+type ChatSectionHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
+
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
@@ -138,6 +242,7 @@ function emitChatAction(payload: ChatActionPayload) {
     timestampMs: payload.timestampMs,
   });
 }
+
 function emitChatSendAction({
   sectionId,
   messageId,
@@ -158,6 +263,7 @@ function emitChatSendAction({
     managed,
   });
 }
+
 function emitChatStopAction({
   sectionId,
   managed,
@@ -170,6 +276,56 @@ function emitChatStopAction({
     timestampMs,
   });
 }
+
+function formatHistoryTimestamp(timestampMs: number): string {
+  if (timestampMs <= 0) {
+    return "No timestamp";
+  }
+  return new Date(timestampMs).toLocaleString();
+}
+
+function getHistoryPlaceholderText(
+  initialLoadComplete: boolean,
+  loadError: string | null,
+  entryCount: number,
+): string {
+  if (loadError) {
+    return loadError;
+  }
+  if (!initialLoadComplete) {
+    return "Loading chat history...";
+  }
+  if (entryCount === 0) {
+    return "No chat history yet";
+  }
+  return "";
+}
+
+function toSortedHistoryEntries(
+  runs: Array<AgentRun>,
+  projectConfigId: string,
+  sectionId: string,
+  compatibility: ChatHistoryCompatibility | null,
+): Array<ChatSectionHistoryEntry> {
+  return buildChatHistoryEntries(runs, {
+    projectConfigId,
+    sectionId,
+    compatibility,
+  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+}
+
+function resolveManagedChatRunType(
+  engineType: EngineTypeEnum | null,
+): ChatRunType | null {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "external_agent";
+  }
+  if (engineType === EngineTypeEnum.setta_llm) {
+    return "llm_chat";
+  }
+  return null;
+}
+
 export function ChatArea({
   sectionId,
   surfaceId,
@@ -221,6 +377,7 @@ export function ChatArea({
       isFrozen: impl.isFrozen,
     };
   }, shallow);
+
   if (managed) {
     return (
       <ManagedChatArea
@@ -238,6 +395,7 @@ export function ChatArea({
       />
     );
   }
+
   return (
     <ScriptableChatArea
       sectionId={sectionId}
@@ -253,6 +411,7 @@ export function ChatArea({
     />
   );
 }
+
 type ScriptableChatAreaProps = {
   sectionId: string;
   transcriptionProfileId: string | null;
@@ -265,6 +424,7 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   dictationMode: "auto" | "browser" | "provider";
 };
+
 function ScriptableChatArea({
   sectionId,
   transcriptionProfileId,
@@ -280,8 +440,13 @@ function ScriptableChatArea({
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
-  const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
-    resolveAuthoritativeContextTelemetry(null);
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = resolveAuthoritativeContextTelemetry(null);
+
   const handleInputChange = useCallback(
     (value: string) => {
       if (waitingForResponse) {
@@ -304,6 +469,7 @@ function ScriptableChatArea({
     },
     [sectionId, waitingForResponse],
   );
+
   useEffect(() => {
     if (waitingForResponse) {
       return;
@@ -326,9 +492,11 @@ function ScriptableChatArea({
     });
     setDraftInputText(null);
   }, [draftInputText, sectionId, waitingForResponse]);
+
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
-      let sendPromise: Promise<ChatSectionStateRouteResponse> | null = null;
+      let sendPromise: ReturnType<typeof route_set_chat_section_state> | null =
+        null;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -341,16 +509,12 @@ function ScriptableChatArea({
           });
         },
         send: (frontendOpId) => {
-          const result = callOpenAPI(
-            setChatSectionState({
-              body: {
-                projectConfigId,
-                sectionId,
-                state: nextState,
-                frontendOpId,
-              },
-            } as Parameters<typeof setChatSectionState>[0]),
-          );
+          const result = route_set_chat_section_state({
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId,
+          });
           sendPromise = result;
           return result;
         },
@@ -359,6 +523,7 @@ function ScriptableChatArea({
     },
     [projectConfigId, sectionId],
   );
+
   const applyChatStateWithoutAck = useCallback(
     (nextState: ChatSectionState) => {
       useProjectState.setState((state) => {
@@ -371,19 +536,16 @@ function ScriptableChatArea({
           branches: nextState.branches,
         });
       });
-      return callOpenAPI(
-        setChatSectionState({
-          body: {
-            projectConfigId,
-            sectionId,
-            state: nextState,
-            frontendOpId: null,
-          },
-        } as Parameters<typeof setChatSectionState>[0]),
-      );
+      return route_set_chat_section_state({
+        projectConfigId,
+        sectionId,
+        state: nextState,
+        frontendOpId: null,
+      });
     },
     [projectConfigId, sectionId],
   );
+
   const branchState = useMemo(
     () =>
       ensureChatBranchState({
@@ -407,40 +569,17 @@ function ScriptableChatArea({
   const effectiveMessages = effectiveState.messages ?? [];
   const effectiveBranches = effectiveState.branches ?? {};
   const effectiveBranchId = effectiveState.activeBranchId ?? null;
+
   useEffect(() => {
     if (!branchState.didInitialize) {
-      return;
-    }
-    const current = getCurrEffectiveSectionImplOfType(
-      useProjectState.getState(),
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    if (
-      !shouldPersistInitializedChatState({
-        currentState: {
-          messages: current.messages,
-          inputText: current.inputText,
-          waitingForResponse: current.waitingForResponse,
-          toolCallArguments: current.toolCallArguments,
-          activeBranchId: current.activeBranchId ?? null,
-          branches: current.branches ?? {},
-        },
-        initializedState: effectiveState,
-      })
-    ) {
       return;
     }
     const sendPromise = applyChatStateWithoutAck(effectiveState);
     if (sendPromise) {
       void sendPromise;
     }
-  }, [
-    applyChatStateWithoutAck,
-    branchState.didInitialize,
-    effectiveState,
-    sectionId,
-  ]);
+  }, [applyChatStateWithoutAck, branchState.didInitialize, effectiveState]);
+
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -508,6 +647,7 @@ function ScriptableChatArea({
       toolCallArguments,
     ],
   );
+
   const handleStop = useCallback(async () => {
     const nextState = {
       ...effectiveState,
@@ -532,6 +672,7 @@ function ScriptableChatArea({
     sectionId,
     toolCallArguments,
   ]);
+
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -541,6 +682,7 @@ function ScriptableChatArea({
       }),
     [],
   );
+
   const resetScriptableConversation = useCallback(async () => {
     const nextState: ChatSectionState = {
       messages: [],
@@ -555,6 +697,7 @@ function ScriptableChatArea({
       await sendPromise;
     }
   }, [applyChatStateWithAck]);
+
   const resumeLatestScriptableBranch =
     useCallback(async (): Promise<boolean> => {
       const latestBranch = Object.entries(effectiveBranches)
@@ -583,6 +726,7 @@ function ScriptableChatArea({
       }
       return true;
     }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
+
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
       if (command.action === "new") {
@@ -607,6 +751,7 @@ function ScriptableChatArea({
     },
     [resetScriptableConversation, resumeLatestScriptableBranch, slashCommands],
   );
+
   const branchIndex = useMemo(
     () => buildBranchIndexFromBranches(effectiveBranches),
     [effectiveBranches],
@@ -632,6 +777,7 @@ function ScriptableChatArea({
       }),
     [isFrozen],
   );
+
   const handleBranchSwitch = useCallback(
     async (nextBranchId: string) => {
       if (!nextBranchId || nextBranchId === effectiveBranchId) {
@@ -658,6 +804,7 @@ function ScriptableChatArea({
       effectiveState,
     ],
   );
+
   const handleEditMessage = useCallback(
     async (
       messageId: string,
@@ -719,6 +866,7 @@ function ScriptableChatArea({
       waitingForResponse,
     ],
   );
+
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const effectiveInputText =
@@ -741,6 +889,7 @@ function ScriptableChatArea({
     },
     [transcriptionProfileId],
   );
+
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -779,6 +928,7 @@ function ScriptableChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             providerDictationAvailable
               ? handleProviderDictationTranscribe
@@ -789,6 +939,7 @@ function ScriptableChatArea({
     </div>
   );
 }
+
 function ChatSectionHistoryList({
   entries,
   activeChatId,
@@ -807,6 +958,7 @@ function ChatSectionHistoryList({
       getHistoryPlaceholderText(initialLoadComplete, loadError, entries.length),
     [entries.length, initialLoadComplete, loadError],
   );
+
   if (entries.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center px-4">
@@ -814,6 +966,7 @@ function ChatSectionHistoryList({
       </div>
     );
   }
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
       <div className="flex flex-col gap-2">
@@ -863,6 +1016,7 @@ function ChatSectionHistoryList({
     </div>
   );
 }
+
 function ManagedChatHistoryPanel({
   projectConfigId,
   sectionId,
@@ -895,11 +1049,55 @@ function ManagedChatHistoryPanel({
       ),
     [agentRuns, historyCompatibility, projectConfigId, sectionId],
   );
+  const hasRunningHistoryEntry = useMemo(
+    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
+    [sectionHistoryEntries],
+  );
+  const pollIntervalMs = resolveManagedChatHistoryPollIntervalMs({
+    hasLoadError: Boolean(agentRunsLoadError),
+    hasRunningHistoryEntry,
+  });
+
   useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
+    let intervalId: number | null = null;
+
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const startPollingIfNeeded = () => {
+      clearPollingInterval();
+      if (pollIntervalMs === null || document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, pollIntervalMs);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
       void loadAgentRuns();
-    }
-  }, [agentRunsInitialLoadComplete]);
+      startPollingIfNeeded();
+    };
+
+    void loadAgentRuns();
+    startPollingIfNeeded();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [pollIntervalMs]);
+
   return (
     <ChatSectionHistoryList
       entries={sectionHistoryEntries}
@@ -910,6 +1108,7 @@ function ManagedChatHistoryPanel({
     />
   );
 }
+
 type ManagedChatAreaProps = {
   sectionId: string;
   surfaceId?: string;
@@ -923,6 +1122,7 @@ type ManagedChatAreaProps = {
   searchEnabled: boolean;
   dictationMode: "auto" | "browser" | "provider";
 };
+
 function ManagedChatArea({
   sectionId,
   surfaceId,
@@ -1070,6 +1270,7 @@ function ManagedChatArea({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
+
   const {
     apiKeys,
     apiKeysAuthoritative,
@@ -1095,6 +1296,7 @@ function ManagedChatArea({
     }),
     _.isEqual,
   );
+
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
@@ -1121,10 +1323,6 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const effectiveThinking = resolveEffectiveThinking({
-    engineConfig: selectedEngineConfig,
-    requestedThinking: thinking,
-  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1155,6 +1353,12 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
+  const selectedLLMConfig = useMemo(() => {
+    if (!selectedLLMConfigId || !allLLMConfigs) {
+      return null;
+    }
+    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
+  }, [allLLMConfigs, selectedLLMConfigId]);
   const selectedTranscriptionProfile = useMemo(() => {
     if (!transcriptionProfileId) {
       return null;
@@ -1209,17 +1413,22 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
-    useMemo(
-      () => resolveAuthoritativeContextTelemetry(contextUsage),
-      [contextUsage],
-    );
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = useMemo(
+    () => resolveAuthoritativeContextTelemetry(contextUsage),
+    [contextUsage],
+  );
   const showPlanModeBadge = shouldShowPlanModeBadge({
     engineType,
     externalAgentToolType: externalAgentConfig?.toolType ?? null,
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode,
   });
+
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig,
@@ -1230,6 +1439,7 @@ function ManagedChatArea({
     () => getExternalEngineIssueMessage(externalEngineStatus),
     [externalEngineStatus],
   );
+
   useEffect(() => {
     if (!externalEngineIssueMessage) {
       notifiedExternalEngineIssueRef.current = null;
@@ -1241,9 +1451,10 @@ function ManagedChatArea({
     notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
     addPersistentNotification(
       externalEngineIssueMessage,
-      NotificationTypeEnum.warning,
+      SettaNotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
+
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
@@ -1260,6 +1471,7 @@ function ManagedChatArea({
     projectConfigId,
     sectionId,
   ]);
+
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
       if (!canUseManagedChat) {
@@ -1290,15 +1502,11 @@ function ManagedChatArea({
           });
         },
         send: () =>
-          callOpenAPI(
-            setChatSectionChatId({
-              body: {
-                projectConfigId,
-                sectionId,
-                chatId: resolved,
-              },
-            } as Parameters<typeof setChatSectionChatId>[0]),
-          ),
+          route_set_chat_section_chat_id({
+            projectConfigId,
+            sectionId,
+            chatId: resolved,
+          }),
       });
     },
     [
@@ -1309,6 +1517,7 @@ function ManagedChatArea({
       setControlledChatId,
     ],
   );
+
   const handleNewChatStart = useCallback(() => {
     if (!canUseManagedChat) {
       return;
@@ -1319,6 +1528,7 @@ function ManagedChatArea({
     setChatId(null);
     setShowHistory(false);
   }, [canUseManagedChat, setChatId, surfaceId]);
+
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
       if (surfaceId) {
@@ -1348,6 +1558,7 @@ function ManagedChatArea({
       ),
     [canUseManagedChat],
   );
+
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -1381,6 +1592,7 @@ function ManagedChatArea({
       if (isFirstMessage) {
         handleNewChatStart();
       }
+
       let submittedChatId: string | null = null;
       let succeeded = false;
       try {
@@ -1391,7 +1603,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          effectiveThinking,
+          thinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1428,11 +1640,12 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      effectiveThinking,
       surfaceId,
+      thinking,
       canUseManagedChat,
     ],
   );
+
   const handleStop = useCallback(async () => {
     emitChatStopAction({
       sectionId,
@@ -1447,6 +1660,7 @@ function ManagedChatArea({
       surfaceId,
     );
   }, [chatId, isExternalEngine, projectConfigId, sectionId, surfaceId]);
+
   const handleEditMessage = useCallback(
     async (
       messageId: string,
@@ -1470,7 +1684,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking: effectiveThinking,
+        thinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1493,11 +1707,12 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      effectiveThinking,
       surfaceId,
+      thinking,
       canUseManagedChat,
     ],
   );
+
   const handleBranchSwitch = useCallback(
     (nextChatId: string) => {
       if (!nextChatId || nextChatId === chatId) {
@@ -1508,6 +1723,7 @@ function ManagedChatArea({
     },
     [chatId, setChatId],
   );
+
   const handleSelectHistoryChat = useCallback(
     (nextChatId: string) => {
       if (!nextChatId) {
@@ -1518,6 +1734,7 @@ function ManagedChatArea({
     },
     [setChatId],
   );
+
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     if (!canUseManagedChat) {
       return false;
@@ -1543,6 +1760,7 @@ function ManagedChatArea({
     setChatId,
     canUseManagedChat,
   ]);
+
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
       if (
@@ -1581,6 +1799,7 @@ function ManagedChatArea({
       slashCommands,
     ],
   );
+
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const isDisabled =
@@ -1620,6 +1839,7 @@ function ManagedChatArea({
     },
     [isExternalEngine, transcriptionProfileId],
   );
+
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -1742,6 +1962,7 @@ function ManagedChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             isExternalEngine || !providerDictationAvailable
               ? undefined
