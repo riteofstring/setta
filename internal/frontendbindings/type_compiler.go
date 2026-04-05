@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-var frontendSDKMirrorOwnerTypesByName = newFrontendSDKMirrorOwnerTypesByName()
 var timeType = reflect.TypeOf(time.Time{})
-var rawJSONType = reflect.TypeOf(json.RawMessage{})
 
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := marshalTSLiteralJSON(value, false)
@@ -62,39 +60,31 @@ type reflectedStructProperty struct {
 	MapValueCreateTargetTypeName string
 }
 
-func newFrontendSDKMirrorOwnerTypesByName() map[string]reflect.Type {
-	owners := map[string]reflect.Type{}
-	for _, t := range DiscoveredConvertibleTypes() {
-		if t.PkgPath() != "setta/internal/realtime" {
-			continue
-		}
-		if strings.TrimSpace(t.Name()) == "" {
-			continue
-		}
-		owners[t.Name()] = t
-	}
-	return owners
-}
-
-func newTypeConverter() *typeConverter {
-	return &typeConverter{}
-}
+func newTypeConverter() *typeConverter { return &typeConverter{} }
 
 func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
 	}
 	if t.PkgPath() == "setta/internal/pythonsdkcontracts" {
-		if ownerType, ok := frontendSDKMirrorOwnerTypesByName[t.Name()]; ok {
-			return ownerType
+		contractName := strings.TrimSpace(frontendBindingGeneratedTypeNamesByType[t])
+		if contractName == "" {
+			contractName = strings.TrimSpace(t.Name())
+		}
+		for candidate, candidateName := range frontendBindingGeneratedTypeNamesByType {
+			if candidate.PkgPath() == t.PkgPath() {
+				continue
+			}
+			if strings.TrimSpace(candidateName) != contractName && strings.TrimSpace(candidate.Name()) != contractName {
+				continue
+			}
+			return candidate
 		}
 	}
 	return t
 }
 
-func CanonicalBindingType(t reflect.Type) reflect.Type {
-	return canonicalFrontendBindingType(t)
-}
+func CanonicalBindingType(t reflect.Type) reflect.Type { return canonicalFrontendBindingType(t) }
 
 func frontendBindingTypeName(t reflect.Type) string {
 	t = canonicalFrontendBindingType(t)
@@ -107,9 +97,7 @@ func frontendBindingTypeName(t reflect.Type) string {
 	return strings.TrimSpace(t.Name())
 }
 
-func BindingTypeName(t reflect.Type) string {
-	return frontendBindingTypeName(t)
-}
+func BindingTypeName(t reflect.Type) string { return frontendBindingTypeName(t) }
 
 func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {
 	typeName := frontendBindingTypeName(t)
@@ -519,12 +507,12 @@ func jsonFieldName(field reflect.StructField) (name string, optional bool, skip 
 		return "", false, true
 	}
 	if tag == "" {
-		return lowerCamelCase(field.Name), false, false
+		panic(fmt.Sprintf("frontend binding field %s is missing a json tag", field.Name))
 	}
 	parts := strings.Split(tag, ",")
 	name = strings.TrimSpace(parts[0])
 	if name == "" {
-		name = lowerCamelCase(field.Name)
+		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
 	}
 	for _, part := range parts[1:] {
 		if strings.TrimSpace(part) == "omitempty" {
@@ -532,13 +520,6 @@ func jsonFieldName(field reflect.StructField) (name string, optional bool, skip 
 		}
 	}
 	return name, optional, false
-}
-
-func lowerCamelCase(value string) string {
-	if value == "" {
-		return value
-	}
-	return strings.ToLower(value[:1]) + value[1:]
 }
 
 type tsFieldMetadataSpec struct {

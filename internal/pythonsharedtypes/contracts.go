@@ -96,7 +96,3 @@ func pythonSharedDefaultValueForField(
 	}
 	return defaultSource.FieldByIndex(field.Index), true
 }
-
-func pythonSharedContractNameForType(t reflect.Type) string {
-	return sharedtypes.ContractNameForType(t)
-}

@@ -19,7 +19,7 @@ func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 	field := fieldByNameForTest(t, ownerType, "Name")
 	resolvedField, imports, err := buildModelFieldSpec(
-		pythonSharedContractNameForType(ownerType),
+		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "name"),
@@ -46,7 +46,7 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 	ownerType := reflect.TypeOf(scriptablechat.SystemChatMessage{})
 	field := fieldByNameForTest(t, ownerType, "ID")
 	resolvedField, imports, err := buildModelFieldSpec(
-		pythonSharedContractNameForType(ownerType),
+		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "id"),
@@ -70,7 +70,7 @@ func TestBuildModelFieldSpecRewritesSchemaGeneratedTypeAdapterDefaults(t *testin
 	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 	field := fieldByNameForTest(t, ownerType, "CodegenTargets")
 	resolvedField, _, err := buildModelFieldSpec(
-		pythonSharedContractNameForType(ownerType),
+		sharedtypes.ContractNameForType(ownerType),
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "codegenTargets"),
@@ -276,7 +276,7 @@ func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fiel
 	if err != nil {
 		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
 	}
-	contractName := pythonSharedContractNameForType(ownerType)
+	contractName := sharedtypes.ContractNameForType(ownerType)
 	for _, declaration := range module.Declarations {
 		if declaration.Name != contractName {
 			continue
