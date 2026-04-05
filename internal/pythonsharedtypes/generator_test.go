@@ -23,7 +23,6 @@ func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "name"),
-		knownSchemaContractNamesForTest(t),
 		nil,
 	)
 	if err != nil {
@@ -51,7 +50,6 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "id"),
-		knownSchemaContractNamesForTest(t),
 		nil,
 	)
 	if err != nil {
@@ -76,7 +74,6 @@ func TestBuildModelFieldSpecRewritesSchemaGeneratedTypeAdapterDefaults(t *testin
 		ownerType,
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "codegenTargets"),
-		knownSchemaContractNamesForTest(t),
 		defaultSourcesForTest(t),
 	)
 	if err != nil {
@@ -254,23 +251,6 @@ func fieldByNameForTest(t *testing.T, ownerType reflect.Type, fieldName string) 
 		t.Fatalf("expected field %s on %s", fieldName, ownerType)
 	}
 	return field
-}
-
-func knownSchemaContractNamesForTest(t *testing.T) map[string]struct{} {
-	t.Helper()
-	module, err := pythonSharedSchemaModule()
-	if err != nil {
-		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
-	}
-	knownContractNames := map[string]struct{}{}
-	for _, declaration := range module.Declarations {
-		name := strings.TrimSpace(declaration.Name)
-		if name == "" {
-			continue
-		}
-		knownContractNames[name] = struct{}{}
-	}
-	return knownContractNames
 }
 
 func defaultSourcesForTest(t *testing.T) map[reflect.Type]reflect.Value {

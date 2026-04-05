@@ -155,7 +155,6 @@ func buildModelFieldSpec(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	currentTypeExpr string,
-	knownContractNames map[string]struct{},
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (fieldSpec, map[string]struct{}, error) {
 	jsonName, err := fieldJSONName(field)
@@ -170,7 +169,6 @@ func buildModelFieldSpec(
 	typeExpr, fieldImports, err := pythonPatchedFieldTypeExpr(
 		field,
 		currentTypeExpr,
-		knownContractNames,
 	)
 	if err != nil {
 		return fieldSpec{}, nil, fmt.Errorf(
@@ -222,10 +220,9 @@ func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
 func mergePythonImportTagLines(
 	dst map[string]struct{},
 	importTag string,
-	knownContractNames map[string]struct{},
 ) {
 	for _, line := range strings.Split(importTag, "\n") {
-		filtered := filteredPythonImportLine(line, knownContractNames)
+		filtered := filteredPythonImportLine(line)
 		if filtered == "" {
 			continue
 		}
@@ -233,10 +230,7 @@ func mergePythonImportTagLines(
 	}
 }
 
-func filteredPythonImportLine(
-	line string,
-	knownContractNames map[string]struct{},
-) string {
+func filteredPythonImportLine(line string) string {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
 		return ""
@@ -250,7 +244,7 @@ func filteredPythonImportLine(
 	kept := make([]string, 0)
 	for _, name := range strings.Split(imported, ",") {
 		name = strings.TrimSpace(name)
-		if name == "" || isLocalPythonContractImportName(name, knownContractNames) {
+		if name == "" || isLocalPythonContractImportName(name) {
 			continue
 		}
 		kept = append(kept, name)
@@ -261,27 +255,23 @@ func filteredPythonImportLine(
 	return fmt.Sprintf("from %s import %s", strings.TrimSpace(module), strings.Join(kept, ", "))
 }
 
-func isLocalPythonContractImportName(
-	name string,
-	knownContractNames map[string]struct{},
-) bool {
-	if _, local := knownContractNames[name]; local {
-		return true
-	}
-	baseName, ok := strings.CutSuffix(name, "WithDiscriminator")
-	if !ok {
+func isLocalPythonContractImportName(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
 		return false
 	}
-	_, local := knownContractNames[baseName]
+	baseName, ok := strings.CutSuffix(name, "WithDiscriminator")
+	if ok {
+		name = baseName
+	}
+	_, local := sharedtypes.TypeByContractName(name)
 	return local
 }
 
-func normalizeLocalPythonContractAlias(
-	value string,
-	knownContractNames map[string]struct{},
-) string {
+func normalizeLocalPythonContractAlias(value string) string {
 	value = strings.TrimSpace(value)
-	for name := range knownContractNames {
+	for _, t := range sharedtypes.DiscoveredTypes() {
+		name := sharedtypes.ContractNameForType(t)
 		value = strings.ReplaceAll(value, name+"WithDiscriminator", name)
 	}
 	return value
@@ -317,14 +307,13 @@ func fieldJSONName(field reflect.StructField) (string, error) {
 func pythonPatchedFieldTypeExpr(
 	field reflect.StructField,
 	currentTypeExpr string,
-	knownContractNames map[string]struct{},
 ) (string, map[string]struct{}, error) {
 	imports := map[string]struct{}{}
 	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
 	if importTag != "" {
-		mergePythonImportTagLines(imports, importTag, knownContractNames)
+		mergePythonImportTagLines(imports, importTag)
 	}
-	override := normalizeLocalPythonContractAlias(field.Tag.Get("py_type"), knownContractNames)
+	override := normalizeLocalPythonContractAlias(field.Tag.Get("py_type"))
 	if override != "" {
 		return override, imports, nil
 	}

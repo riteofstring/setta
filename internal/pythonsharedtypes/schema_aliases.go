@@ -153,10 +153,6 @@ func pythonSharedSchemaDeclarations(
 		return nil, nil, err
 	}
 
-	selectedNames := map[string]struct{}{}
-	for _, declaration := range module.Declarations {
-		selectedNames[declaration.Name] = struct{}{}
-	}
 	imports := map[string]struct{}{}
 	for _, line := range module.ImportLines {
 		line = strings.TrimSpace(line)
@@ -170,7 +166,6 @@ func pythonSharedSchemaDeclarations(
 		updated, declarationImports, err := applyPythonFieldMetadataToDatamodelDeclaration(
 			declaration,
 			defaultSourcesByType,
-			selectedNames,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -184,7 +179,6 @@ func pythonSharedSchemaDeclarations(
 func applyPythonFieldMetadataToDatamodelDeclaration(
 	declaration datamodelDeclaration,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-	knownContractNames map[string]struct{},
 ) (datamodelDeclaration, map[string]struct{}, error) {
 	if declaration.Kind != datamodelDeclarationKindClass {
 		return declaration, nil, nil
@@ -203,7 +197,6 @@ func applyPythonFieldMetadataToDatamodelDeclaration(
 		declaration.Block,
 		ownerType,
 		defaultSourcesByType,
-		knownContractNames,
 	)
 	if err != nil {
 		return datamodelDeclaration{}, nil, err
@@ -222,7 +215,6 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 	block string,
 	ownerType reflect.Type,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-	knownContractNames map[string]struct{},
 ) (string, map[string]struct{}, bool, error) {
 	lines := strings.Split(block, "\n")
 	fieldsByJSONName, err := datamodelFieldsByJSONName(ownerType)
@@ -259,7 +251,6 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 			ownerType,
 			field,
 			currentTypeExpr,
-			knownContractNames,
 			defaultSourcesByType,
 		)
 		if err != nil {
