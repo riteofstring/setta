@@ -1,7 +1,7 @@
-import type { Commit } from "./generatedTypes";
+import type { GitCommit } from "./generatedTypes";
 
 export type GitGraphRow = {
-  commit: Commit;
+  commit: GitCommit;
   laneIndex: number;
   laneColorIds: number[];
   laneStartIndices: number[];
@@ -37,7 +37,7 @@ function cloneGitGraphRowComputationState(
 }
 
 export function appendGitGraphRows(
-  commits: readonly Commit[],
+  commits: readonly GitCommit[],
   rowComputationState: GitGraphRowComputationState,
 ): {
   rows: GitGraphRow[];
@@ -154,7 +154,7 @@ export function appendGitGraphRows(
   };
 }
 
-export function computeGitGraphRowsWithState(commits: readonly Commit[]): {
+export function computeGitGraphRowsWithState(commits: readonly GitCommit[]): {
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
 } {

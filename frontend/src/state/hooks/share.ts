@@ -7,11 +7,11 @@ import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
-import { route_share_deployment_project_config } from "utils/generatedEndpoints";
-import type { ProjectConfigMetadata } from "utils/generatedTypes";
+import { route_load_share_project_config } from "utils/generatedEndpoints";
+import type { ProjectConfig } from "utils/generatedTypes";
 
 function resolveProjectConfigId(
-  projectMetadata: ProjectConfigMetadata[],
+  projectMetadata: ProjectConfig[],
   requestedConfigName: string | undefined,
   defaultProjectConfigId: string | null,
 ): string | null {
@@ -74,7 +74,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
           }
           return;
         }
-        const stateRes = await route_share_deployment_project_config(
+        const stateRes = await route_load_share_project_config(
           session.deploymentName,
           session.deploymentVersion,
           { projectConfigId: resolvedConfigId },

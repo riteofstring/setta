@@ -1,23 +1,20 @@
-import {
-  GeneratedAppGenerationModeEnum,
-  type GeneratedAppGenerationMode,
-} from "utils/generatedTypes";
+export type AppGenerationMode =
+  | "json_render"
+  | "json_render_with_image"
+  | "prompt_builder"
+  | "mcp_server";
 
-const appGenerationModeSet = new Set<GeneratedAppGenerationMode>(
-  Object.values(GeneratedAppGenerationModeEnum),
-);
-
-export type AppGenerationMode = GeneratedAppGenerationMode;
+function isAppGenerationMode(value: unknown): value is AppGenerationMode {
+  return (
+    value === "json_render" ||
+    value === "json_render_with_image" ||
+    value === "prompt_builder" ||
+    value === "mcp_server"
+  );
+}
 
 export function parseAppGenerationMode(
   value: unknown,
 ): AppGenerationMode | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim() as AppGenerationMode;
-  if (!trimmed || !appGenerationModeSet.has(trimmed)) {
-    return null;
-  }
-  return trimmed;
+  return isAppGenerationMode(value) ? value : null;
 }

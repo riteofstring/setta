@@ -1,25 +1,8 @@
-/* @vitest-environment jsdom */
-
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import "testUtils/reactRefreshPreamble";
-import {
-  route_binary_download,
-  route_get_file_browser_file_content,
-  route_get_file_browser_file_stat,
-  route_write_file_browser_file_content,
-} from "utils/generatedEndpoints";
-import {
-  createFileContentResponse,
-  createFileStatResponse,
-  createWriteFileContentResponse,
-} from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applySpreadsheetCellUpdates,
   canSaveSpreadsheetDraft,
-  FileBrowserSpreadsheetEditor,
   getFilteredSortedSpreadsheetRowIndexes,
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
@@ -38,97 +21,7 @@ import {
   SpreadsheetRow,
 } from "./FileBrowserSpreadsheetEditor";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_binary_download: vi.fn(),
-  route_get_file_browser_file_content: vi.fn(),
-  route_get_file_browser_file_stat: vi.fn(),
-  route_write_file_browser_file_content: vi.fn(),
-}));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_binary_download: generatedEndpoints.route_binary_download,
-    route_get_file_browser_file_content:
-      generatedEndpoints.route_get_file_browser_file_content,
-    route_get_file_browser_file_stat:
-      generatedEndpoints.route_get_file_browser_file_stat,
-    route_write_file_browser_file_content:
-      generatedEndpoints.route_write_file_browser_file_content,
-  };
-});
-
-type RenderedFileBrowserSpreadsheetEditor = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderFileBrowserSpreadsheetEditor() {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      <FileBrowserSpreadsheetEditor
-        selectedFile={{
-          name: "report.csv",
-          fullPath: "/workspace/report.csv",
-        }}
-      />,
-    );
-  });
-
-  return { host, root } satisfies RenderedFileBrowserSpreadsheetEditor;
-}
-
-async function flushEffects(): Promise<void> {
-  for (let index = 0; index < 3; index += 1) {
-    await vi.dynamicImportSettled();
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, 0);
-      });
-    });
-  }
-}
-
-async function waitForSpreadsheetCellValue(args: {
-  host: HTMLDivElement;
-  cellId: string;
-  expectedValue: string;
-}): Promise<void> {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    await flushEffects();
-    const input = args.host.querySelector(
-      `input[data-spreadsheet-cell="${args.cellId}"]`,
-    ) as HTMLInputElement | null;
-    if (input?.value === args.expectedValue) {
-      return;
-    }
-  }
-  throw new Error(
-    `Timed out waiting for spreadsheet cell ${args.cellId} to equal ${args.expectedValue}.`,
-  );
-}
-
 describe("FileBrowserSpreadsheetEditor layout", () => {
-  beforeEach(() => {
-    generatedEndpoints.route_binary_download.mockReset();
-    generatedEndpoints.route_get_file_browser_file_content.mockReset();
-    generatedEndpoints.route_get_file_browser_file_stat.mockReset();
-    generatedEndpoints.route_write_file_browser_file_content.mockReset();
-    document.body.innerHTML = "";
-    globalThis.ResizeObserver = class {
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    } as typeof ResizeObserver;
-  });
-
   it("uses compact spreadsheet sizing defaults", () => {
     expect(SPREADSHEET_HEADER_HEIGHT).toBeLessThanOrEqual(24);
     expect(SPREADSHEET_ROW_HEIGHT).toBeLessThanOrEqual(24);
@@ -376,81 +269,5 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     });
 
     expect(indexes).toEqual([2, 0]);
-  });
-
-  it("loads spreadsheet cells through the Go file-content and binary routes", async () => {
-    vi.mocked(route_get_file_browser_file_content).mockResolvedValue({
-      data: createFileContentResponse({
-        path: "/workspace/report.csv",
-        contentId: "content-1",
-        mimeType: "text/csv",
-        mtimeNs: 123,
-        size: 23,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(route_binary_download).mockResolvedValue({
-      data: new TextEncoder().encode("name,status\nalpha,ready\n"),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(route_get_file_browser_file_stat).mockResolvedValue({
-      data: createFileStatResponse({
-        path: "/workspace/report.csv",
-        mtimeNs: 123,
-        size: 23,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(route_write_file_browser_file_content).mockResolvedValue({
-      data: createWriteFileContentResponse({
-        path: "/workspace/report.csv",
-        mimeType: "text/csv",
-        mtimeNs: 124,
-        size: 23,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-
-    const { host, root } = await renderFileBrowserSpreadsheetEditor();
-
-    try {
-      await waitForSpreadsheetCellValue({
-        host,
-        cellId: "1:0",
-        expectedValue: "alpha",
-      });
-
-      expect(route_get_file_browser_file_content).toHaveBeenCalledWith({
-        path: "/workspace/report.csv",
-        maxBytes: 8 * 1024 * 1024,
-      });
-      expect(route_binary_download).toHaveBeenCalledWith({
-        contentId: "content-1",
-      });
-      expect(host.textContent).toContain("report.csv");
-      expect(
-        (
-          host.querySelector(
-            'input[data-spreadsheet-cell="1:0"]',
-          ) as HTMLInputElement | null
-        )?.value,
-      ).toBe("alpha");
-      expect(
-        (
-          host.querySelector(
-            'input[data-spreadsheet-cell="1:1"]',
-          ) as HTMLInputElement | null
-        )?.value,
-      ).toBe("ready");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
   });
 });

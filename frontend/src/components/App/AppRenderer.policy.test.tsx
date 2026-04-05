@@ -1,14 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useAppConfigs, useProjectState } from "state/definitions";
+import { useAppConfigs } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
-  createPolicy,
   createProjectConfig,
+  createSharePolicy,
   createSingletonSections,
   createTextBlockSectionImpl,
   createUserDefaultCallableSectionImpl,
@@ -103,7 +103,6 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [sectionVariantId]: sectionVariant },
           sectionImpls: { [sectionImplId]: sectionImpl },
-          sectionCapabilities: {},
           codeObjs: { [paramId]: paramCore },
           codeObjVariants: { [paramVariantId]: paramVariant },
           codeObjImpls: { [paramImplId]: paramImpl },
@@ -117,25 +116,7 @@ describe("AppRenderer policy enforcement", () => {
         },
       },
     });
-    useProjectState.setState({
-      projectConfig,
-      sections: { [sectionId]: sectionCore },
-      sectionVariants: { [sectionVariantId]: sectionVariant },
-      sectionImpls: { [sectionImplId]: sectionImpl },
-      sectionCapabilities: {},
-      codeObjs: { [paramId]: paramCore },
-      codeObjVariants: { [paramVariantId]: paramVariant },
-      codeObjImpls: { [paramImplId]: paramImpl },
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: { [sectionId]: null },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-    });
     syncStoreInitialState(useAppConfigs);
-    syncStoreInitialState(useProjectState);
 
     const runtimeValue = {
       dataBindings: {},
@@ -145,7 +126,7 @@ describe("AppRenderer policy enforcement", () => {
           artifactId: "artifacts/report.txt",
         },
       },
-      policy: createPolicy({
+      policy: createSharePolicy({
         allowParamChanges: false,
         allowFileDownloads: false,
         allowExternalLinks: false,
@@ -307,7 +288,6 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
           sectionImpls: { [implAId]: implA, [implBId]: implB },
-          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -324,7 +304,6 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
           sectionImpls: { [implAId]: implA, [implBId]: implB },
-          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -343,7 +322,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createPolicy({ allowRun: true }),
+      policy: createSharePolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,
@@ -398,7 +377,6 @@ describe("AppRenderer policy enforcement", () => {
           sections: { [sectionId]: sectionCore },
           sectionVariants: { [sectionVariantId]: sectionVariant },
           sectionImpls: { [sectionImplId]: sectionImpl },
-          sectionCapabilities: {},
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -417,7 +395,7 @@ describe("AppRenderer policy enforcement", () => {
     const runtimeValue = {
       dataBindings: {},
       actions: {},
-      policy: createPolicy({ allowRun: true }),
+      policy: createSharePolicy({ allowRun: true }),
       canEditParams: true,
       allowExternalLinks: true,
       allowFileDownloads: true,
