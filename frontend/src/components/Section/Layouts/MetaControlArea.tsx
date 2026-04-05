@@ -26,6 +26,7 @@ import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
+  BaseChildlessCodeObjImplUnion,
   BaseCodeObjImplUnion,
   ButtonParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -40,7 +41,7 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
-  HttpRequestMethodEnum,
+  HTTPRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   TimeControlModeEnum,
@@ -255,7 +256,7 @@ function MetaControlValueArea({
         return;
       }
       useProjectState.setState((state) => {
-        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           controlParamId,
           codeObjVariantId,
@@ -455,7 +456,7 @@ const debouncedSetParamEnteredValue = _.debounce(
   ) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramInfoId,
           codeObjVariantId,
@@ -508,7 +509,7 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
     return;
   }
 
-  const method = config.requestMethod ?? HttpRequestMethodEnum.POST;
+  const method = config.requestMethod ?? HTTPRequestMethodEnum.POST;
   const headerKey = config.requestHeaderKey.trim();
   let headers: HeadersInit | undefined;
   if (headerKey !== "") {
@@ -519,8 +520,8 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
   let body: string | undefined;
   if (
     trimmedBody !== "" &&
-    method !== HttpRequestMethodEnum.GET &&
-    method !== HttpRequestMethodEnum.HEAD
+    method !== HTTPRequestMethodEnum.GET &&
+    method !== HTTPRequestMethodEnum.HEAD
   ) {
     body = config.requestBody;
   }

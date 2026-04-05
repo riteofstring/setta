@@ -20,6 +20,7 @@ import {
   route_set_param_entered_value,
 } from "utils/generatedEndpoints";
 import {
+  BaseChildlessCodeObjImplUnion,
   BinaryDependencyValue,
   CodeObjTypeEnum,
   DependencyKeyTypeEnum,
@@ -89,7 +90,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         return;
       }
       useProjectState.setState((state) => {
-        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramInfoId,
           codeObjVariantId,
@@ -247,7 +248,7 @@ const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, sectionVariantId, paramInfoId, codeObjVariantId, value) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramInfoId,
           codeObjVariantId,

@@ -21,7 +21,11 @@ import {
   route_set_show_param_display_names,
   route_update_param_impl_config,
 } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum, isBaseParamCodeObjImpl } from "utils/generatedTypes";
+import {
+  BaseCodeObjImplUnion,
+  CodeObjTypeEnum,
+  isBaseParamCodeObjImpl,
+} from "utils/generatedTypes";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
@@ -183,7 +187,7 @@ function _UIElement({
       _.debounce((nextDescription: string) => {
         dispatchOptimisticProjectStateUpdate({
           apply: (state) => {
-            setCurrEffectiveCodeObjImplValue<"BaseCodeObj">(
+            setCurrEffectiveCodeObjImplValue<BaseCodeObjImplUnion>(
               state,
               sectionId,
               id,

@@ -49,6 +49,7 @@ import {
   createVariant,
   ListRootViewModeEnum,
   SectionTypeEnum,
+  type BaseChildlessCodeObjImplUnion,
   type ProjectStateSingleConfigWithCompletedOpIDs,
   type ShownParamIDs,
   type ViewMode,
@@ -2066,7 +2067,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramId,
           paramVariantAId,

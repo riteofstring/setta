@@ -12,7 +12,10 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  type ColorPickerParamCodeObjImpl,
+  CodeObjTypeEnum,
+} from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
 
 export function ColorPickerInputConfigForParam({
@@ -36,7 +39,7 @@ export function ColorPickerInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"ColorPickerParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<ColorPickerParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,

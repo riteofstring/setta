@@ -47,7 +47,6 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
-  ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
@@ -71,6 +70,14 @@ const effectiveImplCacheByImpl = new WeakMap<
   object,
   WeakMap<object, WeakMap<object, unknown>>
 >();
+
+type GeneratedImplUpdateValue<T> = T | ((prev: T) => T);
+
+type ImplUpdateArgs<T extends object> = {
+  [K in keyof T]?: GeneratedImplUpdateValue<T[K]>;
+};
+
+type MutableGeneratedImpl = BaseSectionImplUnion | BaseCodeObjImplUnion;
 
 function getEffectiveImpl<T extends object>(
   impl: T,
@@ -752,21 +759,35 @@ function getEffectiveImplFromVariantMap(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
-  impl: ImplArgsBundleMap[K]["impl"],
+function resolveGeneratedImplUpdateValue<T>(
+  value: GeneratedImplUpdateValue<T>,
+  prev: T,
+): T {
+  if (typeof value === "function") {
+    return (value as (prev: T) => T)(prev);
+  }
+  return value;
+}
+
+function setEffectiveImplValue<T extends MutableGeneratedImpl>(
+  impl: T,
   core: Core,
   variant: Variant,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args: ImplUpdateArgs<T>,
+): T {
   const curr = getEffectiveImpl(impl, core, variant);
-  for (const [k, v] of Object.entries(args)) {
+  for (const [k, v] of Object.entries(args) as Array<
+    [keyof T, GeneratedImplUpdateValue<T[keyof T]>]
+  >) {
     const currV = curr[k];
+    const nextValue = resolveGeneratedImplUpdateValue(v, currV);
+    const key = k as string;
     if (!core.unsharedKeys.includes(k)) {
-      core.sharedModifier[k] = typeof v === "function" ? v(currV) : v;
+      core.sharedModifier[key] = nextValue;
     } else if (!impl.isPreset) {
-      impl[k] = typeof v === "function" ? v(currV) : v;
+      (impl as Record<string, unknown>)[key] = nextValue;
     } else {
-      variant.modifier[k] = typeof v === "function" ? v(currV) : v;
+      variant.modifier[key] = nextValue;
     }
   }
   effectiveImplCacheByImpl.delete(impl);
@@ -774,54 +795,50 @@ function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
 }
 
 export function setCurrEffectiveSectionImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
-  state: ZustandProjectState,
-  sectionId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  T extends BaseSectionImplUnion,
+>(state: ZustandProjectState, sectionId: string, args: ImplUpdateArgs<T>): T {
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
   const core = getSectionCore(state, sectionId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl as T, core, variant, args);
 }
 
-export function setSectionVariantImplValue<K extends keyof ImplArgsBundleMap>(
+export function setSectionVariantImplValue<T extends BaseSectionImplUnion>(
   state: ZustandProjectState,
   sectionId: string,
   variantId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args: ImplUpdateArgs<T>,
+): T {
   const variant = getSectionVariant(state, variantId);
   const impl = getSectionImpl(state, variant.impl);
   const core = getSectionCore(state, sectionId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl as T, core, variant, args);
 }
 
 export function setCurrEffectiveCodeObjImplValue<
-  K extends keyof ImplArgsBundleMap,
+  T extends BaseCodeObjImplUnion,
 >(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args: ImplUpdateArgs<T>,
+): T {
   const variant = getCurrCodeObjVariant(state, sectionId, codeObjId);
   const impl = getCodeObjImpl(state, variant.impl);
   const core = getCodeObjCore(state, codeObjId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl as T, core, variant, args);
 }
 
-export function setCodeObjVariantImplValue<K extends keyof ImplArgsBundleMap>(
+export function setCodeObjVariantImplValue<T extends BaseCodeObjImplUnion>(
   state: ZustandProjectState,
   codeObjId: string,
   codeObjVariantId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args: ImplUpdateArgs<T>,
+): T {
   const variant = getCodeObjVariant(state, codeObjVariantId);
   const impl = getCodeObjImpl(state, variant.impl);
   const core = getCodeObjCore(state, codeObjId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl as T, core, variant, args);
 }
 
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {

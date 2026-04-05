@@ -1011,7 +1011,7 @@ export const ButtonActionModeEnum = {
 } as const;
 export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
 
-const HTTPRequestMethodEnum = {
+export const HTTPRequestMethodEnum = {
   GET: "GET",
   POST: "POST",
   PUT: "PUT",
@@ -1020,7 +1020,7 @@ const HTTPRequestMethodEnum = {
   HEAD: "HEAD",
   OPTIONS: "OPTIONS",
 } as const;
-type HTTPRequestMethod = ObjectValues<typeof HTTPRequestMethodEnum>;
+export type HTTPRequestMethod = ObjectValues<typeof HTTPRequestMethodEnum>;
 
 export const DropzoneModeEnum = {
   STATEFUL: "STATEFUL",
@@ -8647,7 +8647,7 @@ type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
   codeObjVariantMap: Record<string, string>;
 };
 
-type BaseDictSectionImplUnion = BaseSectionImpl & {
+export type BaseDictSectionImplUnion = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
   codeObjVariantMap: Record<string, string>;
   hideUnpinnedParams: boolean;
@@ -9686,133 +9686,6 @@ export function validateGeneratedParamNameInput(
       ),
   );
 }
-
-export type ImplArgsBundleMap = {
-  BaseSection: {
-    impl: BaseSectionImplUnion;
-    args: {
-      [K in keyof BaseSectionImplUnion]?:
-        | BaseSectionImplUnion[K]
-        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
-    };
-  };
-  BaseSectionWithParams: {
-    impl: BaseSectionWithParamsImplUnion;
-    args: {
-      [K in keyof BaseSectionWithParamsImplUnion]?:
-        | BaseSectionWithParamsImplUnion[K]
-        | ((
-            prev: BaseSectionWithParamsImplUnion[K],
-          ) => BaseSectionWithParamsImplUnion[K]);
-    };
-  };
-  BaseParentSection: {
-    impl: BaseParentSectionImplUnion;
-    args: {
-      [K in keyof BaseParentSectionImplUnion]?:
-        | BaseParentSectionImplUnion[K]
-        | ((
-            prev: BaseParentSectionImplUnion[K],
-          ) => BaseParentSectionImplUnion[K]);
-    };
-  };
-  BaseCodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: {
-      [K in keyof BaseParentSectionImplUnion]?:
-        | BaseParentSectionImplUnion[K]
-        | ((
-            prev: BaseParentSectionImplUnion[K],
-          ) => BaseParentSectionImplUnion[K]);
-    };
-  };
-  ChatSection: {
-    impl: BaseSectionImplUnion;
-    args: {
-      [K in keyof BaseSectionImplUnion]?:
-        | BaseSectionImplUnion[K]
-        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
-    };
-  };
-  CodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: {
-      [K in keyof BaseParentSectionImplUnion]?:
-        | BaseParentSectionImplUnion[K]
-        | ((
-            prev: BaseParentSectionImplUnion[K],
-          ) => BaseParentSectionImplUnion[K]);
-    };
-  };
-  GroupSection: {
-    impl: GroupSectionImpl;
-    args: {
-      [K in keyof GroupSectionImpl]?:
-        | GroupSectionImpl[K]
-        | ((prev: GroupSectionImpl[K]) => GroupSectionImpl[K]);
-    };
-  };
-  ListRootSection: {
-    impl: BaseParentSectionImplUnion;
-    args: {
-      [K in keyof BaseParentSectionImplUnion]?:
-        | BaseParentSectionImplUnion[K]
-        | ((
-            prev: BaseParentSectionImplUnion[K],
-          ) => BaseParentSectionImplUnion[K]);
-    };
-  };
-  BrowserSection: {
-    impl: BrowserSectionImpl;
-    args: {
-      [K in keyof BrowserSectionImpl]?:
-        | BrowserSectionImpl[K]
-        | ((prev: BrowserSectionImpl[K]) => BrowserSectionImpl[K]);
-    };
-  };
-  TextBlockSection: {
-    impl: BaseSectionImplUnion;
-    args: {
-      [K in keyof BaseSectionImplUnion]?:
-        | BaseSectionImplUnion[K]
-        | ((prev: BaseSectionImplUnion[K]) => BaseSectionImplUnion[K]);
-    };
-  };
-  PromptSection: {
-    impl: PromptSectionImpl;
-    args: {
-      [K in keyof PromptSectionImpl]?:
-        | PromptSectionImpl[K]
-        | ((prev: PromptSectionImpl[K]) => PromptSectionImpl[K]);
-    };
-  };
-  BaseDictSection: {
-    impl: BaseDictSectionImplUnion;
-    args: {
-      [K in keyof BaseDictSectionImplUnion]?:
-        | BaseDictSectionImplUnion[K]
-        | ((prev: BaseDictSectionImplUnion[K]) => BaseDictSectionImplUnion[K]);
-    };
-  };
-  BaseChildlessCodeObj: {
-    impl: BaseChildlessCodeObjImplUnion;
-    args: {
-      [K in keyof BaseChildlessCodeObjImplUnion]?:
-        | BaseChildlessCodeObjImplUnion[K]
-        | ((
-            prev: BaseChildlessCodeObjImplUnion[K],
-          ) => BaseChildlessCodeObjImplUnion[K]);
-    };
-  };
-  BaseCodeObj: {
-    impl: BaseCodeObjImplUnion;
-    args: {
-      [K in keyof BaseCodeObjImplUnion]?:
-        | BaseCodeObjImplUnion[K]
-        | ((prev: BaseCodeObjImplUnion[K]) => BaseCodeObjImplUnion[K]);
-    };
-  };
-};
 
 export function createDefaultAppPolicy(
   options: Partial<SharePolicy> = {},

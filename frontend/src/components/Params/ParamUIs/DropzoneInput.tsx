@@ -51,6 +51,7 @@ import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
   DropzoneModeEnum,
+  DropzoneParamCodeObjImpl,
   FileArtifact,
   NotificationTypeEnum,
   type ContentRef,
@@ -258,7 +259,7 @@ export function DropzoneInputConfigForParam({
     }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"DropzoneParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<DropzoneParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,

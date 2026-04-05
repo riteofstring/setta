@@ -46,21 +46,35 @@ vi.mock("state/definitions", () => {
   return { useProjectState };
 });
 
-vi.mock("state/actions/sectionInfos", () => ({
-  dispatchOptimisticProjectStateUpdate: vi.fn(),
-  getCurrEffectiveCodeObjImpl: vi.fn(() => ({ type: "ButtonParam" })),
-  getCurrEffectiveCodeObjImplWithTypeGuard: vi.fn(
-    () => mocked.currentButtonConfig,
-  ),
-  getCurrEffectiveSectionImplOfType: vi.fn(() => ({
-    metaControlParamId: "param-1",
-    showSectionTitle: false,
-  })),
-  getCurrProjectConfigId: vi.fn(() => "project-alpha"),
-  getParamDisplayName: vi.fn(() => "Run"),
-  getSectionCore: vi.fn(() => ({ name: "Section" })),
-  setCurrEffectiveCodeObjImplValue: vi.fn(),
-}));
+vi.mock("state/actions/sectionInfos", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("state/actions/sectionInfos")
+  >();
+  return {
+    ...actual,
+    dispatchOptimisticProjectStateUpdate: vi.fn(),
+    getCurrCodeObjVariantIfPresent: vi.fn(() => ({ id: "code-variant-1" })),
+    getCurrEffectiveCodeObjImpl: vi.fn(() => ({ type: "ButtonParam" })),
+    getCurrEffectiveCodeObjImplIfPresent: vi.fn(
+      () => mocked.currentButtonConfig,
+    ),
+    getCurrEffectiveCodeObjImplWithTypeGuardIfPresent: vi.fn(
+      () => mocked.currentButtonConfig,
+    ),
+    getCurrEffectiveCodeObjImplWithTypeGuard: vi.fn(
+      () => mocked.currentButtonConfig,
+    ),
+    getCurrEffectiveSectionImplOfType: vi.fn(() => ({
+      metaControlParamId: "param-1",
+      showSectionTitle: false,
+    })),
+    getCurrProjectConfigId: vi.fn(() => "project-alpha"),
+    getCurrSectionVariantId: vi.fn(() => "section-variant-1"),
+    getParamDisplayNameIfPresent: vi.fn(() => "Run"),
+    getSectionCore: vi.fn(() => ({ name: "Section" })),
+    setCurrEffectiveCodeObjImplValue: vi.fn(),
+  };
+});
 
 vi.mock("state/actions/sections/createSections", () => ({
   getEmptySpacePosition: mocked.getEmptySpacePosition,
@@ -86,7 +100,7 @@ vi.mock("utils/requestTransport", () => ({
 import { GoHTTPRouteHelpers } from "utils/generatedRoutes";
 import {
   ButtonActionModeEnum,
-  HttpRequestMethodEnum,
+  HTTPRequestMethodEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { MetaControlArea } from "./MetaControlArea";
@@ -242,7 +256,7 @@ describe("MetaControlArea Setta API button actions", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     mocked.currentButtonConfig.actionMode = ButtonActionModeEnum.HTTP_REQUEST;
-    mocked.currentButtonConfig.requestMethod = HttpRequestMethodEnum.GET;
+    mocked.currentButtonConfig.requestMethod = HTTPRequestMethodEnum.GET;
     mocked.currentButtonConfig.requestUrl = "  https://example.com/api  ";
     mocked.currentButtonConfig.requestHeaderKey = "X-Test";
     mocked.currentButtonConfig.requestHeaderValue = "yes";
@@ -264,7 +278,7 @@ describe("MetaControlArea Setta API button actions", () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", {
-        method: HttpRequestMethodEnum.GET,
+        method: HTTPRequestMethodEnum.GET,
         headers: { "X-Test": "yes" },
         body: undefined,
       });
@@ -284,7 +298,7 @@ describe("MetaControlArea Setta API button actions", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     mocked.currentButtonConfig.actionMode = ButtonActionModeEnum.HTTP_REQUEST;
-    mocked.currentButtonConfig.requestMethod = HttpRequestMethodEnum.POST;
+    mocked.currentButtonConfig.requestMethod = HTTPRequestMethodEnum.POST;
     mocked.currentButtonConfig.requestUrl = "   ";
     mocked.currentButtonConfig.requestBody = '{"ignored":true}';
 
@@ -319,7 +333,7 @@ describe("MetaControlArea Setta API button actions", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     mocked.currentButtonConfig.actionMode = ButtonActionModeEnum.HTTP_REQUEST;
-    mocked.currentButtonConfig.requestMethod = HttpRequestMethodEnum.HEAD;
+    mocked.currentButtonConfig.requestMethod = HTTPRequestMethodEnum.HEAD;
     mocked.currentButtonConfig.requestUrl = "https://example.com/head";
     mocked.currentButtonConfig.requestBody = '{"ignored":true}';
 
@@ -339,7 +353,7 @@ describe("MetaControlArea Setta API button actions", () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith("https://example.com/head", {
-        method: HttpRequestMethodEnum.HEAD,
+        method: HTTPRequestMethodEnum.HEAD,
         headers: undefined,
         body: undefined,
       });
