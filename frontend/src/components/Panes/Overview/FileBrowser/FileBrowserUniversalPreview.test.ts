@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
+import { downloadBinary } from "openapi/http";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import {
-  route_binary_download,
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
@@ -22,7 +22,20 @@ import {
 const generatedEndpoints = vi.hoisted(() => ({
   route_get_file_browser_download_urls: vi.fn(),
   route_get_file_browser_file_content: vi.fn(),
-  route_binary_download: vi.fn(),
+}));
+
+const { downloadBinaryMock } = vi.hoisted(() => ({
+  downloadBinaryMock: vi.fn(),
+}));
+
+vi.mock("openapi/http", () => ({
+  downloadBinary: downloadBinaryMock,
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -33,7 +46,6 @@ vi.mock("utils/generatedEndpoints", async () => {
       generatedEndpoints.route_get_file_browser_download_urls,
     route_get_file_browser_file_content:
       generatedEndpoints.route_get_file_browser_file_content,
-    route_binary_download: generatedEndpoints.route_binary_download,
   };
 });
 
@@ -70,7 +82,7 @@ async function flushEffects(): Promise<void> {
 beforeEach(() => {
   generatedEndpoints.route_get_file_browser_download_urls.mockReset();
   generatedEndpoints.route_get_file_browser_file_content.mockReset();
-  generatedEndpoints.route_binary_download.mockReset();
+  downloadBinaryMock.mockReset();
   document.body.innerHTML = "";
 });
 
@@ -154,8 +166,10 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_binary_download).mockResolvedValue({
-      data: new TextEncoder().encode("Hello from the Go file browser."),
+    vi.mocked(downloadBinary).mockResolvedValue({
+      data: new Blob(["Hello from the Go file browser."], {
+        type: "text/plain",
+      }),
       status: 200,
       hasResponse: true,
     });
@@ -176,8 +190,8 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
         path: "/workspace/readme.md",
         maxBytes: 1024 * 1024,
       });
-      expect(route_binary_download).toHaveBeenCalledWith({
-        contentId: "content-1",
+      expect(downloadBinary).toHaveBeenCalledWith({
+        path: { contentId: "content-1" },
       });
       expect(
         host.querySelector(

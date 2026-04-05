@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { downloadBinary } from "openapi/http";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -29,18 +30,30 @@ import {
 } from "./artifacts";
 
 const generatedEndpoints = vi.hoisted(() => ({
-  route_binary_download: vi.fn(),
   route_load_cached_brush_strokes: vi.fn(),
   route_load_cached_chart_data: vi.fn(),
   route_load_cached_draw_area_layer_item_transform: vi.fn(),
   route_load_cached_image_artifacts: vi.fn(),
 }));
 
+const { downloadBinaryMock } = vi.hoisted(() => ({
+  downloadBinaryMock: vi.fn(),
+}));
+
+vi.mock("openapi/http", () => ({
+  downloadBinary: downloadBinaryMock,
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await import("utils/generatedEndpoints");
   return {
     ...actual,
-    route_binary_download: generatedEndpoints.route_binary_download,
     route_load_cached_brush_strokes:
       generatedEndpoints.route_load_cached_brush_strokes,
     route_load_cached_chart_data:
@@ -210,7 +223,7 @@ describe("artifact hooks", () => {
   beforeEach(() => {
     resetProjectStores();
     setProjectStateForArtifacts();
-    generatedEndpoints.route_binary_download.mockReset();
+    downloadBinaryMock.mockReset();
     generatedEndpoints.route_load_cached_brush_strokes.mockReset();
     generatedEndpoints.route_load_cached_chart_data.mockReset();
     generatedEndpoints.route_load_cached_draw_area_layer_item_transform.mockReset();
@@ -328,16 +341,18 @@ describe("artifact hooks", () => {
         }),
       },
     }));
-    vi.mocked(generatedEndpoints.route_binary_download).mockResolvedValue({
-      data: new Uint8Array([1, 2, 3, 4]),
+    vi.mocked(downloadBinary).mockResolvedValue({
+      data: new Blob([new Uint8Array([1, 2, 3, 4])], {
+        type: "image/png",
+      }),
       status: 200,
       hasResponse: true,
     });
 
     await decodeExistingRawImages([imageArtifactId]);
 
-    expect(generatedEndpoints.route_binary_download).toHaveBeenCalledWith({
-      contentId: "decode-content-id",
+    expect(downloadBinary).toHaveBeenCalledWith({
+      path: { contentId: "decode-content-id" },
     });
     expect(
       useDecodedImages.getState().x[imageArtifactId]?.dataset.contentId,

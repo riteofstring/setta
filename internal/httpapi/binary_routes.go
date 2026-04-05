@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	binarypayload "setta/internal/binary"
 	"setta/internal/deployments"
@@ -24,20 +25,31 @@ type BinaryRouteDependencies struct {
 	Store         *binarypayload.Store
 }
 
-type BinaryUploadRequest struct{}
-
-func (BinaryUploadRequest) FrontendBindingTypeScriptExpr() string {
-	return "FormData"
+type BinaryUploadFormRequest struct {
+	Durable *bool             `json:"durable,omitempty"`
+	File    openAPIBinaryFile `json:"file"`
 }
 
 type BinaryDownloadRequest struct {
 	ContentID string `json:"contentId"`
 }
 
-type BinaryDownloadResponse struct{}
+type openAPIBinaryFile struct{}
 
-func (BinaryDownloadResponse) FrontendBindingTypeScriptExpr() string {
-	return "Uint8Array"
+func (openAPIBinaryFile) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{
+		Type:   huma.TypeString,
+		Format: "binary",
+	}
+}
+
+type openAPIBinaryPayload struct{}
+
+func (openAPIBinaryPayload) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{
+		Type:   huma.TypeString,
+		Format: "binary",
+	}
 }
 
 func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error {
@@ -48,7 +60,16 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 		return fmt.Errorf("binary store is required")
 	}
 
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteBinaryUpload, binaryUploadHandler(deps.Store))
+	registerOpenAPIPost[BinaryUploadFormRequest, binarypayload.ContentRef](
+		router.With(RequireFullIDERuntime(deps.ModePolicy)),
+		"uploadBinary",
+		RouteBinaryUpload,
+		binaryUploadHandler(deps.Store),
+		withOpenAPITags("Binary"),
+		withOpenAPISummary("Upload a binary payload to the runtime content store."),
+		withOpenAPIModeRequirement("full-ide"),
+		withOpenAPIRequestContentType("multipart/form-data"),
+	)
 	if deps.ModePolicy.IsDeployment() {
 		if deps.ShareSessions == nil {
 			return fmt.Errorf("share session store is required in deployment mode")
@@ -56,13 +77,33 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 		if deps.Deployment == nil {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
-		router.With(RequireShareSession(modes.Resolver{
-			Policy: deps.ModePolicy,
-			Store:  deps.ShareSessions,
-		})).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store, deps.Deployment))
+		registerOpenAPIGet[openAPIBinaryPayload](
+			router.With(RequireShareSession(modes.Resolver{
+				Policy: deps.ModePolicy,
+				Store:  deps.ShareSessions,
+			})),
+			"downloadBinary",
+			RouteBinaryDownload,
+			binaryDownloadHandler(deps.Store, deps.Deployment),
+			withOpenAPITags("Binary"),
+			withOpenAPISummary("Download a binary payload from the runtime content store."),
+			withOpenAPIModeRequirement("not-launcher"),
+			withOpenAPIPathParams[BinaryDownloadRequest](),
+			withOpenAPIResponseContentType("application/octet-stream"),
+		)
 		return nil
 	}
-	router.With(modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store, nil))
+	registerOpenAPIGet[openAPIBinaryPayload](
+		router.With(modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)),
+		"downloadBinary",
+		RouteBinaryDownload,
+		binaryDownloadHandler(deps.Store, nil),
+		withOpenAPITags("Binary"),
+		withOpenAPISummary("Download a binary payload from the runtime content store."),
+		withOpenAPIModeRequirement("not-launcher"),
+		withOpenAPIPathParams[BinaryDownloadRequest](),
+		withOpenAPIResponseContentType("application/octet-stream"),
+	)
 	return nil
 }
 

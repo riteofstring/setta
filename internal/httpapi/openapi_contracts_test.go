@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agenticsummarycache"
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
@@ -141,6 +142,12 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register plugin routes: %v", err)
 	}
+	if err := RegisterBinaryRoutes(router, BinaryRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Store:      &binarypayload.Store{},
+	}); err != nil {
+		t.Fatalf("register binary routes: %v", err)
+	}
 
 	getSettaHomeInfo := document.Paths[RouteGetSettaHomeInfo].Get
 	if getSettaHomeInfo == nil {
@@ -206,6 +213,61 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := pluginsRestart.Extensions["x-setta-mode-requirement"]; got != "ide" {
 		t.Fatalf("plugins restart mode requirement = %#v, want %q", got, "ide")
+	}
+
+	binaryUpload := document.Paths[RouteBinaryUpload].Post
+	if binaryUpload == nil {
+		t.Fatalf("expected %s post operation", RouteBinaryUpload)
+	}
+	if binaryUpload.OperationID != "uploadBinary" {
+		t.Fatalf("binary upload operation id = %q, want %q", binaryUpload.OperationID, "uploadBinary")
+	}
+	uploadBody := binaryUpload.RequestBody
+	if uploadBody == nil {
+		t.Fatalf("expected binary upload request body to be documented")
+	}
+	uploadContent := uploadBody.Content["multipart/form-data"]
+	if uploadContent == nil {
+		t.Fatalf("expected binary upload multipart request content, got %#v", uploadBody.Content)
+	}
+	if uploadContent.Schema == nil {
+		t.Fatalf("expected binary upload schema, got %#v", uploadContent.Schema)
+	}
+	uploadSchema := uploadContent.Schema
+	if uploadSchema.Ref != "#/components/schemas/HttpapiBinaryUploadFormRequest" {
+		t.Fatalf("binary upload schema ref = %q, want %q", uploadSchema.Ref, "#/components/schemas/HttpapiBinaryUploadFormRequest")
+	}
+	uploadSchema = document.Components.Schemas.SchemaFromRef(uploadSchema.Ref)
+	if uploadSchema == nil || uploadSchema.Properties["file"] == nil {
+		t.Fatalf("expected binary upload component schema, got %#v", uploadSchema)
+	}
+	if got := uploadSchema.Properties["file"].Format; got != "binary" {
+		t.Fatalf("binary upload file schema format = %q, want %q", got, "binary")
+	}
+	if got := binaryUpload.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
+		t.Fatalf("binary upload mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	binaryDownload := document.Paths[RouteBinaryDownload].Get
+	if binaryDownload == nil {
+		t.Fatalf("expected %s get operation", RouteBinaryDownload)
+	}
+	if binaryDownload.OperationID != "downloadBinary" {
+		t.Fatalf("binary download operation id = %q, want %q", binaryDownload.OperationID, "downloadBinary")
+	}
+	downloadResponse := binaryDownload.Responses["200"]
+	if downloadResponse == nil {
+		t.Fatalf("expected binary download success response")
+	}
+	downloadContent := downloadResponse.Content["application/octet-stream"]
+	if downloadContent == nil {
+		t.Fatalf("expected binary download octet-stream response content, got %#v", downloadResponse.Content)
+	}
+	if downloadContent.Schema == nil || downloadContent.Schema.Format != "binary" {
+		t.Fatalf("binary download response schema = %#v, want binary format", downloadContent.Schema)
+	}
+	if got := binaryDownload.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
+		t.Fatalf("binary download mode requirement = %#v, want %q", got, "not-launcher")
 	}
 }
 

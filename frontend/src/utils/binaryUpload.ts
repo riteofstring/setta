@@ -1,10 +1,6 @@
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import { route_binary_upload } from "utils/generatedEndpoints";
-import type { ContentRef } from "utils/generatedTypes";
+import { uploadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 
 type UploadBinaryPayloadResult =
   | {
@@ -15,7 +11,6 @@ type UploadBinaryPayloadResult =
       status: "failed";
       error: string;
     };
-type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 export async function uploadBinaryPayload({
   bytes,
@@ -28,17 +23,18 @@ export async function uploadBinaryPayload({
   mimeType: string | null;
   durable?: boolean;
 }): Promise<UploadBinaryPayloadResult> {
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([bytes], {
-      type: mimeType ?? "application/octet-stream",
+  const file = new Blob([bytes], {
+    type: mimeType ?? "application/octet-stream",
+  });
+  const response = await callOpenAPI(
+    uploadBinary({
+      body: {
+        durable,
+        file: new File([file], fileName, { type: file.type }),
+      },
     }),
-    fileName,
   );
-  form.append("durable", durable ? "true" : "false");
-  const response: BinaryUploadRouteResponse = await route_binary_upload(form);
-  if (!res200(response)) {
+  if (!res200(response) || !response.data) {
     return {
       status: "failed",
       error:

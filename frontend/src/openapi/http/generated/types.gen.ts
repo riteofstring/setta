@@ -10,6 +10,13 @@ export type AgenticsummarycacheAgenticSummaryCacheStatus = {
   wouldAttemptSectionIds: Array<string> | null;
 };
 
+export type BinaryContentRef = {
+  byteLength: number;
+  contentId: string;
+  mimeType?: string;
+  sha256?: string;
+};
+
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -25,6 +32,11 @@ export type HttpapiBackendInitStatusResponse = {
   events: Array<HttpapiBackendInitEvent> | null;
   isReady: boolean;
   worktreeName: string | null;
+};
+
+export type HttpapiBinaryUploadFormRequest = {
+  durable?: boolean;
+  file: Blob | File;
 };
 
 export type HttpapiCreateWorkspaceLaunchIntentRequest = {
@@ -711,6 +723,61 @@ export type GetBackendInitStatusResponses = {
 
 export type GetBackendInitStatusResponse =
   GetBackendInitStatusResponses[keyof GetBackendInitStatusResponses];
+
+export type UploadBinaryData = {
+  body: HttpapiBinaryUploadFormRequest;
+  path?: never;
+  query?: never;
+  url: "/binary/upload";
+};
+
+export type UploadBinaryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UploadBinaryError = UploadBinaryErrors[keyof UploadBinaryErrors];
+
+export type UploadBinaryResponses = {
+  /**
+   * OK
+   */
+  200: BinaryContentRef;
+};
+
+export type UploadBinaryResponse =
+  UploadBinaryResponses[keyof UploadBinaryResponses];
+
+export type DownloadBinaryData = {
+  body?: never;
+  path: {
+    contentId: string;
+  };
+  query?: never;
+  url: "/binary/{contentId}";
+};
+
+export type DownloadBinaryErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DownloadBinaryError =
+  DownloadBinaryErrors[keyof DownloadBinaryErrors];
+
+export type DownloadBinaryResponses = {
+  /**
+   * OK
+   */
+  200: Blob | File;
+};
+
+export type DownloadBinaryResponse =
+  DownloadBinaryResponses[keyof DownloadBinaryResponses];
 
 export type CreateWorkspaceLaunchIntentData = {
   body: HttpapiCreateWorkspaceLaunchIntentRequest;

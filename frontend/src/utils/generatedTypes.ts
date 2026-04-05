@@ -344,14 +344,6 @@ export type AttachmentDownloadURLEntry = {
   expiresAt: number;
 };
 
-export type BinaryUploadRequest = FormData;
-
-export type BinaryDownloadRequest = {
-  contentId: string;
-};
-
-export type BinaryDownloadResponse = Uint8Array;
-
 type BootstrapHandoffProtocol = {
   workspaceHistoryStorageKey: string;
   workspaceHistoryQueryParam: string;

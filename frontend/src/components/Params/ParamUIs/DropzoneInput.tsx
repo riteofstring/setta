@@ -1,3 +1,5 @@
+import { uploadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useMemo,
   useRef,
@@ -40,7 +42,6 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_binary_upload,
   route_delete_artifacts,
   route_import_files_to_artifacts,
   route_set_param_entered_value,
@@ -664,12 +665,15 @@ export function DropzoneInput({
       }
       const uploadResults = await Promise.allSettled(
         allowedFiles.map(async (file) => {
-          const form = new FormData();
-          form.append("file", file, file.name);
-          form.append("durable", "false");
-          const res: BinaryUploadRouteResponse =
-            await route_binary_upload(form);
-          if (!res200(res)) {
+          const res: BinaryUploadRouteResponse = await callOpenAPI(
+            uploadBinary({
+              body: {
+                durable: false,
+                file,
+              },
+            }),
+          );
+          if (!res200(res) || !res.data) {
             throw new Error("Upload failed");
           }
           return { file, ref: res.data };

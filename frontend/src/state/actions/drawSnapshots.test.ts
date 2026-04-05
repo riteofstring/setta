@@ -6,8 +6,18 @@ import {
   unregisterDrawSnapshotProvider,
 } from "./drawSnapshots";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_binary_upload: vi.fn(),
+const { uploadBinaryMock } = vi.hoisted(() => ({
+  uploadBinaryMock: vi.fn(),
+}));
+
+vi.mock("openapi/http", () => ({
+  uploadBinary: uploadBinaryMock,
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 describe("collectDrawSnapshotPayloads", () => {
@@ -24,11 +34,11 @@ describe("collectDrawSnapshotPayloads", () => {
   });
 
   it("uploads each available draw snapshot and returns refs keyed by section id", async () => {
-    const { route_binary_upload } = await import("utils/generatedEndpoints");
+    const { uploadBinary } = await import("openapi/http");
 
     // Multiple draw areas should upload independently and preserve their
     // section-to-content-id mapping in the returned payload object.
-    vi.mocked(route_binary_upload)
+    vi.mocked(uploadBinary)
       .mockResolvedValueOnce({
         data: createContentRef({
           contentId: "content-a",
@@ -59,7 +69,7 @@ describe("collectDrawSnapshotPayloads", () => {
       "draw-missing",
     ]);
 
-    expect(route_binary_upload).toHaveBeenCalledTimes(2);
+    expect(uploadBinary).toHaveBeenCalledTimes(2);
     expect(payloads).toEqual({
       "draw-a": createContentRef({
         contentId: "content-a",
@@ -77,11 +87,11 @@ describe("collectDrawSnapshotPayloads", () => {
   });
 
   it("returns null when uploads fail or no provider yields a blob", async () => {
-    const { route_binary_upload } = await import("utils/generatedEndpoints");
+    const { uploadBinary } = await import("openapi/http");
 
     // Failed uploads should be dropped from the result, and an all-empty run
     // should collapse to null instead of returning an empty object.
-    vi.mocked(route_binary_upload).mockResolvedValue({
+    vi.mocked(uploadBinary).mockResolvedValue({
       data: { detail: "too large" },
       status: 413,
       hasResponse: true,
@@ -96,7 +106,7 @@ describe("collectDrawSnapshotPayloads", () => {
       "draw-missing",
     ]);
 
-    expect(route_binary_upload).toHaveBeenCalledTimes(1);
+    expect(uploadBinary).toHaveBeenCalledTimes(1);
     expect(payloads).toBeNull();
   });
 });

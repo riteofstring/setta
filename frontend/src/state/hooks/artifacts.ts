@@ -1,5 +1,7 @@
 import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
 import _ from "lodash";
+import { downloadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
@@ -15,7 +17,6 @@ import {
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_binary_download,
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
@@ -29,7 +30,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Uint8Array>;
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
 type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
   Array<ImageArtifact>
 >;
@@ -80,19 +81,16 @@ async function loadCachedImages(paths: Array<string>) {
   }
 }
 
-async function fetchBinaryBlob(
-  contentId: string,
-  mimeType: string | null,
-): Promise<Blob | null> {
-  const res: BinaryDownloadRouteResponse = await route_binary_download({
-    contentId,
-  });
+async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
+  const res: BinaryDownloadRouteResponse = await callOpenAPI(
+    downloadBinary({
+      path: { contentId },
+    }),
+  );
   if (!res200(res) || !res.data) {
     return null;
   }
-  return new Blob([res.data], {
-    type: mimeType ?? "application/octet-stream",
-  });
+  return res.data;
 }
 
 export function useImageArtifact(sectionId: string) {
@@ -262,10 +260,7 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
       if (!rawImage) {
         return null;
       }
-      const blob = await fetchBinaryBlob(
-        rawImage.value.contentId,
-        rawImage.value.mimeType ?? null,
-      );
+      const blob = await fetchBinaryBlob(rawImage.value.contentId);
       if (!blob) {
         return null;
       }

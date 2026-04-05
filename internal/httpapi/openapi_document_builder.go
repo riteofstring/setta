@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agenticsummarycache"
 	"setta/internal/auth"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
@@ -224,6 +225,12 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Service:    frontendHTTPOpenAPIPluginService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register plugin routes: %w", err)
+	}
+	if err := RegisterBinaryRoutes(router, BinaryRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Store:      &binarypayload.Store{},
+	}); err != nil {
+		return nil, fmt.Errorf("register binary routes: %w", err)
 	}
 	return document, nil
 }

@@ -8,6 +8,8 @@ import {
   type Theme,
 } from "@glideapps/glide-data-grid";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { downloadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type {
   CSSProperties,
   Dispatch,
@@ -34,13 +36,11 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_binary_download,
   route_get_file_browser_file_content,
   route_get_file_browser_file_stat,
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import {
-  BinaryDownloadResponse,
   FileContentResponse,
   FileStatResponse,
   WriteFileContentResponse,
@@ -71,8 +71,7 @@ type FileBrowserFileContentRouteResponse =
 type FileBrowserFileStatRouteResponse = ResponseDataAndStatus<FileStatResponse>;
 type WriteFileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<WriteFileContentResponse>;
-type BinaryDownloadRouteResponse =
-  ResponseDataAndStatus<BinaryDownloadResponse>;
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
 
 type SpreadsheetDraft = {
   path: string;
@@ -200,10 +199,13 @@ async function loadSpreadsheetDraft(
         getErrorDetail(response.data) ?? "Failed to load spreadsheet file.",
     };
   }
-  const binaryResponse: BinaryDownloadRouteResponse =
-    await route_binary_download({
-      contentId: response.data.contentId,
-    });
+  const binaryResponse: BinaryDownloadRouteResponse = await callOpenAPI(
+    downloadBinary({
+      path: {
+        contentId: response.data.contentId,
+      },
+    }),
+  );
   if (!res200(binaryResponse) || !binaryResponse.data) {
     return {
       status: "error",
@@ -212,7 +214,10 @@ async function loadSpreadsheetDraft(
         "Failed to load spreadsheet file payload.",
     };
   }
-  const parsed = await parseSpreadsheetBytes(path, binaryResponse.data);
+  const parsed = await parseSpreadsheetBytes(
+    path,
+    new Uint8Array(await binaryResponse.data.arrayBuffer()),
+  );
   return {
     status: "success",
     draft: {

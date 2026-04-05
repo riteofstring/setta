@@ -1,11 +1,11 @@
 /* @vitest-environment jsdom */
 
+import { downloadBinary } from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
 import {
-  route_binary_download,
   route_get_file_browser_file_content,
   route_get_file_browser_file_stat,
   route_write_file_browser_file_content,
@@ -39,17 +39,29 @@ import {
 } from "./FileBrowserSpreadsheetEditor";
 
 const generatedEndpoints = vi.hoisted(() => ({
-  route_binary_download: vi.fn(),
   route_get_file_browser_file_content: vi.fn(),
   route_get_file_browser_file_stat: vi.fn(),
   route_write_file_browser_file_content: vi.fn(),
+}));
+
+const { downloadBinaryMock } = vi.hoisted(() => ({
+  downloadBinaryMock: vi.fn(),
+}));
+
+vi.mock("openapi/http", () => ({
+  downloadBinary: downloadBinaryMock,
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await import("utils/generatedEndpoints");
   return {
     ...actual,
-    route_binary_download: generatedEndpoints.route_binary_download,
     route_get_file_browser_file_content:
       generatedEndpoints.route_get_file_browser_file_content,
     route_get_file_browser_file_stat:
@@ -117,7 +129,7 @@ async function waitForSpreadsheetCellValue(args: {
 
 describe("FileBrowserSpreadsheetEditor layout", () => {
   beforeEach(() => {
-    generatedEndpoints.route_binary_download.mockReset();
+    downloadBinaryMock.mockReset();
     generatedEndpoints.route_get_file_browser_file_content.mockReset();
     generatedEndpoints.route_get_file_browser_file_stat.mockReset();
     generatedEndpoints.route_write_file_browser_file_content.mockReset();
@@ -390,8 +402,10 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_binary_download).mockResolvedValue({
-      data: new TextEncoder().encode("name,status\nalpha,ready\n"),
+    vi.mocked(downloadBinary).mockResolvedValue({
+      data: new Blob(["name,status\nalpha,ready\n"], {
+        type: "text/csv",
+      }),
       status: 200,
       hasResponse: true,
     });
@@ -428,8 +442,8 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         path: "/workspace/report.csv",
         maxBytes: 8 * 1024 * 1024,
       });
-      expect(route_binary_download).toHaveBeenCalledWith({
-        contentId: "content-1",
+      expect(downloadBinary).toHaveBeenCalledWith({
+        path: { contentId: "content-1" },
       });
       expect(host.textContent).toContain("report.csv");
       expect(

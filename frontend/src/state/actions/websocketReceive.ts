@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   getAuthRefreshStatus,
+  uploadBinary,
   type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
@@ -38,7 +39,6 @@ import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_binary_upload,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
@@ -1015,11 +1015,15 @@ async function uploadRealtimeBinaryPayload(
   mimeType: string,
 ) {
   const blob = new Blob([payload], { type: mimeType });
-  const form = new FormData();
-  form.append("file", blob, "realtime.bin");
-  form.append("durable", "false");
-  const res: BinaryUploadRouteResponse = await route_binary_upload(form);
-  if (!res200(res)) {
+  const res: BinaryUploadRouteResponse = await callOpenAPI(
+    uploadBinary({
+      body: {
+        durable: false,
+        file: blob,
+      },
+    }),
+  );
+  if (!res200(res) || !res.data) {
     return null;
   }
   return res.data;

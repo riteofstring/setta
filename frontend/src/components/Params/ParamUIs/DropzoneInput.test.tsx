@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { uploadBinary } from "openapi/http";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -7,25 +8,31 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { parseDropzoneValue, serializeDropzoneValue } from "utils/dropzone";
-import {
-  route_binary_upload,
-  route_update_artifacts,
-} from "utils/generatedEndpoints";
+import { route_update_artifacts } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum, createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DropzoneInput } from "./DropzoneInput";
 
-const generatedEndpoints = vi.hoisted(() => ({
-  route_binary_upload: vi.fn(),
-  route_update_artifacts: vi.fn(),
+const { uploadBinaryMock, routeUpdateArtifactsMock } = vi.hoisted(() => ({
+  uploadBinaryMock: vi.fn(),
+  routeUpdateArtifactsMock: vi.fn(),
+}));
+
+vi.mock("openapi/http", () => ({
+  uploadBinary: uploadBinaryMock,
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await import("utils/generatedEndpoints");
   return {
     ...actual,
-    route_binary_upload: generatedEndpoints.route_binary_upload,
-    route_update_artifacts: generatedEndpoints.route_update_artifacts,
+    route_update_artifacts: routeUpdateArtifactsMock,
   };
 });
 
@@ -63,8 +70,8 @@ describe("DropzoneInput attachment display", () => {
   beforeEach(() => {
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
-    generatedEndpoints.route_binary_upload.mockReset();
-    generatedEndpoints.route_update_artifacts.mockReset();
+    uploadBinaryMock.mockReset();
+    routeUpdateArtifactsMock.mockReset();
     document.body.innerHTML = "";
   });
 
@@ -91,7 +98,7 @@ describe("DropzoneInput attachment display", () => {
   });
 
   it("uploads local files through the Go binary route before updating artifacts", async () => {
-    vi.mocked(route_binary_upload).mockResolvedValue({
+    vi.mocked(uploadBinary).mockResolvedValue({
       data: createContentRef({
         contentId: "uploaded-dropzone-ref",
         byteLength: 4,
@@ -129,7 +136,7 @@ describe("DropzoneInput attachment display", () => {
       });
 
       await vi.waitFor(() => {
-        expect(route_binary_upload).toHaveBeenCalledTimes(1);
+        expect(uploadBinary).toHaveBeenCalledTimes(1);
         expect(route_update_artifacts).toHaveBeenCalledTimes(1);
       });
 

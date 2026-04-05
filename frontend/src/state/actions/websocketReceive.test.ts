@@ -24,20 +24,23 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { routeGetAuthRefreshStatusMock } = vi.hoisted(() => ({
+const { routeGetAuthRefreshStatusMock, uploadBinaryMock } = vi.hoisted(() => ({
   routeGetAuthRefreshStatusMock: vi.fn(),
+  uploadBinaryMock: vi.fn(),
 }));
 
 vi.mock("openapi/http", () => ({
   getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
+  uploadBinary: uploadBinaryMock,
 }));
 
 vi.mock("openapi/http/result", () => ({
-  callOpenAPI: <T>(promise: Promise<T>) => promise,
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_binary_upload: vi.fn(),
   route_get_agent_runs: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
@@ -603,8 +606,8 @@ describe("openWebSocket", () => {
     const { openWebSocket, sendRealtimeSectionBinary } = await import(
       "state/actions/websocketReceive"
     );
-    const { route_binary_upload } = await import("utils/generatedEndpoints");
-    vi.mocked(route_binary_upload).mockResolvedValue({
+    const { uploadBinary } = await import("openapi/http");
+    vi.mocked(uploadBinary).mockResolvedValue({
       data: createContentRef({
         contentId: "uploaded-realtime-ref",
         byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
@@ -633,7 +636,7 @@ describe("openWebSocket", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(route_binary_upload).toHaveBeenCalledTimes(1);
+    expect(uploadBinary).toHaveBeenCalledTimes(1);
     const laterMessages = socket.send.mock.calls
       .slice(sendCountBefore)
       .map((call) => call[0])

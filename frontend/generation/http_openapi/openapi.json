@@ -56,6 +56,26 @@
         ],
         "type": "object"
       },
+      "BinaryContentRef": {
+        "additionalProperties": false,
+        "properties": {
+          "byteLength": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "contentId": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": ["contentId", "byteLength"],
+        "type": "object"
+      },
       "HttpapiAuthRefreshStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -111,6 +131,21 @@
           "authCookieRefreshWindowSeconds",
           "worktreeName"
         ],
+        "type": "object"
+      },
+      "HttpapiBinaryUploadFormRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "durable": {
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "format": "binary",
+            "type": "string"
+          }
+        },
+        "required": ["file"],
         "type": "object"
       },
       "HttpapiCreateWorkspaceLaunchIntentRequest": {
@@ -2352,6 +2387,90 @@
         "summary": "Get the backend initialization status for the current runtime.",
         "tags": ["Status"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled"
+      }
+    },
+    "/binary/upload": {
+      "post": {
+        "operationId": "uploadBinary",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiBinaryUploadFormRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BinaryContentRef"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Upload a binary payload to the runtime content store.",
+        "tags": ["Binary"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "full-ide"
+      }
+    },
+    "/binary/{contentId}": {
+      "get": {
+        "operationId": "downloadBinary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "contentMediaType": "application/octet-stream",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Download a binary payload from the runtime content store.",
+        "tags": ["Binary"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-launcher"
       }
     },
     "/createWorkspaceLaunchIntent": {

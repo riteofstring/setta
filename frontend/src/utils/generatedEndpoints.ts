@@ -107,21 +107,6 @@ export async function route_auto_layout_top_level_sections(
   return await post(GoHTTPRouteHelpers.autoLayoutTopLevelSections(), x);
 }
 
-export async function route_binary_download(
-  x: gt.BinaryDownloadRequest,
-): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
-  return await getBinary(
-    GoHTTPRouteHelpers.binaryDownload(x.contentId),
-    omitGeneratedRouteParams(x, ["contentId"]),
-  );
-}
-
-export async function route_binary_upload(
-  x: gt.BinaryUploadRequest,
-): Promise<ResponseDataAndStatus<gt.ContentRef>> {
-  return await post(GoHTTPRouteHelpers.binaryUpload(), x);
-}
-
 export async function route_cancel_run(
   x: gt.CancelRunRequest,
 ): Promise<ResponseDataAndStatus<gt.DetachedRun>> {
@@ -388,7 +373,7 @@ export async function route_delete_window_space(
 
 export async function route_file_browser_download(
   token: string,
-): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await getBinary(GoHTTPRouteHelpers.fileBrowserDownload(token));
 }
 

@@ -76,15 +76,6 @@ type namedTypeRegistry struct {
 	byName      map[string][]reflect.Type
 }
 
-var endpointRequestTypeOverrides = map[string]reflect.Type{
-	"POST RouteBinaryUpload":  reflect.TypeOf(httpapi.BinaryUploadRequest{}),
-	"GET RouteBinaryDownload": reflect.TypeOf(httpapi.BinaryDownloadRequest{}),
-}
-
-var endpointResponseTypeOverrides = map[string]reflect.Type{
-	"GET RouteBinaryDownload": reflect.TypeOf(httpapi.BinaryDownloadResponse{}),
-}
-
 func CurrentEndpoints() []EndpointSpec {
 	specs, err := discoverCurrentEndpoints()
 	if err != nil {
@@ -378,31 +369,18 @@ func resolveEndpointTypes(
 	if handlerBase != "" {
 		handlerBase = strings.ToUpper(handlerBase[:1]) + handlerBase[1:]
 	}
-	overrideKey := method + " " + routeConst
 
-	requestType := endpointRequestTypeOverrides[overrideKey]
-	if requestType == nil {
-		requestType, err = resolveDiscoveredEndpointRequestType(registry, semanticBase, handlerBase, handlerSpec.RequestType)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("request type: %w", err)
-		}
-	}
-	if override, ok := endpointRequestTypeOverrides[overrideKey]; ok {
-		requestType = override
+	requestType, err := resolveDiscoveredEndpointRequestType(registry, semanticBase, handlerBase, handlerSpec.RequestType)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("request type: %w", err)
 	}
 	pathParamsType, err := resolveDiscoveredEndpointPathParamsType(registry, semanticBase, routePath, method, requestType)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("path params type: %w", err)
 	}
-	responseType := endpointResponseTypeOverrides[overrideKey]
-	if responseType == nil {
-		responseType, err = resolveDiscoveredEndpointResponseType(registry, semanticBase, handlerBase, handlerSpec.ResponseType, handlerSpec.Binary)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("response type: %w", err)
-		}
-	}
-	if override, ok := endpointResponseTypeOverrides[overrideKey]; ok {
-		responseType = override
+	responseType, err := resolveDiscoveredEndpointResponseType(registry, semanticBase, handlerBase, handlerSpec.ResponseType, handlerSpec.Binary)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("response type: %w", err)
 	}
 	return requestType, pathParamsType, responseType, nil
 }
