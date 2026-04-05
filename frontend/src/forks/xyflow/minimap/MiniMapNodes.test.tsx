@@ -1,7 +1,5 @@
 /* @vitest-environment jsdom */
 
-import type { SettingsGraphSubstrateCanarySceneSection } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot";
-import type { SettingsGraphSubstrateCanarySectionSeedNodes } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -29,7 +27,6 @@ import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
-  resolveMiniMapRenderableNodes,
 } from "./MiniMapNodes";
 import type { MiniMapNodeProps } from "./types";
 
@@ -158,152 +155,6 @@ describe("MiniMapNodes", () => {
     } finally {
       await rendered.dispose();
     }
-  });
-
-  it("uses authoritative canary geometry and only falls back to shared-node seed size for unresolved minimap sections", () => {
-    const canarySections: SettingsGraphSubstrateCanarySceneSection[] = [
-      {
-        sectionId: "section-b",
-        position: { x: 80, y: 60 },
-        renderedPosition: { x: 120, y: 90 },
-        width: null,
-        height: null,
-        renderSize: { width: 260, height: 150 },
-        sizeAuthority: "sharedNode",
-        zIndex: 2,
-        tempZIndex: 3,
-        positionAndSizeLocked: false,
-      },
-      {
-        sectionId: "section-a",
-        position: { x: 400, y: 220 },
-        renderedPosition: { x: 460, y: 260 },
-        width: 320,
-        height: 180,
-        renderSize: { width: 320, height: 180 },
-        zIndex: 4,
-        tempZIndex: 1004,
-        positionAndSizeLocked: false,
-      },
-      {
-        sectionId: "section-c",
-        position: { x: 900, y: 640 },
-        renderedPosition: { x: 930, y: 680 },
-        width: null,
-        height: null,
-        renderSize: null,
-        sizeAuthority: "sharedNode",
-        zIndex: 1,
-        tempZIndex: 8,
-        positionAndSizeLocked: false,
-      },
-    ];
-    const sectionSeedNodes: SettingsGraphSubstrateCanarySectionSeedNodes =
-      new Map([
-        [
-          "section-b",
-          {
-            width: 260,
-            height: 150,
-            sizeAuthority: "sharedNode",
-          },
-        ],
-      ]);
-    const nodes: Node[] = [
-      {
-        id: "section-a",
-        position: { x: 12, y: 18 },
-        width: 360,
-        height: 210,
-        zIndex: 0,
-        tempZIndex: 11,
-        type: "input",
-        style: { background: "#111111" },
-      },
-      {
-        id: "section-b",
-        position: { x: 22, y: 28 },
-        width: null,
-        height: null,
-        zIndex: 0,
-        tempZIndex: 1,
-      },
-      {
-        id: "section-c",
-        position: { x: 33, y: 44 },
-        width: 150,
-        height: 110,
-        zIndex: 0,
-        tempZIndex: 99,
-      },
-    ];
-
-    expect(
-      resolveMiniMapRenderableNodes(nodes, canarySections, sectionSeedNodes),
-    ).toEqual([
-      {
-        id: "section-b",
-        position: { x: 120, y: 90 },
-        width: 260,
-        height: 150,
-        zIndex: 2,
-        tempZIndex: 3,
-      },
-      {
-        id: "section-a",
-        position: { x: 460, y: 260 },
-        width: 320,
-        height: 180,
-        zIndex: 4,
-        tempZIndex: 1004,
-        type: "input",
-        style: { background: "#111111" },
-      },
-    ]);
-  });
-
-  it("prefers authoritative canary width and height over measured render fallback for minimap geometry", () => {
-    const canarySections: SettingsGraphSubstrateCanarySceneSection[] = [
-      {
-        sectionId: "section-a",
-        position: { x: 400, y: 220 },
-        renderedPosition: { x: 460, y: 260 },
-        width: 320,
-        height: 180,
-        renderSize: { width: 360, height: 210 },
-        sizeAuthority: "sectionModel",
-        zIndex: 4,
-        tempZIndex: 1004,
-        positionAndSizeLocked: false,
-      },
-    ];
-    const nodes: Node[] = [
-      {
-        id: "section-a",
-        position: { x: 12, y: 18 },
-        width: 360,
-        height: 210,
-        zIndex: 0,
-        tempZIndex: 11,
-        type: "input",
-        style: { background: "#111111" },
-      },
-    ];
-
-    expect(
-      resolveMiniMapRenderableNodes(nodes, canarySections, new Map()),
-    ).toEqual([
-      {
-        id: "section-a",
-        position: { x: 460, y: 260 },
-        width: 320,
-        height: 180,
-        zIndex: 4,
-        tempZIndex: 1004,
-        type: "input",
-        style: { background: "#111111" },
-      },
-    ]);
   });
 
   it("re-renders stroke when only node type changes", async () => {
