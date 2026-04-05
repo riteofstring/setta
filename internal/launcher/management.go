@@ -90,6 +90,30 @@ type LauncherSetupInput struct {
 	TargetCommand     []string
 }
 
+type launcherSetupState struct {
+	settaHome                string
+	existingMetadata         *LauncherInstallMetadata
+	existingManagedArtifacts map[string]string
+}
+
+type launcherSetupPlan struct {
+	launcherSetupState
+	installArtifacts  bool
+	channel           string
+	installSource     LauncherInstallSource
+	openMode          LauncherOpenMode
+	workspaceBehavior LauncherWorkspaceBehavior
+	artifactOptions   map[string]string
+	targetCommand     []string
+	ownershipToken    string
+}
+
+type launcherSetupArtifacts struct {
+	mergedArtifacts           map[string]string
+	removalCandidates         map[string]string
+	metadataCleanupCandidates map[string]string
+}
+
 type launcherCommandResult struct {
 	ExitCode int
 	Stdout   string
@@ -261,200 +285,298 @@ func (s *ManagementService) CollectStatus(settaHome string) (LauncherStatusSnaps
 }
 
 func (s *ManagementService) Setup(settaHome string, input LauncherSetupInput) (LauncherSetupResult, error) {
-	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	setupPlan, err := s.buildLauncherSetupPlan(settaHome, input)
 	if err != nil {
 		return LauncherSetupResult{}, err
 	}
-
-	existingMetadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
-	if err != nil {
-		var metadataErr *LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return LauncherSetupResult{}, &LauncherSetupError{Code: "LauncherMetadata", Message: metadataErr.Error()}
-		}
-		return LauncherSetupResult{}, err
-	}
-
-	normalizedExistingManagedArtifacts := map[string]string{}
-	if existingMetadata != nil {
-		if err := validateMetadataSettaHomeScope(*existingMetadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
-			return LauncherSetupResult{}, err
-		}
-		normalizedExistingManagedArtifacts, err = validateManagedArtifactRegistry(existingMetadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
-		if err != nil {
-			return LauncherSetupResult{}, err
-		}
-	}
-
-	resolvedInstallArtifacts := false
-	switch {
-	case input.InstallArtifacts != nil:
-		resolvedInstallArtifacts = *input.InstallArtifacts
-	case existingMetadata != nil:
-		resolvedInstallArtifacts = len(normalizedExistingManagedArtifacts) > 0
-	default:
-		resolvedInstallArtifacts = false
-	}
-
-	resolvedChannel := "manual"
-	if input.Channel != nil {
-		resolvedChannel = strings.TrimSpace(*input.Channel)
-		if resolvedChannel == "" {
-			return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: "channel must be non-empty."}
-		}
-	} else if existingMetadata != nil {
-		resolvedChannel = existingMetadata.Channel
-	}
-
-	resolvedOpenMode := LauncherOpenModeChromeApp
-	if input.OpenMode != nil {
-		resolvedOpenMode = *input.OpenMode
-	} else if existingMetadata != nil {
-		resolvedOpenMode = LauncherOpenMode(existingMetadata.OpenMode)
-	}
-
-	resolvedWorkspaceBehavior := LauncherWorkspaceBehaviorDefault
-	if input.WorkspaceBehavior != nil {
-		resolvedWorkspaceBehavior = *input.WorkspaceBehavior
-	} else if existingMetadata != nil {
-		resolvedWorkspaceBehavior = LauncherWorkspaceBehavior(existingMetadata.WorkspaceBehavior)
-	}
-
-	resolvedInstallSource := LauncherInstallSourceUnsupported
-	if input.InstallSource != nil {
-		resolvedInstallSource = *input.InstallSource
-	} else if existingMetadata != nil {
-		resolvedInstallSource = LauncherInstallSource(existingMetadata.InstallSource)
-	}
-
-	resolvedArtifactOptions := map[string]string{}
-	switch {
-	case input.ArtifactOptions != nil:
-		resolvedArtifactOptions = cloneStringMap(*input.ArtifactOptions)
-	case existingMetadata != nil:
-		resolvedArtifactOptions = cloneStringMap(existingMetadata.ArtifactOptions)
-	}
-	resolvedArtifactOptions, err = normalizeLauncherArtifactOptions(resolvedArtifactOptions)
-	if err != nil {
-		var metadataErr *LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: metadataErr.Error()}
-		}
-		return LauncherSetupResult{}, err
-	}
-	if err := validateArtifactOptionPaths(resolvedArtifactOptions, resolvedSettaHome); err != nil {
-		return LauncherSetupResult{}, err
-	}
-
-	targetCommand := input.TargetCommand
-	if len(targetCommand) == 0 {
-		targetCommand = s.ResolveTargetCommand()
-	}
-	ownershipToken, err := resolveArtifactOwnershipToken(existingMetadata)
-	if err != nil {
-		return LauncherSetupResult{}, &LauncherSetupError{Code: "InternalError", Message: "Internal Server Error"}
-	}
-
-	mergedArtifacts := cloneStringMap(normalizedExistingManagedArtifacts)
-	removalCandidates := map[string]string{}
-	metadataCleanupCandidates := map[string]string{}
-	if resolvedInstallArtifacts {
-		artifactContext := launcherArtifactContext{
-			TargetCommand:            append([]string(nil), targetCommand...),
-			SettaHome:                resolvedSettaHome,
-			ExistingManagedArtifacts: cloneStringMap(mergedArtifacts),
-			Options:                  cloneStringMap(resolvedArtifactOptions),
-		}
-		plannedArtifacts, err := planCurrentPlatformArtifactPaths(artifactContext)
-		if err != nil {
-			var artifactErr *LauncherArtifactError
-			if errors.As(err, &artifactErr) {
-				return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: artifactErr.Error()}
-			}
-			return LauncherSetupResult{}, err
-		}
-		if err := validatePlannedArtifactPaths(plannedArtifacts, resolvedSettaHome); err != nil {
-			return LauncherSetupResult{}, err
-		}
-		desiredArtifacts := cloneStringMap(plannedArtifacts)
-		removalCandidates = computeReplacedOrRemovedArtifacts(normalizedExistingManagedArtifacts, desiredArtifacts)
-		installedArtifacts, err := installCurrentPlatformArtifacts(artifactContext)
-		if err != nil {
-			var artifactErr *LauncherArtifactError
-			if errors.As(err, &artifactErr) {
-				return LauncherSetupResult{}, &LauncherSetupError{Code: "ArtifactInstallFailed", Message: artifactErr.Error()}
-			}
-			return LauncherSetupResult{}, &LauncherSetupError{Code: "ArtifactInstallFailed", Message: err.Error()}
-		}
-		mergedArtifacts, err = validateManagedArtifactRegistry(installedArtifacts, resolvedSettaHome, "ArtifactInstallFailed")
-		if err != nil {
-			return LauncherSetupResult{}, err
-		}
-		metadataCleanupCandidates = computeNewOrReplacedArtifacts(normalizedExistingManagedArtifacts, mergedArtifacts)
-		if err := writeArtifactOwnershipMarkers(mergedArtifacts, ownershipToken); err != nil {
-			cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
-			return LauncherSetupResult{}, err
-		}
-	} else {
-		removalCandidates = computeReplacedOrRemovedArtifacts(normalizedExistingManagedArtifacts, map[string]string{})
-	}
-	if markerErrors := validateOwnedArtifactsBeforeRemoval(removalCandidates, ownershipToken); len(markerErrors) > 0 {
-		return LauncherSetupResult{}, &LauncherSetupError{
-			Code:    "ArtifactRemovalFailed",
-			Message: strings.Join(markerErrors, "; "),
-		}
-	}
-
-	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
-		TargetCommand:          targetCommand,
-		Channel:                resolvedChannel,
-		InstallSource:          resolvedInstallSource,
-		ArtifactOwnershipToken: ownershipToken,
-		SettaVersion:           s.version,
-		SettaHome:              resolvedSettaHome,
-		OpenMode:               resolvedOpenMode,
-		WorkspaceBehavior:      resolvedWorkspaceBehavior,
-		LastUsedWorkspace:      launcherMetadataLastUsedWorkspace(existingMetadata),
-		ArtifactOptions:        resolvedArtifactOptions,
-		ManagedArtifacts:       mergedArtifacts,
-	})
-	if err != nil {
-		cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
-		var metadataErr *LauncherMetadataError
-		if errors.As(err, &metadataErr) {
-			return LauncherSetupResult{}, &LauncherSetupError{Code: "BadRequest", Message: metadataErr.Error()}
-		}
-		return LauncherSetupResult{}, err
-	}
-
-	metadataPath, err := WriteLauncherInstallMetadata(resolvedSettaHome, metadata)
-	if err != nil {
-		cleanupArtifactsAfterFailedMetadataWrite(metadataCleanupCandidates)
-		return LauncherSetupResult{}, &LauncherSetupError{
-			Code:    "LauncherMetadata",
-			Message: fmt.Sprintf("Failed to write launcher metadata: %v", err),
-		}
-	}
-	launcherDir, err := resolveLauncherDir(resolvedSettaHome)
+	setupArtifacts, err := s.prepareLauncherSetupArtifacts(setupPlan)
 	if err != nil {
 		return LauncherSetupResult{}, err
 	}
-	if len(removalCandidates) > 0 {
-		removalResult := removeOwnedArtifacts(removalCandidates, ownershipToken)
-		if len(removalResult.Errors) > 0 {
-			return LauncherSetupResult{}, &LauncherSetupError{
-				Code:    "ArtifactRemovalFailed",
-				Message: strings.Join(removalResult.Errors, "; "),
-			}
-		}
+	if err := validateLauncherSetupArtifactRemoval(setupArtifacts.removalCandidates, setupPlan.ownershipToken); err != nil {
+		return LauncherSetupResult{}, err
+	}
+	metadata, err := s.buildLauncherSetupMetadata(setupPlan, setupArtifacts)
+	if err != nil {
+		return LauncherSetupResult{}, err
+	}
+	metadataPath, err := writeLauncherSetupMetadata(setupPlan.settaHome, metadata, setupArtifacts.metadataCleanupCandidates)
+	if err != nil {
+		return LauncherSetupResult{}, err
+	}
+	launcherDir, err := resolveLauncherDir(setupPlan.settaHome)
+	if err != nil {
+		return LauncherSetupResult{}, err
+	}
+	if err := finalizeLauncherSetupRemoval(setupArtifacts.removalCandidates, setupPlan.ownershipToken); err != nil {
+		return LauncherSetupResult{}, err
 	}
 
 	return LauncherSetupResult{
-		SettaHome:    resolvedSettaHome,
+		SettaHome:    setupPlan.settaHome,
 		MetadataPath: metadataPath,
 		LauncherDir:  launcherDir,
 		Metadata:     metadata,
 	}, nil
+}
+
+func loadLauncherSetupState(settaHome string) (launcherSetupState, error) {
+	resolvedSettaHome, err := resolvePathLoose(settaHome)
+	if err != nil {
+		return launcherSetupState{}, err
+	}
+	existingMetadata, err := LoadLauncherInstallMetadata(resolvedSettaHome)
+	if err != nil {
+		return launcherSetupState{}, wrapLauncherSetupMetadataError("LauncherMetadata", err)
+	}
+	state := launcherSetupState{
+		settaHome:                resolvedSettaHome,
+		existingMetadata:         existingMetadata,
+		existingManagedArtifacts: map[string]string{},
+	}
+	if existingMetadata == nil {
+		return state, nil
+	}
+	if err := validateMetadataSettaHomeScope(*existingMetadata, resolvedSettaHome, "LauncherMetadata"); err != nil {
+		return launcherSetupState{}, err
+	}
+	normalizedManagedArtifacts, err := validateManagedArtifactRegistry(existingMetadata.ManagedArtifacts, resolvedSettaHome, "LauncherMetadata")
+	if err != nil {
+		return launcherSetupState{}, err
+	}
+	state.existingManagedArtifacts = normalizedManagedArtifacts
+	return state, nil
+}
+
+func (s *ManagementService) buildLauncherSetupPlan(settaHome string, input LauncherSetupInput) (launcherSetupPlan, error) {
+	setupState, err := loadLauncherSetupState(settaHome)
+	if err != nil {
+		return launcherSetupPlan{}, err
+	}
+	channel, err := resolveLauncherSetupChannel(input.Channel, setupState.existingMetadata)
+	if err != nil {
+		return launcherSetupPlan{}, err
+	}
+	artifactOptions, err := resolveLauncherSetupArtifactOptions(input.ArtifactOptions, setupState.existingMetadata, setupState.settaHome)
+	if err != nil {
+		return launcherSetupPlan{}, err
+	}
+	ownershipToken, err := resolveArtifactOwnershipToken(setupState.existingMetadata)
+	if err != nil {
+		return launcherSetupPlan{}, &LauncherSetupError{Code: "InternalError", Message: "Internal Server Error"}
+	}
+	targetCommand := input.TargetCommand
+	if len(targetCommand) == 0 {
+		targetCommand = s.ResolveTargetCommand()
+	}
+	return launcherSetupPlan{
+		launcherSetupState: setupState,
+		installArtifacts:   resolveLauncherSetupInstallArtifacts(input.InstallArtifacts, setupState.existingManagedArtifacts),
+		channel:            channel,
+		installSource:      resolveLauncherSetupInstallSource(input.InstallSource, setupState.existingMetadata),
+		openMode:           resolveLauncherSetupOpenMode(input.OpenMode, setupState.existingMetadata),
+		workspaceBehavior:  resolveLauncherSetupWorkspaceBehavior(input.WorkspaceBehavior, setupState.existingMetadata),
+		artifactOptions:    artifactOptions,
+		targetCommand:      targetCommand,
+		ownershipToken:     ownershipToken,
+	}, nil
+}
+
+func resolveLauncherSetupInstallArtifacts(input *bool, existingManagedArtifacts map[string]string) bool {
+	switch {
+	case input != nil:
+		return *input
+	case len(existingManagedArtifacts) > 0:
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveLauncherSetupChannel(input *string, existingMetadata *LauncherInstallMetadata) (string, error) {
+	channel := "manual"
+	if existingMetadata != nil {
+		channel = existingMetadata.Channel
+	}
+	if input == nil {
+		return channel, nil
+	}
+	channel = strings.TrimSpace(*input)
+	if channel == "" {
+		return "", &LauncherSetupError{Code: "BadRequest", Message: "channel must be non-empty."}
+	}
+	return channel, nil
+}
+
+func resolveLauncherSetupInstallSource(input *LauncherInstallSource, existingMetadata *LauncherInstallMetadata) LauncherInstallSource {
+	if input != nil {
+		return *input
+	}
+	if existingMetadata != nil {
+		return LauncherInstallSource(existingMetadata.InstallSource)
+	}
+	return LauncherInstallSourceUnsupported
+}
+
+func resolveLauncherSetupOpenMode(input *LauncherOpenMode, existingMetadata *LauncherInstallMetadata) LauncherOpenMode {
+	if input != nil {
+		return *input
+	}
+	if existingMetadata != nil {
+		return LauncherOpenMode(existingMetadata.OpenMode)
+	}
+	return LauncherOpenModeChromeApp
+}
+
+func resolveLauncherSetupWorkspaceBehavior(input *LauncherWorkspaceBehavior, existingMetadata *LauncherInstallMetadata) LauncherWorkspaceBehavior {
+	if input != nil {
+		return *input
+	}
+	if existingMetadata != nil {
+		return LauncherWorkspaceBehavior(existingMetadata.WorkspaceBehavior)
+	}
+	return LauncherWorkspaceBehaviorDefault
+}
+
+func resolveLauncherSetupArtifactOptions(input *map[string]string, existingMetadata *LauncherInstallMetadata, settaHome string) (map[string]string, error) {
+	artifactOptions := map[string]string{}
+	switch {
+	case input != nil:
+		artifactOptions = cloneStringMap(*input)
+	case existingMetadata != nil:
+		artifactOptions = cloneStringMap(existingMetadata.ArtifactOptions)
+	}
+	artifactOptions, err := normalizeLauncherArtifactOptions(artifactOptions)
+	if err != nil {
+		return nil, wrapLauncherSetupMetadataError("BadRequest", err)
+	}
+	if err := validateArtifactOptionPaths(artifactOptions, settaHome); err != nil {
+		return nil, err
+	}
+	return artifactOptions, nil
+}
+
+func (s *ManagementService) prepareLauncherSetupArtifacts(plan launcherSetupPlan) (launcherSetupArtifacts, error) {
+	artifacts := launcherSetupArtifacts{
+		mergedArtifacts:           cloneStringMap(plan.existingManagedArtifacts),
+		removalCandidates:         map[string]string{},
+		metadataCleanupCandidates: map[string]string{},
+	}
+	if !plan.installArtifacts {
+		artifacts.removalCandidates = computeReplacedOrRemovedArtifacts(plan.existingManagedArtifacts, map[string]string{})
+		return artifacts, nil
+	}
+
+	artifactContext := launcherArtifactContext{
+		TargetCommand:            append([]string(nil), plan.targetCommand...),
+		SettaHome:                plan.settaHome,
+		ExistingManagedArtifacts: cloneStringMap(artifacts.mergedArtifacts),
+		Options:                  cloneStringMap(plan.artifactOptions),
+	}
+	plannedArtifacts, err := planCurrentPlatformArtifactPaths(artifactContext)
+	if err != nil {
+		return launcherSetupArtifacts{}, wrapLauncherSetupArtifactBadRequest(err)
+	}
+	if err := validatePlannedArtifactPaths(plannedArtifacts, plan.settaHome); err != nil {
+		return launcherSetupArtifacts{}, err
+	}
+
+	artifacts.removalCandidates = computeReplacedOrRemovedArtifacts(plan.existingManagedArtifacts, cloneStringMap(plannedArtifacts))
+	installedArtifacts, err := installCurrentPlatformArtifacts(artifactContext)
+	if err != nil {
+		return launcherSetupArtifacts{}, wrapLauncherSetupArtifactInstallError(err)
+	}
+	artifacts.mergedArtifacts, err = validateManagedArtifactRegistry(installedArtifacts, plan.settaHome, "ArtifactInstallFailed")
+	if err != nil {
+		return launcherSetupArtifacts{}, err
+	}
+	artifacts.metadataCleanupCandidates = computeNewOrReplacedArtifacts(plan.existingManagedArtifacts, artifacts.mergedArtifacts)
+	if err := writeArtifactOwnershipMarkers(artifacts.mergedArtifacts, plan.ownershipToken); err != nil {
+		cleanupArtifactsAfterFailedMetadataWrite(artifacts.metadataCleanupCandidates)
+		return launcherSetupArtifacts{}, err
+	}
+	return artifacts, nil
+}
+
+func validateLauncherSetupArtifactRemoval(removalCandidates map[string]string, ownershipToken string) error {
+	if markerErrors := validateOwnedArtifactsBeforeRemoval(removalCandidates, ownershipToken); len(markerErrors) > 0 {
+		return &LauncherSetupError{
+			Code:    "ArtifactRemovalFailed",
+			Message: strings.Join(markerErrors, "; "),
+		}
+	}
+	return nil
+}
+
+func (s *ManagementService) buildLauncherSetupMetadata(plan launcherSetupPlan, artifacts launcherSetupArtifacts) (LauncherInstallMetadata, error) {
+	metadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+		TargetCommand:          plan.targetCommand,
+		Channel:                plan.channel,
+		InstallSource:          plan.installSource,
+		ArtifactOwnershipToken: plan.ownershipToken,
+		SettaVersion:           s.version,
+		SettaHome:              plan.settaHome,
+		OpenMode:               plan.openMode,
+		WorkspaceBehavior:      plan.workspaceBehavior,
+		LastUsedWorkspace:      launcherMetadataLastUsedWorkspace(plan.existingMetadata),
+		ArtifactOptions:        plan.artifactOptions,
+		ManagedArtifacts:       artifacts.mergedArtifacts,
+	})
+	if err != nil {
+		cleanupArtifactsAfterFailedMetadataWrite(artifacts.metadataCleanupCandidates)
+		return LauncherInstallMetadata{}, wrapLauncherSetupMetadataError("BadRequest", err)
+	}
+	return metadata, nil
+}
+
+func writeLauncherSetupMetadata(settaHome string, metadata LauncherInstallMetadata, cleanupCandidates map[string]string) (string, error) {
+	metadataPath, err := WriteLauncherInstallMetadata(settaHome, metadata)
+	if err != nil {
+		cleanupArtifactsAfterFailedMetadataWrite(cleanupCandidates)
+		return "", &LauncherSetupError{
+			Code:    "LauncherMetadata",
+			Message: fmt.Sprintf("Failed to write launcher metadata: %v", err),
+		}
+	}
+	return metadataPath, nil
+}
+
+func finalizeLauncherSetupRemoval(removalCandidates map[string]string, ownershipToken string) error {
+	if len(removalCandidates) == 0 {
+		return nil
+	}
+	removalResult := removeOwnedArtifacts(removalCandidates, ownershipToken)
+	if len(removalResult.Errors) > 0 {
+		return &LauncherSetupError{
+			Code:    "ArtifactRemovalFailed",
+			Message: strings.Join(removalResult.Errors, "; "),
+		}
+	}
+	return nil
+}
+
+func wrapLauncherSetupMetadataError(code string, err error) error {
+	var metadataErr *LauncherMetadataError
+	if errors.As(err, &metadataErr) {
+		return &LauncherSetupError{Code: code, Message: metadataErr.Error()}
+	}
+	return err
+}
+
+func wrapLauncherSetupArtifactBadRequest(err error) error {
+	var artifactErr *LauncherArtifactError
+	if errors.As(err, &artifactErr) {
+		return &LauncherSetupError{Code: "BadRequest", Message: artifactErr.Error()}
+	}
+	return err
+}
+
+func wrapLauncherSetupArtifactInstallError(err error) error {
+	var artifactErr *LauncherArtifactError
+	if errors.As(err, &artifactErr) {
+		return &LauncherSetupError{Code: "ArtifactInstallFailed", Message: artifactErr.Error()}
+	}
+	return &LauncherSetupError{Code: "ArtifactInstallFailed", Message: err.Error()}
 }
 
 func (s *ManagementService) Repair(settaHome string) (LauncherStatusSnapshot, error) {
