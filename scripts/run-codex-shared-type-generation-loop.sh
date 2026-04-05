@@ -196,6 +196,7 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Remove handwritten Python route/default inventories that the sidecar replaces.
 - [ ] Do not add tautological tests or explicit-list assertion tests.
 - [ ] Track net handwritten exception surface across `internal/frontendbindings`, `internal/pythonsharedtypes`, `internal/frontendbindingmeta`, touched owner metadata files, and touched generator/schema entrypoints.
+- [ ] Count newly created helper/generator files that carry naming, selection, normalization, or collision heuristics in the audited migration surface immediately.
 - [ ] Keep total audited migration-surface LOC trending downward now that schema + sidecar bootstrap exists.
 - [ ] Prioritize the remaining dominant leftovers: `internal/frontendbindings/type_compiler.go`, `internal/frontendbindings/type_naming.go`, `internal/pythonsharedtypes/generator.go`, and `internal/pythonsharedtypes/schema_aliases.go`.
 - [ ] Stop when three consecutive iterations fail to achieve a material net reduction.
@@ -257,6 +258,8 @@ Non-negotiable rules:
 - Do not preserve generated TS/Python names through compatibility shims.
 - Do not move the same handwritten logic into another package and call that
   progress.
+- Moving heuristics from runtime code into registry generation, discovery
+  wrappers, or helper files does not count as progress by itself.
 - Do not add handwritten allowlists when generated registries or owner metadata
   can express the same thing.
 - Do not add tautological tests that only restate explicit lists, metadata, or
@@ -269,6 +272,10 @@ Non-negotiable rules:
 - Do not keep growing \`internal/sharedtypes/schema.go\`,
   \`internal/sharedtypes/sidecar.go\`, or other shared glue unless the same
   commit deletes a larger bespoke path from the priority leftovers above.
+- Do not create new naming, collision-resolution, normalization, or selection
+  heuristics in \`cmd/\`, \`internal/sharedtypes\`, or other helper packages
+  just to replace deleted logic from \`internal/frontendbindings\` or
+  \`internal/pythonsharedtypes\`.
 - Do not accept net growth in the total audited migration surface now that the
   schema + sidecar bootstrap already exists.
 - Do not keep tiny cleanups going forever once the loop has plateaued.
@@ -283,6 +290,10 @@ Execution workflow for every iteration:
   - \`internal/frontendbindingmeta\`
   - touched owner-side metadata/default files
   - touched generator/schema entrypoints in \`cmd/\`
+  - any newly created helper/generator files under \`cmd/\`,
+    \`internal/sharedtypes\`, \`internal/frontendbindings\`, or
+    \`internal/pythonsharedtypes\` that carry naming, selection, normalization,
+    collision, or registry-assembly logic
 - Pick the highest-leverage remaining migration step toward schema + sidecar,
   prioritizing the four dominant leftovers listed above unless a different path
   clearly deletes more audited handwritten surface in the same commit.
@@ -292,6 +303,9 @@ Execution workflow for every iteration:
   logic elsewhere.
 - Prefer total audited migration-surface reduction over touched-file-only or
   wrapper-only reductions.
+- If an iteration touches naming or contract-selection logic, measure net
+  handwritten naming/selection logic across all touched files, including any
+  replacement generator helpers, before counting it as progress.
 - When generation changes, regenerate before finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
   without committing.
@@ -311,6 +325,10 @@ Material reduction rule:
   migration-surface LOC must be non-increasing. If a candidate iteration grows
   that total, do not land it unless the same commit still yields a net decrease
   across the audited migration surface by deleting a larger bespoke path.
+- Shrinking one runtime file while introducing similar handwritten heuristics in
+  generator/discovery helper files does not satisfy the material-reduction rule
+  unless the net handwritten logic across both old and new locations still
+  decreases materially.
 - If three consecutive iterations cannot meet that bar, make no repo changes,
   leave the worktree clean, and emit the stop sentinel.
 

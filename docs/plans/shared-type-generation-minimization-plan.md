@@ -87,6 +87,11 @@ enough by itself, such as:
 - Keep explicit owner metadata only when it expresses real semantics that cannot
   be derived cleanly from Go type information plus the shared schema/sidecar
   model.
+- Moving handwritten logic from runtime packages into registry generators,
+  discovery wrappers, or helper packages does not count as progress by itself.
+- Any newly created helper or generator file that carries naming,
+  collision-resolution, normalization, selection, or registry-assembly
+  heuristics must be counted in the audited migration surface immediately.
 - Now that the schema + sidecar bootstrap exists, total audited migration-surface
   LOC should trend downward. Do not accept commits that grow shared schema,
   sidecar, or other glue unless the same commit deletes a larger bespoke path
@@ -104,6 +109,10 @@ Highest-leverage remaining leftovers:
 Prefer deleting bespoke logic from those files before expanding
 `internal/sharedtypes/schema.go`, `internal/sharedtypes/sidecar.go`, or other
 shared glue.
+
+Also prefer deleting the remaining handwritten naming and selection heuristics
+in place over recreating them in `cmd/`, `internal/sharedtypes`, or other
+generator helper packages.
 
 ## Main Legacy Targets To Delete
 
@@ -231,6 +240,9 @@ And:
   than land more schema/sidecar glue
 - the only acceptable exception is when the same commit deletes a larger bespoke
   path and the total audited migration surface still ends lower than before
+- shrinking one file while introducing similar handwritten heuristics in newly
+  created helper/generator files does not qualify unless the net handwritten
+  logic across both old and new locations still drops materially
 
 If three consecutive iterations fail to meet that bar, stop instead of
 continuing tiny cleanups.
