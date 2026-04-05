@@ -331,62 +331,19 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		return TypeDeclaration{}, fmt.Errorf("%s has no Go default value", declarationName)
 	}
 	declaration := objectDeclaration(declarationName, properties...)
-	useGenericCreateBody := reflectedStructNeedsGenericCreateBody(properties, fieldSpecsByName)
-	if useGenericCreateBody {
-		context := "frontend create defaults " + declarationName
-		createBody, err := buildGenericGoBackedCreateBodyTS(
-			context,
-			declarationName,
-			t,
-			spec.DefaultValue,
-			properties,
-			fieldSpecsByName,
-		)
-		if err != nil {
-			return TypeDeclaration{}, err
-		}
-		declaration.CreateBody = createBody
-	} else {
-		declaration.CreateExpr = buildGoBackedCreateExprTS(
-			"frontend create defaults "+declarationName,
-			declarationName,
-			spec.DefaultValue,
-			properties,
-			fieldSpecsByName,
-		)
+	createBody, err := buildGoBackedCreateBodyTS(
+		"frontend create defaults "+declarationName,
+		declarationName,
+		t,
+		spec.DefaultValue,
+		properties,
+		fieldSpecsByName,
+	)
+	if err != nil {
+		return TypeDeclaration{}, err
 	}
+	declaration.CreateBody = createBody
 	return declaration, nil
-}
-
-func reflectedStructNeedsGenericCreateBody(
-	properties []TypeProperty,
-	fieldSpecs map[string]reflectedFieldCreateSpec,
-) bool {
-	needsGenericCreateBody := false
-	for _, property := range properties {
-		fieldSpec, ok := fieldSpecs[property.Name]
-		if !ok {
-			continue
-		}
-		if fieldSpec.CreateMapValues {
-			needsGenericCreateBody = true
-			continue
-		}
-		if reflectedMapFieldNeedsGeneratedCreate(fieldSpec.Type) {
-			return false
-		}
-		if reflectedNamedStructFieldNeedsGeneratedCreate(fieldSpec.Type) {
-			needsGenericCreateBody = true
-		}
-	}
-	return needsGenericCreateBody
-}
-
-func reflectedNamedStructFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
-	if _, _, _, ok := frontendObjectCreateFunctionName(fieldType); ok {
-		return true
-	}
-	return false
 }
 
 func reflectedMapFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {

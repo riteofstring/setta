@@ -15,7 +15,6 @@ type TypeDeclaration struct {
 	TypeParams      string
 	Properties      []TypeProperty
 	EnumValues      []stringenumvalues.EnumValue
-	CreateExpr      string
 	CreateBody      string
 	Exported        bool
 	SetElementType  string

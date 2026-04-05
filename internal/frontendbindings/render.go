@@ -129,14 +129,7 @@ func emittedValueSymbolsForDeclaration(declaration TypeDeclaration) []emittedSym
 			Origin: "declaration " + declaration.Name + " enum helper",
 		})
 	case "object":
-		if declaration.CreateExpr != "" || declaration.CreateBody != "" {
-			symbols = append(symbols, emittedSymbol{
-				Name:   "create" + declaration.Name,
-				Origin: "declaration " + declaration.Name + " factory helper",
-			})
-		}
-	case "alias":
-		if declaration.CreateExpr != "" {
+		if declaration.CreateBody != "" {
 			symbols = append(symbols, emittedSymbol{
 				Name:   "create" + declaration.Name,
 				Origin: "declaration " + declaration.Name + " factory helper",
@@ -170,9 +163,6 @@ func recordEmittedSymbols(seen map[string]string, symbols []emittedSymbol, names
 func validateTypeDeclarationShape(declaration TypeDeclaration) error {
 	switch declaration.Kind {
 	case "object":
-		if declaration.CreateExpr != "" && declaration.CreateBody != "" {
-			return fmt.Errorf("declaration %s: object cannot set both create expr and create body", declaration.Name)
-		}
 		if err := validateDeclarationProperties(declaration.Name, "property", declaration.Properties); err != nil {
 			return err
 		}

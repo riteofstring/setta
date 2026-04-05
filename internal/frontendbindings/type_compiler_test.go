@@ -31,7 +31,7 @@ func TestCanonicalFrontendBindingTypeLeavesOwnerTypesUnchanged(t *testing.T) {
 	}
 }
 
-func TestOwnerBackedReflectedObjectDeclarationUsesFieldCreateExprTags(t *testing.T) {
+func TestOwnerBackedReflectedObjectDeclarationUsesFieldCreateExprTagsInCreateBody(t *testing.T) {
 	t.Parallel()
 
 	converter := newTypeConverter()
@@ -41,11 +41,11 @@ func TestOwnerBackedReflectedObjectDeclarationUsesFieldCreateExprTags(t *testing
 	}
 
 	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
-	if declaration.CreateExpr == "" {
-		t.Fatalf("%s CreateExpr is empty", declaration.Name)
+	if declaration.CreateBody == "" {
+		t.Fatalf("%s CreateBody is empty", declaration.Name)
 	}
-	if !strings.Contains(declaration.CreateExpr, "timestamp: \"\"") {
-		t.Fatalf("%s CreateExpr missing timestamp tag override:\n%s", declaration.Name, declaration.CreateExpr)
+	if !strings.Contains(declaration.CreateBody, "timestamp: options.timestamp ?? \"\"") {
+		t.Fatalf("%s CreateBody missing timestamp tag override:\n%s", declaration.Name, declaration.CreateBody)
 	}
 }
 

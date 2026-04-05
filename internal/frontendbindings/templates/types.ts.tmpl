@@ -50,11 +50,7 @@ export type {{ .Name }} = {
   {{ .Name }}{{ if .Optional }}?{{ end }}: {{ .TypeExpr }};
 {{- end }}
 };
-{{- if .CreateExpr }}
-export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
-  return {{ .CreateExpr }};
-}
-{{- else if .CreateBody }}
+{{- if .CreateBody }}
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
 {{ .CreateBody }}
 }
@@ -72,11 +68,6 @@ export const {{ .Name }}Enum = {
 export type {{ .Name }} = ObjectValues<typeof {{ .Name }}Enum>;
 {{ else if eq .Kind "alias" }}
 export type {{ .Name }} = {{ .Alias }};
-{{- if .CreateExpr }}
-export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
-  return {{ .CreateExpr }};
-}
-{{- end }}
 {{ else if eq .Kind "local_alias" }}
 type {{ .Name }}{{ .TypeParams }} = {{ .Alias }};
 {{ else if eq .Kind "set" }}

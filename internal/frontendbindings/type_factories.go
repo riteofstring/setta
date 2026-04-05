@@ -18,7 +18,7 @@ type reflectedFieldCreateSpec struct {
 	CreateMapValues bool
 }
 
-func buildGenericGoBackedCreateBodyTS(
+func buildGoBackedCreateBodyTS(
 	context string,
 	declarationName string,
 	structType reflect.Type,
@@ -39,12 +39,12 @@ func buildGenericGoBackedCreateBodyTS(
 	if err != nil {
 		return "", err
 	}
-	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+	defaultsObject := filteredCreateDefaultsObject(context, defaultValue, properties)
 	var builder strings.Builder
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
 	builder.WriteString(" = ")
-	writeTSObjectLiteral(&builder, "  ", defaultsObject, goJSONFieldOrder(defaultValue))
+	writeTSObjectLiteral(&builder, "  ", defaultsObject, orderedTypePropertyNames(properties))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions<")
@@ -59,6 +59,26 @@ func buildGenericGoBackedCreateBodyTS(
 	}
 	builder.WriteString("  };")
 	return builder.String(), nil
+}
+
+func filteredCreateDefaultsObject(
+	context string,
+	defaultValue any,
+	properties []TypeProperty,
+) map[string]any {
+	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+	filtered := make(map[string]any, len(properties))
+	for _, property := range properties {
+		value, ok := defaultsObject[property.Name]
+		if !ok {
+			if property.Optional {
+				continue
+			}
+			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
+		}
+		filtered[property.Name] = value
+	}
+	return filtered
 }
 
 func buildGenericCreateFieldSpecs(
@@ -300,73 +320,6 @@ func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 		return baseExpr + "." + propertyName
 	}
 	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
-}
-
-func buildGoBackedCreateExprTS(
-	context string,
-	resultType string,
-	value any,
-	properties []TypeProperty,
-	fieldSpecsByName map[string]reflectedFieldCreateSpec,
-) string {
-	exprOverrides := fieldCreateExprOverridesByPropertyName(properties, fieldSpecsByName)
-	filteredDefaults := filterObjectByTypePropertiesWithExprOverrides(
-		context,
-		mustTSLiteralObjectFromGoValue(context, value),
-		properties,
-		exprOverrides,
-	)
-	return buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
-		context,
-		filteredDefaults,
-		orderedTypePropertyNames(properties),
-		"options",
-		exprOverrides,
-		resultType,
-	)
-}
-
-func filterObjectByTypePropertiesWithExprOverrides(
-	context string,
-	object map[string]any,
-	properties []TypeProperty,
-	exprOverrides map[string]string,
-) map[string]any {
-	filtered := make(map[string]any, len(properties))
-	for _, property := range properties {
-		value, ok := object[property.Name]
-		if !ok {
-			if exprOverrides != nil {
-				if _, overridden := exprOverrides[property.Name]; overridden {
-					continue
-				}
-			}
-			if property.Optional {
-				continue
-			}
-			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
-		}
-		filtered[property.Name] = value
-	}
-	return filtered
-}
-
-func fieldCreateExprOverridesByPropertyName(
-	properties []TypeProperty,
-	fieldSpecsByName map[string]reflectedFieldCreateSpec,
-) map[string]string {
-	var overrides map[string]string
-	for _, property := range properties {
-		fieldSpec, ok := fieldSpecsByName[property.Name]
-		if !ok || fieldSpec.CreateExpr == "" {
-			continue
-		}
-		if overrides == nil {
-			overrides = map[string]string{}
-		}
-		overrides[property.Name] = fieldSpec.CreateExpr
-	}
-	return overrides
 }
 
 func orderedTypePropertyNames(properties []TypeProperty) []string {

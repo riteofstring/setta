@@ -66,31 +66,6 @@ func buildTSMergeGeneratedOptionsExprFromGoValueTS(
 	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr, resultType)
 }
 
-func buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
-	context string,
-	value any,
-	orderedKeys []string,
-	overridesExpr string,
-	exprOverrides map[string]string,
-	resultType string,
-) string {
-	defaults := mustTSLiteralObjectFromGoValue(context, value)
-	if len(orderedKeys) == 0 {
-		orderedKeys = goJSONFieldOrder(value)
-	}
-	fillMissingTSLiteralObjectKeysWithNil(defaults, orderedKeys)
-	if len(orderedKeys) > 0 {
-		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
-	}
-	for key, expr := range exprOverrides {
-		if _, ok := defaults[key]; !ok {
-			panic(fmt.Sprintf("%s is missing override property %q", context, key))
-		}
-		defaults[key] = tsRawExpr{Expr: expr}
-	}
-	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr, resultType)
-}
-
 func fillMissingTSLiteralObjectKeysWithNil(object map[string]any, orderedKeys []string) {
 	for _, key := range orderedKeys {
 		if _, ok := object[key]; ok {

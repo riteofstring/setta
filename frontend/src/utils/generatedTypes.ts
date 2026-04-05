@@ -296,12 +296,12 @@ type EngineConfigDefaults = {
 function createEngineConfigDefaults(
   options: Partial<EngineConfigDefaults> = {},
 ): EngineConfigDefaults {
-  return mergeGeneratedOptions<EngineConfigDefaults>(
-    {
-      thinking: null,
-    },
-    options,
-  );
+  const defaults: EngineConfigDefaults = {
+    thinking: null,
+  };
+  return {
+    ...mergeGeneratedOptions<EngineConfigDefaults>(defaults, options),
+  };
 }
 
 type EngineRuntimeSupport = {
@@ -310,12 +310,12 @@ type EngineRuntimeSupport = {
 function createEngineRuntimeSupport(
   options: Partial<EngineRuntimeSupport> = {},
 ): EngineRuntimeSupport {
-  return mergeGeneratedOptions<EngineRuntimeSupport>(
-    {
-      thinking: false,
-    },
-    options,
-  );
+  const defaults: EngineRuntimeSupport = {
+    thinking: false,
+  };
+  return {
+    ...mergeGeneratedOptions<EngineRuntimeSupport>(defaults, options),
+  };
 }
 
 export type EngineConfig = {
@@ -385,21 +385,21 @@ export type AgentRun = {
   events: Array<RunEvent>;
 };
 export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
-  return mergeGeneratedOptions<AgentRun>(
-    {
-      id: "",
-      profileId: null,
-      status: "queued",
-      startedAt: null,
-      finishedAt: null,
-      inputs: null,
-      outputs: null,
-      toolCalls: [],
-      cost: null,
-      events: [],
-    },
-    options,
-  );
+  const defaults: AgentRun = {
+    id: "",
+    profileId: null,
+    status: "queued",
+    startedAt: null,
+    finishedAt: null,
+    inputs: null,
+    outputs: null,
+    toolCalls: [],
+    cost: null,
+    events: [],
+  };
+  return {
+    ...mergeGeneratedOptions<AgentRun>(defaults, options),
+  };
 }
 
 export const ToolTypeEnum = {
@@ -587,17 +587,17 @@ export type LineChartSettings = {
 export function createLineChartSettings(
   options: Partial<LineChartSettings> = {},
 ): LineChartSettings {
-  return mergeGeneratedOptions<LineChartSettings>(
-    {
-      type: "line",
-      xAxisColumn: null,
-      secondYAxisColumns: [],
-      xAxisLog: false,
-      y1AxisLog: false,
-      y2AxisLog: false,
-    },
-    options,
-  );
+  const defaults: LineChartSettings = {
+    type: "line",
+    xAxisColumn: null,
+    secondYAxisColumns: [],
+    xAxisLog: false,
+    y1AxisLog: false,
+    y2AxisLog: false,
+  };
+  return {
+    ...mergeGeneratedOptions<LineChartSettings>(defaults, options),
+  };
 }
 
 export type ScatterChartSettings = {
@@ -703,14 +703,14 @@ export type DrawAreaLayerItem = {
 export function createDrawAreaLayerItem(
   options: Partial<DrawAreaLayerItem> = {},
 ): DrawAreaLayerItem {
-  return mergeGeneratedOptions<DrawAreaLayerItem>(
-    {
-      type: "BrushStroke",
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  );
+  const defaults: DrawAreaLayerItem = {
+    type: "BrushStroke",
+    dataPath: "",
+    transformId: "",
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayerItem>(defaults, options),
+  };
 }
 
 const MetaControlSizeModeEnum = {
@@ -936,6 +936,11 @@ export type CodeFileBinding = {
   access_mode: CodeFileAccessMode;
   autoBinding: boolean;
 };
+function createCodeFileBinding(
+  options: Partial<CodeFileBinding> = {},
+): CodeFileBinding {
+  return options as CodeFileBinding;
+}
 
 type SectionSizeValue = number | SectionSizeMode;
 
@@ -1007,15 +1012,15 @@ export type TaskBoardColumn = {
 export function createTaskBoardColumn(
   options: Partial<TaskBoardColumn> = {},
 ): TaskBoardColumn {
-  return mergeGeneratedOptions<TaskBoardColumn>(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
+  const defaults: TaskBoardColumn = {
+    id: "",
+    name: "",
+    color: "#3b82f6",
+    sortIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardColumn>(defaults, options),
+  };
 }
 
 export type TaskBoardTask = {
@@ -1034,22 +1039,22 @@ export type TaskBoardTask = {
 export function createTaskBoardTask(
   options: Partial<TaskBoardTask> = {},
 ): TaskBoardTask {
-  return mergeGeneratedOptions<TaskBoardTask>(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: "none",
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
+  const defaults: TaskBoardTask = {
+    id: "",
+    title: "",
+    description: "",
+    completed: false,
+    columnId: null,
+    dueDateIso: "",
+    recurrence: "none",
+    recurrenceDays: [],
+    recurrenceMonths: [],
+    recurrenceYears: [],
+    sortIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardTask>(defaults, options),
+  };
 }
 
 export const SpreadsheetGridDensityEnum = {
@@ -2354,17 +2359,17 @@ type SectionSizingPolicyGlobals = {
 function createSectionSizingPolicyGlobals(
   options: Partial<SectionSizingPolicyGlobals> = {},
 ): SectionSizingPolicyGlobals {
-  return mergeGeneratedOptions<SectionSizingPolicyGlobals>(
-    {
-      pinnedParamsAreaMinHeight: 64,
-      unpinnedParamsAreaMinHeight: 36,
-      minimizedHeight: 32,
-      infiniteMaxHeight: 100000,
-      infiniteMaxWidth: 100000,
-      autoMaxHeight: 350,
-    },
-    options,
-  );
+  const defaults: SectionSizingPolicyGlobals = {
+    pinnedParamsAreaMinHeight: 64,
+    unpinnedParamsAreaMinHeight: 36,
+    minimizedHeight: 32,
+    infiniteMaxHeight: 100000,
+    infiniteMaxWidth: 100000,
+    autoMaxHeight: 350,
+  };
+  return {
+    ...mergeGeneratedOptions<SectionSizingPolicyGlobals>(defaults, options),
+  };
 }
 
 type SectionSizingPolicyByType = {
@@ -2932,6 +2937,16 @@ export type Viewport = {
   y: number;
   zoom: number;
 };
+function createViewport(options: Partial<Viewport> = {}): Viewport {
+  const defaults: Viewport = {
+    x: 0,
+    y: 0,
+    zoom: 1,
+  };
+  return {
+    ...mergeGeneratedOptions<Viewport>(defaults, options),
+  };
+}
 
 export type ViewportBounds = {
   x: number;
@@ -2950,16 +2965,16 @@ export type TopLevelSectionLayout = {
 export function createTopLevelSectionLayout(
   options: Partial<TopLevelSectionLayout> = {},
 ): TopLevelSectionLayout {
-  return mergeGeneratedOptions<TopLevelSectionLayout>(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
+  const defaults: TopLevelSectionLayout = {
+    x: 0,
+    y: 0,
+    zIndex: 0,
+    w: null,
+    h: null,
+  };
+  return {
+    ...mergeGeneratedOptions<TopLevelSectionLayout>(defaults, options),
+  };
 }
 
 export type ViewMode = {
@@ -2974,20 +2989,28 @@ export type ViewMode = {
   topLevelSections?: Record<string, TopLevelSectionLayout>;
 };
 export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions<ViewMode>(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
+  const defaults: ViewMode = {
+    id: "",
+    name: "",
+    sortIndex: 0,
+    isUserFacing: false,
+    isTab: false,
+    visibilityBySectionId: {},
+    viewport: null,
+    viewportInitialized: false,
+    topLevelSections: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ViewMode>(defaults, options),
+    viewport:
+      options.viewport === null
+        ? null
+        : (options.viewport ?? defaults.viewport) === null
+          ? null
+          : createViewport(
+              (options.viewport ?? defaults.viewport) as Partial<Viewport>,
+            ),
+  };
 }
 
 export type Edge = {
@@ -3022,20 +3045,20 @@ export type AgenticEdge = {
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
 ): AgenticEdge {
-  return mergeGeneratedOptions<AgenticEdge>(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: "section_chat",
-      contextMode: "reference_only",
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
+  const defaults: AgenticEdge = {
+    id: "",
+    sourceSectionId: "",
+    targetSectionId: "",
+    kind: "section_chat",
+    contextMode: "reference_only",
+    style: {},
+    hidden: false,
+    zIndex: 0,
+    selected: false,
+  };
+  return {
+    ...mergeGeneratedOptions<AgenticEdge>(defaults, options),
+  };
 }
 
 type LSPDiagnosticPosition = {
@@ -3118,15 +3141,15 @@ export type ChatWindowBounds = {
 function createChatWindowBounds(
   options: Partial<ChatWindowBounds> = {},
 ): ChatWindowBounds {
-  return mergeGeneratedOptions<ChatWindowBounds>(
-    {
-      x: 120,
-      y: 120,
-      width: 820,
-      height: 520,
-    },
-    options,
-  );
+  const defaults: ChatWindowBounds = {
+    x: 120,
+    y: 120,
+    width: 820,
+    height: 520,
+  };
+  return {
+    ...mergeGeneratedOptions<ChatWindowBounds>(defaults, options),
+  };
 }
 
 type ChatWindowDockMetrics = {
@@ -3136,13 +3159,13 @@ type ChatWindowDockMetrics = {
 function createChatWindowDockMetrics(
   options: Partial<ChatWindowDockMetrics> = {},
 ): ChatWindowDockMetrics {
-  return mergeGeneratedOptions<ChatWindowDockMetrics>(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
+  const defaults: ChatWindowDockMetrics = {
+    widthFraction: null,
+    preferredWidthPx: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ChatWindowDockMetrics>(defaults, options),
+  };
 }
 
 export type ProjectChatWindowInstance = {
@@ -3205,14 +3228,14 @@ export type ProjectChatWindowingState = {
 export function createProjectChatWindowingState(
   options: Partial<ProjectChatWindowingState> = {},
 ): ProjectChatWindowingState {
-  return mergeGeneratedOptions<ProjectChatWindowingState>(
-    {
-      instancesById: {},
-      order: [],
-      nextInstanceNumber: 1,
-    },
-    options,
-  );
+  const defaults: ProjectChatWindowingState = {
+    instancesById: {},
+    order: [],
+    nextInstanceNumber: 1,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowingState>(defaults, options),
+  };
 }
 
 export const WindowSpaceSurfaceKindEnum = {
@@ -3230,15 +3253,15 @@ export type NormalizedFloatingWindowBounds = {
 function createNormalizedFloatingWindowBounds(
   options: Partial<NormalizedFloatingWindowBounds> = {},
 ): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
+  const defaults: NormalizedFloatingWindowBounds = {
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+  };
+  return {
+    ...mergeGeneratedOptions<NormalizedFloatingWindowBounds>(defaults, options),
+  };
 }
 
 type WindowSpaceWindow = {
@@ -3284,13 +3307,13 @@ export type WindowSpaceState = {
 export function createWindowSpaceState(
   options: Partial<WindowSpaceState> = {},
 ): WindowSpaceState {
-  return mergeGeneratedOptions<WindowSpaceState>(
-    {
-      windowsById: {},
-      order: [],
-    },
-    options,
-  );
+  const defaults: WindowSpaceState = {
+    windowsById: {},
+    order: [],
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceState>(defaults, options),
+  };
 }
 
 export type WindowSpaceConfig = {
@@ -3303,16 +3326,16 @@ export type WindowSpaceConfig = {
 export function createWindowSpaceConfig(
   options: Partial<WindowSpaceConfig> = {},
 ): WindowSpaceConfig {
-  return mergeGeneratedOptions<WindowSpaceConfig>(
-    {
-      windowsById: {},
-      order: [],
-      id: "",
-      name: "",
-      sortIndex: 0,
-    },
-    options,
-  );
+  const defaults: WindowSpaceConfig = {
+    windowsById: {},
+    order: [],
+    id: "",
+    name: "",
+    sortIndex: 0,
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceConfig>(defaults, options),
+  };
 }
 
 export const CodeLanguageEnum = {
@@ -3495,16 +3518,16 @@ export type BrushStroke = {
 export function createBrushStroke(
   options: Partial<BrushStroke> = {},
 ): BrushStroke {
-  return mergeGeneratedOptions<BrushStroke>(
-    {
-      strokeStyle: "",
-      lineWidth: 1,
-      lineCap: "round",
-      points: [],
-      globalCompositeOperation: "source-over",
-    },
-    options,
-  );
+  const defaults: BrushStroke = {
+    strokeStyle: "",
+    lineWidth: 1,
+    lineCap: "round",
+    points: [],
+    globalCompositeOperation: "source-over",
+  };
+  return {
+    ...mergeGeneratedOptions<BrushStroke>(defaults, options),
+  };
 }
 
 export type BrushStrokeWithTransform = {
@@ -3523,13 +3546,13 @@ type DrawAreaLayerItemTransform = {
 export function createDrawAreaLayerItemTransform(
   options: Partial<DrawAreaLayerItemTransform> = {},
 ): DrawAreaLayerItemTransform {
-  return mergeGeneratedOptions<DrawAreaLayerItemTransform>(
-    {
-      transform: [1, 0, 0, 1, 0, 0],
-      eraserStrokes: [],
-    },
-    options,
-  );
+  const defaults: DrawAreaLayerItemTransform = {
+    transform: [1, 0, 0, 1, 0, 0],
+    eraserStrokes: [],
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayerItemTransform>(defaults, options),
+  };
 }
 
 export type DrawAreaLayer = {
@@ -3541,15 +3564,16 @@ export type DrawAreaLayer = {
 export function createDrawAreaLayer(
   options: Partial<DrawAreaLayer> = {},
 ): DrawAreaLayer {
-  return mergeGeneratedOptions<DrawAreaLayer>(
-    {
-      name: createRandomName(),
-      elements: [],
-      visible: true,
-      layerOpacity: 1,
-    },
-    options,
-  );
+  const defaults: DrawAreaLayer = {
+    name: "",
+    elements: [],
+    visible: true,
+    layerOpacity: 1,
+  };
+  return {
+    ...mergeGeneratedOptions<DrawAreaLayer>(defaults, options),
+    name: options.name ?? createRandomName(),
+  };
 }
 
 export type BrushStrokeArtifact = {
@@ -3660,14 +3684,15 @@ export type ChartDataArtifact = {
 export function createChartDataArtifact(
   options: Partial<ChartDataArtifact> = {},
 ): ChartDataArtifact {
-  return mergeGeneratedOptions<ChartDataArtifact>(
-    {
-      type: "ChartData",
-      id: createCsvArtifactId(),
-      value: {},
-    },
-    options,
-  );
+  const defaults: ChartDataArtifact = {
+    type: "ChartData",
+    id: "",
+    value: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ChartDataArtifact>(defaults, options),
+    id: options.id ?? createCsvArtifactId(),
+  };
 }
 
 export type JSONArtifact = {
@@ -3720,13 +3745,13 @@ type SectionTypeCodegenPolicy = {
 function createSectionTypeCodegenPolicy(
   options: Partial<SectionTypeCodegenPolicy> = {},
 ): SectionTypeCodegenPolicy {
-  return mergeGeneratedOptions<SectionTypeCodegenPolicy>(
-    {
-      mode: "inherit",
-      representation: "expression",
-    },
-    options,
-  );
+  const defaults: SectionTypeCodegenPolicy = {
+    mode: "inherit",
+    representation: "expression",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionTypeCodegenPolicy>(defaults, options),
+  };
 }
 
 type SectionCodegenOverride = {
@@ -3736,13 +3761,13 @@ type SectionCodegenOverride = {
 function createSectionCodegenOverride(
   options: Partial<SectionCodegenOverride> = {},
 ): SectionCodegenOverride {
-  return mergeGeneratedOptions<SectionCodegenOverride>(
-    {
-      mode: "inherit",
-      representation: "expression",
-    },
-    options,
-  );
+  const defaults: SectionCodegenOverride = {
+    mode: "inherit",
+    representation: "expression",
+  };
+  return {
+    ...mergeGeneratedOptions<SectionCodegenOverride>(defaults, options),
+  };
 }
 
 type SectionCodegenPolicy = {
@@ -3919,12 +3944,12 @@ type CodeObjTypeValuePolicy = {
 function createCodeObjTypeValuePolicy(
   options: Partial<CodeObjTypeValuePolicy> = {},
 ): CodeObjTypeValuePolicy {
-  return mergeGeneratedOptions<CodeObjTypeValuePolicy>(
-    {
-      representation: "expression",
-    },
-    options,
-  );
+  const defaults: CodeObjTypeValuePolicy = {
+    representation: "expression",
+  };
+  return {
+    ...mergeGeneratedOptions<CodeObjTypeValuePolicy>(defaults, options),
+  };
 }
 
 type CodeObjValueOverride = {
@@ -3933,12 +3958,12 @@ type CodeObjValueOverride = {
 function createCodeObjValueOverride(
   options: Partial<CodeObjValueOverride> = {},
 ): CodeObjValueOverride {
-  return mergeGeneratedOptions<CodeObjValueOverride>(
-    {
-      representation: "expression",
-    },
-    options,
-  );
+  const defaults: CodeObjValueOverride = {
+    representation: "expression",
+  };
+  return {
+    ...mergeGeneratedOptions<CodeObjValueOverride>(defaults, options),
+  };
 }
 
 type CodeObjValuePolicy = {
@@ -4239,13 +4264,13 @@ export type ProjectCodegenPluginTarget = {
 export function createProjectCodegenPluginTarget(
   options: Partial<ProjectCodegenPluginTarget> = {},
 ): ProjectCodegenPluginTarget {
-  return mergeGeneratedOptions<ProjectCodegenPluginTarget>(
-    {
-      language: "",
-      options: {},
-    },
-    options,
-  );
+  const defaults: ProjectCodegenPluginTarget = {
+    language: "",
+    options: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectCodegenPluginTarget>(defaults, options),
+  };
 }
 
 export type ProjectCodegenTarget =
@@ -4262,18 +4287,18 @@ export type Core = {
   unsharedKeys: Array<string>;
 };
 export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions<Core>(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
+  const defaults: Core = {
+    id: "",
+    name: "",
+    displayName: "",
+    variants: [],
+    defaultVariant: null,
+    sharedModifier: {},
+    unsharedKeys: [],
+  };
+  return {
+    ...mergeGeneratedOptions<Core>(defaults, options),
+  };
 }
 
 export type SectionCapabilities = {
@@ -4286,16 +4311,16 @@ export type SectionCapabilities = {
 export function createSectionCapabilities(
   options: Partial<SectionCapabilities> = {},
 ): SectionCapabilities {
-  return mergeGeneratedOptions<SectionCapabilities>(
-    {
-      canRun: false,
-      runDisabledReason: null,
-      runRequestSectionId: null,
-      canSelectAsEntryCodeBlock: false,
-      entryCodeBlockValue: null,
-    },
-    options,
-  );
+  const defaults: SectionCapabilities = {
+    canRun: false,
+    runDisabledReason: null,
+    runRequestSectionId: null,
+    canSelectAsEntryCodeBlock: false,
+    entryCodeBlockValue: null,
+  };
+  return {
+    ...mergeGeneratedOptions<SectionCapabilities>(defaults, options),
+  };
 }
 
 export type Variant = {
@@ -4307,17 +4332,17 @@ export type Variant = {
   isFrozen: boolean;
 };
 export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions<Variant>(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
+  const defaults: Variant = {
+    id: "",
+    name: "",
+    impl: "",
+    nonPresetImpls: [],
+    modifier: {},
+    isFrozen: false,
+  };
+  return {
+    ...mergeGeneratedOptions<Variant>(defaults, options),
+  };
 }
 
 type ProjectRunCapabilities = {
@@ -4328,14 +4353,14 @@ type ProjectRunCapabilities = {
 export function createProjectRunCapabilities(
   options: Partial<ProjectRunCapabilities> = {},
 ): ProjectRunCapabilities {
-  return mergeGeneratedOptions<ProjectRunCapabilities>(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  );
+  const defaults: ProjectRunCapabilities = {
+    canRunFromMain: false,
+    mainRunDisabledReason: null,
+    effectiveEntrySectionId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectRunCapabilities>(defaults, options),
+  };
 }
 
 export type ProjectConfig = {
@@ -4373,45 +4398,56 @@ export type ProjectConfig = {
 export function createProjectConfig(
   options: Partial<ProjectConfig> = {},
 ): ProjectConfig {
-  return mergeGeneratedOptions<ProjectConfig>(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      hasPythonCodegenTarget: false,
-      runCapabilities: {
-        canRunFromMain: false,
-        effectiveEntrySectionId: null,
-        mainRunDisabledReason: null,
-      },
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      sectionPathSlugsById: {},
-      sectionIdsByPathSlug: {},
-      topLevelSections: {},
-      windowSpaceSlugsById: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
+  const defaults: ProjectConfig = {
+    id: "",
+    name: "",
+    showParamDisplayNames: false,
+    allowJsonSourceKeyEdits: false,
+    previewImgColor: "",
+    viewport: null,
+    viewportInitialized: false,
+    viewModes: {},
+    activeViewModeId: null,
+    isEditingViewMode: false,
+    hasPythonCodegenTarget: false,
+    runCapabilities: {
+      canRunFromMain: false,
+      effectiveEntrySectionId: null,
+      mainRunDisabledReason: null,
     },
-    options,
-  );
+    codegenTargets: [],
+    watchCodeEnabled: false,
+    watchCodeFolders: [],
+    watchCodeFiles: [],
+    watchCodeRegistry: {},
+    watchCodeBaselineByPath: {},
+    entryCodeBlockId: null,
+    sectionPathSlugsById: {},
+    sectionIdsByPathSlug: {},
+    topLevelSections: {},
+    windowSpaceSlugsById: {},
+    windowSpaceIdsBySlug: {},
+    windowSpaces: {},
+    sectionVariantMap: {},
+    activeIds: [],
+    edges: [],
+    agenticEdges: [],
+    stateMachineEdges: [],
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectConfig>(defaults, options),
+    viewport:
+      options.viewport === null
+        ? null
+        : (options.viewport ?? defaults.viewport) === null
+          ? null
+          : createViewport(
+              (options.viewport ?? defaults.viewport) as Partial<Viewport>,
+            ),
+    runCapabilities: createProjectRunCapabilities(
+      options.runCapabilities ?? defaults.runCapabilities,
+    ),
+  };
 }
 
 type SingletonSections = {
@@ -4422,14 +4458,14 @@ type SingletonSections = {
 export function createSingletonSections(
   options: Partial<SingletonSections> = {},
 ): SingletonSections {
-  return mergeGeneratedOptions<SingletonSections>(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
+  const defaults: SingletonSections = {
+    GlobalVariables: null,
+    GenPythonCode: null,
+    GenPythonMetadata: null,
+  };
+  return {
+    ...mergeGeneratedOptions<SingletonSections>(defaults, options),
+  };
 }
 
 type ShownParamIDDetails = {
@@ -4462,69 +4498,87 @@ export type SingleConfig = {
 export function createSingleConfig(
   options: Partial<SingleConfig> = {},
 ): SingleConfig {
-  return mergeGeneratedOptions<SingleConfig>(
-    {
-      sections: {},
-      sectionImpls: {},
-      sectionCapabilities: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      projectConfig: {
-        activeIds: [],
-        activeViewModeId: null,
-        agenticEdges: [],
-        allowJsonSourceKeyEdits: false,
-        codegenTargets: [],
-        edges: [],
-        entryCodeBlockId: null,
-        hasPythonCodegenTarget: false,
-        id: "",
-        isEditingViewMode: false,
-        name: "",
-        previewImgColor: "",
-        runCapabilities: {
-          canRunFromMain: false,
-          effectiveEntrySectionId: null,
-          mainRunDisabledReason: null,
-        },
-        sectionIdsByPathSlug: {},
-        sectionPathSlugsById: {},
-        sectionVariantMap: {},
-        showParamDisplayNames: false,
-        stateMachineEdges: [],
-        topLevelSections: {},
-        viewModes: {},
-        viewport: null,
-        viewportInitialized: false,
-        watchCodeBaselineByPath: {},
-        watchCodeEnabled: false,
-        watchCodeFiles: [],
-        watchCodeFolders: [],
-        watchCodeRegistry: {},
-        windowSpaceIdsBySlug: {},
-        windowSpaceSlugsById: {},
-        windowSpaces: {},
+  const defaults: SingleConfig = {
+    sections: {},
+    sectionImpls: {},
+    sectionCapabilities: {},
+    sectionVariants: {},
+    codeObjs: {},
+    codeObjImpls: {},
+    codeObjVariants: {},
+    projectConfig: {
+      activeIds: [],
+      activeViewModeId: null,
+      agenticEdges: [],
+      allowJsonSourceKeyEdits: false,
+      codegenTargets: [],
+      edges: [],
+      entryCodeBlockId: null,
+      hasPythonCodegenTarget: false,
+      id: "",
+      isEditingViewMode: false,
+      name: "",
+      previewImgColor: "",
+      runCapabilities: {
+        canRunFromMain: false,
+        effectiveEntrySectionId: null,
+        mainRunDisabledReason: null,
       },
-      singletonSections: {
-        GenPythonCode: null,
-        GenPythonMetadata: null,
-        GlobalVariables: null,
-      },
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      projectChatWindowing: {
-        instancesById: {},
-        nextInstanceNumber: 1,
-        order: [],
-      },
-      artifactGroups: {},
+      sectionIdsByPathSlug: {},
+      sectionPathSlugsById: {},
+      sectionVariantMap: {},
+      showParamDisplayNames: false,
+      stateMachineEdges: [],
+      topLevelSections: {},
+      viewModes: {},
+      viewport: null,
+      viewportInitialized: false,
+      watchCodeBaselineByPath: {},
+      watchCodeEnabled: false,
+      watchCodeFiles: [],
+      watchCodeFolders: [],
+      watchCodeRegistry: {},
+      windowSpaceIdsBySlug: {},
+      windowSpaceSlugsById: {},
+      windowSpaces: {},
     },
-    options,
-  );
+    singletonSections: {
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+      GlobalVariables: null,
+    },
+    parentSectionMap: {},
+    shownParamIds: {},
+    requiredDecodedImages: [],
+    genCodeBinding: null,
+    projectChatWindowing: {
+      instancesById: {},
+      nextInstanceNumber: 1,
+      order: [],
+    },
+    artifactGroups: {},
+  };
+  return {
+    ...mergeGeneratedOptions<SingleConfig>(defaults, options),
+    projectConfig: createProjectConfig(
+      options.projectConfig ?? defaults.projectConfig,
+    ),
+    singletonSections: createSingletonSections(
+      options.singletonSections ?? defaults.singletonSections,
+    ),
+    genCodeBinding:
+      options.genCodeBinding === null
+        ? null
+        : (options.genCodeBinding ?? defaults.genCodeBinding) === null
+          ? null
+          : createCodeFileBinding(
+              (options.genCodeBinding ??
+                defaults.genCodeBinding) as Partial<CodeFileBinding>,
+            ),
+    projectChatWindowing: createProjectChatWindowingState(
+      options.projectChatWindowing ?? defaults.projectChatWindowing,
+    ),
+  };
 }
 
 export type Template = {
@@ -4609,73 +4663,73 @@ type SettingsShortcuts = {
 function createSettingsShortcuts(
   options: Partial<SettingsShortcuts> = {},
 ): SettingsShortcuts {
-  return mergeGeneratedOptions<SettingsShortcuts>(
-    {
-      newCardShortcut: "N",
-      newGroupShortcut: "G",
-      typeCheckShortcut: "",
-      newProjectConfigShortcut: "",
-      undoShortcut: "Mod + Z",
-      redoShortcut: "Mod + Shift + Z",
-      groupShortcut: "Mod + G",
-      ungroupShortcut: "Shift + Mod + G",
-      saveShortcut: "Mod + S",
-      saveAsShortcut: "Mod + Shift + S",
-      loadShortcut: "Mod + L",
-      searchShortcut: "Mod + K",
-      advancedSearchShortcut: "Mod + P",
-      commandPaletteShortcut: "Mod + Shift + P",
-      resetZoomShortcut: "Mod + Comma",
-      copyShortcut: "Mod + C",
-      pasteShortcut: "Mod + V",
-      pasteAsRefShortcut: "Mod + Shift + V",
-      sortingShortcut: "Mod + Alt",
-      movingFreeShortcut: "Alt",
-      showTooltipShortcut: "Q",
-      tooltipToPlaintextShortcut: "Q + S",
-      tooltipToMarkdownShortcut: "Q + W",
-      freezeTooltipShortcut: "Q + F",
-      frozenTooltipToPlaintextShortcut: "S",
-      frozenTooltipToMarkdownShortcut: "W",
-      incrementTooltipPageShortcut: "Q + ArrowRight",
-      decrementTooltipPageShortcut: "Q + ArrowLeft",
-      copyTooltipTextShortcut: "Q + C",
-      frozenTooltipIncrementShortcut: "ArrowRight",
-      frozenTooltipDecrementShortcut: "ArrowLeft",
-      frozenTooltipCopyShortcut: "C",
-      newTerminalShortcut: "Ctrl + `",
-      fitViewShortcut: "F",
-      zoomToMouseShortcut: "Z",
-      deleteSectionShortcut: "Backspace",
-      selectAll: "Mod + A",
-      selectTopLevelNonGroupSections: "Mod + Shift + A",
-      showVersionsTabShortcut: "V",
-      showParamUITypeTabShortcut: "P",
-      showProjectOverviewTabShortcut: "O",
-      focusHeaderShortcut: "Ctrl + Shift + 1",
-      focusOverviewShortcut: "Ctrl + Shift + 2",
-      focusCanvasShortcut: "Ctrl + Shift + 3",
-      focusUiEditorShortcut: "Ctrl + Shift + 4",
-      nextTopLevelSectionShortcut: "Alt + J",
-      prevTopLevelSectionShortcut: "Alt + K",
-      runCodeShortcut: "Mod + Enter",
-      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
-      paramSelect: "Mod + Shift",
-      paramIndentShortcut: "Tab",
-      paramUnindentShortcut: "Shift + Tab",
-      paramMoveUpShortcut: "Alt + ArrowUp",
-      paramMoveDownShortcut: "Alt + ArrowDown",
-      formatCode: "Shift + Alt + F",
-      selectionKeyCode: "Shift",
-      multiSelectionKeyCode: "Mod",
-      panActivationKeyCode: "Space",
-      zoomActivationKeyCode: "Mod",
-      zoomInShortcut: "Equal",
-      zoomOutShortcut: "Minus",
-      restartLanguageServerShortcut: "Alt + Shift + R",
-    },
-    options,
-  );
+  const defaults: SettingsShortcuts = {
+    newCardShortcut: "N",
+    newGroupShortcut: "G",
+    typeCheckShortcut: "",
+    newProjectConfigShortcut: "",
+    undoShortcut: "Mod + Z",
+    redoShortcut: "Mod + Shift + Z",
+    groupShortcut: "Mod + G",
+    ungroupShortcut: "Shift + Mod + G",
+    saveShortcut: "Mod + S",
+    saveAsShortcut: "Mod + Shift + S",
+    loadShortcut: "Mod + L",
+    searchShortcut: "Mod + K",
+    advancedSearchShortcut: "Mod + P",
+    commandPaletteShortcut: "Mod + Shift + P",
+    resetZoomShortcut: "Mod + Comma",
+    copyShortcut: "Mod + C",
+    pasteShortcut: "Mod + V",
+    pasteAsRefShortcut: "Mod + Shift + V",
+    sortingShortcut: "Mod + Alt",
+    movingFreeShortcut: "Alt",
+    showTooltipShortcut: "Q",
+    tooltipToPlaintextShortcut: "Q + S",
+    tooltipToMarkdownShortcut: "Q + W",
+    freezeTooltipShortcut: "Q + F",
+    frozenTooltipToPlaintextShortcut: "S",
+    frozenTooltipToMarkdownShortcut: "W",
+    incrementTooltipPageShortcut: "Q + ArrowRight",
+    decrementTooltipPageShortcut: "Q + ArrowLeft",
+    copyTooltipTextShortcut: "Q + C",
+    frozenTooltipIncrementShortcut: "ArrowRight",
+    frozenTooltipDecrementShortcut: "ArrowLeft",
+    frozenTooltipCopyShortcut: "C",
+    newTerminalShortcut: "Ctrl + `",
+    fitViewShortcut: "F",
+    zoomToMouseShortcut: "Z",
+    deleteSectionShortcut: "Backspace",
+    selectAll: "Mod + A",
+    selectTopLevelNonGroupSections: "Mod + Shift + A",
+    showVersionsTabShortcut: "V",
+    showParamUITypeTabShortcut: "P",
+    showProjectOverviewTabShortcut: "O",
+    focusHeaderShortcut: "Ctrl + Shift + 1",
+    focusOverviewShortcut: "Ctrl + Shift + 2",
+    focusCanvasShortcut: "Ctrl + Shift + 3",
+    focusUiEditorShortcut: "Ctrl + Shift + 4",
+    nextTopLevelSectionShortcut: "Alt + J",
+    prevTopLevelSectionShortcut: "Alt + K",
+    runCodeShortcut: "Mod + Enter",
+    runEntryCodeBlockShortcut: "Mod + Shift + Enter",
+    paramSelect: "Mod + Shift",
+    paramIndentShortcut: "Tab",
+    paramUnindentShortcut: "Shift + Tab",
+    paramMoveUpShortcut: "Alt + ArrowUp",
+    paramMoveDownShortcut: "Alt + ArrowDown",
+    formatCode: "Shift + Alt + F",
+    selectionKeyCode: "Shift",
+    multiSelectionKeyCode: "Mod",
+    panActivationKeyCode: "Space",
+    zoomActivationKeyCode: "Mod",
+    zoomInShortcut: "Equal",
+    zoomOutShortcut: "Minus",
+    restartLanguageServerShortcut: "Alt + Shift + R",
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsShortcuts>(defaults, options),
+  };
 }
 
 export const BackgroundVariantEnum = {
@@ -4723,66 +4777,66 @@ type SettingsGUI = {
   sectionTagColorChoices: Array<ColorPickerChoice>;
 };
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
-  return mergeGeneratedOptions<SettingsGUI>(
-    {
-      snapGrid: [15, 15],
-      showGridLines: true,
-      gridPattern: "dots",
-      gridPatternSize: 2,
-      gridColor: "#afbacf",
-      gridColorDarkMode: "#2b364a",
-      wireColor: "#41506c",
-      wireColorDarkMode: "#bac2d3",
-      defaultZoomLevel: 1,
-      minZoom: 0.1,
-      maxZoom: 10,
-      panOnDrag: true,
-      panOnScroll: true,
-      panOnScrollSpeed: 1,
-      panOnScrollMode: "free",
-      zoomOnScroll: true,
-      zoomOnPinch: true,
-      zoomOnDoubleClick: false,
-      selectionMode: "partial",
-      leftSidePaneShiftsMap: true,
-      transitionDuration: 50,
-      sectionTagColorChoices: [
-        {
-          color: "#ef4444",
-          description: "Red",
-        },
-        {
-          color: "#f97316",
-          description: "Orange",
-        },
-        {
-          color: "#eab308",
-          description: "Yellow",
-        },
-        {
-          color: "#22c55e",
-          description: "Green",
-        },
-        {
-          color: "#06b6d4",
-          description: "Cyan",
-        },
-        {
-          color: "#3b82f6",
-          description: "Blue",
-        },
-        {
-          color: "#a855f7",
-          description: "Purple",
-        },
-        {
-          color: "#64748b",
-          description: "Slate",
-        },
-      ],
-    },
-    options,
-  );
+  const defaults: SettingsGUI = {
+    snapGrid: [15, 15],
+    showGridLines: true,
+    gridPattern: "dots",
+    gridPatternSize: 2,
+    gridColor: "#afbacf",
+    gridColorDarkMode: "#2b364a",
+    wireColor: "#41506c",
+    wireColorDarkMode: "#bac2d3",
+    defaultZoomLevel: 1,
+    minZoom: 0.1,
+    maxZoom: 10,
+    panOnDrag: true,
+    panOnScroll: true,
+    panOnScrollSpeed: 1,
+    panOnScrollMode: "free",
+    zoomOnScroll: true,
+    zoomOnPinch: true,
+    zoomOnDoubleClick: false,
+    selectionMode: "partial",
+    leftSidePaneShiftsMap: true,
+    transitionDuration: 50,
+    sectionTagColorChoices: [
+      {
+        color: "#ef4444",
+        description: "Red",
+      },
+      {
+        color: "#f97316",
+        description: "Orange",
+      },
+      {
+        color: "#eab308",
+        description: "Yellow",
+      },
+      {
+        color: "#22c55e",
+        description: "Green",
+      },
+      {
+        color: "#06b6d4",
+        description: "Cyan",
+      },
+      {
+        color: "#3b82f6",
+        description: "Blue",
+      },
+      {
+        color: "#a855f7",
+        description: "Purple",
+      },
+      {
+        color: "#64748b",
+        description: "Slate",
+      },
+    ],
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsGUI>(defaults, options),
+  };
 }
 
 const RunSnapshotModeEnum = {
@@ -4811,25 +4865,29 @@ type SettingsBackend = {
 function createSettingsBackend(
   options: Partial<SettingsBackend> = {},
 ): SettingsBackend {
-  return mergeGeneratedOptions<SettingsBackend>(
-    {
-      showDefaultConfigOnLoad: true,
-      autosave: true,
-      autobackup: true,
-      autobackupFreq: 300,
-      autobackupKeepLastN: 10,
-      clearTerminalBeforeMarkingAsReady: true,
-      defaultTerminalShell: null,
-      exportDbReadableOnSave: false,
-      exportDbReadableWithVariantsOnSave: false,
-      autoRefetchCallableParamsOnLspMismatch: true,
-      renameRefactorMode: "ALWAYS_ASK",
-      saveRenderedValues: false,
-      runSnapshotMode: "ephemeral",
-      completionGuardEnabled: false,
-    },
-    options,
-  );
+  const defaults: SettingsBackend = {
+    showDefaultConfigOnLoad: true,
+    autosave: true,
+    autobackup: true,
+    autobackupFreq: 300,
+    autobackupKeepLastN: 10,
+    clearTerminalBeforeMarkingAsReady: true,
+    defaultTerminalShell: null,
+    exportDbReadableOnSave: false,
+    exportDbReadableWithVariantsOnSave: false,
+    autoRefetchCallableParamsOnLspMismatch: true,
+    renameRefactorMode: "ALWAYS_ASK",
+    saveRenderedValues: false,
+    runSnapshotMode: "ephemeral",
+    completionGuardEnabled: false,
+  };
+  return {
+    ...mergeGeneratedOptions<SettingsBackend>(defaults, options),
+    defaultTerminalShell:
+      options.defaultTerminalShell === null
+        ? null
+        : options.defaultTerminalShell ?? null,
+  };
 }
 
 export type SettingsState = {
@@ -5310,13 +5368,13 @@ export type MessageTextContent = {
 export function createMessageTextContent(
   options: Partial<MessageTextContent> = {},
 ): MessageTextContent {
-  return mergeGeneratedOptions<MessageTextContent>(
-    {
-      type: "text",
-      text: "",
-    },
-    options,
-  );
+  const defaults: MessageTextContent = {
+    type: "text",
+    text: "",
+  };
+  return {
+    ...mergeGeneratedOptions<MessageTextContent>(defaults, options),
+  };
 }
 
 type MessageImageURL = {
@@ -5338,15 +5396,15 @@ export type MessageThinkingContent = {
 export function createMessageThinkingContent(
   options: Partial<MessageThinkingContent> = {},
 ): MessageThinkingContent {
-  return mergeGeneratedOptions<MessageThinkingContent>(
-    {
-      type: "thinking",
-      thinking: "",
-      summary: "",
-      signature: "",
-    },
-    options,
-  );
+  const defaults: MessageThinkingContent = {
+    type: "thinking",
+    thinking: "",
+    summary: "",
+    signature: "",
+  };
+  return {
+    ...mergeGeneratedOptions<MessageThinkingContent>(defaults, options),
+  };
 }
 
 type MessageContent =
@@ -5366,13 +5424,13 @@ type ToolCallFunction = {
 export function createToolCallFunction(
   options: Partial<ToolCallFunction> = {},
 ): ToolCallFunction {
-  return mergeGeneratedOptions<ToolCallFunction>(
-    {
-      name: "",
-      arguments: {},
-    },
-    options,
-  );
+  const defaults: ToolCallFunction = {
+    name: "",
+    arguments: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ToolCallFunction>(defaults, options),
+  };
 }
 
 export type ToolCall = {
@@ -5414,17 +5472,17 @@ export type AssistantChatMessage = {
 export function createAssistantChatMessage(
   options: Partial<AssistantChatMessage> = {},
 ): AssistantChatMessage {
-  return mergeGeneratedOptions<AssistantChatMessage>(
-    {
-      id: "",
-      role: "assistant",
-      createdAt: 0,
-      content: [],
-      attachments: [],
-      tool_calls: null,
-    },
-    options,
-  );
+  const defaults: AssistantChatMessage = {
+    id: "",
+    role: "assistant",
+    createdAt: 0,
+    content: [],
+    attachments: [],
+    tool_calls: null,
+  };
+  return {
+    ...mergeGeneratedOptions<AssistantChatMessage>(defaults, options),
+  };
 }
 
 type UserChatMessage = {
@@ -5437,16 +5495,16 @@ type UserChatMessage = {
 export function createUserChatMessage(
   options: Partial<UserChatMessage> = {},
 ): UserChatMessage {
-  return mergeGeneratedOptions<UserChatMessage>(
-    {
-      id: "",
-      role: "user",
-      createdAt: 0,
-      content: [],
-      attachments: [],
-    },
-    options,
-  );
+  const defaults: UserChatMessage = {
+    id: "",
+    role: "user",
+    createdAt: 0,
+    content: [],
+    attachments: [],
+  };
+  return {
+    ...mergeGeneratedOptions<UserChatMessage>(defaults, options),
+  };
 }
 
 export type ToolChatMessage = {
@@ -5465,22 +5523,23 @@ export type ToolChatMessage = {
 export function createToolChatMessage(
   options: Partial<ToolChatMessage> = {},
 ): ToolChatMessage {
-  return mergeGeneratedOptions<ToolChatMessage>(
-    {
-      id: "",
-      role: "tool",
-      createdAt: 0,
-      tool_call_id: "",
-      tool_name: null,
-      arguments: {},
-      result: null,
-      content: [],
-      is_error: false,
-      started_at: "",
-      completed_at: null,
-    },
-    options,
-  );
+  const defaults: ToolChatMessage = {
+    id: "",
+    role: "tool",
+    createdAt: 0,
+    tool_call_id: "",
+    tool_name: null,
+    arguments: {},
+    result: null,
+    content: [],
+    is_error: false,
+    started_at: "0001-01-01T00:00:00Z",
+    completed_at: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ToolChatMessage>(defaults, options),
+    started_at: options.started_at ?? "",
+  };
 }
 
 export type BaseChatMessageUnion =
@@ -5757,15 +5816,15 @@ export type Connection = {
 export function createConnection(
   options: Partial<Connection> = {},
 ): Connection {
-  return mergeGeneratedOptions<Connection>(
-    {
-      id: "",
-      connectionType: "SERVER",
-      shareSessionId: "",
-      currentAddress: "",
-    },
-    options,
-  );
+  const defaults: Connection = {
+    id: "",
+    connectionType: "SERVER",
+    shareSessionId: "",
+    currentAddress: "",
+  };
+  return {
+    ...mergeGeneratedOptions<Connection>(defaults, options),
+  };
 }
 
 const TransportModeEnum = {
@@ -5818,14 +5877,14 @@ export type CurrentAddressUpdateMessage = {
 export function createCurrentAddressUpdateMessage(
   options: Partial<CurrentAddressUpdateMessage> = {},
 ): CurrentAddressUpdateMessage {
-  return mergeGeneratedOptions<CurrentAddressUpdateMessage>(
-    {
-      id: null,
-      messageType: "CurrentAddressUpdate",
-      content: "",
-    },
-    options,
-  );
+  const defaults: CurrentAddressUpdateMessage = {
+    id: null,
+    messageType: "CurrentAddressUpdate",
+    content: "",
+  };
+  return {
+    ...mergeGeneratedOptions<CurrentAddressUpdateMessage>(defaults, options),
+  };
 }
 
 type RealtimeUIChangeContent = {
