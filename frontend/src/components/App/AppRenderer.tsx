@@ -5,6 +5,8 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
+import { getAttachmentDownloadUrl, runCode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -14,20 +16,20 @@ import {
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
+import { resolveAppPolicy } from "utils/deploymentPolicies";
 import { res200 } from "utils/endpointUtils";
+import type { AppDefinition, Policy } from "utils/generatedTypes";
 import {
-  route_get_attachment_download_url,
-  route_run_code,
-} from "utils/generatedEndpoints";
-import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
-import { RouteEnum } from "utils/generatedTypes";
+  resolveMainRunRequest,
+  resolveRunRequest,
+} from "utils/runCapabilities";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
 import { appRegistry } from "./appRegistry";
 import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
+import { buildAppBinaryDownloadUrl } from "./appTransport";
 
 type RawUIElement = {
   key: string;
@@ -41,7 +43,7 @@ type RawUIElement = {
 type AppRendererProps = {
   appSpec: unknown | null;
   appDefinition: AppDefinition | null | undefined;
-  appPolicy?: SharePolicy | null;
+  appPolicy?: Policy | null;
   defaultConfigId?: string | null;
   rootKeyOverride?: string | null;
 };
@@ -182,25 +184,6 @@ function normalizeAppSpec(
   return null;
 }
 
-function resolvePolicyOverrides(
-  appPolicy: SharePolicy | null | undefined,
-): SharePolicy {
-  if (appPolicy) {
-    return appPolicy;
-  }
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: false,
-    allowLayoutChanges: false,
-    allowRun: true,
-    allowLLM: false,
-    allowExternalLinks: false,
-    allowFileDownloads: false,
-    allowMultipleRuns: true,
-    runSnapshotMode: "ephemeral",
-  };
-}
-
 export function AppRenderer({
   appSpec,
   appDefinition,
@@ -211,7 +194,7 @@ export function AppRenderer({
   const fallbackConfigId = defaultConfigId ?? null;
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
-  const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
+  const resolvedPolicy = resolveAppPolicy(appPolicy ?? sharePolicy);
   const resolvedTheme = useMemo(
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
@@ -226,8 +209,20 @@ export function AppRenderer({
   const [isRunning, setIsRunning] = useState(false);
   const allowMultipleRuns = resolvedPolicy.allowMultipleRuns ?? true;
   const effectiveRunCount = deploymentMode ? sessionRunCount : localRunCount;
+  const loadedDefaultRunRequest = useAppConfigs((state) => {
+    if (!fallbackConfigId) {
+      return null;
+    }
+    const configState = state.configs[fallbackConfigId] ?? null;
+    if (!configState) {
+      return null;
+    }
+    return resolveMainRunRequest(configState);
+  });
   const canRun =
-    resolvedPolicy.allowRun && (allowMultipleRuns || effectiveRunCount === 0);
+    resolvedPolicy.allowRun &&
+    (allowMultipleRuns || effectiveRunCount === 0) &&
+    (loadedDefaultRunRequest?.canRun ?? true);
   const canEditParams = resolvedPolicy.allowParamChanges ?? true;
   const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
   const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
@@ -236,6 +231,9 @@ export function AppRenderer({
     runDisabledReason = "Runs are disabled by policy.";
   } else if (!allowMultipleRuns && effectiveRunCount > 0) {
     runDisabledReason = "This app is limited to one run.";
+  } else if (loadedDefaultRunRequest && !loadedDefaultRunRequest.canRun) {
+    runDisabledReason =
+      loadedDefaultRunRequest.disabledReason ?? "Run is unavailable.";
   }
 
   const handleRun = useCallback(
@@ -303,26 +301,35 @@ export function AppRenderer({
         return;
       }
       const configState = useAppConfigs.getState().configs[configId] ?? null;
-      const sectionId =
+      if (!configState) {
+        addTemporaryNotification("Failed to load project config.");
+        return;
+      }
+      const requestedSectionId =
         params && typeof params.sectionId === "string"
           ? params.sectionId
           : null;
-      const entryCodeBlockId =
-        configState?.projectConfig.entryCodeBlockId ?? null;
-      if (!sectionId && !entryCodeBlockId) {
+      const runRequest = resolveRunRequest(configState, requestedSectionId);
+      if (!runRequest.canRun) {
         addTemporaryNotification(
-          "Missing run target. Set the Run button sectionId (or configure an entry code block).",
+          runRequest.disabledReason ?? "Run is unavailable.",
         );
         return;
       }
       setIsRunning(true);
       try {
-        const res = await route_run_code({
-          projectConfigId: configId,
-          sectionId,
-          ...(hasSectionVariantOverrides ? { sectionVariantOverrides } : {}),
-          ...(hasParamOverrides ? { paramOverrides } : {}),
-        });
+        const res = await callOpenAPI(
+          runCode({
+            body: {
+              projectConfigId: configId,
+              sectionId: runRequest.executionSectionId,
+              ...(hasSectionVariantOverrides
+                ? { sectionVariantOverrides }
+                : {}),
+              ...(hasParamOverrides ? { paramOverrides } : {}),
+            },
+          }),
+        );
         if (res200(res)) {
           if (deploymentMode) {
             incrementAppSessionRunCount();
@@ -376,10 +383,14 @@ export function AppRenderer({
         addTemporaryNotification("Missing project config for download.");
         return;
       }
-      const res = await route_get_attachment_download_url({
-        artifactId,
-        projectConfigId: resolvedConfigId,
-      });
+      const res = await callOpenAPI(
+        getAttachmentDownloadUrl({
+          body: {
+            artifactId,
+            projectConfigId: resolvedConfigId,
+          },
+        }),
+      );
       if (res200(res) && res.data.url) {
         triggerDownload(res.data.url, filename ?? undefined);
         return;
@@ -399,14 +410,7 @@ export function AppRenderer({
         addTemporaryNotification("Missing file content id for download.");
         return;
       }
-      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
-        "{contentId}",
-        encodeURIComponent(contentId),
-      );
-      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
-      if (shareSessionId) {
-        url.searchParams.set("shareSessionId", shareSessionId);
-      }
+      const url = new URL(buildAppBinaryDownloadUrl(contentId, shareSessionId));
       triggerDownload(url.toString(), filename ?? undefined);
     },
     [allowFileDownloads, shareSessionId],

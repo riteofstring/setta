@@ -1,14 +1,14 @@
+import {
+  getExternalAgentChat,
+  getLlmChat,
+  stopExternalAgentRun,
+  stopLlmChat,
+} from "openapi/http";
 import { resetProjectStores } from "state/utils";
+import { route_get_agent_runs } from "utils/generatedEndpoints";
 import {
-  route_get_agent_runs,
-  route_get_external_agent_chat,
-  route_get_llm_chat,
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
-} from "utils/generatedEndpoints";
-import {
-  AgentRunStatusEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
+  RunStatusEnum,
   StreamingEventTypeEnum,
   createAgentRun,
   createAssistantChatMessage,
@@ -27,6 +27,24 @@ import {
 } from "vitest";
 import { addTemporaryNotification } from "./notifications";
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getExternalAgentChat: vi.fn(),
+    getLlmChat: vi.fn(),
+    stopExternalAgentRun: vi.fn(),
+    stopLlmChat: vi.fn(),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
     typeof import("utils/generatedEndpoints")
@@ -34,10 +52,6 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_get_agent_runs: vi.fn(),
-    route_get_external_agent_chat: vi.fn(),
-    route_get_llm_chat: vi.fn(),
-    route_stop_external_agent_run: vi.fn(),
-    route_stop_llm_chat: vi.fn(),
   };
 });
 
@@ -45,15 +59,11 @@ vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-const mockedRouteGetExternalAgentChat = vi.mocked(
-  route_get_external_agent_chat,
-);
-const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+const mockedRouteGetExternalAgentChat = vi.mocked(getExternalAgentChat);
+const mockedRouteGetLLMChat = vi.mocked(getLlmChat);
 const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
-const mockedRouteStopExternalAgentRun = vi.mocked(
-  route_stop_external_agent_run,
-);
-const mockedRouteStopLlmChat = vi.mocked(route_stop_llm_chat);
+const mockedRouteStopExternalAgentRun = vi.mocked(stopExternalAgentRun);
+const mockedRouteStopLlmChat = vi.mocked(stopLlmChat);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
@@ -197,11 +207,13 @@ describe("stopProjectChatResponse", () => {
     const stopped = await stopProjectChatResponse(chatId, false);
 
     expect(stopped).toBe(false);
-    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({ chatId });
+    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({
+      body: { chatId },
+    });
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -299,7 +311,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -350,7 +362,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -402,7 +414,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-local",
           content: [createMessageTextContent({ text: "Local optimistic" })],
@@ -457,11 +469,13 @@ describe("stopProjectChatResponse", () => {
     const stopped = await stopProjectChatResponse(chatId, false);
 
     expect(stopped).toBe(false);
-    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({ chatId });
+    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({
+      body: { chatId },
+    });
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -495,7 +509,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -624,7 +638,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-1",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -652,15 +666,17 @@ describe("stopProjectChatResponse", () => {
 
     expect(stopped).toBe(false);
     expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
-      runId: "run-1",
+      body: { runId: "run-1" },
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -679,7 +695,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-project-a",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2026-03-01T00:00:00Z",
           inputs: {
             runType: "external_agent",
@@ -689,7 +705,7 @@ describe("stopProjectChatResponse", () => {
         }),
         createAgentRun({
           id: "run-project-b",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           startedAt: "2026-03-02T00:00:00Z",
           inputs: {
             runType: "external_agent",
@@ -714,14 +730,16 @@ describe("stopProjectChatResponse", () => {
 
     expect(stopped).toBe(false);
     expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
-      runId: "run-project-a",
+      body: { runId: "run-project-a" },
     });
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalledWith({
-      runId: "run-project-b",
+      body: { runId: "run-project-b" },
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
   });
 
@@ -741,7 +759,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-external-hydrate-fail",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -765,15 +783,17 @@ describe("stopProjectChatResponse", () => {
 
     expect(stopped).toBe(false);
     expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
-      runId: "run-external-hydrate-fail",
+      body: { runId: "run-external-hydrate-fail" },
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -801,7 +821,7 @@ describe("stopProjectChatResponse", () => {
       agentRuns: [
         createAgentRun({
           id: "run-external-noop",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -814,7 +834,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -826,7 +846,7 @@ describe("stopProjectChatResponse", () => {
       hasResponse: true,
       data: createAgentRun({
         id: "run-external-noop",
-        status: AgentRunStatusEnum.completed,
+        status: RunStatusEnum.completed,
       }),
     });
     mockedRouteGetExternalAgentChat.mockResolvedValue({
@@ -843,8 +863,10 @@ describe("stopProjectChatResponse", () => {
 
     expect(stopped).toBe(true);
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(
       useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
@@ -870,7 +892,7 @@ describe("stopProjectChatResponse", () => {
       data: [
         createAgentRun({
           id: "run-refresh",
-          status: AgentRunStatusEnum.running,
+          status: RunStatusEnum.running,
           inputs: {
             runType: "external_agent",
             chatId,
@@ -884,7 +906,7 @@ describe("stopProjectChatResponse", () => {
       hasResponse: true,
       data: createAgentRun({
         id: "run-refresh",
-        status: AgentRunStatusEnum.cancelled,
+        status: RunStatusEnum.cancelled,
       }),
     });
 
@@ -893,7 +915,7 @@ describe("stopProjectChatResponse", () => {
     expect(stopped).toBe(true);
     expect(mockedRouteGetAgentRuns.mock.calls.length).toBeGreaterThanOrEqual(1);
     expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
-      runId: "run-refresh",
+      body: { runId: "run-refresh" },
     });
     expect(mockedRouteGetExternalAgentChat).not.toHaveBeenCalled();
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
@@ -932,12 +954,14 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -977,8 +1001,10 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
     const details = useAIStore.getState().chatDetails[chatId];
@@ -1021,12 +1047,14 @@ describe("stopProjectChatResponse", () => {
 
     expect(stopped).toBe(false);
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
-      chatId,
-      projectConfigId: "project-a",
+      body: {
+        chatId,
+        projectConfigId: "project-a",
+      },
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
   });
 
@@ -1055,7 +1083,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -1119,11 +1147,13 @@ describe("stopProjectChatResponse", () => {
     );
 
     expect(stopped).toBe(false);
-    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({ chatId });
+    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({
+      body: { chatId },
+    });
     expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop section chat.",
-      SettaNotificationTypeEnum.warning,
+      NotificationTypeEnum.warning,
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
@@ -1169,7 +1199,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "assistant-streaming",
       },
     });

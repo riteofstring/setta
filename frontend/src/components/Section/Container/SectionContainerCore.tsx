@@ -6,19 +6,22 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
-import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
+import {
+  useAgenticScopeHighlights,
+  useLocalStorage,
+  useProjectState,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
-import {
-  getSectionContainerShellClassName,
-  resolveSectionChromeShellDecorations,
-} from "./sectionChrome";
-import { useSectionChromeAppearance } from "./sectionChromeAppearance";
+import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
@@ -70,6 +73,9 @@ function _SectionContainerCore({
   }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
+  const aiHighlightClassName = showAiHighlight
+    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
+    : "";
   const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
     (state) => ({
       scopeReadMap:
@@ -81,30 +87,48 @@ function _SectionContainerCore({
   );
   const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
   const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
+  const scopeHighlightClassName = isWriteScope
+    ? "ring-2 ring-amber-400/70 ring-inset"
+    : isReadScope
+      ? "ring-2 ring-emerald-400/70 ring-inset"
+      : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
-  const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
-    useSectionChromeAppearance({
-      sectionId,
-      sectionTypeName,
-      styleColor,
-      textBlockMetaControlStyle,
-    });
-  const shellDecorations = resolveSectionChromeShellDecorations({
-    isActiveSection,
-    isGlobalVariables,
-    isInOtherProjectConfigs,
-    showAiHighlight,
-    isReadScope,
-    isWriteScope,
-  });
+  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
+  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const sectionStyleTheme =
+    resolvedStyleColor && !useMetaControlStyle
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null;
+  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
+  const sectionStyleVars = sectionStyleTheme
+    ? ({
+        "--setta-section-style-bg": sectionStyleTheme.bg,
+        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+        "--setta-section-style-border": sectionStyleTheme.border,
+        "--setta-section-style-outline": sectionStyleTheme.outline,
+        "--setta-section-style-text": sectionStyleTheme.text,
+        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+        "--setta-section-style-arg-handle": sectionStyleTheme.border,
+        "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
+        "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
+        "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
+      } as React.CSSProperties)
+    : undefined;
   const sectionShellClassName = getSectionContainerShellClassName({
-    outlineTone: shellDecorations.outlineTone,
-    scopeHighlight: shellDecorations.scopeHighlight,
-    showAiHighlight: shellDecorations.showAiHighlight,
+    isActiveSection,
+    isGlobalVariables,
+    isInOtherProjectConfigs,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
@@ -112,6 +136,8 @@ function _SectionContainerCore({
     joinedCorners,
     isJoinedAttachedTerminalChild,
     omitAgenticHandleScopeClass,
+    aiHighlightClassName,
+    scopeHighlightClassName,
   });
   const sectionShellStyle = viewportInteractionActive
     ? ({
@@ -139,7 +165,7 @@ function _SectionContainerCore({
 
   return (
     <section
-      className={`${sectionShellClassName} ${shellDecorations.zIndexClassName}`}
+      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
