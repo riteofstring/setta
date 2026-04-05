@@ -24,15 +24,42 @@ func buildGoBackedCreateBodyTS(
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	defaultsObject, orderedKeys, fieldLines, err := buildGenericCreateDefaultsAndFieldsTS(
-		context,
-		structType,
-		properties,
-		fieldSpecsByName,
-		defaultValue,
-	)
-	if err != nil {
-		return "", err
+	defaultValuesByName, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
+	defaultsObject := make(map[string]any, len(properties))
+	orderedKeys := make([]string, 0, len(properties))
+	var fieldBuilder strings.Builder
+	for _, property := range properties {
+		fieldSpec, ok := fieldSpecsByName[property.Name]
+		if !ok {
+			return "", fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
+		}
+		value, hasDefault := defaultValuesByName[property.Name]
+		if !hasDefault {
+			if !property.Optional {
+				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
+			}
+		} else {
+			defaultsObject[property.Name] = value
+			orderedKeys = append(orderedKeys, property.Name)
+		}
+		expr, ok, err := buildGenericCreateFieldExprTS(
+			fieldSpec,
+			property,
+			renderTSPropertyAccessExpr("defaults", property.Name),
+			renderTSPropertyAccessExpr("options", property.Name),
+			hasDefault,
+		)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			continue
+		}
+		fieldBuilder.WriteString("    ")
+		fieldBuilder.WriteString(renderTSObjectKey(property.Name))
+		fieldBuilder.WriteString(": ")
+		fieldBuilder.WriteString(expr)
+		fieldBuilder.WriteString(",\n")
 	}
 	var builder strings.Builder
 	builder.WriteString("  const defaults: ")
@@ -44,57 +71,9 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString("    ...mergeGeneratedOptions<")
 	builder.WriteString(declarationName)
 	builder.WriteString(">(defaults, options),\n")
-	for _, line := range fieldLines {
-		builder.WriteString(line)
-	}
+	builder.WriteString(fieldBuilder.String())
 	builder.WriteString("  };")
 	return builder.String(), nil
-}
-
-func buildGenericCreateDefaultsAndFieldsTS(
-	context string,
-	structType reflect.Type,
-	properties []TypeProperty,
-	fieldSpecsByName map[string]reflectedFieldCreateSpec,
-	defaultValue any,
-) (map[string]any, []string, []string, error) {
-	defaultValuesByName, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
-	filtered := make(map[string]any, len(properties))
-	orderedKeys := make([]string, 0, len(properties))
-	fieldLines := make([]string, 0, len(properties))
-	for _, property := range properties {
-		fieldSpec, ok := fieldSpecsByName[property.Name]
-		if !ok {
-			return nil, nil, nil, fmt.Errorf(
-				"%s is missing field metadata for %q",
-				structType.Name(),
-				property.Name,
-			)
-		}
-		value, hasDefault := defaultValuesByName[property.Name]
-		if !hasDefault {
-			if !property.Optional {
-				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
-			}
-		} else {
-			filtered[property.Name] = value
-			orderedKeys = append(orderedKeys, property.Name)
-		}
-		expr, ok, err := buildGenericCreateFieldExprTS(
-			fieldSpec,
-			property,
-			renderTSPropertyAccessExpr("defaults", property.Name),
-			renderTSPropertyAccessExpr("options", property.Name),
-			hasDefault,
-		)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		if ok {
-			fieldLines = append(fieldLines, "    "+renderTSObjectKey(property.Name)+": "+expr+",\n")
-		}
-	}
-	return filtered, orderedKeys, fieldLines, nil
 }
 
 func buildGenericCreateFieldExprTS(
