@@ -30,6 +30,7 @@ func newOpenAPIProjectRouteDependencies(
 	if err != nil {
 		return ProjectRouteDependencies{}, fmt.Errorf("openapi settings overlay runtime: %w", err)
 	}
+	projectRuntimeAdapter := openAPIProjectRuntimeAdapter{runtime: projectRuntime}
 	return ProjectRouteDependencies{
 		ModePolicy:                     modePolicy,
 		WorkspaceRoot:                  workspaceRoot,
@@ -39,8 +40,8 @@ func newOpenAPIProjectRouteDependencies(
 		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 		CodegenTargetValidator:         projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error { return nil }),
 		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error { return nil }),
-		CodeUpdates:                    projectRuntimeCodeUpdateAdapter{runtime: projectRuntime},
-		RenameRefactors:                projectRuntimeRenameRefactorAdapter{runtime: projectRuntime},
+		CodeUpdates:                    projectRuntimeAdapter,
+		RenameRefactors:                projectRuntimeAdapter,
 	}, nil
 }
 
@@ -55,11 +56,11 @@ func newOpenAPILauncherManagementRouteDependencies(
 	}
 }
 
-type projectRuntimeCodeUpdateAdapter struct {
+type openAPIProjectRuntimeAdapter struct {
 	runtime *projectstate.Runtime
 }
 
-func (a projectRuntimeCodeUpdateAdapter) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
+func (a openAPIProjectRuntimeAdapter) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
 	if a.runtime == nil {
 		return projectstate.ErrRuntimeClosed
 	}
@@ -67,15 +68,11 @@ func (a projectRuntimeCodeUpdateAdapter) SetCode(ctx context.Context, projectID 
 	return err
 }
 
-func (a projectRuntimeCodeUpdateAdapter) FormatCode(context.Context, string, string) error {
+func (a openAPIProjectRuntimeAdapter) FormatCode(context.Context, string, string) error {
 	return projectstate.NewFormatCodeError(errOpenAPIDocumentRouteDependencyUnavailable.Error())
 }
 
-type projectRuntimeRenameRefactorAdapter struct {
-	runtime *projectstate.Runtime
-}
-
-func (a projectRuntimeRenameRefactorAdapter) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
+func (a openAPIProjectRuntimeAdapter) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
 	if a.runtime == nil {
 		return projectstate.ErrRuntimeClosed
 	}
@@ -83,11 +80,11 @@ func (a projectRuntimeRenameRefactorAdapter) SetSectionName(ctx context.Context,
 	return err
 }
 
-func (projectRuntimeRenameRefactorAdapter) AcceptRenameRefactor(context.Context, string, string) error {
+func (openAPIProjectRuntimeAdapter) AcceptRenameRefactor(context.Context, string, string) error {
 	return projectstate.ErrRenameRefactorPendingNotFound
 }
 
-func (projectRuntimeRenameRefactorAdapter) DeclineRenameRefactor(context.Context, string, string) error {
+func (openAPIProjectRuntimeAdapter) DeclineRenameRefactor(context.Context, string, string) error {
 	return projectstate.ErrRenameRefactorPendingNotFound
 }
 
