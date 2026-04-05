@@ -26,6 +26,7 @@ import (
 	"setta/internal/gitread"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
+	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/notifications"
@@ -47,7 +48,6 @@ import (
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
-type frontendHTTPOpenAPILSPAdminService struct{}
 type frontendHTTPOpenAPIProjectCodeUpdateService struct{}
 type frontendHTTPOpenAPIProjectRenameRefactorService struct{}
 
@@ -98,14 +98,6 @@ func (frontendHTTPOpenAPIProjectRenameRefactorService) AcceptRenameRefactor(cont
 }
 
 func (frontendHTTPOpenAPIProjectRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPILSPAdminService) Restart(context.Context, projectstate.Document) error {
-	return nil
-}
-
-func (frontendHTTPOpenAPILSPAdminService) TypeCheckProject(context.Context, projectstate.Document, string) error {
 	return nil
 }
 
@@ -335,7 +327,7 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		ProjectState: &projectstate.Runtime{},
 		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
 		Completions:  &lspcompletion.Service{},
-		Admin:        frontendHTTPOpenAPILSPAdminService{},
+		Admin:        (*lsp.ProjectSynchronizer)(nil),
 	}); err != nil {
 		return nil, fmt.Errorf("register lsp routes: %w", err)
 	}

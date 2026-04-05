@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -27,6 +26,7 @@ import (
 	"setta/internal/gitread"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
+	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/notifications"
@@ -35,7 +35,6 @@ import (
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
-	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runchains"
 	"setta/internal/runs"
@@ -46,38 +45,6 @@ import (
 	"setta/internal/workspacelaunch"
 )
 
-type openAPITestInfoService struct{}
-
-func (openAPITestInfoService) ServerMode(_ context.Context) string {
-	return string(config.ModeIDE)
-}
-
-func (openAPITestInfoService) RuntimeInfo(_ context.Context) RuntimeInfo {
-	return RuntimeInfo{
-		Mode: string(config.ModeIDE),
-		Paths: RuntimePaths{
-			WorkspaceRoot:      "/workspace",
-			SettaHome:          "/setta-home",
-			ProfileLookupHome:  "/profiles",
-			SettaFilesRoot:     "/setta-files",
-			SettaFilesLocation: "local",
-			RuntimeRoot:        "/runtime",
-		},
-		Policy: RuntimePathPolicy{
-			GlobalSettaFilesBase: "/global-setta",
-			AutoMode:             "local",
-		},
-	}
-}
-
-func (openAPITestInfoService) SDKRuntimeHandshake(_ context.Context) pythonsdkcontracts.RunningBackendVersionHandshake {
-	return pythonsdkcontracts.RunningBackendVersionHandshake{
-		SDKVersion:         "test-sdk",
-		CoreVersion:        "test-core",
-		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
-	}
-}
-
 func discardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
@@ -85,7 +52,7 @@ func discardLogger() *slog.Logger {
 func TestNewHandlerServesOpenAPIJSON(t *testing.T) {
 	handler, err := NewHandler(Dependencies{
 		Logger: discardLogger(),
-		Info:   openAPITestInfoService{},
+		Info:   frontendHTTPOpenAPIInfoService{},
 	})
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
@@ -122,7 +89,7 @@ func TestNewHandlerServesOpenAPIJSON(t *testing.T) {
 func TestNewHandlerServesRootAndAPIRoutesInOpenAPIJSON(t *testing.T) {
 	handler, err := NewHandler(Dependencies{
 		Logger: discardLogger(),
-		Info:   openAPITestInfoService{},
+		Info:   frontendHTTPOpenAPIInfoService{},
 		RegisterRoot: func(r chi.Router) {
 			if err := RegisterAttachmentRootRoutes(r, AttachmentRootRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeIDE),
@@ -319,7 +286,7 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		ProjectState: &projectstate.Runtime{},
 		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
 		Completions:  &lspcompletion.Service{},
-		Admin:        frontendHTTPOpenAPILSPAdminService{},
+		Admin:        (*lsp.ProjectSynchronizer)(nil),
 	}); err != nil {
 		t.Fatalf("register lsp routes: %v", err)
 	}
