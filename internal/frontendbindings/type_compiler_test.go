@@ -134,6 +134,42 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	}
 }
 
+func TestLookupDiscriminatedObjectFamilyUsesPromotedProviderMethods(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		typ      reflect.Type
+		wantBase reflect.Type
+	}{
+		{
+			name:     "section member",
+			typ:      reflect.TypeOf(projectstate.FrontendChatSectionImpl{}),
+			wantBase: reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
+		},
+		{
+			name:     "nested code object member",
+			typ:      reflect.TypeOf(projectstate.FrontendDropdownParamCodeObjImpl{}),
+			wantBase: reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			family, ok := lookupDiscriminatedObjectFamily(tc.typ)
+			if !ok {
+				t.Fatalf("lookupDiscriminatedObjectFamily(%v) did not find a family", tc.typ)
+			}
+			if family.BaseType != tc.wantBase {
+				t.Fatalf("lookupDiscriminatedObjectFamily(%v) base = %v, want %v", tc.typ, family.BaseType, tc.wantBase)
+			}
+		})
+	}
+}
+
 func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *testing.T) {
 	t.Parallel()
 

@@ -35,37 +35,14 @@ func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.Discr
 }
 
 func lookupDiscriminatedObjectFamily(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, bool) {
-	return lookupEmbeddedDiscriminatedObjectFamily(canonicalFrontendBindingType(t), map[reflect.Type]struct{}{})
-}
-
-func lookupEmbeddedDiscriminatedObjectFamily(
-	t reflect.Type,
-	seen map[reflect.Type]struct{},
-) (frontendbindingmeta.DiscriminatedObjectFamily, bool) {
+	t = canonicalFrontendBindingType(t)
 	if t == nil {
 		return frontendbindingmeta.DiscriminatedObjectFamily{}, false
 	}
-	if _, duplicate := seen[t]; duplicate {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, false
-	}
-	seen[t] = struct{}{}
 	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](t); ok {
 		family := provider.FrontendBindingDiscriminatedObjectFamily()
 		family.BaseType = canonicalFrontendBindingType(family.BaseType)
 		if family.BaseType != nil {
-			return family, true
-		}
-	}
-	if t.Kind() != reflect.Struct {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, false
-	}
-	for index := 0; index < t.NumField(); index++ {
-		field := t.Field(index)
-		if !field.Anonymous {
-			continue
-		}
-		family, ok := lookupEmbeddedDiscriminatedObjectFamily(canonicalFrontendBindingType(field.Type), seen)
-		if ok {
 			return family, true
 		}
 	}
