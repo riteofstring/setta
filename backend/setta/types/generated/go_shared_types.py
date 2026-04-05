@@ -49,6 +49,16 @@ class ChartType(StrEnum):
     scatter = "scatter"
 
 
+class ChatFileAttachment(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    mimeType: str | None = None
+    name: str
+    size: int | None = None
+
+
 class ChatRole(StrEnum):
     system = "system"
     user = "user"
@@ -277,6 +287,14 @@ class LiteralDependencyValue(BaseModel):
     type: DependencyValueType
 
 
+class MessageImageURL(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    detail: str | None = None
+    url: str
+
+
 class MessageImageURLContent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -299,6 +317,16 @@ class MessageTextDelta(BaseModel):
     )
     index: int
     text: str
+    type: str
+
+
+class MessageThinkingContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    signature: str | None = None
+    summary: str | None = None
+    thinking: str
     type: str
 
 
@@ -500,6 +528,17 @@ class ToolResultEvent(BaseModel):
     type: StreamingEventType
 
 
+class TopLevelSectionLayout(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    h: float | None = None
+    w: float | None = None
+    x: float
+    y: float
+    zIndex: int | None = None
+
+
 class WatchCodeCallableKind(StrEnum):
     function = "function"
     async_function = "async_function"
@@ -530,6 +569,20 @@ class WatchCodeRegistryEntry(BaseModel):
 class WindowSpaceSurfaceKind(StrEnum):
     project_chat = "project_chat"
     section = "section"
+
+
+class WindowSpaceWindow(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    chatId: str | None = None
+    embeddedGitPaneVisible: bool | None = None
+    mode: ChatWindowMode | None = None
+    normalizedBounds: NormalizedFloatingWindowBounds | None = None
+    sectionIdOrNull: str | None = None
+    surfaceKind: WindowSpaceSurfaceKind | None = None
+    title: str | None = None
+    zIndex: int | None = None
 
 
 class WorkspaceLaunchRouteKind(StrEnum):
@@ -651,6 +704,27 @@ class DrawAreaLayerItemTransformArtifact(BaseModel):
     value: DrawAreaLayerItemTransform
 
 
+class Edge(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    animated: bool | None = None
+    data: RawMessage | None = None
+    hidden: bool | None = None
+    id: str
+    label: str | None = None
+    selected: bool | None = None
+    sourcePortId: str
+    sourceSectionId: str
+    sourceVariantId: str
+    style: RawMessage | None = None
+    targetPortId: str
+    targetSectionId: str
+    targetVariantId: str
+    type: str | None = None
+    zIndex: int | None = None
+
+
 class ListenerErrorMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -741,6 +815,33 @@ class ServerModeBoundary(BaseModel):
 type ServerModeBoundaryPolicy = dict[str, ServerModeBoundary]
 
 
+class StateMachineSourceFilter(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    equals: str | None = None
+    payloadField: str | None = None
+    signalName: str | None = None
+    type: StateMachineSourceFilterType
+
+
+class StateMachineTargetAction(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    agentProfileId: str | None = None
+    engineConfigId: str | None = None
+    inlinePrompt: str | None = None
+    permissionMode: str | None = None
+    promptInputs: dict[str, str] | None = None
+    promptSectionId: str | None = None
+    promptTemplateId: str | None = None
+    searchEnabled: bool | None = None
+    stopIfRunning: bool | None = None
+    threadStrategy: StateMachineThreadStrategy
+    type: StateMachineTargetActionType
+
+
 class ToolCall(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -748,6 +849,21 @@ class ToolCall(BaseModel):
     function: ToolCallFunction
     id: str
     type: str
+
+
+class ViewMode(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    isTab: bool | None = None
+    isUserFacing: bool | None = None
+    name: str
+    sortIndex: int
+    topLevelSections: dict[str, TopLevelSectionLayout] | None = None
+    viewport: Viewport | None = None
+    viewportInitialized: bool | None = None
+    visibilityBySectionId: dict[str, bool] | None = None
 
 
 class WindowSpaceConfig(BaseModel):
@@ -830,6 +946,28 @@ type ProjectCodegenTarget = Annotated[
     ProjectCodegenPythonTarget | ProjectCodegenPluginTarget,
     Field(..., title="ProjectCodegenTarget"),
 ]
+
+
+class StateMachineEdge(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    hidden: bool | None = None
+    id: str
+    machineGroupId: str
+    selected: bool | None = None
+    sourceActivationCountCondition: (
+        StateMachineSourceActivationCountCondition | None
+    ) = None
+    sourceFilter: StateMachineSourceFilter | None = None
+    sourcePortId: str
+    sourceSectionId: str
+    style: RawMessage | None = None
+    targetAction: StateMachineTargetAction | None = None
+    targetPortId: str
+    targetSectionId: str
+    zIndex: int | None = None
+
 
 type LLMStreamingResponseChunk = Annotated[
     MessageStartEvent
@@ -1155,11 +1293,15 @@ class Route(str, Enum):
     WRITE_FILE_BROWSER_CONTENT = "/writeFileBrowserFileContent"
 
 
-class ChatFileAttachment(SettaSharedTypeModel):
-    id: str
-    name: str
-    mimeType: str | None = None
-    size: int | None = None
+class AssistantChatMessage(SettaSharedTypeModel):
+    id: ID = Field(default_factory=create_new_id)
+    role: ChatRole = ChatRole.assistant
+    createdAt: int = 0
+    content: list[
+        MessageTextContent | MessageImageURLContent | MessageThinkingContent
+    ] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    tool_calls: list[ToolCall] | None = None
 
 
 class ChatSectionBranch(SettaSharedTypeModel):
@@ -1176,24 +1318,6 @@ class ChatSectionState(SettaSharedTypeModel):
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
     activeBranchId: ID | None = None
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-
-
-class Edge(SettaSharedTypeModel):
-    id: str
-    sourceSectionId: str
-    sourceVariantId: str
-    sourcePortId: str
-    targetSectionId: str
-    targetVariantId: str
-    targetPortId: str
-    type: str | None = None
-    label: str | None = None
-    style: Any | None = None
-    animated: bool | None = None
-    hidden: bool | None = None
-    zIndex: int | None = None
-    data: Any | None = None
-    selected: bool | None = None
 
 
 class LLMConfig(SettaSharedTypeModel):
@@ -1232,29 +1356,6 @@ class LineChartSettings(SettaSharedTypeModel):
     xAxisLog: bool = False
     y1AxisLog: bool = False
     y2AxisLog: bool = False
-
-
-class MessageImageURL(SettaSharedTypeModel):
-    url: str
-    detail: str | None = None
-
-
-class MessageThinkingContent(SettaSharedTypeModel):
-    type: str
-    thinking: str
-    summary: str | None = None
-    signature: str | None = None
-
-
-class AssistantChatMessage(SettaSharedTypeModel):
-    id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.assistant
-    createdAt: int = 0
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-    tool_calls: list[ToolCall] | None = None
 
 
 class MessageThinkingDelta(SettaSharedTypeModel):
@@ -1296,45 +1397,6 @@ class SectionParamDependencyKey(SettaSharedTypeModel):
     codeObjId: ID
 
 
-class StateMachineSourceFilter(SettaSharedTypeModel):
-    type: StateMachineSourceFilterType
-    signalName: str | None = None
-    payloadField: str | None = None
-    equals: str | None = None
-
-
-class StateMachineTargetAction(SettaSharedTypeModel):
-    type: StateMachineTargetActionType
-    promptTemplateId: str | None = None
-    promptSectionId: str | None = None
-    inlinePrompt: str | None = None
-    promptInputs: dict[str, str] | None = None
-    threadStrategy: StateMachineThreadStrategy
-    stopIfRunning: bool | None = None
-    engineConfigId: str | None = None
-    agentProfileId: str | None = None
-    permissionMode: str | None = None
-    searchEnabled: bool | None = None
-
-
-class StateMachineEdge(SettaSharedTypeModel):
-    id: str
-    machineGroupId: str
-    sourceSectionId: str
-    sourcePortId: str
-    targetSectionId: str
-    targetPortId: str
-    sourceFilter: StateMachineSourceFilter | None = None
-    sourceActivationCountCondition: (
-        StateMachineSourceActivationCountCondition | None
-    ) = None
-    targetAction: StateMachineTargetAction | None = None
-    style: Any | None = None
-    hidden: bool | None = None
-    zIndex: int | None = None
-    selected: bool | None = None
-
-
 class SystemChatMessage(SettaSharedTypeModel):
     id: ID = Field(default_factory=create_new_id)
     role: ChatRole = ChatRole.system
@@ -1369,14 +1431,6 @@ class ToolChatMessage(SettaSharedTypeModel):
     completed_at: datetime | None = None
 
 
-class TopLevelSectionLayout(SettaSharedTypeModel):
-    x: float
-    y: float
-    zIndex: int | None = None
-    w: float | None = None
-    h: float | None = None
-
-
 class UserChatMessage(SettaSharedTypeModel):
     id: ID = Field(default_factory=create_new_id)
     role: ChatRole = ChatRole.user
@@ -1391,18 +1445,6 @@ class Viewport(SettaSharedTypeModel):
     x: float = 0.0
     y: float = 0.0
     zoom: float = 1.0
-
-
-class ViewMode(SettaSharedTypeModel):
-    id: str
-    name: str
-    sortIndex: int
-    isUserFacing: bool | None = None
-    isTab: bool | None = None
-    visibilityBySectionId: dict[str, bool] | None = None
-    viewport: Viewport | None = None
-    viewportInitialized: bool | None = None
-    topLevelSections: dict[str, TopLevelSectionLayout] | None = None
 
 
 class ProjectConfig(SettaSharedTypeModel):
@@ -1638,14 +1680,3 @@ class ProjectConfig(SettaSharedTypeModel):
     edges: list[Edge] = Field(default_factory=list)
     agenticEdges: list[AgenticEdge] = Field(default_factory=list)
     stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
-
-
-class WindowSpaceWindow(SettaSharedTypeModel):
-    surfaceKind: WindowSpaceSurfaceKind | None = None
-    sectionIdOrNull: str | None = None
-    mode: ChatWindowMode | None = None
-    title: str | None = None
-    chatId: str | None = None
-    embeddedGitPaneVisible: bool | None = None
-    zIndex: int | None = None
-    normalizedBounds: NormalizedFloatingWindowBounds | None = None

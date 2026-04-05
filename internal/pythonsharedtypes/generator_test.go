@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/scriptablechat"
 )
 
 func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
@@ -144,6 +146,20 @@ func TestPythonTypeExprWithImportsSkipsExternalImportWhenTypeIsGeneratedLocally(
 	}
 }
 
+func TestPythonModelRequiresManualOverrideOnlyForPythonSpecificOverrides(t *testing.T) {
+	t.Helper()
+
+	if pythonModelRequiresManualOverride(reflect.TypeOf(scriptablechat.ChatFileAttachment{})) {
+		t.Fatalf("ChatFileAttachment should use the standard schema-generated path")
+	}
+	if !pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectRunCapabilities{})) {
+		t.Fatalf("ProjectRunCapabilities should stay on the manual override path")
+	}
+	if !pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectConfig{})) {
+		t.Fatalf("ProjectConfig should remain on the manual override path")
+	}
+}
+
 func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	t.Helper()
 
@@ -159,8 +175,10 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"type SectionSizeValue = Annotated[",
 		"class SectionSize(BaseModel):",
 		"class Chat(SettaSharedTypeModel):",
-		"messages: list[BaseChatMessageUnion]",
+		"class ChatFileAttachment(BaseModel):",
 		"class DependencyEvent(SettaSharedTypeModel):",
+		"class StateMachineEdge(BaseModel):",
+		"messages: list[BaseChatMessageUnion]",
 		"dependencyKey: BaseDependencyKeyUnion",
 		"payload: BaseDependencyValueUnion | None",
 		"class MessageStartEvent(BaseModel):",
@@ -170,6 +188,14 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)
+		}
+	}
+	for _, snippet := range []string{
+		"class ChatFileAttachment(SettaSharedTypeModel):",
+		"class StateMachineEdge(SettaSharedTypeModel):",
+	} {
+		if strings.Contains(output, snippet) {
+			t.Fatalf("generated output should not contain snippet %q", snippet)
 		}
 	}
 }

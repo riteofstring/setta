@@ -183,18 +183,25 @@ func pythonModelRequiresManualOverride(t reflect.Type) bool {
 		return false
 	}
 	for _, field := range visibleFields(t) {
-		if field.Type.Kind() == reflect.Pointer {
+		if pythonFieldRequiresManualOverride(field) {
 			return true
 		}
-		if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
-			return true
-		}
-		if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
-			return true
-		}
-		if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
-			return true
-		}
+	}
+	return false
+}
+
+func pythonFieldRequiresManualOverride(field reflect.StructField) bool {
+	if field.Type.Kind() == reflect.Pointer && !fieldAllowsMissing(field) {
+		return true
+	}
+	if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
+		return true
+	}
+	if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
+		return true
+	}
+	if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
+		return true
 	}
 	return false
 }
