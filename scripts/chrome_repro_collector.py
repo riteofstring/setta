@@ -12,6 +12,9 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+HEALTH_PATH = "/health"
+EVENT_PATH = "/event"
+
 
 def utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -173,54 +176,68 @@ def is_transport_event(event_type: str | None) -> bool:
     return event_type.startswith("network-") or event_type.startswith("websocket-")
 
 
-def build_handler(state: RecorderState):
-    class RecorderHandler(BaseHTTPRequestHandler):
-        def _send_json(self, status: HTTPStatus, payload: dict) -> None:
-            body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+def read_json_object_request(
+    handler: BaseHTTPRequestHandler,
+) -> tuple[dict | None, tuple[HTTPStatus, dict] | None]:
+    content_length = int(handler.headers.get("Content-Length", "0"))
+    if content_length <= 0:
+        return None, (HTTPStatus.BAD_REQUEST, {"ok": False, "error": "empty body"})
 
-        def do_GET(self) -> None:  # noqa: N802
-            if self.path != "/health":
-                self._send_json(HTTPStatus.NOT_FOUND, {"ok": False})
-                return
-            self._send_json(HTTPStatus.OK, {"ok": True})
+    raw_body = handler.rfile.read(content_length)
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, (
+            HTTPStatus.BAD_REQUEST,
+            {"ok": False, "error": f"invalid json: {exc}"},
+        )
 
-        def do_POST(self) -> None:  # noqa: N802
-            if self.path != "/event":
-                self._send_json(HTTPStatus.NOT_FOUND, {"ok": False})
-                return
-            content_length = int(self.headers.get("Content-Length", "0"))
-            if content_length <= 0:
-                self._send_json(
-                    HTTPStatus.BAD_REQUEST, {"ok": False, "error": "empty body"}
-                )
-                return
-            raw_body = self.rfile.read(content_length)
-            try:
-                payload = json.loads(raw_body.decode("utf-8"))
-            except json.JSONDecodeError as exc:
-                self._send_json(
-                    HTTPStatus.BAD_REQUEST,
-                    {"ok": False, "error": f"invalid json: {exc}"},
-                )
-                return
-            if not isinstance(payload, dict):
-                self._send_json(
-                    HTTPStatus.BAD_REQUEST,
-                    {"ok": False, "error": "payload must be an object"},
-                )
-                return
-            state.append_event(payload)
-            self._send_json(HTTPStatus.OK, {"ok": True})
+    if not isinstance(payload, dict):
+        return None, (
+            HTTPStatus.BAD_REQUEST,
+            {"ok": False, "error": "payload must be an object"},
+        )
+    return payload, None
 
-        def log_message(self, _format: str, *_args: object) -> None:
+
+class RecorderHandlerBase(BaseHTTPRequestHandler):
+    state: RecorderState
+
+    def _send_json(self, status: HTTPStatus, payload: dict) -> None:
+        body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path != HEALTH_PATH:
+            self._send_json(HTTPStatus.NOT_FOUND, {"ok": False})
             return
+        self._send_json(HTTPStatus.OK, {"ok": True})
 
-    return RecorderHandler
+    def do_POST(self) -> None:  # noqa: N802
+        if self.path != EVENT_PATH:
+            self._send_json(HTTPStatus.NOT_FOUND, {"ok": False})
+            return
+        self._handle_event_post()
+
+    def _handle_event_post(self) -> None:
+        payload, error = read_json_object_request(self)
+        if error is not None:
+            self._send_json(*error)
+            return
+        assert payload is not None
+        self.state.append_event(payload)
+        self._send_json(HTTPStatus.OK, {"ok": True})
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
+def build_handler(state: RecorderState):
+    return type("RecorderHandler", (RecorderHandlerBase,), {"state": state})
 
 
 def parse_args() -> argparse.Namespace:

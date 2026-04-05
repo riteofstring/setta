@@ -260,14 +260,8 @@ def iter_safe_session_source_paths(source_root: Path) -> Iterator[Path]:
         yield from sorted(path for path in source_root.glob(pattern) if path.is_file())
 
 
-def main() -> int:
-    args = parse_args()
-    artifact_dir = Path(args.artifact_dir).resolve()
-    setta_files_root = Path(args.setta_files_root).resolve()
-    llm_artifacts_dir = artifact_dir / "llm_engine_artifacts"
-    llm_artifacts_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest: dict[str, Any] = {
+def build_manifest(artifact_dir: Path, setta_files_root: Path) -> dict[str, Any]:
+    return {
         "format": "setta.chrome-repro-llm-artifacts/v1",
         "createdAt": datetime.now(UTC).isoformat(),
         "artifactDir": str(artifact_dir),
@@ -276,14 +270,158 @@ def main() -> int:
         "issues": [],
     }
 
+
+def write_manifest(llm_artifacts_dir: Path, manifest: dict[str, Any]) -> None:
+    (llm_artifacts_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def build_copied_run_entry(recorded_run: dict[str, str]) -> dict[str, Any]:
+    return {
+        "runId": recorded_run["runId"],
+        "chatId": recorded_run["chatId"],
+        "engineConfigId": recorded_run["engineConfigId"],
+        "threadId": recorded_run["threadId"],
+        "copiedFiles": [],
+        "omittedPathHints": list(OMITTED_SESSION_PATH_HINTS),
+    }
+
+
+def copy_run_artifact(
+    run_id: str,
+    agent_runs_source: Path,
+    llm_artifacts_dir: Path,
+    copied_entry: dict[str, Any],
+) -> None:
+    run_source_path = agent_runs_source / f"{run_id}.json"
+    run_destination_path = llm_artifacts_dir / "agent_runs" / f"{run_id}.json"
+    if not run_source_path.is_file():
+        copied_entry["missingRunFile"] = str(run_source_path)
+        return
+    write_sanitized_copy(run_source_path, run_destination_path)
+    copied_entry["copiedFiles"].append(
+        str(run_destination_path.relative_to(llm_artifacts_dir))
+    )
+
+
+def resolve_external_agent_config_id(
+    engine_payload: Any, copied_entry: dict[str, Any]
+) -> str:
+    if not isinstance(engine_payload, dict):
+        return ""
+    if engine_payload:
+        copied_entry["engineConfig"] = sanitize_value(engine_payload)
+    return normalize_string(engine_payload.get("externalAgentConfigId"))
+
+
+def resolve_session_source_root(
+    setta_files_root: Path,
+    recorded_run: dict[str, str],
+    external_agent_config_id: str,
+    external_agent_payload: Any,
+    copied_entry: dict[str, Any],
+) -> tuple[str, Path] | None:
+    if isinstance(external_agent_payload, dict) and external_agent_payload:
+        copied_entry["externalAgentConfig"] = sanitize_value(external_agent_payload)
+
+    tool_type = normalize_string(
+        external_agent_payload.get("toolType")
+        if isinstance(external_agent_payload, dict)
+        else None
+    )
+    runtime_root_name = SESSION_ROOT_BY_TOOL_TYPE.get(tool_type)
+    if runtime_root_name is None:
+        copied_entry["unsupportedToolType"] = tool_type
+        return None
+
+    chat_id = recorded_run["chatId"]
+    if chat_id == "":
+        copied_entry["missingChatID"] = True
+        return None
+
+    session_source_root = (
+        setta_files_root
+        / "external_agent_settings"
+        / runtime_root_name
+        / external_agent_config_id
+        / "sessions"
+        / chat_id
+    )
+    if not session_source_root.is_dir():
+        copied_entry["missingSessionRoot"] = str(session_source_root)
+        return None
+    return runtime_root_name, session_source_root
+
+
+def collect_recorded_run_artifacts(
+    recorded_run: dict[str, str],
+    setta_files_root: Path,
+    llm_artifacts_dir: Path,
+    engine_lookup: dict[str, dict[str, Any]],
+    external_agent_lookup: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    copied_entry = build_copied_run_entry(recorded_run)
+    copy_run_artifact(
+        recorded_run["runId"],
+        setta_files_root / "agent_runs",
+        llm_artifacts_dir,
+        copied_entry,
+    )
+
+    external_agent_config_id = resolve_external_agent_config_id(
+        engine_lookup.get(recorded_run["engineConfigId"], {}),
+        copied_entry,
+    )
+    if external_agent_config_id == "":
+        return copied_entry
+
+    session_source = resolve_session_source_root(
+        setta_files_root,
+        recorded_run,
+        external_agent_config_id,
+        external_agent_lookup.get(external_agent_config_id, {}),
+        copied_entry,
+    )
+    if session_source is None:
+        return copied_entry
+
+    runtime_root_name, session_source_root = session_source
+    session_destination_root = (
+        llm_artifacts_dir
+        / "external_agent_settings"
+        / runtime_root_name
+        / external_agent_config_id
+        / "sessions"
+        / recorded_run["chatId"]
+    )
+    collect_session_artifacts(
+        session_source_root,
+        session_destination_root,
+        llm_artifacts_dir,
+        copied_entry["copiedFiles"],
+    )
+    copied_entry["sessionArtifactRoot"] = str(
+        session_destination_root.relative_to(llm_artifacts_dir)
+    )
+    return copied_entry
+
+
+def main() -> int:
+    args = parse_args()
+    artifact_dir = Path(args.artifact_dir).resolve()
+    setta_files_root = Path(args.setta_files_root).resolve()
+    llm_artifacts_dir = artifact_dir / "llm_engine_artifacts"
+    llm_artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest = build_manifest(artifact_dir, setta_files_root)
+
     if not setta_files_root.is_dir():
         manifest["issues"].append(
             f"setta files root does not exist: {setta_files_root}"
         )
-        (llm_artifacts_dir / "manifest.json").write_text(
-            json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
+        write_manifest(llm_artifacts_dir, manifest)
         return 0
 
     recorded_runs = extract_recorded_external_agent_runs(artifact_dir)
@@ -296,100 +434,19 @@ def main() -> int:
         load_json_file(setta_files_root / "external_agents.json")
     )
 
-    agent_runs_source = setta_files_root / "agent_runs"
-    copied_runs: list[dict[str, Any]] = []
-
-    for recorded_run in recorded_runs:
-        run_id = recorded_run["runId"]
-        copied_entry: dict[str, Any] = {
-            "runId": run_id,
-            "chatId": recorded_run["chatId"],
-            "engineConfigId": recorded_run["engineConfigId"],
-            "threadId": recorded_run["threadId"],
-            "copiedFiles": [],
-            "omittedPathHints": list(OMITTED_SESSION_PATH_HINTS),
-        }
-
-        run_source_path = agent_runs_source / f"{run_id}.json"
-        run_destination_path = llm_artifacts_dir / "agent_runs" / f"{run_id}.json"
-        if run_source_path.is_file():
-            write_sanitized_copy(run_source_path, run_destination_path)
-            copied_entry["copiedFiles"].append(
-                str(run_destination_path.relative_to(llm_artifacts_dir))
-            )
-        else:
-            copied_entry["missingRunFile"] = str(run_source_path)
-
-        engine_payload = engine_lookup.get(recorded_run["engineConfigId"], {})
-        if engine_payload:
-            copied_entry["engineConfig"] = sanitize_value(engine_payload)
-        external_agent_config_id = normalize_string(
-            engine_payload.get("externalAgentConfigId")
-            if isinstance(engine_payload, dict)
-            else None
-        )
-        if external_agent_config_id == "":
-            copied_runs.append(copied_entry)
-            continue
-
-        external_agent_payload = external_agent_lookup.get(external_agent_config_id, {})
-        if external_agent_payload:
-            copied_entry["externalAgentConfig"] = sanitize_value(external_agent_payload)
-        tool_type = normalize_string(
-            external_agent_payload.get("toolType")
-            if isinstance(external_agent_payload, dict)
-            else None
-        )
-        runtime_root_name = SESSION_ROOT_BY_TOOL_TYPE.get(tool_type)
-        if runtime_root_name is None:
-            copied_entry["unsupportedToolType"] = tool_type
-            copied_runs.append(copied_entry)
-            continue
-
-        chat_id = recorded_run["chatId"]
-        if chat_id == "":
-            copied_entry["missingChatID"] = True
-            copied_runs.append(copied_entry)
-            continue
-
-        session_source_root = (
-            setta_files_root
-            / "external_agent_settings"
-            / runtime_root_name
-            / external_agent_config_id
-            / "sessions"
-            / chat_id
-        )
-        if not session_source_root.is_dir():
-            copied_entry["missingSessionRoot"] = str(session_source_root)
-            copied_runs.append(copied_entry)
-            continue
-
-        session_destination_root = (
-            llm_artifacts_dir
-            / "external_agent_settings"
-            / runtime_root_name
-            / external_agent_config_id
-            / "sessions"
-            / chat_id
-        )
-        collect_session_artifacts(
-            session_source_root,
-            session_destination_root,
+    copied_runs = [
+        collect_recorded_run_artifacts(
+            recorded_run,
+            setta_files_root,
             llm_artifacts_dir,
-            copied_entry["copiedFiles"],
+            engine_lookup,
+            external_agent_lookup,
         )
-        copied_entry["sessionArtifactRoot"] = str(
-            session_destination_root.relative_to(llm_artifacts_dir)
-        )
-        copied_runs.append(copied_entry)
-
+        for recorded_run in recorded_runs
+    ]
     manifest["copiedRuns"] = copied_runs
     manifest["copiedRunCount"] = len(copied_runs)
-    (llm_artifacts_dir / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
-        encoding="utf-8",
-    )
+    write_manifest(llm_artifacts_dir, manifest)
     return 0
 
 
