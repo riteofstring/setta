@@ -10858,3 +10858,31 @@ LOOP_TERMINAL_MARKER: none
     - start the next iteration from a fresh outer-loop worktree lifecycle and retry only the bounded CDP confirmation on the already-green canonical lane
     - if devtools transport is still dead after that fresh bootstrap, keep the blocker explicit and do not spend the pass on more renderer or harness work
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 18:47 EDT, Ralph item `285`
+  - Summary: reran the canonical `rotaryParamCodeObjDefault` Playwright lane on the fresh loop-managed `3076/8076` session `208e6a`, confirmed the same healthy normalized canary snapshots as item `284`, and narrowed the remaining CDP issue from dead transport to deferred sub-agent visual-inspection/tooling debt.
+  - Files:
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass did not open a new section-specific lane; it rechecked the existing visual-gate lane on the same named target
+  - Verification:
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=120000` -> passed on session `208e6a` (`1 passed`, `24.2s`)
+    - Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`
+      - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
+    - fresh-context CDP sub-agent 1 -> read `docs/guides/browser-mcp-quickstart.md`, but the original bootstrap URL had already expired and the backend bootstrap screen stopped at `Token rejected. Request a new token and try again.`
+    - refreshed runtime info minted a fresh bootstrap URL for the same session `208e6a`
+    - fresh-context CDP sub-agent 2 -> accepted the fresh bootstrap token, reached `http://127.0.0.1:3076/settings`, and saw the `Settings` workspace plus the `All Settings` tab, but a `take_snapshot` after the heavier rerender timed out before it could confirm `graph-substrate-canary` or `rotaryParamCodeObjDefault`
+    - fresh-context CDP sub-agents 3/4 -> confirmed the CDP HTTP endpoint on `127.0.0.1:9298` and a live target at `http://127.0.0.1:3076/settings`, but did not produce a trustworthy screenshot or DOM evaluation; one reported that the `chrome-devtools-mcp` tool path was unavailable in that sub-agent session and the fallback raw-CDP screenshot attempt was aborted
+  - Result:
+    - the fresh outer-loop retry cleared the earlier dead-transport hypothesis for this runtime because the live `Settings` target and CDP endpoint are both present again
+    - the required visual gate is still not trustworthy in this loop configuration, but the remaining problem is tooling around fresh-context sub-agent inspection rather than a new product regression on the canonical lane
+    - because this pass already spent the mandated fresh-lifecycle CDP retry, the visual gate should stay explicit as deferred tooling debt instead of consuming another default iteration by itself
+  - Next:
+    - return to one measured product/perf slice on the canonical `rotaryParamCodeObjDefault` lane and keep the deferred CDP gate explicit in the handoff
+    - do not spend the next default iteration on another CDP-only recovery pass unless a concrete product slice depends on a new DevTools capability
+  - LOOP_TERMINAL_MARKER: none

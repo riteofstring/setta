@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 18:26 EDT
+Last updated: 2026-04-07 18:47 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,12 +62,17 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification blocker:
-  - item `284` recovered the canonical Playwright lane by classifying the repeated missing-canary state as persisted fullscreen-pane startup drift plus an under-budget live probe timeout, not as a new renderer regression
-  - the hardened canonical probe now passes again on the loop-managed `3076/8076` session `e3df0d`, and it also passed after one bounded `aireset` recovery on restarted session `ff25a0`
-  - the required CDP confirmation is still blocked after that one allowed recovery attempt:
-    - fresh-context CDP sub-agent on `e3df0d` only reached the Setta shell plus a centered loading spinner and never produced a trustworthy `All Settings` canary view
-    - after `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, the restarted runtime reported debug port `9298`, but a second fresh-context CDP sub-agent found `127.0.0.1:9298` refusing connection and the recorded devtools runtime process no longer running
-  - because the one allowed in-iteration recovery attempt is spent, the remaining blocker is CDP/tooling availability rather than a proven renderer defect on `rotaryParamCodeObjDefault`
+  - item `285` spent the mandated fresh-lifecycle retry on the bounded CDP-only confirmation for the already-green canonical lane
+  - the canonical Playwright probe passed again on fresh loop session `208e6a` at `3076/8076` with the same healthy snapshots as item `284`:
+    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+    - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+    - after normalized blank-pane pan: mounted section bodies `1`
+    - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
+  - the remaining CDP issue is now narrowed to sub-agent visual inspection/tooling, not dead transport or a fresh renderer regression:
+    - first fresh-context CDP sub-agent hit an expired bootstrap token and stopped at `Token rejected. Request a new token and try again.`
+    - second fresh-context CDP sub-agent accepted a newly minted token, reached `http://127.0.0.1:3076/settings`, and saw the `Settings` workspace plus the `All Settings` tab, but the next `take_snapshot` after the heavier rerender timed out before it could confirm `graph-substrate-canary` or `rotaryParamCodeObjDefault`
+    - later fresh-context CDP attempts confirmed the CDP HTTP endpoint on `127.0.0.1:9298` and a live target at `http://127.0.0.1:3076/settings`, but did not produce a trustworthy screenshot or DOM evaluation; one reported that the `chrome-devtools-mcp` tool path was unavailable in that sub-agent session and a fallback raw-CDP screenshot attempt was aborted
+  - because the fresh-lifecycle retry is now spent and the canonical Playwright lane is green, keep the CDP visual gate explicit as deferred tooling debt rather than treating it as a new blocker for product work on `rotaryParamCodeObjDefault`
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -102,25 +107,27 @@ This section overrides older "next frontier" notes below when choosing the next 
   - the normalized motion lane on `rotaryParamCodeObjDefault` is now clean enough to treat as regression coverage rather than as an open blocker
   - item `281` confirms semantically identical rerenders were still paying extra scene-sync fan-out in the seeded probe
   - item `283` is back to a healthy Playwright-backed live lane after the probe hardening, so its remaining unresolved gate is CDP/tooling confirmation rather than canary mount health
-  - once CDP transport is healthy again, the next real frontier can return to redraw-invalidations work instead of more startup/probe churn
+  - the fresh-lifecycle retry shows transport plus the live `Settings` target are present again, but sub-agent visual confirmation is still not trustworthy enough to satisfy the hard CDP gate in this pass
+  - the next real frontier should return to measured product/perf work with the visual gate carried as deferred tooling debt instead of spending another default iteration on startup/probe churn
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- begin from a fresh outer-loop lifecycle and recover bounded CDP access on the already-green canonical `rotaryParamCodeObjDefault` lane, then rerun the minimal visual confirmation only
+- return to one measured product/perf slice on the already-green canonical `rotaryParamCodeObjDefault` lane while keeping the unresolved CDP visual gate explicit as deferred tooling debt
 
-Recommended recovery target:
+Recommended next target:
 
-- keep item `283` and the new probe hardening as landed; do not reopen those seams unless the canonical Playwright lane regresses again
-- treat the current blocker as dead CDP transport after the spent in-iteration recovery attempt, not as a renderer-drift claim against `main`
-- reuse the same canonical target and the same normalized probe; do not open a new section-specific lane while the visual gate is blocked on tooling
+- keep item `283` and the probe hardening from item `284` as landed; do not reopen those seams unless the canonical Playwright lane regresses again
+- treat the current blocker as sub-agent CDP inspection/tooling debt, not as a renderer-drift claim against `main`
+- reuse the same canonical target and the same normalized probe; do not open a new section-specific lane while the deferred visual gate remains unresolved
+- prefer the plan's next measured frontier: record or deepen a bounded baseline/perf report that uses the current live counters to choose the next product invalidation slice
 
 Recommended deliverables for the next iteration:
 
-- one fresh loop-managed lifecycle with healthy devtools transport
-- one bounded CDP confirmation that `graph-substrate-canary` is visibly mounted on `All Settings` and that `rotaryParamCodeObjDefault` is visible on the graph surface
-- if the devtools runtime dies again, keep the blocker explicit and stop rather than adding more harness or renderer work in the same pass
+- one bounded product/perf slice on the canonical `All Settings` canary with `rotaryParamCodeObjDefault` as the focused target
+- focused verification on the existing Playwright instrumentation lane, reusing the same normalized probe and counters
+- an explicit note in handoff/history if the deferred CDP visual gate remains unchanged, rather than spending another full iteration on tooling-only recovery
 
 Recommended canonical target:
 
@@ -130,14 +137,43 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another instrumentation-only or harness-only pass unless the fresh lifecycle changes the CDP failure shape in a concrete way
+- another tooling-only or harness-only pass unless a concrete product slice genuinely depends on a new CDP capability
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
-- another shell redraw product slice until the required CDP gate is satisfied or explicitly reclassified
+- another shell redraw product slice until a measured baseline says shell redraw remains the next dominant cost
 - more runtime-log hygiene unless a fresh loop-managed lifecycle shows the session-aware helper is still insufficient
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `285` reran the canonical `rotaryParamCodeObjDefault` Playwright lane on the fresh loop-managed `3076/8076` session `208e6a`, confirmed the same healthy normalized canary snapshots as item `284`, and then narrowed the remaining CDP failure from dead transport to sub-agent visual-inspection/tooling limitations.
+
+  - Why this pass completed:
+    - item `284` explicitly spent the previous in-iteration recovery attempt and handed the next pass to one fresh-lifecycle CDP-only retry before more product work
+    - the canonical Playwright lane needed to prove the fresh outer-loop session was still healthy before the visual gate could be reclassified
+    - the fresh CDP attempts showed transport and the live `Settings` target were available again, so another recovery-only pass would have been more tooling churn without new renderer evidence
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new section-specific lane; it rechecked the existing visual-gate lane on the same named target
+  - Product/test change:
+    - none; this was the bounded fresh-lifecycle verification/reclassification pass requested by item `284`
+  - Verification:
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=120000` -> passed on session `208e6a` (`1 passed`, `24.2s`)
+    - Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`
+      - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
+    - fresh-context CDP follow-up:
+      - sub-agent 1 -> read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), used the originally provided bootstrap URL, and stopped at `Token rejected. Request a new token and try again.` with no trustworthy canary view
+      - refreshed runtime info minted a fresh bootstrap URL for the same live session `208e6a`
+      - sub-agent 2 -> accepted the fresh bootstrap token, reached `http://127.0.0.1:3076/settings`, and saw the `Settings` workspace plus the `All Settings` tab, but a `take_snapshot` after the heavier rerender timed out before it could confirm `graph-substrate-canary` or `rotaryParamCodeObjDefault`
+      - sub-agents 3/4 -> confirmed the CDP HTTP endpoint on `127.0.0.1:9298` and a live target at `http://127.0.0.1:3076/settings`, but did not produce a trustworthy screenshot or DOM evaluation; one explicitly reported that the `chrome-devtools-mcp` tool path was unavailable in that sub-agent session and the fallback raw-CDP screenshot attempt was aborted
+  - Lane status:
+    - the canonical Playwright oracle remains healthy on the fresh loop-managed session, so there is still no renderer regression evidence on `rotaryParamCodeObjDefault`
+    - the required CDP visual gate is now best classified as deferred tooling debt for the current loop setup: transport exists and the live `Settings` target exists, but fresh-context sub-agents did not complete a trustworthy canary screenshot or DOM confirmation
+    - the next iteration should return to one measured product/perf slice rather than spend another default pass on the same CDP-only recovery lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `284` hardened the live canonical probe so persisted fullscreen-pane startup drift no longer masquerades as a canary mount failure, and the `rotaryParamCodeObjDefault` Playwright lane is green again on both the original and restarted worktree sessions, but the required CDP visual gate is still blocked because the devtools transport died after the one allowed `aireset` recovery.
 
