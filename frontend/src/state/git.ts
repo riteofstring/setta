@@ -1,10 +1,10 @@
 import type {
-  GetGitCommitDetailsResponse,
-  GetGitCommitFileDiffResponse,
-  GetGitDiffResponse,
-  GetGitLogResponse,
-  GetGitStatusResponse,
+  GitCommitDetailsResponse,
+  GitCommitFileDiffResponse,
   GitDiffMode,
+  GitDiffResponse,
+  GitLogResponse,
+  GitStatusResponse,
 } from "utils/generatedTypes";
 import type { GitGraphRow, GitGraphRowComputationState } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -16,7 +16,7 @@ type GitDiffOverlayState = {
   mode: GitDiffMode;
   hasStaged: boolean;
   hasUnstaged: boolean;
-  response: GetGitDiffResponse | null;
+  response: GitDiffResponse | null;
   isLoading: boolean;
   error: string | null;
 };
@@ -24,7 +24,7 @@ type GitDiffOverlayState = {
 type GitGraphOverlayState = {
   projectConfigId: string | null;
   allRefs: boolean;
-  response: GetGitLogResponse | null;
+  response: GitLogResponse | null;
   seenCommitHashes: Set<string>;
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
@@ -38,11 +38,11 @@ type GitGraphOverlayState = {
   pageSize: number;
   isCapped: boolean;
   selectedCommitHash: string | null;
-  selectedCommitDetails: GetGitCommitDetailsResponse | null;
+  selectedCommitDetails: GitCommitDetailsResponse | null;
   selectedCommitDetailsIsLoading: boolean;
   selectedCommitDetailsError: string | null;
   selectedCommitFilePath: string | null;
-  selectedCommitFileDiffResponse: GetGitCommitFileDiffResponse | null;
+  selectedCommitFileDiffResponse: GitCommitFileDiffResponse | null;
   selectedCommitFileDiffIsLoading: boolean;
   selectedCommitFileDiffError: string | null;
 };
@@ -52,7 +52,7 @@ type GitOverlayState =
   | { kind: "diff"; diff: GitDiffOverlayState };
 
 type GitStatusState = {
-  response: GetGitStatusResponse | null;
+  response: GitStatusResponse | null;
   diffAvailabilityByPath: Map<
     string,
     { hasStaged: boolean; hasUnstaged: boolean }
