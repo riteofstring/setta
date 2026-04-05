@@ -4,6 +4,7 @@ import { postBackend } from "../helpers";
 export type SettingsGraphLocalPaneState = {
   overviewVisible: boolean;
   overviewTrueWidth: number;
+  snapToGrid: boolean;
   uiEditorVisible: boolean;
   uiEditorTrueWidth: number;
 };
@@ -92,6 +93,7 @@ type SettingsGraphBackendRequestOptions = {
 export const SETTINGS_GRAPH_COMPARE_PANE_STATE: SettingsGraphLocalPaneState = {
   overviewVisible: false,
   overviewTrueWidth: 420,
+  snapToGrid: false,
   uiEditorVisible: false,
   uiEditorTrueWidth: 260,
 };
@@ -418,6 +420,7 @@ export async function getLocalPaneState(
     return {
       overviewVisible: state.overviewVis,
       overviewTrueWidth: state.overviewTrueWidth,
+      snapToGrid: state.snapToGrid,
       uiEditorVisible: state.uiEditorVis,
       uiEditorTrueWidth: state.uiEditorTrueWidth,
     };
@@ -433,6 +436,7 @@ export async function setLocalPaneState(
     useLocalStorage.setState({
       overviewVis: nextPaneState.overviewVisible,
       overviewTrueWidth: nextPaneState.overviewTrueWidth,
+      snapToGrid: nextPaneState.snapToGrid,
       uiEditorVis: nextPaneState.uiEditorVisible,
       uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
     });

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
   shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
   shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
   shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
@@ -99,5 +100,35 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
     expect(
       shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget(target),
     ).toBe(true);
+  });
+
+  it("keeps drag end positions unchanged when snap to grid is disabled", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
+        { x: 613.2, y: 677.4 },
+        {
+          snapGrid: [15, 15],
+          snapToGrid: false,
+        },
+      ),
+    ).toEqual({
+      x: 613.2,
+      y: 677.4,
+    });
+  });
+
+  it("snaps drag end positions to the configured grid when enabled", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
+        { x: 613.2, y: 677.4 },
+        {
+          snapGrid: [15, 15],
+          snapToGrid: true,
+        },
+      ),
+    ).toEqual({
+      x: 615,
+      y: 675,
+    });
   });
 });

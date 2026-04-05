@@ -1,4 +1,5 @@
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
+import type { Position } from "utils/generatedTypes";
 
 export const SETTINGS_GRAPH_SUBSTRATE_CANARY_SECTION_SELECTOR =
   '[data-testid="graph-substrate-canary-section"]';
@@ -58,4 +59,21 @@ export function shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
   }
 
   return true;
+}
+
+export function resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
+  position: Position,
+  options: {
+    snapGrid: [number, number];
+    snapToGrid: boolean;
+  },
+): Position {
+  if (!options.snapToGrid) {
+    return position;
+  }
+
+  return {
+    x: options.snapGrid[0] * Math.round(position.x / options.snapGrid[0]),
+    y: options.snapGrid[1] * Math.round(position.y / options.snapGrid[1]),
+  };
 }

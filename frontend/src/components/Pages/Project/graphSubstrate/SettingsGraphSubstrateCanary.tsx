@@ -35,6 +35,7 @@ import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 import {
+  resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
   shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
   shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
   shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
@@ -170,6 +171,7 @@ export function SettingsGraphSubstrateCanary() {
     panOnScrollMode,
     panOnScrollSpeed,
     showGridLines,
+    snapGrid,
     zoomOnPinch,
     zoomOnScroll,
   } = useSettings(
@@ -181,6 +183,7 @@ export function SettingsGraphSubstrateCanary() {
       panOnScrollMode: state.gui.panOnScrollMode,
       panOnScrollSpeed: state.gui.panOnScrollSpeed,
       showGridLines: !!state.gui.showGridLines,
+      snapGrid: state.gui.snapGrid,
       zoomOnPinch: state.gui.zoomOnPinch,
       zoomOnScroll: state.gui.zoomOnScroll,
     }),
@@ -736,14 +739,22 @@ export function SettingsGraphSubstrateCanary() {
       draggedSection &&
       sectionPositionOverride?.sectionId === activeDrag.sectionId
     ) {
+      const persistedPosition =
+        resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
+          sectionPositionOverride.position,
+          {
+            snapGrid,
+            snapToGrid,
+          },
+        );
       ensureCanaryNode({
         ...draggedSection,
-        position: sectionPositionOverride.position,
+        position: persistedPosition,
       });
       moveNodes([
         {
           id: sectionPositionOverride.sectionId,
-          position: sectionPositionOverride.position,
+          position: persistedPosition,
         },
       ]);
       setZIndices([activeDrag.sectionId], true);

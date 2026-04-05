@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 04:50 EDT
+Last updated: 2026-04-05 05:09 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,57 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `156` restored legacy drag-end snap semantics on the canary and folded `snapToGrid` into the normalized compare state, which cleared the full-grid drag delta noise and shrank the named `sectionSizingPolicy` residual repro.
+  - Why this slice was needed:
+    - item `155` had already spent the lane budget opening the trusted `sectionSizingPolicy` top-level drag repro, so the next pass had to land product code on that lane rather than another probe-only iteration
+    - the canary top-level drag path still persisted raw world positions on pointer-up, while legacy `d3` drag snaps the final node position to `snapGrid` when `snapToGrid` is enabled
+    - once that production gap was closed, the shared drag control lane immediately exposed a separate oracle problem: cross-worktree drag compares were still inheriting unnormalized `snapToGrid` local state, which added a full-grid (`15`) layout delta unrelated to renderer drift
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - the canary now reads `snapGrid` from GUI settings
+      - top-level drag persistence now snaps the final section position through the same grid rounding contract as legacy before `moveNodes(...)` / `setZIndices(...)`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+      - added `resolveSettingsGraphSubstrateCanarySectionDragEndPosition(...)` as the focused snap-to-grid helper for drag-end persistence
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - added focused unit coverage for drag-end positions with `snapToGrid` both disabled and enabled
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - expanded `SettingsGraphLocalPaneState` / `SETTINGS_GRAPH_COMPARE_PANE_STATE` to include `snapToGrid`
+      - normalized compare runs now explicitly set `snapToGrid=false` on both worktree and read-only `main`
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - kept `sectionSizingPolicy` as the canonical expected-fail top-level drag lane, but tightened the failure note from about `13.28px` to about `12px`
+  - What this slice established:
+    - the focused canary interaction unit coverage passed after the new drag-end snap helper landed
+    - the first targeted live rerun after the production change turned the old `sectionSizingPolicy` marker into an unexpected pass, which showed the original larger drift had been removed
+    - that same rerun also exposed a full-grid `layoutDelta.x = 15` mismatch on the generic shared top-level drag control lane, which identified missing `snapToGrid` normalization rather than fresh renderer drift
+    - after compare normalization began forcing `snapToGrid=false` on both sides:
+      - the shared short top-level drag control lane passed again
+      - the named `sectionSizingPolicy` lane no longer failed on the earlier layout-delta mismatch and now only retains a smaller `afterDrag.centerOffsetFromRootCenter` residual of about `11.9999`
+    - treat the grid-sized drag delta as closed oracle noise, not as an open renderer blocker
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - focused unit tests:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed (`1 file`, `6 tests`)
+    - targeted live-runtime Playwright rerun after the production snap change, before compare-state normalization:
+      - `... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed as an unexpected pass (`Expected to fail, but passed`)
+    - targeted live-runtime Playwright rerun after compare-state normalization:
+      - `... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit|settings graph parity probe keeps the section sizing policy title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`2 passed`, where `sectionSizingPolicy` remains an expected-fail repro and the shared control lane is clean again)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - inspected worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings`
+      - normalized both to `snapToGrid=false` and closed the floating chat window so the graph surface was the focus
+    - CDP visual check: done (fresh-context sub-agent; after normalization there was no obvious gross drift, only the known small residual canvas-level difference)
+  - Lane status:
+    - keep `sectionSizingPolicy` as the canonical expected-fail top-level drag lane, but the residual is now the smaller `~12px` center-offset mismatch rather than the older `13.28px` plus layout-delta drift
+    - treat the generic short top-level drag control lane as clean again under normalized compare state
+    - do not reopen the `snapToGrid` oracle question next iteration; this slice closed it for the shared compare helpers
+  - Next frontier:
+    - investigate why `sectionSizingPolicy` still settles about `12px` farther from the graph root center after normalized top-level drag even with legacy drag-end snapping matched and `snapToGrid` compare noise removed
 
 - Ralph item `155` opened the trusted normalized `sectionSizingPolicy` top-level drag lane and stabilized it as the new expected-fail motion repro.
   - Why this slice was needed:
