@@ -1,6 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { clearTextFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -36,7 +38,6 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
@@ -289,11 +290,15 @@ function SectionSearchCore({
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       if (lspEnabled) {
-        route_clear_text_field_completion({
-          projectConfigId,
-          sectionId,
-          paramInfoId: null,
-        });
+        void callOpenAPI(
+          clearTextFieldCompletion({
+            body: {
+              projectConfigId,
+              sectionId,
+              paramInfoId: null,
+            },
+          }),
+        );
       }
       shouldResetValueOnBlur.current = false;
       return;

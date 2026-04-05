@@ -1,12 +1,13 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { textFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
@@ -222,13 +223,17 @@ function getTextFieldCompletionsFn(
 
     const projectConfigId = getCurrProjectConfigId();
 
-    const res = await route_text_field_completion({
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      fullText,
-      position,
-    });
+    const res = await callOpenAPI(
+      textFieldCompletion({
+        body: {
+          projectConfigId,
+          sectionId,
+          paramInfoId,
+          fullText,
+          position,
+        },
+      }),
+    );
 
     setToNotWaiting();
     if (res200(res)) {

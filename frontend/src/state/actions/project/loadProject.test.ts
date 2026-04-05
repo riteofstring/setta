@@ -64,6 +64,10 @@ vi.mock("openapi/http", async () => {
       options === undefined
         ? routeCreateProjectConfigMock()
         : routeCreateProjectConfigMock(options),
+    getLatestLspDiagnostics: (options?: unknown) =>
+      options === undefined
+        ? routeGetLatestLspDiagnosticsMock()
+        : routeGetLatestLspDiagnosticsMock(options),
     loadAllProjectMetadata: (options?: unknown) =>
       options === undefined
         ? routeLoadAllProjectMetadataMock()
@@ -77,11 +81,6 @@ vi.mock("openapi/http", async () => {
 
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_latest_lsp_diagnostics: (body: unknown) =>
-    routeGetLatestLspDiagnosticsMock(body),
 }));
 
 vi.mock("../serverMode", () => ({
@@ -275,7 +274,9 @@ describe("loadAllProjectMetadata", () => {
       },
     });
     expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-loaded",
+      body: {
+        projectConfigId: "project-loaded",
+      },
     });
     expect(processLspDiagnosticsMock).toHaveBeenCalledWith(diagnostics);
     expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-loaded");

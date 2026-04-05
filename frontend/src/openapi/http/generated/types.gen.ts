@@ -253,6 +253,19 @@ export type HttpapiCheckWorkspaceInitializedRequest = {
   folderPath: string;
 };
 
+export type HttpapiClearTextFieldCompletionRequest = {
+  paramInfoId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type HttpapiCodeAreaCompletionRequest = {
+  fullText: string;
+  position: number;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiCreateAgentProfileRequest = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
@@ -405,6 +418,18 @@ export type HttpapiExternalAgentPreflightStatus = {
   workingDir: string | null;
 };
 
+export type HttpapiGenCodePrefixCompletionRequest = {
+  fullText: string;
+  position: number;
+  projectConfigId: string;
+};
+
+export type HttpapiGenCodeSuffixCompletionRequest = {
+  fullText: string;
+  position: number;
+  projectConfigId: string;
+};
+
 export type HttpapiGetAgentProfileRequest = {
   profileId: string;
 };
@@ -446,6 +471,10 @@ export type HttpapiGetFolderContentsRequest = {
   includeSize?: boolean;
   maxEntries?: number;
   missingFolderBehavior?: string;
+};
+
+export type HttpapiGetLatestLspDiagnosticsRequest = {
+  projectConfigId: string;
 };
 
 export type HttpapiGetNotificationsRequest = {
@@ -545,6 +574,13 @@ export type HttpapiMcpRuntimeStatusResponse = {
 
 export type HttpapiManualSaveRequest = {
   projectConfigId: string;
+};
+
+export type HttpapiOutputAccessorCompletionRequest = {
+  fullText: string;
+  position: number;
+  projectConfigId: string;
+  sectionId: string;
 };
 
 export type HttpapiPluginConfigWriteRequest = {
@@ -686,6 +722,19 @@ export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
 };
 
+export type HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest = {
+  code: unknown;
+  projectConfigId: string;
+  sectionId: string;
+  suppress: boolean;
+};
+
+export type HttpapiSetCodeSectionDiagnosticsMuteRequest = {
+  mute: boolean;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiSetDefaultProjectConfigRequest = {
   projectConfigId: string;
 };
@@ -720,6 +769,14 @@ export type HttpapiShareDeploymentSessionResponse = {
   shareSessionId: string;
 };
 
+export type HttpapiTextFieldCompletionRequest = {
+  fullText: string;
+  paramInfoId: string | null;
+  position: number;
+  projectConfigId: string;
+  sectionId: string;
+};
+
 export type HttpapiTranscriptionProfilePayload = {
   chunkMs: number | null;
   id: string | null;
@@ -734,6 +791,10 @@ export type HttpapiTransferFileBrowserEntryRequest = {
   destinationFolderPath: string;
   operation: string;
   sourcePath: string;
+};
+
+export type HttpapiTypeCheckRequest = {
+  projectConfigId: string;
 };
 
 export type HttpapiUpdateAgentProfileRequest = {
@@ -816,6 +877,11 @@ export type LlmconfigServerConfig = {
   };
   transport: string;
   url?: string;
+};
+
+export type LspcompletionCodeMirrorCompletion = {
+  label: string;
+  type: string;
 };
 
 export type McpxServerRuntimeStatus = {
@@ -1200,6 +1266,34 @@ export type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
   minWidth: number;
 };
 
+export type ProjectstateLspDiagnostic = {
+  code: unknown;
+  message: string;
+  range: ProjectstateLspDiagnosticRange;
+  severity: number | null;
+  source: string | null;
+  uri: string | null;
+};
+
+export type ProjectstateLspDiagnosticPosition = {
+  character: number;
+  line: number;
+};
+
+export type ProjectstateLspDiagnosticRange = {
+  end: ProjectstateLspDiagnosticPosition;
+  start: ProjectstateLspDiagnosticPosition;
+};
+
+export type ProjectstateLspDiagnosticsPayload = {
+  codeSections: {
+    [key: string]: Array<ProjectstateLspDiagnostic> | null;
+  };
+  genCode: ProjectstateProjectConfigDiagnostics;
+  projectConfigId: string;
+  unmappedGenCode: Array<ProjectstateLspDiagnostic> | null;
+};
+
 export type ProjectstateNormalizedFloatingWindowBounds = {
   height: number;
   width: number;
@@ -1232,9 +1326,24 @@ export type ProjectstateProjectChatWindowingState = {
   order: Array<string> | null;
 };
 
+export type ProjectstateProjectConfigDiagnostics = {
+  errors: {
+    [key: string]: ProjectstateSectionTypeErrors;
+  };
+  isGenCode: boolean;
+  projectConfigId: string;
+};
+
 export type ProjectstateProjectConfigMetadata = {
   id: string;
   name: string;
+};
+
+export type ProjectstateSectionTypeErrors = {
+  callable: Array<string> | null;
+  params: {
+    [key: string]: Array<string> | null;
+  };
 };
 
 export type ProjectstateStateMachineEdge = {
@@ -2003,6 +2112,60 @@ export type CheckWorkspaceInitializedResponses = {
 export type CheckWorkspaceInitializedResponse =
   CheckWorkspaceInitializedResponses[keyof CheckWorkspaceInitializedResponses];
 
+export type ClearTextFieldCompletionData = {
+  body: HttpapiClearTextFieldCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/clearTextFieldCompletion";
+};
+
+export type ClearTextFieldCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ClearTextFieldCompletionError =
+  ClearTextFieldCompletionErrors[keyof ClearTextFieldCompletionErrors];
+
+export type ClearTextFieldCompletionResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type ClearTextFieldCompletionResponse =
+  ClearTextFieldCompletionResponses[keyof ClearTextFieldCompletionResponses];
+
+export type CodeAreaCompletionData = {
+  body: HttpapiCodeAreaCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/codeAreaCompletion";
+};
+
+export type CodeAreaCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CodeAreaCompletionError =
+  CodeAreaCompletionErrors[keyof CodeAreaCompletionErrors];
+
+export type CodeAreaCompletionResponses = {
+  /**
+   * OK
+   */
+  200: Array<LspcompletionCodeMirrorCompletion> | null;
+};
+
+export type CodeAreaCompletionResponse =
+  CodeAreaCompletionResponses[keyof CodeAreaCompletionResponses];
+
 export type CreateAgentProfileData = {
   body: HttpapiCreateAgentProfileRequest;
   path?: never;
@@ -2462,6 +2625,60 @@ export type DownloadFileBrowserEntryResponses = {
 export type DownloadFileBrowserEntryResponse =
   DownloadFileBrowserEntryResponses[keyof DownloadFileBrowserEntryResponses];
 
+export type GenCodePrefixCompletionData = {
+  body: HttpapiGenCodePrefixCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/genCodePrefixCompletion";
+};
+
+export type GenCodePrefixCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GenCodePrefixCompletionError =
+  GenCodePrefixCompletionErrors[keyof GenCodePrefixCompletionErrors];
+
+export type GenCodePrefixCompletionResponses = {
+  /**
+   * OK
+   */
+  200: Array<LspcompletionCodeMirrorCompletion> | null;
+};
+
+export type GenCodePrefixCompletionResponse =
+  GenCodePrefixCompletionResponses[keyof GenCodePrefixCompletionResponses];
+
+export type GenCodeSuffixCompletionData = {
+  body: HttpapiGenCodeSuffixCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/genCodeSuffixCompletion";
+};
+
+export type GenCodeSuffixCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GenCodeSuffixCompletionError =
+  GenCodeSuffixCompletionErrors[keyof GenCodeSuffixCompletionErrors];
+
+export type GenCodeSuffixCompletionResponses = {
+  /**
+   * OK
+   */
+  200: Array<LspcompletionCodeMirrorCompletion> | null;
+};
+
+export type GenCodeSuffixCompletionResponse =
+  GenCodeSuffixCompletionResponses[keyof GenCodeSuffixCompletionResponses];
+
 export type GetAgentProfileData = {
   body: HttpapiGetAgentProfileRequest;
   path?: never;
@@ -2812,6 +3029,33 @@ export type GetFolderContentsResponses = {
 
 export type GetFolderContentsResponse =
   GetFolderContentsResponses[keyof GetFolderContentsResponses];
+
+export type GetLatestLspDiagnosticsData = {
+  body: HttpapiGetLatestLspDiagnosticsRequest;
+  path?: never;
+  query?: never;
+  url: "/getLatestLspDiagnostics";
+};
+
+export type GetLatestLspDiagnosticsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetLatestLspDiagnosticsError =
+  GetLatestLspDiagnosticsErrors[keyof GetLatestLspDiagnosticsErrors];
+
+export type GetLatestLspDiagnosticsResponses = {
+  /**
+   * OK
+   */
+  200: ProjectstateLspDiagnosticsPayload;
+};
+
+export type GetLatestLspDiagnosticsResponse =
+  GetLatestLspDiagnosticsResponses[keyof GetLatestLspDiagnosticsResponses];
 
 export type GetNotificationsData = {
   body: HttpapiGetNotificationsRequest;
@@ -3186,6 +3430,33 @@ export type GetMcpServerRuntimeStatusResponses = {
 export type GetMcpServerRuntimeStatusResponse =
   GetMcpServerRuntimeStatusResponses[keyof GetMcpServerRuntimeStatusResponses];
 
+export type OutputAccessorCompletionData = {
+  body: HttpapiOutputAccessorCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/outputAccessorCompletion";
+};
+
+export type OutputAccessorCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type OutputAccessorCompletionError =
+  OutputAccessorCompletionErrors[keyof OutputAccessorCompletionErrors];
+
+export type OutputAccessorCompletionResponses = {
+  /**
+   * OK
+   */
+  200: Array<LspcompletionCodeMirrorCompletion> | null;
+};
+
+export type OutputAccessorCompletionResponse =
+  OutputAccessorCompletionResponses[keyof OutputAccessorCompletionResponses];
+
 export type WritePluginConfigData = {
   body: HttpapiPluginConfigWriteRequest;
   path?: never;
@@ -3530,6 +3801,33 @@ export type UpdatePluginResponses = {
 export type UpdatePluginResponse =
   UpdatePluginResponses[keyof UpdatePluginResponses];
 
+export type RestartLanguageServerData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/restartLanguageServer";
+};
+
+export type RestartLanguageServerErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RestartLanguageServerError =
+  RestartLanguageServerErrors[keyof RestartLanguageServerErrors];
+
+export type RestartLanguageServerResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type RestartLanguageServerResponse =
+  RestartLanguageServerResponses[keyof RestartLanguageServerResponses];
+
 export type RevealPathInOsFileExplorerData = {
   body: HttpapiRevealPathInOsFileExplorerRequest;
   path?: never;
@@ -3742,6 +4040,60 @@ export type SetAsDefaultProjectResponses = {
 
 export type SetAsDefaultProjectResponse =
   SetAsDefaultProjectResponses[keyof SetAsDefaultProjectResponses];
+
+export type SetCodeSectionDiagnosticCodeSuppressionData = {
+  body: HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeSectionDiagnosticCodeSuppression";
+};
+
+export type SetCodeSectionDiagnosticCodeSuppressionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeSectionDiagnosticCodeSuppressionError =
+  SetCodeSectionDiagnosticCodeSuppressionErrors[keyof SetCodeSectionDiagnosticCodeSuppressionErrors];
+
+export type SetCodeSectionDiagnosticCodeSuppressionResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeSectionDiagnosticCodeSuppressionResponse =
+  SetCodeSectionDiagnosticCodeSuppressionResponses[keyof SetCodeSectionDiagnosticCodeSuppressionResponses];
+
+export type SetCodeSectionDiagnosticsMuteData = {
+  body: HttpapiSetCodeSectionDiagnosticsMuteRequest;
+  path?: never;
+  query?: never;
+  url: "/setCodeSectionDiagnosticsMute";
+};
+
+export type SetCodeSectionDiagnosticsMuteErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetCodeSectionDiagnosticsMuteError =
+  SetCodeSectionDiagnosticsMuteErrors[keyof SetCodeSectionDiagnosticsMuteErrors];
+
+export type SetCodeSectionDiagnosticsMuteResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetCodeSectionDiagnosticsMuteResponse =
+  SetCodeSectionDiagnosticsMuteResponses[keyof SetCodeSectionDiagnosticsMuteResponses];
 
 export type SetProjectConfigNameData = {
   body: HttpapiSetProjectConfigNameRequest;
@@ -3996,6 +4348,33 @@ export type GetShareDeploymentStateResponses = {
 export type GetShareDeploymentStateResponse =
   GetShareDeploymentStateResponses[keyof GetShareDeploymentStateResponses];
 
+export type TextFieldCompletionData = {
+  body: HttpapiTextFieldCompletionRequest;
+  path?: never;
+  query?: never;
+  url: "/textFieldCompletion";
+};
+
+export type TextFieldCompletionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type TextFieldCompletionError =
+  TextFieldCompletionErrors[keyof TextFieldCompletionErrors];
+
+export type TextFieldCompletionResponses = {
+  /**
+   * OK
+   */
+  200: Array<LspcompletionCodeMirrorCompletion> | null;
+};
+
+export type TextFieldCompletionResponse =
+  TextFieldCompletionResponses[keyof TextFieldCompletionResponses];
+
 export type TransferFileBrowserEntryData = {
   body: HttpapiTransferFileBrowserEntryRequest;
   path?: never;
@@ -4022,6 +4401,31 @@ export type TransferFileBrowserEntryResponses = {
 
 export type TransferFileBrowserEntryResponse =
   TransferFileBrowserEntryResponses[keyof TransferFileBrowserEntryResponses];
+
+export type TypeCheckData = {
+  body: HttpapiTypeCheckRequest;
+  path?: never;
+  query?: never;
+  url: "/typeCheck";
+};
+
+export type TypeCheckErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type TypeCheckError = TypeCheckErrors[keyof TypeCheckErrors];
+
+export type TypeCheckResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type TypeCheckResponse = TypeCheckResponses[keyof TypeCheckResponses];
 
 export type UpdateAgentProfileData = {
   body: HttpapiUpdateAgentProfileRequest;

@@ -1,13 +1,13 @@
 import {
+  setCodeSectionDiagnosticCodeSuppression as setCodeSectionDiagnosticCodeSuppressionRequest,
+  setCodeSectionDiagnosticsMute as setCodeSectionDiagnosticsMuteRequest,
+} from "openapi/http";
+import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_set_code_section_diagnostic_code_suppression,
-  route_set_code_section_diagnostics_mute,
-} from "utils/generatedEndpoints";
 import {
   createProjectConfig,
   LSPDiagnosticsPayload,
@@ -26,9 +26,15 @@ import {
 import { getCurrEffectiveSectionImpl } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_code_section_diagnostics_mute: vi.fn(),
-  route_set_code_section_diagnostic_code_suppression: vi.fn(),
+vi.mock("openapi/http", () => ({
+  setCodeSectionDiagnosticsMute: vi.fn(),
+  setCodeSectionDiagnosticCodeSuppression: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 vi.mock("./typeCheck", () => ({
@@ -97,18 +103,18 @@ describe("lspDiagnostics actions", () => {
     resetProjectStores();
     setupProjectState();
     useShareSession.setState({ isDeploymentMode: false });
-    vi.mocked(route_set_code_section_diagnostics_mute).mockResolvedValue({
+    vi.mocked(setCodeSectionDiagnosticsMuteRequest).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
-    vi.mocked(
-      route_set_code_section_diagnostic_code_suppression,
-    ).mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
+    vi.mocked(setCodeSectionDiagnosticCodeSuppressionRequest).mockResolvedValue(
+      {
+        status: 200,
+        data: null,
+        hasResponse: true,
+      },
+    );
     vi.clearAllMocks();
   });
 
@@ -119,10 +125,12 @@ describe("lspDiagnostics actions", () => {
   it("sends mute toggle when not in share mode and updates local state", async () => {
     await setCodeSectionDiagnosticsMuted("section-1", true);
 
-    expect(route_set_code_section_diagnostics_mute).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId: "section-1",
-      mute: true,
+    expect(setCodeSectionDiagnosticsMuteRequest).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        mute: true,
+      },
     });
     expect(
       getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
@@ -138,7 +146,7 @@ describe("lspDiagnostics actions", () => {
 
     setCodeSectionDiagnosticsMuted("section-1", true);
 
-    expect(route_set_code_section_diagnostics_mute).not.toHaveBeenCalled();
+    expect(setCodeSectionDiagnosticsMuteRequest).not.toHaveBeenCalled();
   });
 
   it("skips suppression for null or undefined codes", () => {
@@ -146,7 +154,7 @@ describe("lspDiagnostics actions", () => {
     setCodeSectionDiagnosticCodeSuppression("section-1", undefined, true);
 
     expect(
-      route_set_code_section_diagnostic_code_suppression,
+      setCodeSectionDiagnosticCodeSuppressionRequest,
     ).not.toHaveBeenCalled();
   });
 
@@ -157,14 +165,16 @@ describe("lspDiagnostics actions", () => {
       true,
     );
 
-    expect(
-      route_set_code_section_diagnostic_code_suppression,
-    ).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId: "section-1",
-      code: "reportFoo",
-      suppress: true,
-    });
+    expect(setCodeSectionDiagnosticCodeSuppressionRequest).toHaveBeenCalledWith(
+      {
+        body: {
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          code: "reportFoo",
+          suppress: true,
+        },
+      },
+    );
     expect(
       getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
         .diagnosticsIgnoreState,
@@ -175,7 +185,7 @@ describe("lspDiagnostics actions", () => {
   });
 
   it("does not mutate local ignore state when the backend rejects the mute update", async () => {
-    vi.mocked(route_set_code_section_diagnostics_mute).mockResolvedValue({
+    vi.mocked(setCodeSectionDiagnosticsMuteRequest).mockResolvedValue({
       status: 500,
       data: null,
       hasResponse: true,

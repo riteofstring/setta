@@ -18,6 +18,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
+	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
 	"setta/internal/projectstate"
@@ -195,6 +196,15 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register file browser routes: %v", err)
 	}
+	if err := RegisterLSPRoutes(router, LSPRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		ProjectState: &projectstate.Runtime{},
+		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		Completions:  &lspcompletion.Service{},
+		Admin:        frontendHTTPOpenAPILSPAdminService{},
+	}); err != nil {
+		t.Fatalf("register lsp routes: %v", err)
+	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Service:    frontendHTTPOpenAPIPluginService{},
@@ -368,6 +378,28 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if getFileBrowserRoot.RequestBody != nil {
 		t.Fatalf("expected getFileBrowserRoot request body to be omitted, got %#v", getFileBrowserRoot.RequestBody)
+	}
+
+	getLatestLspDiagnostics := document.Paths[RouteGetLatestLSPDiagnostics].Post
+	if getLatestLspDiagnostics == nil {
+		t.Fatalf("expected %s post operation", RouteGetLatestLSPDiagnostics)
+	}
+	if getLatestLspDiagnostics.OperationID != "getLatestLspDiagnostics" {
+		t.Fatalf("lsp diagnostics operation id = %q, want %q", getLatestLspDiagnostics.OperationID, "getLatestLspDiagnostics")
+	}
+	if got := getLatestLspDiagnostics.Extensions["x-setta-mode-requirement"]; got != "not-deployment-and-not-launcher" {
+		t.Fatalf("lsp diagnostics mode requirement = %#v, want %q", got, "not-deployment-and-not-launcher")
+	}
+
+	restartLanguageServer := document.Paths[RouteRestartLanguageServer].Post
+	if restartLanguageServer == nil {
+		t.Fatalf("expected %s post operation", RouteRestartLanguageServer)
+	}
+	if restartLanguageServer.OperationID != "restartLanguageServer" {
+		t.Fatalf("restart language server operation id = %q, want %q", restartLanguageServer.OperationID, "restartLanguageServer")
+	}
+	if restartLanguageServer.RequestBody != nil {
+		t.Fatalf("expected restartLanguageServer request body to be omitted, got %#v", restartLanguageServer.RequestBody)
 	}
 
 	getFileBrowserDownloadURLs := document.Paths[RouteGetFileBrowserDownloadURL].Post

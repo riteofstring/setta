@@ -131,17 +131,107 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 		}
 	}
 
-	router.Post(RouteRestartLanguageServer, withLSPAdminModeGuard(deps.ModePolicy, restartLanguageServerHandler(deps)))
-	router.Post(RouteTypeCheck, withLSPAdminModeGuard(deps.ModePolicy, typeCheckHandler(deps)))
-	router.Post(RouteClearTextFieldCompletion, withLSPProjectModeGuard(deps.ModePolicy, clearTextFieldCompletionHandler(deps)))
-	router.Post(RouteTextFieldCompletion, withLSPProjectModeGuard(deps.ModePolicy, textFieldCompletionHandler(deps)))
-	router.Post(RouteOutputAccessorCompletion, withLSPProjectModeGuard(deps.ModePolicy, outputAccessorCompletionHandler(deps)))
-	router.Post(RouteCodeAreaCompletion, withLSPProjectModeGuard(deps.ModePolicy, codeAreaCompletionHandler(deps)))
-	router.Post(RouteGenCodePrefixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodePrefixCompletionHandler(deps)))
-	router.Post(RouteGenCodeSuffixCompletion, withLSPProjectModeGuard(deps.ModePolicy, genCodeSuffixCompletionHandler(deps)))
-	router.Post(RouteGetLatestLSPDiagnostics, withLSPProjectModeGuard(deps.ModePolicy, getLatestLSPDiagnosticsHandler(deps)))
-	router.Post(RouteSetCodeSectionDiagnosticsMute, withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticsMuteHandler(deps)))
-	router.Post(RouteSetCodeSectionDiagnosticCodeSuppression, withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticCodeSuppressionHandler(deps)))
+	modeRequirement := "not-deployment-and-not-launcher"
+
+	registerOpenAPIPostNoRequest[openAPIJSONNull](
+		router,
+		"restartLanguageServer",
+		RouteRestartLanguageServer,
+		withLSPAdminModeGuard(deps.ModePolicy, restartLanguageServerHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Restart the language server against the current project snapshot."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[TypeCheckRequest, openAPIJSONNull](
+		router,
+		"typeCheck",
+		RouteTypeCheck,
+		withLSPAdminModeGuard(deps.ModePolicy, typeCheckHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Request a manual type check for a project."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[ClearTextFieldCompletionRequest, openAPIJSONNull](
+		router,
+		"clearTextFieldCompletion",
+		RouteClearTextFieldCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, clearTextFieldCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Clear pending text-field completion state for a section param."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[TextFieldCompletionRequest, []lspcompletion.CodeMirrorCompletion](
+		router,
+		"textFieldCompletion",
+		RouteTextFieldCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, textFieldCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Resolve text-field completions for a callable or parameter input."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[OutputAccessorCompletionRequest, []lspcompletion.CodeMirrorCompletion](
+		router,
+		"outputAccessorCompletion",
+		RouteOutputAccessorCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, outputAccessorCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Resolve output accessor completions for a section."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[CodeAreaCompletionRequest, []lspcompletion.CodeMirrorCompletion](
+		router,
+		"codeAreaCompletion",
+		RouteCodeAreaCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, codeAreaCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Resolve code area completions for a code section."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[GenCodePrefixCompletionRequest, []lspcompletion.CodeMirrorCompletion](
+		router,
+		"genCodePrefixCompletion",
+		RouteGenCodePrefixCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, genCodePrefixCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Resolve completions for generated-code prefix text."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[GenCodeSuffixCompletionRequest, []lspcompletion.CodeMirrorCompletion](
+		router,
+		"genCodeSuffixCompletion",
+		RouteGenCodeSuffixCompletion,
+		withLSPProjectModeGuard(deps.ModePolicy, genCodeSuffixCompletionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Resolve completions for generated-code suffix text."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[GetLatestLSPDiagnosticsRequest, projectstate.LSPDiagnosticsPayload](
+		router,
+		"getLatestLspDiagnostics",
+		RouteGetLatestLSPDiagnostics,
+		withLSPProjectModeGuard(deps.ModePolicy, getLatestLSPDiagnosticsHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Get the latest language-server diagnostics snapshot for a project."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[SetCodeSectionDiagnosticsMuteRequest, openAPIJSONNull](
+		router,
+		"setCodeSectionDiagnosticsMute",
+		RouteSetCodeSectionDiagnosticsMute,
+		withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticsMuteHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Mute or unmute code-section diagnostics."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
+	registerOpenAPIPost[SetCodeSectionDiagnosticCodeSuppressionRequest, openAPIJSONNull](
+		router,
+		"setCodeSectionDiagnosticCodeSuppression",
+		RouteSetCodeSectionDiagnosticCodeSuppression,
+		withLSPDiagnosticsModeGuard(deps.ModePolicy, setCodeSectionDiagnosticCodeSuppressionHandler(deps)),
+		withOpenAPITags("LSP"),
+		withOpenAPISummary("Suppress or unsuppress a code diagnostic code for a section."),
+		withOpenAPIModeRequirement(modeRequirement),
+	)
 	return nil
 }
 

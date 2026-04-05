@@ -1,9 +1,10 @@
+import { typeCheck as typeCheckRequest } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useProjectState,
   useShareSession,
   useTypeErrors,
 } from "state/definitions";
-import { route_type_check } from "utils/generatedEndpoints";
 import { ProjectConfigDiagnostics } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
@@ -164,7 +165,11 @@ export async function requestTypeCheck(userRequested: boolean = false) {
     useTypeErrors.setState({ userRequested });
   }
   const projectConfigId = getCurrProjectConfigId();
-  route_type_check({ projectConfigId });
+  void callOpenAPI(
+    typeCheckRequest({
+      body: { projectConfigId },
+    }),
+  );
 }
 
 export function processTypeErrors(content: ProjectConfigDiagnostics) {

@@ -822,6 +822,42 @@
         "required": ["folderPath"],
         "type": "object"
       },
+      "HttpapiClearTextFieldCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "paramInfoId": {
+            "type": ["string", "null"]
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "sectionId", "paramInfoId"],
+        "type": "object"
+      },
+      "HttpapiCodeAreaCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fullText": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "sectionId", "fullText", "position"],
+        "type": "object"
+      },
       "HttpapiCreateAgentProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1310,6 +1346,40 @@
         ],
         "type": "object"
       },
+      "HttpapiGenCodePrefixCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fullText": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "fullText", "position"],
+        "type": "object"
+      },
+      "HttpapiGenCodeSuffixCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fullText": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "fullText", "position"],
+        "type": "object"
+      },
       "HttpapiGetAgentProfileRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1429,6 +1499,16 @@
           }
         },
         "required": ["folderPath"],
+        "type": "object"
+      },
+      "HttpapiGetLatestLSPDiagnosticsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
         "type": "object"
       },
       "HttpapiGetNotificationsRequest": {
@@ -1758,6 +1838,26 @@
           }
         },
         "required": ["projectConfigId"],
+        "type": "object"
+      },
+      "HttpapiOutputAccessorCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fullText": {
+            "type": "string"
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "sectionId", "fullText", "position"],
         "type": "object"
       },
       "HttpapiPluginConfigWriteRequest": {
@@ -2157,6 +2257,39 @@
         "required": ["mode"],
         "type": "object"
       },
+      "HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {},
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          },
+          "suppress": {
+            "type": "boolean"
+          }
+        },
+        "required": ["projectConfigId", "sectionId", "code", "suppress"],
+        "type": "object"
+      },
+      "HttpapiSetCodeSectionDiagnosticsMuteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mute": {
+            "type": "boolean"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "sectionId", "mute"],
+        "type": "object"
+      },
       "HttpapiSetDefaultProjectConfigRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2264,6 +2397,35 @@
         ],
         "type": "object"
       },
+      "HttpapiTextFieldCompletionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fullText": {
+            "type": "string"
+          },
+          "paramInfoId": {
+            "type": ["string", "null"]
+          },
+          "position": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectConfigId",
+          "sectionId",
+          "paramInfoId",
+          "fullText",
+          "position"
+        ],
+        "type": "object"
+      },
       "HttpapiTranscriptionProfilePayload": {
         "additionalProperties": false,
         "properties": {
@@ -2315,6 +2477,16 @@
           }
         },
         "required": ["sourcePath", "destinationFolderPath", "operation"],
+        "type": "object"
+      },
+      "HttpapiTypeCheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId"],
         "type": "object"
       },
       "HttpapiUpdateAgentProfileRequest": {
@@ -2540,6 +2712,19 @@
           }
         },
         "required": ["transport"],
+        "type": "object"
+      },
+      "LspcompletionCodeMirrorCompletion": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["label", "type"],
         "type": "object"
       },
       "McpxServerRuntimeStatus": {
@@ -3840,6 +4025,91 @@
         "required": ["minHeight", "maxHeight", "minWidth", "maxWidth"],
         "type": "object"
       },
+      "ProjectstateLSPDiagnostic": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {},
+          "message": {
+            "type": "string"
+          },
+          "range": {
+            "$ref": "#/components/schemas/ProjectstateLSPDiagnosticRange"
+          },
+          "severity": {
+            "format": "int64",
+            "type": ["integer", "null"]
+          },
+          "source": {
+            "type": ["string", "null"]
+          },
+          "uri": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["message", "severity", "code", "source", "range", "uri"],
+        "type": "object"
+      },
+      "ProjectstateLSPDiagnosticPosition": {
+        "additionalProperties": false,
+        "properties": {
+          "character": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "line": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": ["line", "character"],
+        "type": "object"
+      },
+      "ProjectstateLSPDiagnosticRange": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "$ref": "#/components/schemas/ProjectstateLSPDiagnosticPosition"
+          },
+          "start": {
+            "$ref": "#/components/schemas/ProjectstateLSPDiagnosticPosition"
+          }
+        },
+        "required": ["start", "end"],
+        "type": "object"
+      },
+      "ProjectstateLSPDiagnosticsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "codeSections": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ProjectstateLSPDiagnostic"
+              },
+              "type": ["array", "null"]
+            },
+            "type": "object"
+          },
+          "genCode": {
+            "$ref": "#/components/schemas/ProjectstateProjectConfigDiagnostics"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "unmappedGenCode": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateLSPDiagnostic"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": [
+          "projectConfigId",
+          "genCode",
+          "codeSections",
+          "unmappedGenCode"
+        ],
+        "type": "object"
+      },
       "ProjectstateNormalizedFloatingWindowBounds": {
         "additionalProperties": false,
         "properties": {
@@ -3937,6 +4207,25 @@
         "required": ["instancesById", "order", "nextInstanceNumber"],
         "type": "object"
       },
+      "ProjectstateProjectConfigDiagnostics": {
+        "additionalProperties": false,
+        "properties": {
+          "errors": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProjectstateSectionTypeErrors"
+            },
+            "type": "object"
+          },
+          "isGenCode": {
+            "type": "boolean"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "errors", "isGenCode"],
+        "type": "object"
+      },
       "ProjectstateProjectConfigMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -3948,6 +4237,28 @@
           }
         },
         "required": ["name", "id"],
+        "type": "object"
+      },
+      "ProjectstateSectionTypeErrors": {
+        "additionalProperties": false,
+        "properties": {
+          "callable": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "params": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": ["array", "null"]
+            },
+            "type": "object"
+          }
+        },
+        "required": ["callable", "params"],
         "type": "object"
       },
       "ProjectstateStateMachineEdge": {
@@ -5824,6 +6135,91 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/clearTextFieldCompletion": {
+      "post": {
+        "operationId": "clearTextFieldCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiClearTextFieldCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Clear pending text-field completion state for a section param.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/codeAreaCompletion": {
+      "post": {
+        "operationId": "codeAreaCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiCodeAreaCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LspcompletionCodeMirrorCompletion"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resolve code area completions for a code section.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
     "/createAgentProfile": {
       "post": {
         "operationId": "createAgentProfile",
@@ -6523,6 +6919,94 @@
         "x-setta-mode-requirement": "not-launcher"
       }
     },
+    "/genCodePrefixCompletion": {
+      "post": {
+        "operationId": "genCodePrefixCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGenCodePrefixCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LspcompletionCodeMirrorCompletion"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resolve completions for generated-code prefix text.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/genCodeSuffixCompletion": {
+      "post": {
+        "operationId": "genCodeSuffixCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGenCodeSuffixCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LspcompletionCodeMirrorCompletion"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resolve completions for generated-code suffix text.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
     "/getAgentProfile": {
       "post": {
         "operationId": "getAgentProfile",
@@ -7019,6 +7503,47 @@
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/getLatestLspDiagnostics": {
+      "post": {
+        "operationId": "getLatestLspDiagnostics",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiGetLatestLSPDiagnosticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectstateLSPDiagnosticsPayload"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Get the latest language-server diagnostics snapshot for a project.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
     "/getNotifications": {
@@ -7539,6 +8064,50 @@
         "x-setta-mode-requirement": "full-ide"
       }
     },
+    "/outputAccessorCompletion": {
+      "post": {
+        "operationId": "outputAccessorCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiOutputAccessorCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LspcompletionCodeMirrorCompletion"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resolve output accessor completions for a section.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
     "/plugins/config": {
       "post": {
         "operationId": "writePluginConfig",
@@ -8031,6 +8600,37 @@
         "x-setta-mode-requirement": "ide"
       }
     },
+    "/restartLanguageServer": {
+      "post": {
+        "operationId": "restartLanguageServer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Restart the language server against the current project snapshot.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
     "/revealPathInOsFileExplorer": {
       "post": {
         "operationId": "revealPathInOsFileExplorer",
@@ -8324,6 +8924,88 @@
         "tags": ["Projects"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "ide"
+      }
+    },
+    "/setCodeSectionDiagnosticCodeSuppression": {
+      "post": {
+        "operationId": "setCodeSectionDiagnosticCodeSuppression",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Suppress or unsuppress a code diagnostic code for a section.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
+    "/setCodeSectionDiagnosticsMute": {
+      "post": {
+        "operationId": "setCodeSectionDiagnosticsMute",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiSetCodeSectionDiagnosticsMuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Mute or unmute code-section diagnostics.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
     "/setProjectConfigName": {
@@ -8695,6 +9377,50 @@
         "x-setta-mode-requirement": "share"
       }
     },
+    "/textFieldCompletion": {
+      "post": {
+        "operationId": "textFieldCompletion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiTextFieldCompletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LspcompletionCodeMirrorCompletion"
+                  },
+                  "type": ["array", "null"]
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Resolve text-field completions for a callable or parameter input.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
+      }
+    },
     "/transferFileBrowserEntry": {
       "post": {
         "operationId": "transferFileBrowserEntry",
@@ -8734,6 +9460,47 @@
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
         "x-setta-mode-requirement": "not-launcher"
+      }
+    },
+    "/typeCheck": {
+      "post": {
+        "operationId": "typeCheck",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HttpapiTypeCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpapiErrorResponse"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Request a manual type check for a project.",
+        "tags": ["LSP"],
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-mode-requirement": "not-deployment-and-not-launcher"
       }
     },
     "/updateAgentProfile": {

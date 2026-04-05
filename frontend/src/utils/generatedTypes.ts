@@ -1623,72 +1623,11 @@ export type LLMAPIKeysSnapshot = {
   message: string | null;
 };
 
-export type TypeCheckRequest = {
-  projectConfigId: string;
-};
-
-export type GetLatestLSPDiagnosticsRequest = {
-  projectConfigId: string;
-};
-
 export type SetTypeErrorIgnoreRequest = {
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string | null;
   ignoreTypeErrors: boolean;
-};
-
-export type SetCodeSectionDiagnosticsMuteRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  mute: boolean;
-};
-
-export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  code: unknown;
-  suppress: boolean;
-};
-
-export type ClearTextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-};
-
-export type TextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  fullText: string;
-  position: number;
-};
-
-export type OutputAccessorCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type CodeAreaCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GenCodePrefixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GenCodeSuffixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
 };
 
 const ModeEnum = {
@@ -7972,11 +7911,6 @@ export type RealtimeDependencyEventMessage = {
   id?: string | null;
   messageType: typeof MessageTypeEnum.RealtimeDependencyEvent;
   content: RealtimeDependencyEventContent;
-};
-
-export type CodeMirrorCompletion = {
-  label: string;
-  type: string;
 };
 
 export type AllProjectMetadata = {

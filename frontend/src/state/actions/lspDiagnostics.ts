@@ -1,14 +1,15 @@
 import {
+  setCodeSectionDiagnosticCodeSuppression as setCodeSectionDiagnosticCodeSuppressionRequest,
+  setCodeSectionDiagnosticsMute as setCodeSectionDiagnosticsMuteRequest,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
   useTypeErrors,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_set_code_section_diagnostic_code_suppression,
-  route_set_code_section_diagnostics_mute,
-} from "utils/generatedEndpoints";
 import {
   LSPDiagnosticsPayload,
   SectionTypeEnum,
@@ -203,11 +204,15 @@ export function setCodeSectionDiagnosticsMuted(
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
-  return route_set_code_section_diagnostics_mute({
-    projectConfigId,
-    sectionId,
-    mute,
-  }).then((res) => {
+  return callOpenAPI(
+    setCodeSectionDiagnosticsMuteRequest({
+      body: {
+        projectConfigId,
+        sectionId,
+        mute,
+      },
+    }),
+  ).then((res) => {
     if (res200(res)) {
       updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => ({
         muted: mute,
@@ -230,12 +235,16 @@ export function setCodeSectionDiagnosticCodeSuppression(
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
-  return route_set_code_section_diagnostic_code_suppression({
-    projectConfigId,
-    sectionId,
-    code,
-    suppress,
-  }).then((res) => {
+  return callOpenAPI(
+    setCodeSectionDiagnosticCodeSuppressionRequest({
+      body: {
+        projectConfigId,
+        sectionId,
+        code,
+        suppress,
+      },
+    }),
+  ).then((res) => {
     if (res200(res)) {
       updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => {
         const nextCodes = curr.suppressedCodes.filter(

@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   getAuthRefreshStatus,
+  getLatestLspDiagnostics,
   uploadBinary,
   type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
 } from "openapi/http";
@@ -38,10 +39,7 @@ import {
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_get_latest_lsp_diagnostics,
-  route_get_latest_project_state,
-} from "utils/generatedEndpoints";
+import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -244,9 +242,11 @@ export const openWebSocket = _.debounce(
               void loadAgentRuns();
               await requestAIFollowSnapshot(projectConfigId);
               const diagnosticsRes: LatestLSPDiagnosticsRouteResponse =
-                await route_get_latest_lsp_diagnostics({
-                  projectConfigId,
-                });
+                await callOpenAPI(
+                  getLatestLspDiagnostics({
+                    body: { projectConfigId },
+                  }),
+                );
               if (res200(diagnosticsRes)) {
                 processLspDiagnostics(diagnosticsRes.data);
               }

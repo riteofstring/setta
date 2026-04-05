@@ -1,6 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   createProjectConfig as createProjectConfigRequest,
+  getLatestLspDiagnostics,
   loadAllProjectMetadata as loadAllProjectMetadataRequest,
   loadProjectConfig as loadProjectConfigRequest,
 } from "openapi/http";
@@ -28,7 +29,6 @@ import {
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_latest_lsp_diagnostics } from "utils/generatedEndpoints";
 import {
   type AllProjectMetadata,
   type LSPDiagnosticsPayload,
@@ -66,9 +66,13 @@ export async function loadProjectConfig({ projectConfigName }) {
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
       const diagnosticsRes: LatestLspDiagnosticsRouteResponse =
-        await route_get_latest_lsp_diagnostics({
-          projectConfigId: loadedProjectState.projectConfig.id,
-        });
+        await callOpenAPI(
+          getLatestLspDiagnostics({
+            body: {
+              projectConfigId: loadedProjectState.projectConfig.id,
+            },
+          }),
+        );
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }

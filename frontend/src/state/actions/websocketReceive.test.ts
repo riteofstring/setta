@@ -24,13 +24,19 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { routeGetAuthRefreshStatusMock, uploadBinaryMock } = vi.hoisted(() => ({
+const {
+  routeGetAuthRefreshStatusMock,
+  getLatestLspDiagnosticsMock,
+  uploadBinaryMock,
+} = vi.hoisted(() => ({
   routeGetAuthRefreshStatusMock: vi.fn(),
+  getLatestLspDiagnosticsMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
 
 vi.mock("openapi/http", () => ({
   getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
+  getLatestLspDiagnostics: getLatestLspDiagnosticsMock,
   uploadBinary: uploadBinaryMock,
 }));
 
@@ -44,7 +50,6 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_agent_runs: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
-  route_get_latest_lsp_diagnostics: vi.fn(),
 }));
 
 vi.mock("state/actions/lspDiagnostics", () => ({
@@ -251,8 +256,10 @@ describe("openWebSocket", () => {
       state.previewSectionVariantMap = {};
     });
 
-    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
-      await import("utils/generatedEndpoints");
+    const { getLatestLspDiagnostics } = await import("openapi/http");
+    const { route_get_latest_project_state } = await import(
+      "utils/generatedEndpoints"
+    );
     const { processLspDiagnostics } = await import(
       "state/actions/lspDiagnostics"
     );
@@ -279,7 +286,7 @@ describe("openWebSocket", () => {
       },
       hasResponse: true,
     });
-    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
+    vi.mocked(getLatestLspDiagnostics).mockResolvedValue({
       status: 200,
       data: diagnosticsPayload,
       hasResponse: true,
@@ -295,8 +302,10 @@ describe("openWebSocket", () => {
       projectConfigId: "project-1",
     });
     expect(requestAIFollowSnapshot).toHaveBeenCalledWith("project-1");
-    expect(route_get_latest_lsp_diagnostics).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
+    expect(getLatestLspDiagnostics).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-1",
+      },
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
   });

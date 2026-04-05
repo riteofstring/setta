@@ -17,6 +17,7 @@ import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
 	"setta/internal/llmconfig"
+	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/notifications"
 	"setta/internal/pathreveal"
@@ -38,6 +39,7 @@ type frontendHTTPOpenAPIPluginService struct{}
 type frontendHTTPOpenAPIExternalAgentChecker struct{}
 type frontendHTTPOpenAPIProjectShellService struct{}
 type frontendHTTPOpenAPIProjectNotificationService struct{}
+type frontendHTTPOpenAPILSPAdminService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -245,6 +247,14 @@ func (frontendHTTPOpenAPIProjectNotificationService) DeleteNotification(context.
 	return false, nil
 }
 
+func (frontendHTTPOpenAPILSPAdminService) Restart(context.Context, projectstate.Document) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPILSPAdminService) TypeCheckProject(context.Context, projectstate.Document, string) error {
+	return nil
+}
+
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -377,6 +387,15 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Browser:        frontendHTTPOpenAPIFileBrowserService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register file browser routes: %w", err)
+	}
+	if err := RegisterLSPRoutes(router, LSPRouteDependencies{
+		ModePolicy:   modes.NewPolicy(config.ModeIDE),
+		ProjectState: &projectstate.Runtime{},
+		Diagnostics:  projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		Completions:  &lspcompletion.Service{},
+		Admin:        frontendHTTPOpenAPILSPAdminService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register lsp routes: %w", err)
 	}
 	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),

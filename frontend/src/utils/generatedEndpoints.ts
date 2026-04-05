@@ -82,18 +82,6 @@ export async function route_change_param_impl(
   return await post(GoHTTPRouteHelpers.changeParamImpl(), x);
 }
 
-export async function route_clear_text_field_completion(
-  x: gt.ClearTextFieldCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.clearTextFieldCompletion(), x);
-}
-
-export async function route_code_area_completion(
-  x: gt.CodeAreaCompletionRequest,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post(GoHTTPRouteHelpers.codeAreaCompletion(), x);
-}
-
 export async function route_create_agentic_edge(
   x: gt.CreateAgenticEdgeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -244,18 +232,6 @@ export async function route_format_code(
   return await post(GoHTTPRouteHelpers.formatCode(), x);
 }
 
-export async function route_gen_code_prefix_completion(
-  x: gt.GenCodePrefixCompletionRequest,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post(GoHTTPRouteHelpers.genCodePrefixCompletion(), x);
-}
-
-export async function route_gen_code_suffix_completion(
-  x: gt.GenCodeSuffixCompletionRequest,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post(GoHTTPRouteHelpers.genCodeSuffixCompletion(), x);
-}
-
 export async function route_get_agent_run(
   x: gt.GetAgentRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
@@ -352,12 +328,6 @@ export async function route_get_git_status(): Promise<
   ResponseDataAndStatus<gt.StatusResponse>
 > {
   return await post(GoHTTPRouteHelpers.getGitStatus(), null);
-}
-
-export async function route_get_latest_lsp_diagnostics(
-  x: gt.GetLatestLSPDiagnosticsRequest,
-): Promise<ResponseDataAndStatus<gt.LSPDiagnosticsPayload>> {
-  return await post(GoHTTPRouteHelpers.getLatestLspDiagnostics(), x);
 }
 
 export async function route_get_latest_project_state(
@@ -509,12 +479,6 @@ export async function route_open_launcher_workspace(
   return await post(GoHTTPRouteHelpers.openLauncherWorkspace(), x);
 }
 
-export async function route_output_accessor_completion(
-  x: gt.OutputAccessorCompletionRequest,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post(GoHTTPRouteHelpers.outputAccessorCompletion(), x);
-}
-
 export async function route_paste_sections(
   x: gt.PasteSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -581,12 +545,6 @@ export async function route_respond_external_agent_question(
   x: gt.RespondExternalAgentQuestionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.respondExternalAgentQuestion(), x);
-}
-
-export async function route_restart_language_server(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.restartLanguageServer(), null);
 }
 
 export async function route_run_code(
@@ -725,21 +683,6 @@ export async function route_set_code_section_attached_terminal(
   x: gt.SetCodeSectionAttachedTerminalRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.setCodeSectionAttachedTerminal(), x);
-}
-
-export async function route_set_code_section_diagnostic_code_suppression(
-  x: gt.SetCodeSectionDiagnosticCodeSuppressionRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(
-    GoHTTPRouteHelpers.setCodeSectionDiagnosticCodeSuppression(),
-    x,
-  );
-}
-
-export async function route_set_code_section_diagnostics_mute(
-  x: gt.SetCodeSectionDiagnosticsMuteRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.setCodeSectionDiagnosticsMute(), x);
 }
 
 export async function route_set_default_section_variant(
@@ -1126,12 +1069,6 @@ export async function route_stop_transcription_session(
   return await post(GoHTTPRouteHelpers.stopTranscriptionSession(), x);
 }
 
-export async function route_text_field_completion(
-  x: gt.TextFieldCompletionRequest,
-): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post(GoHTTPRouteHelpers.textFieldCompletion(), x);
-}
-
 export async function route_toggle_group_orientation(
   x: gt.ToggleGroupOrientationRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1190,12 +1127,6 @@ export async function route_toggle_view_mode_user_facing(
   x: gt.ToggleViewModeUserFacingRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.toggleViewModeUserFacing(), x);
-}
-
-export async function route_type_check(
-  x: gt.TypeCheckRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.typeCheck(), x);
 }
 
 export async function route_undo(

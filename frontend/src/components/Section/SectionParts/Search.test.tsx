@@ -20,17 +20,23 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionSearch } from "./Search";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual = await import("openapi/http");
   return {
     ...actual,
-    route_clear_text_field_completion: vi.fn(async () => ({
+    clearTextFieldCompletion: vi.fn(async () => ({
       data: null,
       status: 200,
       hasResponse: true,
     })),
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 class ResizeObserverStub {
   observe() {}

@@ -17,6 +17,12 @@ import type {
   CheckWorkspaceInitializedData,
   CheckWorkspaceInitializedErrors,
   CheckWorkspaceInitializedResponses,
+  ClearTextFieldCompletionData,
+  ClearTextFieldCompletionErrors,
+  ClearTextFieldCompletionResponses,
+  CodeAreaCompletionData,
+  CodeAreaCompletionErrors,
+  CodeAreaCompletionResponses,
   CreateAgentProfileData,
   CreateAgentProfileErrors,
   CreateAgentProfileResponses,
@@ -77,6 +83,12 @@ import type {
   EnablePluginData,
   EnablePluginErrors,
   EnablePluginResponses,
+  GenCodePrefixCompletionData,
+  GenCodePrefixCompletionErrors,
+  GenCodePrefixCompletionResponses,
+  GenCodeSuffixCompletionData,
+  GenCodeSuffixCompletionErrors,
+  GenCodeSuffixCompletionResponses,
   GetAgentProfileData,
   GetAgentProfileErrors,
   GetAgentProfileResponses,
@@ -134,6 +146,9 @@ import type {
   GetFolderContentsData,
   GetFolderContentsErrors,
   GetFolderContentsResponses,
+  GetLatestLspDiagnosticsData,
+  GetLatestLspDiagnosticsErrors,
+  GetLatestLspDiagnosticsResponses,
   GetLlmApiKeysData,
   GetLlmApiKeysErrors,
   GetLlmApiKeysResponses,
@@ -212,6 +227,9 @@ import type {
   LoadSettingsData,
   LoadSettingsErrors,
   LoadSettingsResponses,
+  OutputAccessorCompletionData,
+  OutputAccessorCompletionErrors,
+  OutputAccessorCompletionResponses,
   PublishAppDeploymentData,
   PublishAppDeploymentErrors,
   PublishAppDeploymentResponses,
@@ -221,6 +239,9 @@ import type {
   RescanPluginsData,
   RescanPluginsErrors,
   RescanPluginsResponses,
+  RestartLanguageServerData,
+  RestartLanguageServerErrors,
+  RestartLanguageServerResponses,
   RestartPluginsData,
   RestartPluginsErrors,
   RestartPluginsResponses,
@@ -245,6 +266,12 @@ import type {
   SetAsDefaultProjectData,
   SetAsDefaultProjectErrors,
   SetAsDefaultProjectResponses,
+  SetCodeSectionDiagnosticCodeSuppressionData,
+  SetCodeSectionDiagnosticCodeSuppressionErrors,
+  SetCodeSectionDiagnosticCodeSuppressionResponses,
+  SetCodeSectionDiagnosticsMuteData,
+  SetCodeSectionDiagnosticsMuteErrors,
+  SetCodeSectionDiagnosticsMuteResponses,
   SetLlmApiKeysData,
   SetLlmApiKeysErrors,
   SetLlmApiKeysResponses,
@@ -254,9 +281,15 @@ import type {
   SetProjectConfigNameData,
   SetProjectConfigNameErrors,
   SetProjectConfigNameResponses,
+  TextFieldCompletionData,
+  TextFieldCompletionErrors,
+  TextFieldCompletionResponses,
   TransferFileBrowserEntryData,
   TransferFileBrowserEntryErrors,
   TransferFileBrowserEntryResponses,
+  TypeCheckData,
+  TypeCheckErrors,
+  TypeCheckResponses,
   UninstallPluginData,
   UninstallPluginErrors,
   UninstallPluginResponses,
@@ -534,6 +567,46 @@ export const checkWorkspaceInitialized = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/checkWorkspaceInitialized",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Clear pending text-field completion state for a section param.
+ */
+export const clearTextFieldCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<ClearTextFieldCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ClearTextFieldCompletionResponses,
+    ClearTextFieldCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/clearTextFieldCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Resolve code area completions for a code section.
+ */
+export const codeAreaCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<CodeAreaCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CodeAreaCompletionResponses,
+    CodeAreaCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/codeAreaCompletion",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -885,6 +958,46 @@ export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Resolve completions for generated-code prefix text.
+ */
+export const genCodePrefixCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<GenCodePrefixCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GenCodePrefixCompletionResponses,
+    GenCodePrefixCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/genCodePrefixCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Resolve completions for generated-code suffix text.
+ */
+export const genCodeSuffixCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<GenCodeSuffixCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GenCodeSuffixCompletionResponses,
+    GenCodeSuffixCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/genCodeSuffixCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Get a single agent profile.
  */
 export const getAgentProfile = <ThrowOnError extends boolean = false>(
@@ -1120,6 +1233,26 @@ export const getFolderContents = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/getFolderContents",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the latest language-server diagnostics snapshot for a project.
+ */
+export const getLatestLspDiagnostics = <ThrowOnError extends boolean = false>(
+  options: Options<GetLatestLspDiagnosticsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetLatestLspDiagnosticsResponses,
+    GetLatestLspDiagnosticsErrors,
+    ThrowOnError
+  >({
+    url: "/getLatestLspDiagnostics",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1385,6 +1518,26 @@ export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Resolve output accessor completions for a section.
+ */
+export const outputAccessorCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<OutputAccessorCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    OutputAccessorCompletionResponses,
+    OutputAccessorCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/outputAccessorCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Write schema-backed plugin configuration values.
  */
 export const writePluginConfig = <ThrowOnError extends boolean = false>(
@@ -1629,6 +1782,22 @@ export const updatePlugin = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Restart the language server against the current project snapshot.
+ */
+export const restartLanguageServer = <ThrowOnError extends boolean = false>(
+  options?: Options<RestartLanguageServerData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    RestartLanguageServerResponses,
+    RestartLanguageServerErrors,
+    ThrowOnError
+  >({
+    url: "/restartLanguageServer",
+    ...options,
+  });
+};
+
+/**
  * Reveal a filesystem path in the OS file explorer.
  */
 export const revealPathInOsFileExplorer = <
@@ -1770,6 +1939,50 @@ export const setAsDefaultProject = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/setAsDefaultProject",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Suppress or unsuppress a code diagnostic code for a section.
+ */
+export const setCodeSectionDiagnosticCodeSuppression = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetCodeSectionDiagnosticCodeSuppressionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeSectionDiagnosticCodeSuppressionResponses,
+    SetCodeSectionDiagnosticCodeSuppressionErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeSectionDiagnosticCodeSuppression",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Mute or unmute code-section diagnostics.
+ */
+export const setCodeSectionDiagnosticsMute = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetCodeSectionDiagnosticsMuteData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetCodeSectionDiagnosticsMuteResponses,
+    SetCodeSectionDiagnosticsMuteErrors,
+    ThrowOnError
+  >({
+    url: "/setCodeSectionDiagnosticsMute",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1941,6 +2154,26 @@ export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Resolve text-field completions for a callable or parameter input.
+ */
+export const textFieldCompletion = <ThrowOnError extends boolean = false>(
+  options: Options<TextFieldCompletionData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    TextFieldCompletionResponses,
+    TextFieldCompletionErrors,
+    ThrowOnError
+  >({
+    url: "/textFieldCompletion",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Copy or move a file browser entry into another folder.
  */
 export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
@@ -1952,6 +2185,26 @@ export const transferFileBrowserEntry = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/transferFileBrowserEntry",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Request a manual type check for a project.
+ */
+export const typeCheck = <ThrowOnError extends boolean = false>(
+  options: Options<TypeCheckData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    TypeCheckResponses,
+    TypeCheckErrors,
+    ThrowOnError
+  >({
+    url: "/typeCheck",
     ...options,
     headers: {
       "Content-Type": "application/json",
