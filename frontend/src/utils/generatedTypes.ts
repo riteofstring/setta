@@ -370,34 +370,6 @@ const RunSnapshotModeEnum = {
 } as const;
 export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
 
-type SharePolicyOverrides = {
-  allowParamChanges?: boolean | null;
-  allowVariantChanges?: boolean | null;
-  allowLayoutChanges?: boolean | null;
-  allowRun?: boolean | null;
-  allowLLM?: boolean | null;
-  allowExternalLinks?: boolean | null;
-  allowFileDownloads?: boolean | null;
-  allowMultipleRuns?: boolean | null;
-  runSnapshotMode?: RunSnapshotMode | null;
-};
-
-export type PublishShareDeploymentRequest = {
-  deploymentName: string;
-  projectConfigId: string;
-  sharePolicyOverrides: SharePolicyOverrides | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean | null;
-};
-
-export type PublishAppDeploymentRequest = {
-  deploymentName: string;
-  projectConfigId: string;
-  appPolicyOverrides: SharePolicyOverrides | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean | null;
-};
-
 export type ProjectConfigMetadata = {
   name: string;
   id: string;
@@ -459,10 +431,6 @@ export type AppDeploymentSessionResponse = {
   projectMetadata: Array<ProjectConfigMetadata>;
   appPolicy: Policy;
   manifest?: Manifest | null;
-};
-
-export type LoadDeploymentProjectConfigRequest = {
-  projectConfigId: string;
 };
 
 export type Core = {
@@ -3008,48 +2976,6 @@ export type SetCodeObjDisplayNameRequest = {
   displayName: string;
 };
 
-export type ProjectLoadRequest = {
-  projectConfigName: string;
-};
-
-export type ManualSaveRequest = {
-  projectConfigId: string;
-};
-
-export type SaveAsNewProjectConfigRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  newConfigName: string;
-  withRefs: boolean;
-};
-
-export type CreateProjectConfigRequest = {
-  previewImgColor: string;
-};
-
-export type DeleteProjectConfigsResponse = boolean;
-
-export type DeleteProjectConfigsRequest = {
-  ids: Array<string>;
-};
-
-export type SetProjectConfigNameRequest = {
-  projectConfigId: string;
-  newName: string;
-};
-
-export type SetDefaultProjectConfigRequest = {
-  projectConfigId: string;
-};
-
-export type GetNotificationsRequest = {
-  projectConfigId: string;
-};
-
-export type DeleteNotificationRequest = {
-  notificationId: string;
-};
-
 export const NotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -3075,10 +3001,6 @@ export function createNotification(
 }
 
 export type NotificationList = Array<Notification>;
-
-export type DeleteNotificationResponse = {
-  success: boolean;
-};
 
 export type CreatePromptTemplateRequest = {
   name: string | null;

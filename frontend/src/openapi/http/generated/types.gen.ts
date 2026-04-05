@@ -47,6 +47,45 @@ export type BinaryContentRef = {
   sha256?: string;
 };
 
+export type DeploymentsListenerConfig = {
+  enabled: boolean;
+  entrypoint: string;
+};
+
+export type DeploymentsManifest = {
+  createdAt?: string;
+  defaultProjectConfigId: string;
+  deploymentName: string;
+  deploymentType: string;
+  deploymentVersion: string;
+  listener?: DeploymentsListenerConfig;
+  version: number;
+};
+
+export type DeploymentsPolicy = {
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowLLM: boolean;
+  allowLayoutChanges: boolean;
+  allowMultipleRuns: boolean;
+  allowParamChanges: boolean;
+  allowRun: boolean;
+  allowVariantChanges: boolean;
+  runSnapshotMode: string;
+};
+
+export type DeploymentsSharePolicyOverrides = {
+  allowExternalLinks?: boolean;
+  allowFileDownloads?: boolean;
+  allowLLM?: boolean;
+  allowLayoutChanges?: boolean;
+  allowMultipleRuns?: boolean;
+  allowParamChanges?: boolean;
+  allowRun?: boolean;
+  allowVariantChanges?: boolean;
+  runSnapshotMode?: string;
+};
+
 export type ExternalagentconfigsClaudeSettingsManaged = {
   defaultMode?: string;
   mcp?: {
@@ -165,6 +204,24 @@ export type HttpapiAgentProfilePayload = {
   toolAllowlist: Array<string> | null;
 };
 
+export type HttpapiAppDeploymentSessionResponse = {
+  appPolicy: DeploymentsPolicy;
+  defaultProjectConfigId: string;
+  deploymentName: string;
+  deploymentVersion: string;
+  manifest?: DeploymentsManifest;
+  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+  sessionRunCount: number;
+  shareSessionId: string;
+};
+
+export type HttpapiAppDeploymentStateResponse = {
+  appDefinition: ProjectstateAppDefinition;
+  appPolicy: DeploymentsPolicy;
+  appSpec: unknown;
+  projectState: ProjectviewSingleConfig;
+};
+
 export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -240,6 +297,10 @@ export type HttpapiCreateFileRequest = {
   filepath: string;
 };
 
+export type HttpapiCreateProjectConfigRequest = {
+  previewImgColor: string;
+};
+
 export type HttpapiCreatePromptTemplateRequest = {
   description: string | null;
   format: string | null;
@@ -285,12 +346,34 @@ export type HttpapiDeleteExternalAgentConfigRequest = {
   configId: string;
 };
 
+export type HttpapiDeleteNotificationRequest = {
+  notificationId: string;
+};
+
+export type HttpapiDeleteNotificationResponse = {
+  success: boolean;
+};
+
+export type HttpapiDeleteProjectConfigsRequest = {
+  ids: Array<string> | null;
+};
+
 export type HttpapiDeletePromptTemplateRequest = {
   templateId: string;
 };
 
 export type HttpapiDeleteTranscriptionProfileRequest = {
   profileId: string | null;
+};
+
+export type HttpapiDeploymentMetadataResponse = {
+  createdAt: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  deploymentName: string;
+  deploymentRoot: string;
+  deploymentVersion: string;
+  policyPath: string;
 };
 
 export type HttpapiDocstringToMarkdownRequest = {
@@ -365,6 +448,10 @@ export type HttpapiGetFolderContentsRequest = {
   missingFolderBehavior?: string;
 };
 
+export type HttpapiGetNotificationsRequest = {
+  projectConfigId: string;
+};
+
 export type HttpapiGetPromptTemplateRequest = {
   templateId: string;
 };
@@ -424,6 +511,10 @@ export type HttpapiLaunchSessionInfo = {
   workspacePathCanonical: string;
 };
 
+export type HttpapiLoadDeploymentProjectConfigRequest = {
+  projectConfigId: string;
+};
+
 export type HttpapiMcpResolvedRuntimeServer = {
   consecutiveFailures: number;
   endpoint: string;
@@ -450,6 +541,10 @@ export type HttpapiMcpRuntimeStatusResponse = {
   llmConfigPath: string;
   resolvedServers: Array<HttpapiMcpResolvedRuntimeServer> | null;
   servers: Array<McpxServerRuntimeStatus> | null;
+};
+
+export type HttpapiManualSaveRequest = {
+  projectConfigId: string;
 };
 
 export type HttpapiPluginConfigWriteRequest = {
@@ -505,6 +600,16 @@ export type HttpapiPluginsRescanResponse = {
   serverMode: string;
 };
 
+export type HttpapiProjectLoadRequest = {
+  projectConfigName: string;
+};
+
+export type HttpapiProjectStateSingleConfigWithCompletedOpIds = {
+  completedOpIds: Array<string> | null;
+  pendingOpIds: Array<string> | null;
+  projectState: ProjectviewSingleConfig;
+};
+
 export type HttpapiPromptTemplatePayload = {
   description: string | null;
   format: string | null;
@@ -517,6 +622,22 @@ export type HttpapiPromptTemplatePayload = {
   };
   name: string | null;
   template: string | null;
+};
+
+export type HttpapiPublishAppDeploymentRequest = {
+  appPolicyOverrides: DeploymentsSharePolicyOverrides;
+  deploymentName: string;
+  listenerEnabled: boolean | null;
+  listenerEntrypoint: string;
+  projectConfigId: string;
+};
+
+export type HttpapiPublishShareDeploymentRequest = {
+  deploymentName: string;
+  listenerEnabled: boolean | null;
+  listenerEntrypoint: string;
+  projectConfigId: string;
+  sharePolicyOverrides: DeploymentsSharePolicyOverrides;
 };
 
 export type HttpapiRevealPathInOsFileExplorerRequest = {
@@ -550,12 +671,23 @@ export type HttpapiRuntimePaths = {
   workspaceRoot: string;
 };
 
+export type HttpapiSaveAsNewProjectConfigRequest = {
+  frontendOpId?: string;
+  newConfigName: string;
+  projectConfigId: string;
+  withRefs: boolean;
+};
+
 export type HttpapiSaveSettingsRequest = {
   settings: unknown;
 };
 
 export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
+};
+
+export type HttpapiSetDefaultProjectConfigRequest = {
+  projectConfigId: string;
 };
 
 export type HttpapiSetLlmapiKeysRequest = {
@@ -565,11 +697,27 @@ export type HttpapiSetLlmapiKeysRequest = {
   expectedRevision: number;
 };
 
+export type HttpapiSetProjectConfigNameRequest = {
+  newName: string;
+  projectConfigId: string;
+};
+
 export type HttpapiSettaHomeInfoResponse = {
   activeSettaFilesLocation: string | null;
   globalSettaFilesBase: string;
   llmConfigPath: string;
   settaHome: string;
+};
+
+export type HttpapiShareDeploymentSessionResponse = {
+  defaultProjectConfigId: string;
+  deploymentName: string;
+  deploymentVersion: string;
+  manifest?: DeploymentsManifest;
+  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+  sessionRunCount: number;
+  sharePolicy: DeploymentsPolicy;
+  shareSessionId: string;
 };
 
 export type HttpapiTranscriptionProfilePayload = {
@@ -683,6 +831,19 @@ export type McpxServerRuntimeStatus = {
   state: string;
   toolCount: number;
   transport: string;
+};
+
+export type NotificationsNotification = {
+  id: string;
+  message: string;
+  metadata: {
+    [key: string]: unknown;
+  };
+  projectConfigId: string;
+  read_status: boolean;
+  temporary: boolean;
+  timestamp: string;
+  type: string;
 };
 
 export type PluginsPluginBlockedCapability = {
@@ -885,6 +1046,76 @@ export type PluginsPluginUpdateResponse = {
   toVersion: string;
 };
 
+export type ProjectshellAllProjectMetadata = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+};
+
+export type ProjectstateAgenticEdge = {
+  contextMode?: string;
+  hidden?: boolean;
+  id: string;
+  kind: string;
+  selected?: boolean;
+  sourceSectionId: string;
+  style?: unknown;
+  targetSectionId: string;
+  zIndex?: number;
+};
+
+export type ProjectstateAppDefinition = {
+  actions?: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: unknown;
+  catalogId?: string;
+  dataBindings?: unknown;
+  routes?: Array<ProjectstateAppRoute> | null;
+  theme?: unknown;
+};
+
+export type ProjectstateAppRoute = {
+  name?: string;
+  path: string;
+  rootKey?: string;
+};
+
+export type ProjectstateChatWindowBounds = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
+export type ProjectstateChatWindowDockMetrics = {
+  preferredWidthPx?: number;
+  widthFraction?: number;
+};
+
+export type ProjectstateEdge = {
+  animated?: boolean;
+  data?: unknown;
+  hidden?: boolean;
+  id: string;
+  label?: string;
+  selected?: boolean;
+  sourcePortId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  style?: unknown;
+  targetPortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  type?: string;
+  zIndex?: number;
+};
+
+export type ProjectstateFrontendCodeFileBinding = {
+  access_mode: string;
+  autoBinding: boolean;
+  canonical_path: string;
+};
+
 export type ProjectstateFrontendMetaControlSizingPolicyByType = {
   ButtonParam: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
   CodeCallable: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
@@ -967,6 +1198,295 @@ export type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
   maxWidth: number;
   minHeight: number;
   minWidth: number;
+};
+
+export type ProjectstateNormalizedFloatingWindowBounds = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
+export type ProjectstateProjectChatWindowInstance = {
+  bounds?: ProjectstateChatWindowBounds;
+  chatId?: string;
+  dockMetrics?: ProjectstateChatWindowDockMetrics;
+  instanceId: string;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  isMinimized?: boolean;
+  lastFocusedAt?: number;
+  lastPlacementBeforeMaximize?: string;
+  mode?: string;
+  placement?: string;
+  sectionIdOrNull?: string;
+  title?: string;
+  zIndex?: number;
+};
+
+export type ProjectstateProjectChatWindowingState = {
+  instancesById: {
+    [key: string]: ProjectstateProjectChatWindowInstance;
+  };
+  nextInstanceNumber: number;
+  order: Array<string> | null;
+};
+
+export type ProjectstateProjectConfigMetadata = {
+  id: string;
+  name: string;
+};
+
+export type ProjectstateStateMachineEdge = {
+  hidden?: boolean;
+  id: string;
+  machineGroupId: string;
+  selected?: boolean;
+  sourceActivationCountCondition?: ProjectstateStateMachineSourceActivationCountCondition;
+  sourceFilter?: ProjectstateStateMachineSourceFilter;
+  sourcePortId: string;
+  sourceSectionId: string;
+  style?: unknown;
+  targetAction?: ProjectstateStateMachineTargetAction;
+  targetPortId: string;
+  targetSectionId: string;
+  zIndex?: number;
+};
+
+export type ProjectstateStateMachineSourceActivationCountCondition = {
+  operator: string;
+  value: number;
+};
+
+export type ProjectstateStateMachineSourceFilter = {
+  equals?: string;
+  payloadField?: string;
+  signalName?: string;
+  type: string;
+};
+
+export type ProjectstateStateMachineTargetAction = {
+  agentProfileId?: string;
+  engineConfigId?: string;
+  inlinePrompt?: string;
+  permissionMode?: string;
+  promptInputs?: {
+    [key: string]: string;
+  };
+  promptSectionId?: string;
+  promptTemplateId?: string;
+  searchEnabled?: boolean;
+  stopIfRunning?: boolean;
+  threadStrategy: string;
+  type: string;
+};
+
+export type ProjectstateTopLevelSectionLayout = {
+  h?: number;
+  w?: number;
+  x: number;
+  y: number;
+  zIndex?: number;
+};
+
+export type ProjectstateViewMode = {
+  id: string;
+  isTab?: boolean;
+  isUserFacing?: boolean;
+  name: string;
+  sortIndex: number;
+  topLevelSections?: {
+    [key: string]: ProjectstateTopLevelSectionLayout;
+  };
+  viewport?: ProjectstateViewport;
+  viewportInitialized?: boolean;
+  visibilityBySectionId?: {
+    [key: string]: boolean;
+  };
+};
+
+export type ProjectstateViewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+export type ProjectstateWatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+
+export type ProjectstateWatchCodeRegistryEntry = {
+  bodyHash: string;
+  callableName: string;
+  kind: string;
+  sectionIds?: Array<string> | null;
+  sectionsCount?: number;
+  signatureHash: string;
+  sourcePath: string;
+};
+
+export type ProjectstateWindowSpaceConfig = {
+  id?: string;
+  name?: string;
+  order: Array<string> | null;
+  sortIndex?: number;
+  windowsById: {
+    [key: string]: ProjectstateWindowSpaceWindow;
+  };
+};
+
+export type ProjectstateWindowSpaceWindow = {
+  chatId?: string;
+  embeddedGitPaneVisible?: boolean;
+  mode?: string;
+  normalizedBounds?: ProjectstateNormalizedFloatingWindowBounds;
+  sectionIdOrNull?: string;
+  surfaceKind?: string;
+  title?: string;
+  zIndex?: number;
+};
+
+export type ProjectviewCore = {
+  defaultVariant: string | null;
+  displayName: string;
+  id: string;
+  name: string;
+  sharedModifier: unknown;
+  unsharedKeys: Array<string> | null;
+  variants: Array<string> | null;
+};
+
+export type ProjectviewProjectConfig = {
+  activeIds: Array<string> | null;
+  activeViewModeId: string | null;
+  agenticEdges: Array<ProjectstateAgenticEdge> | null;
+  allowJsonSourceKeyEdits: boolean;
+  codegenTargets: Array<unknown> | null;
+  edges: Array<ProjectstateEdge> | null;
+  entryCodeBlockId: string | null;
+  hasPythonCodegenTarget: boolean;
+  id: string;
+  isEditingViewMode: boolean;
+  name: string;
+  previewImgColor?: string;
+  runCapabilities: ProjectviewProjectRunCapabilities;
+  sectionIdsByPathSlug: {
+    [key: string]: Array<string> | null;
+  };
+  sectionPathSlugsById: {
+    [key: string]: string;
+  };
+  sectionVariantMap: {
+    [key: string]: string;
+  };
+  showParamDisplayNames: boolean;
+  stateMachineEdges: Array<ProjectstateStateMachineEdge> | null;
+  topLevelSections: {
+    [key: string]: ProjectstateTopLevelSectionLayout;
+  };
+  viewModes: {
+    [key: string]: ProjectstateViewMode;
+  };
+  viewport: ProjectstateViewport;
+  viewportInitialized: boolean;
+  watchCodeBaselineByPath: {
+    [key: string]: Array<string> | null;
+  };
+  watchCodeEnabled: boolean;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
+  watchCodeRegistry: {
+    [key: string]: ProjectstateWatchCodeRegistryEntry;
+  };
+  windowSpaceIdsBySlug: {
+    [key: string]: Array<string> | null;
+  };
+  windowSpaceSlugsById: {
+    [key: string]: string;
+  };
+  windowSpaces: {
+    [key: string]: ProjectstateWindowSpaceConfig;
+  };
+};
+
+export type ProjectviewProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  effectiveEntrySectionId: string | null;
+  mainRunDisabledReason: string | null;
+};
+
+export type ProjectviewSectionCapabilities = {
+  canRun: boolean;
+  canSelectAsEntryCodeBlock: boolean;
+  entryCodeBlockValue: string | null;
+  runDisabledReason: string | null;
+  runRequestSectionId: string | null;
+};
+
+export type ProjectviewShownParamIdDetails = {
+  requiredParamIdsToPaths: {
+    [key: string]: Array<string> | null;
+  };
+  topLevelParamIds: Array<string> | null;
+};
+
+export type ProjectviewShownParamIds = {
+  pinned: ProjectviewShownParamIdDetails;
+  unpinned: ProjectviewShownParamIdDetails;
+};
+
+export type ProjectviewSingleConfig = {
+  artifactGroups?: {
+    [key: string]: unknown;
+  };
+  codeObjImpls: {
+    [key: string]: unknown;
+  };
+  codeObjVariants: {
+    [key: string]: ProjectviewVariant;
+  };
+  codeObjs: {
+    [key: string]: ProjectviewCore;
+  };
+  genCodeBinding: ProjectstateFrontendCodeFileBinding;
+  parentSectionMap: {
+    [key: string]: string | null;
+  };
+  projectChatWindowing: ProjectstateProjectChatWindowingState;
+  projectConfig: ProjectviewProjectConfig;
+  requiredDecodedImages: Array<string> | null;
+  sectionCapabilities: {
+    [key: string]: ProjectviewSectionCapabilities;
+  };
+  sectionImpls: {
+    [key: string]: unknown;
+  };
+  sectionVariants: {
+    [key: string]: ProjectviewVariant;
+  };
+  sections: {
+    [key: string]: ProjectviewCore;
+  };
+  shownParamIds: {
+    [key: string]: ProjectviewShownParamIds;
+  };
+  singletonSections: ProjectviewSingletonSections;
+};
+
+export type ProjectviewSingletonSections = {
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+  GlobalVariables: string | null;
+};
+
+export type ProjectviewVariant = {
+  id: string;
+  impl: string;
+  isFrozen: boolean;
+  modifier: unknown;
+  name: string;
+  nonPresetImpls: Array<string> | null;
 };
 
 export type PrompttemplatesTemplate = {
@@ -1120,6 +1640,205 @@ export type TranscriptionprofilesProfile = {
   transcriptionLlmConfigId: string;
   transportMode: string;
 };
+
+export type ListAppDeploymentsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/app/deployments";
+};
+
+export type ListAppDeploymentsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ListAppDeploymentsError =
+  ListAppDeploymentsErrors[keyof ListAppDeploymentsErrors];
+
+export type ListAppDeploymentsResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiDeploymentMetadataResponse> | null;
+};
+
+export type ListAppDeploymentsResponse =
+  ListAppDeploymentsResponses[keyof ListAppDeploymentsResponses];
+
+export type PublishAppDeploymentData = {
+  body: HttpapiPublishAppDeploymentRequest;
+  path?: never;
+  query?: never;
+  url: "/app/deployments";
+};
+
+export type PublishAppDeploymentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type PublishAppDeploymentError =
+  PublishAppDeploymentErrors[keyof PublishAppDeploymentErrors];
+
+export type PublishAppDeploymentResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiDeploymentMetadataResponse;
+};
+
+export type PublishAppDeploymentResponse =
+  PublishAppDeploymentResponses[keyof PublishAppDeploymentResponses];
+
+export type GetAppDeploymentCurrentSessionData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/app/deployments/current/session";
+};
+
+export type GetAppDeploymentCurrentSessionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppDeploymentCurrentSessionError =
+  GetAppDeploymentCurrentSessionErrors[keyof GetAppDeploymentCurrentSessionErrors];
+
+export type GetAppDeploymentCurrentSessionResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiAppDeploymentSessionResponse;
+};
+
+export type GetAppDeploymentCurrentSessionResponse =
+  GetAppDeploymentCurrentSessionResponses[keyof GetAppDeploymentCurrentSessionResponses];
+
+export type GetAppDeploymentLatestData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+  };
+  query?: never;
+  url: "/app/deployments/{deploymentName}/latest";
+};
+
+export type GetAppDeploymentLatestErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppDeploymentLatestError =
+  GetAppDeploymentLatestErrors[keyof GetAppDeploymentLatestErrors];
+
+export type GetAppDeploymentLatestResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiDeploymentMetadataResponse;
+};
+
+export type GetAppDeploymentLatestResponse =
+  GetAppDeploymentLatestResponses[keyof GetAppDeploymentLatestResponses];
+
+export type ListAppDeploymentVersionsData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+  };
+  query?: never;
+  url: "/app/deployments/{deploymentName}/versions";
+};
+
+export type ListAppDeploymentVersionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ListAppDeploymentVersionsError =
+  ListAppDeploymentVersionsErrors[keyof ListAppDeploymentVersionsErrors];
+
+export type ListAppDeploymentVersionsResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiDeploymentMetadataResponse> | null;
+};
+
+export type ListAppDeploymentVersionsResponse =
+  ListAppDeploymentVersionsResponses[keyof ListAppDeploymentVersionsResponses];
+
+export type GetAppDeploymentProjectConfigData = {
+  body: HttpapiLoadDeploymentProjectConfigRequest;
+  path: {
+    deploymentName: string;
+    version: string;
+  };
+  query?: never;
+  url: "/app/deployments/{deploymentName}/{version}/project_config";
+};
+
+export type GetAppDeploymentProjectConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppDeploymentProjectConfigError =
+  GetAppDeploymentProjectConfigErrors[keyof GetAppDeploymentProjectConfigErrors];
+
+export type GetAppDeploymentProjectConfigResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiAppDeploymentStateResponse;
+};
+
+export type GetAppDeploymentProjectConfigResponse =
+  GetAppDeploymentProjectConfigResponses[keyof GetAppDeploymentProjectConfigResponses];
+
+export type GetAppDeploymentStateData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+    version: string;
+  };
+  query?: never;
+  url: "/app/deployments/{deploymentName}/{version}/state";
+};
+
+export type GetAppDeploymentStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetAppDeploymentStateError =
+  GetAppDeploymentStateErrors[keyof GetAppDeploymentStateErrors];
+
+export type GetAppDeploymentStateResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiAppDeploymentStateResponse;
+};
+
+export type GetAppDeploymentStateResponse =
+  GetAppDeploymentStateResponses[keyof GetAppDeploymentStateResponses];
 
 export type GetAuthRefreshStatusData = {
   body?: never;
@@ -1390,6 +2109,33 @@ export type CreateFileResponses = {
 
 export type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
 
+export type CreateProjectConfigData = {
+  body: HttpapiCreateProjectConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/createProjectConfig";
+};
+
+export type CreateProjectConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type CreateProjectConfigError =
+  CreateProjectConfigErrors[keyof CreateProjectConfigErrors];
+
+export type CreateProjectConfigResponses = {
+  /**
+   * OK
+   */
+  200: string;
+};
+
+export type CreateProjectConfigResponse =
+  CreateProjectConfigResponses[keyof CreateProjectConfigResponses];
+
 export type CreatePromptTemplateData = {
   body: HttpapiCreatePromptTemplateRequest;
   path?: never;
@@ -1551,6 +2297,60 @@ export type DeleteExternalAgentConfigResponses = {
 
 export type DeleteExternalAgentConfigResponse =
   DeleteExternalAgentConfigResponses[keyof DeleteExternalAgentConfigResponses];
+
+export type DeleteNotificationData = {
+  body: HttpapiDeleteNotificationRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteNotification";
+};
+
+export type DeleteNotificationErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteNotificationError =
+  DeleteNotificationErrors[keyof DeleteNotificationErrors];
+
+export type DeleteNotificationResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiDeleteNotificationResponse;
+};
+
+export type DeleteNotificationResponse =
+  DeleteNotificationResponses[keyof DeleteNotificationResponses];
+
+export type DeleteProjectConfigsData = {
+  body: HttpapiDeleteProjectConfigsRequest;
+  path?: never;
+  query?: never;
+  url: "/deleteProjectConfigs";
+};
+
+export type DeleteProjectConfigsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DeleteProjectConfigsError =
+  DeleteProjectConfigsErrors[keyof DeleteProjectConfigsErrors];
+
+export type DeleteProjectConfigsResponses = {
+  /**
+   * OK
+   */
+  200: boolean;
+};
+
+export type DeleteProjectConfigsResponse =
+  DeleteProjectConfigsResponses[keyof DeleteProjectConfigsResponses];
 
 export type DeletePromptTemplateData = {
   body: HttpapiDeletePromptTemplateRequest;
@@ -2013,6 +2813,33 @@ export type GetFolderContentsResponses = {
 export type GetFolderContentsResponse =
   GetFolderContentsResponses[keyof GetFolderContentsResponses];
 
+export type GetNotificationsData = {
+  body: HttpapiGetNotificationsRequest;
+  path?: never;
+  query?: never;
+  url: "/getNotifications";
+};
+
+export type GetNotificationsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetNotificationsError =
+  GetNotificationsErrors[keyof GetNotificationsErrors];
+
+export type GetNotificationsResponses = {
+  /**
+   * OK
+   */
+  200: Array<NotificationsNotification> | null;
+};
+
+export type GetNotificationsResponse =
+  GetNotificationsResponses[keyof GetNotificationsResponses];
+
 export type GetPromptTemplateData = {
   body: HttpapiGetPromptTemplateRequest;
   path?: never;
@@ -2251,6 +3078,60 @@ export type SetLlmConfigResponses = {
 
 export type SetLlmConfigResponse =
   SetLlmConfigResponses[keyof SetLlmConfigResponses];
+
+export type LoadAllProjectMetadataData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/loadAllProjectMetadata";
+};
+
+export type LoadAllProjectMetadataErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadAllProjectMetadataError =
+  LoadAllProjectMetadataErrors[keyof LoadAllProjectMetadataErrors];
+
+export type LoadAllProjectMetadataResponses = {
+  /**
+   * OK
+   */
+  200: ProjectshellAllProjectMetadata;
+};
+
+export type LoadAllProjectMetadataResponse =
+  LoadAllProjectMetadataResponses[keyof LoadAllProjectMetadataResponses];
+
+export type LoadProjectConfigData = {
+  body: HttpapiProjectLoadRequest;
+  path?: never;
+  query?: never;
+  url: "/loadProjectConfig";
+};
+
+export type LoadProjectConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LoadProjectConfigError =
+  LoadProjectConfigErrors[keyof LoadProjectConfigErrors];
+
+export type LoadProjectConfigResponses = {
+  /**
+   * OK
+   */
+  200: ProjectviewSingleConfig;
+};
+
+export type LoadProjectConfigResponse =
+  LoadProjectConfigResponses[keyof LoadProjectConfigResponses];
 
 export type LoadSettingsData = {
   body?: never;
@@ -2703,6 +3584,59 @@ export type GetRuntimeInfoResponses = {
 export type GetRuntimeInfoResponse =
   GetRuntimeInfoResponses[keyof GetRuntimeInfoResponses];
 
+export type SaveAsNewProjectConfigData = {
+  body: HttpapiSaveAsNewProjectConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/saveAsNewProjectConfig";
+};
+
+export type SaveAsNewProjectConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SaveAsNewProjectConfigError =
+  SaveAsNewProjectConfigErrors[keyof SaveAsNewProjectConfigErrors];
+
+export type SaveAsNewProjectConfigResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SaveAsNewProjectConfigResponse =
+  SaveAsNewProjectConfigResponses[keyof SaveAsNewProjectConfigResponses];
+
+export type SaveProjectData = {
+  body: HttpapiManualSaveRequest;
+  path?: never;
+  query?: never;
+  url: "/saveProject";
+};
+
+export type SaveProjectErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SaveProjectError = SaveProjectErrors[keyof SaveProjectErrors];
+
+export type SaveProjectResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SaveProjectResponse =
+  SaveProjectResponses[keyof SaveProjectResponses];
+
 export type SaveSettingsData = {
   body: HttpapiSaveSettingsRequest;
   path?: never;
@@ -2782,6 +3716,60 @@ export type GetServerModeResponses = {
 export type GetServerModeResponse =
   GetServerModeResponses[keyof GetServerModeResponses];
 
+export type SetAsDefaultProjectData = {
+  body: HttpapiSetDefaultProjectConfigRequest;
+  path?: never;
+  query?: never;
+  url: "/setAsDefaultProject";
+};
+
+export type SetAsDefaultProjectErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetAsDefaultProjectError =
+  SetAsDefaultProjectErrors[keyof SetAsDefaultProjectErrors];
+
+export type SetAsDefaultProjectResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetAsDefaultProjectResponse =
+  SetAsDefaultProjectResponses[keyof SetAsDefaultProjectResponses];
+
+export type SetProjectConfigNameData = {
+  body: HttpapiSetProjectConfigNameRequest;
+  path?: never;
+  query?: never;
+  url: "/setProjectConfigName";
+};
+
+export type SetProjectConfigNameErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type SetProjectConfigNameError =
+  SetProjectConfigNameErrors[keyof SetProjectConfigNameErrors];
+
+export type SetProjectConfigNameResponses = {
+  /**
+   * OK
+   */
+  200: null;
+};
+
+export type SetProjectConfigNameResponse =
+  SetProjectConfigNameResponses[keyof SetProjectConfigNameResponses];
+
 export type GetSettaHomeInfoData = {
   body?: never;
   path?: never;
@@ -2808,6 +3796,205 @@ export type GetSettaHomeInfoResponses = {
 
 export type GetSettaHomeInfoResponse =
   GetSettaHomeInfoResponses[keyof GetSettaHomeInfoResponses];
+
+export type ListShareDeploymentsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/share/deployments";
+};
+
+export type ListShareDeploymentsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ListShareDeploymentsError =
+  ListShareDeploymentsErrors[keyof ListShareDeploymentsErrors];
+
+export type ListShareDeploymentsResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiDeploymentMetadataResponse> | null;
+};
+
+export type ListShareDeploymentsResponse =
+  ListShareDeploymentsResponses[keyof ListShareDeploymentsResponses];
+
+export type PublishShareDeploymentData = {
+  body: HttpapiPublishShareDeploymentRequest;
+  path?: never;
+  query?: never;
+  url: "/share/deployments";
+};
+
+export type PublishShareDeploymentErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type PublishShareDeploymentError =
+  PublishShareDeploymentErrors[keyof PublishShareDeploymentErrors];
+
+export type PublishShareDeploymentResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiDeploymentMetadataResponse;
+};
+
+export type PublishShareDeploymentResponse =
+  PublishShareDeploymentResponses[keyof PublishShareDeploymentResponses];
+
+export type GetShareDeploymentCurrentSessionData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/share/deployments/current/session";
+};
+
+export type GetShareDeploymentCurrentSessionErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetShareDeploymentCurrentSessionError =
+  GetShareDeploymentCurrentSessionErrors[keyof GetShareDeploymentCurrentSessionErrors];
+
+export type GetShareDeploymentCurrentSessionResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiShareDeploymentSessionResponse;
+};
+
+export type GetShareDeploymentCurrentSessionResponse =
+  GetShareDeploymentCurrentSessionResponses[keyof GetShareDeploymentCurrentSessionResponses];
+
+export type GetShareDeploymentLatestData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+  };
+  query?: never;
+  url: "/share/deployments/{deploymentName}/latest";
+};
+
+export type GetShareDeploymentLatestErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetShareDeploymentLatestError =
+  GetShareDeploymentLatestErrors[keyof GetShareDeploymentLatestErrors];
+
+export type GetShareDeploymentLatestResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiDeploymentMetadataResponse;
+};
+
+export type GetShareDeploymentLatestResponse =
+  GetShareDeploymentLatestResponses[keyof GetShareDeploymentLatestResponses];
+
+export type ListShareDeploymentVersionsData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+  };
+  query?: never;
+  url: "/share/deployments/{deploymentName}/versions";
+};
+
+export type ListShareDeploymentVersionsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ListShareDeploymentVersionsError =
+  ListShareDeploymentVersionsErrors[keyof ListShareDeploymentVersionsErrors];
+
+export type ListShareDeploymentVersionsResponses = {
+  /**
+   * OK
+   */
+  200: Array<HttpapiDeploymentMetadataResponse> | null;
+};
+
+export type ListShareDeploymentVersionsResponse =
+  ListShareDeploymentVersionsResponses[keyof ListShareDeploymentVersionsResponses];
+
+export type GetShareDeploymentProjectConfigData = {
+  body: HttpapiLoadDeploymentProjectConfigRequest;
+  path: {
+    deploymentName: string;
+    version: string;
+  };
+  query?: never;
+  url: "/share/deployments/{deploymentName}/{version}/project_config";
+};
+
+export type GetShareDeploymentProjectConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetShareDeploymentProjectConfigError =
+  GetShareDeploymentProjectConfigErrors[keyof GetShareDeploymentProjectConfigErrors];
+
+export type GetShareDeploymentProjectConfigResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
+};
+
+export type GetShareDeploymentProjectConfigResponse =
+  GetShareDeploymentProjectConfigResponses[keyof GetShareDeploymentProjectConfigResponses];
+
+export type GetShareDeploymentStateData = {
+  body?: never;
+  path: {
+    deploymentName: string;
+    version: string;
+  };
+  query?: never;
+  url: "/share/deployments/{deploymentName}/{version}/state";
+};
+
+export type GetShareDeploymentStateErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetShareDeploymentStateError =
+  GetShareDeploymentStateErrors[keyof GetShareDeploymentStateErrors];
+
+export type GetShareDeploymentStateResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
+};
+
+export type GetShareDeploymentStateResponse =
+  GetShareDeploymentStateResponses[keyof GetShareDeploymentStateResponses];
 
 export type TransferFileBrowserEntryData = {
   body: HttpapiTransferFileBrowserEntryRequest;

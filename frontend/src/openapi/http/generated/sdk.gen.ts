@@ -29,6 +29,9 @@ import type {
   CreateFileData,
   CreateFileErrors,
   CreateFileResponses,
+  CreateProjectConfigData,
+  CreateProjectConfigErrors,
+  CreateProjectConfigResponses,
   CreatePromptTemplateData,
   CreatePromptTemplateErrors,
   CreatePromptTemplateResponses,
@@ -47,6 +50,12 @@ import type {
   DeleteExternalAgentConfigData,
   DeleteExternalAgentConfigErrors,
   DeleteExternalAgentConfigResponses,
+  DeleteNotificationData,
+  DeleteNotificationErrors,
+  DeleteNotificationResponses,
+  DeleteProjectConfigsData,
+  DeleteProjectConfigsErrors,
+  DeleteProjectConfigsResponses,
   DeletePromptTemplateData,
   DeletePromptTemplateErrors,
   DeletePromptTemplateResponses,
@@ -77,6 +86,18 @@ import type {
   GetAgenticSummaryCacheStatusData,
   GetAgenticSummaryCacheStatusErrors,
   GetAgenticSummaryCacheStatusResponses,
+  GetAppDeploymentCurrentSessionData,
+  GetAppDeploymentCurrentSessionErrors,
+  GetAppDeploymentCurrentSessionResponses,
+  GetAppDeploymentLatestData,
+  GetAppDeploymentLatestErrors,
+  GetAppDeploymentLatestResponses,
+  GetAppDeploymentProjectConfigData,
+  GetAppDeploymentProjectConfigErrors,
+  GetAppDeploymentProjectConfigResponses,
+  GetAppDeploymentStateData,
+  GetAppDeploymentStateErrors,
+  GetAppDeploymentStateResponses,
   GetAuthRefreshStatusData,
   GetAuthRefreshStatusErrors,
   GetAuthRefreshStatusResponses,
@@ -122,6 +143,9 @@ import type {
   GetMcpServerRuntimeStatusData,
   GetMcpServerRuntimeStatusErrors,
   GetMcpServerRuntimeStatusResponses,
+  GetNotificationsData,
+  GetNotificationsErrors,
+  GetNotificationsResponses,
   GetPluginsRuntimeData,
   GetPluginsRuntimeErrors,
   GetPluginsRuntimeResponses,
@@ -140,6 +164,18 @@ import type {
   GetSettaHomeInfoData,
   GetSettaHomeInfoErrors,
   GetSettaHomeInfoResponses,
+  GetShareDeploymentCurrentSessionData,
+  GetShareDeploymentCurrentSessionErrors,
+  GetShareDeploymentCurrentSessionResponses,
+  GetShareDeploymentLatestData,
+  GetShareDeploymentLatestErrors,
+  GetShareDeploymentLatestResponses,
+  GetShareDeploymentProjectConfigData,
+  GetShareDeploymentProjectConfigErrors,
+  GetShareDeploymentProjectConfigResponses,
+  GetShareDeploymentStateData,
+  GetShareDeploymentStateErrors,
+  GetShareDeploymentStateResponses,
   GetTranscriptionProfilesData,
   GetTranscriptionProfilesErrors,
   GetTranscriptionProfilesResponses,
@@ -155,9 +191,33 @@ import type {
   LinkPluginData,
   LinkPluginErrors,
   LinkPluginResponses,
+  ListAppDeploymentVersionsData,
+  ListAppDeploymentVersionsErrors,
+  ListAppDeploymentVersionsResponses,
+  ListAppDeploymentsData,
+  ListAppDeploymentsErrors,
+  ListAppDeploymentsResponses,
+  ListShareDeploymentVersionsData,
+  ListShareDeploymentVersionsErrors,
+  ListShareDeploymentVersionsResponses,
+  ListShareDeploymentsData,
+  ListShareDeploymentsErrors,
+  ListShareDeploymentsResponses,
+  LoadAllProjectMetadataData,
+  LoadAllProjectMetadataErrors,
+  LoadAllProjectMetadataResponses,
+  LoadProjectConfigData,
+  LoadProjectConfigErrors,
+  LoadProjectConfigResponses,
   LoadSettingsData,
   LoadSettingsErrors,
   LoadSettingsResponses,
+  PublishAppDeploymentData,
+  PublishAppDeploymentErrors,
+  PublishAppDeploymentResponses,
+  PublishShareDeploymentData,
+  PublishShareDeploymentErrors,
+  PublishShareDeploymentResponses,
   RescanPluginsData,
   RescanPluginsErrors,
   RescanPluginsResponses,
@@ -170,18 +230,30 @@ import type {
   RollbackPluginData,
   RollbackPluginErrors,
   RollbackPluginResponses,
+  SaveAsNewProjectConfigData,
+  SaveAsNewProjectConfigErrors,
+  SaveAsNewProjectConfigResponses,
+  SaveProjectData,
+  SaveProjectErrors,
+  SaveProjectResponses,
   SaveSettingsData,
   SaveSettingsErrors,
   SaveSettingsResponses,
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  SetAsDefaultProjectData,
+  SetAsDefaultProjectErrors,
+  SetAsDefaultProjectResponses,
   SetLlmApiKeysData,
   SetLlmApiKeysErrors,
   SetLlmApiKeysResponses,
   SetLlmConfigData,
   SetLlmConfigErrors,
   SetLlmConfigResponses,
+  SetProjectConfigNameData,
+  SetProjectConfigNameErrors,
+  SetProjectConfigNameResponses,
   TransferFileBrowserEntryData,
   TransferFileBrowserEntryErrors,
   TransferFileBrowserEntryResponses,
@@ -235,6 +307,130 @@ export type Options<
    * used to access values that aren't defined as part of the SDK function.
    */
   meta?: Record<string, unknown>;
+};
+
+/**
+ * List published app deployments.
+ */
+export const listAppDeployments = <ThrowOnError extends boolean = false>(
+  options?: Options<ListAppDeploymentsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    ListAppDeploymentsResponses,
+    ListAppDeploymentsErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments",
+    ...options,
+  });
+};
+
+/**
+ * Publish the current project config as an app deployment.
+ */
+export const publishAppDeployment = <ThrowOnError extends boolean = false>(
+  options: Options<PublishAppDeploymentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    PublishAppDeploymentResponses,
+    PublishAppDeploymentErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get or create the current app deployment session.
+ */
+export const getAppDeploymentCurrentSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetAppDeploymentCurrentSessionData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetAppDeploymentCurrentSessionResponses,
+    GetAppDeploymentCurrentSessionErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments/current/session",
+    ...options,
+  });
+};
+
+/**
+ * Get the latest published version for an app deployment.
+ */
+export const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
+  options: Options<GetAppDeploymentLatestData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetAppDeploymentLatestResponses,
+    GetAppDeploymentLatestErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments/{deploymentName}/latest",
+    ...options,
+  });
+};
+
+/**
+ * List published versions for an app deployment.
+ */
+export const listAppDeploymentVersions = <ThrowOnError extends boolean = false>(
+  options: Options<ListAppDeploymentVersionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    ListAppDeploymentVersionsResponses,
+    ListAppDeploymentVersionsErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments/{deploymentName}/versions",
+    ...options,
+  });
+};
+
+/**
+ * Load a specific project config and app definition from an app deployment session.
+ */
+export const getAppDeploymentProjectConfig = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetAppDeploymentProjectConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetAppDeploymentProjectConfigResponses,
+    GetAppDeploymentProjectConfigErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments/{deploymentName}/{version}/project_config",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load the default project state and app definition for an app deployment session.
+ */
+export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
+  options: Options<GetAppDeploymentStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetAppDeploymentStateResponses,
+    GetAppDeploymentStateErrors,
+    ThrowOnError
+  >({
+    url: "/app/deployments/{deploymentName}/{version}/state",
+    ...options,
+  });
 };
 
 /**
@@ -427,6 +623,26 @@ export const createFile = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Create a new empty project config.
+ */
+export const createProjectConfig = <ThrowOnError extends boolean = false>(
+  options: Options<CreateProjectConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    CreateProjectConfigResponses,
+    CreateProjectConfigErrors,
+    ThrowOnError
+  >({
+    url: "/createProjectConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Create a prompt template.
  */
 export const createPromptTemplate = <ThrowOnError extends boolean = false>(
@@ -542,6 +758,46 @@ export const deleteExternalAgentConfig = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/deleteExternalAgentConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete a persisted notification.
+ */
+export const deleteNotification = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteNotificationData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteNotificationResponses,
+    DeleteNotificationErrors,
+    ThrowOnError
+  >({
+    url: "/deleteNotification",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Delete one or more project configs.
+ */
+export const deleteProjectConfigs = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteProjectConfigsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DeleteProjectConfigsResponses,
+    DeleteProjectConfigsErrors,
+    ThrowOnError
+  >({
+    url: "/deleteProjectConfigs",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -873,6 +1129,26 @@ export const getFolderContents = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * List persisted notifications for a project config.
+ */
+export const getNotifications = <ThrowOnError extends boolean = false>(
+  options: Options<GetNotificationsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetNotificationsResponses,
+    GetNotificationsErrors,
+    ThrowOnError
+  >({
+    url: "/getNotifications",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Get a single prompt template.
  */
 export const getPromptTemplate = <ThrowOnError extends boolean = false>(
@@ -1028,6 +1304,42 @@ export const setLlmConfig = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/llm/config",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load the full project metadata list for the current workspace.
+ */
+export const loadAllProjectMetadata = <ThrowOnError extends boolean = false>(
+  options?: Options<LoadAllProjectMetadataData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    LoadAllProjectMetadataResponses,
+    LoadAllProjectMetadataErrors,
+    ThrowOnError
+  >({
+    url: "/loadAllProjectMetadata",
+    ...options,
+  });
+};
+
+/**
+ * Load a single project config by name.
+ */
+export const loadProjectConfig = <ThrowOnError extends boolean = false>(
+  options: Options<LoadProjectConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LoadProjectConfigResponses,
+    LoadProjectConfigErrors,
+    ThrowOnError
+  >({
+    url: "/loadProjectConfig",
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -1355,6 +1667,46 @@ export const getRuntimeInfo = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Save the current project as a new project config.
+ */
+export const saveAsNewProjectConfig = <ThrowOnError extends boolean = false>(
+  options: Options<SaveAsNewProjectConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SaveAsNewProjectConfigResponses,
+    SaveAsNewProjectConfigErrors,
+    ThrowOnError
+  >({
+    url: "/saveAsNewProjectConfig",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Save the current project config.
+ */
+export const saveProject = <ThrowOnError extends boolean = false>(
+  options: Options<SaveProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SaveProjectResponses,
+    SaveProjectErrors,
+    ThrowOnError
+  >({
+    url: "/saveProject",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Validate and save the frontend settings document.
  */
 export const saveSettings = <ThrowOnError extends boolean = false>(
@@ -1407,6 +1759,46 @@ export const getServerMode = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Set the default project config for the current workspace.
+ */
+export const setAsDefaultProject = <ThrowOnError extends boolean = false>(
+  options: Options<SetAsDefaultProjectData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetAsDefaultProjectResponses,
+    SetAsDefaultProjectErrors,
+    ThrowOnError
+  >({
+    url: "/setAsDefaultProject",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Rename a project config.
+ */
+export const setProjectConfigName = <ThrowOnError extends boolean = false>(
+  options: Options<SetProjectConfigNameData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    SetProjectConfigNameResponses,
+    SetProjectConfigNameErrors,
+    ThrowOnError
+  >({
+    url: "/setProjectConfigName",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
  * Get Setta home and files-path information for the IDE runtime.
  */
 export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
@@ -1418,6 +1810,132 @@ export const getSettaHomeInfo = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/settaHomeInfo",
+    ...options,
+  });
+};
+
+/**
+ * List published share deployments.
+ */
+export const listShareDeployments = <ThrowOnError extends boolean = false>(
+  options?: Options<ListShareDeploymentsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    ListShareDeploymentsResponses,
+    ListShareDeploymentsErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments",
+    ...options,
+  });
+};
+
+/**
+ * Publish the current project config as a share deployment.
+ */
+export const publishShareDeployment = <ThrowOnError extends boolean = false>(
+  options: Options<PublishShareDeploymentData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    PublishShareDeploymentResponses,
+    PublishShareDeploymentErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get or create the current share deployment session.
+ */
+export const getShareDeploymentCurrentSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetShareDeploymentCurrentSessionData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    GetShareDeploymentCurrentSessionResponses,
+    GetShareDeploymentCurrentSessionErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments/current/session",
+    ...options,
+  });
+};
+
+/**
+ * Get the latest published version for a share deployment.
+ */
+export const getShareDeploymentLatest = <ThrowOnError extends boolean = false>(
+  options: Options<GetShareDeploymentLatestData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetShareDeploymentLatestResponses,
+    GetShareDeploymentLatestErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments/{deploymentName}/latest",
+    ...options,
+  });
+};
+
+/**
+ * List published versions for a share deployment.
+ */
+export const listShareDeploymentVersions = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListShareDeploymentVersionsData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    ListShareDeploymentVersionsResponses,
+    ListShareDeploymentVersionsErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments/{deploymentName}/versions",
+    ...options,
+  });
+};
+
+/**
+ * Load a specific project config from a share deployment session.
+ */
+export const getShareDeploymentProjectConfig = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetShareDeploymentProjectConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    GetShareDeploymentProjectConfigResponses,
+    GetShareDeploymentProjectConfigErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments/{deploymentName}/{version}/project_config",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Load the default project state for a share deployment session.
+ */
+export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
+  options: Options<GetShareDeploymentStateData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).get<
+    GetShareDeploymentStateResponses,
+    GetShareDeploymentStateErrors,
+    ThrowOnError
+  >({
+    url: "/share/deployments/{deploymentName}/{version}/state",
     ...options,
   });
 };

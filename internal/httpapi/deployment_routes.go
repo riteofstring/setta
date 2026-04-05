@@ -71,26 +71,74 @@ func RegisterDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencie
 	}
 
 	if deps.ModePolicy.IsShare() {
-		router.Post(RouteShareDeploymentCurrentSession, currentShareDeploymentSessionHandler(deps.Deployment))
-		router.With(RequireShareSession(modes.Resolver{
+		registerOpenAPIPostNoRequest[ShareDeploymentSessionResponse](
+			router,
+			"getShareDeploymentCurrentSession",
+			RouteShareDeploymentCurrentSession,
+			currentShareDeploymentSessionHandler(deps.Deployment),
+			withOpenAPITags("Share Deployments"),
+			withOpenAPISummary("Get or create the current share deployment session."),
+			withOpenAPIModeRequirement("share"),
+		)
+		shareSessionRouter := router.With(RequireShareSession(modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.Deployment,
-		})).Get(RouteShareDeploymentState, shareDeploymentStateHandler(deps.Deployment))
-		router.With(RequireShareSession(modes.Resolver{
-			Policy: deps.ModePolicy,
-			Store:  deps.Deployment,
-		})).Post(RouteShareDeploymentProjectConfig, shareDeploymentProjectConfigHandler(deps.Deployment))
+		}))
+		registerOpenAPIGet[ProjectStateSingleConfigWithCompletedOpIDs](
+			shareSessionRouter,
+			"getShareDeploymentState",
+			RouteShareDeploymentState,
+			shareDeploymentStateHandler(deps.Deployment),
+			withOpenAPITags("Share Deployments"),
+			withOpenAPISummary("Load the default project state for a share deployment session."),
+			withOpenAPIPathParams[deploymentVersionRouteParams](),
+			withOpenAPIModeRequirement("share"),
+		)
+		registerOpenAPIPost[LoadDeploymentProjectConfigRequest, ProjectStateSingleConfigWithCompletedOpIDs](
+			shareSessionRouter,
+			"getShareDeploymentProjectConfig",
+			RouteShareDeploymentProjectConfig,
+			shareDeploymentProjectConfigHandler(deps.Deployment),
+			withOpenAPITags("Share Deployments"),
+			withOpenAPISummary("Load a specific project config from a share deployment session."),
+			withOpenAPIPathParams[deploymentVersionRouteParams](),
+			withOpenAPIModeRequirement("share"),
+		)
 	}
 	if deps.ModePolicy.IsApp() {
-		router.Post(RouteAppDeploymentCurrentSession, currentAppDeploymentSessionHandler(deps.Deployment))
-		router.With(RequireShareSession(modes.Resolver{
+		registerOpenAPIPostNoRequest[AppDeploymentSessionResponse](
+			router,
+			"getAppDeploymentCurrentSession",
+			RouteAppDeploymentCurrentSession,
+			currentAppDeploymentSessionHandler(deps.Deployment),
+			withOpenAPITags("App Deployments"),
+			withOpenAPISummary("Get or create the current app deployment session."),
+			withOpenAPIModeRequirement("app"),
+		)
+		appSessionRouter := router.With(RequireShareSession(modes.Resolver{
 			Policy: deps.ModePolicy,
 			Store:  deps.Deployment,
-		})).Get(RouteAppDeploymentState, appDeploymentStateHandler(deps.Deployment))
-		router.With(RequireShareSession(modes.Resolver{
-			Policy: deps.ModePolicy,
-			Store:  deps.Deployment,
-		})).Post(RouteAppDeploymentProjectConfig, appDeploymentProjectConfigHandler(deps.Deployment))
+		}))
+		registerOpenAPIGet[AppDeploymentStateResponse](
+			appSessionRouter,
+			"getAppDeploymentState",
+			RouteAppDeploymentState,
+			appDeploymentStateHandler(deps.Deployment),
+			withOpenAPITags("App Deployments"),
+			withOpenAPISummary("Load the default project state and app definition for an app deployment session."),
+			withOpenAPIPathParams[deploymentVersionRouteParams](),
+			withOpenAPIModeRequirement("app"),
+		)
+		registerOpenAPIPost[LoadDeploymentProjectConfigRequest, AppDeploymentStateResponse](
+			appSessionRouter,
+			"getAppDeploymentProjectConfig",
+			RouteAppDeploymentProjectConfig,
+			appDeploymentProjectConfigHandler(deps.Deployment),
+			withOpenAPITags("App Deployments"),
+			withOpenAPISummary("Load a specific project config and app definition from an app deployment session."),
+			withOpenAPIPathParams[deploymentVersionRouteParams](),
+			withOpenAPIModeRequirement("app"),
+		)
 	}
 	return nil
 }

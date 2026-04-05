@@ -1,6 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { checkIfFileExists } from "openapi/http";
+import {
+  checkIfFileExists,
+  type HttpapiPublishShareDeploymentRequest,
+  listShareDeployments,
+  publishShareDeployment,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -10,20 +15,14 @@ import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
 import { createDefaultSharePolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_list_share_deployments,
-  route_publish_share_deployment,
-} from "utils/generatedEndpoints";
 import type {
   DeploymentMetadataResponse,
-  PublishShareDeploymentRequest,
+  Policy,
   RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
-type SharePolicyOverridesInput = NonNullable<
-  PublishShareDeploymentRequest["sharePolicyOverrides"]
->;
+type SharePolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 
 function createDefaultDeploymentName(): string {
@@ -109,10 +108,12 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
 
   async function loadRecentDeployments(): Promise<void> {
     setIsLoadingRecent(true);
-    const res = await route_list_share_deployments();
+    const res = (await callOpenAPI(
+      listShareDeployments(),
+    )) as ResponseDataAndStatus<Array<DeploymentMetadataResponse>>;
     setIsLoadingRecent(false);
     if (res200(res)) {
-      setRecentDeployments(res.data);
+      setRecentDeployments(res.data ?? []);
       return;
     }
     setRecentDeployments([]);
@@ -150,7 +151,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: PublishShareDeploymentRequest = {
+    const payload: HttpapiPublishShareDeploymentRequest = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
@@ -158,7 +159,11 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
     };
 
-    const res = await route_publish_share_deployment(payload);
+    const res = (await callOpenAPI(
+      publishShareDeployment({
+        body: payload,
+      }),
+    )) as ResponseDataAndStatus<DeploymentMetadataResponse>;
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);

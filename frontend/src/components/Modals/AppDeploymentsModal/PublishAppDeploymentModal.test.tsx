@@ -13,11 +13,8 @@ import { createAppDefinition, createProjectConfig } from "utils/generatedTypes";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
-}));
-
-const generatedEndpoints = vi.hoisted(() => ({
-  route_list_app_deployments: vi.fn(),
-  route_publish_app_deployment: vi.fn(),
+  listAppDeployments: vi.fn(),
+  publishAppDeployment: vi.fn(),
 }));
 
 vi.mock("state/actions/modal", () => ({
@@ -30,6 +27,8 @@ vi.mock("openapi/http", async () => {
   return {
     ...actual,
     checkIfFileExists: openAPI.checkIfFileExists,
+    listAppDeployments: openAPI.listAppDeployments,
+    publishAppDeployment: openAPI.publishAppDeployment,
   };
 });
 
@@ -38,18 +37,6 @@ vi.mock("openapi/http/result", () => ({
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_list_app_deployments: generatedEndpoints.route_list_app_deployments,
-    route_publish_app_deployment:
-      generatedEndpoints.route_publish_app_deployment,
-  };
-});
 
 import { PublishAppDeploymentModal } from "./PublishAppDeploymentModal";
 
@@ -64,6 +51,17 @@ const originalLocalStorage = window.localStorage;
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
+
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
 
 function installTestLocalStorage() {
   const storage = new Map<string, string>();
@@ -115,8 +113,8 @@ describe("PublishAppDeploymentModal", () => {
     installTestLocalStorage();
     document.body.innerHTML = "";
     openAPI.checkIfFileExists.mockReset();
-    generatedEndpoints.route_list_app_deployments.mockReset();
-    generatedEndpoints.route_publish_app_deployment.mockReset();
+    openAPI.listAppDeployments.mockReset();
+    openAPI.publishAppDeployment.mockReset();
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -127,11 +125,7 @@ describe("PublishAppDeploymentModal", () => {
       appSpec: null,
       appDefinition: createAppDefinition(),
     });
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    setReactActEnvironment(true);
   });
 
   afterEach(() => {
@@ -141,11 +135,7 @@ describe("PublishAppDeploymentModal", () => {
       value: originalLocalStorage,
     });
     document.body.innerHTML = "";
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
+    setReactActEnvironment(originalReactActEnvironment);
   });
 
   it("autofills the listener entrypoint through the Go file-exists contract", async () => {
@@ -154,7 +144,7 @@ describe("PublishAppDeploymentModal", () => {
       status: 200,
       hasResponse: true,
     });
-    generatedEndpoints.route_list_app_deployments.mockResolvedValue({
+    openAPI.listAppDeployments.mockResolvedValue({
       data: [],
       status: 200,
       hasResponse: true,

@@ -44,6 +44,7 @@ const routeCreateProjectConfigMock = vi.fn();
 const routeLoadProjectConfigMock = vi.fn();
 const routeLoadAllProjectMetadataMock = vi.fn();
 const routeGetLatestLspDiagnosticsMock = vi.fn();
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 const initializeServerModeMock = vi.fn();
 const requestAIFollowSnapshotMock = vi.fn();
 const fetchListenerCoverageSnapshotMock = vi.fn();
@@ -54,35 +55,52 @@ vi.mock("react-router-dom", () => ({
   useNavigate: () => navigateMock,
 }));
 
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    createProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeCreateProjectConfigMock()
+        : routeCreateProjectConfigMock(options),
+    loadAllProjectMetadata: (options?: unknown) =>
+      options === undefined
+        ? routeLoadAllProjectMetadataMock()
+        : routeLoadAllProjectMetadataMock(options),
+    loadProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeLoadProjectConfigMock()
+        : routeLoadProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+}));
+
 vi.mock("utils/generatedEndpoints", () => ({
-  route_create_project_config: (...args: unknown[]) =>
-    routeCreateProjectConfigMock(...args),
-  route_get_latest_lsp_diagnostics: (...args: unknown[]) =>
-    routeGetLatestLspDiagnosticsMock(...args),
-  route_load_all_project_metadata: (...args: unknown[]) =>
-    routeLoadAllProjectMetadataMock(...args),
-  route_load_project_config: (...args: unknown[]) =>
-    routeLoadProjectConfigMock(...args),
+  route_get_latest_lsp_diagnostics: (body: unknown) =>
+    routeGetLatestLspDiagnosticsMock(body),
 }));
 
 vi.mock("../serverMode", () => ({
-  initializeServerMode: (...args: unknown[]) =>
-    initializeServerModeMock(...args),
+  initializeServerMode: () => initializeServerModeMock(),
 }));
 
 vi.mock("../aiFollow", () => ({
-  requestAIFollowSnapshot: (...args: unknown[]) =>
-    requestAIFollowSnapshotMock(...args),
+  requestAIFollowSnapshot: (projectConfigId: string) =>
+    requestAIFollowSnapshotMock(projectConfigId),
 }));
 
 vi.mock("../listenerCoverage", () => ({
-  fetchListenerCoverageSnapshot: (...args: unknown[]) =>
-    fetchListenerCoverageSnapshotMock(...args),
+  fetchListenerCoverageSnapshot: (projectConfigId: string) =>
+    fetchListenerCoverageSnapshotMock(projectConfigId),
 }));
 
 vi.mock("../lspDiagnostics", () => ({
-  processLspDiagnostics: (...args: unknown[]) =>
-    processLspDiagnosticsMock(...args),
+  processLspDiagnostics: (payload: unknown) =>
+    processLspDiagnosticsMock(payload),
 }));
 
 import {
@@ -96,20 +114,23 @@ const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
 
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
+
 beforeAll(() => {
-  (
-    globalThis as typeof globalThis & {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-    }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
+  setReactActEnvironment(true);
 });
 
 afterAll(() => {
-  (
-    globalThis as typeof globalThis & {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-    }
-  ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
+  setReactActEnvironment(originalReactActEnvironment);
 });
 
 type CreateProjectInvokerProps = {
@@ -156,6 +177,7 @@ describe("loadAllProjectMetadata", () => {
     routeLoadAllProjectMetadataMock.mockReset();
     routeLoadProjectConfigMock.mockReset();
     routeGetLatestLspDiagnosticsMock.mockReset();
+    callOpenAPIMock.mockClear();
     initializeServerModeMock.mockReset();
     requestAIFollowSnapshotMock.mockReset();
     fetchListenerCoverageSnapshotMock.mockReset();
@@ -194,6 +216,7 @@ describe("loadAllProjectMetadata", () => {
       project.id,
     );
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([project]);
+    expect(routeLoadAllProjectMetadataMock).toHaveBeenCalledWith();
   });
 
   it("returns false when metadata request fails", async () => {
@@ -247,7 +270,9 @@ describe("loadAllProjectMetadata", () => {
 
     expect(loaded).toBe(true);
     expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "Loaded Project",
+      body: {
+        projectConfigName: "Loaded Project",
+      },
     });
     expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
       projectConfigId: "project-loaded",
@@ -288,7 +313,9 @@ describe("useCreateAndGoToProjectConfig", () => {
       // The hook should forward the Go-owned project name contract into the
       // navigation target and set the Project AI overview tab.
       expect(routeCreateProjectConfigMock).toHaveBeenCalledWith({
-        previewImgColor: expect.any(String),
+        body: {
+          previewImgColor: expect.any(String),
+        },
       });
       expect(useLocalStorage.getState().overviewTab).toBe(
         OverviewTabNameEnum.ProjectAIChat,
@@ -314,11 +341,14 @@ describe("loadProjectState", () => {
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
+    const invalidProjectConfig = createProjectConfig({
+      id: "project-invalid",
+      name: "Invalid Project",
+    }) as Partial<SingleConfig["projectConfig"]>;
+    delete invalidProjectConfig.windowSpaces;
     const invalidProjectState: Partial<SingleConfig> = {
-      projectConfig: {
-        id: "project-invalid",
-        name: "Invalid Project",
-      },
+      projectConfig: invalidProjectConfig as SingleConfig["projectConfig"],
+      projectChatWindowing: createProjectChatWindowingState(),
     };
 
     await expect(loadProjectState(invalidProjectState)).rejects.toThrow(
@@ -340,19 +370,20 @@ describe("loadProjectState", () => {
   });
 
   it("keeps backend project chat windowing authoritative on load", async () => {
+    const backendProjectConfig = createProjectConfig({
+      id: "project-restore",
+      name: "Restore Project",
+      windowSpaces: {
+        "window-space-1": createWindowSpaceConfig({
+          id: "window-space-1",
+          name: "Saved Layout",
+          windowsById: {},
+          order: [],
+        }),
+      },
+    });
     const backendProjectState: Partial<SingleConfig> = {
-      projectConfig: createProjectConfig({
-        id: "project-restore",
-        name: "Restore Project",
-        windowSpaces: {
-          "window-space-1": createWindowSpaceConfig({
-            id: "window-space-1",
-            name: "Saved Layout",
-            windowsById: {},
-            order: [],
-          }),
-        },
-      }),
+      projectConfig: backendProjectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         instancesById: {
           "project-chat-window-1": createProjectChatWindowInstance({
@@ -380,7 +411,7 @@ describe("loadProjectState", () => {
       title: "Docked Chat",
     });
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
-      backendProjectState.projectConfig.windowSpaces,
+      backendProjectConfig.windowSpaces,
     );
   });
 

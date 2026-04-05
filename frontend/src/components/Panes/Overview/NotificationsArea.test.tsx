@@ -11,7 +11,6 @@ import {
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { OverviewNotificationsPaneTabEnum } from "utils/constants";
-import { route_get_notifications } from "utils/generatedEndpoints";
 import {
   createNotification,
   createProjectConfig,
@@ -21,13 +20,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { NotificationsArea } from "./NotificationsArea";
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+const openAPI = vi.hoisted(() => ({
+  getNotifications: vi.fn(),
+}));
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_get_notifications: vi.fn(),
+    getNotifications: openAPI.getNotifications,
   };
 });
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 type RenderedNotificationsArea = {
   host: HTMLDivElement;
@@ -70,7 +80,7 @@ describe("NotificationsArea", () => {
     syncStoreInitialState(useNotifications);
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
-    vi.mocked(route_get_notifications).mockReset();
+    openAPI.getNotifications.mockReset();
   });
 
   afterEach(() => {
@@ -96,7 +106,7 @@ describe("NotificationsArea", () => {
   });
 
   it("loads notifications through the Go route for the active project", async () => {
-    vi.mocked(route_get_notifications).mockResolvedValue({
+    openAPI.getNotifications.mockResolvedValue({
       data: [
         createNotification({
           id: "notif-1",
@@ -117,8 +127,10 @@ describe("NotificationsArea", () => {
     try {
       await flushEffects();
 
-      expect(route_get_notifications).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
+      expect(openAPI.getNotifications).toHaveBeenCalledWith({
+        body: {
+          projectConfigId: "project-1",
+        },
       });
       expect(host.textContent).toContain("Save needed");
       expect(host.textContent).toContain("Project has unsaved changes.");

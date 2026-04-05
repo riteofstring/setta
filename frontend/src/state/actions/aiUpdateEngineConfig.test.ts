@@ -6,9 +6,8 @@ import { useAIStore } from "../definitions";
 import { updateEngineConfig } from "./ai";
 
 vi.mock("openapi/http", async () => {
-  const actual = await vi.importActual<typeof import("openapi/http")>(
-    "openapi/http",
-  );
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
     updateEngineConfig: vi.fn(),

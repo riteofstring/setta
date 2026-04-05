@@ -74,15 +74,84 @@ func RegisterDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDepen
 		return fmt.Errorf("app deployment publisher is required in ide mode")
 	}
 
-	router.Get(RouteShareDeployments, listDeploymentMetadataHandler(deps.Catalog, deployments.TypeShare))
-	router.Get(RouteShareDeploymentVersions, listDeploymentVersionMetadataHandler(deps.Catalog, deployments.TypeShare))
-	router.Get(RouteShareDeploymentLatest, latestDeploymentMetadataHandler(deps.Catalog, deployments.TypeShare))
-	router.Post(RouteShareDeployments, publishShareDeploymentHandler(deps.ProjectState, deps.SharePublisher))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIGet[[]DeploymentMetadataResponse](
+		ideRouter,
+		"listShareDeployments",
+		RouteShareDeployments,
+		listDeploymentMetadataHandler(deps.Catalog, deployments.TypeShare),
+		withOpenAPITags("Share Deployments"),
+		withOpenAPISummary("List published share deployments."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIGet[[]DeploymentMetadataResponse](
+		ideRouter,
+		"listShareDeploymentVersions",
+		RouteShareDeploymentVersions,
+		listDeploymentVersionMetadataHandler(deps.Catalog, deployments.TypeShare),
+		withOpenAPITags("Share Deployments"),
+		withOpenAPISummary("List published versions for a share deployment."),
+		withOpenAPIPathParams[deploymentNameRouteParams](),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIGet[DeploymentMetadataResponse](
+		ideRouter,
+		"getShareDeploymentLatest",
+		RouteShareDeploymentLatest,
+		latestDeploymentMetadataHandler(deps.Catalog, deployments.TypeShare),
+		withOpenAPITags("Share Deployments"),
+		withOpenAPISummary("Get the latest published version for a share deployment."),
+		withOpenAPIPathParams[deploymentNameRouteParams](),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PublishShareDeploymentRequest, DeploymentMetadataResponse](
+		ideRouter,
+		"publishShareDeployment",
+		RouteShareDeployments,
+		publishShareDeploymentHandler(deps.ProjectState, deps.SharePublisher),
+		withOpenAPITags("Share Deployments"),
+		withOpenAPISummary("Publish the current project config as a share deployment."),
+		withOpenAPIModeRequirement("ide"),
+	)
 
-	router.Get(RouteAppDeployments, listDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp))
-	router.Get(RouteAppDeploymentVersions, listDeploymentVersionMetadataHandler(deps.Catalog, deployments.TypeApp))
-	router.Get(RouteAppDeploymentLatest, latestDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp))
-	router.Post(RouteAppDeployments, publishAppDeploymentHandler(deps.ProjectState, deps.AppPublisher))
+	registerOpenAPIGet[[]DeploymentMetadataResponse](
+		ideRouter,
+		"listAppDeployments",
+		RouteAppDeployments,
+		listDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp),
+		withOpenAPITags("App Deployments"),
+		withOpenAPISummary("List published app deployments."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIGet[[]DeploymentMetadataResponse](
+		ideRouter,
+		"listAppDeploymentVersions",
+		RouteAppDeploymentVersions,
+		listDeploymentVersionMetadataHandler(deps.Catalog, deployments.TypeApp),
+		withOpenAPITags("App Deployments"),
+		withOpenAPISummary("List published versions for an app deployment."),
+		withOpenAPIPathParams[deploymentNameRouteParams](),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIGet[DeploymentMetadataResponse](
+		ideRouter,
+		"getAppDeploymentLatest",
+		RouteAppDeploymentLatest,
+		latestDeploymentMetadataHandler(deps.Catalog, deployments.TypeApp),
+		withOpenAPITags("App Deployments"),
+		withOpenAPISummary("Get the latest published version for an app deployment."),
+		withOpenAPIPathParams[deploymentNameRouteParams](),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PublishAppDeploymentRequest, DeploymentMetadataResponse](
+		ideRouter,
+		"publishAppDeployment",
+		RouteAppDeployments,
+		publishAppDeploymentHandler(deps.ProjectState, deps.AppPublisher),
+		withOpenAPITags("App Deployments"),
+		withOpenAPISummary("Publish the current project config as an app deployment."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

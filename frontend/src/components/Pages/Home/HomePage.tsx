@@ -9,6 +9,8 @@ import { PaneContainer } from "components/Utils/PaneContainer";
 import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
+import { setAsDefaultProject } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";
@@ -53,7 +55,6 @@ import {
   SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
-import { route_set_as_default_project } from "utils/generatedEndpoints";
 import {
   type ProjectConfig,
   type ProjectConfigMetadata,
@@ -382,7 +383,13 @@ function HomeWorkspaceLayout({
   }
 
   async function onSetDefaultProject(projectConfigId: string) {
-    await route_set_as_default_project({ projectConfigId });
+    await callOpenAPI(
+      setAsDefaultProject({
+        body: {
+          projectConfigId,
+        },
+      }),
+    );
   }
 
   const commonGalleryProps = {
@@ -763,7 +770,7 @@ function HomeFileBrowserColumn() {
           <button
             type="button"
             className="h-8 rounded-md border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800"
-            onClick={applyPath}
+            onClick={() => applyPath()}
           >
             Go
           </button>
@@ -1239,8 +1246,12 @@ function ThumbnailArea({
 
   return (
     <ProjectConfigThumbnailSurface
-      previewImgColor={project.previewImgColor}
-      topLevelSections={project.topLevelSections}
+      {...(project.previewImgColor !== undefined
+        ? { previewImgColor: project.previewImgColor }
+        : {})}
+      {...(project.topLevelSections !== undefined
+        ? { topLevelSections: project.topLevelSections }
+        : {})}
       className="group/thumbnail absolute bottom-0 left-0 top-0"
       scalePreview={false}
       previewContainerProps={{ tabIndex: 0, onKeyDown: onThumbnailKeyDown }}

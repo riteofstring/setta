@@ -9,7 +9,7 @@ import {
   createAppDefinition,
   createPolicy,
   createProjectConfig,
-  createSingletonSections,
+  createSingleConfig,
   type AppDeploymentSessionResponse,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -27,14 +27,30 @@ import {
 const routeCreateAppSessionCurrentMock = vi.fn();
 const routeGetAppDeploymentStateMock = vi.fn();
 const routeLoadAppProjectConfigMock = vi.fn();
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_app_deployment_current_session: (...args: unknown[]) =>
-    routeCreateAppSessionCurrentMock(...args),
-  route_app_deployment_state: (...args: unknown[]) =>
-    routeGetAppDeploymentStateMock(...args),
-  route_app_deployment_project_config: (...args: unknown[]) =>
-    routeLoadAppProjectConfigMock(...args),
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getAppDeploymentCurrentSession: (options?: unknown) =>
+      options === undefined
+        ? routeCreateAppSessionCurrentMock()
+        : routeCreateAppSessionCurrentMock(options),
+    getAppDeploymentState: (options?: unknown) =>
+      options === undefined
+        ? routeGetAppDeploymentStateMock()
+        : routeGetAppDeploymentStateMock(options),
+    getAppDeploymentProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeLoadAppProjectConfigMock()
+        : routeLoadAppProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 
 import {
@@ -92,23 +108,12 @@ function buildProjectState(
   projectConfigId: string,
   name: string,
 ): SingleConfig {
-  return {
-    sections: {},
-    sectionImpls: {},
-    sectionVariants: {},
-    codeObjs: {},
-    codeObjImpls: {},
-    codeObjVariants: {},
+  return createSingleConfig({
     projectConfig: createProjectConfig({
       id: projectConfigId,
       name,
     }),
-    singletonSections: createSingletonSections(),
-    parentSectionMap: {},
-    shownParamIds: {},
-    requiredDecodedImages: [],
-    genCodeBinding: null,
-  };
+  });
 }
 
 function setDeploymentAppState(
@@ -165,6 +170,7 @@ describe("app deployment actions", () => {
     routeCreateAppSessionCurrentMock.mockReset();
     routeGetAppDeploymentStateMock.mockReset();
     routeLoadAppProjectConfigMock.mockReset();
+    callOpenAPIMock.mockClear();
   });
 
   afterEach(() => {
@@ -210,6 +216,7 @@ describe("app deployment actions", () => {
     expect(first).toEqual(session);
     expect(second).toEqual(session);
     expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledTimes(1);
+    expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledWith();
     expect(useShareSession.getState()).toMatchObject({
       isDeploymentMode: true,
       shareSessionId: session.shareSessionId,
@@ -250,10 +257,12 @@ describe("app deployment actions", () => {
     const loaded = await loadAppDeploymentState();
 
     expect(loaded).toBe(true);
-    expect(routeGetAppDeploymentStateMock).toHaveBeenCalledWith(
-      "demo-app",
-      "v1",
-    );
+    expect(routeGetAppDeploymentStateMock).toHaveBeenCalledWith({
+      path: {
+        deploymentName: "demo-app",
+        version: "v1",
+      },
+    });
     expect(useAppDefinition.getState()).toMatchObject({
       appDefinition,
       appSpec,
@@ -304,6 +313,15 @@ describe("app deployment actions", () => {
 
     expect(loaded).toBe(true);
     expect(routeLoadAppProjectConfigMock).toHaveBeenCalledTimes(2);
+    expect(routeLoadAppProjectConfigMock).toHaveBeenLastCalledWith({
+      path: {
+        deploymentName: "demo-app",
+        version: "v1",
+      },
+      body: {
+        projectConfigId: "project-beta",
+      },
+    });
     expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledTimes(1);
     expect(useShareSession.getState().shareSessionId).toBe(
       refreshedSession.shareSessionId,
@@ -334,5 +352,14 @@ describe("app deployment actions", () => {
     expect(loaded).toBe(false);
     expect(routeCreateAppSessionCurrentMock).not.toHaveBeenCalled();
     expect(routeLoadAppProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(routeLoadAppProjectConfigMock).toHaveBeenCalledWith({
+      path: {
+        deploymentName: "demo-app",
+        version: "v1",
+      },
+      body: {
+        projectConfigId: "missing-project",
+      },
+    });
   });
 });

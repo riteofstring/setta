@@ -7,7 +7,7 @@ import {
 import {
   createPolicy,
   createProjectConfig,
-  createSingletonSections,
+  createSingleConfig,
   type ShareDeploymentSessionResponse,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -26,21 +26,36 @@ const routeCreateShareSessionCurrentMock = vi.fn();
 const routeLoadShareProjectConfigMock = vi.fn();
 const loadProjectStateMock = vi.fn();
 const requestAIFollowSnapshotMock = vi.fn();
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_share_deployment_current_session: (...args: unknown[]) =>
-    routeCreateShareSessionCurrentMock(...args),
-  route_share_deployment_project_config: (...args: unknown[]) =>
-    routeLoadShareProjectConfigMock(...args),
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getShareDeploymentCurrentSession: (options?: unknown) =>
+      options === undefined
+        ? routeCreateShareSessionCurrentMock()
+        : routeCreateShareSessionCurrentMock(options),
+    getShareDeploymentProjectConfig: (options?: unknown) =>
+      options === undefined
+        ? routeLoadShareProjectConfigMock()
+        : routeLoadShareProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 
 vi.mock("state/actions/project/loadProject", () => ({
-  loadProjectState: (...args: unknown[]) => loadProjectStateMock(...args),
+  loadProjectState: (projectState: unknown) =>
+    loadProjectStateMock(projectState),
 }));
 
 vi.mock("state/actions/aiFollow", () => ({
-  requestAIFollowSnapshot: (...args: unknown[]) =>
-    requestAIFollowSnapshotMock(...args),
+  requestAIFollowSnapshot: (projectConfigId: string) =>
+    requestAIFollowSnapshotMock(projectConfigId),
 }));
 
 import {
@@ -97,23 +112,12 @@ function buildProjectState(
   projectConfigId: string,
   name: string,
 ): SingleConfig {
-  return {
-    sections: {},
-    sectionImpls: {},
-    sectionVariants: {},
-    codeObjs: {},
-    codeObjImpls: {},
-    codeObjVariants: {},
+  return createSingleConfig({
     projectConfig: createProjectConfig({
       id: projectConfigId,
       name,
     }),
-    singletonSections: createSingletonSections(),
-    parentSectionMap: {},
-    shownParamIds: {},
-    requiredDecodedImages: [],
-    genCodeBinding: null,
-  };
+  });
 }
 
 function setDeploymentShareState(
@@ -170,6 +174,7 @@ describe("share deployment actions", () => {
     document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
     routeCreateShareSessionCurrentMock.mockReset();
     routeLoadShareProjectConfigMock.mockReset();
+    callOpenAPIMock.mockClear();
     loadProjectStateMock.mockReset();
     requestAIFollowSnapshotMock.mockReset();
     loadProjectStateMock.mockResolvedValue(true);
@@ -220,6 +225,7 @@ describe("share deployment actions", () => {
     expect(first).toEqual(session);
     expect(second).toEqual(session);
     expect(routeCreateShareSessionCurrentMock).toHaveBeenCalledTimes(1);
+    expect(routeCreateShareSessionCurrentMock).toHaveBeenCalledWith();
     expect(useShareSession.getState()).toMatchObject({
       isDeploymentMode: true,
       shareSessionId: session.shareSessionId,
@@ -258,11 +264,15 @@ describe("share deployment actions", () => {
     });
 
     expect(loaded).toBe(true);
-    expect(routeLoadShareProjectConfigMock).toHaveBeenCalledWith(
-      "demo-share",
-      "v1",
-      { projectConfigId: "project-beta" },
-    );
+    expect(routeLoadShareProjectConfigMock).toHaveBeenCalledWith({
+      path: {
+        deploymentName: "demo-share",
+        version: "v1",
+      },
+      body: {
+        projectConfigId: "project-beta",
+      },
+    });
     expect(loadProjectStateMock).toHaveBeenCalledWith(projectState);
     expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-beta");
     expect(useProjectLoading.getState()).toMatchObject({
@@ -312,6 +322,15 @@ describe("share deployment actions", () => {
 
     expect(loaded).toBe(true);
     expect(routeLoadShareProjectConfigMock).toHaveBeenCalledTimes(2);
+    expect(routeLoadShareProjectConfigMock).toHaveBeenLastCalledWith({
+      path: {
+        deploymentName: "demo-share",
+        version: "v1",
+      },
+      body: {
+        projectConfigId: "project-beta",
+      },
+    });
     expect(routeCreateShareSessionCurrentMock).toHaveBeenCalledTimes(1);
     expect(useShareSession.getState().shareSessionId).toBe(
       refreshedSession.shareSessionId,
@@ -338,6 +357,15 @@ describe("share deployment actions", () => {
     expect(loaded).toBe(false);
     expect(routeCreateShareSessionCurrentMock).not.toHaveBeenCalled();
     expect(routeLoadShareProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(routeLoadShareProjectConfigMock).toHaveBeenCalledWith({
+      path: {
+        deploymentName: "demo-share",
+        version: "v1",
+      },
+      body: {
+        projectConfigId: "missing-project",
+      },
+    });
     expect(useProjectLoading.getState()).toMatchObject({
       projectIsLoading: false,
       projectIs404: true,

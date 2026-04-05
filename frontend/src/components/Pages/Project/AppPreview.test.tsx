@@ -30,6 +30,21 @@ const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
 
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
+
+function resetAppPreviewState() {
+  useAppPreview.getState().reset?.();
+}
+
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
   getInitialState?: () => Record<string, unknown>;
@@ -53,9 +68,20 @@ vi.mock("components/App/AppRenderer", async () => {
   };
 });
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_load_project_config: (...args: unknown[]) =>
-    routeLoadProjectConfigMock(...args),
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    loadProjectConfig: (options?: unknown) =>
+      routeLoadProjectConfigMock(options),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
 }));
 
 function renderPreview() {
@@ -93,29 +119,23 @@ async function flushEffects(): Promise<void> {
 describe("AppPreview", () => {
   beforeEach(() => {
     resetProjectStores();
+    resetAppPreviewState();
     routeLoadProjectConfigMock.mockReset();
   });
 
   afterEach(() => {
     resetProjectStores();
+    resetAppPreviewState();
     latestProps = null;
     document.body.innerHTML = "";
   });
 
   beforeEach(() => {
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    setReactActEnvironment(true);
   });
 
   afterEach(() => {
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
+    setReactActEnvironment(originalReactActEnvironment);
   });
 
   it("passes through the persisted app spec when no override exists", () => {
@@ -127,11 +147,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({});
 
     renderPreview();
 
@@ -151,11 +167,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: draftSpec,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({ previewSpecOverride: draftSpec });
 
     renderPreview();
 
@@ -171,11 +183,7 @@ describe("AppPreview", () => {
       appSpec: persistedSpec,
       appDefinition: createAppDefinition(),
     });
-    useAppPreview.setState({
-      previewSpecOverride: null,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({ previewSpecOverride: null });
 
     renderPreview();
 
@@ -191,7 +199,6 @@ describe("AppPreview", () => {
       }),
     });
     useAppPreview.setState({
-      previewSpecOverride: undefined,
       previewThemeOverride: { mode: "dark" },
       previewAssetsOverride: [{ rel: "stylesheet", href: "/static/b.css" }],
     });
@@ -214,7 +221,6 @@ describe("AppPreview", () => {
       appDefinition: null,
     });
     useAppPreview.setState({
-      previewSpecOverride: undefined,
       previewThemeOverride: { mode: "dark" },
       previewAssetsOverride: [],
     });
@@ -251,12 +257,7 @@ describe("AppPreview", () => {
         }),
       ],
     });
-    useAppPreview.setState({
-      previewConfigId: "preview-config",
-      previewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    });
+    useAppPreview.setState({ previewConfigId: "preview-config" });
 
     const { host, root } = await renderPreviewInDom();
 
@@ -266,7 +267,9 @@ describe("AppPreview", () => {
       // Previewing a different project should hydrate the preview cache from
       // the Go-owned load-project contract rather than assuming local state.
       expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
-        projectConfigName: "Preview Project",
+        body: {
+          projectConfigName: "Preview Project",
+        },
       });
       expect(useAppConfigs.getState().configs["preview-config"]).toMatchObject({
         projectConfig: {

@@ -13,11 +13,8 @@ import { createProjectConfig } from "utils/generatedTypes";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
-}));
-
-const generatedEndpoints = vi.hoisted(() => ({
-  route_list_share_deployments: vi.fn(),
-  route_publish_share_deployment: vi.fn(),
+  listShareDeployments: vi.fn(),
+  publishShareDeployment: vi.fn(),
 }));
 
 vi.mock("state/actions/modal", () => ({
@@ -30,6 +27,8 @@ vi.mock("openapi/http", async () => {
   return {
     ...actual,
     checkIfFileExists: openAPI.checkIfFileExists,
+    listShareDeployments: openAPI.listShareDeployments,
+    publishShareDeployment: openAPI.publishShareDeployment,
   };
 });
 
@@ -38,19 +37,6 @@ vi.mock("openapi/http/result", () => ({
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_list_share_deployments:
-      generatedEndpoints.route_list_share_deployments,
-    route_publish_share_deployment:
-      generatedEndpoints.route_publish_share_deployment,
-  };
-});
 
 import { PublishShareDeploymentModal } from "./PublishShareDeploymentModal";
 
@@ -65,6 +51,17 @@ const originalLocalStorage = window.localStorage;
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT;
+
+function setReactActEnvironment(value: boolean | undefined) {
+  const target = globalThis as typeof globalThis & {
+    IS_REACT_ACT_ENVIRONMENT?: boolean;
+  };
+  if (value === undefined) {
+    delete target.IS_REACT_ACT_ENVIRONMENT;
+    return;
+  }
+  target.IS_REACT_ACT_ENVIRONMENT = value;
+}
 
 function installTestLocalStorage() {
   const storage = new Map<string, string>();
@@ -116,19 +113,15 @@ describe("PublishShareDeploymentModal", () => {
     installTestLocalStorage();
     document.body.innerHTML = "";
     openAPI.checkIfFileExists.mockReset();
-    generatedEndpoints.route_list_share_deployments.mockReset();
-    generatedEndpoints.route_publish_share_deployment.mockReset();
+    openAPI.listShareDeployments.mockReset();
+    openAPI.publishShareDeployment.mockReset();
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
         name: "Project One",
       }),
     });
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = true;
+    setReactActEnvironment(true);
   });
 
   afterEach(() => {
@@ -138,11 +131,7 @@ describe("PublishShareDeploymentModal", () => {
       value: originalLocalStorage,
     });
     document.body.innerHTML = "";
-    (
-      globalThis as typeof globalThis & {
-        IS_REACT_ACT_ENVIRONMENT?: boolean;
-      }
-    ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
+    setReactActEnvironment(originalReactActEnvironment);
   });
 
   it("autofills the listener entrypoint through the Go file-exists contract", async () => {
@@ -151,7 +140,7 @@ describe("PublishShareDeploymentModal", () => {
       status: 200,
       hasResponse: true,
     });
-    generatedEndpoints.route_list_share_deployments.mockResolvedValue({
+    openAPI.listShareDeployments.mockResolvedValue({
       data: [],
       status: 200,
       hasResponse: true,

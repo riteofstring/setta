@@ -13,13 +13,17 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
+	"setta/internal/notifications"
 	"setta/internal/pathreveal"
 	"setta/internal/plugins"
+	"setta/internal/projectshell"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
@@ -32,6 +36,8 @@ type frontendHTTPOpenAPIInfoService struct{}
 type frontendHTTPOpenAPIFileBrowserService struct{}
 type frontendHTTPOpenAPIPluginService struct{}
 type frontendHTTPOpenAPIExternalAgentChecker struct{}
+type frontendHTTPOpenAPIProjectShellService struct{}
+type frontendHTTPOpenAPIProjectNotificationService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -199,6 +205,46 @@ func (frontendHTTPOpenAPIExternalAgentChecker) Check(externalagentconfigs.Config
 	return externalagentconfigs.Status{}, nil
 }
 
+func (frontendHTTPOpenAPIProjectShellService) LoadAllProjectMetadata(context.Context) (projectshell.AllProjectMetadata, error) {
+	return projectshell.AllProjectMetadata{}, nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) LoadProjectConfig(context.Context, string) (projectview.SingleConfig, error) {
+	return projectview.SingleConfig{}, nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) SaveProject(context.Context, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) CreateProjectConfig(context.Context, string) (string, error) {
+	return "", nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) SaveAsNewProjectConfig(context.Context, string, string, bool) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) DeleteProjectConfigs(context.Context, []string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) SetDefaultProjectConfig(context.Context, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectShellService) SetProjectConfigName(context.Context, string, string) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIProjectNotificationService) GetNotifications(context.Context, string) ([]notifications.Notification, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIProjectNotificationService) DeleteNotification(context.Context, string) (bool, error) {
+	return false, nil
+}
+
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 	registerOpenAPIGet[ServerModeResponse](
 		router,
@@ -343,6 +389,34 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Store:      &binarypayload.Store{},
 	}); err != nil {
 		return nil, fmt.Errorf("register binary routes: %w", err)
+	}
+	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
+		ModePolicy:    modes.NewPolicy(config.ModeIDE),
+		Shell:         frontendHTTPOpenAPIProjectShellService{},
+		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register project shell routes: %w", err)
+	}
+	if err := RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		ProjectState:   &projectstate.Runtime{},
+		Catalog:        &deployments.Catalog{},
+		SharePublisher: &deployments.SharePublisher{},
+		AppPublisher:   &deployments.AppPublisher{},
+	}); err != nil {
+		return nil, fmt.Errorf("register deployment ide routes: %w", err)
+	}
+	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register share deployment routes: %w", err)
+	}
+	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeApp),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		return nil, fmt.Errorf("register app deployment routes: %w", err)
 	}
 	return document, nil
 }

@@ -110,16 +110,97 @@ func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDepende
 		}
 	}
 
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteLoadAllProjectMetadata, loadAllProjectMetadataHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteLoadProjectConfig, loadProjectConfigHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSaveProject, saveProjectHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSaveAsNewProjectConfig, saveAsNewProjectConfigHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateProjectConfig, createProjectConfigHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteProjectConfigs, deleteProjectConfigsHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetAsDefaultProject, setDefaultProjectConfigHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigName, setProjectConfigNameHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetNotifications, getNotificationsHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteNotification, deleteNotificationHandler(deps))
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIPostNoRequest[projectshell.AllProjectMetadata](
+		ideRouter,
+		"loadAllProjectMetadata",
+		RouteLoadAllProjectMetadata,
+		loadAllProjectMetadataHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Load the full project metadata list for the current workspace."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[ProjectLoadRequest, projectview.SingleConfig](
+		ideRouter,
+		"loadProjectConfig",
+		RouteLoadProjectConfig,
+		loadProjectConfigHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Load a single project config by name."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[ManualSaveRequest, openAPIJSONNull](
+		ideRouter,
+		"saveProject",
+		RouteSaveProject,
+		saveProjectHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Save the current project config."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[SaveAsNewProjectConfigRequest, openAPIJSONNull](
+		ideRouter,
+		"saveAsNewProjectConfig",
+		RouteSaveAsNewProjectConfig,
+		saveAsNewProjectConfigHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Save the current project as a new project config."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[CreateProjectConfigRequest, string](
+		ideRouter,
+		"createProjectConfig",
+		RouteCreateProjectConfig,
+		createProjectConfigHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Create a new empty project config."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteProjectConfigsRequest, DeleteProjectConfigsResponse](
+		ideRouter,
+		"deleteProjectConfigs",
+		RouteDeleteProjectConfigs,
+		deleteProjectConfigsHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Delete one or more project configs."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[SetDefaultProjectConfigRequest, openAPIJSONNull](
+		ideRouter,
+		"setAsDefaultProject",
+		RouteSetAsDefaultProject,
+		setDefaultProjectConfigHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Set the default project config for the current workspace."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[SetProjectConfigNameRequest, openAPIJSONNull](
+		ideRouter,
+		"setProjectConfigName",
+		RouteSetProjectConfigName,
+		setProjectConfigNameHandler(deps),
+		withOpenAPITags("Projects"),
+		withOpenAPISummary("Rename a project config."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[GetNotificationsRequest, NotificationList](
+		ideRouter,
+		"getNotifications",
+		RouteGetNotifications,
+		getNotificationsHandler(deps),
+		withOpenAPITags("Notifications"),
+		withOpenAPISummary("List persisted notifications for a project config."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[DeleteNotificationRequest, DeleteNotificationResponse](
+		ideRouter,
+		"deleteNotification",
+		RouteDeleteNotification,
+		deleteNotificationHandler(deps),
+		withOpenAPITags("Notifications"),
+		withOpenAPISummary("Delete a persisted notification."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

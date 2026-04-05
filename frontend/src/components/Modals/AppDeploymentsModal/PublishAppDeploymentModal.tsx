@@ -5,7 +5,12 @@ import {
   resolveActionType,
 } from "components/App/appBindings";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { checkIfFileExists } from "openapi/http";
+import {
+  checkIfFileExists,
+  type HttpapiPublishAppDeploymentRequest,
+  listAppDeployments,
+  publishAppDeployment,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -18,20 +23,14 @@ import {
 } from "state/definitions";
 import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_list_app_deployments,
-  route_publish_app_deployment,
-} from "utils/generatedEndpoints";
 import type {
   DeploymentMetadataResponse,
-  PublishAppDeploymentRequest,
+  Policy,
   RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
-type AppPolicyOverridesInput = NonNullable<
-  PublishAppDeploymentRequest["appPolicyOverrides"]
->;
+type AppPolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 
 function createDefaultDeploymentName(): string {
@@ -138,10 +137,12 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
 
   async function loadRecentDeployments(): Promise<void> {
     setIsLoadingRecent(true);
-    const res = await route_list_app_deployments();
+    const res = (await callOpenAPI(
+      listAppDeployments(),
+    )) as ResponseDataAndStatus<Array<DeploymentMetadataResponse>>;
     setIsLoadingRecent(false);
     if (res200(res)) {
-      setRecentDeployments(res.data);
+      setRecentDeployments(res.data ?? []);
       return;
     }
     setRecentDeployments([]);
@@ -179,7 +180,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: PublishAppDeploymentRequest = {
+    const payload: HttpapiPublishAppDeploymentRequest = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       appPolicyOverrides: policyOverrides,
@@ -187,7 +188,11 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
       listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
     };
 
-    const res = await route_publish_app_deployment(payload);
+    const res = (await callOpenAPI(
+      publishAppDeployment({
+        body: payload,
+      }),
+    )) as ResponseDataAndStatus<DeploymentMetadataResponse>;
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
@@ -224,8 +229,12 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (actionButtons.length === 0) {
       return "App spec has no ActionButton. Add a Run button (or disable runs in policy).";
     }
-    const dataBindings = appDefinition?.dataBindings ?? {};
-    const actions = normalizeActionDefinitions(appDefinition?.actions);
+    const dataBindings = isRecord(appDefinition?.dataBindings)
+      ? appDefinition.dataBindings
+      : null;
+    const actions = normalizeActionDefinitions(
+      isRecord(appDefinition?.actions) ? appDefinition.actions : null,
+    );
     let sawRun = false;
     for (const props of actionButtons) {
       const { action, sectionId } = resolveActionBinding(props, dataBindings);

@@ -15,6 +15,7 @@ import (
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
@@ -205,6 +206,34 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		Store:      &binarypayload.Store{},
 	}); err != nil {
 		t.Fatalf("register binary routes: %v", err)
+	}
+	if err := RegisterProjectShellRoutes(router, ProjectShellRouteDependencies{
+		ModePolicy:    modes.NewPolicy(config.ModeIDE),
+		Shell:         frontendHTTPOpenAPIProjectShellService{},
+		Notifications: frontendHTTPOpenAPIProjectNotificationService{},
+	}); err != nil {
+		t.Fatalf("register project shell routes: %v", err)
+	}
+	if err := RegisterDeploymentIDERoutes(router, DeploymentIDERouteDependencies{
+		ModePolicy:     modes.NewPolicy(config.ModeIDE),
+		ProjectState:   &projectstate.Runtime{},
+		Catalog:        &deployments.Catalog{},
+		SharePublisher: &deployments.SharePublisher{},
+		AppPublisher:   &deployments.AppPublisher{},
+	}); err != nil {
+		t.Fatalf("register deployment ide routes: %v", err)
+	}
+	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		t.Fatalf("register share deployment routes: %v", err)
+	}
+	if err := RegisterDeploymentRoutes(router, DeploymentRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeApp),
+		Deployment: &deployments.Runtime{},
+	}); err != nil {
+		t.Fatalf("register app deployment routes: %v", err)
 	}
 
 	getSettaHomeInfo := document.Paths[RouteGetSettaHomeInfo].Get
@@ -451,6 +480,80 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := binaryDownload.Extensions["x-setta-mode-requirement"]; got != "not-launcher" {
 		t.Fatalf("binary download mode requirement = %#v, want %q", got, "not-launcher")
+	}
+
+	loadAllProjectMetadata := document.Paths[RouteLoadAllProjectMetadata].Post
+	if loadAllProjectMetadata == nil {
+		t.Fatalf("expected %s post operation", RouteLoadAllProjectMetadata)
+	}
+	if loadAllProjectMetadata.OperationID != "loadAllProjectMetadata" {
+		t.Fatalf("loadAllProjectMetadata operation id = %q, want %q", loadAllProjectMetadata.OperationID, "loadAllProjectMetadata")
+	}
+	if loadAllProjectMetadata.RequestBody != nil {
+		t.Fatalf("expected loadAllProjectMetadata request body to be omitted, got %#v", loadAllProjectMetadata.RequestBody)
+	}
+	if got := loadAllProjectMetadata.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("loadAllProjectMetadata mode requirement = %#v, want %q", got, "ide")
+	}
+
+	loadProjectConfig := document.Paths[RouteLoadProjectConfig].Post
+	if loadProjectConfig == nil {
+		t.Fatalf("expected %s post operation", RouteLoadProjectConfig)
+	}
+	if loadProjectConfig.OperationID != "loadProjectConfig" {
+		t.Fatalf("loadProjectConfig operation id = %q, want %q", loadProjectConfig.OperationID, "loadProjectConfig")
+	}
+
+	getNotifications := document.Paths[RouteGetNotifications].Post
+	if getNotifications == nil {
+		t.Fatalf("expected %s post operation", RouteGetNotifications)
+	}
+	if getNotifications.OperationID != "getNotifications" {
+		t.Fatalf("getNotifications operation id = %q, want %q", getNotifications.OperationID, "getNotifications")
+	}
+
+	listShareDeployments := document.Paths[RouteShareDeployments].Get
+	if listShareDeployments == nil {
+		t.Fatalf("expected %s get operation", RouteShareDeployments)
+	}
+	if listShareDeployments.OperationID != "listShareDeployments" {
+		t.Fatalf("share deployments operation id = %q, want %q", listShareDeployments.OperationID, "listShareDeployments")
+	}
+	if got := listShareDeployments.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("share deployments mode requirement = %#v, want %q", got, "ide")
+	}
+
+	publishAppDeployment := document.Paths[RouteAppDeployments].Post
+	if publishAppDeployment == nil {
+		t.Fatalf("expected %s post operation", RouteAppDeployments)
+	}
+	if publishAppDeployment.OperationID != "publishAppDeployment" {
+		t.Fatalf("publish app deployment operation id = %q, want %q", publishAppDeployment.OperationID, "publishAppDeployment")
+	}
+
+	getShareDeploymentState := document.Paths[RouteShareDeploymentState].Get
+	if getShareDeploymentState == nil {
+		t.Fatalf("expected %s get operation", RouteShareDeploymentState)
+	}
+	if getShareDeploymentState.OperationID != "getShareDeploymentState" {
+		t.Fatalf("share deployment state operation id = %q, want %q", getShareDeploymentState.OperationID, "getShareDeploymentState")
+	}
+	if got := getShareDeploymentState.Extensions["x-setta-mode-requirement"]; got != "share" {
+		t.Fatalf("share deployment state mode requirement = %#v, want %q", got, "share")
+	}
+	if len(getShareDeploymentState.Parameters) != 2 {
+		t.Fatalf("share deployment state params = %#v, want deploymentName/version path params", getShareDeploymentState.Parameters)
+	}
+
+	getAppDeploymentCurrentSession := document.Paths[RouteAppDeploymentCurrentSession].Post
+	if getAppDeploymentCurrentSession == nil {
+		t.Fatalf("expected %s post operation", RouteAppDeploymentCurrentSession)
+	}
+	if getAppDeploymentCurrentSession.OperationID != "getAppDeploymentCurrentSession" {
+		t.Fatalf("app deployment current session operation id = %q, want %q", getAppDeploymentCurrentSession.OperationID, "getAppDeploymentCurrentSession")
+	}
+	if got := getAppDeploymentCurrentSession.Extensions["x-setta-mode-requirement"]; got != "app" {
+		t.Fatalf("app deployment current session mode requirement = %#v, want %q", got, "app")
 	}
 }
 
