@@ -76,45 +76,7 @@ func mergeTSLiteralValueFromReflectValue(
 	return object
 }
 
-func goJSONFieldOrder(value any) []string {
-	valueType := reflect.TypeOf(value)
-	if valueType == nil {
-		return nil
-	}
-	for valueType.Kind() == reflect.Pointer {
-		valueType = valueType.Elem()
-	}
-	if valueType.Kind() != reflect.Struct {
-		return nil
-	}
-	order := make([]string, 0, valueType.NumField())
-	var appendOrder func(reflect.Type)
-	appendOrder = func(valueType reflect.Type) {
-		for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
-			field := valueType.Field(fieldIndex)
-			if !field.IsExported() {
-				continue
-			}
-			if field.Anonymous {
-				appendOrder(field.Type)
-				continue
-			}
-			tag := strings.TrimSpace(field.Tag.Get("json"))
-			if tag == "" || tag == "-" {
-				continue
-			}
-			name := strings.TrimSpace(strings.Split(tag, ",")[0])
-			if name == "" {
-				continue
-			}
-			order = append(order, name)
-		}
-	}
-	appendOrder(valueType)
-	return order
-}
-
-func writeTSLiteralValue(builder *strings.Builder, indent string, value any, orderedKeys []string) {
+func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 	switch typed := value.(type) {
 	case nil:
 		builder.WriteString("null")
@@ -149,7 +111,7 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 				if index > 0 {
 					builder.WriteString(", ")
 				}
-				writeTSLiteralValue(builder, indent, value, nil)
+				writeTSLiteralValue(builder, indent, value)
 			}
 			builder.WriteString("]")
 			return
@@ -158,7 +120,7 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 		childIndent := indent + "  "
 		for _, value := range typed {
 			builder.WriteString(childIndent)
-			writeTSLiteralValue(builder, childIndent, value, nil)
+			writeTSLiteralValue(builder, childIndent, value)
 			builder.WriteString(",\n")
 		}
 		builder.WriteString(indent)
@@ -166,31 +128,19 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 	case map[string]any:
 		builder.WriteString("{\n")
 		childIndent := indent + "  "
-		seen := map[string]struct{}{}
+		keys := make([]string, 0, len(typed))
+		for key := range typed {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
 		writeProperty := func(key string, value any) {
 			builder.WriteString(childIndent)
 			builder.WriteString(renderTSObjectKey(key))
 			builder.WriteString(": ")
-			writeTSLiteralValue(builder, childIndent, value, nil)
+			writeTSLiteralValue(builder, childIndent, value)
 			builder.WriteString(",\n")
 		}
-		for _, key := range orderedKeys {
-			value, ok := typed[key]
-			if !ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			writeProperty(key, value)
-		}
-		remaining := make([]string, 0, len(typed)-len(seen))
-		for key := range typed {
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			remaining = append(remaining, key)
-		}
-		sort.Strings(remaining)
-		for _, key := range remaining {
+		for _, key := range keys {
 			writeProperty(key, typed[key])
 		}
 		builder.WriteString(indent)

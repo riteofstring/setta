@@ -395,14 +395,7 @@ func buildGoBackedCreateBodyTS(
 	if !ok {
 		panic(context + ": Go default did not decode to an object")
 	}
-	for _, key := range goJSONFieldOrder(defaultValue) {
-		if _, ok := defaultValuesByName[key]; ok {
-			continue
-		}
-		panic(fmt.Sprintf("%s is missing property %q", context, key))
-	}
 	defaultsObject := make(map[string]any, len(properties))
-	orderedKeys := make([]string, 0, len(properties))
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
@@ -413,7 +406,6 @@ func buildGoBackedCreateBodyTS(
 			}
 		} else {
 			defaultsObject[property.Name] = value
-			orderedKeys = append(orderedKeys, property.Name)
 		}
 		expr, ok := buildGenericCreateFieldExprTS(
 			propertySpec,
@@ -438,7 +430,7 @@ func buildGoBackedCreateBodyTS(
 	}
 	var builder strings.Builder
 	var defaultsBuilder strings.Builder
-	writeTSLiteralValue(&defaultsBuilder, "  ", defaultsObject, orderedKeys)
+	writeTSLiteralValue(&defaultsBuilder, "  ", defaultsObject)
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
 	builder.WriteString(" = ")
