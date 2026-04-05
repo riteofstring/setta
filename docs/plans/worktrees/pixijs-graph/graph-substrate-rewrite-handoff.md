@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 05:09 EDT
+Last updated: 2026-04-05 05:41 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `157` closed the named `sectionSizingPolicy` normalized top-level drag lane by matching legacy drag-threshold start semantics on the canary.
+  - Why this slice was needed:
+    - item `156` had already reduced the lane to one stubborn `~12px` post-drag center-offset residual, so the next pass had to land product code on that exact motion lane rather than reopen support/oracle work
+    - the targeted rerun showed the remaining mismatch was not viewport or size drift: the canary was applying the full scripted `120x80` screen drag while legacy only moved `108x72`
+    - that delta matched legacy `d3` drag startup behavior, where the first move past `nodeDragThreshold` only arms the drag and the section does not actually translate until the next move event
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - the canary now mirrors legacy drag startup semantics by waiting until the pointer clears `nodeDragThreshold` before beginning a top-level drag
+      - the first move that crosses the threshold now only arms the drag and resets the drag origin to that pointer position, so the visible translation starts on the next move just like legacy `xyflow`
+      - kept the latest drag world position on the active drag record so the drop path persists the actual in-flight canary position once a drag has started
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+      - added focused helpers for drag-start threshold checks and drag-move world-position resolution
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - added unit coverage for threshold crossing plus drag-move position math
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - removed the stale `test.fail(true, ...)` marker from the `sectionSizingPolicy` top-level drag parity lane after the live rerun passed normally
+  - What this slice established:
+    - before the threshold fix, the trusted lane still failed with worktree-versus-reference post-drag deltas of roughly:
+      - `layoutDelta`: `101.2,67.4667` on the canary versus `91.08,60.72` on legacy
+      - `rectDelta`: `120,80` on the canary versus `108,72` on legacy
+      - `afterDrag.centerOffsetFromRootCenter`: `199.9999` on the canary versus `188.0001` on legacy
+    - after the threshold-start change, the named lane passed normally and no longer needed the expected-fail marker
+    - fresh-context CDP confirmed the same normalized `sectionSizingPolicy` post-drag state looked aligned on worktree and read-only `main`, with no remaining visible graph-surface drift on this lane
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - focused unit tests:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed (`1 file`, `9 tests`)
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `37.1s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - checked `Settings` -> `All Settings` on worktree `3076` and read-only `main` `3087`
+      - normalized both to overview hidden, UI editor hidden, `snapToGrid=false`, fit `sectionSizingPolicy` into view, then applied the same `120x80` top-level header drag on both sides
+    - CDP visual check: done (fresh-context sub-agent; no remaining visible difference observed on the post-drag `sectionSizingPolicy` graph surface)
+  - Lane status:
+    - close the canonical `sectionSizingPolicy` normalized top-level drag plus title-edit handoff lane as clean
+    - do not reopen the old `~12px` center-offset theory for this section; this slice closed it by matching legacy drag startup semantics
+  - Next frontier:
+    - open the next trusted normalized motion lane on another named section that still lacks fresh Gate 1 / Gate 2 evidence, now that `sectionSizingPolicy` top-level drag is closed
 
 - Ralph item `156` restored legacy drag-end snap semantics on the canary and folded `snapToGrid` into the normalized compare state, which cleared the full-grid drag delta noise and shrank the named `sectionSizingPolicy` residual repro.
   - Why this slice was needed:
@@ -4579,6 +4623,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `150`
-- Latest item: `2026-04-05 150`
+- Active history window: items `001` through `157`
+- Latest item: `2026-04-05 157`
 - Older history archives: none yet

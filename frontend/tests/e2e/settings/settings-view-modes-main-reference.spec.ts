@@ -8731,10 +8731,6 @@ test("settings graph parity probe keeps the section sizing policy title editing 
   page,
 }) => {
   test.slow();
-  test.fail(
-    true,
-    "sectionSizingPolicy still lands about 12px farther from the graph root center on the worktree canary than on read-only main after the normalized top-level drag lane.",
-  );
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||

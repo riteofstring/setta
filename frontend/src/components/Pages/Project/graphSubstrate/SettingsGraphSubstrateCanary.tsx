@@ -36,9 +36,11 @@ import { isMacOs } from "utils/utils";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 import {
   resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
+  resolveSettingsGraphSubstrateCanarySectionDragMovePosition,
   shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
   shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
   shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
+  shouldStartSettingsGraphSubstrateCanarySectionDrag,
 } from "./settingsGraphSubstrateCanaryInteractions";
 import {
   selectSettingsGraphSubstrateCanarySections,
@@ -61,7 +63,6 @@ import {
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
-  screenDeltaToWorldDelta,
   translateViewport,
   type GraphRect,
   type GraphViewport,
@@ -78,8 +79,10 @@ const ROOT_STYLE: CSSProperties = {
 const WHEEL_ZOOM_IDLE_TIMEOUT_MS = 180;
 
 type ActiveSectionDrag = {
+  latestWorldPosition: Position | null;
   pointerId: number;
   sectionId: string;
+  started: boolean;
   originScreenPoint: Position;
   originWorldPosition: Position;
 };
@@ -163,6 +166,7 @@ export function SettingsGraphSubstrateCanary() {
   const zoomActivationKeyPressed = useReactFlow(
     (state) => state.zoomActivationKeyPressed,
   );
+  const nodeDragThreshold = useReactFlow((state) => state.nodeDragThreshold);
   const {
     minZoom,
     maxZoom,
@@ -670,24 +674,24 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
-    ensureCanaryNode(section);
-    const activeNode = useNodeInternals.getState().x.get(section.sectionId);
-    if (activeNode) {
-      raiseTempZIndex([activeNode]);
-    }
-    setDraggingSectionId(section.sectionId);
+    const originWorldPosition = getRenderedSectionPosition(
+      section,
+      sectionPositionOverride,
+    );
     dragStateRef.current = {
+      latestWorldPosition: nodeDragThreshold === 0 ? originWorldPosition : null,
       pointerId: event.pointerId,
       sectionId: section.sectionId,
+      started: nodeDragThreshold === 0,
       originScreenPoint: {
         x: event.clientX,
         y: event.clientY,
       },
-      originWorldPosition: getRenderedSectionPosition(
-        section,
-        sectionPositionOverride,
-      ),
+      originWorldPosition,
     };
+    if (nodeDragThreshold === 0) {
+      beginSectionDrag(section);
+    }
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -703,19 +707,46 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
-    const worldDelta = screenDeltaToWorldDelta(
-      {
-        x: event.clientX - activeDrag.originScreenPoint.x,
-        y: event.clientY - activeDrag.originScreenPoint.y,
-      },
-      resolvedViewport,
-    );
+    if (!activeDrag.started) {
+      const currentScreenPoint = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+      if (
+        !shouldStartSettingsGraphSubstrateCanarySectionDrag({
+          currentScreenPoint,
+          nodeDragThreshold,
+          originScreenPoint: activeDrag.originScreenPoint,
+        })
+      ) {
+        return;
+      }
+      const section = sectionById.get(activeDrag.sectionId);
+      if (!section) {
+        return;
+      }
+      activeDrag.started = true;
+      activeDrag.originScreenPoint = currentScreenPoint;
+      activeDrag.latestWorldPosition = activeDrag.originWorldPosition;
+      beginSectionDrag(section);
+      event.preventDefault();
+      return;
+    }
+
+    const nextPosition =
+      resolveSettingsGraphSubstrateCanarySectionDragMovePosition({
+        currentScreenPoint: {
+          x: event.clientX,
+          y: event.clientY,
+        },
+        originScreenPoint: activeDrag.originScreenPoint,
+        originWorldPosition: activeDrag.originWorldPosition,
+        zoom: resolvedViewport.zoom,
+      });
+    activeDrag.latestWorldPosition = nextPosition;
     setSectionPositionOverride({
       sectionId: activeDrag.sectionId,
-      position: {
-        x: activeDrag.originWorldPosition.x + worldDelta.x,
-        y: activeDrag.originWorldPosition.y + worldDelta.y,
-      },
+      position: nextPosition,
     });
     event.preventDefault();
   }
@@ -736,12 +767,13 @@ export function SettingsGraphSubstrateCanary() {
     const draggedSection = sectionById.get(activeDrag.sectionId);
     if (
       persistLayout &&
+      activeDrag.started &&
       draggedSection &&
-      sectionPositionOverride?.sectionId === activeDrag.sectionId
+      activeDrag.latestWorldPosition
     ) {
       const persistedPosition =
         resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
-          sectionPositionOverride.position,
+          activeDrag.latestWorldPosition,
           {
             snapGrid,
             snapToGrid,
@@ -753,7 +785,7 @@ export function SettingsGraphSubstrateCanary() {
       });
       moveNodes([
         {
-          id: sectionPositionOverride.sectionId,
+          id: activeDrag.sectionId,
           position: persistedPosition,
         },
       ]);
@@ -762,6 +794,15 @@ export function SettingsGraphSubstrateCanary() {
       resetCanarySectionTempZIndex(activeDrag.sectionId);
     }
     setSectionPositionOverride(null);
+  }
+
+  function beginSectionDrag(section: GraphSubstrateCanarySection) {
+    ensureCanaryNode(section);
+    const activeNode = useNodeInternals.getState().x.get(section.sectionId);
+    if (activeNode) {
+      raiseTempZIndex([activeNode]);
+    }
+    setDraggingSectionId(section.sectionId);
   }
 
   function handlePanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {

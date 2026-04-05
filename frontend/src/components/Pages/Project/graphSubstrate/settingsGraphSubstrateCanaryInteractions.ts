@@ -61,6 +61,37 @@ export function shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
   return true;
 }
 
+export function shouldStartSettingsGraphSubstrateCanarySectionDrag(options: {
+  currentScreenPoint: Position;
+  nodeDragThreshold: number;
+  originScreenPoint: Position;
+}): boolean {
+  return (
+    Math.hypot(
+      options.currentScreenPoint.x - options.originScreenPoint.x,
+      options.currentScreenPoint.y - options.originScreenPoint.y,
+    ) > options.nodeDragThreshold
+  );
+}
+
+export function resolveSettingsGraphSubstrateCanarySectionDragMovePosition(options: {
+  currentScreenPoint: Position;
+  originScreenPoint: Position;
+  originWorldPosition: Position;
+  zoom: number;
+}): Position {
+  return {
+    x:
+      options.originWorldPosition.x +
+      (options.currentScreenPoint.x - options.originScreenPoint.x) /
+        options.zoom,
+    y:
+      options.originWorldPosition.y +
+      (options.currentScreenPoint.y - options.originScreenPoint.y) /
+        options.zoom,
+  };
+}
+
 export function resolveSettingsGraphSubstrateCanarySectionDragEndPosition(
   position: Position,
   options: {

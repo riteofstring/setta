@@ -3,9 +3,11 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveSettingsGraphSubstrateCanarySectionDragEndPosition,
+  resolveSettingsGraphSubstrateCanarySectionDragMovePosition,
   shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
   shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
   shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
+  shouldStartSettingsGraphSubstrateCanarySectionDrag,
 } from "./settingsGraphSubstrateCanaryInteractions";
 
 describe("settingsGraphSubstrateCanaryInteractions", () => {
@@ -100,6 +102,51 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
     expect(
       shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget(target),
     ).toBe(true);
+  });
+
+  it("does not start a drag until the pointer clears the node drag threshold", () => {
+    expect(
+      shouldStartSettingsGraphSubstrateCanarySectionDrag({
+        currentScreenPoint: { x: 312, y: 308 },
+        nodeDragThreshold: 15,
+        originScreenPoint: { x: 300, y: 300 },
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartSettingsGraphSubstrateCanarySectionDrag({
+        currentScreenPoint: { x: 313, y: 308 },
+        nodeDragThreshold: 15,
+        originScreenPoint: { x: 300, y: 300 },
+      }),
+    ).toBe(true);
+  });
+
+  it("resolves section drag move positions from the latest pointer location", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionDragMovePosition({
+        currentScreenPoint: { x: 420, y: 340 },
+        originScreenPoint: { x: 300, y: 260 },
+        originWorldPosition: { x: 613.2, y: 677.4 },
+        zoom: 1,
+      }),
+    ).toEqual({
+      x: 733.2,
+      y: 757.4,
+    });
+  });
+
+  it("scales section drag move positions by the active zoom", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionDragMovePosition({
+        currentScreenPoint: { x: 420, y: 340 },
+        originScreenPoint: { x: 300, y: 260 },
+        originWorldPosition: { x: 613.2, y: 677.4 },
+        zoom: 2,
+      }),
+    ).toEqual({
+      x: 673.2,
+      y: 717.4,
+    });
   });
 
   it("keeps drag end positions unchanged when snap to grid is disabled", () => {
