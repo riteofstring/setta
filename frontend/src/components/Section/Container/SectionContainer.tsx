@@ -21,16 +21,48 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
+import type { SectionChromeBodySurface } from "./sectionChrome";
 import { getOutlineColor } from "./utils";
+
+function areBodySurfaceOverridesEqual(
+  previousBodySurfaceOverride: SectionChromeBodySurface | undefined,
+  nextBodySurfaceOverride: SectionChromeBodySurface | undefined,
+) {
+  if (previousBodySurfaceOverride === nextBodySurfaceOverride) {
+    return true;
+  }
+  if (
+    previousBodySurfaceOverride === undefined ||
+    nextBodySurfaceOverride === undefined
+  ) {
+    return false;
+  }
+
+  return (
+    previousBodySurfaceOverride.bgColor === nextBodySurfaceOverride.bgColor &&
+    _.isEqual(
+      previousBodySurfaceOverride.surfaceDecorations,
+      nextBodySurfaceOverride.surfaceDecorations,
+    )
+  );
+}
 
 function _SectionContainer({
   sectionId,
-  isTopLevel,
+  isTopLevel = false,
+  bodySurfaceOverride,
   dragListeners,
+  forceHideOutline = false,
+  forceTransparentBorder = false,
+  forceHideTopDragHandle = false,
 }: {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
   sectionId: string;
-  isTopLevel: boolean;
+  isTopLevel?: boolean;
   dragListeners?: any;
+  forceHideOutline?: boolean;
+  forceTransparentBorder?: boolean;
+  forceHideTopDragHandle?: boolean;
 }) {
   const {
     visibility,
@@ -42,7 +74,6 @@ function _SectionContainer({
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
-    sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -114,8 +145,9 @@ function _SectionContainer({
         <>
           {!isGroup && isJoinedAttachedTerminalGroup ? (
             <div
-              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline ${forceHideOutline ? "outline-0" : "outline-4"} ${getOutlineColor(
                 {
+                  jsonSourceMissing: false,
                   isActiveSection: isJoinedGroupActive,
                   isGlobalVariables: false,
                   isInOtherProjectConfigs,
@@ -125,9 +157,12 @@ function _SectionContainer({
             >
               <AgenticEdgeHandles isUserView={isUserView} />
               <SectionContainerCore
+                bodySurfaceOverride={bodySurfaceOverride}
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
+                forceTransparentBorder={forceTransparentBorder}
+                forceHideTopDragHandle={forceHideTopDragHandle}
                 hideAgenticEdgeHandles={true}
                 omitAgenticHandleScopeClass={true}
                 joinedCorners="code-terminal-parent"
@@ -144,8 +179,12 @@ function _SectionContainer({
             <>
               {!isGroup && (
                 <SectionContainerCore
+                  bodySurfaceOverride={bodySurfaceOverride}
                   sectionId={sectionId}
                   isUserView={isUserView}
+                  forceHideOutline={forceHideOutline}
+                  forceTransparentBorder={forceTransparentBorder}
+                  forceHideTopDragHandle={forceHideTopDragHandle}
                 />
               )}
               {isCode ? (
@@ -167,6 +206,17 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(
+  _SectionContainer,
+  (previousProps, nextProps) =>
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.isTopLevel === nextProps.isTopLevel &&
+    areBodySurfaceOverridesEqual(
+      previousProps.bodySurfaceOverride,
+      nextProps.bodySurfaceOverride,
+    ) &&
+    previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
+    previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
+    _.isEqual(previousProps.dragListeners, nextProps.dragListeners),
 );

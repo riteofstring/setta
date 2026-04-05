@@ -1,7 +1,5 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { setProjectConfigName } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -10,11 +8,15 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
+import { route_set_project_config_name } from "utils/generatedEndpoints";
 import { validateProjectNameInput } from "utils/nameValidation";
+
 const editing =
   "flex-1 box-border [border-width:0_0_1px_0] border-solid bg-transparent focus:border-blue-300 focus-visible:ring-0 focus-visible:outline-none w-full ";
+
 const notEditing =
   "flex-1 box-border border-b border-solid border-transparent bg-transparent focus-visible:border-blue-300 focus-visible:ring-0 focus-visible:outline-none w-full truncate";
+
 export function ProjectName() {
   return (
     <header
@@ -28,6 +30,7 @@ export function ProjectName() {
     </header>
   );
 }
+
 function ProjectNameOnly() {
   const {
     inputValue: localName,
@@ -48,7 +51,7 @@ function ProjectNameOnly() {
   if (errorMessage) {
     errorClassName = "border-red-400 text-red-600 dark:text-red-300";
   }
-  function ignoreHover() {}
+
   return (
     <>
       <div data-setting-anchor="core.project.name">
@@ -61,8 +64,6 @@ function ProjectNameOnly() {
           onChange={onChange}
           onBlur={onBlur}
           onKeyDown={onKeyDown}
-          onMouseEnter={ignoreHover}
-          onMouseLeave={ignoreHover}
           blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
         />
       </div>
@@ -72,6 +73,7 @@ function ProjectNameOnly() {
     </>
   );
 }
+
 function useEditableProjectName() {
   const { projectConfigId, name } = useProjectState((x) => ({
     projectConfigId: x.projectConfig.id,
@@ -82,22 +84,20 @@ function useEditableProjectName() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const normalizeName = (value: string) => value.trim();
+
   function extractErrorDetail(data: unknown): string | null {
     if (!data || typeof data !== "object") {
       return null;
     }
     if ("detail" in data) {
-      const detail = (
-        data as {
-          detail?: unknown;
-        }
-      ).detail;
+      const detail = (data as { detail?: unknown }).detail;
       if (typeof detail === "string") {
         return detail;
       }
     }
     return null;
   }
+
   async function condition(v: string) {
     const normalized = normalizeName(v);
     const validationError = validateProjectNameInput(normalized, {
@@ -107,14 +107,10 @@ function useEditableProjectName() {
       setServerError(null);
       return false;
     }
-    const res = await callOpenAPI(
-      setProjectConfigName({
-        body: {
-          projectConfigId,
-          newName: normalized,
-        },
-      } as Parameters<typeof setProjectConfigName>[0]),
-    );
+    const res = await route_set_project_config_name({
+      projectConfigId,
+      newName: normalized,
+    });
     if (res200(res)) {
       setServerError(null);
       return true;
@@ -129,6 +125,7 @@ function useEditableProjectName() {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });
   }
+
   const editable = useEditableOnSubmit(
     name,
     onSetName,
