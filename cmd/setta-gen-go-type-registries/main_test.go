@@ -1,9 +1,11 @@
 package main
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/gotypediscovery"
 )
 
@@ -64,5 +66,24 @@ func TestRenderSharedDefaultProviderRegistryProfilesProvidersByName(t *testing.T
 	}
 	if !strings.Contains(rendered, "PythonSharedDefaultProjectConfig()") {
 		t.Fatalf("rendered shared default registry missing provider call:\n%s", rendered)
+	}
+}
+
+func TestRenderFrontendContractNameRegistryEmitsReflectTypeMap(t *testing.T) {
+	t.Parallel()
+
+	rendered := renderFrontendContractNameRegistry([]gotypediscovery.FrontendContractNameEntry{{
+		Type: reflect.TypeOf(agentprofiles.Profile{}),
+		Name: "AgentProfile",
+	}})
+
+	if !strings.Contains(rendered, "package frontendbindings") {
+		t.Fatalf("rendered frontend contract registry missing frontendbindings package:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{") {
+		t.Fatalf("rendered frontend contract registry missing type-name map:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `reflect.TypeOf(agentprofiles.Profile{}): "AgentProfile"`) {
+		t.Fatalf("rendered frontend contract registry missing agent profile entry:\n%s", rendered)
 	}
 }

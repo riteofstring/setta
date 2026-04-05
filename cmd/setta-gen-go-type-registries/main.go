@@ -215,6 +215,9 @@ func main() {
 	if err := writeFrontendValueExportRegistry(*write); err != nil {
 		fail("write %s: %v", frontendValueExportOutputPath, err)
 	}
+	if err := writeFrontendContractNameRegistry(*write); err != nil {
+		fail("write %s: %v", frontendContractNamesOutputPath, err)
+	}
 }
 
 func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {

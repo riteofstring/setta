@@ -69,8 +69,7 @@ func TestBindingTypeNamesStayUniqueAcrossGeneratedRoots(t *testing.T) {
 	t.Parallel()
 
 	seen := map[string]reflect.Type{}
-	for _, typ := range frontendBindingNamedTypes() {
-		name := BindingTypeName(typ)
+	for typ, name := range frontendBindingPublicTypeNames() {
 		if prior, ok := seen[name]; ok && prior != typ {
 			t.Fatalf("duplicate binding name %q for %v and %v", name, prior, typ)
 		}
