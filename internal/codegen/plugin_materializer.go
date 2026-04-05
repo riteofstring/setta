@@ -76,6 +76,25 @@ type preparedPluginGeneratedFile struct {
 	content      string
 }
 
+type pluginMaterializerProjectPlan struct {
+	outputRoot      string
+	projectHash     string
+	projectPayload  map[string]any
+	resolvedTargets []pluginMaterializerResolvedTarget
+}
+
+type pluginMaterializerTargetPlan struct {
+	language    string
+	targetRoot  string
+	fingerprint string
+}
+
+type pluginPreparedTargetOutputs struct {
+	outputHashes  map[string]string
+	expectedPaths map[string]struct{}
+	preparedFiles []preparedPluginGeneratedFile
+}
+
 func NewPluginMaterializer(options PluginMaterializerOptions) (*PluginMaterializer, error) {
 	settaFilesRoot, err := statefs.NormalizePath(options.SettaFilesRoot, "")
 	if err != nil {
@@ -153,155 +172,268 @@ func (m *PluginMaterializer) materializeProjectLocked(
 	project projectstate.Project,
 	previousState pluginMaterializerProjectState,
 ) (pluginMaterializerProjectState, bool, error) {
+	projectPlan, ok, err := m.buildProjectMaterializationPlan(ctx, project, previousState)
+	if err != nil || !ok {
+		return pluginMaterializerProjectState{}, ok, err
+	}
+
+	nextTargets := make(map[string]pluginMaterializerTargetState, len(projectPlan.resolvedTargets))
+	for _, target := range projectPlan.resolvedTargets {
+		if err := ctx.Err(); err != nil {
+			return pluginMaterializerProjectState{}, false, err
+		}
+		language := target.projectTarget.Language
+		previousTargetState, hadPreviousTarget := previousState.Targets[language]
+		targetState, err := m.materializeTargetLocked(ctx, projectPlan, target, previousTargetState, hadPreviousTarget)
+		if err != nil {
+			return pluginMaterializerProjectState{}, false, err
+		}
+		nextTargets[language] = targetState
+	}
+
+	return pluginMaterializerProjectState{
+		OutputRoot: projectPlan.outputRoot,
+		Targets:    nextTargets,
+	}, true, nil
+}
+
+func (m *PluginMaterializer) buildProjectMaterializationPlan(
+	ctx context.Context,
+	project projectstate.Project,
+	previousState pluginMaterializerProjectState,
+) (pluginMaterializerProjectPlan, bool, error) {
 	outputRoot := pluginCodegenOutputRoot(m.settaFilesRoot, project.Name)
 	if previousState.OutputRoot != "" && previousState.OutputRoot != outputRoot {
 		if err := removePluginOutputRoot(previousState.OutputRoot); err != nil {
-			return pluginMaterializerProjectState{}, false, err
+			return pluginMaterializerProjectPlan{}, false, err
 		}
 	}
 
 	resolvedTargets, err := m.resolveProjectTargets(ctx, project)
 	if err != nil {
-		return pluginMaterializerProjectState{}, false, err
+		return pluginMaterializerProjectPlan{}, false, err
 	}
 	if len(resolvedTargets) == 0 {
 		if err := removePluginOutputRoot(outputRoot); err != nil {
-			return pluginMaterializerProjectState{}, false, err
+			return pluginMaterializerProjectPlan{}, false, err
 		}
-		return pluginMaterializerProjectState{}, false, nil
+		return pluginMaterializerProjectPlan{}, false, nil
 	}
-
-	currentTargetDirNames := make(map[string]struct{}, len(resolvedTargets))
-	for _, target := range resolvedTargets {
-		currentTargetDirNames[pluginCodegenTargetDirName(target.projectTarget.Language)] = struct{}{}
-	}
-	if err := removeUnexpectedPluginTargetDirs(outputRoot, currentTargetDirNames); err != nil {
-		return pluginMaterializerProjectState{}, false, err
+	if err := removeUnexpectedPluginTargetDirs(outputRoot, pluginTargetDirNames(resolvedTargets)); err != nil {
+		return pluginMaterializerProjectPlan{}, false, err
 	}
 
 	projectPayload, err := pluginProjectPayload(project)
 	if err != nil {
-		return pluginMaterializerProjectState{}, false, err
+		return pluginMaterializerProjectPlan{}, false, err
 	}
 	projectHash, err := hashJSONValue(projectPayload)
 	if err != nil {
-		return pluginMaterializerProjectState{}, false, err
+		return pluginMaterializerProjectPlan{}, false, err
 	}
 
-	nextTargets := make(map[string]pluginMaterializerTargetState, len(resolvedTargets))
-	for _, target := range resolvedTargets {
-		if err := ctx.Err(); err != nil {
-			return pluginMaterializerProjectState{}, false, err
-		}
-		language := target.projectTarget.Language
-		targetRoot := filepath.Join(outputRoot, pluginCodegenTargetDirName(language))
-		fingerprint, err := buildPluginTargetFingerprint(projectHash, language, target.targetOptions, target.resolved.ImplementationKey)
-		if err != nil {
-			return pluginMaterializerProjectState{}, false, err
-		}
-
-		previousTargetState, hadPreviousTarget := previousState.Targets[language]
-		if hadPreviousTarget && previousTargetState.Fingerprint == fingerprint {
-			cachedOutputsExist, outputStats, err := cachedPluginOutputsExist(targetRoot, previousTargetState.OutputHashes, previousTargetState.OutputStats)
-			if err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			if cachedOutputsExist {
-				nextTargets[language] = pluginMaterializerTargetState{
-					Fingerprint:  fingerprint,
-					OutputHashes: clonePluginStringMap(previousTargetState.OutputHashes),
-					OutputStats:  outputStats,
-				}
-				continue
-			}
-		}
-
-		if !hadPreviousTarget {
-			if err := removePluginOutputRoot(targetRoot); err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-		}
-
-		generatedFiles, err := m.generator.GeneratePluginCodegenTarget(ctx, language, projectPayload, target.targetOptions)
-		if err != nil {
-			return pluginMaterializerProjectState{}, false, err
-		}
-		outputHashes := make(map[string]string, len(generatedFiles))
-		expectedPaths := make(map[string]struct{}, len(generatedFiles))
-		preparedFiles := make([]preparedPluginGeneratedFile, 0, len(generatedFiles))
-		for _, file := range generatedFiles {
-			normalizedRelativePath, err := normalizePluginGeneratedRelativePath(file.RelativePath)
-			if err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			outputPath, err := resolvePluginGeneratedOutputPath(targetRoot, normalizedRelativePath)
-			if err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			expectedPaths[normalizedRelativePath] = struct{}{}
-			outputHashes[normalizedRelativePath] = hashPluginGeneratedContent(file.Content)
-			preparedFiles = append(preparedFiles, preparedPluginGeneratedFile{
-				relativePath: normalizedRelativePath,
-				outputPath:   outputPath,
-				content:      file.Content,
-			})
-		}
-
-		// Remove stale outputs from the previous shape before writing the new one
-		// so file<->directory transitions on the same path do not collide with
-		// later stale-output cleanup.
-		staleRelativePaths := previousRelativePaths(previousTargetState.OutputHashes, expectedPaths)
-		for _, relativePath := range staleRelativePaths {
-			stalePath, err := resolvePluginGeneratedOutputPath(targetRoot, relativePath)
-			if err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			if err := removePluginGeneratedFile(stalePath); err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			if err := pruneEmptyPluginOutputDirectories(filepath.Dir(stalePath), targetRoot); err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-		}
-
-		for _, prepared := range preparedFiles {
-			if err := preparePluginOutputPathForWrite(targetRoot, prepared.outputPath); err != nil {
-				return pluginMaterializerProjectState{}, false, err
-			}
-			if err := os.MkdirAll(filepath.Dir(prepared.outputPath), 0o755); err != nil {
-				return pluginMaterializerProjectState{}, false, fmt.Errorf("create plugin codegen parent dir %s: %w", filepath.Dir(prepared.outputPath), err)
-			}
-
-			existingContent, err := os.ReadFile(prepared.outputPath)
-			switch {
-			case err == nil && string(existingContent) == prepared.content:
-				continue
-			case err == nil, errors.Is(err, os.ErrNotExist):
-				if err := statefs.AtomicWriteFile(prepared.outputPath, []byte(prepared.content), 0o644); err != nil {
-					return pluginMaterializerProjectState{}, false, fmt.Errorf("write plugin generated output %s: %w", prepared.outputPath, err)
-				}
-			default:
-				return pluginMaterializerProjectState{}, false, fmt.Errorf("read plugin generated output %s: %w", prepared.outputPath, err)
-			}
-		}
-		if err := pruneUnexpectedPluginOutputs(targetRoot, expectedPaths); err != nil {
-			return pluginMaterializerProjectState{}, false, err
-		}
-		outputStats, err := collectPluginOutputStats(targetRoot, expectedPaths)
-		if err != nil {
-			return pluginMaterializerProjectState{}, false, err
-		}
-		nextTargets[language] = pluginMaterializerTargetState{
-			Fingerprint:  fingerprint,
-			OutputHashes: outputHashes,
-			OutputStats:  outputStats,
-		}
-	}
-
-	return pluginMaterializerProjectState{
-		OutputRoot: outputRoot,
-		Targets:    nextTargets,
+	return pluginMaterializerProjectPlan{
+		outputRoot:      outputRoot,
+		projectHash:     projectHash,
+		projectPayload:  projectPayload,
+		resolvedTargets: resolvedTargets,
 	}, true, nil
+}
+
+func pluginTargetDirNames(resolvedTargets []pluginMaterializerResolvedTarget) map[string]struct{} {
+	dirNames := make(map[string]struct{}, len(resolvedTargets))
+	for _, target := range resolvedTargets {
+		dirNames[pluginCodegenTargetDirName(target.projectTarget.Language)] = struct{}{}
+	}
+	return dirNames
+}
+
+func (m *PluginMaterializer) materializeTargetLocked(
+	ctx context.Context,
+	projectPlan pluginMaterializerProjectPlan,
+	target pluginMaterializerResolvedTarget,
+	previousTargetState pluginMaterializerTargetState,
+	hadPreviousTarget bool,
+) (pluginMaterializerTargetState, error) {
+	targetPlan, err := buildPluginTargetPlan(projectPlan.outputRoot, projectPlan.projectHash, target)
+	if err != nil {
+		return pluginMaterializerTargetState{}, err
+	}
+	if cachedState, ok, err := reuseCachedPluginTargetState(targetPlan, previousTargetState, hadPreviousTarget); err != nil || ok {
+		return cachedState, err
+	}
+	if !hadPreviousTarget {
+		if err := removePluginOutputRoot(targetPlan.targetRoot); err != nil {
+			return pluginMaterializerTargetState{}, err
+		}
+	}
+
+	generatedFiles, err := m.generator.GeneratePluginCodegenTarget(
+		ctx,
+		targetPlan.language,
+		projectPlan.projectPayload,
+		target.targetOptions,
+	)
+	if err != nil {
+		return pluginMaterializerTargetState{}, err
+	}
+	preparedOutputs, err := preparePluginGeneratedOutputs(targetPlan.targetRoot, generatedFiles)
+	if err != nil {
+		return pluginMaterializerTargetState{}, err
+	}
+	if err := syncPluginGeneratedOutputs(targetPlan.targetRoot, previousTargetState.OutputHashes, preparedOutputs); err != nil {
+		return pluginMaterializerTargetState{}, err
+	}
+	outputStats, err := collectPluginOutputStats(targetPlan.targetRoot, preparedOutputs.expectedPaths)
+	if err != nil {
+		return pluginMaterializerTargetState{}, err
+	}
+	return pluginMaterializerTargetState{
+		Fingerprint:  targetPlan.fingerprint,
+		OutputHashes: preparedOutputs.outputHashes,
+		OutputStats:  outputStats,
+	}, nil
+}
+
+func buildPluginTargetPlan(
+	outputRoot string,
+	projectHash string,
+	target pluginMaterializerResolvedTarget,
+) (pluginMaterializerTargetPlan, error) {
+	language := target.projectTarget.Language
+	fingerprint, err := buildPluginTargetFingerprint(
+		projectHash,
+		language,
+		target.targetOptions,
+		target.resolved.ImplementationKey,
+	)
+	if err != nil {
+		return pluginMaterializerTargetPlan{}, err
+	}
+	return pluginMaterializerTargetPlan{
+		language:    language,
+		targetRoot:  filepath.Join(outputRoot, pluginCodegenTargetDirName(language)),
+		fingerprint: fingerprint,
+	}, nil
+}
+
+func reuseCachedPluginTargetState(
+	targetPlan pluginMaterializerTargetPlan,
+	previousTargetState pluginMaterializerTargetState,
+	hadPreviousTarget bool,
+) (pluginMaterializerTargetState, bool, error) {
+	if !hadPreviousTarget || previousTargetState.Fingerprint != targetPlan.fingerprint {
+		return pluginMaterializerTargetState{}, false, nil
+	}
+	cachedOutputsExist, outputStats, err := cachedPluginOutputsExist(
+		targetPlan.targetRoot,
+		previousTargetState.OutputHashes,
+		previousTargetState.OutputStats,
+	)
+	if err != nil {
+		return pluginMaterializerTargetState{}, false, err
+	}
+	if !cachedOutputsExist {
+		return pluginMaterializerTargetState{}, false, nil
+	}
+	return pluginMaterializerTargetState{
+		Fingerprint:  targetPlan.fingerprint,
+		OutputHashes: clonePluginStringMap(previousTargetState.OutputHashes),
+		OutputStats:  outputStats,
+	}, true, nil
+}
+
+func preparePluginGeneratedOutputs(
+	targetRoot string,
+	generatedFiles []codegencontracts.PluginGeneratedFile,
+) (pluginPreparedTargetOutputs, error) {
+	preparedOutputs := pluginPreparedTargetOutputs{
+		outputHashes:  make(map[string]string, len(generatedFiles)),
+		expectedPaths: make(map[string]struct{}, len(generatedFiles)),
+		preparedFiles: make([]preparedPluginGeneratedFile, 0, len(generatedFiles)),
+	}
+	for _, file := range generatedFiles {
+		normalizedRelativePath, err := normalizePluginGeneratedRelativePath(file.RelativePath)
+		if err != nil {
+			return pluginPreparedTargetOutputs{}, err
+		}
+		outputPath, err := resolvePluginGeneratedOutputPath(targetRoot, normalizedRelativePath)
+		if err != nil {
+			return pluginPreparedTargetOutputs{}, err
+		}
+		preparedOutputs.expectedPaths[normalizedRelativePath] = struct{}{}
+		preparedOutputs.outputHashes[normalizedRelativePath] = hashPluginGeneratedContent(file.Content)
+		preparedOutputs.preparedFiles = append(preparedOutputs.preparedFiles, preparedPluginGeneratedFile{
+			relativePath: normalizedRelativePath,
+			outputPath:   outputPath,
+			content:      file.Content,
+		})
+	}
+	return preparedOutputs, nil
+}
+
+func syncPluginGeneratedOutputs(
+	targetRoot string,
+	previousOutputHashes map[string]string,
+	preparedOutputs pluginPreparedTargetOutputs,
+) error {
+	if err := removeStalePluginGeneratedOutputs(targetRoot, previousOutputHashes, preparedOutputs.expectedPaths); err != nil {
+		return err
+	}
+	if err := writePreparedPluginGeneratedFiles(targetRoot, preparedOutputs.preparedFiles); err != nil {
+		return err
+	}
+	return pruneUnexpectedPluginOutputs(targetRoot, preparedOutputs.expectedPaths)
+}
+
+func removeStalePluginGeneratedOutputs(
+	targetRoot string,
+	previousOutputHashes map[string]string,
+	expectedPaths map[string]struct{},
+) error {
+	// Remove stale outputs from the previous shape before writing the new one
+	// so file<->directory transitions on the same path do not collide with
+	// later stale-output cleanup.
+	for _, relativePath := range previousRelativePaths(previousOutputHashes, expectedPaths) {
+		stalePath, err := resolvePluginGeneratedOutputPath(targetRoot, relativePath)
+		if err != nil {
+			return err
+		}
+		if err := removePluginGeneratedFile(stalePath); err != nil {
+			return err
+		}
+		if err := pruneEmptyPluginOutputDirectories(filepath.Dir(stalePath), targetRoot); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writePreparedPluginGeneratedFiles(
+	targetRoot string,
+	preparedFiles []preparedPluginGeneratedFile,
+) error {
+	for _, prepared := range preparedFiles {
+		if err := preparePluginOutputPathForWrite(targetRoot, prepared.outputPath); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(prepared.outputPath), 0o755); err != nil {
+			return fmt.Errorf("create plugin codegen parent dir %s: %w", filepath.Dir(prepared.outputPath), err)
+		}
+
+		existingContent, err := os.ReadFile(prepared.outputPath)
+		switch {
+		case err == nil && string(existingContent) == prepared.content:
+			continue
+		case err == nil, errors.Is(err, os.ErrNotExist):
+			if err := statefs.AtomicWriteFile(prepared.outputPath, []byte(prepared.content), 0o644); err != nil {
+				return fmt.Errorf("write plugin generated output %s: %w", prepared.outputPath, err)
+			}
+		default:
+			return fmt.Errorf("read plugin generated output %s: %w", prepared.outputPath, err)
+		}
+	}
+	return nil
 }
 
 func (m *PluginMaterializer) resolveProjectTargets(
