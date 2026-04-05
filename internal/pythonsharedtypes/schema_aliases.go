@@ -30,21 +30,9 @@ type datamodelModule struct {
 	Declarations []datamodelDeclaration
 }
 
-var (
-	pythonSharedSchemaModuleOnce sync.Once
-	pythonSharedSchemaModuleData datamodelModule
-	pythonSharedSchemaModuleErr  error
-)
+var cachedPythonSharedSchemaModule = sync.OnceValues(buildPythonSharedSchemaModule)
 
-func pythonSharedSchemaModule() (datamodelModule, error) {
-	pythonSharedSchemaModuleOnce.Do(func() {
-		pythonSharedSchemaModuleData, pythonSharedSchemaModuleErr = buildPythonSharedSchemaModule()
-	})
-	if pythonSharedSchemaModuleErr != nil {
-		return datamodelModule{}, pythonSharedSchemaModuleErr
-	}
-	return pythonSharedSchemaModuleData, nil
-}
+func pythonSharedSchemaModule() (datamodelModule, error) { return cachedPythonSharedSchemaModule() }
 
 func buildPythonSharedSchemaModule() (datamodelModule, error) {
 	document, err := sharedtypes.BuildOpenAPIProjectionDocument()
@@ -112,29 +100,22 @@ func buildPythonSharedSchemaModule() (datamodelModule, error) {
 }
 
 func pythonGeneratorExecutable() (string, error) {
-	repoRoot, err := repoRootFromCaller()
-	if err != nil {
-		return "", err
-	}
-	candidate := filepath.Join(repoRoot, ".venv", "bin", "python")
-	if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
-		return candidate, nil
-	}
-	if path, lookErr := exec.LookPath("python3"); lookErr == nil {
-		return path, nil
-	}
-	if path, lookErr := exec.LookPath("python"); lookErr == nil {
-		return path, nil
-	}
-	return "", fmt.Errorf("python shared types: no python executable found for datamodel-code-generator")
-}
-
-func repoRootFromCaller() (string, error) {
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		return "", fmt.Errorf("python shared types: runtime caller lookup failed")
 	}
-	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..")), nil
+	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+	for _, candidate := range []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		"python3",
+		"python",
+	} {
+		path, err := exec.LookPath(candidate)
+		if err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("python shared types: no python executable found for datamodel-code-generator")
 }
 
 func pythonSharedSchemaDeclarations(
@@ -144,7 +125,6 @@ func pythonSharedSchemaDeclarations(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	imports := map[string]struct{}{}
 	for _, line := range module.ImportLines {
 		line = strings.TrimSpace(line)
