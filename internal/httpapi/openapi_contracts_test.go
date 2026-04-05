@@ -775,15 +775,16 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 	)
 }
 
-func TestRegisterProjectRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *testing.T) {
+func TestNewOpenAPIProjectRouteDependenciesRegisterProjectRoutes(t *testing.T) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+	deps, err := newOpenAPIProjectRouteDependencies(modes.NewPolicy(config.ModeIDE), t.TempDir())
+	if err != nil {
+		t.Fatalf("new openapi project route dependencies: %v", err)
+	}
 
-	if err := RegisterProjectRoutes(router, ProjectRouteDependencies{
-		ModePolicy:          modes.NewPolicy(config.ModeIDE),
-		openAPIDocumentOnly: true,
-	}); err != nil {
-		t.Fatalf("register project routes for openapi document: %v", err)
+	if err := RegisterProjectRoutes(router, deps); err != nil {
+		t.Fatalf("register project routes with openapi dependencies: %v", err)
 	}
 
 	setCode := document.Paths[RouteSetCode].Post
@@ -807,16 +808,13 @@ func TestRegisterProjectRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *tes
 	}
 }
 
-func TestRegisterLauncherManagementRoutesAllowsOpenAPIDocumentOnlyWithoutRuntimeDeps(t *testing.T) {
+func TestNewOpenAPILauncherManagementRouteDependenciesRegisterRoutes(t *testing.T) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+	deps := newOpenAPILauncherManagementRouteDependencies(modes.NewPolicy(config.ModeIDE), "/setta-home")
 
-	if err := RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{
-		ModePolicy:          modes.NewPolicy(config.ModeIDE),
-		DefaultSettaHome:    "/setta-home",
-		openAPIDocumentOnly: true,
-	}); err != nil {
-		t.Fatalf("register launcher management routes for openapi document: %v", err)
+	if err := RegisterLauncherManagementRoutes(router, deps); err != nil {
+		t.Fatalf("register launcher management routes with openapi dependencies: %v", err)
 	}
 
 	getLauncherStatus := document.Paths[RouteGetLauncherStatus].Get

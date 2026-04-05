@@ -207,7 +207,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("artifact", RegisterArtifactRoutes(router, ArtifactRouteDependencies{ModePolicy: ideMode, Artifacts: (*artifacts.Service)(nil), ShareArtifacts: (*shareartifacts.Service)(nil)})); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("project", RegisterProjectRoutes(router, ProjectRouteDependencies{ModePolicy: ideMode, openAPIDocumentOnly: true})); err != nil {
+	if err := registerOpenAPIProjectRouteFamily(router, ideMode, workspaceRoot); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("git", RegisterGitRoutes(router, GitRouteDependencies{ModePolicy: ideMode, Git: (*gitread.Service)(nil)})); err != nil {
@@ -296,7 +296,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	if err := registerFrontendHTTPOpenAPIRouteFamily("ai", RegisterAIRoutes(router, AIRouteDependencies{ModePolicy: shareMode, Deployment: deploymentRuntime})); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher management", RegisterLauncherManagementRoutes(router, LauncherManagementRouteDependencies{ModePolicy: ideMode, DefaultSettaHome: settaHome, openAPIDocumentOnly: true})); err != nil {
+	if err := registerOpenAPILauncherManagementRouteFamily(router, ideMode, settaHome); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("launcher home", RegisterLauncherHomeRoutes(router, LauncherHomeRouteDependencies{

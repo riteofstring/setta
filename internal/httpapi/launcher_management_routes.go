@@ -22,10 +22,17 @@ const RouteRemoveLauncher = "/removeLauncher"
 const RouteUpdateLauncher = "/updateLauncher"
 
 type LauncherManagementRouteDependencies struct {
-	ModePolicy          modes.Policy
-	DefaultSettaHome    string
-	Manager             *launcher.ManagementService
-	openAPIDocumentOnly bool
+	ModePolicy       modes.Policy
+	DefaultSettaHome string
+	Manager          LauncherManagementService
+}
+
+type LauncherManagementService interface {
+	CollectStatus(settaHome string) (launcher.LauncherStatusSnapshot, error)
+	Setup(settaHome string, input launcher.LauncherSetupInput) (launcher.LauncherSetupResult, error)
+	Repair(settaHome string) (launcher.LauncherStatusSnapshot, error)
+	Remove(settaHome string) (launcher.LauncherRemoveResult, error)
+	Update(settaHome string, packageSpec string) (launcher.LauncherUpdateResult, error)
 }
 
 type LauncherOperationErrorPayload struct {
@@ -115,7 +122,7 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 	if strings.TrimSpace(deps.DefaultSettaHome) == "" {
 		return fmt.Errorf("default setta home is required in ide mode")
 	}
-	if deps.Manager == nil && !deps.openAPIDocumentOnly {
+	if deps.Manager == nil {
 		return fmt.Errorf("launcher management service is required in ide mode")
 	}
 
@@ -168,7 +175,7 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 	return nil
 }
 
-func getLauncherStatusHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
+func getLauncherStatusHandler(defaultSettaHome string, manager LauncherManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := GetLauncherStatusRequest{
 			SettaHome: stringPointer(r.URL.Query().Get("setta_home")),
@@ -187,7 +194,7 @@ func getLauncherStatusHandler(defaultSettaHome string, manager *launcher.Managem
 	}
 }
 
-func setupLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
+func setupLauncherHandler(defaultSettaHome string, manager LauncherManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeStrictJSONBody[SetupLauncherRequest](r)
 		if err != nil {
@@ -224,7 +231,7 @@ func setupLauncherHandler(defaultSettaHome string, manager *launcher.ManagementS
 	}
 }
 
-func repairLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
+func repairLauncherHandler(defaultSettaHome string, manager LauncherManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[LauncherRequestBase](r)
 		if err != nil {
@@ -245,7 +252,7 @@ func repairLauncherHandler(defaultSettaHome string, manager *launcher.Management
 	}
 }
 
-func removeLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
+func removeLauncherHandler(defaultSettaHome string, manager LauncherManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[LauncherRequestBase](r)
 		if err != nil {
@@ -270,7 +277,7 @@ func removeLauncherHandler(defaultSettaHome string, manager *launcher.Management
 	}
 }
 
-func updateLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
+func updateLauncherHandler(defaultSettaHome string, manager LauncherManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[UpdateLauncherRequest](r)
 		if err != nil {
