@@ -6,7 +6,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 from claude_agent_sdk import (
@@ -68,6 +68,20 @@ class PendingApproval:
     tool_input: dict[str, Any] | None
 
 
+STRING_OPTION_FIELDS = (
+    ("cwd", "cwd"),
+    ("cliPath", "cli_path"),
+    ("model", "model"),
+    ("resume", "resume"),
+    ("permissionMode", "permission_mode"),
+)
+
+INT_OPTION_FIELDS = (
+    ("maxTurns", "max_turns"),
+    ("maxThinkingTokens", "max_thinking_tokens"),
+)
+
+
 def write_event(payload: dict[str, Any]) -> None:
     sys.stdout.write(json.dumps(payload) + "\n")
     sys.stdout.flush()
@@ -124,6 +138,79 @@ def parse_non_negative_int(value: Any) -> int | None:
     if value < 0:
         return None
     return value
+
+
+def normalize_optional_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    return stripped
+
+
+def normalize_passthrough_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def normalize_string_dict(value: Any) -> dict[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    normalized = {
+        str(key): str(entry)
+        for key, entry in value.items()
+        if isinstance(key, str) and entry is not None
+    }
+    if not normalized:
+        return None
+    return normalized
+
+
+def normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    for entry in value:
+        stripped = normalize_optional_string(entry)
+        if stripped is not None:
+            normalized.append(stripped)
+    return normalized
+
+
+def collect_mapped_options(
+    payload: dict[str, Any],
+    field_specs: tuple[tuple[str, str], ...],
+    normalizer: Callable[[Any], Any],
+) -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    for payload_key, option_key in field_specs:
+        value = normalizer(payload.get(payload_key))
+        if value is not None:
+            options[option_key] = value
+    return options
+
+
+def build_system_prompt_payload(value: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "type": "preset",
+        "preset": "claude_code",
+    }
+    system_prompt = normalize_optional_string(value)
+    if system_prompt is not None:
+        payload["append"] = system_prompt
+    return payload
+
+
+def attach_session_id(event: dict[str, Any], *candidates: Any) -> dict[str, Any]:
+    for candidate in candidates:
+        session_id = normalize_optional_string(candidate)
+        if session_id is None:
+            continue
+        event["sessionId"] = session_id
+        break
+    return event
 
 
 def merge_context_usage(
@@ -362,42 +449,7 @@ class ClaudeSidecar:
                     }
                 )
                 continue
-            command_type = str(payload.get("type") or "").strip()
-            if command_type == "approval_response":
-                approval_id = str(payload.get("approvalId") or "").strip()
-                pending = self.pending_approvals.get(approval_id)
-                if pending is None or pending.future.done():
-                    continue
-                pending.future.set_result(
-                    ApprovalDecision(
-                        approved=bool(payload.get("approved")),
-                        updated_input=None,
-                    )
-                )
-            elif command_type == "tool_response":
-                tool_call_id = str(payload.get("toolCallId") or "").strip()
-                pending = self.pending_approvals.get(tool_call_id)
-                if pending is None or pending.future.done():
-                    continue
-                updated_input = extract_updated_input(payload)
-                answers = extract_answers(payload)
-                if (
-                    updated_input is None
-                    and answers
-                    and pending.tool_name == "AskUserQuestion"
-                ):
-                    base_input = (
-                        pending.tool_input
-                        if isinstance(pending.tool_input, dict)
-                        else {}
-                    )
-                    updated_input = {**base_input, "answers": answers}
-                pending.future.set_result(
-                    ApprovalDecision(
-                        approved=updated_input is not None,
-                        updated_input=updated_input,
-                    )
-                )
+            self.handle_command(payload)
 
     def build_options(self) -> ClaudeAgentOptions:
         options: dict[str, Any] = {
@@ -405,58 +457,34 @@ class ClaudeSidecar:
             "can_use_tool": self.can_use_tool,
             "extra_args": {"debug-to-stderr": None},
             "stderr": lambda line: print(line, file=sys.stderr),
+            "system_prompt": build_system_prompt_payload(
+                self.start_payload.get("systemPrompt")
+            ),
         }
-        system_prompt = str(self.start_payload.get("systemPrompt") or "").strip()
-        system_prompt_payload: dict[str, Any] = {
-            "type": "preset",
-            "preset": "claude_code",
-        }
-        if system_prompt:
-            system_prompt_payload["append"] = system_prompt
-        options["system_prompt"] = system_prompt_payload
-        cwd = self.start_payload.get("cwd")
-        if isinstance(cwd, str) and cwd.strip():
-            options["cwd"] = cwd.strip()
-        env = self.start_payload.get("env")
-        if isinstance(env, dict):
-            options["env"] = {
-                str(key): str(value)
-                for key, value in env.items()
-                if isinstance(key, str) and value is not None
-            }
-        cli_path = self.start_payload.get("cliPath")
-        if isinstance(cli_path, str) and cli_path.strip():
-            options["cli_path"] = cli_path.strip()
+        options.update(
+            collect_mapped_options(
+                self.start_payload, STRING_OPTION_FIELDS, normalize_optional_string
+            )
+        )
+        env = normalize_string_dict(self.start_payload.get("env"))
+        if env is not None:
+            options["env"] = env
         allowed_tools = normalize_allowed_tools(self.start_payload.get("allowedTools"))
         if allowed_tools:
             options["allowed_tools"] = allowed_tools
-        model = self.start_payload.get("model")
-        if isinstance(model, str) and model.strip():
-            options["model"] = model.strip()
-        resume = self.start_payload.get("resume")
-        if isinstance(resume, str) and resume.strip():
-            options["resume"] = resume.strip()
-        permission_mode = self.start_payload.get("permissionMode")
-        if isinstance(permission_mode, str) and permission_mode.strip():
-            options["permission_mode"] = permission_mode.strip()
-        max_turns = self.start_payload.get("maxTurns")
-        if isinstance(max_turns, int):
-            options["max_turns"] = max_turns
-        max_thinking_tokens = self.start_payload.get("maxThinkingTokens")
-        if isinstance(max_thinking_tokens, int):
-            options["max_thinking_tokens"] = max_thinking_tokens
+        options.update(
+            collect_mapped_options(
+                self.start_payload, INT_OPTION_FIELDS, normalize_passthrough_int
+            )
+        )
         sandbox = self.start_payload.get("sandbox")
         if isinstance(sandbox, dict):
             options["sandbox"] = sandbox
-        setting_sources = self.start_payload.get("settingSources")
-        if isinstance(setting_sources, list):
-            normalized_sources = [
-                str(entry).strip()
-                for entry in setting_sources
-                if isinstance(entry, str) and entry.strip()
-            ]
-            if normalized_sources:
-                options["setting_sources"] = normalized_sources
+        normalized_sources = normalize_string_list(
+            self.start_payload.get("settingSources")
+        )
+        if normalized_sources:
+            options["setting_sources"] = normalized_sources
         mcp_servers = load_mcp_servers(self.start_payload.get("mcpConfigPath"))
         if mcp_servers:
             options["mcp_servers"] = mcp_servers
@@ -477,61 +505,118 @@ class ClaudeSidecar:
             return payload
         return None
 
-    async def handle_message(self, message: Any, client: Any | None = None) -> None:
-        if is_stream_event_message(message):
-            payload = to_jsonable(
-                getattr(message, "event", None)
-                or getattr(message, "stream_event", None)
-            )
-            if not isinstance(payload, dict):
+    def pending_approval_for(
+        self, payload: dict[str, Any], id_field: str
+    ) -> PendingApproval | None:
+        approval_id = str(payload.get(id_field) or "").strip()
+        pending = self.pending_approvals.get(approval_id)
+        if pending is None or pending.future.done():
+            return None
+        return pending
+
+    def build_tool_response_input(
+        self, payload: dict[str, Any], pending: PendingApproval
+    ) -> dict[str, Any] | None:
+        updated_input = extract_updated_input(payload)
+        if updated_input is not None:
+            return updated_input
+        answers = extract_answers(payload)
+        if not answers or pending.tool_name != "AskUserQuestion":
+            return None
+        base_input = pending.tool_input if isinstance(pending.tool_input, dict) else {}
+        return {**base_input, "answers": answers}
+
+    def handle_command(self, payload: dict[str, Any]) -> None:
+        command_type = str(payload.get("type") or "").strip()
+        if command_type == "approval_response":
+            pending = self.pending_approval_for(payload, "approvalId")
+            if pending is None:
                 return
-            payload = normalize_stream_event(payload)
-            event = {"type": "stream_event", "event": payload}
-            session_id = getattr(message, "session_id", None)
-            if isinstance(session_id, str) and session_id.strip():
-                event["sessionId"] = session_id.strip()
-            write_event(event)
-            return
-        if isinstance(message, AssistantMessage):
-            payload = to_jsonable(message)
-            if not isinstance(payload, dict):
-                return
-            payload = normalize_assistant_payload(payload)
-            event = {"type": "assistant_message", "message": payload}
-            session_id = payload.get("session_id") or payload.get("sessionId")
-            if isinstance(session_id, str) and session_id.strip():
-                event["sessionId"] = session_id.strip()
-            write_event(event)
-            return
-        if isinstance(message, SystemMessage):
-            payload = to_jsonable(message)
-            if not isinstance(payload, dict):
-                return
-            event = {"type": "system_message", "message": payload}
-            session_id = getattr(message, "session_id", None)
-            if not isinstance(session_id, str) or not session_id.strip():
-                session_id = payload.get("session_id") or payload.get("sessionId")
-            if isinstance(session_id, str) and session_id.strip():
-                event["sessionId"] = session_id.strip()
-            write_event(event)
-            return
-        if isinstance(message, ResultMessage):
-            usage = to_jsonable(getattr(message, "usage", None))
-            if not isinstance(usage, dict):
-                usage = None
-            if client is not None:
-                usage = merge_context_usage(
-                    usage, await self.read_context_usage(client)
+            pending.future.set_result(
+                ApprovalDecision(
+                    approved=bool(payload.get("approved")),
+                    updated_input=None,
                 )
-            payload = {
-                "type": "result",
-                "sessionId": getattr(message, "session_id", None),
-                "isError": bool(getattr(message, "is_error", False)),
-                "result": getattr(message, "result", None),
-                "usage": usage,
-            }
-            write_event(payload)
+            )
             return
+        if command_type != "tool_response":
+            return
+        pending = self.pending_approval_for(payload, "toolCallId")
+        if pending is None:
+            return
+        updated_input = self.build_tool_response_input(payload, pending)
+        pending.future.set_result(
+            ApprovalDecision(
+                approved=updated_input is not None,
+                updated_input=updated_input,
+            )
+        )
+
+    def build_stream_event_payload(self, message: Any) -> dict[str, Any] | None:
+        payload = to_jsonable(
+            getattr(message, "event", None) or getattr(message, "stream_event", None)
+        )
+        if not isinstance(payload, dict):
+            return None
+        event = {"type": "stream_event", "event": normalize_stream_event(payload)}
+        return attach_session_id(event, getattr(message, "session_id", None))
+
+    def build_assistant_event_payload(
+        self, message: AssistantMessage
+    ) -> dict[str, Any] | None:
+        payload = to_jsonable(message)
+        if not isinstance(payload, dict):
+            return None
+        event = {
+            "type": "assistant_message",
+            "message": normalize_assistant_payload(payload),
+        }
+        return attach_session_id(
+            event, payload.get("session_id"), payload.get("sessionId")
+        )
+
+    def build_system_event_payload(
+        self, message: SystemMessage
+    ) -> dict[str, Any] | None:
+        payload = to_jsonable(message)
+        if not isinstance(payload, dict):
+            return None
+        event = {"type": "system_message", "message": payload}
+        return attach_session_id(
+            event,
+            getattr(message, "session_id", None),
+            payload.get("session_id"),
+            payload.get("sessionId"),
+        )
+
+    async def build_result_event_payload(
+        self, message: ResultMessage, client: Any | None
+    ) -> dict[str, Any]:
+        usage = to_jsonable(getattr(message, "usage", None))
+        if not isinstance(usage, dict):
+            usage = None
+        if client is not None:
+            usage = merge_context_usage(usage, await self.read_context_usage(client))
+        return {
+            "type": "result",
+            "sessionId": getattr(message, "session_id", None),
+            "isError": bool(getattr(message, "is_error", False)),
+            "result": getattr(message, "result", None),
+            "usage": usage,
+        }
+
+    async def handle_message(self, message: Any, client: Any | None = None) -> None:
+        event: dict[str, Any] | None = None
+        if is_stream_event_message(message):
+            event = self.build_stream_event_payload(message)
+        elif isinstance(message, AssistantMessage):
+            event = self.build_assistant_event_payload(message)
+        elif isinstance(message, SystemMessage):
+            event = self.build_system_event_payload(message)
+        elif isinstance(message, ResultMessage):
+            event = await self.build_result_event_payload(message, client)
+        if event is not None:
+            write_event(event)
 
     async def run(self) -> int:
         prompt = str(self.start_payload.get("prompt") or "")

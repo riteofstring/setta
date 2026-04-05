@@ -322,3 +322,253 @@ def test_claude_sdk_runner_normalizes_tool_names(
     assert module.normalize_tool_name("question") == "AskUserQuestion"
     assert module.normalize_tool_name("QUESTION") == "AskUserQuestion"
     assert module.normalize_tool_name("mcp__question") == "question"
+
+
+def test_claude_sdk_runner_builds_normalized_options(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_build_options")
+
+    mcp_config = tmp_path / "mcp.json"
+    mcp_config.write_text(
+        '{"mcpServers":{"local":{"command":"setta","args":["mcp"]}}}',
+        encoding="utf-8",
+    )
+
+    sidecar = module.ClaudeSidecar(
+        {
+            "type": "start",
+            "systemPrompt": "  Follow repo policy.  ",
+            "cwd": "  /tmp/workspace  ",
+            "env": {"A": "1", "B": 2, "C": None, 4: "skip"},
+            "cliPath": "  /usr/local/bin/claude  ",
+            "allowedTools": [" AskUserQuestion ", "bash", "bash"],
+            "model": "  claude-4  ",
+            "resume": "  session-9  ",
+            "permissionMode": "  plan  ",
+            "maxTurns": 4,
+            "maxThinkingTokens": 900,
+            "sandbox": {"mode": "workspace-write"},
+            "settingSources": [" user ", "", "project"],
+            "mcpConfigPath": str(mcp_config),
+        },
+        None,
+    )
+
+    options = sidecar.build_options().kwargs
+
+    assert options["include_partial_messages"] is True
+    assert callable(options["can_use_tool"])
+    assert options["extra_args"] == {"debug-to-stderr": None}
+    assert callable(options["stderr"])
+    assert options["system_prompt"] == {
+        "type": "preset",
+        "preset": "claude_code",
+        "append": "Follow repo policy.",
+    }
+    assert options["cwd"] == "/tmp/workspace"
+    assert options["env"] == {"A": "1", "B": "2"}
+    assert options["cli_path"] == "/usr/local/bin/claude"
+    assert options["allowed_tools"] == ["question", "bash"]
+    assert options["model"] == "claude-4"
+    assert options["resume"] == "session-9"
+    assert options["permission_mode"] == "plan"
+    assert options["max_turns"] == 4
+    assert options["max_thinking_tokens"] == 900
+    assert options["sandbox"] == {"mode": "workspace-write"}
+    assert options["setting_sources"] == ["user", "project"]
+    assert options["mcp_servers"] == {
+        "local": {"command": "setta", "args": ["mcp"]}
+    }
+
+
+def test_claude_sdk_runner_reads_approval_and_tool_commands(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_read_commands")
+
+    async def run_test() -> tuple[object, object]:
+        reader = asyncio.StreamReader()
+        sidecar = module.ClaudeSidecar({"type": "start"}, reader)
+        approval_future = asyncio.get_running_loop().create_future()
+        tool_future = asyncio.get_running_loop().create_future()
+        sidecar.pending_approvals["approval-1"] = module.PendingApproval(
+            future=approval_future,
+            tool_name=None,
+            tool_input=None,
+        )
+        sidecar.pending_approvals["tool-1"] = module.PendingApproval(
+            future=tool_future,
+            tool_name="AskUserQuestion",
+            tool_input={"question": "Name?"},
+        )
+        reader.feed_data(
+            b'{"type":"approval_response","approvalId":"approval-1","approved":true}\n'
+        )
+        reader.feed_data(
+            b'{"type":"tool_response","toolCallId":"tool-1","answers":{"name":"Ada"}}\n'
+        )
+        reader.feed_eof()
+        await sidecar.read_commands()
+        return approval_future.result(), tool_future.result()
+
+    approval_decision, tool_decision = asyncio.run(run_test())
+
+    assert approval_decision == module.ApprovalDecision(
+        approved=True,
+        updated_input=None,
+    )
+    assert tool_decision == module.ApprovalDecision(
+        approved=True,
+        updated_input={"question": "Name?", "answers": {"name": "Ada"}},
+    )
+
+
+def test_claude_sdk_runner_emits_normalized_assistant_message(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_assistant_message")
+
+    events: list[dict] = []
+    monkeypatch.setattr(module, "write_event", events.append)
+
+    message = module.AssistantMessage()
+    message.session_id = " session-7 "
+    message.content = [{"type": "tool_use", "name": "question"}]
+
+    async def run_test() -> None:
+        sidecar = module.ClaudeSidecar({"type": "start"}, asyncio.StreamReader())
+        await sidecar.handle_message(message)
+
+    asyncio.run(run_test())
+
+    assert events == [
+        {
+            "type": "assistant_message",
+            "message": {
+                "session_id": " session-7 ",
+                "content": [{"type": "tool_use", "name": "AskUserQuestion"}],
+            },
+            "sessionId": "session-7",
+        }
+    ]
