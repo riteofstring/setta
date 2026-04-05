@@ -421,6 +421,33 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	return declaration, nil
 }
 
+func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {
+	typeName := frontendBindingTypeName(t)
+	propertySpecs, err := c.structPropertySpecs(t, nil, nil, nil)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
+	createBody, err := buildGoBackedCreateBodyTS(
+		"frontend create defaults "+typeName,
+		typeName,
+		defaultValue,
+		propertySpecs,
+	)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
+	return exportedFunctionDeclaration(
+		"create"+typeName,
+		typeName,
+		createBody,
+		TypeProperty{
+			Name:         "options",
+			TypeExpr:     "Partial<" + typeName + ">",
+			DefaultValue: "{}",
+		},
+	), nil
+}
+
 func buildGoBackedCreateBodyTS(
 	context string,
 	declarationName string,

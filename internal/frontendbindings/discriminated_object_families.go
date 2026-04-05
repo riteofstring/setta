@@ -71,31 +71,12 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 	if !ok {
 		return declarations, true, nil
 	}
-	typeName := frontendBindingTypeName(t)
-	propertySpecs, err := converter.structPropertySpecs(t, nil, nil, nil)
-	if err != nil {
-		return nil, false, err
-	}
-	createBody, err := buildGoBackedCreateBodyTS(
-		"frontend generated impl defaults "+typeName,
-		typeName,
-		defaultValue,
-		propertySpecs,
-	)
+	createDeclaration, err := converter.goBackedCreateFunctionDeclaration(t, defaultValue)
 	if err != nil {
 		return nil, false, err
 	}
 	return append(declarations,
-		exportedFunctionDeclaration(
-			"create"+typeName,
-			typeName,
-			createBody,
-			TypeProperty{
-				Name:         "options",
-				TypeExpr:     "Partial<" + typeName + ">",
-				DefaultValue: "{}",
-			},
-		),
+		createDeclaration,
 	), true, nil
 }
 
@@ -133,15 +114,12 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 			if _, ok := coreByName[property.Name]; ok {
 				continue
 			}
-			spec, ok := mergedByName[property.Name]
-			if !ok {
+			if _, ok := mergedByName[property.Name]; !ok {
 				property.Optional = true
 				copyProperty := property
 				mergedByName[property.Name] = &copyProperty
 				mergedOrder = append(mergedOrder, property.Name)
-				spec = &copyProperty
 			}
-			spec.Optional = true
 			if slices.Contains(typeExprsByName[property.Name], property.TypeExpr) {
 				continue
 			}
