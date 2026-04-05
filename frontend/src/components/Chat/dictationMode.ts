@@ -1,11 +1,9 @@
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import type {
-  AllConfigs,
-  LLMAPIKeysSnapshot,
+  APIKeys,
+  AllLLMConfigs,
   TranscriptionProfile,
 } from "utils/generatedTypes";
-
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 export const DICTATION_MODE_ITEMS: AllItemsType<string> = [
   {
@@ -25,7 +23,7 @@ export function resolveProviderDictationAvailability({
   apiKeysAuthoritative,
 }: {
   selectedTranscriptionProfile: TranscriptionProfile | null;
-  allLLMConfigs: AllConfigs | null;
+  allLLMConfigs: AllLLMConfigs | null;
   apiKeys: APIKeys;
   apiKeysAuthoritative: boolean;
 }): {

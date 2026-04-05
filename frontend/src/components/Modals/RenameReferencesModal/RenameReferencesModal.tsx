@@ -1,6 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { saveSettings } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { closeModal, useModalData } from "state/actions/modal";
@@ -10,6 +8,7 @@ import {
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
 import { useSettings } from "state/definitions";
+import { route_save_settings } from "utils/generatedEndpoints";
 import {
   RenameRefactorMode,
   RenameRefactorModeEnum,
@@ -31,11 +30,7 @@ export function RenameReferencesModal() {
         renameRefactorMode: mode,
       },
     }));
-    void callOpenAPI(
-      saveSettings({
-        body: { settings: useSettings.getState() },
-      }),
-    );
+    route_save_settings({ settings: useSettings.getState() });
   };
 
   const handleCancel = async () => {

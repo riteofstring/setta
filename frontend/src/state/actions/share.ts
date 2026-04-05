@@ -1,8 +1,3 @@
-import {
-  getShareDeploymentCurrentSession,
-  getShareDeploymentProjectConfig,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
 import {
@@ -11,36 +6,17 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
-import type {
-  ShareDeploymentSessionResponse,
-  SingleConfig,
-} from "utils/generatedTypes";
+  route_create_share_session_current,
+  route_load_share_project_config,
+} from "utils/generatedEndpoints";
+import type { ShareDeploymentSessionResponse } from "utils/generatedTypes";
 
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
   forceNewSession?: boolean;
 };
-
-type ShareDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<ShareDeploymentSessionResponse>;
-type ShareProjectConfigRouteResponse = ResponseDataAndStatus<{
-  projectState: SingleConfig;
-}>;
-
-function normalizeShareSessionResponse(
-  session: ShareDeploymentSessionResponse,
-): ShareDeploymentSessionResponse {
-  return {
-    ...session,
-    manifest: session.manifest ?? null,
-    projectMetadata: session.projectMetadata ?? [],
-  };
-}
 
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
@@ -182,7 +158,7 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
-    projectMetadata: session.projectMetadata ?? [],
+    projectMetadata: session.projectMetadata,
   });
 }
 
@@ -205,13 +181,11 @@ export async function ensureShareSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes = (await callOpenAPI(
-    getShareDeploymentCurrentSession(),
-  )) as ShareDeploymentSessionRouteResponse;
+  const sessionRes = await route_create_share_session_current();
   if (!res200(sessionRes)) {
     return null;
   }
-  const session = normalizeShareSessionResponse(sessionRes.data);
+  const session = sessionRes.data;
   setShareSessionFromResponse(session);
   return session;
 }
@@ -263,24 +237,13 @@ export async function loadShareProjectConfig({
   }
 
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
-  const stateRes = (await callOpenAPI(
-    getShareDeploymentProjectConfig({
-      path: {
-        deploymentName: shareSession.shareDeploymentName,
-        version: shareSession.shareDeploymentVersion,
-      },
-      body: {
-        projectConfigId,
-      },
-    }),
-  )) as ShareProjectConfigRouteResponse;
+  const stateRes = await route_load_share_project_config(
+    shareSession.shareDeploymentName,
+    shareSession.shareDeploymentVersion,
+    { projectConfigId },
+  );
   if (!res200(stateRes)) {
-    const errorCode = getErrorCode(stateRes.data);
-    if (
-      allowRetry &&
-      (errorCode === "missing_share_session" ||
-        errorCode === "unknown_share_session")
-    ) {
+    if (allowRetry && stateRes.status === 404) {
       const session = await ensureShareSessionFromCurrentDeployment({
         forceNewSession: true,
       });

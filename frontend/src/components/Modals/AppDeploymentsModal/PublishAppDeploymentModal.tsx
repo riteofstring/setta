@@ -5,13 +5,6 @@ import {
   resolveActionType,
 } from "components/App/appBindings";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import {
-  checkIfFileExists,
-  type HttpapiPublishAppDeploymentRequest,
-  listAppDeployments,
-  publishAppDeployment,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
@@ -21,17 +14,39 @@ import {
   useAppDefinition,
   useProjectState,
 } from "state/definitions";
-import { createDefaultAppPolicy } from "utils/deploymentPolicies";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_check_if_file_exists,
+  route_list_app_deployments,
+  route_publish_app_deployment,
+} from "utils/generatedEndpoints";
 import type {
-  DeploymentMetadataResponse,
-  Policy,
-  RunSnapshotMode,
+  AppDeploymentMetadata,
+  PublishAppDeploymentRequestInput,
+  SharePolicy,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
-type AppPolicyOverridesInput = Policy;
-type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
+type AppPolicyOverridesInput = NonNullable<
+  PublishAppDeploymentRequestInput["appPolicyOverrides"]
+>;
+type RunSnapshotMode = SharePolicy["runSnapshotMode"];
+
+const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
+
+function createDefaultPolicyOverrides(): AppPolicyOverridesInput {
+  return {
+    allowParamChanges: true,
+    allowVariantChanges: false,
+    allowLayoutChanges: false,
+    allowRun: true,
+    allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: true,
+    runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
+  };
+}
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -87,7 +102,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const [policyOverrides, setPolicyOverrides] =
-    useState<AppPolicyOverridesInput>(createDefaultAppPolicy);
+    useState<AppPolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState(
     loadStoredListenerEntrypoint,
   );
@@ -96,9 +111,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<DeploymentMetadataResponse | null>(null);
+    useState<AppDeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<DeploymentMetadataResponse>
+    Array<AppDeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -117,13 +132,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res: CheckIfFileExistsRouteResponse = await callOpenAPI(
-      checkIfFileExists({
-        body: {
-          filepath: DEFAULT_LISTENER_ENTRYPOINT,
-        },
-      }),
-    );
+    const res = await route_check_if_file_exists({
+      filepath: DEFAULT_LISTENER_ENTRYPOINT,
+    });
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {
@@ -137,19 +148,17 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
 
   async function loadRecentDeployments(): Promise<void> {
     setIsLoadingRecent(true);
-    const res = (await callOpenAPI(
-      listAppDeployments(),
-    )) as ResponseDataAndStatus<Array<DeploymentMetadataResponse>>;
+    const res = await route_list_app_deployments();
     setIsLoadingRecent(false);
     if (res200(res)) {
-      setRecentDeployments(res.data ?? []);
+      setRecentDeployments(res.data);
       return;
     }
     setRecentDeployments([]);
   }
 
   function resetForm(): void {
-    setPolicyOverrides(createDefaultAppPolicy());
+    setPolicyOverrides(createDefaultPolicyOverrides());
     setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
@@ -180,19 +189,17 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: HttpapiPublishAppDeploymentRequest = {
+    const entrypointValue =
+      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
+    const payload: PublishAppDeploymentRequestInput = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       appPolicyOverrides: policyOverrides,
-      listenerEntrypoint: trimmedEntrypoint,
-      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
+      listenerEntrypoint: entrypointValue,
+      listenerEnabled: entrypointValue ? listenerEnabled : false,
     };
 
-    const res = (await callOpenAPI(
-      publishAppDeployment({
-        body: payload,
-      }),
-    )) as ResponseDataAndStatus<DeploymentMetadataResponse>;
+    const res = await route_publish_app_deployment(payload);
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
@@ -229,12 +236,8 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     if (actionButtons.length === 0) {
       return "App spec has no ActionButton. Add a Run button (or disable runs in policy).";
     }
-    const dataBindings = isRecord(appDefinition?.dataBindings)
-      ? appDefinition.dataBindings
-      : null;
-    const actions = normalizeActionDefinitions(
-      isRecord(appDefinition?.actions) ? appDefinition.actions : null,
-    );
+    const dataBindings = appDefinition?.dataBindings ?? {};
+    const actions = normalizeActionDefinitions(appDefinition?.actions);
     let sawRun = false;
     for (const props of actionButtons) {
       const { action, sectionId } = resolveActionBinding(props, dataBindings);
@@ -352,7 +355,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
           <SelectRow
             label="Run snapshot mode"
             description="How run output should be stored."
-            value={policyOverrides.runSnapshotMode}
+            value={policyOverrides.runSnapshotMode ?? DEFAULT_RUN_SNAPSHOT_MODE}
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },
@@ -609,7 +612,7 @@ function RecentDeploymentList({
   isLoading,
   onCopy,
 }: {
-  deployments: Array<DeploymentMetadataResponse>;
+  deployments: Array<AppDeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
 }) {
@@ -668,7 +671,7 @@ function RecentDeploymentList({
 
 function extractErrorMessage(
   status: number | undefined,
-  data: DeploymentMetadataResponse | undefined,
+  data: AppDeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

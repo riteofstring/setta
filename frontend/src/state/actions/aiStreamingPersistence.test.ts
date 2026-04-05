@@ -11,6 +11,7 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
+  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import {
@@ -54,16 +55,16 @@ function seedChatSection() {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl({
-    ...{ chatId },
-    ...{
+  const sectionImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId }),
+    {
       id: implId,
       chatId,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  });
+  );
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
@@ -103,7 +104,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.message_start,
+        type: StreamingEventTypeEnum.MESSAGE_START,
         message: {
           id: "msg-stream",
           role: ChatRoleEnum.assistant,
@@ -117,7 +118,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.delta,
+        type: StreamingEventTypeEnum.DELTA,
         message_id: "msg-stream",
         content: [{ type: "text_delta", index: 0, text: "Streaming" }],
       },
@@ -126,7 +127,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.message_stop,
+        type: StreamingEventTypeEnum.MESSAGE_STOP,
         message_id: "msg-stream",
       },
     });
@@ -187,7 +188,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.message_start,
+        type: StreamingEventTypeEnum.MESSAGE_START,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -201,7 +202,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.delta,
+        type: StreamingEventTypeEnum.DELTA,
         message_id: "msg-final",
         content: [{ type: "text_delta", index: 0, text: "Finalized" }],
       },
@@ -210,7 +211,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.message_finalized,
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -224,7 +225,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.message_stop,
+        type: StreamingEventTypeEnum.MESSAGE_STOP,
         message_id: "msg-final",
       },
     });
