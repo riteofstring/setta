@@ -13,27 +13,6 @@ type discriminatedObjectFamilyMember struct {
 	EnumExpr string
 }
 
-func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, []discriminatedObjectFamilyMember, bool, error) {
-	t = canonicalFrontendBindingType(t)
-	family, ok := lookupDiscriminatedObjectFamily(t)
-	if !ok {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, nil
-	}
-	members, err := discriminatedObjectFamilyMembers(family)
-	if err != nil {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, err
-	}
-	if t != family.BaseType {
-		for _, member := range members {
-			if member.Type == t {
-				return family, members, true, nil
-			}
-		}
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, nil
-	}
-	return family, members, true, nil
-}
-
 func lookupDiscriminatedObjectFamily(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, bool) {
 	t = canonicalFrontendBindingType(t)
 	if t == nil {
@@ -50,14 +29,27 @@ func lookupDiscriminatedObjectFamily(t reflect.Type) (frontendbindingmeta.Discri
 }
 
 func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool, error) {
-	family, members, ok, err := discriminatedObjectFamilyForType(t)
-	if err != nil {
-		return nil, false, err
-	}
+	t = canonicalFrontendBindingType(t)
+	family, ok := lookupDiscriminatedObjectFamily(t)
 	if !ok {
 		return nil, false, nil
 	}
-	t = canonicalFrontendBindingType(t)
+	members, err := discriminatedObjectFamilyMembers(family)
+	if err != nil {
+		return nil, false, err
+	}
+	if t != family.BaseType {
+		isMember := false
+		for _, member := range members {
+			if member.Type == t {
+				isMember = true
+				break
+			}
+		}
+		if !isMember {
+			return nil, false, nil
+		}
+	}
 	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
 	if err != nil {
 		return nil, false, err
