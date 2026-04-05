@@ -145,6 +145,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
 - `./scripts/bootstrap-url.sh`
   - Prints a bootstrap URL for a running session.
+- `./scripts/check_quality_for_git_changes.sh`
+  - Runs `./check_quality.sh --files ...` against the current git diff plus untracked files instead of the default staged-file set.
+  - Useful for loops and pre-commit flows that need to quality-check the actual touched files before staging or committing.
 - `./scripts/run-codex-authority-cleanup-loop.sh`
   - Specialized Codex loop for Go-as-source-of-truth cleanup work.
   - Starts a fresh Codex session every iteration, defaults to yolo mode, and stops only after Codex emits an explicit clean-stop sentinel.
@@ -152,7 +155,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
   - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
-  - Seeds a phase checklist, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and stops only after Codex emits an explicit clean-stop sentinel.
+  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/check_quality_for_git_changes.sh` before every non-stop commit, and stops only after Codex reports either true audited completion or a documented sustained plateau.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
