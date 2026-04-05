@@ -7,7 +7,11 @@ import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
@@ -20,9 +24,9 @@ import {
   DateControlModeEnum,
   DateSelectionMode,
   DateSelectionModeEnum,
+  NotificationTypeEnum,
   Position,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSectionWithResult } from "./createSections";
@@ -32,6 +36,8 @@ type ControlParamConfig = {
   dateSelectionMode?: DateSelectionMode;
   dateCalendarWeekStart?: DateCalendarWeekStart;
 };
+
+type UpdateParamImplConfigRouteResponse = ResponseDataAndStatus<null>;
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
@@ -359,17 +365,18 @@ async function applyMetaControlParamConfigAfterCreate(
   if (!controlParamId) {
     return;
   }
-  const response = await route_update_param_impl_config({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    paramInfoId: controlParamId,
-    newConfig: config,
-  });
+  const response: UpdateParamImplConfigRouteResponse =
+    await route_update_param_impl_config({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId: controlParamId,
+      newConfig: config,
+    });
   if (!res200(response)) {
     addTemporaryNotification(
       getErrorDetail(response.data) ??
         "Failed to apply meta control configuration after section creation.",
-      SettaNotificationTypeEnum.error,
+      NotificationTypeEnum.error,
     );
   }
 }

@@ -4,6 +4,7 @@ import { buildMessageBranchInfo } from "./aiBranches";
 import {
   buildBranchIndexFromBranches,
   buildEditedMessageHistory,
+  ensureChatBranchState,
 } from "./chatBranches";
 
 describe("chatBranches", () => {
@@ -130,5 +131,73 @@ describe("chatBranches", () => {
       branchChatIds: ["child", "grand"],
       activeIndex: 1,
     });
+  });
+
+  it("syncs the active branch to the authoritative source messages", () => {
+    const result = ensureChatBranchState({
+      messages: [
+        {
+          id: "assistant-1",
+          role: ChatRoleEnum.assistant,
+          content: [createMessageTextContent({ text: "Backend canonical" })],
+          attachments: [],
+          tool_calls: null,
+        },
+      ],
+      inputText: "",
+      waitingForResponse: true,
+      toolCallArguments: { remote: "{}" },
+      activeBranchId: "branch-active",
+      branches: {
+        "branch-active": {
+          messages: [
+            {
+              id: "assistant-1",
+              role: ChatRoleEnum.assistant,
+              createdAt: 1234,
+              content: [
+                createMessageTextContent({
+                  text: "Local speculative branch copy with longer text",
+                }),
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+            {
+              id: "assistant-local-only",
+              role: ChatRoleEnum.assistant,
+              content: [createMessageTextContent({ text: "Local only" })],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+          createdAt: 42,
+          parentBranchId: null,
+          branchFromMessageId: null,
+        },
+      },
+    });
+
+    expect(result.didInitialize).toBe(true);
+    expect(result.nextState.messages).toEqual([
+      {
+        id: "assistant-1",
+        role: ChatRoleEnum.assistant,
+        createdAt: 1234,
+        content: [createMessageTextContent({ text: "Backend canonical" })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ]);
+    expect(result.nextState.branches?.["branch-active"]?.messages).toEqual([
+      {
+        id: "assistant-1",
+        role: ChatRoleEnum.assistant,
+        createdAt: 1234,
+        content: [createMessageTextContent({ text: "Backend canonical" })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ]);
   });
 });

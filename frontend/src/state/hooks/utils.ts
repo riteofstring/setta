@@ -1,8 +1,9 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { checkIfFileExists } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { res200 } from "utils/endpointUtils";
-import { route_check_if_file_exists } from "utils/generatedEndpoints";
 import { asyncDebounce } from "utils/utils";
 
 export function useMatchSorterFilter<T>(
@@ -70,7 +71,13 @@ function useFileExists(delay) {
 
   const debouncedCheckIfFileExists = useCallback(
     asyncDebounce(async (f) => {
-      const res = await route_check_if_file_exists(f);
+      const res = await callOpenAPI(
+        checkIfFileExists({
+          body: {
+            filepath: f,
+          },
+        }),
+      );
       if (res200(res)) {
         setFileExists(res.data);
       }
@@ -94,16 +101,62 @@ export function useLocalValue<T>(globalValue: T) {
 export function useLocalPendingValue<T>(
   globalValue: T,
   callbackOnGlobalUpdate?: (x: T) => void,
+  ownerKey?: unknown,
 ) {
-  const [pendingValue, setPendingValue] = useState<T | null>(null);
+  const [pendingState, setPendingState] = useState<{
+    ownerKey: unknown;
+    value: T;
+  } | null>(null);
+  const callbackRef = useRef(callbackOnGlobalUpdate);
+  const pendingStateRef = useRef(pendingState);
 
   useEffect(() => {
-    if (!pendingValue || pendingValue === globalValue) {
-      setPendingValue(null);
+    callbackRef.current = callbackOnGlobalUpdate;
+  }, [callbackOnGlobalUpdate]);
+
+  useEffect(() => {
+    pendingStateRef.current = pendingState;
+  }, [pendingState]);
+
+  const pendingValue =
+    pendingState && Object.is(pendingState.ownerKey, ownerKey)
+      ? pendingState.value
+      : null;
+
+  useEffect(() => {
+    const currentPendingState = pendingStateRef.current;
+    const currentPendingValue =
+      currentPendingState && Object.is(currentPendingState.ownerKey, ownerKey)
+        ? currentPendingState.value
+        : null;
+    if (currentPendingValue === null) {
       return;
     }
-    callbackOnGlobalUpdate?.(pendingValue);
-  }, [globalValue]);
+    if (_.isEqual(currentPendingValue, globalValue)) {
+      setPendingState(null);
+      return;
+    }
+    callbackRef.current?.(currentPendingValue);
+  }, [globalValue, ownerKey]);
+
+  useEffect(() => {
+    if (pendingValue === null) {
+      return;
+    }
+    if (_.isEqual(pendingValue, globalValue)) {
+      setPendingState(null);
+    }
+  }, [globalValue, pendingValue]);
+
+  const setPendingValue = useCallback(
+    (value: T) => {
+      setPendingState({
+        ownerKey,
+        value,
+      });
+    },
+    [ownerKey],
+  );
 
   return [pendingValue ?? globalValue, setPendingValue] as const;
 }

@@ -1,14 +1,19 @@
+import {
+  loadSettings,
+  type SettingsstateFrontendSettingsState as SettingsState,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import { useSettings } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_load_settings } from "utils/generatedEndpoints";
-import { SettingsState } from "utils/generatedTypes";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 
 const SETTINGS_RETRY_DELAY_MS = 500;
 
 type LoadSettingsOptions = {
   enabled?: boolean;
 };
+
+type LoadSettingsRouteResponse = ResponseDataAndStatus<SettingsState>;
 
 export function useLoadSettings(options: LoadSettingsOptions = {}) {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -23,8 +28,8 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
     let isMounted = true;
     let retryTimeout: number | undefined;
 
-    async function loadSettings() {
-      const res = await route_load_settings();
+    async function loadSettingsOnce() {
+      const res: LoadSettingsRouteResponse = await callOpenAPI(loadSettings());
 
       if (!isMounted) {
         return;
@@ -33,7 +38,7 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
       if (!res200(res)) {
         retryTimeout = window.setTimeout(() => {
           retryTimeout = undefined;
-          void loadSettings();
+          void loadSettingsOnce();
         }, SETTINGS_RETRY_DELAY_MS);
         return;
       }
@@ -42,7 +47,7 @@ export function useLoadSettings(options: LoadSettingsOptions = {}) {
       setSettingsLoaded(true);
     }
 
-    void loadSettings();
+    void loadSettingsOnce();
 
     return () => {
       isMounted = false;
