@@ -1,47 +1,186 @@
-from typing import Annotated, Any
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import Discriminator, Tag, TypeAdapter
-from setta.types.generated.go_shared_types import (
-    ArtifactType,
-)
-from setta.types.generated.go_shared_types import (
-    BrushStrokeArtifact as GoBrushStrokeArtifact,
-)
-from setta.types.generated.go_shared_types import (
-    ChartDataArtifact as GoChartDataArtifact,
-)
-from setta.types.generated.go_shared_types import (
-    DrawAreaLayerItemTransformArtifact as GoDrawAreaLayerItemTransformArtifact,
-)
-from setta.types.generated.go_shared_types import (
-    FileArtifact as GoFileArtifact,
-)
-from setta.types.generated.go_shared_types import (
-    ImageArtifact as GoImageArtifact,
-)
+from pydantic import BaseModel, Field
+
+from setta.database.utils import create_new_id
+from setta.types.binary_content import BinaryContentRef
+from setta.utils.constants import C
+from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-def _artifact_type(value: Any) -> str | None:
-    raw_type = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+def create_artifact_id(extension: str = ".json"):
+    new_id = create_new_id()
+    return (C.ARTIFACTS_FOLDER / f"{new_id}{extension}").as_posix()
+
+
+def create_json_artifact_id():
+    return create_artifact_id(".json")
+
+
+def create_csv_artifact_id():
+    return create_artifact_id(".csv")
+
+
+def create_png_artifact_id():
+    return create_artifact_id(".png")
+
+
+def create_file_artifact_id(extension: str = ".bin"):
+    return create_artifact_id(extension)
+
+
+ChartData = dict[str, list[str | float]]
+CanvasPoint = tuple[float, float]
+DrawAreaTransform = tuple[float, float, float, float, float, float]
+
+
+class ArtifactType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
+    ChartData = "ChartData"
+    File = "File"
+
+
+class ChartType(str, Enum):
+    line = "line"
+    scatter = "scatter"
+
+
+class BaseChartSettings(BaseModel):
+    type: Any
+
+
+class LineChartSettings(BaseChartSettings):
+    type: Literal[ChartType.line] = ChartType.line
+    xAxisColumn: str | None = None
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
+
+
+class ScatterChartSettings(BaseChartSettings):
+    type: Literal[ChartType.scatter] = ChartType.scatter
+    xAxisColumn: str | None = None
+    categoryColumn: str | None = None
+    xAxisLog: bool = False
+    yAxisLog: bool = False
+
+
+class DrawAreaBrushShape(str, Enum):
+    butt = "butt"
+    round = "round"
+    square = "square"
+
+
+class BrushStroke(BaseModel):
+    strokeStyle: str
+    lineWidth: float
+    lineCap: DrawAreaBrushShape
+    points: list[CanvasPoint | Literal["BREAK"]] = Field(default_factory=list)
+    globalCompositeOperation: Literal[
+        "color",
+        "color-burn",
+        "color-dodge",
+        "copy",
+        "darken",
+        "destination-atop",
+        "destination-in",
+        "destination-out",
+        "destination-over",
+        "difference",
+        "exclusion",
+        "hard-light",
+        "hue",
+        "lighten",
+        "lighter",
+        "luminosity",
+        "multiply",
+        "overlay",
+        "saturation",
+        "screen",
+        "soft-light",
+        "source-atop",
+        "source-in",
+        "source-out",
+        "source-over",
+        "xor",
+    ] = "source-over"
+
+
+class BrushStrokeWithTransform(BrushStroke):
+    transform: DrawAreaTransform
+
+
+class DrawAreaLayerItemTransform(BaseModel):
+    transform: DrawAreaTransform = (1, 0, 0, 1, 0, 0)
+    eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
+
+
+class DrawAreaLayerItem(BaseModel):
+    type: Literal[ArtifactType.Image, ArtifactType.BrushStroke] = (
+        ArtifactType.BrushStroke
     )
-    if isinstance(raw_type, ArtifactType):
-        return raw_type.value
-    if isinstance(raw_type, str):
-        return raw_type
-    return None
+    dataPath: str
+    transformId: str
 
 
-BaseArtifactUnion = Annotated[
-    Annotated[GoImageArtifact, Tag(ArtifactType.Image.value)]
-    | Annotated[GoBrushStrokeArtifact, Tag(ArtifactType.BrushStroke.value)]
-    | Annotated[
-        GoDrawAreaLayerItemTransformArtifact,
-        Tag(ArtifactType.DrawAreaLayerItemTransform.value),
-    ]
-    | Annotated[GoChartDataArtifact, Tag(ArtifactType.ChartData.value)]
-    | Annotated[GoFileArtifact, Tag(ArtifactType.File.value)],
-    Discriminator(_artifact_type),
-]
+class DrawAreaLayer(BaseModel):
+    name: str = Field(default_factory=generate_memorable_string)
+    elements: list[DrawAreaLayerItem] = Field(default_factory=list)
+    visible: bool = True
+    layerOpacity: float = 1
 
-BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnion)
+
+class DrawAreaMode(str, Enum):
+    draw = "draw"
+    erase = "erase"
+    edit = "edit"
+
+
+class BaseArtifact(BaseModel):
+    type: Any
+    id: str = Field(default_factory=create_json_artifact_id)
+    value: Any
+
+
+class ImageArtifact(BaseArtifact):
+    type: Literal[ArtifactType.Image] = ArtifactType.Image
+    id: str = Field(default_factory=create_png_artifact_id)
+    value: BinaryContentRef
+
+
+class BrushStrokeArtifact(BaseArtifact):
+    type: Literal[ArtifactType.BrushStroke] = ArtifactType.BrushStroke
+    id: str = Field(default_factory=create_json_artifact_id)
+    value: BrushStroke
+
+
+class DrawAreaLayerItemTransformArtifact(BaseArtifact):
+    type: Literal[ArtifactType.DrawAreaLayerItemTransform] = (
+        ArtifactType.DrawAreaLayerItemTransform
+    )
+    id: str = Field(default_factory=create_json_artifact_id)
+    value: DrawAreaLayerItemTransform
+
+
+class ChartDataArtifact(BaseArtifact):
+    type: Literal[ArtifactType.ChartData] = ArtifactType.ChartData
+    id: str = Field(default_factory=create_csv_artifact_id)
+    value: ChartData
+
+
+class FileArtifact(BaseArtifact):
+    type: Literal[ArtifactType.File] = ArtifactType.File
+    id: str = Field(default_factory=create_file_artifact_id)
+    value: BinaryContentRef
+
+
+ImageMapping = dict[Path, ImageArtifact]
+BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
+DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
+ChartDataMapping = dict[Path, ChartDataArtifact]
+FileMapping = dict[Path, FileArtifact]
