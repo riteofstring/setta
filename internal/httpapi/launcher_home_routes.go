@@ -144,13 +144,14 @@ func RegisterLauncherHomeRoutes(router chi.Router, deps LauncherHomeRouteDepende
 	if !deps.ModePolicy.IsLauncher() {
 		return nil
 	}
-	if deps.Home == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Home == nil && !documentOnly {
 		return fmt.Errorf("launcher home service is required in launcher mode")
 	}
-	if deps.OpenWorkspace == nil {
+	if deps.OpenWorkspace == nil && !documentOnly {
 		return fmt.Errorf("launcher open-workspace service is required in launcher mode")
 	}
-	if strings.TrimSpace(deps.DefaultSettaHome) == "" {
+	if strings.TrimSpace(deps.DefaultSettaHome) == "" && !documentOnly {
 		return fmt.Errorf("default setta home is required in launcher mode")
 	}
 

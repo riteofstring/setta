@@ -120,6 +120,21 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 		t.Fatalf("mode requirement = %#v, want %q", got, "ide")
 	}
 
+	revealPathInOSFileExplorer := document.Paths[RouteRevealPathInOSFileExplorer].Post
+	if revealPathInOSFileExplorer == nil {
+		t.Fatalf("expected %s post operation", RouteRevealPathInOSFileExplorer)
+	}
+	if revealPathInOSFileExplorer.OperationID != "revealPathInOsFileExplorer" {
+		t.Fatalf(
+			"reveal path operation id = %q, want %q",
+			revealPathInOSFileExplorer.OperationID,
+			"revealPathInOsFileExplorer",
+		)
+	}
+	if got := revealPathInOSFileExplorer.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("reveal path mode requirement = %#v, want %q", got, "ide")
+	}
+
 	saveSettings := document.Paths[RouteSaveSettings].Post
 	if saveSettings == nil {
 		t.Fatalf("expected %s post operation", RouteSaveSettings)
@@ -211,6 +226,18 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if workspaceLaunch.OperationID != "launchWorkspace" {
 		t.Fatalf("workspace launch operation id = %q, want %q", workspaceLaunch.OperationID, "launchWorkspace")
+	}
+
+	createWorkspaceLaunchIntent := document.Paths[RouteCreateWorkspaceLaunchIntent].Post
+	if createWorkspaceLaunchIntent == nil {
+		t.Fatalf("expected %s post operation", RouteCreateWorkspaceLaunchIntent)
+	}
+	if createWorkspaceLaunchIntent.OperationID != "createWorkspaceLaunchIntent" {
+		t.Fatalf(
+			"workspace launch intent operation id = %q, want %q",
+			createWorkspaceLaunchIntent.OperationID,
+			"createWorkspaceLaunchIntent",
+		)
 	}
 
 	createFile := document.Paths[RouteCreateFile].Post

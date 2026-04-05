@@ -101,7 +101,8 @@ func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDepende
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && !documentOnly {
 		if deps.Shell == nil {
 			return fmt.Errorf("project shell service is required in ide mode")
 		}

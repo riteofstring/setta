@@ -116,7 +116,8 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && !documentOnly {
 		if deps.ProjectState == nil {
 			return fmt.Errorf("project runtime is required in ide mode")
 		}

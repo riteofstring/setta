@@ -36,7 +36,7 @@ func RegisterGitRoutes(router chi.Router, deps GitRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Git == nil {
+	if deps.ModePolicy.IsIDE() && deps.Git == nil && !openAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("git service is required in ide mode")
 	}
 

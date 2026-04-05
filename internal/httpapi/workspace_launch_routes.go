@@ -148,13 +148,14 @@ func RegisterWorkspaceLaunchRoutes(router chi.Router, deps WorkspaceLaunchRouteD
 	if deps.ModePolicy.IsDeployment() {
 		return nil
 	}
-	if deps.Auth == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Auth == nil && !documentOnly {
 		return fmt.Errorf("auth service is required")
 	}
-	if deps.Intents == nil {
+	if deps.Intents == nil && !documentOnly {
 		return fmt.Errorf("workspace launch intent service is required")
 	}
-	if deps.Launch == nil {
+	if deps.Launch == nil && !documentOnly {
 		return fmt.Errorf("workspace local launch service is required")
 	}
 

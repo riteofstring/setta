@@ -54,18 +54,19 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Terminals == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Terminals == nil && !documentOnly {
 		return fmt.Errorf("terminal service is required")
 	}
-	if deps.RunCode == nil {
+	if deps.RunCode == nil && !documentOnly {
 		return fmt.Errorf("run-code service is required")
 	}
 
 	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		if deps.Deployment == nil {
+		if deps.Deployment == nil && !documentOnly {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
 		shareResolver := modes.Resolver{

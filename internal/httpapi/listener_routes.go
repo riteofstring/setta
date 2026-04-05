@@ -40,15 +40,16 @@ func RegisterListenerRoutes(router chi.Router, deps ListenerRouteDependencies) e
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ListenerBroadcaster == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ListenerBroadcaster == nil && !documentOnly {
 		return fmt.Errorf("listener broadcaster is required")
 	}
 
 	if deps.ModePolicy.IsDeployment() {
-		if deps.Deployment == nil {
+		if deps.Deployment == nil && !documentOnly {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
 		protectedRouter := router.With(RequireShareSession(modes.Resolver{
@@ -76,7 +77,7 @@ func RegisterListenerRoutes(router chi.Router, deps ListenerRouteDependencies) e
 		return nil
 	}
 
-	if deps.ProjectState == nil {
+	if deps.ProjectState == nil && !documentOnly {
 		return fmt.Errorf("project runtime is required outside deployment mode")
 	}
 	protectedRouter := router.With(RequireIDEMode(deps.ModePolicy))

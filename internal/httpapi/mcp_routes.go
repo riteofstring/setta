@@ -48,7 +48,7 @@ func RegisterMCPRoutes(router chi.Router, deps MCPRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.LLMConfigPath == "" {
+	if deps.LLMConfigPath == "" && !openAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("llm config path is required")
 	}
 

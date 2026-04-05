@@ -56,7 +56,8 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Store == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Store == nil && !documentOnly {
 		return fmt.Errorf("binary store is required")
 	}
 
@@ -71,10 +72,10 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 		withOpenAPIRequestContentType("multipart/form-data"),
 	)
 	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		if deps.Deployment == nil {
+		if deps.Deployment == nil && !documentOnly {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
 		registerOpenAPIGet[openAPIBinaryPayload](

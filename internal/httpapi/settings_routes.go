@@ -30,7 +30,8 @@ func RegisterSettingsRoutes(router chi.Router, deps SettingsRouteDependencies) e
 	if router == nil {
 		return fmt.Errorf("settings routes: router is required")
 	}
-	if deps.ModePolicy.RequireFullIDE() == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.RequireFullIDE() == nil && !documentOnly {
 		if deps.SettingsState == nil {
 			return fmt.Errorf("settings routes: settings runtime is required")
 		}

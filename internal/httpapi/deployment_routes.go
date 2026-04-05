@@ -66,7 +66,7 @@ func RegisterDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencie
 	if !deps.ModePolicy.IsDeployment() {
 		return nil
 	}
-	if deps.Deployment == nil {
+	if deps.Deployment == nil && !openAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 

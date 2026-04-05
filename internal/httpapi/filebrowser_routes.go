@@ -185,7 +185,7 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Browser == nil {
+	if deps.ModePolicy.IsIDE() && deps.Browser == nil && !openAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("file browser service is required in ide mode")
 	}
 

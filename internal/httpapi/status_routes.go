@@ -72,6 +72,7 @@ func RegisterStatusRoutes(router chi.Router, deps StatusRouteDependencies) error
 	if deps.ReadyAt.IsZero() {
 		deps.ReadyAt = time.Now().UTC()
 	}
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
 
 	registerOpenAPIGet[BackendInitStatusResponse](
 		router,
@@ -98,7 +99,7 @@ func RegisterStatusRoutes(router chi.Router, deps StatusRouteDependencies) error
 		withOpenAPISummary("Get Setta home and files-path information for the IDE runtime."),
 		withOpenAPIModeRequirement("ide"),
 	)
-	if deps.RevealPath != nil {
+	if deps.RevealPath != nil || documentOnly {
 		registerOpenAPIPost[RevealPathInOSFileExplorerRequest, openAPIJSONNull](
 			router.With(RequireIDEMode(deps.ModePolicy)),
 			"revealPathInOsFileExplorer",

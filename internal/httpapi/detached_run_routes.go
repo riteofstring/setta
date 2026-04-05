@@ -56,13 +56,14 @@ func RegisterDetachedRunRoutes(router chi.Router, deps DetachedRunRouteDependenc
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Planner == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Planner == nil && !documentOnly {
 		return fmt.Errorf("detached run planner is required")
 	}
-	if deps.Runs == nil {
+	if deps.Runs == nil && !documentOnly {
 		return fmt.Errorf("detached run manager is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.ProjectState == nil {
+	if deps.ModePolicy.IsIDE() && deps.ProjectState == nil && !documentOnly {
 		return fmt.Errorf("project state runtime is required in ide mode")
 	}
 

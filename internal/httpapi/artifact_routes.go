@@ -57,7 +57,8 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Artifacts == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && deps.Artifacts == nil && !documentOnly {
 		return fmt.Errorf("artifact service is required in ide mode")
 	}
 	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
@@ -73,10 +74,10 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 	)
 
 	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		if deps.ShareArtifacts == nil {
+		if deps.ShareArtifacts == nil && !documentOnly {
 			return fmt.Errorf("share artifact service is required in deployment mode")
 		}
 		shareGuard := RequireShareSession(modes.Resolver{

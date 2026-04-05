@@ -37,11 +37,12 @@ func RegisterAttachmentRootRoutes(router chi.Router, deps AttachmentRootRouteDep
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Service == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Service == nil && !documentOnly {
 		return errors.New("attachment service is required")
 	}
 	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
 		registerOpenAPIOperationAtPaths[openAPINoBody, openAPIBinaryPayload](
@@ -110,14 +111,15 @@ func RegisterAttachmentRoutes(router chi.Router, deps AttachmentRouteDependencie
 	if deps.ModePolicy.IsLauncher() {
 		return nil
 	}
-	if deps.Service == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Service == nil && !documentOnly {
 		return fmt.Errorf("attachment service is required")
 	}
 	if deps.ModePolicy.IsDeployment() {
-		if deps.ShareSessions == nil {
+		if deps.ShareSessions == nil && !documentOnly {
 			return fmt.Errorf("share session store is required in deployment mode")
 		}
-		if deps.Deployment == nil {
+		if deps.Deployment == nil && !documentOnly {
 			return fmt.Errorf("deployment runtime is required in deployment mode")
 		}
 		guard := RequireShareSession(modes.Resolver{

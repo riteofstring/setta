@@ -61,16 +61,17 @@ func RegisterDeploymentIDERoutes(router chi.Router, deps DeploymentIDERouteDepen
 	if !deps.ModePolicy.IsIDE() {
 		return nil
 	}
-	if deps.ProjectState == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ProjectState == nil && !documentOnly {
 		return fmt.Errorf("project state is required in ide mode")
 	}
-	if deps.Catalog == nil {
+	if deps.Catalog == nil && !documentOnly {
 		return fmt.Errorf("deployment catalog is required in ide mode")
 	}
-	if deps.SharePublisher == nil {
+	if deps.SharePublisher == nil && !documentOnly {
 		return fmt.Errorf("share deployment publisher is required in ide mode")
 	}
-	if deps.AppPublisher == nil {
+	if deps.AppPublisher == nil && !documentOnly {
 		return fmt.Errorf("app deployment publisher is required in ide mode")
 	}
 

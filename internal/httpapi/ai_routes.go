@@ -117,7 +117,8 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && !documentOnly {
 		if deps.ManagedChats == nil {
 			return fmt.Errorf("managed chat service is required in ide mode")
 		}
@@ -143,7 +144,7 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 			return fmt.Errorf("session provider is required in ide mode")
 		}
 	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 
