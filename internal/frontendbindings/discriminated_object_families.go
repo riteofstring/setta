@@ -12,6 +12,8 @@ import (
 
 type discriminatedObjectFamilyMember struct {
 	Type     reflect.Type
+	TypeName string
+	EnumExpr string
 	TypeExpr string
 }
 
@@ -173,7 +175,12 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 	if err != nil {
 		return nil, nil, err
 	}
+	coreByName := discriminatedObjectFamilyPropertyMap(coreProperties)
 	concreteByType := make(map[reflect.Type][]TypeProperty, len(members))
+	mergedOrder := []string{}
+	mergedByName := map[string]*TypeProperty{}
+	typeExprsByName := map[string][]string{}
+	seenTypeExprsByName := map[string]map[string]struct{}{}
 	for _, member := range members {
 		concreteProperties, err := converter.structProperties(
 			member.Type,
@@ -187,12 +194,35 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 			return nil, nil, err
 		}
 		concreteByType[member.Type] = concreteProperties
+		for _, property := range concreteProperties {
+			if _, ok := coreByName[property.Name]; ok {
+				continue
+			}
+			spec, ok := mergedByName[property.Name]
+			if !ok {
+				property.Optional = true
+				copyProperty := property
+				mergedByName[property.Name] = &copyProperty
+				typeExprsByName[property.Name] = []string{}
+				seenTypeExprsByName[property.Name] = map[string]struct{}{}
+				mergedOrder = append(mergedOrder, property.Name)
+				spec = &copyProperty
+			}
+			spec.Optional = true
+			if _, seen := seenTypeExprsByName[property.Name][property.TypeExpr]; seen {
+				continue
+			}
+			seenTypeExprsByName[property.Name][property.TypeExpr] = struct{}{}
+			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
+		}
 	}
-	baseProperties := append(coreProperties, discriminatedObjectFamilyMergedOptionalProperties(
-		coreProperties,
-		members,
-		concreteByType,
-	)...)
+	baseProperties := make([]TypeProperty, 0, len(coreProperties)+len(mergedOrder))
+	baseProperties = append(baseProperties, coreProperties...)
+	for _, name := range mergedOrder {
+		property := *mergedByName[name]
+		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
+		baseProperties = append(baseProperties, property)
+	}
 	return baseProperties, concreteByType, nil
 }
 
@@ -208,16 +238,13 @@ func discriminatedObjectFamilyTraitDeclarations(
 	declarations := []TypeDeclaration{
 		aliasUnionDeclaration(
 			baseUnionName,
-			append([]string{baseTypeName}, discriminatedObjectFamilyMemberStrings(members, nil, func(member discriminatedObjectFamilyMember) string {
-				return frontendBindingTypeName(member.Type)
-			})...)...,
+			append([]string{baseTypeName}, discriminatedObjectFamilyMemberTypeNames(members, nil)...)...,
 		),
 	}
 	for _, trait := range family.Traits {
+		memberTypeNames := discriminatedObjectFamilyMemberTypeNames(members, trait.Predicate)
 		if strings.TrimSpace(trait.UnionName) != "" {
-			memberNames := discriminatedObjectFamilyMemberStrings(members, trait.Predicate, func(member discriminatedObjectFamilyMember) string {
-				return frontendBindingTypeName(member.Type)
-			})
+			memberNames := memberTypeNames
 			if trait.IncludeBase {
 				memberNames = append([]string{baseTypeName}, memberNames...)
 			}
@@ -231,9 +258,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 			declarations = append(declarations, setDeclaration(
 				trait.SetName,
 				frontendBindingTypeName(family.EnumType),
-				discriminatedObjectFamilyMemberStrings(members, trait.Predicate, func(member discriminatedObjectFamilyMember) string {
-					return strings.TrimPrefix(member.TypeExpr, "typeof ")
-				})...,
+				discriminatedObjectFamilyMemberEnumExprs(members, trait.Predicate)...,
 			))
 		}
 		if strings.TrimSpace(trait.GuardName) != "" {
@@ -311,25 +336,41 @@ func discriminatedObjectFamilyMembers(
 		if !ok {
 			continue
 		}
+		enumExpr := enumExprsByValue[value]
 		members = append(members, discriminatedObjectFamilyMember{
 			Type:     memberType,
-			TypeExpr: "typeof " + enumExprsByValue[value],
+			TypeName: frontendBindingTypeName(memberType),
+			EnumExpr: enumExpr,
+			TypeExpr: "typeof " + enumExpr,
 		})
 	}
 	return members, nil
 }
 
-func discriminatedObjectFamilyMemberStrings(
+func discriminatedObjectFamilyMemberTypeNames(
 	members []discriminatedObjectFamilyMember,
 	predicate func(reflect.Type) bool,
-	project func(discriminatedObjectFamilyMember) string,
 ) []string {
 	values := []string{}
 	for _, member := range members {
 		if predicate != nil && !predicate(member.Type) {
 			continue
 		}
-		values = append(values, project(member))
+		values = append(values, member.TypeName)
+	}
+	return values
+}
+
+func discriminatedObjectFamilyMemberEnumExprs(
+	members []discriminatedObjectFamilyMember,
+	predicate func(reflect.Type) bool,
+) []string {
+	values := []string{}
+	for _, member := range members {
+		if predicate != nil && !predicate(member.Type) {
+			continue
+		}
+		values = append(values, member.EnumExpr)
 	}
 	return values
 }
@@ -357,56 +398,4 @@ func discriminatedObjectFamilyAliasProperties(
 		}
 	}
 	return filtered
-}
-
-func discriminatedObjectFamilyMergedOptionalProperties(
-	coreProperties []TypeProperty,
-	members []discriminatedObjectFamilyMember,
-	concreteByType map[reflect.Type][]TypeProperty,
-) []TypeProperty {
-	coreByName := discriminatedObjectFamilyPropertyMap(coreProperties)
-	order := []string{}
-	merged := map[string]*TypeProperty{}
-	typeExprsByName := map[string][]string{}
-	seenTypeExprsByName := map[string]map[string]struct{}{}
-
-	for _, member := range members {
-		properties, ok := concreteByType[member.Type]
-		if !ok {
-			panic(fmt.Sprintf(
-				"%s family is missing concrete properties for %s",
-				frontendBindingTypeName(member.Type),
-				member.Type.String(),
-			))
-		}
-		for _, property := range properties {
-			if _, ok := coreByName[property.Name]; ok {
-				continue
-			}
-			spec, ok := merged[property.Name]
-			if !ok {
-				property.Optional = true
-				copyProperty := property
-				merged[property.Name] = &copyProperty
-				typeExprsByName[property.Name] = []string{}
-				seenTypeExprsByName[property.Name] = map[string]struct{}{}
-				order = append(order, property.Name)
-				spec = &copyProperty
-			}
-			spec.Optional = true
-			if _, seen := seenTypeExprsByName[property.Name][property.TypeExpr]; seen {
-				continue
-			}
-			seenTypeExprsByName[property.Name][property.TypeExpr] = struct{}{}
-			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
-		}
-	}
-
-	properties := make([]TypeProperty, 0, len(order))
-	for _, name := range order {
-		property := *merged[name]
-		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
-		properties = append(properties, property)
-	}
-	return properties
 }
