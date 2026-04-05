@@ -60,6 +60,15 @@ type preparedRun struct {
 	profile         agentprofiles.Profile
 }
 
+type preparedRunInputs struct {
+	projectConfigID string
+	chatID          string
+	sectionID       *string
+	thinking        bool
+	inputs          map[string]any
+	initialMessages []map[string]any
+}
+
 func NewRunService(options RunServiceOptions) (*RunService, error) {
 	if options.ProjectState == nil {
 		return nil, ErrRunServiceProjectStateRequired
@@ -187,50 +196,99 @@ func (s *RunService) WaitForRun(ctx context.Context, runID string) (agentruns.Ru
 }
 
 func (s *RunService) prepareRun(profile agentprofiles.Profile, rawInputs map[string]any, synthesizedChatID string) (preparedRun, error) {
+	engineConfig, externalConfig, err := s.resolveRunConfig(profile)
+	if err != nil {
+		return preparedRun{}, err
+	}
+	normalizedInputs, err := s.normalizePreparedRunInputs(profile, rawInputs, engineConfig.ID, synthesizedChatID)
+	if err != nil {
+		return preparedRun{}, err
+	}
+	if err := s.applyChatContinuity(
+		normalizedInputs.inputs,
+		normalizedInputs.chatID,
+		normalizedInputs.projectConfigID,
+		engineConfig.ID,
+		externalConfig.ToolType,
+	); err != nil {
+		return preparedRun{}, err
+	}
+	if err := s.applyAttachmentPayload(
+		normalizedInputs.inputs,
+		normalizedInputs.initialMessages,
+		normalizedInputs.projectConfigID,
+		externalConfig.ToolType,
+	); err != nil {
+		return preparedRun{}, err
+	}
+	applyExternalReasoningDefaults(normalizedInputs.inputs, externalConfig.ToolType, normalizedInputs.thinking)
+	return preparedRun{
+		engineConfig:    engineConfig,
+		externalConfig:  externalConfig,
+		projectConfigID: normalizedInputs.projectConfigID,
+		chatID:          normalizedInputs.chatID,
+		sectionID:       normalizedInputs.sectionID,
+		inputs:          normalizedInputs.inputs,
+		initialMessages: normalizedInputs.initialMessages,
+		profile:         profile,
+	}, nil
+}
+
+func (s *RunService) resolveRunConfig(profile agentprofiles.Profile) (agentruns.EngineConfig, externalagentconfigs.Config, error) {
 	if s == nil || s.executor == nil {
-		return preparedRun{}, ErrExecutorUnavailable
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExecutorUnavailable
 	}
 	if s.preflight == nil {
-		return preparedRun{}, ErrRunServicePreflightRequired
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrRunServicePreflightRequired
 	}
 
 	engineConfigID := strings.TrimSpace(derefOptionalString(profile.EngineConfigID))
 	if engineConfigID == "" {
-		return preparedRun{}, agentruns.ErrProfileEngineConfigRequired
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, agentruns.ErrProfileEngineConfigRequired
 	}
 	engineConfig, err := s.engines.Get(engineConfigID)
 	if err != nil {
-		return preparedRun{}, err
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
 	if engineConfig.EngineType != agentruns.EngineTypeExternalAgent {
-		return preparedRun{}, ErrExternalAgentEngineRequired
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExternalAgentEngineRequired
 	}
 	if engineConfig.ExternalAgentConfigID == nil || strings.TrimSpace(*engineConfig.ExternalAgentConfigID) == "" {
-		return preparedRun{}, ErrExternalAgentConfigIDRequired
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, ErrExternalAgentConfigIDRequired
 	}
+
 	externalConfig, err := s.configs.Get(strings.TrimSpace(*engineConfig.ExternalAgentConfigID))
 	if err != nil {
-		return preparedRun{}, err
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
 	preflightStatus, err := s.preflight.Check(externalConfig)
 	if err != nil {
-		return preparedRun{}, err
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, err
 	}
 	if !preflightStatus.Available {
-		return preparedRun{}, &PreflightUnavailableError{Status: preflightStatus}
+		return agentruns.EngineConfig{}, externalagentconfigs.Config{}, &PreflightUnavailableError{Status: preflightStatus}
 	}
+	return engineConfig, externalConfig, nil
+}
 
+func (s *RunService) normalizePreparedRunInputs(
+	profile agentprofiles.Profile,
+	rawInputs map[string]any,
+	engineConfigID string,
+	synthesizedChatID string,
+) (preparedRunInputs, error) {
 	inputs := cloneAnyMap(rawInputs)
 	if inputs == nil {
 		inputs = map[string]any{}
 	}
+
 	projectConfigID, sectionID, err := s.resolveScope(inputs)
 	if err != nil {
-		return preparedRun{}, err
+		return preparedRunInputs{}, err
 	}
 	inputs["projectConfigId"] = projectConfigID
-	if err := s.normalizeEngineInput(inputs, engineConfig.ID); err != nil {
-		return preparedRun{}, err
+	if err := s.normalizeEngineInput(inputs, engineConfigID); err != nil {
+		return preparedRunInputs{}, err
 	}
 	if strings.TrimSpace(profile.ID) != "" {
 		inputs["agentProfileId"] = strings.TrimSpace(profile.ID)
@@ -241,13 +299,14 @@ func (s *RunService) prepareRun(profile agentprofiles.Profile, rawInputs map[str
 	if sectionID != nil {
 		inputs["sectionId"] = *sectionID
 	}
+
 	thinking, err := normalizeThinkingInput(inputs)
 	if err != nil {
-		return preparedRun{}, err
+		return preparedRunInputs{}, err
 	}
 	initialMessages, synthesizedFromPrompt, err := normalizeInitialMessages(inputs)
 	if err != nil {
-		return preparedRun{}, err
+		return preparedRunInputs{}, err
 	}
 	if len(initialMessages) > 0 {
 		inputs["messages"] = messageSliceToJSONList(initialMessages)
@@ -257,56 +316,74 @@ func (s *RunService) prepareRun(profile agentprofiles.Profile, rawInputs map[str
 	}
 	systemPrompt, err := normalizeRunSystemPrompt(inputs, &profile)
 	if err != nil {
-		return preparedRun{}, err
+		return preparedRunInputs{}, err
 	}
 	if systemPrompt != "" {
 		inputs["systemPrompt"] = systemPrompt
 	}
+
 	chatID, err := normalizeRunChatID(inputs)
 	if err != nil {
-		return preparedRun{}, err
+		return preparedRunInputs{}, err
 	}
 	if chatID == "" && strings.TrimSpace(synthesizedChatID) != "" {
 		chatID = strings.TrimSpace(synthesizedChatID)
 		inputs["chatId"] = chatID
 	}
-	if chatID != "" {
-		if err := s.ensureExternalChatCompatible(chatID, engineConfig.ID, projectConfigID); err != nil {
-			return preparedRun{}, err
-		}
-		if err := s.seedChatContinuity(inputs, chatID, projectConfigID, engineConfig.ID, externalConfig.ToolType); err != nil {
-			return preparedRun{}, err
-		}
-	}
-	if chatattachments.HasAttachments(initialMessages) {
-		if s.attachments == nil {
-			return preparedRun{}, ErrRunServiceAttachmentsRequired
-		}
-		attachmentPayload, err := s.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
-			Messages:            initialMessages,
-			ProjectConfigID:     projectConfigID,
-			IncludeText:         externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode,
-			IncludeTextNoImages: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-		})
-		if err != nil {
-			return preparedRun{}, err
-		}
-		for key, value := range attachmentPayload.AsMap() {
-			inputs[key] = value
-		}
-	}
-	applyExternalReasoningDefaults(inputs, externalConfig.ToolType, thinking)
-	return preparedRun{
-		engineConfig:    engineConfig,
-		externalConfig:  externalConfig,
+
+	return preparedRunInputs{
 		projectConfigID: projectConfigID,
 		chatID:          chatID,
 		sectionID:       sectionID,
+		thinking:        thinking,
 		inputs:          inputs,
 		initialMessages: initialMessages,
-		profile:         profile,
 	}, nil
+}
+
+func (s *RunService) applyChatContinuity(
+	inputs map[string]any,
+	chatID string,
+	projectConfigID string,
+	engineConfigID string,
+	toolType externalagentconfigs.ToolType,
+) error {
+	if chatID == "" {
+		return nil
+	}
+	if err := s.ensureExternalChatCompatible(chatID, engineConfigID, projectConfigID); err != nil {
+		return err
+	}
+	return s.seedChatContinuity(inputs, chatID, projectConfigID, engineConfigID, toolType)
+}
+
+func (s *RunService) applyAttachmentPayload(
+	inputs map[string]any,
+	initialMessages []map[string]any,
+	projectConfigID string,
+	toolType externalagentconfigs.ToolType,
+) error {
+	if !chatattachments.HasAttachments(initialMessages) {
+		return nil
+	}
+	if s.attachments == nil {
+		return ErrRunServiceAttachmentsRequired
+	}
+
+	attachmentPayload, err := s.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
+		Messages:            initialMessages,
+		ProjectConfigID:     projectConfigID,
+		IncludeText:         toolType == externalagentconfigs.ToolTypeClaudeCode,
+		IncludeTextNoImages: toolType == externalagentconfigs.ToolTypeCodex,
+		IncludeDownloadURLs: toolType == externalagentconfigs.ToolTypeCodex,
+	})
+	if err != nil {
+		return err
+	}
+	for key, value := range attachmentPayload.AsMap() {
+		inputs[key] = value
+	}
+	return nil
 }
 
 func (s *RunService) markRunFailed(run agentruns.Run, runErr error) (agentruns.Run, error) {
