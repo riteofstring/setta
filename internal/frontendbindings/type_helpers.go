@@ -165,11 +165,7 @@ func writeTSObjectLiteral(
 			continue
 		}
 		seen[key] = struct{}{}
-		builder.WriteString(childIndent)
-		builder.WriteString(renderTSObjectKey(key))
-		builder.WriteString(": ")
-		writeTSLiteralValue(builder, childIndent, value)
-		builder.WriteString(",\n")
+		writeTSObjectProperty(builder, childIndent, key, value)
 	}
 
 	remaining := make([]string, 0, len(object)-len(seen))
@@ -181,18 +177,22 @@ func writeTSObjectLiteral(
 	}
 	sort.Strings(remaining)
 	for _, key := range remaining {
-		builder.WriteString(childIndent)
-		builder.WriteString(renderTSObjectKey(key))
-		builder.WriteString(": ")
-		writeTSLiteralValue(builder, childIndent, object[key])
-		builder.WriteString(",\n")
+		writeTSObjectProperty(builder, childIndent, key, object[key])
 	}
 
 	builder.WriteString(indent)
 	builder.WriteString("}")
 }
 
-func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
+func writeTSObjectProperty(builder *strings.Builder, indent string, key string, value any) {
+	builder.WriteString(indent)
+	builder.WriteString(renderTSObjectKey(key))
+	builder.WriteString(": ")
+	writeTSLiteralValue(builder, indent, value, nil)
+	builder.WriteString(",\n")
+}
+
+func writeTSLiteralValue(builder *strings.Builder, indent string, value any, orderedKeys []string) {
 	switch typed := value.(type) {
 	case nil:
 		builder.WriteString("null")
@@ -207,7 +207,7 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 	case []any:
 		writeTSArrayLiteral(builder, indent, typed)
 	case map[string]any:
-		writeTSObjectLiteral(builder, indent, typed, nil)
+		writeTSObjectLiteral(builder, indent, typed, orderedKeys)
 	default:
 		payload, err := json.Marshal(typed)
 		if err != nil {
@@ -219,11 +219,7 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 
 func renderTSLiteralExpr(value any, orderedKeys []string, indent string) string {
 	var builder strings.Builder
-	if object, ok := value.(map[string]any); ok {
-		writeTSObjectLiteral(&builder, indent, object, orderedKeys)
-	} else {
-		writeTSLiteralValue(&builder, indent, value)
-	}
+	writeTSLiteralValue(&builder, indent, value, orderedKeys)
 	return builder.String()
 }
 
@@ -249,7 +245,7 @@ func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) 
 			if index > 0 {
 				builder.WriteString(", ")
 			}
-			writeTSLiteralValue(builder, indent, value)
+			writeTSLiteralValue(builder, indent, value, nil)
 		}
 		builder.WriteString("]")
 		return
@@ -259,7 +255,7 @@ func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) 
 	childIndent := indent + "  "
 	for _, value := range values {
 		builder.WriteString(childIndent)
-		writeTSLiteralValue(builder, childIndent, value)
+		writeTSLiteralValue(builder, childIndent, value, nil)
 		builder.WriteString(",\n")
 	}
 	builder.WriteString(indent)
