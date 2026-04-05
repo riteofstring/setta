@@ -7498,3 +7498,60 @@ LOOP_TERMINAL_MARKER: none
   - explicit user approval is still required before adding Pixi to the frontend
   - once approved, land the first scene-owned static layer behind the new surface-runtime boundary while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 195
+
+- Item: Extract shared section chrome appearance authority ahead of the first scene-owned static layer and rerun the broad normalized `rotaryParamCodeObjDefault` regression lane.
+- Status: `subtask_done`
+- Details:
+  - Why this slice was necessary:
+    - item `194` had already closed the last meaningful controller-boundary split, so another render-surface forwarding hop would have been churn
+    - the next planned milestone is the first scene-owned static layer, but `SectionContainerCore.tsx` and `SectionWindowSurface.tsx` still duplicated preview-style-color, meta-control transparency, background-color, and themed CSS-var decisions inline
+    - tightening that appearance seam now avoids copying DOM-only chrome logic into the next renderer insertion and reduces future drift risk
+  - Production/test change:
+    - added `frontend/src/components/Section/Container/sectionChromeAppearance.ts`
+      - resolves one shared section chrome appearance contract (`bgColor`, meta-control transparency, themed CSS vars, and preview-style-color override handling)
+    - added `frontend/src/components/Section/Container/sectionChromeAppearance.test.ts`
+      - covers themed vars, preview-style-color precedence, and meta-control transparency
+    - updated `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - now consumes the shared appearance resolver instead of rebuilding themed chrome inline on the canary-backed DOM shell path
+    - updated `frontend/src/components/Section/Container/SectionWindowSurface.tsx`
+      - now consumes the same shared appearance resolver and drops the invalid `SectionHeader` prop that the narrowed typecheck surfaced
+  - What this slice established:
+    - the canary-backed shell path and the standalone window surface now share one authoritative chrome appearance contract instead of duplicated DOM-only logic
+    - preview-style-color overrides, meta-control transparency, and themed CSS vars are now available behind one reusable seam for the first scene-owned static layer
+    - the broad normalized `rotaryParamCodeObjDefault` regression lane stayed green after the refactor:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.393ms`; worktree average frame duration was `16.620ms`
+    - the required CDP visual gate is still green on the same lane:
+      - the fresh-context sub-agent inspected direct `/settings` on worktree `3076` and read-only `main` `3087`
+      - no gross graph-surface drift was observed around the normalized `rotaryParamCodeObjDefault` lane context
+      - the worktree capture had chat chrome open, which remained oracle noise instead of a renderer blocker
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionWindowSurface.tsx src/components/Section/Container/sectionChromeAppearance.ts src/components/Section/Container/sectionChromeAppearance.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Container/sectionChromeAppearance.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Container/sectionChrome.test.ts`
+      - result: passed (`4 files`, `10 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "SectionContainerCore\\.tsx|SectionWindowSurface\\.tsx|sectionChromeAppearance"`
+      - result: no matches after the local cleanup
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-026/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-026/main-ai.log`
+      - result: refreshed worktree and read-only `main` bootstrap tokens after the original loop-start token expired
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-026 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-026 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `28.5s`)
+      - note: the first retry failed only because the stale bootstrap token returned `401`; rerunning with refreshed tokens fixed setup without changing renderer behavior
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: direct `/settings` compare on `3076` and `3087` showed no gross graph-surface drift; visible chat overlay chrome on the worktree remained oracle noise
+- Next action:
+  - explicit user approval is still required before adding Pixi to the frontend
+  - once approved, use the new surface-runtime boundary plus the shared chrome appearance contract to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
+- LOOP_TERMINAL_MARKER: none
