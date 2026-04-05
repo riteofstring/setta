@@ -97,6 +97,7 @@ func Build() (GeneratedTypes, error) {
 			)
 		}
 	}
+	models = pruneModelSpecsWithResolvedReferences(models, enums)
 	models = sortModelSpecsByDependencies(models)
 
 	var builder strings.Builder
@@ -320,6 +321,82 @@ func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
 		sorted = append(sorted, model)
 	}
 	return sorted
+}
+
+func pruneModelSpecsWithResolvedReferences(
+	models []modelSpec,
+	enums []contractSpec,
+) []modelSpec {
+	if len(models) == 0 {
+		return nil
+	}
+
+	current := append([]modelSpec(nil), models...)
+	for {
+		definedNames := map[string]struct{}{}
+		for _, enumSpec := range enums {
+			if strings.TrimSpace(enumSpec.Name) == "" {
+				continue
+			}
+			definedNames[enumSpec.Name] = struct{}{}
+		}
+		for _, model := range current {
+			if strings.TrimSpace(model.Name) == "" {
+				continue
+			}
+			definedNames[model.Name] = struct{}{}
+		}
+
+		next := make([]modelSpec, 0, len(current))
+		changed := false
+		for _, model := range current {
+			if modelHasUnresolvedTypeRefs(model, definedNames) {
+				changed = true
+				continue
+			}
+			next = append(next, model)
+		}
+		if !changed {
+			return current
+		}
+		current = next
+	}
+}
+
+func modelHasUnresolvedTypeRefs(
+	model modelSpec,
+	definedNames map[string]struct{},
+) bool {
+	externalNames := map[string]struct{}{}
+	for line := range model.ExternalImports {
+		for _, name := range pythonImportedNames(line) {
+			externalNames[name] = struct{}{}
+		}
+	}
+	for _, field := range model.Fields {
+		for _, name := range referencedTypeNames(field.TypeExpr) {
+			if pythonTypeNameIsBuiltin(name) {
+				continue
+			}
+			if _, ok := definedNames[name]; ok {
+				continue
+			}
+			if _, ok := externalNames[name]; ok {
+				continue
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func pythonTypeNameIsBuiltin(name string) bool {
+	switch name {
+	case "", "Any", "None", "bool", "bytes", "datetime", "dict", "float", "int", "list", "str":
+		return true
+	default:
+		return false
+	}
 }
 
 func referencedModelNames(

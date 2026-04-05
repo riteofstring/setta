@@ -15,6 +15,121 @@ class SettaSharedTypeModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AgenticEdgeContextMode(str, Enum):
+    reference_only = "reference_only"
+    inline_text = "inline_text"
+    summary = "summary"
+
+
+class AgenticEdgeKind(str, Enum):
+    chat_chat = "chat_chat"
+    section_chat = "section_chat"
+    chat_section = "chat_section"
+
+
+class ArtifactType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
+    ChartData = "ChartData"
+    File = "File"
+
+
+class ChatRole(str, Enum):
+    system = "system"
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
+
+
+class ChatSendAction(str, Enum):
+    send = "send"
+
+
+class ChatStopAction(str, Enum):
+    stop = "stop"
+
+
+class ChatWindowMode(str, Enum):
+    project_ai_mode = "project_ai_mode"
+    section_mode = "section_mode"
+    git_graph_mode = "git_graph_mode"
+
+
+class CodeObjType(str, Enum):
+    CodeCallable = "CodeCallable"
+    CodeParam = "CodeParam"
+    TextParam = "TextParam"
+    DateParam = "DateParam"
+    TimeParam = "TimeParam"
+    ButtonParam = "ButtonParam"
+    SliderParam = "SliderParam"
+    RotaryParam = "RotaryParam"
+    SwitchParam = "SwitchParam"
+    ColorPickerParam = "ColorPickerParam"
+    DropdownParam = "DropdownParam"
+    PasswordParam = "PasswordParam"
+    TextAreaParam = "TextAreaParam"
+    DropzoneParam = "DropzoneParam"
+    NestedParam = "NestedParam"
+
+
+class CodeObjValueRepresentationMode(str, Enum):
+    expression = "expression"
+    json_parsed = "json_parsed"
+    string = "string"
+    file_path = "file_path"
+    file_read = "file_read"
+
+
+class DependencyKeyType(str, Enum):
+    Section = "Section"
+    SectionParam = "SectionParam"
+
+
+class DependencyValueType(str, Enum):
+    Literal = "Literal"
+    Binary = "Binary"
+    FileRead = "FileRead"
+
+
+class DrawAreaBrushShape(str, Enum):
+    butt = "butt"
+    round = "round"
+    square = "square"
+
+
+class ListenerDependencyMode(str, Enum):
+    always = "always"
+    realtime_only = "realtime_only"
+    refresh_only = "refresh_only"
+
+
+class ListenerMessageType(str, Enum):
+    ListenerInit = "ListenerInit"
+    ListenerRegister = "ListenerRegister"
+    ListenerRegisterAck = "ListenerRegisterAck"
+    ListenerFrontendEmit = "ListenerFrontendEmit"
+    ListenerRouterEndpointCall = "ListenerRouterEndpointCall"
+    ListenerRouterEndpointResult = "ListenerRouterEndpointResult"
+    ListenerRealtimeEvent = "ListenerRealtimeEvent"
+    ListenerDependencyEvent = "ListenerDependencyEvent"
+    ListenerForceRefresh = "ListenerForceRefresh"
+    ListenerError = "ListenerError"
+
+
+class ParameterPassingStyle(str, Enum):
+    DEFAULT = "DEFAULT"
+    ARGS = "ARGS"
+    KWARGS = "KWARGS"
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
+
+
+class ProjectCodegenLanguage(str, Enum):
+    python = "python"
+
+
 class Route(str, Enum):
     ACCEPT_RENAME_REFACTOR = "/acceptRenameRefactor"
     ADD_KWARG = "/addKwarg"
@@ -325,121 +440,6 @@ class Route(str, Enum):
     UPSERT_APP_GEN_CUSTOM_SKILL = "/upsertAppGenCustomSkill"
     VALIDATE_APP_DEFINITION = "/validateAppDefinition"
     WRITE_FILE_BROWSER_CONTENT = "/writeFileBrowserFileContent"
-
-
-class AgenticEdgeContextMode(str, Enum):
-    reference_only = "reference_only"
-    inline_text = "inline_text"
-    summary = "summary"
-
-
-class AgenticEdgeKind(str, Enum):
-    chat_chat = "chat_chat"
-    section_chat = "section_chat"
-    chat_section = "chat_section"
-
-
-class ArtifactType(str, Enum):
-    Image = "Image"
-    BrushStroke = "BrushStroke"
-    DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
-    ChartData = "ChartData"
-    File = "File"
-
-
-class ChatRole(str, Enum):
-    system = "system"
-    user = "user"
-    assistant = "assistant"
-    tool = "tool"
-
-
-class ChatSendAction(str, Enum):
-    send = "send"
-
-
-class ChatStopAction(str, Enum):
-    stop = "stop"
-
-
-class ChatWindowMode(str, Enum):
-    project_ai_mode = "project_ai_mode"
-    section_mode = "section_mode"
-    git_graph_mode = "git_graph_mode"
-
-
-class CodeObjType(str, Enum):
-    CodeCallable = "CodeCallable"
-    CodeParam = "CodeParam"
-    TextParam = "TextParam"
-    DateParam = "DateParam"
-    TimeParam = "TimeParam"
-    ButtonParam = "ButtonParam"
-    SliderParam = "SliderParam"
-    RotaryParam = "RotaryParam"
-    SwitchParam = "SwitchParam"
-    ColorPickerParam = "ColorPickerParam"
-    DropdownParam = "DropdownParam"
-    PasswordParam = "PasswordParam"
-    TextAreaParam = "TextAreaParam"
-    DropzoneParam = "DropzoneParam"
-    NestedParam = "NestedParam"
-
-
-class CodeObjValueRepresentationMode(str, Enum):
-    expression = "expression"
-    json_parsed = "json_parsed"
-    string = "string"
-    file_path = "file_path"
-    file_read = "file_read"
-
-
-class DependencyKeyType(str, Enum):
-    Section = "Section"
-    SectionParam = "SectionParam"
-
-
-class DependencyValueType(str, Enum):
-    Literal = "Literal"
-    Binary = "Binary"
-    FileRead = "FileRead"
-
-
-class DrawAreaBrushShape(str, Enum):
-    butt = "butt"
-    round = "round"
-    square = "square"
-
-
-class ListenerDependencyMode(str, Enum):
-    always = "always"
-    realtime_only = "realtime_only"
-    refresh_only = "refresh_only"
-
-
-class ListenerMessageType(str, Enum):
-    ListenerInit = "ListenerInit"
-    ListenerRegister = "ListenerRegister"
-    ListenerRegisterAck = "ListenerRegisterAck"
-    ListenerFrontendEmit = "ListenerFrontendEmit"
-    ListenerRouterEndpointCall = "ListenerRouterEndpointCall"
-    ListenerRouterEndpointResult = "ListenerRouterEndpointResult"
-    ListenerRealtimeEvent = "ListenerRealtimeEvent"
-    ListenerDependencyEvent = "ListenerDependencyEvent"
-    ListenerForceRefresh = "ListenerForceRefresh"
-    ListenerError = "ListenerError"
-
-
-class ParameterPassingStyle(str, Enum):
-    DEFAULT = "DEFAULT"
-    ARGS = "ARGS"
-    KWARGS = "KWARGS"
-    POSITIONAL_ONLY = "POSITIONAL_ONLY"
-    KEYWORD_ONLY = "KEYWORD_ONLY"
-
-
-class ProjectCodegenLanguage(str, Enum):
-    python = "python"
 
 
 class RunSnapshotMode(str, Enum):

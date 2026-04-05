@@ -3045,6 +3045,1224 @@
       "schemaRef": "#/$defs/RotaryParamCodeObjImpl"
     },
     {
+      "name": "Route",
+      "kind": "enum",
+      "enumValues": [
+        {
+          "name": "ACCEPT_RENAME_REFACTOR",
+          "value": "/acceptRenameRefactor"
+        },
+        {
+          "name": "ADD_KWARG",
+          "value": "/addKwarg"
+        },
+        {
+          "name": "ADD_LAUNCHER_RECENT_WORKSPACE",
+          "value": "/addLauncherRecentWorkspace"
+        },
+        {
+          "name": "API_PREFIX",
+          "value": "/api"
+        },
+        {
+          "name": "APPEND_DRAW_AREA_LAYER_ITEM",
+          "value": "/appendDrawAreaLayerItem"
+        },
+        {
+          "name": "APPEND_TRANSCRIPTION_AUDIO",
+          "value": "/appendTranscriptionAudio"
+        },
+        {
+          "name": "APP_DEPLOYMENTS",
+          "value": "/app/deployments"
+        },
+        {
+          "name": "APP_DEPLOYMENT_CURRENT_SESSION",
+          "value": "/app/deployments/current/session"
+        },
+        {
+          "name": "APP_DEPLOYMENT_LATEST",
+          "value": "/app/deployments/{deploymentName}/latest"
+        },
+        {
+          "name": "APP_DEPLOYMENT_PROJECT_CONFIG",
+          "value": "/app/deployments/{deploymentName}/{version}/project_config"
+        },
+        {
+          "name": "APP_DEPLOYMENT_STATE",
+          "value": "/app/deployments/{deploymentName}/{version}/state"
+        },
+        {
+          "name": "APP_DEPLOYMENT_VERSIONS",
+          "value": "/app/deployments/{deploymentName}/versions"
+        },
+        {
+          "name": "ATTACHMENT_DOWNLOAD",
+          "value": "/attachments/{token}"
+        },
+        {
+          "name": "AUTO_LAYOUT_TOP_LEVEL_SECTIONS",
+          "value": "/autoLayoutTopLevelSections"
+        },
+        {
+          "name": "BINARY_DOWNLOAD",
+          "value": "/binary/{contentId}"
+        },
+        {
+          "name": "BINARY_UPLOAD",
+          "value": "/binary/upload"
+        },
+        {
+          "name": "BOOTSTRAP_CONSUME",
+          "value": "/__setta__/bootstrap/consume"
+        },
+        {
+          "name": "BOOTSTRAP_PAGE",
+          "value": "/__setta__/bootstrap"
+        },
+        {
+          "name": "CANCEL_RUN",
+          "value": "/cancelRun"
+        },
+        {
+          "name": "CANCEL_TRANSCRIPTION_SESSION",
+          "value": "/cancelTranscriptionSession"
+        },
+        {
+          "name": "CHANGE_PARAM_IMPL",
+          "value": "/changeParamImpl"
+        },
+        {
+          "name": "CHECK_IF_FILE_EXISTS",
+          "value": "/checkIfFileExists"
+        },
+        {
+          "name": "CHECK_WORKSPACE_INITIALIZED",
+          "value": "/checkWorkspaceInitialized"
+        },
+        {
+          "name": "CLEAR_TEXT_FIELD_COMPLETION",
+          "value": "/clearTextFieldCompletion"
+        },
+        {
+          "name": "CODE_AREA_COMPLETION",
+          "value": "/codeAreaCompletion"
+        },
+        {
+          "name": "CREATE_AGENTIC_EDGE",
+          "value": "/createAgenticEdge"
+        },
+        {
+          "name": "CREATE_AGENT_PROFILE",
+          "value": "/createAgentProfile"
+        },
+        {
+          "name": "CREATE_CHILD_SECTIONS",
+          "value": "/createChildSections"
+        },
+        {
+          "name": "CREATE_CHILD_SECTIONS_VIA_INCREMENTER",
+          "value": "/createChildSectionsViaIncrementer"
+        },
+        {
+          "name": "CREATE_EDGE",
+          "value": "/createEdge"
+        },
+        {
+          "name": "CREATE_ENGINE_CONFIG",
+          "value": "/createEngineConfig"
+        },
+        {
+          "name": "CREATE_EXTERNAL_AGENT_CONFIG",
+          "value": "/createExternalAgentConfig"
+        },
+        {
+          "name": "CREATE_FILE",
+          "value": "/createFile"
+        },
+        {
+          "name": "CREATE_NEW_SECTION_VARIANT",
+          "value": "/createNewSectionVariant"
+        },
+        {
+          "name": "CREATE_PROJECT_CONFIG",
+          "value": "/createProjectConfig"
+        },
+        {
+          "name": "CREATE_PROMPT_TEMPLATE",
+          "value": "/createPromptTemplate"
+        },
+        {
+          "name": "CREATE_STATE_MACHINE_EDGE",
+          "value": "/createStateMachineEdge"
+        },
+        {
+          "name": "CREATE_TOP_LEVEL_SECTION",
+          "value": "/createTopLevelSection"
+        },
+        {
+          "name": "CREATE_TRANSCRIPTION_PROFILE",
+          "value": "/createTranscriptionProfile"
+        },
+        {
+          "name": "CREATE_VIEW_MODE",
+          "value": "/createViewMode"
+        },
+        {
+          "name": "CREATE_WINDOW_SPACE",
+          "value": "/createWindowSpace"
+        },
+        {
+          "name": "CREATE_WORKSPACE_LAUNCH_INTENT",
+          "value": "/createWorkspaceLaunchIntent"
+        },
+        {
+          "name": "DECLINE_RENAME_REFACTOR",
+          "value": "/declineRenameRefactor"
+        },
+        {
+          "name": "DELETE_AGENTIC_EDGES",
+          "value": "/deleteAgenticEdges"
+        },
+        {
+          "name": "DELETE_AGENT_PROFILE",
+          "value": "/deleteAgentProfile"
+        },
+        {
+          "name": "DELETE_ARTIFACTS",
+          "value": "/deleteArtifacts"
+        },
+        {
+          "name": "DELETE_CHILD_SECTIONS_VIA_DECREMENTER",
+          "value": "/deleteChildSectionsViaDecrementer"
+        },
+        {
+          "name": "DELETE_EDGES",
+          "value": "/deleteEdges"
+        },
+        {
+          "name": "DELETE_ENGINE_CONFIG",
+          "value": "/deleteEngineConfig"
+        },
+        {
+          "name": "DELETE_EXTERNAL_AGENT_CONFIG",
+          "value": "/deleteExternalAgentConfig"
+        },
+        {
+          "name": "DELETE_JSON_SOURCE_FILE_AND_VARIANT",
+          "value": "/deleteJsonSourceFileAndVariant"
+        },
+        {
+          "name": "DELETE_KWARG",
+          "value": "/deleteKwarg"
+        },
+        {
+          "name": "DELETE_NOTIFICATION",
+          "value": "/deleteNotification"
+        },
+        {
+          "name": "DELETE_PROJECT_CONFIGS",
+          "value": "/deleteProjectConfigs"
+        },
+        {
+          "name": "DELETE_PROMPT_TEMPLATE",
+          "value": "/deletePromptTemplate"
+        },
+        {
+          "name": "DELETE_SECTIONS",
+          "value": "/deleteSections"
+        },
+        {
+          "name": "DELETE_SECTION_VARIANT_OR_ASK",
+          "value": "/deleteSectionVariantOrAsk"
+        },
+        {
+          "name": "DELETE_SELECTED_PARAMS",
+          "value": "/deleteSelectedParams"
+        },
+        {
+          "name": "DELETE_STATE_MACHINE_EDGES",
+          "value": "/deleteStateMachineEdges"
+        },
+        {
+          "name": "DELETE_TERMINALS",
+          "value": "/deleteTerminals"
+        },
+        {
+          "name": "DELETE_TRANSCRIPTION_PROFILE",
+          "value": "/deleteTranscriptionProfile"
+        },
+        {
+          "name": "DELETE_VIEW_MODE",
+          "value": "/deleteViewMode"
+        },
+        {
+          "name": "DELETE_WINDOW_SPACE",
+          "value": "/deleteWindowSpace"
+        },
+        {
+          "name": "DOCSTRING_TO_MARKDOWN",
+          "value": "/docstringToMarkdown"
+        },
+        {
+          "name": "FILE_BROWSER_DOWNLOAD",
+          "value": "/fileBrowser/{token}"
+        },
+        {
+          "name": "FORCE_REFRESH_LISTENER",
+          "value": "/forceRefreshListener"
+        },
+        {
+          "name": "FORMAT_CODE",
+          "value": "/formatCode"
+        },
+        {
+          "name": "FRONTEND",
+          "value": "/ws/frontend"
+        },
+        {
+          "name": "GEN_CODE_PREFIX_COMPLETION",
+          "value": "/genCodePrefixCompletion"
+        },
+        {
+          "name": "GEN_CODE_SUFFIX_COMPLETION",
+          "value": "/genCodeSuffixCompletion"
+        },
+        {
+          "name": "GET_AGENTIC_SUMMARY_CACHE_STATUS",
+          "value": "/getAgenticSummaryCacheStatus"
+        },
+        {
+          "name": "GET_AGENT_PROFILE",
+          "value": "/getAgentProfile"
+        },
+        {
+          "name": "GET_AGENT_PROFILES",
+          "value": "/getAgentProfiles"
+        },
+        {
+          "name": "GET_AGENT_RUN",
+          "value": "/getAgentRun"
+        },
+        {
+          "name": "GET_AGENT_RUNS",
+          "value": "/getAgentRuns"
+        },
+        {
+          "name": "GET_AI_FOLLOW_SNAPSHOT",
+          "value": "/getAIFollowSnapshot"
+        },
+        {
+          "name": "GET_APP_CATALOG",
+          "value": "/getAppCatalog"
+        },
+        {
+          "name": "GET_APP_DEFINITION",
+          "value": "/getAppDefinition"
+        },
+        {
+          "name": "GET_APP_GEN_SKILLS",
+          "value": "/getAppGenSkills"
+        },
+        {
+          "name": "GET_APP_GEN_SKILL_CONTENT",
+          "value": "/getAppGenSkillContent"
+        },
+        {
+          "name": "GET_ATTACHMENT_DOWNLOAD_URL",
+          "value": "/getAttachmentDownloadUrl"
+        },
+        {
+          "name": "GET_ATTACHMENT_DOWNLOAD_UR_LS",
+          "value": "/getAttachmentDownloadUrls"
+        },
+        {
+          "name": "GET_AUTH_REFRESH_STATUS",
+          "value": "/authRefreshStatus"
+        },
+        {
+          "name": "GET_BACKEND_INIT_STATUS",
+          "value": "/backendInitStatus"
+        },
+        {
+          "name": "GET_CHAT_SECTION_CHAT_ID",
+          "value": "/getChatSectionChatId"
+        },
+        {
+          "name": "GET_ENGINE_CONFIG",
+          "value": "/getEngineConfig"
+        },
+        {
+          "name": "GET_ENGINE_CONFIGS",
+          "value": "/getEngineConfigs"
+        },
+        {
+          "name": "GET_EXTERNAL_AGENT_CHAT",
+          "value": "/getExternalAgentChat"
+        },
+        {
+          "name": "GET_EXTERNAL_AGENT_CONFIG",
+          "value": "/getExternalAgentConfig"
+        },
+        {
+          "name": "GET_EXTERNAL_AGENT_CONFIGS",
+          "value": "/getExternalAgentConfigs"
+        },
+        {
+          "name": "GET_EXTERNAL_AGENT_HEALTH",
+          "value": "/getExternalAgentHealth"
+        },
+        {
+          "name": "GET_FILE_BROWSER_DOWNLOAD_URL",
+          "value": "/getFileBrowserDownloadUrls"
+        },
+        {
+          "name": "GET_FILE_BROWSER_FILE_CONTENT",
+          "value": "/getFileBrowserFileContent"
+        },
+        {
+          "name": "GET_FILE_BROWSER_FILE_STAT",
+          "value": "/getFileBrowserFileStat"
+        },
+        {
+          "name": "GET_FILE_BROWSER_ROOT",
+          "value": "/getFileBrowserRoot"
+        },
+        {
+          "name": "GET_FOLDER_CONTENTS",
+          "value": "/getFolderContents"
+        },
+        {
+          "name": "GET_GIT_COMMIT_DETAILS",
+          "value": "/git/commitDetails"
+        },
+        {
+          "name": "GET_GIT_COMMIT_FILE_DIFF",
+          "value": "/git/commitFileDiff"
+        },
+        {
+          "name": "GET_GIT_DIFF",
+          "value": "/git/diff"
+        },
+        {
+          "name": "GET_GIT_LOG",
+          "value": "/git/log"
+        },
+        {
+          "name": "GET_GIT_STATUS",
+          "value": "/git/status"
+        },
+        {
+          "name": "GET_LATEST_LSP_DIAGNOSTICS",
+          "value": "/getLatestLspDiagnostics"
+        },
+        {
+          "name": "GET_LATEST_PROJECT_STATE",
+          "value": "/getLatestProjectState"
+        },
+        {
+          "name": "GET_LAUNCHER_FILESYSTEM_ROOTS",
+          "value": "/launcherFilesystemRoots"
+        },
+        {
+          "name": "GET_LAUNCHER_RECENT_WORKSPACES",
+          "value": "/launcherRecentWorkspaces"
+        },
+        {
+          "name": "GET_LAUNCHER_STATUS",
+          "value": "/launcherStatus"
+        },
+        {
+          "name": "GET_LISTENER_COVERAGE",
+          "value": "/getListenerCoverage"
+        },
+        {
+          "name": "GET_LLM_CHAT",
+          "value": "/getLLMChat"
+        },
+        {
+          "name": "GET_LLM_RESPONSE",
+          "value": "/getLLMResponse"
+        },
+        {
+          "name": "GET_NOTIFICATIONS",
+          "value": "/getNotifications"
+        },
+        {
+          "name": "GET_PASSWORD_PARAM_VALUE",
+          "value": "/getPasswordParamValue"
+        },
+        {
+          "name": "GET_PROMPT_TEMPLATE",
+          "value": "/getPromptTemplate"
+        },
+        {
+          "name": "GET_PROMPT_TEMPLATES",
+          "value": "/getPromptTemplates"
+        },
+        {
+          "name": "GET_RUNNER_SUMMARY",
+          "value": "/getRunnerSummary"
+        },
+        {
+          "name": "GET_RUN_STATUS",
+          "value": "/getRunStatus"
+        },
+        {
+          "name": "GET_SERVER_MODE",
+          "value": "/serverMode"
+        },
+        {
+          "name": "GET_SETTA_HOME_INFO",
+          "value": "/settaHomeInfo"
+        },
+        {
+          "name": "GET_STATE_MACHINE_RUN",
+          "value": "/getStateMachineRun"
+        },
+        {
+          "name": "GET_TRANSCRIPTION_PROFILES",
+          "value": "/getTranscriptionProfiles"
+        },
+        {
+          "name": "GET_WORKSPACE_PYTHON_SIGNAL",
+          "value": "/getWorkspacePythonSignal"
+        },
+        {
+          "name": "GROUP_SECTIONS",
+          "value": "/groupSections"
+        },
+        {
+          "name": "IMPORT_FILES_TO_ARTIFACTS",
+          "value": "/importFilesToArtifacts"
+        },
+        {
+          "name": "INDENT_PARAMS",
+          "value": "/indentParams"
+        },
+        {
+          "name": "INTERRUPT_TERMINAL_PROCESSES",
+          "value": "/interruptTerminalProcesses"
+        },
+        {
+          "name": "LAUNCH",
+          "value": "/launch"
+        },
+        {
+          "name": "LISTENER_BY_ID",
+          "value": "/ws/listeners/{listenerID}"
+        },
+        {
+          "name": "LIST_LAUNCHER_DIRECTORY",
+          "value": "/listLauncherDirectory"
+        },
+        {
+          "name": "LLMAPI_KEYS",
+          "value": "/llm/apiKeys"
+        },
+        {
+          "name": "LLM_CONFIG",
+          "value": "/llm/config"
+        },
+        {
+          "name": "LOAD_ALL_PROJECT_METADATA",
+          "value": "/loadAllProjectMetadata"
+        },
+        {
+          "name": "LOAD_CACHED_BRUSH_STROKES",
+          "value": "/loadCachedBrushStrokes"
+        },
+        {
+          "name": "LOAD_CACHED_CHART_DATA",
+          "value": "/loadCachedChartData"
+        },
+        {
+          "name": "LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANSFORM",
+          "value": "/loadDrawAreaLayerItemTransform"
+        },
+        {
+          "name": "LOAD_CACHED_IMAGE_ARTIFACTS",
+          "value": "/loadCachedImageArtifacts"
+        },
+        {
+          "name": "LOAD_PROJECT_CONFIG",
+          "value": "/loadProjectConfig"
+        },
+        {
+          "name": "LOAD_SETTINGS",
+          "value": "/loadSettings"
+        },
+        {
+          "name": "MCP_SERVER_RUNTIME_STATUS",
+          "value": "/mcpServerRuntimeStatus"
+        },
+        {
+          "name": "MCP_TOOL_CALL",
+          "value": "/__setta__/tools/call"
+        },
+        {
+          "name": "MOVE_PARAMS",
+          "value": "/moveParams"
+        },
+        {
+          "name": "MOVE_PARAM_GROUPS",
+          "value": "/moveParamGroups"
+        },
+        {
+          "name": "MOVE_SECTIONS",
+          "value": "/moveSections"
+        },
+        {
+          "name": "OPEN_LAUNCHER_WORKSPACE",
+          "value": "/openLauncherWorkspace"
+        },
+        {
+          "name": "OUTPUT_ACCESSOR_COMPLETION",
+          "value": "/outputAccessorCompletion"
+        },
+        {
+          "name": "PASTE_SECTIONS",
+          "value": "/pasteSections"
+        },
+        {
+          "name": "PIN_LAUNCHER_RECENT_WORKSPACE",
+          "value": "/pinLauncherRecentWorkspace"
+        },
+        {
+          "name": "PLUGINS_ASSET_WILDCARD",
+          "value": "/plugins/{pluginId}/*"
+        },
+        {
+          "name": "PLUGINS_CONFIG",
+          "value": "/plugins/config"
+        },
+        {
+          "name": "PLUGINS_DISABLE",
+          "value": "/plugins/disable"
+        },
+        {
+          "name": "PLUGINS_ENABLE",
+          "value": "/plugins/enable"
+        },
+        {
+          "name": "PLUGINS_INSTALL",
+          "value": "/plugins/install"
+        },
+        {
+          "name": "PLUGINS_LINK",
+          "value": "/plugins/link"
+        },
+        {
+          "name": "PLUGINS_LOCK_APPLY",
+          "value": "/plugins/lock/apply"
+        },
+        {
+          "name": "PLUGINS_LOCK_WRITE",
+          "value": "/plugins/lock/write"
+        },
+        {
+          "name": "PLUGINS_RESCAN",
+          "value": "/plugins/rescan"
+        },
+        {
+          "name": "PLUGINS_RESTART",
+          "value": "/plugins/restart"
+        },
+        {
+          "name": "PLUGINS_ROLLBACK",
+          "value": "/plugins/rollback"
+        },
+        {
+          "name": "PLUGINS_RUNTIME",
+          "value": "/plugins/runtime"
+        },
+        {
+          "name": "PLUGINS_UNINSTALL",
+          "value": "/plugins/uninstall"
+        },
+        {
+          "name": "PLUGINS_UPDATE",
+          "value": "/plugins/update"
+        },
+        {
+          "name": "PREPARE_SECTIONS_FOR_COPY",
+          "value": "/prepareSectionsForCopy"
+        },
+        {
+          "name": "RECONNECT_EDGE",
+          "value": "/reconnectEdge"
+        },
+        {
+          "name": "REDO",
+          "value": "/redo"
+        },
+        {
+          "name": "REMOVE_LAUNCHER",
+          "value": "/removeLauncher"
+        },
+        {
+          "name": "REMOVE_LAUNCHER_RECENT_WORKSPACE",
+          "value": "/removeLauncherRecentWorkspace"
+        },
+        {
+          "name": "REPAIR_LAUNCHER",
+          "value": "/repairLauncher"
+        },
+        {
+          "name": "RESET_STATE_MACHINE",
+          "value": "/resetStateMachine"
+        },
+        {
+          "name": "RESPOND_EXTERNAL_AGENT_APPROVAL",
+          "value": "/respondExternalAgentApproval"
+        },
+        {
+          "name": "RESPOND_EXTERNAL_AGENT_QUESTION",
+          "value": "/respondExternalAgentQuestion"
+        },
+        {
+          "name": "RESTART_LANGUAGE_SERVER",
+          "value": "/restartLanguageServer"
+        },
+        {
+          "name": "REVEAL_PATH_IN_OS_FILE_EXPLORER",
+          "value": "/revealPathInOsFileExplorer"
+        },
+        {
+          "name": "RUN_CODE",
+          "value": "/runCode"
+        },
+        {
+          "name": "RUN_DETACHED",
+          "value": "/runDetached"
+        },
+        {
+          "name": "SAVE_AS_NEW_PROJECT_CONFIG",
+          "value": "/saveAsNewProjectConfig"
+        },
+        {
+          "name": "SAVE_PROJECT",
+          "value": "/saveProject"
+        },
+        {
+          "name": "SAVE_SETTINGS",
+          "value": "/saveSettings"
+        },
+        {
+          "name": "SDK_RUNTIME_HANDSHAKE",
+          "value": "/sdkRuntimeHandshake"
+        },
+        {
+          "name": "SETUP_LAUNCHER",
+          "value": "/setupLauncher"
+        },
+        {
+          "name": "SET_ACTIVE_I_DS",
+          "value": "/setActiveIds"
+        },
+        {
+          "name": "SET_ACTIVE_VIEW_MODE",
+          "value": "/setActiveViewMode"
+        },
+        {
+          "name": "SET_AGENTIC_EDGES",
+          "value": "/setAgenticEdges"
+        },
+        {
+          "name": "SET_APP_DEFINITION",
+          "value": "/setAppDefinition"
+        },
+        {
+          "name": "SET_AS_DEFAULT_PROJECT",
+          "value": "/setAsDefaultProject"
+        },
+        {
+          "name": "SET_BROWSER_AREA_VIEW_MODE",
+          "value": "/setBrowserAreaViewMode"
+        },
+        {
+          "name": "SET_BROWSER_COLUMN_WIDTHS",
+          "value": "/setBrowserColumnWidths"
+        },
+        {
+          "name": "SET_BROWSER_HIDE_COLUMN",
+          "value": "/setBrowserHideColumn"
+        },
+        {
+          "name": "SET_BROWSER_SAVED_SEARCHES",
+          "value": "/setBrowserSavedSearches"
+        },
+        {
+          "name": "SET_CALLABLE",
+          "value": "/setCallable"
+        },
+        {
+          "name": "SET_CALLABLE_HIDE_PARAMS",
+          "value": "/setCallableHideParams"
+        },
+        {
+          "name": "SET_CHART_AREA_DATA_PATH",
+          "value": "/setChartAreaDataPath"
+        },
+        {
+          "name": "SET_CHART_SETTINGS",
+          "value": "/setChartSettings"
+        },
+        {
+          "name": "SET_CHART_TYPE",
+          "value": "/setChartType"
+        },
+        {
+          "name": "SET_CHAT_SECTION_CHAT_ID",
+          "value": "/setChatSectionChatId"
+        },
+        {
+          "name": "SET_CHAT_SECTION_SETTINGS",
+          "value": "/setChatSectionSettings"
+        },
+        {
+          "name": "SET_CHAT_SECTION_STATE",
+          "value": "/setChatSectionState"
+        },
+        {
+          "name": "SET_CODE",
+          "value": "/setCode"
+        },
+        {
+          "name": "SET_CODE_FILE_BINDING",
+          "value": "/setCodeFileBinding"
+        },
+        {
+          "name": "SET_CODE_OBJ_DISPLAY_NAME",
+          "value": "/setCodeObjDisplayName"
+        },
+        {
+          "name": "SET_CODE_OBJ_NAME",
+          "value": "/setCodeObjName"
+        },
+        {
+          "name": "SET_CODE_SECTION_ATTACHED_TERMINAL",
+          "value": "/setCodeSectionAttachedTerminal"
+        },
+        {
+          "name": "SET_CODE_SECTION_DIAGNOSTICS_MUTE",
+          "value": "/setCodeSectionDiagnosticsMute"
+        },
+        {
+          "name": "SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION",
+          "value": "/setCodeSectionDiagnosticCodeSuppression"
+        },
+        {
+          "name": "SET_DEFAULT_SECTION_VARIANT",
+          "value": "/setDefaultSectionVariant"
+        },
+        {
+          "name": "SET_EDGES",
+          "value": "/setEdges"
+        },
+        {
+          "name": "SET_GEN_CODE_PREFIX",
+          "value": "/setGenCodePrefix"
+        },
+        {
+          "name": "SET_GEN_CODE_SUFFIX",
+          "value": "/setGenCodeSuffix"
+        },
+        {
+          "name": "SET_GROUP_OVERFLOW_MODE",
+          "value": "/setGroupOverflowMode"
+        },
+        {
+          "name": "SET_IMAGE_AREA_IMAGE_PATH",
+          "value": "/setImageAreaImagePath"
+        },
+        {
+          "name": "SET_LIST_ROOT_VIEW_MODE",
+          "value": "/setListRootViewMode"
+        },
+        {
+          "name": "SET_META_CONTROL_SHOW_SECTION_TITLE",
+          "value": "/setMetaControlShowSectionTitle"
+        },
+        {
+          "name": "SET_PARAM_ENTERED_VALUE",
+          "value": "/setParamEnteredValue"
+        },
+        {
+          "name": "SET_PARENT_DEFAULT_CHILD_SECTION_TYPE",
+          "value": "/setParentDefaultChildSectionType"
+        },
+        {
+          "name": "SET_PROJECT_CHAT_WINDOWING_STATE",
+          "value": "/setProjectChatWindowingState"
+        },
+        {
+          "name": "SET_PROJECT_CHAT_WINDOW_CHAT_ID",
+          "value": "/setProjectChatWindowChatId"
+        },
+        {
+          "name": "SET_PROJECT_CONFIG_CODEGEN_TARGETS",
+          "value": "/setProjectConfigCodegenTargets"
+        },
+        {
+          "name": "SET_PROJECT_CONFIG_NAME",
+          "value": "/setProjectConfigName"
+        },
+        {
+          "name": "SET_PROMPT_FORMAT",
+          "value": "/setPromptFormat"
+        },
+        {
+          "name": "SET_PROMPT_INPUTS",
+          "value": "/setPromptInputs"
+        },
+        {
+          "name": "SET_PROMPT_TEMPLATE",
+          "value": "/setPromptTemplate"
+        },
+        {
+          "name": "SET_PROMPT_TEMPLATE_LINK",
+          "value": "/setPromptTemplateLink"
+        },
+        {
+          "name": "SET_SECTION_COLUMN_WIDTH",
+          "value": "/setSectionColumnWidth"
+        },
+        {
+          "name": "SET_SECTION_EDGE_INPUTS",
+          "value": "/setSectionEdgeInputs"
+        },
+        {
+          "name": "SET_SECTION_EDGE_OUTPUTS",
+          "value": "/setSectionEdgeOutputs"
+        },
+        {
+          "name": "SET_SECTION_HIDE_UNPINNED_PARAMS",
+          "value": "/setSectionHideUnpinnedParams"
+        },
+        {
+          "name": "SET_SECTION_NAME",
+          "value": "/setSectionName"
+        },
+        {
+          "name": "SET_SECTION_PARAM_FILTER",
+          "value": "/setSectionParamFilter"
+        },
+        {
+          "name": "SET_SECTION_PINNED_PARAMS",
+          "value": "/setSectionPinnedParams"
+        },
+        {
+          "name": "SET_SECTION_SIZES",
+          "value": "/setSectionSizes"
+        },
+        {
+          "name": "SET_SECTION_STYLE_COLOR",
+          "value": "/setSectionStyleColor"
+        },
+        {
+          "name": "SET_SECTION_TAG_COLOR",
+          "value": "/setSectionTagColor"
+        },
+        {
+          "name": "SET_SECTION_VARIANT",
+          "value": "/setSectionVariant"
+        },
+        {
+          "name": "SET_SECTION_VARIANT_NAME",
+          "value": "/setSectionVariantName"
+        },
+        {
+          "name": "SET_SECTION_VARIANT_SORT_ORDER",
+          "value": "/setSectionVariantSortOrder"
+        },
+        {
+          "name": "SET_SHOW_PARAM_DISPLAY_NAMES",
+          "value": "/setShowParamDisplayNames"
+        },
+        {
+          "name": "SET_SOCIAL_URL",
+          "value": "/setSocialUrl"
+        },
+        {
+          "name": "SET_SPREADSHEET_FILE_PATH",
+          "value": "/setSpreadsheetFilePath"
+        },
+        {
+          "name": "SET_SPREADSHEET_SECTION_SETTINGS",
+          "value": "/setSpreadsheetSectionSettings"
+        },
+        {
+          "name": "SET_STATE_MACHINE_EDGES",
+          "value": "/setStateMachineEdges"
+        },
+        {
+          "name": "SET_STATE_MACHINE_SECTION_SETTINGS",
+          "value": "/setStateMachineSectionSettings"
+        },
+        {
+          "name": "SET_TASK_BOARD_SECTION_STATE",
+          "value": "/setTaskBoardSectionState"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_DISPLAY_MODE",
+          "value": "/setTextBlockDisplayMode"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_FORMAT",
+          "value": "/setTextBlockFormat"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME",
+          "value": "/setTextBlockHeadingAsSectionName"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_MASTER_FONT_SIZE",
+          "value": "/setTextBlockMasterFontSize"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_META_CONTROL_STYLE",
+          "value": "/setTextBlockMetaControlStyle"
+        },
+        {
+          "name": "SET_TEXT_BLOCK_TEXT",
+          "value": "/setTextBlockText"
+        },
+        {
+          "name": "SET_TOP_LEVEL_SECTION_LAYOUT",
+          "value": "/setTopLevelSectionLayout"
+        },
+        {
+          "name": "SET_TYPE_ERROR_IGNORE",
+          "value": "/setTypeErrorIgnore"
+        },
+        {
+          "name": "SET_VARIANT_JSON_SOURCE_KEYS",
+          "value": "/setVariantJsonSourceKeys"
+        },
+        {
+          "name": "SET_VIEWPORT",
+          "value": "/setViewport"
+        },
+        {
+          "name": "SET_VIEW_MODE_NAME",
+          "value": "/setViewModeName"
+        },
+        {
+          "name": "SET_VIEW_MODE_SORT_ORDER",
+          "value": "/setViewModeSortOrder"
+        },
+        {
+          "name": "SET_WATCH_CODE_ENABLED",
+          "value": "/setWatchCodeEnabled"
+        },
+        {
+          "name": "SET_WATCH_CODE_INPUTS",
+          "value": "/setWatchCodeInputs"
+        },
+        {
+          "name": "SET_WINDOW_SPACE_NAME",
+          "value": "/setWindowSpaceName"
+        },
+        {
+          "name": "SET_WINDOW_SPACE_SORT_ORDER",
+          "value": "/setWindowSpaceSortOrder"
+        },
+        {
+          "name": "SHARE_DEPLOYMENTS",
+          "value": "/share/deployments"
+        },
+        {
+          "name": "SHARE_DEPLOYMENT_CURRENT_SESSION",
+          "value": "/share/deployments/current/session"
+        },
+        {
+          "name": "SHARE_DEPLOYMENT_LATEST",
+          "value": "/share/deployments/{deploymentName}/latest"
+        },
+        {
+          "name": "SHARE_DEPLOYMENT_PROJECT_CONFIG",
+          "value": "/share/deployments/{deploymentName}/{version}/project_config"
+        },
+        {
+          "name": "SHARE_DEPLOYMENT_STATE",
+          "value": "/share/deployments/{deploymentName}/{version}/state"
+        },
+        {
+          "name": "SHARE_DEPLOYMENT_VERSIONS",
+          "value": "/share/deployments/{deploymentName}/versions"
+        },
+        {
+          "name": "START_AGENT_RUN",
+          "value": "/startAgentRun"
+        },
+        {
+          "name": "START_RUN_CHAIN",
+          "value": "/startRunChain"
+        },
+        {
+          "name": "START_STATE_MACHINE_RUN",
+          "value": "/startStateMachineRun"
+        },
+        {
+          "name": "START_TRANSCRIPTION_SESSION",
+          "value": "/startTranscriptionSession"
+        },
+        {
+          "name": "STOP_AGENT_RUN",
+          "value": "/stopAgentRun"
+        },
+        {
+          "name": "STOP_EXTERNAL_AGENT_RUN",
+          "value": "/stopExternalAgentRun"
+        },
+        {
+          "name": "STOP_LLM_CHAT",
+          "value": "/stopLLMChat"
+        },
+        {
+          "name": "STOP_RUN_CHAIN",
+          "value": "/stopRunChain"
+        },
+        {
+          "name": "STOP_STATE_MACHINE_RUN",
+          "value": "/stopStateMachineRun"
+        },
+        {
+          "name": "STOP_TRANSCRIPTION_SESSION",
+          "value": "/stopTranscriptionSession"
+        },
+        {
+          "name": "TERMINAL_BY_SECTION",
+          "value": "/ws/terminals/{projectID}/{sectionID}"
+        },
+        {
+          "name": "TEXT_FIELD_COMPLETION",
+          "value": "/textFieldCompletion"
+        },
+        {
+          "name": "TOGGLE_GROUP_ORIENTATION",
+          "value": "/toggleGroupOrientation"
+        },
+        {
+          "name": "TOGGLE_IS_EDITING_VIEW_MODE",
+          "value": "/toggleIsEditingViewMode"
+        },
+        {
+          "name": "TOGGLE_MINIMIZED",
+          "value": "/toggleMinimized"
+        },
+        {
+          "name": "TOGGLE_PARAM_SELECTED",
+          "value": "/toggleParamSelected"
+        },
+        {
+          "name": "TOGGLE_POSITION_LOCKS",
+          "value": "/togglePositionLocks"
+        },
+        {
+          "name": "TOGGLE_SECTION_VISIBILITY",
+          "value": "/toggleSectionVisibility"
+        },
+        {
+          "name": "TOGGLE_VARIANT_FROZEN",
+          "value": "/toggleVariantFrozen"
+        },
+        {
+          "name": "TOGGLE_VARIANT_JSON_SOURCE",
+          "value": "/toggleVariantJsonSource"
+        },
+        {
+          "name": "TOGGLE_VIEW_MODE_TAB",
+          "value": "/toggleViewModeTab"
+        },
+        {
+          "name": "TOGGLE_VIEW_MODE_USER_FACING",
+          "value": "/toggleViewModeUserFacing"
+        },
+        {
+          "name": "TRANSFER_FILE_BROWSER_ENTRY",
+          "value": "/transferFileBrowserEntry"
+        },
+        {
+          "name": "TYPE_CHECK",
+          "value": "/typeCheck"
+        },
+        {
+          "name": "UNDO",
+          "value": "/undo"
+        },
+        {
+          "name": "UNGROUP_GROUPS",
+          "value": "/ungroupGroups"
+        },
+        {
+          "name": "UNINDENT_PARAMS",
+          "value": "/unindentParams"
+        },
+        {
+          "name": "UNSELECT_ALL_PARAMS",
+          "value": "/unselectAllParams"
+        },
+        {
+          "name": "UPDATE_AGENTIC_EDGE",
+          "value": "/updateAgenticEdge"
+        },
+        {
+          "name": "UPDATE_AGENT_PROFILE",
+          "value": "/updateAgentProfile"
+        },
+        {
+          "name": "UPDATE_ARTIFACTS",
+          "value": "/updateArtifacts"
+        },
+        {
+          "name": "UPDATE_EDGE",
+          "value": "/updateEdge"
+        },
+        {
+          "name": "UPDATE_ENGINE_CONFIG",
+          "value": "/updateEngineConfig"
+        },
+        {
+          "name": "UPDATE_EXTERNAL_AGENT_CONFIG",
+          "value": "/updateExternalAgentConfig"
+        },
+        {
+          "name": "UPDATE_LAUNCHER",
+          "value": "/updateLauncher"
+        },
+        {
+          "name": "UPDATE_PARAM_IMPL_CONFIG",
+          "value": "/updateParamImplConfig"
+        },
+        {
+          "name": "UPDATE_PROMPT_TEMPLATE",
+          "value": "/updatePromptTemplate"
+        },
+        {
+          "name": "UPDATE_STATE_MACHINE_EDGE",
+          "value": "/updateStateMachineEdge"
+        },
+        {
+          "name": "UPDATE_TRANSCRIPTION_PROFILE",
+          "value": "/updateTranscriptionProfile"
+        },
+        {
+          "name": "UPSERT_APP_GEN_CUSTOM_SKILL",
+          "value": "/upsertAppGenCustomSkill"
+        },
+        {
+          "name": "VALIDATE_APP_DEFINITION",
+          "value": "/validateAppDefinition"
+        },
+        {
+          "name": "WRITE_FILE_BROWSER_CONTENT",
+          "value": "/writeFileBrowserFileContent"
+        }
+      ]
+    },
+    {
       "name": "RunEvent",
       "kind": "model",
       "schemaRef": "#/$defs/RunEvent"

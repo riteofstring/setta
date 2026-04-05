@@ -84,6 +84,24 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	if got := routeByName["LISTENER_BY_ID"]; got != wsapi.RouteListenerByID {
 		t.Fatalf("LISTENER_BY_ID route = %q, want %q", got, wsapi.RouteListenerByID)
 	}
+	routeEnumByName := map[string]string{}
+	for _, contract := range sidecar.Contracts {
+		if contract.Name != "Route" {
+			continue
+		}
+		if contract.Kind != "enum" {
+			t.Fatalf("Route contract kind = %q, want %q", contract.Kind, "enum")
+		}
+		for _, value := range contract.EnumValues {
+			routeEnumByName[value.Name] = value.Value
+		}
+	}
+	if got := routeEnumByName["API_PREFIX"]; got != httpapi.RouteAPIPrefix {
+		t.Fatalf("Route contract API_PREFIX = %q, want %q", got, httpapi.RouteAPIPrefix)
+	}
+	if got := routeEnumByName["LISTENER_BY_ID"]; got != wsapi.RouteListenerByID {
+		t.Fatalf("Route contract LISTENER_BY_ID = %q, want %q", got, wsapi.RouteListenerByID)
+	}
 
 	foundViewportDefault := false
 	foundPythonSharedProjectConfigDefault := false

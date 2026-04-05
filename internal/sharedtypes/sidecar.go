@@ -28,7 +28,7 @@ type SemanticSidecar struct {
 type ContractEntry struct {
 	Name       string           `json:"name"`
 	Kind       string           `json:"kind"`
-	SchemaRef  string           `json:"schemaRef"`
+	SchemaRef  string           `json:"schemaRef,omitempty"`
 	EnumValues []EnumValueEntry `json:"enumValues,omitempty"`
 }
 
@@ -77,11 +77,11 @@ type DiscriminatedTraitEntry struct {
 }
 
 func BuildSemanticSidecar() (SemanticSidecar, error) {
-	contracts, err := buildContractEntries()
+	routes, err := DiscoveredRouteEntries()
 	if err != nil {
 		return SemanticSidecar{}, err
 	}
-	routes, err := DiscoveredRouteEntries()
+	contracts, err := buildContractEntries(routes)
 	if err != nil {
 		return SemanticSidecar{}, err
 	}
@@ -158,8 +158,8 @@ func NormalizeSemanticSidecarForJSON(sidecar SemanticSidecar) (SemanticSidecar, 
 	return normalized, nil
 }
 
-func buildContractEntries() ([]ContractEntry, error) {
-	entries := make([]ContractEntry, 0, len(DiscoveredTypes()))
+func buildContractEntries(routes []RouteInventoryEntry) ([]ContractEntry, error) {
+	entries := make([]ContractEntry, 0, len(DiscoveredTypes())+1)
 	for _, t := range DiscoveredTypes() {
 		name := strings.TrimSpace(ContractNameForType(t))
 		if name == "" {
@@ -189,10 +189,28 @@ func buildContractEntries() ([]ContractEntry, error) {
 		}
 		entries = append(entries, entry)
 	}
+	if len(routes) > 0 {
+		entries = append(entries, routeInventoryContractEntry(routes))
+	}
 	sort.Slice(entries, func(i int, j int) bool {
 		return entries[i].Name < entries[j].Name
 	})
 	return entries, nil
+}
+
+func routeInventoryContractEntry(routes []RouteInventoryEntry) ContractEntry {
+	entry := ContractEntry{
+		Name:       "Route",
+		Kind:       "enum",
+		EnumValues: make([]EnumValueEntry, 0, len(routes)),
+	}
+	for _, route := range routes {
+		entry.EnumValues = append(entry.EnumValues, EnumValueEntry{
+			Name:  route.Name,
+			Value: route.Path,
+		})
+	}
+	return entry
 }
 
 func buildDefaultEntries() []DefaultEntry {

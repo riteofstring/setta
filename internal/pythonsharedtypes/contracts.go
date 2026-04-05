@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"setta/internal/frontendbindingmeta"
 	"setta/internal/sharedtypes"
 )
 
@@ -39,6 +40,9 @@ var (
 	pythonSharedEnumSpecsOnce sync.Once
 	pythonSharedEnumSpecs     map[reflect.Type]contractSpec
 	pythonSharedEnumSpecsErr  error
+
+	pythonSharedExternalContractsOnce sync.Once
+	pythonSharedExternalContracts     map[string]struct{}
 )
 
 func buildGenerationContext() (generationContext, error) {
@@ -70,11 +74,8 @@ func contractSpecsFromSidecar(
 	sidecar sharedtypes.SemanticSidecar,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) ([]contractSpec, error) {
-	routeSpec := routeContractSpecFromSidecar(sidecar)
-	specs := []contractSpec{routeSpec}
-	seenNames := map[string]struct{}{
-		routeSpec.Name: {},
-	}
+	specs := []contractSpec{}
+	seenNames := map[string]struct{}{}
 
 	for _, entry := range sidecar.Contracts {
 		name := strings.TrimSpace(entry.Name)
@@ -86,7 +87,8 @@ func contractSpecsFromSidecar(
 		}
 
 		typ, ok := sharedtypes.TypeByContractName(name)
-		if !ok {
+		if !ok && !(contractKind(strings.TrimSpace(entry.Kind)) == contractKindEnum &&
+			strings.TrimSpace(entry.SchemaRef) == "") {
 			return nil, fmt.Errorf("python shared types: missing discovered type for sidecar contract %s", name)
 		}
 
@@ -112,21 +114,6 @@ func contractSpecsFromSidecar(
 	}
 
 	return specs, nil
-}
-
-func routeContractSpecFromSidecar(sidecar sharedtypes.SemanticSidecar) contractSpec {
-	values := make([]enumValueSpec, 0, len(sidecar.Routes))
-	for _, route := range sidecar.Routes {
-		values = append(values, enumValueSpec{
-			Name:  route.Name,
-			Value: route.Path,
-		})
-	}
-	return contractSpec{
-		Name:       "Route",
-		Kind:       contractKindEnum,
-		EnumValues: values,
-	}
 }
 
 func defaultSourcesFromSidecar(
@@ -265,6 +252,9 @@ func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
 			}
 			typ, ok := sharedtypes.TypeByContractName(name)
 			if !ok {
+				if strings.TrimSpace(entry.SchemaRef) == "" {
+					continue
+				}
 				pythonSharedEnumSpecsErr = fmt.Errorf("python shared types: missing discovered type for sidecar enum %s", name)
 				return
 			}
@@ -292,6 +282,21 @@ func modelContractSpecIfConvertible(
 		Kind: contractKindModel,
 		Type: t,
 	}
+	if _, ok := pythonExternalTypeModules[t.PkgPath()]; ok {
+		return contractSpec{}, false
+	}
+	if _, ok := pythonSharedExternalContractNames()[spec.Name]; ok {
+		return contractSpec{}, false
+	}
+	if modelReferencesExternalPythonModule(t) {
+		return contractSpec{}, false
+	}
+	if modelReferencesSyntheticUnionType(t) {
+		return contractSpec{}, false
+	}
+	if modelReferencesExternalSharedContract(t) {
+		return contractSpec{}, false
+	}
 	if _, err := buildModelSpecWithDefaultSources(
 		spec,
 		map[string]struct{}{spec.Name: {}},
@@ -316,4 +321,184 @@ func pythonSharedDefaultValueForField(
 
 func pythonSharedContractNameForType(t reflect.Type) string {
 	return sharedtypes.ContractNameForType(t)
+}
+
+func modelReferencesExternalSharedContract(t reflect.Type) bool {
+	if t == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for _, field := range visibleFields(t) {
+		if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
+			continue
+		}
+		if len(externalPythonImportContractNames(field.Tag.Get("py_import"))) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func modelReferencesExternalPythonModule(t reflect.Type) bool {
+	if t == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for _, field := range visibleFields(t) {
+		if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
+			continue
+		}
+		if typeUsesExternalPythonModule(field.Type) {
+			return true
+		}
+	}
+	return false
+}
+
+func modelReferencesSyntheticUnionType(t reflect.Type) bool {
+	if t == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for _, field := range visibleFields(t) {
+		if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
+			continue
+		}
+		if typeUsesSyntheticUnion(field.Type) {
+			return true
+		}
+	}
+	return false
+}
+
+func typeUsesExternalPythonModule(t reflect.Type) bool {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil {
+		return false
+	}
+	if _, ok := pythonExternalTypeModules[t.PkgPath()]; ok && t.Name() != "" {
+		return true
+	}
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Chan:
+		return typeUsesExternalPythonModule(t.Elem())
+	case reflect.Map:
+		return typeUsesExternalPythonModule(t.Key()) || typeUsesExternalPythonModule(t.Elem())
+	default:
+		return false
+	}
+}
+
+func typeUsesSyntheticUnion(t reflect.Type) bool {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil {
+		return false
+	}
+	if _, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t); ok {
+		return true
+	}
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Chan:
+		return typeUsesSyntheticUnion(t.Elem())
+	case reflect.Map:
+		return typeUsesSyntheticUnion(t.Key()) || typeUsesSyntheticUnion(t.Elem())
+	default:
+		return false
+	}
+}
+
+func pythonSharedExternalContractNames() map[string]struct{} {
+	pythonSharedExternalContractsOnce.Do(func() {
+		names := map[string]struct{}{}
+		for _, t := range sharedtypes.DiscoveredTypes() {
+			if t == nil || t.Kind() != reflect.Struct {
+				continue
+			}
+			for _, field := range visibleFields(t) {
+				importTag := strings.TrimSpace(field.Tag.Get("py_import"))
+				if importTag == "" {
+					continue
+				}
+				for _, name := range externalPythonImportContractNames(importTag) {
+					if _, ok := sharedtypes.TypeByContractName(name); ok {
+						names[name] = struct{}{}
+					}
+				}
+			}
+		}
+		pythonSharedExternalContracts = names
+	})
+	return pythonSharedExternalContracts
+}
+
+func pythonImportedNames(importTag string) []string {
+	names := []string{}
+	seen := map[string]struct{}{}
+	for _, line := range strings.Split(importTag, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "from ") {
+			continue
+		}
+		_, imported, ok := strings.Cut(strings.TrimPrefix(line, "from "), " import ")
+		if !ok {
+			continue
+		}
+		for _, part := range strings.Split(imported, ",") {
+			name := strings.TrimSpace(part)
+			if before, _, ok := strings.Cut(name, " as "); ok {
+				name = strings.TrimSpace(before)
+			}
+			if name == "" {
+				continue
+			}
+			if _, duplicate := seen[name]; duplicate {
+				continue
+			}
+			seen[name] = struct{}{}
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func externalPythonImportContractNames(importTag string) []string {
+	names := []string{}
+	seen := map[string]struct{}{}
+	for _, line := range strings.Split(importTag, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.HasPrefix(line, "from ") {
+			continue
+		}
+		moduleAndNames := strings.TrimPrefix(line, "from ")
+		module, imported, ok := strings.Cut(moduleAndNames, " import ")
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(module) == "setta.types.generated.go_shared_types" {
+			continue
+		}
+		for _, name := range pythonImportedNames("from x import " + imported) {
+			if !pythonImportedContractShouldRemainExternal(name) {
+				continue
+			}
+			if _, duplicate := seen[name]; duplicate {
+				continue
+			}
+			seen[name] = struct{}{}
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+func pythonImportedContractShouldRemainExternal(name string) bool {
+	typ, ok := sharedtypes.TypeByContractName(name)
+	if !ok {
+		return false
+	}
+	if typeUsesExternalPythonModule(typ) || typeUsesSyntheticUnion(typ) {
+		return true
+	}
+	return typ.Kind() == reflect.Struct
 }
