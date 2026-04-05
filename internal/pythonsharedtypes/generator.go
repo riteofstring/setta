@@ -52,28 +52,6 @@ func Build() (GeneratedTypes, error) {
 	}, nil
 }
 
-func pythonModelRequiresStandardFieldPatch(t reflect.Type) bool {
-	if t == nil || t.Kind() != reflect.Struct {
-		return false
-	}
-	for _, field := range visibleFields(t) {
-		if pythonFieldRequiresStandardFieldPatch(field) {
-			return true
-		}
-	}
-	return false
-}
-
-func pythonFieldRequiresStandardFieldPatch(field reflect.StructField) bool {
-	if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
-		return true
-	}
-	if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
-		return true
-	}
-	return strings.HasPrefix(strings.TrimSpace(field.Tag.Get("py_default")), "Field(")
-}
-
 func renderGeneratedTypesModule(
 	importLines []string,
 	blocks []string,

@@ -583,7 +583,7 @@ class DictSectionImpl(BaseModel):
     size: DictSectionImplSize
     styleColor: str | None
     tagColor: str | None
-    topLevelParamId: str | None
+    topLevelParamId: str | None = None
     type: str
 
 
@@ -841,7 +841,7 @@ class GlobalVariablesSectionImpl(BaseModel):
     size: GlobalVariablesSectionImplSize
     styleColor: str | None
     tagColor: str | None
-    topLevelParamId: str | None
+    topLevelParamId: str | None = None
     type: str
 
 
@@ -906,7 +906,7 @@ class LineChartSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    secondYAxisColumns: list[str] = []
+    secondYAxisColumns: list[str] = Field(default_factory=list)
     type: ChartType = ChartType.line
     xAxisColumn: str | None = None
     xAxisLog: bool = False
@@ -1082,8 +1082,8 @@ class MessageThinkingDelta(BaseModel):
         extra="forbid",
     )
     index: int
-    signature: str | None
-    summary: str | None
+    signature: str | None = None
+    summary: str | None = None
     thinking: str
     type: str
 
@@ -1167,8 +1167,8 @@ class ProjectRunCapabilities(BaseModel):
         extra="forbid",
     )
     canRunFromMain: bool
-    effectiveEntrySectionId: str | None
-    mainRunDisabledReason: str | None
+    effectiveEntrySectionId: str | None = None
+    mainRunDisabledReason: str | None = None
 
 
 class PromptSectionImplSizeHeight(BaseModel):
@@ -1975,7 +1975,7 @@ class TaskBoardTask(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    columnId: str | None
+    columnId: str | None = None
     completed: bool
     description: str
     dueDateIso: str
@@ -2179,7 +2179,7 @@ class ToolCallDeltaEvent(BaseModel):
     arguments_delta: str
     message_id: str
     tool_call_id: str
-    tool_name: str | None
+    tool_name: str | None = None
     type: Literal["tool_call_delta"]
 
 
@@ -2254,9 +2254,9 @@ class Viewport(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    x: float = 0
-    y: float = 0
-    zoom: float = 1
+    x: float = 0.0
+    y: float = 0.0
+    zoom: float = 1.0
 
 
 class WatchCodeCallableKind(StrEnum):
@@ -2366,7 +2366,7 @@ class BrowserSavedSearch(BaseModel):
     query: str
     quickInfo: str
     searchScope: BrowserSearchScope
-    typeFilters: BrowserSavedSearchTypeFilters | None
+    typeFilters: BrowserSavedSearchTypeFilters | None = None
 
 
 class BrowserSectionImpl(BaseModel):
@@ -2696,7 +2696,7 @@ class RawArtifact(BaseModel):
     )
     id: str
     type: ArtifactType
-    value: RawMessage | None
+    value: RawMessage | None = None
 
 
 class SectionCodegenOverride(BaseModel):
@@ -2948,8 +2948,8 @@ class BaseSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: SectionSize
-    styleColor: str | None
-    tagColor: str | None
+    styleColor: str | None = None
+    tagColor: str | None = None
     type: SectionType
 
 

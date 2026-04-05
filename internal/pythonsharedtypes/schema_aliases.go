@@ -188,9 +188,6 @@ func applyPythonFieldMetadataToDatamodelDeclaration(
 	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
 		return declaration, nil, nil
 	}
-	if !pythonModelRequiresStandardFieldPatch(ownerType) {
-		return declaration, nil, nil
-	}
 
 	block, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
 		declaration.Name,

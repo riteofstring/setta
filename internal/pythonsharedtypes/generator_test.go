@@ -129,7 +129,7 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"temporary: bool = False",
 		"class LineChartSettings(BaseModel):",
 		"type: ChartType = ChartType.line",
-		"secondYAxisColumns: list[str] = []",
+		"secondYAxisColumns: list[str] = Field(default_factory=list)",
 		"class ScatterChartSettings(BaseModel):",
 		"type: ChartType = ChartType.scatter",
 		"class MessageThinkingDelta(BaseModel):",
