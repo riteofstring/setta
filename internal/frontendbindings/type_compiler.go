@@ -80,84 +80,6 @@ func newTypeConverter() *typeConverter {
 	return &typeConverter{}
 }
 
-func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
-	return c.renderTypeExprWithQualifier(t, "")
-}
-
-func (c *typeConverter) renderTypeExprWithQualifier(
-	t reflect.Type,
-	qualifier string,
-) (string, error) {
-	t = canonicalFrontendBindingType(t)
-	if t == nil {
-		return "null", nil
-	}
-	if t == timeType {
-		return "string", nil
-	}
-	if t == rawJSONType {
-		return qualifier + "JSONValue", nil
-	}
-	if t.Name() != "" && t.PkgPath() != "" {
-		return qualifier + frontendBindingTypeName(t), nil
-	}
-
-	switch t.Kind() {
-	case reflect.Pointer:
-		inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
-		if err != nil {
-			return "", err
-		}
-		return inner + " | null", nil
-	case reflect.String:
-		return "string", nil
-	case reflect.Bool:
-		return "boolean", nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		return "number", nil
-	case reflect.Slice, reflect.Array:
-		if t.Kind() == reflect.Array {
-			tuple, ok, err := c.renderTupleTypeExprWithQualifier(t, qualifier)
-			if err != nil {
-				return "", err
-			}
-			if ok {
-				return tuple, nil
-			}
-		}
-		inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("Array<%s>", inner), nil
-	case reflect.Map:
-		keyExpr, err := c.renderMapKeyExpr(t.Key())
-		if err != nil {
-			return "", err
-		}
-		valueExpr, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
-		if err != nil {
-			return "", err
-		}
-		return fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr), nil
-	case reflect.Struct:
-		properties, err := c.structProperties(t, nil, nil, nil)
-		if err != nil {
-			return "", err
-		}
-		return renderInlineObject(properties), nil
-	case reflect.Interface:
-		return "unknown", nil
-	default:
-		if t.Name() != "" && t.PkgPath() != "" {
-			return qualifier + frontendBindingTypeName(t), nil
-		}
-		return "", fmt.Errorf("unsupported Go type for TS conversion: %s", t.String())
-	}
-}
-
 func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
@@ -231,16 +153,12 @@ func buildGoBackedCreateBodyTS(
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
-		value, hasDefault := defaultValuesByName[property.Name]
-		fieldValue, hasFieldValue := reflectedStructFieldValue(reflectedDefaults, propertySpec.FieldIndex)
-		if hasFieldValue {
-			fieldContext := context + "." + property.Name
-			if !hasDefault {
-				value = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
-				hasDefault = true
-			}
-			value = mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, value)
-		}
+		value, hasDefault := resolvedGoBackedCreatePropertyDefault(
+			context,
+			reflectedDefaults,
+			defaultValuesByName,
+			propertySpec,
+		)
 		if !hasDefault {
 			if !property.Optional {
 				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
@@ -257,22 +175,66 @@ func buildGoBackedCreateBodyTS(
 		if !ok {
 			continue
 		}
-		fieldBuilder.WriteString("    ")
-		if property.Name != "__proto__" && tsIdentifierPattern.MatchString(property.Name) {
-			fieldBuilder.WriteString(property.Name)
-		} else {
-			fieldBuilder.WriteString(strconv.Quote(property.Name))
-		}
-		fieldBuilder.WriteString(": ")
-		fieldBuilder.WriteString(expr)
-		fieldBuilder.WriteString(",\n")
+		appendGoBackedCreateFieldAssignment(&fieldBuilder, property.Name, expr)
 	}
+	ensureNoUnexpectedGoBackedCreateDefaults(context, defaultValuesByName, defaultsObject)
+	return renderGoBackedCreateBody(declarationName, defaultsObject, fieldBuilder.String()), nil
+}
+
+func resolvedGoBackedCreatePropertyDefault(
+	context string,
+	reflectedDefaults reflect.Value,
+	defaultValuesByName map[string]any,
+	propertySpec reflectedStructProperty,
+) (any, bool) {
+	property := propertySpec.Property
+	value, hasDefault := defaultValuesByName[property.Name]
+	fieldValue, hasFieldValue := reflectedStructFieldValue(reflectedDefaults, propertySpec.FieldIndex)
+	if !hasFieldValue {
+		return value, hasDefault
+	}
+	fieldContext := context + "." + property.Name
+	if !hasDefault {
+		value = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
+		hasDefault = true
+	}
+	return mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, value), true
+}
+
+func appendGoBackedCreateFieldAssignment(
+	builder *strings.Builder,
+	propertyName string,
+	expr string,
+) {
+	builder.WriteString("    ")
+	if propertyName != "__proto__" && tsIdentifierPattern.MatchString(propertyName) {
+		builder.WriteString(propertyName)
+	} else {
+		builder.WriteString(strconv.Quote(propertyName))
+	}
+	builder.WriteString(": ")
+	builder.WriteString(expr)
+	builder.WriteString(",\n")
+}
+
+func ensureNoUnexpectedGoBackedCreateDefaults(
+	context string,
+	defaultValuesByName map[string]any,
+	defaultsObject map[string]any,
+) {
 	for key := range defaultValuesByName {
 		if _, ok := defaultsObject[key]; ok {
 			continue
 		}
 		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
+}
+
+func renderGoBackedCreateBody(
+	declarationName string,
+	defaultsObject map[string]any,
+	fieldAssignments string,
+) string {
 	var builder strings.Builder
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
@@ -283,9 +245,9 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString("    ...mergeGeneratedOptions<")
 	builder.WriteString(declarationName)
 	builder.WriteString(">(defaults, options),\n")
-	builder.WriteString(fieldBuilder.String())
+	builder.WriteString(fieldAssignments)
 	builder.WriteString("  };")
-	return builder.String(), nil
+	return builder.String()
 }
 
 func reflectedStructFieldValue(value reflect.Value, fieldIndex []int) (reflect.Value, bool) {
@@ -435,23 +397,6 @@ func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 	return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
 }
 
-func (c *typeConverter) structProperties(
-	t reflect.Type,
-	typeExprOverrides map[string]string,
-	optionalOverrides map[string]bool,
-	ignoredProperties map[string]struct{},
-) ([]TypeProperty, error) {
-	propertySpecs, err := c.structPropertySpecs(t, typeExprOverrides, optionalOverrides, ignoredProperties)
-	if err != nil {
-		return nil, err
-	}
-	properties := make([]TypeProperty, 0, len(propertySpecs))
-	for _, propertySpec := range propertySpecs {
-		properties = append(properties, propertySpec.Property)
-	}
-	return properties, nil
-}
-
 func (c *typeConverter) structPropertySpecs(
 	t reflect.Type,
 	typeExprOverrides map[string]string,
@@ -472,105 +417,202 @@ func (c *typeConverter) structPropertySpecsWithFieldIndex(
 	for i := range t.NumField() {
 		field := t.Field(i)
 		fieldIndex := append(append([]int(nil), fieldIndexPrefix...), field.Index...)
-		if !field.IsExported() {
-			continue
-		}
-		if field.Anonymous {
-			embeddedType := field.Type
-			for embeddedType.Kind() == reflect.Pointer {
-				embeddedType = embeddedType.Elem()
-			}
-			if embeddedType.Kind() != reflect.Struct {
-				return nil, fmt.Errorf(
-					"%s.%s: anonymous field must be a struct, got %s",
-					t.Name(),
-					field.Name,
-					field.Type.String(),
-				)
-			}
-			embeddedProperties, err := c.structPropertySpecsWithFieldIndex(
-				embeddedType,
-				typeExprOverrides,
-				optionalOverrides,
-				ignoredProperties,
-				fieldIndex,
-			)
-			if err != nil {
-				return nil, err
-			}
-			properties = append(properties, embeddedProperties...)
-			continue
-		}
-		name, optional, skip := jsonFieldName(field)
-		if skip {
-			continue
-		}
-		tsMetadata, err := tsFieldMetadata(field)
+		fieldProperties, err := c.structPropertySpecsForField(
+			t,
+			field,
+			fieldIndex,
+			typeExprOverrides,
+			optionalOverrides,
+			ignoredProperties,
+		)
 		if err != nil {
-			return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
+			return nil, err
 		}
-		if tsMetadata.Skip {
-			continue
-		}
-		if ignoredProperties != nil {
-			if _, ignored := ignoredProperties[name]; ignored {
-				continue
-			}
-		}
-		typeExprOverride := ""
-		if typeExprOverrides != nil {
-			typeExprOverride = typeExprOverrides[name]
-		}
-		typeExpr := typeExprOverride
-		if typeExpr == "" {
-			typeExpr = tsMetadata.TypeExpr
-		}
-		if typeExpr == "" {
-			var err error
-			typeExpr, err = c.renderTypeExpr(field.Type)
-			if err != nil {
-				return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
-			}
-		}
-		if optionalOverrides != nil {
-			if override, ok := optionalOverrides[name]; ok {
-				optional = override
-			}
-		}
-		if tsMetadata.Optional != nil {
-			optional = *tsMetadata.Optional
-		}
-		fieldType, nullable := unwrapNullableFieldType(field.Type)
-		createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
-		mapValueCreateTargetTypeName := ""
-		if tsMetadata.CreateMapValues {
-			if fieldType == nil || fieldType.Kind() != reflect.Map {
-				return nil, fmt.Errorf("%s.%s: ts_create_map_values requires a map field", t.Name(), field.Name)
-			}
-			var ok bool
-			mapValueCreateTargetTypeName, ok = frontendBindingCreateTargetTypeName(fieldType.Elem())
-			if !ok {
-				return nil, fmt.Errorf(
-					"%s.%s: ts_create_map_values requires map values with generated create support",
-					t.Name(),
-					field.Name,
-				)
-			}
-		}
-		properties = append(properties, reflectedStructProperty{
-			Property: TypeProperty{
-				Name:     name,
-				TypeExpr: typeExpr,
-				Optional: optional,
-			},
-			FieldIndex:                   fieldIndex,
-			Nullable:                     nullable,
-			CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
-			CreateTargetTypeName:         createTargetTypeName,
-			MapValueCreateTargetTypeName: mapValueCreateTargetTypeName,
-		})
+		properties = append(properties, fieldProperties...)
 	}
 	return properties, nil
+}
+
+func (c *typeConverter) structPropertySpecsForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	fieldIndex []int,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
+) ([]reflectedStructProperty, error) {
+	if !field.IsExported() {
+		return nil, nil
+	}
+	if field.Anonymous {
+		return c.embeddedStructPropertySpecs(
+			ownerType,
+			field,
+			fieldIndex,
+			typeExprOverrides,
+			optionalOverrides,
+			ignoredProperties,
+		)
+	}
+	property, ok, err := c.namedStructPropertySpec(
+		ownerType,
+		field,
+		fieldIndex,
+		typeExprOverrides,
+		optionalOverrides,
+		ignoredProperties,
+	)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return []reflectedStructProperty{property}, nil
+}
+
+func (c *typeConverter) embeddedStructPropertySpecs(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	fieldIndex []int,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
+) ([]reflectedStructProperty, error) {
+	embeddedType := field.Type
+	for embeddedType.Kind() == reflect.Pointer {
+		embeddedType = embeddedType.Elem()
+	}
+	if embeddedType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf(
+			"%s.%s: anonymous field must be a struct, got %s",
+			ownerType.Name(),
+			field.Name,
+			field.Type.String(),
+		)
+	}
+	return c.structPropertySpecsWithFieldIndex(
+		embeddedType,
+		typeExprOverrides,
+		optionalOverrides,
+		ignoredProperties,
+		fieldIndex,
+	)
+}
+
+func (c *typeConverter) namedStructPropertySpec(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	fieldIndex []int,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
+) (reflectedStructProperty, bool, error) {
+	name, optional, skip := jsonFieldName(field)
+	if skip {
+		return reflectedStructProperty{}, false, nil
+	}
+	tsMetadata, err := tsFieldMetadata(field)
+	if err != nil {
+		return reflectedStructProperty{}, false, fmt.Errorf("%s.%s: %w", ownerType.Name(), field.Name, err)
+	}
+	if tsMetadata.Skip || ignoredStructProperty(name, ignoredProperties) {
+		return reflectedStructProperty{}, false, nil
+	}
+	optional = resolvedStructPropertyOptional(name, optional, tsMetadata, optionalOverrides)
+	typeExpr := resolvedStructPropertyTypeExpr(name, tsMetadata, typeExprOverrides)
+	fieldType, nullable := unwrapNullableFieldType(field.Type)
+	createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
+	mapValueCreateTargetTypeName, err := resolvedMapValueCreateTargetTypeName(
+		ownerType,
+		field,
+		fieldType,
+		typeExpr,
+		tsMetadata,
+	)
+	if err != nil {
+		return reflectedStructProperty{}, false, err
+	}
+	return reflectedStructProperty{
+		Property: TypeProperty{
+			Name:     name,
+			TypeExpr: typeExpr,
+			Optional: optional,
+		},
+		FieldIndex:                   fieldIndex,
+		Nullable:                     nullable,
+		CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
+		CreateTargetTypeName:         createTargetTypeName,
+		MapValueCreateTargetTypeName: mapValueCreateTargetTypeName,
+	}, true, nil
+}
+
+func ignoredStructProperty(name string, ignoredProperties map[string]struct{}) bool {
+	if ignoredProperties == nil {
+		return false
+	}
+	_, ignored := ignoredProperties[name]
+	return ignored
+}
+
+func resolvedStructPropertyOptional(
+	name string,
+	optional bool,
+	tsMetadata tsFieldMetadataSpec,
+	optionalOverrides map[string]bool,
+) bool {
+	if optionalOverrides != nil {
+		if override, ok := optionalOverrides[name]; ok {
+			optional = override
+		}
+	}
+	if tsMetadata.Optional != nil {
+		optional = *tsMetadata.Optional
+	}
+	return optional
+}
+
+func resolvedStructPropertyTypeExpr(
+	name string,
+	tsMetadata tsFieldMetadataSpec,
+	typeExprOverrides map[string]string,
+) string {
+	typeExpr := strings.TrimSpace(tsMetadata.TypeExpr)
+	if typeExprOverrides == nil {
+		return typeExpr
+	}
+	if override := strings.TrimSpace(typeExprOverrides[name]); override != "" {
+		return override
+	}
+	return typeExpr
+}
+
+func resolvedMapValueCreateTargetTypeName(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	fieldType reflect.Type,
+	typeExpr string,
+	tsMetadata tsFieldMetadataSpec,
+) (string, error) {
+	if !tsMetadata.CreateMapValues {
+		return "", nil
+	}
+	if fieldType == nil || fieldType.Kind() != reflect.Map {
+		return "", fmt.Errorf("%s.%s: ts_create_map_values requires a map field", ownerType.Name(), field.Name)
+	}
+	mapValueCreateTargetTypeName, ok := frontendBindingCreateTargetTypeName(fieldType.Elem())
+	if !ok {
+		return "", fmt.Errorf(
+			"%s.%s: ts_create_map_values requires map values with generated create support",
+			ownerType.Name(),
+			field.Name,
+		)
+	}
+	if typeExpr == "" {
+		return "", fmt.Errorf(
+			"%s.%s: ts_create_map_values requires explicit ts_type",
+			ownerType.Name(),
+			field.Name,
+		)
+	}
+	return mapValueCreateTargetTypeName, nil
 }
 
 func frontendBindingCreateTargetTypeName(fieldType reflect.Type) (string, bool) {
@@ -594,24 +636,6 @@ func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
 		fieldType = fieldType.Elem()
 	}
 	return fieldType, nullable
-}
-
-func (c *typeConverter) renderMapKeyExpr(t reflect.Type) (string, error) {
-	if t.Kind() == reflect.Pointer {
-		return c.renderMapKeyExpr(t.Elem())
-	}
-	switch t.Kind() {
-	case reflect.String:
-		return "string", nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		return "number", nil
-	case reflect.Bool:
-		return "boolean", nil
-	default:
-		return "", fmt.Errorf("unsupported map key type for TS conversion: %s", t.String())
-	}
 }
 
 func jsonFieldName(field reflect.StructField) (name string, optional bool, skip bool) {
@@ -640,31 +664,6 @@ func lowerCamelCase(value string) string {
 		return value
 	}
 	return strings.ToLower(value[:1]) + value[1:]
-}
-
-func (c *typeConverter) renderTupleTypeExpr(t reflect.Type) (string, bool, error) {
-	return c.renderTupleTypeExprWithQualifier(t, "")
-}
-
-func (c *typeConverter) renderTupleTypeExprWithQualifier(
-	t reflect.Type,
-	qualifier string,
-) (string, bool, error) {
-	if t.Kind() != reflect.Array {
-		return "", false, nil
-	}
-	if t.Len() == 0 {
-		return "[]", true, nil
-	}
-	inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
-	if err != nil {
-		return "", false, err
-	}
-	members := make([]string, 0, t.Len())
-	for range t.Len() {
-		members = append(members, inner)
-	}
-	return "[" + strings.Join(members, ", ") + "]", true, nil
 }
 
 type tsFieldMetadataSpec struct {
@@ -711,21 +710,4 @@ func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
 	}
 
 	return spec, nil
-}
-
-func renderInlineObject(properties []TypeProperty) string {
-	if len(properties) == 0 {
-		return "Record<string, never>"
-	}
-	lines := make([]string, 0, len(properties)+2)
-	lines = append(lines, "{")
-	for _, property := range properties {
-		optional := ""
-		if property.Optional {
-			optional = "?"
-		}
-		lines = append(lines, fmt.Sprintf("  %s%s: %s;", property.Name, optional, property.TypeExpr))
-	}
-	lines = append(lines, "}")
-	return strings.Join(lines, "\n")
 }
