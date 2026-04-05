@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 03:59 EDT
+Last updated: 2026-04-08 04:26 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -76,6 +76,16 @@ This section overrides older "next frontier" notes below when choosing the next 
     - fresh-context Chrome DevTools MCP smoke-check reached both Settings pages and confirmed live workspace signals on both sides (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
     - the worktree smoke-check saw one transient `navigate_page` timeout at `10000ms`, but the retry succeeded and the transport stayed usable
     - this closes the smoke gate only; it is not a focused parity proof
+  - item `295` tested and closed one focused Pixi/scene hypothesis on the same lane:
+    - temporary product experiment: cache the Pixi shell host size and stop re-reading `clientWidth` / `clientHeight` during viewport-only presents
+    - focused worktree instrumentation stayed stable on the same `rotaryParamCodeObjDefault` path:
+      - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
+      - `pixiSyncCount` stayed `1`
+      - `sceneSyncCount` stayed `2`
+    - the same cross-worktree motion-perf probe on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes did not show a win:
+      - legacy `main`: average `17.80ms`, max `83.3ms`, `44` samples, long-task total `144ms`
+      - worktree canary with the temporary cache: average `20.15ms`, max `116.7ms`, `43` samples, long-task total `187ms`
+    - because the lane did not improve, the temporary product change was reverted; this closes the Pixi host-size read hypothesis without leaving production code behind
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -86,22 +96,25 @@ This section overrides older "next frontier" notes below when choosing the next 
     - root DOM stayed `135`
     - average frame duration improved `20.54ms -> 18.99ms`, but legacy still measured `17.80ms`
   - this means repeated interaction-state store writes were one real piece of the remaining motion cost, but not the last one
-  - the remaining hotspot is still more likely deeper viewport-sync or focused Pixi/scene work than DOM shell fan-out or presented-subset ownership
+  - item `295` narrows that further:
+    - removing Pixi host-size layout reads from the viewport-present path was not a measured win on the canonical lane
+    - the remaining hotspot is now more likely deeper viewport-sync / shared-store mirror work than Pixi host size reads, DOM shell fan-out, or presented-subset ownership
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
-  - the next true product hotspot is still the remaining focused viewport-sync or Pixi/scene work that runs after presentation gating and interaction-state dedupe
+  - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
+  - the next true product hotspot is still the remaining focused viewport-sync / shared-store mirror work that runs after presentation gating and interaction-state dedupe
   - the blocked smoke gate is no longer the blocker, so the next iteration should return to one bounded production reduction on the same canonical lane instead of reopening transport triage
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- land one bounded production reduction in the remaining focused viewport-sync or Pixi/scene path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
+- land one bounded production reduction in the remaining focused viewport-sync / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
 
 Recommended next target:
 
-- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe work
-- prefer a deeper focused viewport-sync or Pixi/scene reduction over another presentation-boundary hop, support-only oracle pass, or baseline-only report
+- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe viewport mirror work
+- prefer a deeper focused viewport-sync / shared-store mirror reduction over another Pixi host-size experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
 - keep the CDP work bounded to the required visual confirmation for the chosen product slice; do not spend the default pass re-proving the smoke gate that is now green
 
 Recommended deliverables for the next iteration:
@@ -120,6 +133,7 @@ Do not use the next iteration for:
 - more `tldraw` investigation
 - another smoke-only retry unless Chrome DevTools MCP transport regresses again
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
+- another Pixi host-size cache experiment unless a new trace shows that path dominating the lane
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
 - another baseline-only report unless the next product slice changes the measured motion lane
@@ -127,6 +141,42 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `295` tested one bounded Pixi/scene reduction hypothesis on `rotaryParamCodeObjDefault`, found that removing Pixi host-size layout reads was not a measured win on the canonical motion lane, reverted the temporary code, and handed the next pass to the deeper viewport-sync / shared-store mirror hotspot.
+
+  - Why this pass completed:
+    - item `294` explicitly handed the next iteration back to one bounded product slice on the canonical lane instead of another smoke-only retry
+    - the chosen slice was a real production experiment in the remaining focused Pixi/scene path, not another harness-only pass
+    - the result is now explicit and durable: this particular hypothesis did not move the lane and should not be reopened by default
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Product/test change:
+    - temporary experiment only: cached the Pixi shell host size in [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx) and added unit coverage in [`settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx)
+    - reverted that temporary product/test change after live verification showed no measured win, so no production code from the experiment remains landed
+    - added [`2026-04-08_settings-graph-substrate-canary-pixi-host-size-read-hypothesis.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-host-size-read-hypothesis.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed on the temporary experiment branch before the revert
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed on the temporary experiment branch before the revert (`1 file`, `6 tests`)
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.1m`)
+    - focused live canary instrumentation stayed stable:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, `pixiDrawableCount` `42`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - focused fit-view baseline: mounted section bodies `1`, `pixiDrawableCount` `1`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - after normalized blank-pane pan: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - after one toolbar zoom-in: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.2m`)
+    - normalized motion-perf output on the temporary experiment branch:
+      - legacy `main`: average `17.80ms`, max `83.3ms`, `44` samples, long-task total `144ms`, visible section count `46`
+      - worktree canary: average `20.15ms`, max `116.7ms`, `43` samples, long-task total `187ms`, visible section count `1`
+    - fresh-context CDP smoke-check sub-agent:
+      - read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - confirmed `http://127.0.0.1:3076/settings` loaded the Settings page with `#root` and a `main` region visibly mounted
+      - note: the visible status text included `Backend: Starting backend services`; the sub-agent did not see an explicit `Connected` label, so this remains a smoke-check only, not a parity proof
+      - transport note from the sub-agent: direct `chrome-devtools-mcp` bridge access was unavailable in that fresh session, so it verified the live browser through the worktree CDP port (`9298`) instead
+  - Lane status:
+    - the Pixi host-size read hypothesis is closed and should not be retried by default
+    - the next hotspot is still deeper viewport-sync / shared-store mirror work on the same canonical lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `294` retried the bounded CDP smoke-check on the fresh loop lifecycle and confirmed that Chrome DevTools MCP transport is usable again on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes, so the smoke gate is closed and the next frontier returns to product code on `rotaryParamCodeObjDefault`.
 

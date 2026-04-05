@@ -11261,3 +11261,40 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in the remaining post-dedupe viewport-sync or focused Pixi/scene path
     - keep CDP work bounded to required confirmation for that next product slice instead of reopening smoke-only transport triage
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 04:26 EDT, Ralph item `295`
+  - Summary: tested one bounded Pixi/scene hypothesis on the canonical `rotaryParamCodeObjDefault` lane, found that caching Pixi host size did not improve the measured motion lane, reverted the temporary code, and closed that hypothesis so the next pass can move to deeper viewport-sync / shared-store mirror work.
+  - Files:
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-host-size-read-hypothesis.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Verification:
+    - temporary experiment branch only:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed (`1 file`, `6 tests`)
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.1m`)
+    - focused live canary instrumentation stayed stable:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, `pixiDrawableCount` `42`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - focused fit-view baseline: mounted section bodies `1`, `pixiDrawableCount` `1`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - after normalized blank-pane pan: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+      - after one toolbar zoom-in: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`, `sceneSyncCount` `2`
+    - `source activate.sh && cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.2m`)
+    - normalized motion-perf output on the temporary experiment branch:
+      - legacy `main`: average `17.80ms`, max `83.3ms`, `44` samples, long-task total `144ms`, visible section count `46`
+      - worktree canary: average `20.15ms`, max `116.7ms`, `43` samples, long-task total `187ms`, visible section count `1`
+    - fresh-context CDP smoke-check sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - confirmed `http://127.0.0.1:3076/settings` loaded the Settings page with `#root` and a `main` region visibly mounted
+      - visible status text included `Backend: Starting backend services`; the sub-agent did not see an explicit `Connected` label, so this remained smoke-only verification
+      - transport note: direct `chrome-devtools-mcp` bridge access was unavailable in that fresh session, so the sub-agent used the live worktree CDP port (`9298`) instead
+  - Result:
+    - the Pixi host-size read hypothesis is closed and should not be retried by default
+    - no production code from the temporary experiment remains landed
+    - the remaining hotspot is still deeper viewport-sync / shared-store mirror work on the same canonical lane
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in the deeper viewport-sync / shared-store mirror path
+    - do not reopen the Pixi host-size cache idea unless a future trace shows that path dominating the lane
+  - LOOP_TERMINAL_MARKER: none
