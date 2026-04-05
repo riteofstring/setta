@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"setta/internal/sharedtypes"
 )
 
 type GeneratedTypes struct {
@@ -21,14 +23,22 @@ type fieldSpec struct {
 }
 
 func Build() (GeneratedTypes, error) {
-	ctx, err := buildGenerationContext()
+	sidecar, err := sharedtypes.BuildSemanticSidecar()
+	if err != nil {
+		return GeneratedTypes{}, err
+	}
+	defaultSources, err := defaultSourcesFromSidecar(
+		sidecar,
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
 
 	standardBlocks, standardImports, _, err := pythonSharedSchemaDeclarations(
-		ctx.DefaultSourcesByType,
-		ctx.SemanticSidecar,
+		defaultSources,
+		sidecar,
 	)
 	if err != nil {
 		return GeneratedTypes{}, err
@@ -177,7 +187,7 @@ func buildModelFieldSpec(
 		)
 	}
 
-	defaultExpr, err := pythonDefaultExpr(
+	defaultExpr, err := pythonPatchedFieldDefaultExpr(
 		ownerType,
 		field,
 		typeExpr,
@@ -373,7 +383,7 @@ func pythonPatchedFieldTypeExpr(
 	return currentTypeExpr, imports, nil
 }
 
-func pythonDefaultExpr(
+func pythonPatchedFieldDefaultExpr(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	typeExpr string,
@@ -387,7 +397,7 @@ func pythonDefaultExpr(
 		}
 		return "", nil
 	case "go_value":
-		return pythonDefaultExprFromGoValue(ownerType, field, typeExpr, defaultSourcesByType)
+		return pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
 	case "factory:list":
 		return "Field(default_factory=list)", nil
 	case "factory:dict":
@@ -397,7 +407,7 @@ func pythonDefaultExpr(
 	}
 }
 
-func pythonDefaultExprFromGoValue(
+func pythonGoValueDefaultExpr(
 	ownerType reflect.Type,
 	field reflect.StructField,
 	typeExpr string,
@@ -407,38 +417,34 @@ func pythonDefaultExprFromGoValue(
 	if !ok {
 		defaultValue = reflect.Zero(field.Type)
 	}
-	return pythonFieldDefaultExprFromValue(defaultValue, typeExpr)
-}
-
-func pythonFieldDefaultExprFromValue(value reflect.Value, typeExpr string) (string, error) {
-	if !value.IsValid() {
+	for defaultValue.IsValid() && defaultValue.Kind() == reflect.Interface {
+		if defaultValue.IsNil() {
+			return "None", nil
+		}
+		defaultValue = defaultValue.Elem()
+	}
+	for defaultValue.IsValid() && defaultValue.Kind() == reflect.Pointer {
+		if defaultValue.IsNil() {
+			return "None", nil
+		}
+		defaultValue = defaultValue.Elem()
+	}
+	if !defaultValue.IsValid() {
 		return "None", nil
 	}
-	if value.Kind() == reflect.Interface {
-		if value.IsNil() {
-			return "None", nil
-		}
-		return pythonFieldDefaultExprFromValue(value.Elem(), typeExpr)
-	}
-	if value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return "None", nil
-		}
-		value = value.Elem()
-	}
-	if expr, ok := pythonEmptyCollectionDefaultExpr(value); ok {
+	if expr, ok := pythonEmptyCollectionDefaultExpr(defaultValue); ok {
 		return expr, nil
 	}
-	if expr, ok := pythonScalarDefaultExpr(value); ok {
+	if expr, ok := pythonScalarDefaultExpr(defaultValue); ok {
 		return expr, nil
 	}
-	payload, err := json.Marshal(value.Interface())
+	payload, err := json.Marshal(defaultValue.Interface())
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(
 		"Field(default_factory=lambda: TypeAdapter(%s).validate_json(%q))",
-		typeExpr,
+		strings.TrimSpace(typeExpr),
 		string(payload),
 	), nil
 }

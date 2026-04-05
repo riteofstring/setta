@@ -11,37 +11,11 @@ import (
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
 
-type generationContext struct {
-	SemanticSidecar      sharedtypes.SemanticSidecar
-	DefaultSourcesByType map[reflect.Type]reflect.Value
-}
-
 var (
 	pythonSharedEnumNamesOnce sync.Once
 	pythonSharedEnumNames     map[reflect.Type]string
 	pythonSharedEnumNamesErr  error
 )
-
-func buildGenerationContext() (generationContext, error) {
-	sidecar, err := sharedtypes.BuildSemanticSidecar()
-	if err != nil {
-		return generationContext{}, err
-	}
-
-	defaultSources, err := defaultSourcesFromSidecar(
-		sidecar,
-		sharedtypes.DefaultProfilePythonShared,
-		sharedtypes.DefaultProfileFrontend,
-	)
-	if err != nil {
-		return generationContext{}, err
-	}
-
-	return generationContext{
-		SemanticSidecar:      sidecar,
-		DefaultSourcesByType: defaultSources,
-	}, nil
-}
 
 func defaultSourcesFromSidecar(
 	sidecar sharedtypes.SemanticSidecar,
@@ -58,6 +32,7 @@ func defaultSourcesFromSidecar(
 		}
 		profileRank[profile] = index
 	}
+
 	defaultSources := map[reflect.Type]reflect.Value{}
 	selectedProfileByType := map[reflect.Type]string{}
 	for _, entry := range sidecar.Defaults {
@@ -87,10 +62,11 @@ func defaultSourcesFromSidecar(
 		if err != nil {
 			return nil, fmt.Errorf("python shared types: sidecar default %s: %w", entry.Type, err)
 		}
-		if ok {
-			defaultSources[typ] = value
-			selectedProfileByType[typ] = entryProfile
+		if !ok {
+			continue
 		}
+		defaultSources[typ] = value
+		selectedProfileByType[typ] = entryProfile
 	}
 	return defaultSources, nil
 }

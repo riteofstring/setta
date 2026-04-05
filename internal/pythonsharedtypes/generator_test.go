@@ -10,6 +10,7 @@ import (
 
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
+	"setta/internal/sharedtypes"
 )
 
 func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
@@ -31,7 +32,7 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 		field,
 		"str",
 		map[string]struct{}{"omitEmptyExample": {}},
-		map[reflect.Type]reflect.Value{},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
@@ -59,7 +60,7 @@ func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "name"),
 		knownSchemaContractNamesForTest(t),
-		map[reflect.Type]reflect.Value{},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
@@ -87,7 +88,7 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 		field,
 		schemaFieldTypeExprForOwnerField(t, ownerType, "id"),
 		knownSchemaContractNamesForTest(t),
-		map[reflect.Type]reflect.Value{},
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
@@ -98,6 +99,36 @@ func TestBuildModelFieldSpecUsesExplicitPyTypeOverride(t *testing.T) {
 	importLine := "from setta.types.id import ID, create_new_id"
 	if _, ok := imports[importLine]; !ok {
 		t.Fatalf("expected import %q, got %#v", importLine, imports)
+	}
+}
+
+func TestBuildModelFieldSpecRewritesSchemaGeneratedTypeAdapterDefaults(t *testing.T) {
+	t.Helper()
+
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
+	field := fieldByNameForTest(t, ownerType, "CodegenTargets")
+	resolvedField, _, err := buildModelFieldSpec(
+		pythonSharedContractNameForType(ownerType),
+		ownerType,
+		field,
+		schemaFieldTypeExprForOwnerField(t, ownerType, "codegenTargets"),
+		knownSchemaContractNamesForTest(t),
+		defaultSourcesForTest(t),
+	)
+	if err != nil {
+		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
+	}
+	if resolvedField.TypeExpr != "list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" {
+		t.Fatalf("field.TypeExpr = %q", resolvedField.TypeExpr)
+	}
+	if !strings.Contains(
+		resolvedField.DefaultExpr,
+		`TypeAdapter(list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]).validate_json("`,
+	) {
+		t.Fatalf("field.DefaultExpr = %q", resolvedField.DefaultExpr)
+	}
+	if strings.Contains(resolvedField.DefaultExpr, "ProjectCodegenTarget") {
+		t.Fatalf("field.DefaultExpr still references unpatched type: %q", resolvedField.DefaultExpr)
 	}
 }
 
@@ -278,6 +309,23 @@ func knownSchemaContractNamesForTest(t *testing.T) map[string]struct{} {
 		knownContractNames[name] = struct{}{}
 	}
 	return knownContractNames
+}
+
+func defaultSourcesForTest(t *testing.T) map[reflect.Type]reflect.Value {
+	t.Helper()
+	sidecar, err := sharedtypes.BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+	defaultSources, err := defaultSourcesFromSidecar(
+		sidecar,
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
+	if err != nil {
+		t.Fatalf("defaultSourcesFromSidecar() error = %v", err)
+	}
+	return defaultSources
 }
 
 func schemaFieldTypeExprForOwnerField(t *testing.T, ownerType reflect.Type, fieldName string) string {
