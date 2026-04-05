@@ -309,6 +309,10 @@ latest_loop_activity_epoch() {
     "${loop_dir}/run-"*/last-message.txt
     "${loop_dir}/run-"*/worktree-*.log
     "${loop_dir}/run-"*/main-*.log
+    "${loop_dir}/progress-review-"*/status.txt
+    "${loop_dir}/progress-review-"*/progress-review-transcript.log
+    "${loop_dir}/progress-review-"*/progress-review-last-message.txt
+    "${loop_dir}/progress-review-"*/progress-review-prompt.txt
   )
   shopt -u nullglob
 

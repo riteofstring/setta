@@ -742,3 +742,141 @@ cat "${{last_message}}"
     assert (output_dir / "loop-001" / "run-001" / "status.txt").exists()
     assert not (output_dir / "loop-002").exists()
     assert not active_run_path.exists()
+
+
+def test_run_codex_supervisor_counts_progress_review_activity_as_live_loop_activity(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-supervisor.sh"
+
+    worktree_root = tmp_path / "worktree"
+    output_dir = tmp_path / "output"
+    stub_dir = tmp_path / "bin"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "---\nworkdir: worktree\n---\n",
+        encoding="utf-8",
+    )
+
+    loop_count_path = tmp_path / "loop-count.txt"
+    repair_count_path = tmp_path / "repair-count.txt"
+    loop_stub_path = tmp_path / "loop-stub.sh"
+    _write_executable(
+        loop_stub_path,
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+output_dir=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-dir)
+      output_dir="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+count=0
+if [[ -f "{loop_count_path}" ]]; then
+  count="$(cat "{loop_count_path}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "{loop_count_path}"
+mkdir -p "${{output_dir}}/run-001" "${{output_dir}}/progress-review-001"
+cat <<'EOF' > "${{output_dir}}/run-001/status.txt"
+status=success
+loop_status=SUBTASK_DONE
+EOF
+cat <<'EOF' > "${{output_dir}}/progress-review-001/progress-review-prompt.txt"
+Progress review checkpoint.
+EOF
+for beat in 1 2 3 4 5; do
+  printf 'heartbeat %s\\n' "${{beat}}" >> "${{output_dir}}/progress-review-001/progress-review-transcript.log"
+  sleep 1
+done
+cat <<'EOF' > "${{output_dir}}/progress-review-001/status.txt"
+status=success
+decision=continue
+EOF
+exit 0
+""",
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    repair_script_path = tmp_path / "repair.sh"
+    _write_executable(
+        repair_script_path,
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+count=0
+if [[ -f "{repair_count_path}" ]]; then
+  count="$(cat "{repair_count_path}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "{repair_count_path}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+            "--loop-script",
+            str(loop_stub_path),
+            "--poll-seconds",
+            "1",
+            "--stale-seconds",
+            "3",
+            "--repeat-failure-threshold",
+            "1",
+            "--repair-command",
+            str(repair_script_path),
+            "--no-codex-repair",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert loop_count_path.read_text(encoding="utf-8").strip() == "1"
+    assert not repair_count_path.exists()
+    supervisor_status = (output_dir / "supervisor" / "status.txt").read_text(
+        encoding="utf-8"
+    )
+    assert "status=completed" in supervisor_status
+    supervisor_log = (output_dir / "supervisor" / "supervisor.log").read_text(
+        encoding="utf-8"
+    )
+    assert "stalled_loop" not in supervisor_log
