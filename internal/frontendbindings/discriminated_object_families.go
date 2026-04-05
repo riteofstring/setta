@@ -261,36 +261,34 @@ func discriminatedObjectFamilyTraitDeclarations(
 			memberTypeNames = append(memberTypeNames, frontendBindingTypeName(member.Type))
 			memberEnumExprs = append(memberEnumExprs, member.EnumExpr)
 		}
-		if strings.TrimSpace(trait.UnionName) != "" {
-			memberNames := memberTypeNames
-			if trait.IncludeBase {
-				memberNames = append([]string{baseTypeName}, memberNames...)
-			}
-			if trait.LocalUnion {
-				declarations = append(declarations, localUnionDeclaration(trait.UnionName, memberNames...))
-			} else {
-				declarations = append(declarations, aliasUnionDeclaration(trait.UnionName, memberNames...))
-			}
+		unionName := strings.TrimSpace(trait.UnionName)
+		if unionName == "" {
+			continue
 		}
-		if strings.TrimSpace(trait.SetName) != "" {
-			declarations = append(declarations, setDeclaration(
-				trait.SetName,
+		memberNames := memberTypeNames
+		if trait.IncludeBase {
+			memberNames = append([]string{baseTypeName}, memberNames...)
+		}
+		if trait.LocalUnion {
+			declarations = append(declarations, localUnionDeclaration(unionName, memberNames...))
+		} else {
+			declarations = append(declarations, aliasUnionDeclaration(unionName, memberNames...))
+		}
+		traitTypeName := strings.TrimSuffix(unionName, "Union")
+		traitSetName := traitTypeName + "TypeSet"
+		declarations = append(declarations,
+			setDeclaration(
+				traitSetName,
 				frontendBindingTypeName(family.EnumType),
 				memberEnumExprs...,
-			))
-		}
-		if strings.TrimSpace(trait.GuardName) != "" {
-			returnType := trait.UnionName
-			if strings.TrimSpace(returnType) == "" {
-				returnType = baseUnionName
-			}
-			declarations = append(declarations, typeGuardDeclaration(
-				trait.GuardName,
+			),
+			typeGuardDeclaration(
+				"is"+traitTypeName,
 				baseUnionName,
-				returnType,
-				trait.SetName,
-			))
-		}
+				unionName,
+				traitSetName,
+			),
+		)
 	}
 	return declarations, nil
 }

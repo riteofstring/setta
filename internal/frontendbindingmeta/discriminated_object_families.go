@@ -7,8 +7,6 @@ type DiscriminatedObjectTraitSpec struct {
 	LocalUnion  bool
 	IncludeBase bool
 	Predicate   func(reflect.Type) bool
-	SetName     string
-	GuardName   string
 }
 
 type DiscriminatedObjectFamily struct {
