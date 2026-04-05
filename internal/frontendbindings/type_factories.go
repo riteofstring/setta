@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type genericCreateFieldSpec struct {
-	Name string
-	Expr string
-}
-
 type reflectedFieldCreateSpec struct {
 	Type            reflect.Type
 	CreateExpr      string
@@ -29,12 +24,12 @@ func buildGoBackedCreateBodyTS(
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	defaultsObject, orderedKeys := filteredCreateDefaultsObject(context, defaultValue, properties)
-	fieldSpecs, err := buildGenericCreateFieldSpecs(
+	defaultsObject, orderedKeys, fieldLines, err := buildGenericCreateDefaultsAndFieldsTS(
+		context,
 		structType,
 		properties,
 		fieldSpecsByName,
-		defaultsObject,
+		defaultValue,
 	)
 	if err != nil {
 		return "", err
@@ -49,53 +44,43 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString("    ...mergeGeneratedOptions<")
 	builder.WriteString(declarationName)
 	builder.WriteString(">(defaults, options),\n")
-	for _, field := range fieldSpecs {
-		builder.WriteString("    ")
-		builder.WriteString(field.Name)
-		builder.WriteString(": ")
-		builder.WriteString(field.Expr)
-		builder.WriteString(",\n")
+	for _, line := range fieldLines {
+		builder.WriteString(line)
 	}
 	builder.WriteString("  };")
 	return builder.String(), nil
 }
 
-func filteredCreateDefaultsObject(
+func buildGenericCreateDefaultsAndFieldsTS(
 	context string,
-	defaultValue any,
-	properties []TypeProperty,
-) (map[string]any, []string) {
-	defaultsObject, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
-	filtered := make(map[string]any, len(properties))
-	orderedKeys := make([]string, 0, len(properties))
-	for _, property := range properties {
-		value, ok := defaultsObject[property.Name]
-		if !ok {
-			if property.Optional {
-				continue
-			}
-			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
-		}
-		filtered[property.Name] = value
-		orderedKeys = append(orderedKeys, property.Name)
-	}
-	return filtered, orderedKeys
-}
-
-func buildGenericCreateFieldSpecs(
 	structType reflect.Type,
 	properties []TypeProperty,
 	fieldSpecsByName map[string]reflectedFieldCreateSpec,
-	defaults map[string]any,
-) ([]genericCreateFieldSpec, error) {
-	specs := []genericCreateFieldSpec{}
+	defaultValue any,
+) (map[string]any, []string, []string, error) {
+	defaultValuesByName, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
+	filtered := make(map[string]any, len(properties))
+	orderedKeys := make([]string, 0, len(properties))
+	fieldLines := make([]string, 0, len(properties))
 	for _, property := range properties {
 		fieldSpec, ok := fieldSpecsByName[property.Name]
 		if !ok {
-			return nil, fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
+			return nil, nil, nil, fmt.Errorf(
+				"%s is missing field metadata for %q",
+				structType.Name(),
+				property.Name,
+			)
 		}
-		_, hasDefault := defaults[property.Name]
-		createFieldSpec, ok, err := buildGenericCreateFieldSpec(
+		value, hasDefault := defaultValuesByName[property.Name]
+		if !hasDefault {
+			if !property.Optional {
+				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
+			}
+		} else {
+			filtered[property.Name] = value
+			orderedKeys = append(orderedKeys, property.Name)
+		}
+		expr, ok, err := buildGenericCreateFieldExprTS(
 			fieldSpec,
 			property,
 			renderTSPropertyAccessExpr("defaults", property.Name),
@@ -103,40 +88,37 @@ func buildGenericCreateFieldSpecs(
 			hasDefault,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 		if ok {
-			specs = append(specs, createFieldSpec)
+			fieldLines = append(fieldLines, "    "+renderTSObjectKey(property.Name)+": "+expr+",\n")
 		}
 	}
-	return specs, nil
+	return filtered, orderedKeys, fieldLines, nil
 }
 
-func buildGenericCreateFieldSpec(
+func buildGenericCreateFieldExprTS(
 	fieldSpec reflectedFieldCreateSpec,
 	property TypeProperty,
 	defaultExpr string,
 	optionsExpr string,
 	hasDefault bool,
-) (genericCreateFieldSpec, bool, error) {
+) (string, bool, error) {
 	defaultExpr = strings.TrimSpace(defaultExpr)
 	optionsExpr = strings.TrimSpace(optionsExpr)
 	explicitDefaultExpr := strings.TrimSpace(fieldSpec.CreateExpr)
 	if explicitDefaultExpr != "" {
-		return genericCreateFieldSpec{
-			Name: property.Name,
-			Expr: buildGenericDefaultFallbackExprTS(fieldSpec.Type, optionsExpr, explicitDefaultExpr),
-		}, true, nil
+		return buildGenericDefaultFallbackExprTS(fieldSpec.Type, optionsExpr, explicitDefaultExpr), true, nil
 	}
 	if expr, ok := buildGenericNamedStructFieldExprTS(fieldSpec.Type, optionsExpr, defaultExpr, hasDefault); ok {
-		return genericCreateFieldSpec{Name: property.Name, Expr: expr}, true, nil
+		return expr, true, nil
 	}
 	if fieldSpec.CreateMapValues {
 		if expr, ok := buildGenericMapFieldExprTS(fieldSpec.Type, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
-			return genericCreateFieldSpec{Name: property.Name, Expr: expr}, true, nil
+			return expr, true, nil
 		}
 	}
-	return genericCreateFieldSpec{}, false, nil
+	return "", false, nil
 }
 
 func buildGenericNamedStructFieldExprTS(

@@ -20,22 +20,6 @@ type tsRawExpr struct {
 	Expr string
 }
 
-func validateTSLiteralObjectKeys(context string, object map[string]any, orderedKeys []string) {
-	expected := make(map[string]struct{}, len(orderedKeys))
-	for _, key := range orderedKeys {
-		expected[key] = struct{}{}
-		if _, ok := object[key]; !ok {
-			panic(fmt.Sprintf("%s is missing property %q", context, key))
-		}
-	}
-	for key := range object {
-		if _, ok := expected[key]; ok {
-			continue
-		}
-		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
-	}
-}
-
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -48,21 +32,29 @@ func mustTSLiteralValueFromGoValue(context string, value any) any {
 	return normalized
 }
 
-func mustTSLiteralObjectFromGoValue(context string, value any) map[string]any {
+func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[string]any, []string) {
 	normalized := mustTSLiteralValueFromGoValue(context, value)
 	normalized = mergeTSLiteralValueFromGoValue(context, value, normalized)
 	object, ok := normalized.(map[string]any)
 	if !ok {
 		panic(context + ": Go default did not decode to an object")
 	}
-	return object
-}
-
-func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[string]any, []string) {
-	object := mustTSLiteralObjectFromGoValue(context, value)
 	orderedKeys := goJSONFieldOrder(value)
-	if len(orderedKeys) > 0 {
-		validateTSLiteralObjectKeys(context, object, orderedKeys)
+	if len(orderedKeys) == 0 {
+		return object, orderedKeys
+	}
+	expected := make(map[string]struct{}, len(orderedKeys))
+	for _, key := range orderedKeys {
+		expected[key] = struct{}{}
+		if _, ok := object[key]; !ok {
+			panic(fmt.Sprintf("%s is missing property %q", context, key))
+		}
+	}
+	for key := range object {
+		if _, ok := expected[key]; ok {
+			continue
+		}
+		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
 	return object, orderedKeys
 }
