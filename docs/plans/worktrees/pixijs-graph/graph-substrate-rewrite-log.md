@@ -5369,6 +5369,60 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to one different named Gate 1 / Gate 2 lane or production renderer slice that still lacks a trusted normalized result; the dropzone toolbar-zoom lane is no longer the blocker
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-05 03:55 EDT - Ralph item 153
+
+- Item: Make the canary fit/scene-bounds path keep authoritative layout size when available, then recheck one clean fit/zoom lane plus the active `sectionSizingPolicy` blocker lane on the live run-013 surfaces.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - items `151` and `152` had already exhausted the oracle-cleanup work on `sectionSizingPolicy`, so the next valid step had to be production code on that named lane
+    - `sectionSizingPolicy` already had matching backend `w=552 h=352` on both sides, so a plausible remaining cause was the canary still shrinking fit bounds from observed DOM size instead of the authoritative top-level layout
+    - the rewrite plan explicitly forbids DOM overlays from becoming the authoritative source of section geometry
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - stopped overriding canary section `width`/`height` from shared `nodeInternals`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - made scene bounds prefer authoritative layout size when positive dimensions already exist
+      - kept observed DOM size as fallback only when layout geometry is missing
+    - updated focused unit tests in:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+  - What this slice established:
+    - the focused canary unit tests passed after the geometry-authority change
+    - temporarily removing the `sectionSizingPolicy` `test.fail(true, ...)` marker and rerunning the live lane still failed on the same `transformDelta.x` assertion (`143.65799999999996`), so this change did not clear the active blocker
+    - after restoring the expected-fail marker, the combined live rerun of:
+      - `chartSectionDefault`
+      - `sectionSizingPolicy`
+      passed as targeted verification (`2 passed`), which means the known-clean chart lane stayed clean while `sectionSizingPolicy` remained the expected-fail repro
+    - fresh-context CDP on the live `3076/settings` and `3087/settings` tabs showed:
+      - `chartSectionDefault` still looked attached after normalized `All Settings` plus shared `fit view -> zoom in`
+      - `sectionSizingPolicy` was only partially in view on the worktree side during that quick read, and the sub-agent did not see an obvious new right/down drift there; that visual read stays secondary to the unchanged Playwright delta
+    - treat this slice as a real substrate correction that removes one DOM-authority leak, but not the root-cause fix for the remaining `sectionSizingPolicy` drift
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - focused unit tests:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`2 files`, `8 tests`)
+  - targeted direct live-runtime Playwright rerun without the expected-fail marker:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed on `transformDelta.x` (`143.65799999999996`)
+  - targeted direct live-runtime Playwright rerun with restored expected-fail marker plus one clean chart lane:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary|settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`2 passed`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized the live worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings` tabs
+    - applied the shared `fit view -> zoom in` path and visually checked `chartSectionDefault`, with a partial glance at `sectionSizingPolicy`
+  - CDP visual check: done (fresh-context sub-agent; `chartSectionDefault` still looked attached with no obvious new drift, while `sectionSizingPolicy` remained a partial visual read and the unchanged Playwright delta still defines that blocker)
+- Lane status:
+  - keep `sectionSizingPolicy` as the canonical expected-fail lane
+  - do not reopen the geometry-authority theory next iteration; this slice landed it and showed it does not clear the remaining `transformDelta.x` drift
+  - keep `chartSectionDefault` closed as a clean lane after this production change
+- Next action:
+  - investigate canary authoritative viewport / fit-center math on `sectionSizingPolicy`; the remaining blocker no longer looks like a geometry-authority problem
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-05 03:14 EDT - Ralph item 151
 
 - Item: Open an explicit `sectionSizingPolicy` normalized pan-plus-zoom title-edit lane on the current live surfaces, then decide whether it closes cleanly or becomes the next real renderer-facing repro.

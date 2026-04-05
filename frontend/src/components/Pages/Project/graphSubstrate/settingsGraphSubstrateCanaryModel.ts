@@ -110,8 +110,6 @@ export function selectSettingsGraphSubstrateCanarySections(
       return {
         ...layoutSection,
         tempZIndex: node?.tempZIndex ?? layoutSection.tempZIndex,
-        width: node?.width ?? layoutSection.width,
-        height: node?.height ?? layoutSection.height,
       };
     },
   );

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 03:35 EDT
+Last updated: 2026-04-05 03:55 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,56 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `153` made the canary fit path keep authoritative top-level layout dimensions instead of promoting live DOM-measured section size, then reran the live run-013 chart and `sectionSizingPolicy` lanes.
+  - Why this slice was needed:
+    - items `151` and `152` had already closed the lane-selection/oracle question for `sectionSizingPolicy`, so the next valid step had to be production code on that named lane rather than another probe-only pass
+    - `sectionSizingPolicy` already reported the same backend layout size (`w=552 h=352`) on both runtimes, so one plausible remaining cause was the canary fit path still shrinking its scene bounds from observed DOM size instead of the authoritative view-mode layout
+    - the rewrite plan explicitly says DOM overlays must not become the authoritative source of section geometry, so this was the narrowest product-side correction at that seam
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - stopped overriding canary section `width`/`height` from shared `nodeInternals`, so the canary section model now keeps the active view-mode layout dimensions as its authoritative geometry
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - made scene-bounds/fit calculations prefer the authoritative layout size whenever the top-level layout already provides positive `width`/`height`
+      - kept observed element size only as the fallback when layout geometry is missing
+    - updated focused unit tests in:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+  - What this slice established:
+    - the focused canary unit coverage passed after the geometry-authority change
+    - a known-clean fit-view-plus-toolbar-zoom lane still passed on the live run-013 surfaces:
+      - `chartSectionDefault` remained attached after the shared fit-view plus one toolbar `zoom in`
+    - the active named blocker did not move:
+      - temporarily removing `test.fail(true, ...)` from the `sectionSizingPolicy` lane still failed on the same `transformDelta.x` assertion, with a worktree-versus-reference delta around `143.658`
+      - restoring the expected-fail marker and rerunning the live chart plus `sectionSizingPolicy` lanes produced a clean targeted result (`2 passed`, where `sectionSizingPolicy` remained the expected-fail repro)
+    - treat the geometry-authority fix as a real substrate correction, but not the root-cause fix for the remaining `sectionSizingPolicy` drift
+    - fresh-context CDP on the live `3076/settings` and `3087/settings` tabs reported:
+      - `chartSectionDefault` still looked attached on both sides after normalized `All Settings` plus shared `fit view -> zoom in`, with no obvious new drift
+      - `sectionSizingPolicy` was only partially in view on the worktree side during that quick visual read, and the sub-agent did not see an obvious new right/down drift there; treat that as partial visual context only, not evidence that the Playwright delta is gone
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - focused unit tests:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - result: passed (`2 files`, `8 tests`)
+    - targeted live-runtime Playwright rerun without the expected-fail marker:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed on `transformDelta.x` at `143.65799999999996`
+    - targeted live-runtime Playwright rerun with the restored expected-fail marker plus a known-clean chart lane:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary|settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`2 passed`, where `sectionSizingPolicy` remained an expected-fail repro)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - normalized live worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings`
+      - applied the shared `fit view -> zoom in` path and visually checked `chartSectionDefault`, with a partial glance at `sectionSizingPolicy`
+    - CDP visual check: done (fresh-context sub-agent; `chartSectionDefault` still looked attached with no obvious new drift, while `sectionSizingPolicy` remained only a partial visual read and the Playwright delta still defines that blocker)
+  - Lane status:
+    - keep `sectionSizingPolicy` as the canonical expected-fail lane
+    - do not reopen the geometry-authority theory next iteration; this slice landed it and showed it does not clear the remaining `transformDelta.x` drift
+    - treat the `chartSectionDefault` lane as still clean after this production change
+  - Next frontier:
+    - investigate the canary-side authoritative viewport / fit-center math on the named `sectionSizingPolicy` lane, because geometry authority no longer looks like the remaining root cause
 
 - Ralph item `152` corrected the named `sectionSizingPolicy` lane so it no longer relies on the untrustworthy blank-pane mouse path, then reran it as a trusted expected-fail repro on the live run-012 surfaces.
   - Why this slice was needed:

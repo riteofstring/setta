@@ -149,7 +149,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     expect(selectSettingsGraphSubstrateCanaryLayoutSections(state)).toEqual([]);
   });
 
-  it("selects all visible canary sections in legacy display order and prefers measured dimensions", () => {
+  it("selects all visible canary sections in legacy display order while keeping layout dimensions authoritative", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [
@@ -183,14 +183,14 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         position: { x: 120, y: 100 },
         zIndex: 1,
         tempZIndex: 1,
-        width: 410,
-        height: 260,
+        width: 320,
+        height: 240,
         positionAndSizeLocked: false,
       },
     ]);
   });
 
-  it("keeps rendering moved sections from the active layout while preserving measured geometry", () => {
+  it("keeps rendering moved sections from the active layout while preserving authoritative geometry", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [

@@ -23,6 +23,12 @@ function getRenderedSectionSize(
   section: GraphSubstrateCanarySection,
   observedElementSizes: ObservedElementSizes,
 ) {
+  const width = section.width ?? 0;
+  const height = section.height ?? 0;
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
+
   const observedSize = observedElementSizes[section.sectionId];
   if (
     typeof observedSize?.width === "number" &&
@@ -32,15 +38,7 @@ function getRenderedSectionSize(
   ) {
     return observedSize;
   }
-
-  const width = section.width ?? 0;
-  const height = section.height ?? 0;
-
-  if (width <= 0 || height <= 0) {
-    return null;
-  }
-
-  return { width, height };
+  return null;
 }
 
 export function getSettingsGraphSubstrateCanarySceneBounds(
