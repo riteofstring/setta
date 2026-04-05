@@ -1,9 +1,12 @@
 package sharedtypes
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/jsonschema-go/jsonschema"
 
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
@@ -459,6 +462,42 @@ func TestBuildSchemaDocumentUsesDateTimeFormatForTimeFields(t *testing.T) {
 	}
 }
 
+func TestBuildSchemaDocumentIncludesStaticFieldDefaults(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	lineChartSchema := document.Defs["LineChartSettings"]
+	if lineChartSchema == nil {
+		t.Fatalf("expected LineChartSettings schema in $defs")
+	}
+	if got := decodeSchemaDefaultString(t, lineChartSchema.Properties["type"]); got != "line" {
+		t.Fatalf("LineChartSettings.type default = %q, want %q", got, "line")
+	}
+	if got := decodeSchemaDefaultArrayLen(t, lineChartSchema.Properties["secondYAxisColumns"]); got != 0 {
+		t.Fatalf("LineChartSettings.secondYAxisColumns default length = %d, want 0", got)
+	}
+
+	viewportSchema := document.Defs["Viewport"]
+	if viewportSchema == nil {
+		t.Fatalf("expected Viewport schema in $defs")
+	}
+	if got := decodeSchemaDefaultFloat(t, viewportSchema.Properties["zoom"]); got != 1 {
+		t.Fatalf("Viewport.zoom default = %v, want 1", got)
+	}
+
+	filtersSchema := document.Defs["BrowserSavedSearchTypeFilters"]
+	if filtersSchema == nil {
+		t.Fatalf("expected BrowserSavedSearchTypeFilters schema in $defs")
+	}
+	if got := decodeSchemaDefaultBool(t, filtersSchema.Properties["image"]); !got {
+		t.Fatalf("BrowserSavedSearchTypeFilters.image default = %v, want true", got)
+	}
+}
+
 func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	t.Parallel()
 
@@ -535,4 +574,52 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 			t.Fatalf("Route projection is missing %q", want)
 		}
 	}
+
+	lineChartProjection, ok := schemas["LineChartSettings"].(map[string]any)
+	if !ok {
+		t.Fatalf("LineChartSettings projection type = %T, want map[string]any", schemas["LineChartSettings"])
+	}
+	lineChartProperties, ok := lineChartProjection["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("LineChartSettings projection properties type = %T, want map[string]any", lineChartProjection["properties"])
+	}
+	if got, _ := lineChartProperties["type"].(map[string]any)["default"].(string); got != "line" {
+		t.Fatalf("LineChartSettings projection default = %q, want %q", got, "line")
+	}
+}
+
+func decodeSchemaDefaultString(t *testing.T, schema *jsonschema.Schema) string {
+	t.Helper()
+	var value string
+	if err := json.Unmarshal(schema.Default, &value); err != nil {
+		t.Fatalf("decode schema default string: %v", err)
+	}
+	return value
+}
+
+func decodeSchemaDefaultArrayLen(t *testing.T, schema *jsonschema.Schema) int {
+	t.Helper()
+	var value []any
+	if err := json.Unmarshal(schema.Default, &value); err != nil {
+		t.Fatalf("decode schema default array: %v", err)
+	}
+	return len(value)
+}
+
+func decodeSchemaDefaultFloat(t *testing.T, schema *jsonschema.Schema) float64 {
+	t.Helper()
+	var value float64
+	if err := json.Unmarshal(schema.Default, &value); err != nil {
+		t.Fatalf("decode schema default float: %v", err)
+	}
+	return value
+}
+
+func decodeSchemaDefaultBool(t *testing.T, schema *jsonschema.Schema) bool {
+	t.Helper()
+	var value bool
+	if err := json.Unmarshal(schema.Default, &value); err != nil {
+		t.Fatalf("decode schema default bool: %v", err)
+	}
+	return value
 }

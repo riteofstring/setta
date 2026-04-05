@@ -903,10 +903,12 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/ChatRole"
+          "$ref": "#/$defs/ChatRole",
+          "default": "assistant"
         },
         "createdAt": {
-          "type": "integer"
+          "type": "integer",
+          "default": 0
         },
         "content": {
           "type": [
@@ -1662,19 +1664,24 @@
       "type": "object",
       "properties": {
         "image": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         },
         "video": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         },
         "audio": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         },
         "text": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         },
         "data": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         }
       },
       "title": "BrowserSavedSearchTypeFilters",
@@ -2604,7 +2611,8 @@
           }
         },
         "createdAt": {
-          "type": "integer"
+          "type": "integer",
+          "default": 0
         },
         "parentBranchId": {
           "type": [
@@ -2917,10 +2925,12 @@
           }
         },
         "inputText": {
-          "type": "string"
+          "type": "string",
+          "default": ""
         },
         "waitingForResponse": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "toolCallArguments": {
           "type": "object",
@@ -6916,7 +6926,8 @@
           }
         },
         "temporary": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "title": "LLMConfig",
@@ -7184,7 +7195,8 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/ChartType"
+          "$ref": "#/$defs/ChartType",
+          "default": "line"
         },
         "xAxisColumn": {
           "type": [
@@ -7199,16 +7211,20 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "default": []
         },
         "xAxisLog": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "y1AxisLog": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "y2AxisLog": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "title": "LineChartSettings",
@@ -7579,6 +7595,7 @@
           "type": "string"
         },
         "payload": {
+          "default": null,
           "anyOf": [
             {
               "$ref": "#/$defs/RawMessage"
@@ -7650,6 +7667,7 @@
         },
         "details": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         }
       },
@@ -7811,6 +7829,7 @@
         },
         "dependencyValues": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         },
         "artifactUpdates": {
@@ -7827,7 +7846,8 @@
                 "type": "null"
               }
             ]
-          }
+          },
+          "default": []
         }
       },
       "title": "ListenerFrontendEmitRequest",
@@ -7876,7 +7896,8 @@
           "type": [
             "null",
             "string"
-          ]
+          ],
+          "default": null
         },
         "projectName": {
           "type": [
@@ -7885,7 +7906,8 @@
           ]
         },
         "useTemporaryIds": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "title": "ListenerInitRequest",
@@ -7953,7 +7975,8 @@
           ],
           "items": {
             "$ref": "#/$defs/ListenerRealtimeDelta"
-          }
+          },
+          "default": []
         },
         "dependencyValues": {
           "anyOf": [
@@ -8073,6 +8096,7 @@
         },
         "callbacks": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/ListenerRegisterAckStatus"
           }
@@ -8185,6 +8209,7 @@
         },
         "callbacks": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/ListenerRegisterCallbackSpec"
           }
@@ -8247,6 +8272,7 @@
         },
         "payload": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         }
       },
@@ -8314,7 +8340,9 @@
         "ok": {
           "type": "boolean"
         },
-        "result": true,
+        "result": {
+          "default": null
+        },
         "error": {
           "type": [
             "null",
@@ -8323,6 +8351,7 @@
         },
         "details": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         }
       },
@@ -8454,6 +8483,7 @@
         },
         "payload": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         }
       },
@@ -8511,7 +8541,8 @@
           ],
           "items": {
             "$ref": "#/$defs/LocalCoreListenerRealtimeDelta"
-          }
+          },
+          "default": []
         }
       },
       "title": "LocalCoreRenderRealtimeDependencyValuesRequest",
@@ -8544,7 +8575,9 @@
         "ok": {
           "type": "boolean"
         },
-        "result": true,
+        "result": {
+          "default": null
+        },
         "error": {
           "type": [
             "null",
@@ -8553,6 +8586,7 @@
         },
         "details": {
           "type": "object",
+          "default": {},
           "additionalProperties": true
         }
       },
@@ -11296,15 +11330,19 @@
           "type": "string"
         },
         "showParamDisplayNames": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "allowJsonSourceKeyEdits": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "previewImgColor": {
-          "type": "string"
+          "type": "string",
+          "default": ""
         },
         "viewport": {
+          "default": null,
           "anyOf": [
             {
               "$ref": "#/$defs/Viewport"
@@ -11315,10 +11353,12 @@
           ]
         },
         "viewportInitialized": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "viewModes": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/ViewMode"
           }
@@ -11330,13 +11370,20 @@
           ]
         },
         "isEditingViewMode": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "hasPythonCodegenTarget": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "runCapabilities": {
-          "$ref": "#/$defs/ProjectRunCapabilities"
+          "$ref": "#/$defs/ProjectRunCapabilities",
+          "default": {
+            "canRunFromMain": false,
+            "mainRunDisabledReason": null,
+            "effectiveEntrySectionId": null
+          }
         },
         "codegenTargets": {
           "type": [
@@ -11352,10 +11399,12 @@
                 "type": "null"
               }
             ]
-          }
+          },
+          "default": []
         },
         "watchCodeEnabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "watchCodeFolders": {
           "type": [
@@ -11364,7 +11413,8 @@
           ],
           "items": {
             "$ref": "#/$defs/WatchCodeFolder"
-          }
+          },
+          "default": []
         },
         "watchCodeFiles": {
           "type": [
@@ -11373,16 +11423,19 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "default": []
         },
         "watchCodeRegistry": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/WatchCodeRegistryEntry"
           }
         },
         "watchCodeBaselineByPath": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": [
               "null",
@@ -11401,12 +11454,14 @@
         },
         "sectionPathSlugsById": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": "string"
           }
         },
         "sectionIdsByPathSlug": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": [
               "null",
@@ -11419,18 +11474,21 @@
         },
         "topLevelSections": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/TopLevelSectionLayout"
           }
         },
         "windowSpaceSlugsById": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": "string"
           }
         },
         "windowSpaceIdsBySlug": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": [
               "null",
@@ -11443,12 +11501,14 @@
         },
         "windowSpaces": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "$ref": "#/$defs/WindowSpaceConfig"
           }
         },
         "sectionVariantMap": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": "string"
           }
@@ -11460,7 +11520,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "default": []
         },
         "edges": {
           "type": [
@@ -11469,7 +11530,8 @@
           ],
           "items": {
             "$ref": "#/$defs/Edge"
-          }
+          },
+          "default": []
         },
         "agenticEdges": {
           "type": [
@@ -11478,7 +11540,8 @@
           ],
           "items": {
             "$ref": "#/$defs/AgenticEdge"
-          }
+          },
+          "default": []
         },
         "stateMachineEdges": {
           "type": [
@@ -11487,7 +11550,8 @@
           ],
           "items": {
             "$ref": "#/$defs/StateMachineEdge"
-          }
+          },
+          "default": []
         }
       },
       "title": "ProjectConfig",
@@ -13505,7 +13569,8 @@
           ]
         },
         "supportsParams": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "variants": {
           "type": [
@@ -13514,7 +13579,8 @@
           ],
           "items": {
             "$ref": "#/$defs/RunnerSummaryVariant"
-          }
+          },
+          "default": []
         },
         "params": {
           "type": [
@@ -13523,7 +13589,8 @@
           ],
           "items": {
             "$ref": "#/$defs/RunnerSummaryParam"
-          }
+          },
+          "default": []
         }
       },
       "title": "RunnerSummarySection",
@@ -13549,7 +13616,8 @@
           ],
           "items": {
             "$ref": "#/$defs/RunnerSummarySection"
-          }
+          },
+          "default": []
         }
       },
       "title": "RunnerSummarySnapshot",
@@ -13628,7 +13696,8 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/ChartType"
+          "$ref": "#/$defs/ChartType",
+          "default": "scatter"
         },
         "xAxisColumn": {
           "type": [
@@ -13643,10 +13712,12 @@
           ]
         },
         "xAxisLog": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "yAxisLog": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "title": "ScatterChartSettings",
@@ -16625,10 +16696,12 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/ChatRole"
+          "$ref": "#/$defs/ChatRole",
+          "default": "system"
         },
         "createdAt": {
-          "type": "integer"
+          "type": "integer",
+          "default": 0
         },
         "content": {
           "type": [
@@ -17615,10 +17688,12 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/ChatRole"
+          "$ref": "#/$defs/ChatRole",
+          "default": "tool"
         },
         "createdAt": {
-          "type": "integer"
+          "type": "integer",
+          "default": 0
         },
         "tool_call_id": {
           "type": "string"
@@ -17630,7 +17705,9 @@
           ]
         },
         "arguments": true,
-        "result": true,
+        "result": {
+          "default": null
+        },
         "content": {
           "type": [
             "null",
@@ -17642,7 +17719,8 @@
           }
         },
         "is_error": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "started_at": {
           "type": "string",
@@ -17919,10 +17997,12 @@
       "type": "object",
       "properties": {
         "callable": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "params": {
           "type": "object",
+          "default": {},
           "additionalProperties": {
             "type": "boolean"
           }
@@ -18305,10 +18385,12 @@
           "type": "string"
         },
         "role": {
-          "$ref": "#/$defs/ChatRole"
+          "$ref": "#/$defs/ChatRole",
+          "default": "user"
         },
         "createdAt": {
-          "type": "integer"
+          "type": "integer",
+          "default": 0
         },
         "content": {
           "type": [
@@ -18442,13 +18524,16 @@
       "type": "object",
       "properties": {
         "x": {
-          "type": "number"
+          "type": "number",
+          "default": 0
         },
         "y": {
-          "type": "number"
+          "type": "number",
+          "default": 0
         },
         "zoom": {
-          "type": "number"
+          "type": "number",
+          "default": 1
         }
       },
       "title": "Viewport",

@@ -218,7 +218,7 @@ class ChatSectionImplBranches(BaseModel):
     )
     branchFromMessageId: str | None
     createdAt: int
-    messages: list[dict[str, Any]] | None
+    messages: list[dict[str, Any]]
     parentBranchId: str | None
 
 
@@ -266,7 +266,7 @@ class ChatSectionImpl(BaseModel):
     isMinimized: bool
     isPreset: bool
     managed: bool
-    messages: list[dict[str, Any]] | None
+    messages: list[dict[str, Any]]
     name: str
     permissionMode: ChatPermissionMode
     positionAndSizeLocked: bool
@@ -290,7 +290,7 @@ class ChatSendEvent(BaseModel):
         extra="forbid",
     )
     action: ChatSendAction
-    attachments: list[ChatFileAttachment] | None
+    attachments: list[ChatFileAttachment]
     managed: bool
     messageId: str
     role: ChatRole
@@ -323,7 +323,7 @@ class CodeCallableCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    children: list[str] | None
+    children: list[str]
     description: str
     id: str
     isPreset: bool
@@ -394,7 +394,7 @@ class CodeSectionDiagnosticsIgnoreState(BaseModel):
         extra="forbid",
     )
     muted: bool
-    suppressedCodes: list[Any] | None
+    suppressedCodes: list[Any]
 
 
 class CodeSectionImplSizeHeight(BaseModel):
@@ -429,7 +429,7 @@ class CodeSectionImpl(BaseModel):
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
     attachedTerminalSectionId: str | None = None
-    children: list[str] | None
+    children: list[str]
     code: str
     codeFileBinding: CodeFileBinding | None = None
     codeLanguage: str
@@ -451,7 +451,7 @@ class ColorPickerParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    colorChoices: list[dict[str, str]] | None
+    colorChoices: list[dict[str, str]]
     coreNameEditable: bool
     coreNameType: str
     defaultVal: str
@@ -563,8 +563,8 @@ class DictSectionImpl(BaseModel):
     codeObjVariantMap: dict[str, str]
     columnWidth: float | None
     configLanguage: str
-    edgeInputParams: list[str] | None
-    edgeOutputPorts: list[DictSectionImplEdgeOutputPort] | None
+    edgeInputParams: list[str]
+    edgeOutputPorts: list[DictSectionImplEdgeOutputPort]
     hideUnpinnedParams: bool
     id: str
     ignoreTypeErrors: DictSectionImplIgnoreTypeErrors
@@ -573,17 +573,17 @@ class DictSectionImpl(BaseModel):
     isJsonSource: bool
     isMinimized: bool
     isPreset: bool
-    jsonSourceKeys: list[str] | None
+    jsonSourceKeys: list[str]
     jsonSourceMissing: bool
     name: str
     paramFilter: str
-    pinnedParams: list[str] | None
+    pinnedParams: list[str]
     positionAndSizeLocked: bool
-    selectedParams: list[str] | None
+    selectedParams: list[str]
     size: DictSectionImplSize
     styleColor: str | None
     tagColor: str | None
-    topLevelParamId: str | None = None
+    topLevelParamId: str | None
     type: str
 
 
@@ -602,7 +602,7 @@ class DropdownParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    choices: list[str] | None
+    choices: list[str]
     coreNameEditable: bool
     coreNameType: str
     defaultVal: str
@@ -703,7 +703,7 @@ class GenPythonCodeSectionImpl(BaseModel):
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
     attachedTerminalSectionId: str | None = None
-    children: list[str] | None
+    children: list[str]
     code: str
     codeFileBinding: CodeFileBinding | None = None
     codeLanguage: str
@@ -753,7 +753,7 @@ class GenPythonMetadataSectionImpl(BaseModel):
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
     attachedTerminalSectionId: str | None = None
-    children: list[str] | None
+    children: list[str]
     code: str
     codeFileBinding: CodeFileBinding | None = None
     codeLanguage: str
@@ -821,8 +821,8 @@ class GlobalVariablesSectionImpl(BaseModel):
     codeObjVariantMap: dict[str, str]
     columnWidth: float | None
     configLanguage: str
-    edgeInputParams: list[str] | None
-    edgeOutputPorts: list[GlobalVariablesSectionImplEdgeOutputPort] | None
+    edgeInputParams: list[str]
+    edgeOutputPorts: list[GlobalVariablesSectionImplEdgeOutputPort]
     hideUnpinnedParams: bool
     id: str
     ignoreTypeErrors: GlobalVariablesSectionImplIgnoreTypeErrors
@@ -831,17 +831,17 @@ class GlobalVariablesSectionImpl(BaseModel):
     isJsonSource: bool
     isMinimized: bool
     isPreset: bool
-    jsonSourceKeys: list[str] | None
+    jsonSourceKeys: list[str]
     jsonSourceMissing: bool
     name: str
     paramFilter: str
-    pinnedParams: list[str] | None
+    pinnedParams: list[str]
     positionAndSizeLocked: bool
-    selectedParams: list[str] | None
+    selectedParams: list[str]
     size: GlobalVariablesSectionImplSize
     styleColor: str | None
     tagColor: str | None
-    topLevelParamId: str | None = None
+    topLevelParamId: str | None
     type: str
 
 
@@ -906,7 +906,7 @@ class LineChartSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    secondYAxisColumns: list[str] = Field(default_factory=list)
+    secondYAxisColumns: list[str] = []
     type: ChartType = ChartType.line
     xAxisColumn: str | None = None
     xAxisLog: bool = False
@@ -1082,8 +1082,8 @@ class MessageThinkingDelta(BaseModel):
         extra="forbid",
     )
     index: int
-    signature: str | None = None
-    summary: str | None = None
+    signature: str | None
+    summary: str | None
     thinking: str
     type: str
 
@@ -1097,7 +1097,7 @@ class NestedParamCodeObjImpl(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    children: list[str] | None
+    children: list[str]
     coreNameEditable: bool
     coreNameType: str
     description: str
@@ -1167,8 +1167,8 @@ class ProjectRunCapabilities(BaseModel):
         extra="forbid",
     )
     canRunFromMain: bool
-    effectiveEntrySectionId: str | None = None
-    mainRunDisabledReason: str | None = None
+    effectiveEntrySectionId: str | None
+    mainRunDisabledReason: str | None
 
 
 class PromptSectionImplSizeHeight(BaseModel):
@@ -1209,7 +1209,7 @@ class PromptSectionImpl(BaseModel):
     isInOtherProjectConfigs: bool
     isMinimized: bool
     isPreset: bool
-    missingVariables: list[str] | None
+    missingVariables: list[str]
     name: str
     positionAndSizeLocked: bool
     promptTemplateId: str | None = None
@@ -1227,7 +1227,7 @@ type RawMessage = Annotated[
     Field(..., title="RawMessage"),
 ]
 
-type RequiredUIEditorTabMap = dict[str, list[str]] | None
+type RequiredUIEditorTabMap = dict[str, list[str]]
 
 
 class RotaryParamCodeObjImpl(BaseModel):
@@ -1975,15 +1975,15 @@ class TaskBoardTask(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    columnId: str | None = None
+    columnId: str | None
     completed: bool
     description: str
     dueDateIso: str
     id: str
     recurrence: str
-    recurrenceDays: list[str] | None
-    recurrenceMonths: list[str] | None
-    recurrenceYears: list[int] | None
+    recurrenceDays: list[str]
+    recurrenceMonths: list[str]
+    recurrenceYears: list[int]
     sortIndex: int
     title: str
 
@@ -2179,7 +2179,7 @@ class ToolCallDeltaEvent(BaseModel):
     arguments_delta: str
     message_id: str
     tool_call_id: str
-    tool_name: str | None = None
+    tool_name: str | None
     type: StreamingEventType
 
 
@@ -2254,9 +2254,9 @@ class Viewport(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    x: float = 0.0
-    y: float = 0.0
-    zoom: float = 1.0
+    x: float = 0
+    y: float = 0
+    zoom: float = 1
 
 
 class WatchCodeCallableKind(StrEnum):
@@ -2378,7 +2378,7 @@ class BrowserSavedSearch(BaseModel):
     query: str
     quickInfo: str
     searchScope: BrowserSearchScope
-    typeFilters: BrowserSavedSearchTypeFilters | None = None
+    typeFilters: BrowserSavedSearchTypeFilters | None
 
 
 class BrowserSectionImpl(BaseModel):
@@ -2398,7 +2398,7 @@ class BrowserSectionImpl(BaseModel):
     isPreset: bool
     name: str
     positionAndSizeLocked: bool
-    savedSearches: list[BrowserSavedSearch] | None
+    savedSearches: list[BrowserSavedSearch]
     size: BrowserSectionImplSize
     styleColor: str | None
     tagColor: str | None
@@ -2414,7 +2414,7 @@ class BrushStroke(BaseModel):
     globalCompositeOperation: str
     lineCap: DrawAreaBrushShape
     lineWidth: float
-    points: list[Any] | None
+    points: list[Any]
     strokeStyle: str
 
 
@@ -2434,7 +2434,7 @@ class BrushStrokeWithTransform(BaseModel):
     globalCompositeOperation: str
     lineCap: DrawAreaBrushShape
     lineWidth: float
-    points: list[Any] | None
+    points: list[Any]
     strokeStyle: str
     transform: DrawAreaTransform
 
@@ -2472,8 +2472,8 @@ class CallableSectionImpl(BaseModel):
     codeObjVariantMap: dict[str, str]
     columnWidth: float | None
     configLanguage: ConfigLanguage
-    edgeInputParams: list[str] | None
-    edgeOutputPorts: list[CallableSectionImplEdgeOutputPort] | None
+    edgeInputParams: list[str]
+    edgeOutputPorts: list[CallableSectionImplEdgeOutputPort]
     hideParams: bool
     hideUnpinnedParams: bool
     id: str
@@ -2484,9 +2484,9 @@ class CallableSectionImpl(BaseModel):
     isPreset: bool
     name: str
     paramFilter: str
-    pinnedParams: list[str] | None
+    pinnedParams: list[str]
     positionAndSizeLocked: bool
-    selectedParams: list[str] | None
+    selectedParams: list[str]
     size: CallableSectionImplSize
     styleColor: str | None
     tagColor: str | None
@@ -2561,7 +2561,7 @@ class DrawAreaLayerItemTransform(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    eraserStrokes: list[BrushStrokeWithTransform] | None
+    eraserStrokes: list[BrushStrokeWithTransform]
     transform: DrawAreaTransform
 
 
@@ -2602,7 +2602,7 @@ class GroupSectionImpl(BaseModel):
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    children: list[str] | None
+    children: list[str]
     defaultChildSectionType: SectionType
     id: str
     isFrozen: bool
@@ -2626,7 +2626,7 @@ class ListRootSectionImpl(BaseModel):
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    children: list[str] | None
+    children: list[str]
     defaultChildSectionType: SectionType
     id: str
     isFrozen: bool
@@ -2689,7 +2689,7 @@ class MessageDeltaEvent(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    content: list[MessageContentDelta] | None
+    content: list[MessageContentDelta]
     message_id: str
     type: StreamingEventType
 
@@ -2708,7 +2708,7 @@ class RawArtifact(BaseModel):
     )
     id: str
     type: ArtifactType
-    value: RawMessage | None = None
+    value: RawMessage | None
 
 
 class SectionCodegenOverride(BaseModel):
@@ -2723,9 +2723,9 @@ class SectionCodegenPolicy(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    allowlist: list[SectionType] | None
-    exclude: list[str] | None
-    metaControlAllowlist: list[CodeObjType] | None
+    allowlist: list[SectionType]
+    exclude: list[str]
+    metaControlAllowlist: list[CodeObjType]
     sectionOverrides: dict[str, SectionCodegenOverride]
     typePolicies: dict[str, SectionTypeCodegenPolicy]
 
@@ -2807,7 +2807,7 @@ class TaskBoardSectionImpl(BaseModel):
     aspectRatio: Any
     aspectRatioExtraHeight: float
     aspectRatioExtraWidth: float
-    columns: list[TaskBoardColumn] | None
+    columns: list[TaskBoardColumn]
     id: str
     isFrozen: bool
     isInOtherProjectConfigs: bool
@@ -2818,7 +2818,7 @@ class TaskBoardSectionImpl(BaseModel):
     size: TaskBoardSectionImplSize
     styleColor: str | None
     tagColor: str | None
-    tasks: list[TaskBoardTask] | None
+    tasks: list[TaskBoardTask]
     type: str
     viewMode: TaskBoardViewMode
 
@@ -2871,7 +2871,7 @@ class WindowSpaceConfig(BaseModel):
     )
     id: str | None = None
     name: str | None = None
-    order: list[str] | None
+    order: list[str]
     sortIndex: int | None = None
     windowsById: dict[str, WindowSpaceWindow]
 
@@ -3003,8 +3003,8 @@ class BaseSectionImpl(BaseModel):
     name: str
     positionAndSizeLocked: bool
     size: SectionSize
-    styleColor: str | None = None
-    tagColor: str | None = None
+    styleColor: str | None
+    tagColor: str | None
     type: SectionType
 
 

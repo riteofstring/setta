@@ -1,6 +1,9 @@
 package pythonsharedtypes
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -144,7 +147,7 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"temporary: bool = False",
 		"class LineChartSettings(BaseModel):",
 		"type: ChartType = ChartType.line",
-		"secondYAxisColumns: list[str] = Field(default_factory=list)",
+		"secondYAxisColumns: list[str] = []",
 		"class ScatterChartSettings(BaseModel):",
 		"type: ChartType = ChartType.scatter",
 		"class MessageThinkingDelta(BaseModel):",
@@ -161,7 +164,7 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class MessageStartEvent(BaseModel):",
 		"message: BaseChatMessageUnion",
 		"class MessageDeltaEvent(BaseModel):",
-		"content: list[MessageContentDelta] | None",
+		"content: list[MessageContentDelta]",
 		"class ProjectConfig(BaseModel):",
 		"name: str = Field(default_factory=generate_memorable_string)",
 		"viewModes: dict[ID, ViewMode] = Field(default_factory=dict)",
@@ -171,8 +174,8 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class SectionParamDependencyKey(BaseModel):",
 		"codeObjId: ID",
 		"class Viewport(BaseModel):",
-		"x: float = 0.0",
-		"zoom: float = 1.0",
+		"x: float = 0",
+		"zoom: float = 1",
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)
@@ -229,5 +232,34 @@ func TestBuildEmitsDiscriminatedSharedUnionAliases(t *testing.T) {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing discriminated-union snippet %q", snippet)
 		}
+	}
+}
+
+func TestBuildProducesSyntacticallyValidPythonModule(t *testing.T) {
+	t.Helper()
+
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	modulePath := filepath.Join(t.TempDir(), "go_shared_types.py")
+	if err := os.WriteFile(modulePath, []byte(generated.PythonModule), 0o600); err != nil {
+		t.Fatalf("WriteFile(%s) error = %v", modulePath, err)
+	}
+
+	pythonBin, err := pythonGeneratorExecutable()
+	if err != nil {
+		t.Fatalf("pythonGeneratorExecutable() error = %v", err)
+	}
+
+	cmd := exec.Command(
+		pythonBin,
+		"-c",
+		"import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))",
+		modulePath,
+	)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("python syntax check failed: %v\n%s", err, strings.TrimSpace(string(output)))
 	}
 }

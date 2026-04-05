@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"unicode"
 
 	"setta/internal/sharedtypes"
 )
@@ -94,6 +95,9 @@ func buildPythonSharedSchemaModule() (datamodelModule, error) {
 		"--parent-scoped-naming",
 		"--use-root-model-type-alias",
 		"--use-type-alias",
+		"--use-default",
+		"--strict-nullable",
+		"--set-default-enum-member",
 		"--field-type-collision-strategy", "rename-type",
 		"--disable-appending-item-suffix",
 		"--output", outputPath,
@@ -203,26 +207,17 @@ func applyPythonFieldMetadataToDatamodelDeclaration(
 	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
 		return declaration, nil, nil
 	}
-
-	block := declaration.Block
-	extraImports := map[string]struct{}{}
-	changed := false
-	var err error
-	if pythonModelRequiresStandardFieldPatch(ownerType) {
-		block, extraImports, changed, err = applyPythonFieldMetadataToDatamodelClassBlock(
-			declaration.Name,
-			block,
-			ownerType,
-			defaultSourcesByType,
-			knownContractNames,
-		)
-	} else {
-		block, changed, err = applyPythonDefaultsToDatamodelClassBlock(
-			block,
-			ownerType,
-			defaultSourcesByType,
-		)
+	if !pythonModelRequiresStandardFieldPatch(ownerType) {
+		return declaration, nil, nil
 	}
+
+	block, extraImports, changed, err := applyPythonFieldMetadataToDatamodelClassBlock(
+		declaration.Name,
+		declaration.Block,
+		ownerType,
+		defaultSourcesByType,
+		knownContractNames,
+	)
 	if err != nil {
 		return datamodelDeclaration{}, nil, err
 	}
@@ -250,7 +245,8 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 
 	imports := map[string]struct{}{}
 	changed := false
-	for index, line := range lines {
+	for index := 0; index < len(lines); index++ {
+		line := lines[index]
 		trimmed := strings.TrimSpace(line)
 		fieldName, _, ok := datamodelClassFieldTypeExpr(trimmed)
 		if !ok {
@@ -274,94 +270,18 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 		mergeImportSet(imports, fieldImports)
 
 		renderedLine := strings.TrimSuffix(renderFieldLine(renderedField), "\n")
-		if lines[index] == renderedLine {
+		end := datamodelFieldDeclarationEnd(lines, index)
+		if end == index+1 && lines[index] == renderedLine {
 			continue
 		}
-		lines[index] = renderedLine
+		lines = append(
+			append(append([]string(nil), lines[:index]...), renderedLine),
+			lines[end:]...,
+		)
 		changed = true
 	}
 
 	return strings.Join(lines, "\n"), imports, changed, nil
-}
-
-func applyPythonDefaultsToDatamodelClassBlock(
-	block string,
-	ownerType reflect.Type,
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, bool, error) {
-	lines := strings.Split(block, "\n")
-	fieldsByJSONName, err := datamodelFieldsByJSONName(ownerType)
-	if err != nil {
-		return "", false, err
-	}
-
-	changed := false
-	for index, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		fieldName, typeExpr, ok := datamodelClassFieldTypeExpr(trimmed)
-		if !ok {
-			continue
-		}
-		if typeExpr == "(" {
-			continue
-		}
-
-		field, exists := fieldsByJSONName[fieldName]
-		if !exists {
-			continue
-		}
-
-		defaultExpr, err := resolvedDatamodelFieldDefaultExpr(
-			ownerType,
-			field,
-			typeExpr,
-			defaultSourcesByType,
-		)
-		if err != nil {
-			return "", false, err
-		}
-		if defaultExpr == "" {
-			continue
-		}
-
-		renderedTypeExpr := datamodelFieldTypeExprWithPythonDefault(field, typeExpr, defaultExpr)
-		if defaultExpr == "None" && !strings.Contains(renderedTypeExpr, " | None") {
-			renderedTypeExpr += " | None"
-		}
-		lines[index] = fmt.Sprintf(
-			"    %s: %s = %s",
-			fieldName,
-			renderedTypeExpr,
-			defaultExpr,
-		)
-		changed = true
-	}
-
-	return strings.Join(lines, "\n"), changed, nil
-}
-
-func resolvedDatamodelFieldDefaultExpr(
-	ownerType reflect.Type,
-	field reflect.StructField,
-	typeExpr string,
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, error) {
-	if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
-		defaultExpr, err := pythonDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
-		if err != nil {
-			return "", fmt.Errorf(
-				"python shared types: %s.%s: %w",
-				ownerType,
-				field.Name,
-				err,
-			)
-		}
-		return defaultExpr, nil
-	}
-	if field.Type.Kind() == reflect.Pointer || fieldAllowsMissing(field) {
-		return "None", nil
-	}
-	return "", nil
 }
 
 func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.StructField, error) {
@@ -379,19 +299,16 @@ func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.Struc
 	return fieldsByJSONName, nil
 }
 
-func datamodelFieldTypeExprWithPythonDefault(
-	field reflect.StructField,
-	typeExpr string,
-	defaultExpr string,
-) string {
-	typeExpr = strings.TrimSpace(typeExpr)
-	if defaultExpr == "" || defaultExpr == "None" {
-		return typeExpr
+func datamodelFieldDeclarationEnd(lines []string, start int) int {
+	end := start + 1
+	for end < len(lines) {
+		trimmed := strings.TrimSpace(lines[end])
+		if _, _, ok := datamodelClassFieldTypeExpr(trimmed); ok {
+			break
+		}
+		end++
 	}
-	if field.Type.Kind() == reflect.Pointer {
-		return typeExpr
-	}
-	return strings.TrimSuffix(typeExpr, " | None")
+	return end
 }
 
 func parseDatamodelModule(module string) (datamodelModule, error) {
@@ -532,7 +449,7 @@ func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
 		return "", "", false
 	}
 	fieldName = strings.TrimSpace(fieldName)
-	if fieldName == "" || strings.Contains(fieldName, " ") {
+	if !isPythonIdentifier(fieldName) {
 		return "", "", false
 	}
 	typeExpr := strings.TrimSpace(rhs)
@@ -543,6 +460,25 @@ func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
 		return "", "", false
 	}
 	return fieldName, typeExpr, true
+}
+
+func isPythonIdentifier(value string) bool {
+	if value == "" {
+		return false
+	}
+	for index, char := range value {
+		switch {
+		case char == '_':
+			continue
+		case unicode.IsLetter(char):
+			continue
+		case unicode.IsDigit(char) && index > 0:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func parseDatamodelTypeAliasName(header string) (string, error) {

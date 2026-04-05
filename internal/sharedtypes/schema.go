@@ -1,8 +1,10 @@
 package sharedtypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -173,22 +175,154 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 			if overriddenSchema, overridden, err := sharedSchemaOverrideForField(field, propertySchema); err != nil {
 				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			} else if overridden {
-				schema.Properties[propertyName] = overriddenSchema
-				continue
-			}
-			if refSchema, ok, err := nestedSharedSchemaForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
+				propertySchema = overriddenSchema
+				schema.Properties[propertyName] = propertySchema
+			} else if refSchema, ok, err := nestedSharedSchemaForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
 				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			} else if ok {
-				schema.Properties[propertyName] = refSchema
-				continue
+				propertySchema = refSchema
+				schema.Properties[propertyName] = propertySchema
+			} else if err := normalizeSchemaForType(field.Type, propertySchema); err != nil {
+				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			}
-			if err := normalizeSchemaForType(field.Type, propertySchema); err != nil {
+			if err := applySchemaDefaultForField(t, field, propertySchema); err != nil {
 				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			}
 		}
 	}
 
 	return nil
+}
+
+func applySchemaDefaultForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+	propertySchema *jsonschema.Schema,
+) error {
+	if propertySchema == nil || len(propertySchema.Default) > 0 {
+		return nil
+	}
+	defaultValue, ok, err := schemaDefaultValueForField(ownerType, field)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	payload, err := json.Marshal(defaultValue)
+	if err != nil {
+		return fmt.Errorf("marshal schema default: %w", err)
+	}
+	propertySchema.Default = json.RawMessage(payload)
+	return nil
+}
+
+func schemaDefaultValueForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+) (any, bool, error) {
+	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
+	if defaultTag == "" {
+		return nil, false, nil
+	}
+
+	switch defaultTag {
+	case "go_value":
+		return schemaGoDefaultValueForField(ownerType, field)
+	case "factory:list":
+		return []any{}, true, nil
+	case "factory:dict":
+		return map[string]any{}, true, nil
+	case "True":
+		return true, true, nil
+	case "False":
+		return false, true, nil
+	case "None":
+		return nil, true, nil
+	}
+
+	if unquoted, err := strconv.Unquote(defaultTag); err == nil {
+		return unquoted, true, nil
+	}
+	if integerValue, err := strconv.ParseInt(defaultTag, 10, 64); err == nil {
+		return integerValue, true, nil
+	}
+	if floatValue, err := strconv.ParseFloat(defaultTag, 64); err == nil {
+		return floatValue, true, nil
+	}
+	if enumValue, ok, err := schemaEnumDefaultValue(field.Type, defaultTag); err != nil {
+		return nil, false, err
+	} else if ok {
+		return enumValue, true, nil
+	}
+
+	return nil, false, nil
+}
+
+func schemaGoDefaultValueForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+) (any, bool, error) {
+	provider, ok := DefaultValueProviderForProfile(DefaultProfileFrontend, ownerType)
+	if !ok || provider == nil {
+		return reflect.Zero(field.Type).Interface(), true, nil
+	}
+	defaultValue, ok := schemaStructFieldValue(reflect.ValueOf(provider()), field.Index)
+	if !ok {
+		return reflect.Zero(field.Type).Interface(), true, nil
+	}
+	return defaultValue.Interface(), true, nil
+}
+
+func schemaStructFieldValue(value reflect.Value, fieldIndex []int) (reflect.Value, bool) {
+	for _, index := range fieldIndex {
+		for value.IsValid() && value.Kind() == reflect.Pointer {
+			if value.IsNil() {
+				return reflect.Value{}, false
+			}
+			value = value.Elem()
+		}
+		if !value.IsValid() || value.Kind() != reflect.Struct || index >= value.NumField() {
+			return reflect.Value{}, false
+		}
+		value = value.Field(index)
+	}
+	if !value.IsValid() {
+		return reflect.Value{}, false
+	}
+	return value, true
+}
+
+func schemaEnumDefaultValue(
+	fieldType reflect.Type,
+	defaultExpr string,
+) (string, bool, error) {
+	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
+		fieldType = fieldType.Elem()
+	}
+	if fieldType == nil || fieldType.Kind() != reflect.String || fieldType.Name() == "" {
+		return "", false, nil
+	}
+
+	typeName, memberName, ok := strings.Cut(defaultExpr, ".")
+	if !ok || strings.TrimSpace(typeName) != fieldType.Name() {
+		return "", false, nil
+	}
+	memberName = strings.TrimSpace(memberName)
+	if memberName == "" {
+		return "", false, nil
+	}
+
+	values, ok, err := stringenumvalues.Default().Values(fieldType)
+	if err != nil || !ok {
+		return "", false, err
+	}
+	for _, value := range values {
+		if value.Name == memberName {
+			return value.Value, true, nil
+		}
+	}
+	return "", false, nil
 }
 
 func enumSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {

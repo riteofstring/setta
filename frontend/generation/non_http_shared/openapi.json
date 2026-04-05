@@ -736,13 +736,15 @@
             "type": ["null", "array"]
           },
           "createdAt": {
+            "default": 0,
             "type": "integer"
           },
           "id": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/ChatRole"
+            "$ref": "#/components/schemas/ChatRole",
+            "default": "assistant"
           },
           "tool_calls": {
             "items": {
@@ -1418,18 +1420,23 @@
         "additionalProperties": false,
         "properties": {
           "audio": {
+            "default": true,
             "type": "boolean"
           },
           "data": {
+            "default": true,
             "type": "boolean"
           },
           "image": {
+            "default": true,
             "type": "boolean"
           },
           "text": {
+            "default": true,
             "type": "boolean"
           },
           "video": {
+            "default": true,
             "type": "boolean"
           }
         },
@@ -2196,6 +2203,7 @@
             "type": ["null", "string"]
           },
           "createdAt": {
+            "default": 0,
             "type": "integer"
           },
           "messages": {
@@ -2455,6 +2463,7 @@
             "type": "object"
           },
           "inputText": {
+            "default": "",
             "type": "string"
           },
           "messages": {
@@ -2470,6 +2479,7 @@
             "type": "object"
           },
           "waitingForResponse": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -5783,6 +5793,7 @@
             "type": "string"
           },
           "temporary": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -5996,24 +6007,29 @@
         "additionalProperties": false,
         "properties": {
           "secondYAxisColumns": {
+            "default": [],
             "items": {
               "type": "string"
             },
             "type": ["null", "array"]
           },
           "type": {
-            "$ref": "#/components/schemas/ChartType"
+            "$ref": "#/components/schemas/ChartType",
+            "default": "line"
           },
           "xAxisColumn": {
             "type": ["null", "string"]
           },
           "xAxisLog": {
+            "default": false,
             "type": "boolean"
           },
           "y1AxisLog": {
+            "default": false,
             "type": "boolean"
           },
           "y2AxisLog": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -6336,7 +6352,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "timestampMs": {
             "type": "integer"
@@ -6385,6 +6402,7 @@
         "properties": {
           "details": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           },
           "error": {
@@ -6513,6 +6531,7 @@
         "additionalProperties": false,
         "properties": {
           "artifactUpdates": {
+            "default": [],
             "items": {
               "anyOf": [
                 {
@@ -6527,6 +6546,7 @@
           },
           "dependencyValues": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           },
           "projectConfigId": {
@@ -6571,12 +6591,14 @@
         "additionalProperties": false,
         "properties": {
           "projectConfigId": {
+            "default": null,
             "type": ["null", "string"]
           },
           "projectName": {
             "type": ["null", "string"]
           },
           "useTemporaryIds": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -6625,6 +6647,7 @@
         "additionalProperties": false,
         "properties": {
           "deltas": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/ListenerRealtimeDelta"
             },
@@ -6730,6 +6753,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/ListenerRegisterAckStatus"
             },
+            "default": {},
             "type": "object"
           },
           "projectConfigId": {
@@ -6826,6 +6850,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/ListenerRegisterCallbackSpec"
             },
+            "default": {},
             "type": "object"
           },
           "projectConfigId": {
@@ -6875,6 +6900,7 @@
           },
           "payload": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           },
           "projectConfigId": {
@@ -6928,6 +6954,7 @@
           },
           "details": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           },
           "error": {
@@ -6939,7 +6966,9 @@
           "projectConfigId": {
             "type": "string"
           },
-          "result": true
+          "result": {
+            "default": null
+          }
         },
         "required": ["projectConfigId", "callId", "ok"],
         "title": "ListenerRouterEndpointResult",
@@ -7047,6 +7076,7 @@
           },
           "payload": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           }
         },
@@ -7085,6 +7115,7 @@
             "$ref": "#/components/schemas/ListenerRenderedDependencyValues"
           },
           "deltas": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/LocalCoreListenerRealtimeDelta"
             },
@@ -7117,6 +7148,7 @@
           },
           "details": {
             "additionalProperties": true,
+            "default": {},
             "type": "object"
           },
           "error": {
@@ -7125,7 +7157,9 @@
           "ok": {
             "type": "boolean"
           },
-          "result": true
+          "result": {
+            "default": null
+          }
         },
         "required": ["callId", "ok"],
         "title": "LocalCoreResultEnvelope",
@@ -9415,6 +9449,7 @@
         "additionalProperties": false,
         "properties": {
           "activeIds": {
+            "default": [],
             "items": {
               "type": "string"
             },
@@ -9424,15 +9459,18 @@
             "type": ["null", "string"]
           },
           "agenticEdges": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/AgenticEdge"
             },
             "type": ["null", "array"]
           },
           "allowJsonSourceKeyEdits": {
+            "default": false,
             "type": "boolean"
           },
           "codegenTargets": {
+            "default": [],
             "items": {
               "anyOf": [
                 {
@@ -9446,6 +9484,7 @@
             "type": ["null", "array"]
           },
           "edges": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/Edge"
             },
@@ -9455,22 +9494,30 @@
             "type": ["null", "string"]
           },
           "hasPythonCodegenTarget": {
+            "default": false,
             "type": "boolean"
           },
           "id": {
             "type": "string"
           },
           "isEditingViewMode": {
+            "default": false,
             "type": "boolean"
           },
           "name": {
             "type": "string"
           },
           "previewImgColor": {
+            "default": "",
             "type": "string"
           },
           "runCapabilities": {
-            "$ref": "#/components/schemas/ProjectRunCapabilities"
+            "$ref": "#/components/schemas/ProjectRunCapabilities",
+            "default": {
+              "canRunFromMain": false,
+              "effectiveEntrySectionId": null,
+              "mainRunDisabledReason": null
+            }
           },
           "sectionIdsByPathSlug": {
             "additionalProperties": {
@@ -9479,24 +9526,29 @@
               },
               "type": ["null", "array"]
             },
+            "default": {},
             "type": "object"
           },
           "sectionPathSlugsById": {
             "additionalProperties": {
               "type": "string"
             },
+            "default": {},
             "type": "object"
           },
           "sectionVariantMap": {
             "additionalProperties": {
               "type": "string"
             },
+            "default": {},
             "type": "object"
           },
           "showParamDisplayNames": {
+            "default": false,
             "type": "boolean"
           },
           "stateMachineEdges": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/StateMachineEdge"
             },
@@ -9506,12 +9558,14 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/TopLevelSectionLayout"
             },
+            "default": {},
             "type": "object"
           },
           "viewModes": {
             "additionalProperties": {
               "$ref": "#/components/schemas/ViewMode"
             },
+            "default": {},
             "type": "object"
           },
           "viewport": {
@@ -9522,9 +9576,11 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "default": null
           },
           "viewportInitialized": {
+            "default": false,
             "type": "boolean"
           },
           "watchCodeBaselineByPath": {
@@ -9534,18 +9590,22 @@
               },
               "type": ["null", "array"]
             },
+            "default": {},
             "type": "object"
           },
           "watchCodeEnabled": {
+            "default": false,
             "type": "boolean"
           },
           "watchCodeFiles": {
+            "default": [],
             "items": {
               "type": "string"
             },
             "type": ["null", "array"]
           },
           "watchCodeFolders": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/WatchCodeFolder"
             },
@@ -9555,6 +9615,7 @@
             "additionalProperties": {
               "$ref": "#/components/schemas/WatchCodeRegistryEntry"
             },
+            "default": {},
             "type": "object"
           },
           "windowSpaceIdsBySlug": {
@@ -9564,18 +9625,21 @@
               },
               "type": ["null", "array"]
             },
+            "default": {},
             "type": "object"
           },
           "windowSpaceSlugsById": {
             "additionalProperties": {
               "type": "string"
             },
+            "default": {},
             "type": "object"
           },
           "windowSpaces": {
             "additionalProperties": {
               "$ref": "#/components/schemas/WindowSpaceConfig"
             },
+            "default": {},
             "type": "object"
           }
         },
@@ -11392,15 +11456,18 @@
             "type": "string"
           },
           "params": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/RunnerSummaryParam"
             },
             "type": ["null", "array"]
           },
           "supportsParams": {
+            "default": false,
             "type": "boolean"
           },
           "variants": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/RunnerSummaryVariant"
             },
@@ -11418,6 +11485,7 @@
             "type": "string"
           },
           "sections": {
+            "default": [],
             "items": {
               "$ref": "#/components/schemas/RunnerSummarySection"
             },
@@ -11481,15 +11549,18 @@
             "type": ["null", "string"]
           },
           "type": {
-            "$ref": "#/components/schemas/ChartType"
+            "$ref": "#/components/schemas/ChartType",
+            "default": "scatter"
           },
           "xAxisColumn": {
             "type": ["null", "string"]
           },
           "xAxisLog": {
+            "default": false,
             "type": "boolean"
           },
           "yAxisLog": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -14124,13 +14195,15 @@
             "type": ["null", "array"]
           },
           "createdAt": {
+            "default": 0,
             "type": "integer"
           },
           "id": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/ChatRole"
+            "$ref": "#/components/schemas/ChatRole",
+            "default": "system"
           }
         },
         "required": ["id", "role", "createdAt", "content", "attachments"],
@@ -14995,17 +15068,22 @@
             "type": ["null", "array"]
           },
           "createdAt": {
+            "default": 0,
             "type": "integer"
           },
           "id": {
             "type": "string"
           },
           "is_error": {
+            "default": false,
             "type": "boolean"
           },
-          "result": true,
+          "result": {
+            "default": null
+          },
           "role": {
-            "$ref": "#/components/schemas/ChatRole"
+            "$ref": "#/components/schemas/ChatRole",
+            "default": "tool"
           },
           "started_at": {
             "format": "date-time",
@@ -15233,12 +15311,14 @@
         "additionalProperties": false,
         "properties": {
           "callable": {
+            "default": false,
             "type": "boolean"
           },
           "params": {
             "additionalProperties": {
               "type": "boolean"
             },
+            "default": {},
             "type": "object"
           }
         },
@@ -15518,13 +15598,15 @@
             "type": ["null", "array"]
           },
           "createdAt": {
+            "default": 0,
             "type": "integer"
           },
           "id": {
             "type": "string"
           },
           "role": {
-            "$ref": "#/components/schemas/ChatRole"
+            "$ref": "#/components/schemas/ChatRole",
+            "default": "user"
           }
         },
         "required": ["id", "role", "createdAt", "content", "attachments"],
@@ -15626,12 +15708,15 @@
         "additionalProperties": false,
         "properties": {
           "x": {
+            "default": 0,
             "type": "number"
           },
           "y": {
+            "default": 0,
             "type": "number"
           },
           "zoom": {
+            "default": 1,
             "type": "number"
           }
         },

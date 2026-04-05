@@ -2908,6 +2908,7 @@ type ListenerRouterEndpointResult = {
   error?: null | string;
   ok: boolean;
   projectConfigId: string;
+  result?: unknown;
 };
 
 /**
@@ -3002,6 +3003,7 @@ type LocalCoreResultEnvelope = {
   };
   error?: null | string;
   ok: boolean;
+  result?: unknown;
 };
 
 /**
@@ -6143,6 +6145,7 @@ export type ToolChatMessage = {
   createdAt: number;
   id: string;
   is_error: boolean;
+  result: unknown;
   role: ChatRole;
   started_at: string;
   tool_call_id: string;
