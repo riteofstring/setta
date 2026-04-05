@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_launcher_status,
   route_remove_launcher,
@@ -9,11 +9,11 @@ import {
   route_update_launcher,
 } from "utils/generatedEndpoints";
 import {
-  type LauncherRequestBaseInput,
+  type LauncherRequestBase,
   type LauncherStatusResponse,
   type LauncherUpdateResponse,
-  type SetupLauncherRequestInput,
-  type UpdateLauncherRequestInput,
+  type SetupLauncherRequest,
+  type UpdateLauncherRequest,
 } from "utils/generatedTypes";
 
 type LauncherActionState =
@@ -40,6 +40,11 @@ type LauncherControlsState = {
   launcherSetupButtonLabel: string;
 };
 
+type LauncherStatusRouteResponse =
+  ResponseDataAndStatus<LauncherStatusResponse>;
+type LauncherUpdateRouteResponse =
+  ResponseDataAndStatus<LauncherUpdateResponse>;
+
 type DesktopLauncherSettingsSectionProps = {
   settaHome?: string | null;
   requireSettaHome?: boolean;
@@ -61,27 +66,15 @@ export function normalizeLauncherScopeSettaHome(
 
 function buildLauncherRequestBase(
   settaHome: string | null,
-): LauncherRequestBaseInput {
+): LauncherRequestBase {
   return { settaHome };
-}
-
-function normalizeSetupWorkspaceBehavior(
-  workspaceBehavior: LauncherStatusResponse["workspaceBehavior"],
-): "last-used-or-prompt" | "always-prompt" | undefined {
-  if (workspaceBehavior === "always_prompt") {
-    return "always-prompt";
-  }
-  if (workspaceBehavior === "last_used_or_prompt") {
-    return "last-used-or-prompt";
-  }
-  return undefined;
 }
 
 export function buildSetupLauncherRequest(
   settaHome: string | null,
   launcherStatus: LauncherStatusResponse | null,
-): SetupLauncherRequestInput {
-  const request: SetupLauncherRequestInput = { settaHome };
+): SetupLauncherRequest {
+  const request: SetupLauncherRequest = { settaHome };
   if (!launcherStatus || launcherStatus.installed !== true) {
     return request;
   }
@@ -95,11 +88,8 @@ export function buildSetupLauncherRequest(
   if (launcherStatus.openMode) {
     request.openMode = launcherStatus.openMode;
   }
-  const workspaceBehavior = normalizeSetupWorkspaceBehavior(
-    launcherStatus.workspaceBehavior,
-  );
-  if (workspaceBehavior) {
-    request.workspaceBehavior = workspaceBehavior;
+  if (launcherStatus.workspaceBehavior) {
+    request.workspaceBehavior = launcherStatus.workspaceBehavior;
   }
   if (launcherStatus.artifactOptions) {
     request.artifactOptions = { ...launcherStatus.artifactOptions };
@@ -109,7 +99,7 @@ export function buildSetupLauncherRequest(
 
 function buildUpdateLauncherRequest(
   settaHome: string | null,
-): UpdateLauncherRequestInput {
+): UpdateLauncherRequest {
   return { settaHome };
 }
 
@@ -263,7 +253,10 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response = await route_get_launcher_status(normalizedSettaHome);
+      const response: LauncherStatusRouteResponse =
+        await route_get_launcher_status({
+          setta_home: normalizedSettaHome,
+        });
       if (!res200(response) || !response.data) {
         return null;
       }
@@ -329,7 +322,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_setup_launcher(
+    const response: LauncherStatusRouteResponse = await route_setup_launcher(
       buildSetupLauncherRequest(normalizedSettaHome, launcherStatus),
     );
     setLauncherActionInFlight(null);
@@ -358,7 +351,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_repair_launcher(
+    const response: LauncherStatusRouteResponse = await route_repair_launcher(
       buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
@@ -387,7 +380,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_remove_launcher(
+    const response: LauncherStatusRouteResponse = await route_remove_launcher(
       buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
@@ -454,7 +447,7 @@ export function DesktopLauncherSettingsSection({
     }
 
     setUpdateStage("downloading");
-    const response = await route_update_launcher(
+    const response: LauncherUpdateRouteResponse = await route_update_launcher(
       buildUpdateLauncherRequest(normalizedSettaHome),
     );
     if (!res200(response) || !response.data) {

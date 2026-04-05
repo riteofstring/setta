@@ -2,12 +2,21 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_binary_download,
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
+import {
+  BinaryDownloadResponse,
+  FileContentResponse,
+  GetFileBrowserDownloadURLsResponse,
+} from "utils/generatedTypes";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
 
@@ -18,6 +27,13 @@ const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
+
+type FileBrowserDownloadURLsRouteResponse =
+  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type FileBrowserFileContentRouteResponse =
+  ResponseDataAndStatus<FileContentResponse>;
+type BinaryDownloadRouteResponse =
+  ResponseDataAndStatus<BinaryDownloadResponse>;
 
 export function resolveFileBrowserPreviewKind({
   filePath,
@@ -125,9 +141,10 @@ export function FileBrowserUniversalPreview({
     setUrlError(null);
     const loadUrl = async () => {
       try {
-        const response = await route_get_file_browser_download_urls({
-          paths: [selectedFilePath],
-        });
+        const response: FileBrowserDownloadURLsRouteResponse =
+          await route_get_file_browser_download_urls({
+            paths: [selectedFilePath],
+          });
         if (!isMounted) {
           return;
         }
@@ -181,10 +198,11 @@ export function FileBrowserUniversalPreview({
     });
     const loadText = async () => {
       try {
-        const response = await route_get_file_browser_file_content({
-          path: selectedFilePath,
-          maxBytes: TEXT_PREVIEW_MAX_BYTES,
-        });
+        const response: FileBrowserFileContentRouteResponse =
+          await route_get_file_browser_file_content({
+            path: selectedFilePath,
+            maxBytes: TEXT_PREVIEW_MAX_BYTES,
+          });
         if (!isMounted || isStaleRequest()) {
           return;
         }
@@ -197,9 +215,10 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const binaryResponse = await route_binary_download(
-          response.data.contentId,
-        );
+        const binaryResponse: BinaryDownloadRouteResponse =
+          await route_binary_download({
+            contentId: response.data.contentId,
+          });
         if (!isMounted || isStaleRequest()) {
           return;
         }

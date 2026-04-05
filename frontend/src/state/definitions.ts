@@ -6,6 +6,7 @@ import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
+import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -37,8 +38,10 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
@@ -47,17 +50,15 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  ProjectStateSingleConfig,
+  LSPDiagnostic,
+  Notification,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
-  SettaNotification,
-  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
+  SingleConfig,
   TranscriptionProfile,
-  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -143,7 +144,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig & {
+export type ZustandProjectState = SingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 
@@ -157,6 +158,7 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
+          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -474,7 +476,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
+type ZustandNotificationState = { notifications: Array<Notification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -686,12 +688,6 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -764,7 +760,9 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -789,8 +787,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
+  codeSections: Record<string, Array<LSPDiagnostic>>;
+  unmappedGenCode: Array<LSPDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(
@@ -825,7 +823,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<WebsocketConnectionInfo>;
+  connections: Array<Connection>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(
