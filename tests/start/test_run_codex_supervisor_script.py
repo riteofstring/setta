@@ -545,3 +545,200 @@ cat "${{last_message}}"
         encoding="utf-8"
     )
     assert "status=blocked" in supervisor_status
+
+
+def test_ralph_stop_requests_graceful_supervised_shutdown(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    supervisor_script_path = repo_root / "scripts" / "run-codex-supervisor.sh"
+    stop_script_path = repo_root / "ralph-stop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    output_dir = tmp_path / "output"
+    runtime_state_dir = tmp_path / "runtime-state"
+    stub_dir = tmp_path / "bin"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    runtime_state_dir.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Graceful stop prompt.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: worktree",
+                "iterations: until_done",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 5",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    loop_count_path = tmp_path / "loop-count.txt"
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/pixijs-rewrite
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+last_message=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      last_message="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+cat > /dev/null
+count=0
+if [[ -f "{loop_count_path}" ]]; then
+  count="$(cat "{loop_count_path}")"
+fi
+count="$((count + 1))"
+printf '%s\\n' "${{count}}" > "{loop_count_path}"
+sleep 2
+printf '\\n## Latest iteration\\n- Status: graceful stop iteration %s complete\\n' "${{count}}" >> "{handoff_path}"
+printf '\\n- graceful stop iteration %s complete\\n' "${{count}}" >> "{history_path}"
+cat <<'EOF' > "${{last_message}}"
+LOOP_STATUS: SUBTASK_DONE
+LOOP_SUMMARY: completed one bounded step
+LOOP_NEXT_ACTION: continue to the next bounded step
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: pass
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+LOOP_TERMINAL_MARKER: none
+EOF
+cat "${{last_message}}"
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+    env["RALPH_RUNTIME_STATE_DIR"] = str(runtime_state_dir)
+
+    supervisor_proc = subprocess.Popen(
+        [
+            "bash",
+            str(supervisor_script_path),
+            "--config-file",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+            "--poll-seconds",
+            "1",
+            "--stale-seconds",
+            "20",
+            "--repeat-failure-threshold",
+            "1",
+            "--no-codex-repair",
+            "--",
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--iterations",
+            "until_done",
+            "--progress-review-every",
+            "0",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    active_run_path = runtime_state_dir / "supervisor-active-run.env"
+    for _ in range(40):
+      if active_run_path.exists():
+        break
+      if supervisor_proc.poll() is not None:
+        break
+      subprocess.run(["sleep", "0.25"], check=False)
+
+    assert active_run_path.exists()
+
+    stop_result = subprocess.run(
+        ["bash", str(stop_script_path)],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert stop_result.returncode == 0, stop_result.stderr
+    assert "Requested graceful Ralph stop" in stop_result.stdout
+
+    stdout, stderr = supervisor_proc.communicate(timeout=20)
+
+    assert supervisor_proc.returncode == 0, stderr
+    assert loop_count_path.read_text(encoding="utf-8").strip() == "1"
+    assert "inner loop exited cleanly" in stdout
+    assert (output_dir / "loop-001" / "run-001" / "status.txt").exists()
+    assert not (output_dir / "loop-002").exists()
+    assert not active_run_path.exists()
