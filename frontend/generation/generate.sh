@@ -13,6 +13,7 @@ find backend/setta/types/generated/ -name "*.py" \
 
 cd "${ROOT_DIR}/frontend"
 bash ./generation/generate_go_frontend_bindings.sh
+bash ./generation/generate_go_shared_schema.sh
 bash ./generation/generate_go_python_types.sh
 
 cd "${ROOT_DIR}"

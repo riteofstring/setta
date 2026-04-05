@@ -341,7 +341,7 @@ class SettaRunner:
             self._session.headers.update(headers)
             self._resolved_auth_headers = headers
         self._ensure_runtime_compatibility()
-        url = f"{self._base_url}{Route.PREFIX.value}{route.value}"
+        url = f"{self._base_url}{Route.API_PREFIX.value}{route.value}"
         response = self._session.post(url, json=payload)
         response.raise_for_status()
         return response.json()

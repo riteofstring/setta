@@ -612,9 +612,9 @@ class SettaListener:
         base_url = os.environ.get("SETTA_BINARY_BASE_URL")
         if base_url is None:
             if "://" in self._host:
-                base_url = f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+                base_url = f"{self._host.rstrip('/')}{Route.API_PREFIX.value}"
             else:
-                base_url = f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+                base_url = f"http://{self._host}:{self._port}{Route.API_PREFIX.value}"
             os.environ["SETTA_BINARY_BASE_URL"] = base_url
             self._set_binary_base_url = True
 
@@ -703,11 +703,11 @@ class SettaListener:
             return
         if "://" in self._host:
             os.environ["SETTA_BINARY_BASE_URL"] = (
-                f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+                f"{self._host.rstrip('/')}{Route.API_PREFIX.value}"
             )
             return
         os.environ["SETTA_BINARY_BASE_URL"] = (
-            f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+            f"http://{self._host}:{self._port}{Route.API_PREFIX.value}"
         )
 
     @property
@@ -755,7 +755,7 @@ class SettaListener:
     def websocket_endpoint(self) -> str:
         """Compute the websocket endpoint for the current listener configuration."""
         base = f"ws://{self._host}:{self._port}"
-        route = Route.WEBSOCKET_LISTENER.value.format(listenerID=self._socket_id)
+        route = Route.LISTENER_BY_ID.value.format(listenerID=self._socket_id)
         endpoint = f"{base}{route}"
         if self._share_session_id is None:
             return endpoint

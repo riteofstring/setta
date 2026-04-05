@@ -19,7 +19,7 @@ def verify_running_backend_compatibility(
     auth_headers: dict[str, str] | None = None,
 ) -> RunningBackendVersionHandshake:
     response = session.get(
-        f"{base_url}{Route.PREFIX.value}{Route.SDK_RUNTIME_HANDSHAKE.value}",
+        f"{base_url}{Route.API_PREFIX.value}{Route.SDK_RUNTIME_HANDSHAKE.value}",
         headers=auth_headers,
     )
     response.raise_for_status()

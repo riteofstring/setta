@@ -4,11 +4,9 @@ import (
 	"reflect"
 
 	"setta/internal/frontendbindings"
-	"setta/internal/httpapi"
-	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/sharedtypes"
 	"setta/internal/stringenumvalues"
-	"setta/internal/wsapi"
 )
 
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
@@ -32,11 +30,6 @@ type contractSpec struct {
 	EnumValues []enumValueSpec
 }
 
-type pythonRouteBinding struct {
-	PythonName string
-	Path       string
-}
-
 var pythonSharedEnumFallbackPackages = []string{
 	"setta/internal/projectstate",
 	"setta/internal/artifacts",
@@ -48,16 +41,7 @@ type pythonSharedDefaultFieldKey struct {
 	FieldName string
 }
 
-var pythonSharedDefaultSourcesByType = map[reflect.Type]func() any{
-	reflect.TypeOf(projectstate.Viewport{}): func() any {
-		return projectstate.FrontendDefaultViewport()
-	},
-	reflect.TypeOf(projectstate.TypeErrorIgnoreState{}): func() any {
-		return projectstate.FrontendDefaultTypeErrorIgnoreState()
-	},
-	reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}): func() any {
-		return projectstate.FrontendDefaultBrowserSavedSearchTypeFilters()
-	},
+var pythonSharedExplicitDefaultSourcesByType = map[reflect.Type]func() any{
 	reflect.TypeOf(projectview.ProjectConfig{}): func() any {
 		return projectview.PythonSharedDefaultProjectConfig()
 	},
@@ -87,15 +71,7 @@ func currentContractSpecs() ([]contractSpec, error) {
 	specs, err = appendDiscoveredContractSpecs(
 		specs,
 		seenNames,
-		discoveredSharedTypes(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	specs, err = appendDiscoveredContractSpecs(
-		specs,
-		seenNames,
-		frontendbindings.DiscoveredConvertibleTypes(),
+		sharedtypes.DiscoveredTypes(),
 	)
 	if err != nil {
 		return nil, err
@@ -196,7 +172,10 @@ func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 }
 
 func pythonSharedDefaultSourceForType(t reflect.Type) (reflect.Value, bool) {
-	buildSource, ok := pythonSharedDefaultSourcesByType[t]
+	buildSource, ok := pythonSharedExplicitDefaultSourcesByType[t]
+	if !ok {
+		buildSource, ok = frontendbindings.DefaultValueProviderForType(t)
+	}
 	if !ok {
 		return reflect.Value{}, false
 	}
@@ -231,24 +210,15 @@ func pythonSharedDefaultValueForField(
 }
 
 func buildRouteContractSpec() (contractSpec, error) {
-	bindings := []pythonRouteBinding{
-		{PythonName: "PREFIX", Path: httpapi.RouteAPIPrefix},
-		{PythonName: "BOOTSTRAP_CONSUME", Path: httpapi.RouteBootstrapConsume},
-		{PythonName: "LOAD_ALL_PROJECT_METADATA", Path: httpapi.RouteLoadAllProjectMetadata},
-		{PythonName: "WEBSOCKET_LISTENER", Path: wsapi.RouteListenerByID},
-		{PythonName: "RUN_DETACHED", Path: httpapi.RouteRunDetached},
-		{PythonName: "GET_RUN_STATUS", Path: httpapi.RouteGetRunStatus},
-		{PythonName: "CANCEL_RUN", Path: httpapi.RouteCancelRun},
-		{PythonName: "GET_RUNNER_SUMMARY", Path: httpapi.RouteGetRunnerSummary},
-		{PythonName: "SDK_RUNTIME_HANDSHAKE", Path: httpapi.RouteSDKRuntimeHandshake},
-		{PythonName: "GET_LATEST_PROJECT_STATE", Path: httpapi.RouteGetLatestProjectState},
+	routes, err := sharedtypes.DiscoveredRouteEntries()
+	if err != nil {
+		return contractSpec{}, err
 	}
-
-	values := make([]enumValueSpec, 0, len(bindings))
-	for _, binding := range bindings {
+	values := make([]enumValueSpec, 0, len(routes))
+	for _, route := range routes {
 		values = append(values, enumValueSpec{
-			Name:  binding.PythonName,
-			Value: binding.Path,
+			Name:  route.Name,
+			Value: route.Path,
 		})
 	}
 
@@ -257,4 +227,8 @@ func buildRouteContractSpec() (contractSpec, error) {
 		Kind:       contractKindEnum,
 		EnumValues: values,
 	}, nil
+}
+
+func pythonSharedContractNameForType(t reflect.Type) string {
+	return sharedtypes.ContractNameForType(t)
 }
