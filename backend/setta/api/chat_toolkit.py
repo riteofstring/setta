@@ -3,7 +3,7 @@ import json
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Awaitable, Callable
 
-from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.api.generated_listener_endpoints import RouterEndpointAPI
 from setta.llm.chat_toolkit import (
     ChatStreamAssembler,
     ToolCallBuilder,
@@ -19,39 +19,40 @@ from setta.llm.chat_toolkit import (
 )
 from setta.llm.chat_toolkit.stream_assembler import AssistantMessageBuilder
 from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPreviewKind
-from setta.types.generated.go_shared_types import (
+from setta.types.chat import Chat, ChatMetadata
+from setta.types.chat_messages import (
     AssistantChatMessage,
-    BaseChatMessageUnion,
-    Chat,
-    ChatMetadata,
     ChatRole,
-    ChatSectionState,
-    ChatSendEvent,
-    ChatStopEvent,
+    MessageTextContent,
+    SystemChatMessage,
+    ToolCall,
+    ToolChatMessage,
+    UserChatMessage,
+)
+from setta.types.chat_stream_events import (
     LLMStreamingResponseChunk,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
-    MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
-    StreamingEventType,
-    SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
-    ToolCall,
     ToolCallDeltaEvent,
-    ToolChatMessage,
     ToolResultEvent,
-    UserChatMessage,
 )
+from setta.types.chat_toolkit import (
+    ChatActionEvent,
+    ChatSendEvent,
+    ChatStopEvent,
+)
+from setta.types.dependency_key import SectionDependencyKey
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-from setta.types.protocol import SectionDependencyKey
+from setta.types.section_impls import ChatSectionState
 
 if TYPE_CHECKING:
     from setta.api.listener import ListenerCallbackContext
-
-ChatActionEvent = ChatSendEvent | ChatStopEvent
 
 
 class ChatHistoryClient:
@@ -155,10 +156,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStartEvent(
-                type=StreamingEventType.message_start,
-                message=message.model_dump(mode="python"),
-            ),
+            chunk=MessageStartEvent(message=message),
         )
 
     async def emit_text_delta(
@@ -174,9 +172,8 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
-                type=StreamingEventType.delta,
                 message_id=message_id,
-                content=[MessageTextDelta(type="text_delta", index=index, text=text)],
+                content=[MessageTextDelta(index=index, text=text)],
             ),
         )
 
@@ -195,11 +192,9 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
-                type=StreamingEventType.delta,
                 message_id=message_id,
                 content=[
                     MessageThinkingDelta(
-                        type="thinking_delta",
                         index=index,
                         thinking=thinking,
                         summary=summary,
@@ -223,7 +218,6 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolCallDeltaEvent(
-                type=StreamingEventType.tool_call_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 arguments_delta=arguments_delta,
@@ -248,7 +242,6 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolArgumentPreviewDeltaEvent(
-                type=StreamingEventType.tool_argument_preview_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 tool_name=tool_name,
@@ -269,10 +262,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=ToolResultEvent(
-                type=StreamingEventType.tool_result,
-                result=message.model_dump(mode="python"),
-            ),
+            chunk=ToolResultEvent(result=message),
         )
 
     async def emit_message_stop(
@@ -285,10 +275,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStopEvent(
-                type=StreamingEventType.message_stop,
-                message_id=message_id,
-            ),
+            chunk=MessageStopEvent(message_id=message_id),
         )
 
     async def emit_message_finalized(
@@ -301,10 +288,7 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageFinalizedEvent(
-                type=StreamingEventType.message_finalized,
-                message=message.model_dump(mode="python"),
-            ),
+            chunk=MessageFinalizedEvent(message=message),
         )
 
     async def _emit(
@@ -437,7 +421,7 @@ class ChatSession:
         )
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
-        content = [MessageTextContent(type="text", text=resolved_event.text)]
+        content = [MessageTextContent(text=resolved_event.text)]
         attachments = resolved_event.attachments
         if resolved_event.role == ChatRole.user:
             first_message = UserChatMessage(
@@ -559,7 +543,7 @@ class ChatSession:
 
     async def complete(self, *, text: str) -> AssistantChatMessage:
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(type="text", text=text)],
+            content=[MessageTextContent(text=text)],
         )
         await self._history.append(
             chat_id=self.chat_id,
