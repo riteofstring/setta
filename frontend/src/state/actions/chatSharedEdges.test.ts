@@ -18,6 +18,7 @@ import {
   createProjectConfig,
   createSectionSize,
   createStateMachineStartSectionImpl,
+  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
@@ -60,31 +61,34 @@ function createSharedChatConnection(): Connection {
 }
 
 function seedWorkflowAwareChats() {
-  const startImpl = createStateMachineStartSectionImpl({
-    id: startImplId,
-    machineGroupId,
-    label: "Start",
-  });
-  const chatAImpl = createChatSectionImpl({
-    ...{ chatId: "chat-a" },
-    ...{
+  const startImpl = createStateMachineStartSectionImpl(
+    {},
+    {
+      id: startImplId,
+      machineGroupId,
+      label: "Start",
+    },
+  );
+  const chatAImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
+    {
       id: chatImplA,
       chatId: "chat-a",
       managed: true,
       engineConfigId: "engine-a",
       thinking: false,
     },
-  });
-  const chatBImpl = createChatSectionImpl({
-    ...{ chatId: "chat-b" },
-    ...{
+  );
+  const chatBImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-b" }),
+    {
       id: chatImplB,
       chatId: "chat-b",
       managed: true,
       engineConfigId: "engine-b",
       thinking: false,
     },
-  });
+  );
   const gateImpl = {
     id: gateImplId,
     type: SectionTypeEnum.StateMachineGate,

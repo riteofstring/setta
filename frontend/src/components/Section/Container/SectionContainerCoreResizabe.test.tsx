@@ -5,7 +5,9 @@ import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
+  createProjectChatWindowInstance,
   createProjectChatWindowingState,
+  type SectionType,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -25,6 +27,15 @@ let mockProjectState: MockProjectState = {
     id: "project-1",
   },
   projectChatWindowing: createProjectChatWindowingState(),
+};
+let mockEffectiveSectionImpl: {
+  type: SectionType;
+  isMinimized: boolean;
+  metaControlStyle: boolean;
+} = {
+  type: SectionTypeEnum.Code,
+  isMinimized: false,
+  metaControlStyle: false,
 };
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
@@ -56,17 +67,32 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
 }));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-custom-resizable">{children}</section>
+  CustomResizable: ({
+    children,
+    surfaceDecorations,
+  }: {
+    children: ReactNode;
+    surfaceDecorations: {
+      layout: string;
+      resizeHandleTone: string;
+      showTopDragHandle: boolean;
+    };
+  }) => (
+    <section
+      data-testid="mock-custom-resizable"
+      data-surface-layout={surfaceDecorations.layout}
+      data-resize-handle-tone={surfaceDecorations.resizeHandleTone}
+      data-show-top-drag-handle={
+        surfaceDecorations.showTopDragHandle ? "true" : "false"
+      }
+    >
+      {children}
+    </section>
   ),
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
-  getCurrEffectiveSectionImpl: () => ({
-    type: SectionTypeEnum.Code,
-    isMinimized: false,
-    metaControlStyle: false,
-  }),
+  getCurrEffectiveSectionImpl: () => mockEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection: () => null,
 }));
 
@@ -189,23 +215,29 @@ describe("SectionContainerCoreResizable", () => {
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockEffectiveSectionImpl = {
+      type: SectionTypeEnum.Code,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
+    const closedWindow = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-1",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: "section-123",
+      isClosed: true,
+      isMinimized: false,
+    });
     mockProjectState = {
       projectConfig: {
         id: "project-1",
       },
       projectChatWindowing: createProjectChatWindowingState({
-        order: ["project-chat-window-1"],
+        order: [closedWindow.instanceId],
         instancesById: {
-          "project-chat-window-1": {
-            instanceId: "project-chat-window-1",
-            placement: ChatWindowPlacementEnum.floating,
-            sectionIdOrNull: "section-123",
-            isClosed: true,
-            isMinimized: false,
-          },
+          [closedWindow.instanceId]: closedWindow,
         },
       }),
     };
@@ -224,6 +256,30 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
     expect(markup).toContain('data-instance-id="project-chat-window-1"');
     expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("routes meta-control surface decorations through the shared chrome contract", () => {
+    mockEffectiveSectionImpl = {
+      type: SectionTypeEnum.MetaControl,
+      isMinimized: false,
+      metaControlStyle: false,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.MetaControl}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-surface-layout="single-cell"');
+    expect(markup).toContain('data-resize-handle-tone="minimal"');
+    expect(markup).toContain('data-show-top-drag-handle="true"');
+    expect(markup).toContain("cursor-move");
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {

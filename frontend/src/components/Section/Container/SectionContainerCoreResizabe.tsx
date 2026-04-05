@@ -48,6 +48,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { resolveSectionChromeSurfaceDecorations } from "./sectionChrome";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
@@ -101,14 +102,12 @@ function _SectionContainerCoreResizable({
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
   const shouldRenderTextBlockMetaMenu =
     textBlockMetaControlStyle && !isUserView;
-  const showMetaControlDragHandle =
-    useMetaControlStyle && !isUserView && !positionAndSizeLocked;
-  const metaControlFrameClassName = useMetaControlStyle
-    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
-    : undefined;
-  const metaControlLayoutClassName = isMetaControl
-    ? "grid-cols-1 grid-rows-1"
-    : undefined;
+  const surfaceDecorations = resolveSectionChromeSurfaceDecorations({
+    useMetaControlStyle,
+    isMetaControlSection: isMetaControl,
+    isUserView,
+    positionAndSizeLocked,
+  });
 
   return (
     <CustomResizable
@@ -116,14 +115,12 @@ function _SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isMetaControl={useMetaControlStyle}
+      surfaceDecorations={surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
     >
-      {showMetaControlDragHandle && (
+      {surfaceDecorations.showTopDragHandle && (
         <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
           <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
         </div>
@@ -259,13 +256,17 @@ export function AreaSwitch({
         <ChatSectionArea
           sectionId={sectionId}
           host={chatHost}
-          modeOverride={chatModeOverride}
-          projectChatId={projectChatId}
-          setProjectChatId={setProjectChatId}
-          surfaceId={projectChatSurfaceId}
-          onProjectChatBlockedErrorCodeChange={
-            onProjectChatBlockedErrorCodeChange
-          }
+          {...(chatModeOverride !== undefined
+            ? { modeOverride: chatModeOverride }
+            : {})}
+          {...(projectChatId !== undefined ? { projectChatId } : {})}
+          {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+          {...(projectChatSurfaceId !== undefined
+            ? { surfaceId: projectChatSurfaceId }
+            : {})}
+          {...(onProjectChatBlockedErrorCodeChange !== undefined
+            ? { onProjectChatBlockedErrorCodeChange }
+            : {})}
         />
       );
     case SectionTypeEnum.Browser:
@@ -373,9 +374,11 @@ function ChatSectionArea({
         surfaceId ??
         buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId)
       }
-      projectChatId={projectChatId}
-      setProjectChatId={setProjectChatId}
-      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
+      {...(projectChatId !== undefined ? { projectChatId } : {})}
+      {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+      {...(onProjectChatBlockedErrorCodeChange !== undefined
+        ? { onProjectChatBlockedErrorCodeChange }
+        : {})}
     />
   );
 }

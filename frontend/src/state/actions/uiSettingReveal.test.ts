@@ -10,8 +10,7 @@ import type {
 import {
   createCodeSectionImpl,
   createCore,
-  createProjectStateSingleConfigWithCompletedOpIDs,
-  createSingleConfig,
+  createUserDefaultCodeSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -44,7 +43,6 @@ type PluginRevealInvokeArgs = Parameters<
   typeof invokePluginSettingRevealHandler
 >[0];
 let receiveUISettingReveal: typeof import("./uiSettingReveal").receiveUISettingReveal;
-let parseUISettingRevealContent: typeof import("./uiSettingReveal").parseUISettingRevealContent;
 
 function createRevealTarget(
   overrides: Partial<UISettingRevealTarget>,
@@ -146,9 +144,12 @@ function setActiveSectionType(sectionType: SectionType): void {
       name: "active-variant",
     });
     if (sectionType === SectionTypeEnum.Code) {
-      state.sectionImpls[implId] = createCodeSectionImpl({
-        id: implId,
-      });
+      state.sectionImpls[implId] = createCodeSectionImpl(
+        createUserDefaultCodeSectionImpl(),
+        {
+          id: implId,
+        },
+      );
       return;
     }
     throw new Error(`Unsupported section type in test helper: ${sectionType}`);
@@ -178,9 +179,12 @@ function configureCodeSections({
         nonPresetImpls: [implId],
         name: `variant-${sectionId}`,
       });
-      state.sectionImpls[implId] = createCodeSectionImpl({
-        id: implId,
-      });
+      state.sectionImpls[implId] = createCodeSectionImpl(
+        createUserDefaultCodeSectionImpl(),
+        {
+          id: implId,
+        },
+      );
     }
   });
   useActiveSectionUI.setState({ activeIds: [...activeIds] });
@@ -196,8 +200,8 @@ function buildBackendProjectStateUpdate({
   completedOpIds?: Array<string>;
 }) {
   const currentState = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIDs({
-    projectState: createSingleConfig({
+  return {
+    projectState: {
       projectConfig: {
         ...currentState.projectConfig,
         id: projectConfigId,
@@ -215,16 +219,15 @@ function buildBackendProjectStateUpdate({
       shownParamIds: { ...currentState.shownParamIds },
       requiredDecodedImages: [...currentState.requiredDecodedImages],
       genCodeBinding: currentState.genCodeBinding ?? null,
-    }),
+    },
     completedOpIds,
-  });
+    pendingOpIds: [],
+  };
 }
 
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
-    ({ receiveUISettingReveal, parseUISettingRevealContent } = await import(
-      "./uiSettingReveal"
-    ));
+    ({ receiveUISettingReveal } = await import("./uiSettingReveal"));
     vi.useFakeTimers();
     resetProjectStores();
     useProjectState.setState((state) => {
@@ -268,64 +271,6 @@ describe("receiveUISettingReveal", () => {
     usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
     vi.clearAllMocks();
     vi.useRealTimers();
-  });
-
-  it("parses omitted reveal activation steps and duration with frontend defaults", () => {
-    expect(
-      parseUISettingRevealContent({
-        projectConfigId: "project-1",
-        chatId: null,
-        reveals: [
-          {
-            settingId: "core.watch_code.enabled",
-            side: "left",
-            overviewTabKey: "WatchCode",
-            strategy: "dom_anchor",
-          },
-        ],
-        requestId: "request-1",
-      }),
-    ).toEqual({
-      projectConfigId: "project-1",
-      chatId: null,
-      activeSectionId: null,
-      reveals: [
-        {
-          settingId: "core.watch_code.enabled",
-          side: "left",
-          overviewTabKey: "WatchCode",
-          uiEditorTabName: null,
-          pluginId: null,
-          paneId: null,
-          strategy: "dom_anchor",
-          anchorId: null,
-          pluginRevealKey: null,
-          revealActivationSteps: [],
-        },
-      ],
-      durationMs: 3000,
-      requestId: "request-1",
-    });
-  });
-
-  it("rejects malformed reveal activation steps during frontend parsing", () => {
-    expect(
-      parseUISettingRevealContent({
-        projectConfigId: "project-1",
-        chatId: null,
-        reveals: [
-          {
-            settingId: "core.watch_code.enabled",
-            side: "left",
-            overviewTabKey: "WatchCode",
-            strategy: "dom_anchor",
-            revealActivationSteps: {},
-          },
-        ],
-        durationMs: 3000,
-        requestId: "request-1",
-      }),
-    ).toBeNull();
   });
 
   it("opens overview tab and highlights anchor", async () => {

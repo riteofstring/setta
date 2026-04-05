@@ -1,11 +1,4 @@
 import {
-  deleteArtifacts,
-  importFilesToArtifacts,
-  updateArtifacts,
-  uploadBinary,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import {
   useCallback,
   useEffect,
   useMemo,
@@ -33,10 +26,16 @@ import {
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_binary_upload,
+  route_delete_artifacts,
+  route_import_files_to_artifacts,
+  route_update_artifacts,
+} from "utils/generatedEndpoints";
+import {
   ArtifactTypeEnum,
   ChatFileAttachment,
   FileArtifact,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
 type UseChatAttachmentManagerArgs = {
@@ -111,7 +110,7 @@ export function useChatAttachmentManager({
   }, [initialAttachments]);
 
   const notifyAttachmentWarning = useCallback((message: string) => {
-    addTemporaryNotification(message, NotificationTypeEnum.warning);
+    addTemporaryNotification(message, SettaNotificationTypeEnum.warning);
     setAttachmentWarning(message);
     if (warningTimeoutRef.current !== null) {
       window.clearTimeout(warningTimeoutRef.current);
@@ -131,15 +130,11 @@ export function useChatAttachmentManager({
       try {
         const uploadResults = await Promise.allSettled(
           files.map(async (file) => {
-            const res = await callOpenAPI(
-              uploadBinary({
-                body: {
-                  durable: false,
-                  file,
-                },
-              }),
-            );
-            if (!res200(res) || !res.data) {
+            const form = new FormData();
+            form.append("file", file, file.name);
+            form.append("durable", "false");
+            const res = await route_binary_upload(form);
+            if (!res200(res)) {
               throw new Error("Upload failed");
             }
             return { file, ref: res.data };
@@ -178,14 +173,10 @@ export function useChatAttachmentManager({
             value: ref,
           }),
         );
-        const res = await callOpenAPI(
-          updateArtifacts({
-            body: {
-              artifacts,
-              uploadScope: "chat",
-            },
-          }),
-        );
+        const res = await route_update_artifacts({
+          artifacts,
+          uploadScope: "chat",
+        });
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           const message = detail ?? "Failed to upload attachments.";
@@ -311,13 +302,9 @@ export function useChatAttachmentManager({
       ) {
         return;
       }
-      const res = await callOpenAPI(
-        deleteArtifacts({
-          body: {
-            artifacts: [{ id: attachment.id, type: ArtifactTypeEnum.File }],
-          },
-        }),
-      );
+      const res = await route_delete_artifacts({
+        artifacts: [{ id: attachment.id, type: ArtifactTypeEnum.File }],
+      });
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         const message = detail ?? "Failed to delete attachment.";
@@ -347,16 +334,12 @@ export function useChatAttachmentManager({
     if (attachmentsToDelete.length === 0) {
       return;
     }
-    const res = await callOpenAPI(
-      deleteArtifacts({
-        body: {
-          artifacts: attachmentsToDelete.map((attachment) => ({
-            id: attachment.id,
-            type: ArtifactTypeEnum.File,
-          })),
-        },
-      }),
-    );
+    const res = await route_delete_artifacts({
+      artifacts: attachmentsToDelete.map((attachment) => ({
+        id: attachment.id,
+        type: ArtifactTypeEnum.File,
+      })),
+    });
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       const message = detail ?? "Failed to delete attachments.";
@@ -387,14 +370,10 @@ export function useChatAttachmentManager({
         if (paths.length === 0) {
           return;
         }
-        const res = await callOpenAPI(
-          importFilesToArtifacts({
-            body: {
-              paths,
-              uploadScope: "chat",
-            },
-          }),
-        );
+        const res = await route_import_files_to_artifacts({
+          paths,
+          uploadScope: "chat",
+        });
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
           const message = detail ?? "Failed to import attachments.";
@@ -420,16 +399,12 @@ export function useChatAttachmentManager({
           notifyAttachmentWarning(
             `Some images were skipped. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim(),
           );
-          const deleteRes = await callOpenAPI(
-            deleteArtifacts({
-              body: {
-                artifacts: unsupported.map((attachment) => ({
-                  id: attachment.id,
-                  type: ArtifactTypeEnum.File,
-                })),
-              },
-            }),
-          );
+          const deleteRes = await route_delete_artifacts({
+            artifacts: unsupported.map((attachment) => ({
+              id: attachment.id,
+              type: ArtifactTypeEnum.File,
+            })),
+          });
           if (!res200(deleteRes)) {
             const detail = getErrorDetail(deleteRes.data);
             const message = detail ?? "Failed to delete skipped attachments.";

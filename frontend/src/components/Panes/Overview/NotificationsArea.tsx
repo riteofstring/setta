@@ -1,6 +1,4 @@
 import _ from "lodash";
-import { deleteNotification, getNotifications } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
@@ -25,16 +23,17 @@ import {
   type OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,
 } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
-  Notification,
-  NotificationList,
-  NotificationType,
-  NotificationTypeEnum,
+  route_delete_notification,
+  route_get_notifications,
+} from "utils/generatedEndpoints";
+import {
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-
-type NotificationsRouteResponse = ResponseDataAndStatus<NotificationList>;
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -65,19 +64,13 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = (await callOpenAPI(
-          getNotifications({
-            body: {
-              projectConfigId,
-            },
-          }),
-        )) as NotificationsRouteResponse;
+        const response = await route_get_notifications({ projectConfigId });
         if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
             notifications: [
               ...state.notifications.filter((n) => n.temporary),
-              ...(response.data ?? []),
+              ...response.data,
             ],
           }));
         }
@@ -160,7 +153,7 @@ export function NotificationsArea() {
 function NotificationsList({
   notifications,
 }: {
-  notifications: Array<Notification>;
+  notifications: Array<SettaNotification>;
 }) {
   return (
     <div
@@ -181,16 +174,14 @@ function NotificationsList({
   );
 }
 
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({
+  notification,
+}: {
+  notification: SettaNotification;
+}) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
-  const details =
-    notification.metadata &&
-    typeof notification.metadata === "object" &&
-    typeof notification.metadata.details === "string"
-      ? notification.metadata.details
-      : "";
 
   // Format timestamp for display - convert UTC to local time
   const formattedTime = new Date(timestamp).toLocaleString(undefined, {
@@ -207,13 +198,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
       }, 300); // Match transition duration
     } else {
       removeNotification(id);
-      await callOpenAPI(
-        deleteNotification({
-          body: {
-            notificationId: id,
-          },
-        }),
-      );
+      await route_delete_notification({ notificationId: id });
     }
   };
 
@@ -269,7 +254,9 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-setta-600 group-hover/notifications:text-setta-900 dark:text-setta-100 group-hover/notifications:dark:text-white">
-          {details}
+          {notification.metadata && notification.metadata.details
+            ? notification.metadata.details
+            : ""}
         </p>
         <span className="text-xs text-setta-400 dark:text-setta-500">
           {formattedTime}
@@ -288,27 +275,30 @@ function NotificationItem({ notification }: { notification: Notification }) {
   );
 }
 
-export function getNotificationIcon(type: NotificationType, className = "") {
+export function getNotificationIcon(
+  type: SettaNotificationType,
+  className = "",
+) {
   switch (type) {
-    case NotificationTypeEnum.error:
+    case SettaNotificationTypeEnum.error:
       return (
         <IoAlertCircleSharp
           className={`${className} text-red-500 dark:text-red-400`}
         />
       );
-    case NotificationTypeEnum.warning:
+    case SettaNotificationTypeEnum.warning:
       return (
         <IoWarning
           className={`${className} text-yellow-500 dark:text-yellow-400`}
         />
       );
-    case NotificationTypeEnum.save:
+    case SettaNotificationTypeEnum.save:
       return (
         <VscSave
           className={`${className} text-setta-300 dark:text-setta-400`}
         />
       );
-    case NotificationTypeEnum.info:
+    case SettaNotificationTypeEnum.info:
     default:
       return (
         <IoInformationCircle

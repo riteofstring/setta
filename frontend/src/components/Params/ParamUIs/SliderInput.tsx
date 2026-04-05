@@ -12,10 +12,7 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import {
-  type SliderParamCodeObjImpl,
-  CodeObjTypeEnum,
-} from "utils/generatedTypes";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 export function SliderInputConfigForParam({
@@ -39,7 +36,7 @@ export function SliderInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<SliderParamCodeObjImpl>(
+        setCurrEffectiveCodeObjImplValue<"SliderParamCodeObj">(
           state,
           sectionId,
           paramInfoId,

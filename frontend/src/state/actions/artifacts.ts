@@ -1,6 +1,4 @@
 import _ from "lodash";
-import { updateArtifacts as updateArtifactsApi } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   RevisionedArtifacts,
@@ -15,6 +13,7 @@ import {
   removeRevisionEntries,
 } from "state/utils/revisions";
 import { res200 } from "utils/endpointUtils";
+import { route_update_artifacts } from "utils/generatedEndpoints";
 import {
   ArtifactType,
   ArtifactTypeEnum,
@@ -23,8 +22,8 @@ import {
   DrawAreaLayerItemTransformArtifact,
   FileArtifact,
   ImageArtifact,
-  NotificationTypeEnum,
-  UpdateArtifactsRequest,
+  SettaNotificationTypeEnum,
+  UpdateArtifactMsgContent,
 } from "utils/generatedTypes";
 
 type ArtifactByType =
@@ -33,11 +32,6 @@ type ArtifactByType =
   | DrawAreaLayerItemTransformArtifact
   | ChartDataArtifact
   | FileArtifact;
-
-type UpdateArtifactsContent = {
-  artifacts: UpdateArtifactsRequest["artifacts"];
-  updateType: "update" | "delete";
-};
 
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
@@ -102,7 +96,7 @@ function createStoreUpdate<T extends ArtifactByType>(
 function applyUpdate<T extends ArtifactByType>(
   storeUpdate: StoreUpdate<T>,
   artifact: T,
-  updateType: UpdateArtifactsContent["updateType"],
+  updateType: UpdateArtifactMsgContent["updateType"],
 ) {
   if (updateType === "delete") {
     if (artifact.id in storeUpdate.next) {
@@ -119,7 +113,7 @@ function applyUpdate<T extends ArtifactByType>(
   }
 }
 
-export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
+export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
   if (!artifactUpdate.artifacts || artifactUpdate.artifacts.length === 0) {
     return;
   }
@@ -277,15 +271,11 @@ async function flushPendingArtifacts(force = false) {
   }
 
   flushPromise = (async () => {
-    const res = await callOpenAPI(
-      updateArtifactsApi({
-        body: {
-          artifacts: snapshot,
-          conflictStrategy: null,
-          uploadScope: "generic",
-        },
-      }),
-    );
+    const res = await route_update_artifacts({
+      artifacts: snapshot,
+      conflictStrategy: null,
+      uploadScope: "generic",
+    });
     if (res200(res)) {
       clearPendingArtifacts(snapshot);
       if (res.data) {
@@ -293,7 +283,10 @@ async function flushPendingArtifacts(force = false) {
           if (result.status === "conflict" || result.status === "skipped") {
             const message =
               result.message || `Conflict detected while saving ${result.id}.`;
-            addTemporaryNotification(message, NotificationTypeEnum.warning);
+            addTemporaryNotification(
+              message,
+              SettaNotificationTypeEnum.warning,
+            );
           }
         }
       }
