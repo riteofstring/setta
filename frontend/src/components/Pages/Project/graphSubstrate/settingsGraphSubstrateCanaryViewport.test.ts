@@ -318,7 +318,6 @@ function createSceneSnapshot({
         position,
         positionAndSizeLocked: false,
         renderedPosition,
-        renderSize: { width: 240, height: 120 },
         sceneBoundsSize,
         sectionId: "section-a",
         tempZIndex: 1,

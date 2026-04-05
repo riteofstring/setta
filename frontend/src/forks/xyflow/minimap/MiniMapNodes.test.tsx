@@ -168,7 +168,6 @@ describe("MiniMapNodes", () => {
         renderedPosition: { x: 120, y: 90 },
         width: null,
         height: null,
-        renderSize: { width: 260, height: 150 },
         sizeAuthority: "sharedNode",
         zIndex: 2,
         tempZIndex: 3,
@@ -180,7 +179,6 @@ describe("MiniMapNodes", () => {
         renderedPosition: { x: 460, y: 260 },
         width: 320,
         height: 180,
-        renderSize: { width: 320, height: 180 },
         zIndex: 4,
         tempZIndex: 1004,
         positionAndSizeLocked: false,
@@ -191,7 +189,6 @@ describe("MiniMapNodes", () => {
         renderedPosition: { x: 930, y: 680 },
         width: null,
         height: null,
-        renderSize: null,
         sizeAuthority: "sharedNode",
         zIndex: 1,
         tempZIndex: 8,
@@ -262,7 +259,7 @@ describe("MiniMapNodes", () => {
     ]);
   });
 
-  it("prefers authoritative canary width and height over measured render fallback for minimap geometry", () => {
+  it("prefers authoritative canary width and height for minimap geometry", () => {
     const canarySections: SettingsGraphSubstrateCanarySceneSection[] = [
       {
         sectionId: "section-a",
@@ -270,7 +267,6 @@ describe("MiniMapNodes", () => {
         renderedPosition: { x: 460, y: 260 },
         width: 320,
         height: 180,
-        renderSize: { width: 360, height: 210 },
         sizeAuthority: "sectionModel",
         zIndex: 4,
         tempZIndex: 1004,

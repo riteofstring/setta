@@ -193,7 +193,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
     ]);
   });
 
-  it("uses shared-node seed size instead of render-only scene fallback for unresolved shell geometry", () => {
+  it("uses shared-node seed size for unresolved shell geometry", () => {
     const drawables =
       resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
         activeSectionIds: [],
@@ -204,7 +204,7 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
         sceneSections: [
           createSceneSection({
             height: null,
-            renderSize: { width: 360, height: 210 },
+            sceneBoundsSize: null,
             sizeAuthority: "sharedNode",
             width: null,
           }),
@@ -233,16 +233,8 @@ describe("resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables", () => {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
-  const renderSize =
-    "renderSize" in overrides
-      ? overrides.renderSize ?? null
-      : { width: 240, height: 160 };
-  const width =
-    "width" in overrides ? overrides.width ?? null : renderSize?.width ?? null;
-  const height =
-    "height" in overrides
-      ? overrides.height ?? null
-      : renderSize?.height ?? null;
+  const width = "width" in overrides ? overrides.width ?? null : 240;
+  const height = "height" in overrides ? overrides.height ?? null : 160;
   const sizeAuthority =
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
@@ -253,15 +245,8 @@ function createSceneSection(
     position: { x: 120, y: 80 },
     positionAndSizeLocked: false,
     renderedPosition: { x: 120, y: 80 },
-    renderSize,
     sceneBoundsSize:
-      overrides.sceneBoundsSize ??
-      (renderSize &&
-      (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
-        ? renderSize
-        : width && height
-          ? { width, height }
-          : null),
+      overrides.sceneBoundsSize ?? (width && height ? { width, height } : null),
     sectionId: "section-a",
     sectionTypeName: SectionTypeEnum.Code,
     styleColor: null,

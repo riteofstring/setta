@@ -324,7 +324,6 @@ function createSceneSnapshot({
     return {
       ...layoutSection,
       renderedPosition: layoutSection.position,
-      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     };
   });

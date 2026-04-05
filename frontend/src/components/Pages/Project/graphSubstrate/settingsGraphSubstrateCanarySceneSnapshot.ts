@@ -11,7 +11,6 @@ export type { SettingsGraphSubstrateCanarySectionPositionOverride };
 export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
     renderedPosition: GraphSubstrateCanarySection["position"];
-    renderSize: SectionElementSizes[string] | null;
     sceneBoundsSize: SectionElementSizes[string] | null;
   };
 
@@ -44,7 +43,6 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
     const sceneSection: SettingsGraphSubstrateCanarySceneSection = {
       ...section,
       renderedPosition: geometry.renderedPosition,
-      renderSize: geometry.renderSize,
       sceneBoundsSize: geometry.sceneBoundsSize,
       tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };

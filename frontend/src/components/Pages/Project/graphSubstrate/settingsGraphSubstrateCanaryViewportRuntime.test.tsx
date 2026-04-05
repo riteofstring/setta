@@ -313,7 +313,7 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
           sceneSnapshot={createSceneSnapshot({
             position: { x: 120, y: 80 },
             renderedPosition: { x: 480, y: 240 },
-            renderSize: null,
+            sceneBoundsSize: null,
             sceneBounds: null,
           })}
           sharedProjectViewport={null}
@@ -398,8 +398,7 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
 function createSceneSnapshot({
   position = { x: 120, y: 80 },
   renderedPosition = position,
-  renderSize = { width: 240, height: 160 },
-  sceneBoundsSize = renderSize,
+  sceneBoundsSize = { width: 240, height: 160 },
   sceneBounds = {
     x: renderedPosition.x,
     y: renderedPosition.y,
@@ -409,20 +408,18 @@ function createSceneSnapshot({
 }: {
   position?: { x: number; y: number };
   renderedPosition?: { x: number; y: number };
-  renderSize?: { width: number; height: number } | null;
   sceneBoundsSize?: { width: number; height: number } | null;
   sceneBounds?: SettingsGraphSubstrateCanarySceneSnapshot["sceneBounds"];
 } = {}): SettingsGraphSubstrateCanarySceneSnapshot {
   const section = {
-    height: sceneBoundsSize?.height ?? renderSize?.height ?? 160,
+    height: sceneBoundsSize?.height ?? 160,
     position,
     positionAndSizeLocked: false,
     renderedPosition,
-    renderSize,
     sceneBoundsSize,
     sectionId: "section-a",
     tempZIndex: 2,
-    width: sceneBoundsSize?.width ?? renderSize?.width ?? 240,
+    width: sceneBoundsSize?.width ?? 240,
     zIndex: 2,
   };
 

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 14:18 EDT
+Last updated: 2026-04-07 14:32 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `273` removed `renderSize` from the published canary scene snapshot/store contract, so shared scene sections now publish only authoritative world position plus `sceneBoundsSize` while local render-only fallback stays out of the shared shape.
+
+  - Why this pass completed:
+    - items `271` and `272` explicitly removed the last live shell/minimap consumers of `sceneSection.renderSize`, so the remaining seam was the shared scene-section/store contract itself rather than another external reader hop
+    - a production search showed `renderSize` was now confined to the local geometry helper and test scaffolding, which made deleting the shared field the smallest real product slice
+    - this pass stayed bounded to the shared scene snapshot contract and the directly affected tests/helpers; it did not widen into a new runtime refactor or parity lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts) so `SettingsGraphSubstrateCanarySceneSection` no longer publishes `renderSize`, and the resolved shared snapshot no longer copies the local render-only size field into the store contract
+    - updated the focused scene/runtime/viewport/surface fixtures in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx) so the shared snapshot contract is asserted through `sceneBoundsSize` and authoritative width/height only
+    - updated the scene-section fixture helpers in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx), and [`frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx) so unresolved shared scene sections no longer pretend to carry render-only size through the shared type
+  - Verification:
+    - runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-007/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `59e71f`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 89022`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`10 files`, `79 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `27.0s`)
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), opened the live bootstrap URL, followed the redirect into the worktree frontend, and clicked `Open settings`
+      - observed mounted `/settings`, visible `All Settings`, and a populated graph surface with many draggable cards/canvas controls instead of a blank shell
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - the published canary scene snapshot/store contract no longer exposes render-only size, which closes the shared `sceneSection.renderSize` deletion lane opened by items `271` and `272`
+    - local measured render fallback still exists only inside the geometry helper path; it is no longer published through the shared scene/store shape or test fixtures that model that shape
+    - the live worktree canary stayed healthy on the standard first-render probe plus bounded CDP health check for this pass
+  - Next frontier:
+    - continue the measured-geometry authority cleanup by removing unnecessary `useSectionElementSizes(...)` participation from shared scene snapshot resolution itself now that `renderSize` no longer exists on the published scene/store contract
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `272` cut the Pixi shell layer off the shared `sceneSnapshot.renderSize` fallback, so unresolved shared-node shells now size from the bounded `sectionSeedNodes` cache instead of from the published scene-section render-only field.
 

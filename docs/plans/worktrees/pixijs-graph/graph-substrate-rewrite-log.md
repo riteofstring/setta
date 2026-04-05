@@ -10463,3 +10463,37 @@ LOOP_TERMINAL_MARKER: none
     - continue the measured-geometry authority cleanup by removing `renderSize` from the published canary scene-section/store contract entirely, keeping any remaining render-only fallback local to the surface runtime
     - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of opening a new section-specific parity lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 14:32 EDT, Ralph item `273`
+  - Summary: removed `renderSize` from the published canary scene snapshot/store contract, so shared scene sections now publish only authoritative position plus `sceneBoundsSize` while local render-only fallback stays out of the shared shape.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-007/worktree-ai.log` -> frontend `3075`, backend `8075`, session `59e71f`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 89022`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySurfaceRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/forks/xyflow/minimap/MiniMapNodes.test.tsx` -> passed (`10 files`, `79 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"` -> passed (`1 passed`, `27.0s`)
+    - fresh-context CDP sub-agent -> pass; read `docs/guides/browser-mcp-quickstart.md`, opened the live bootstrap URL, clicked `Open settings`, observed mounted `/settings`, visible `All Settings`, and a populated graph surface with many draggable cards/canvas controls instead of a blank shell
+  - Result:
+    - the published canary scene snapshot/store contract no longer exposes render-only size, which closes the shared `sceneSection.renderSize` deletion lane opened by items `271` and `272`
+    - local measured render fallback still exists only inside the geometry helper path; it is no longer published through the shared scene/store shape or the test fixtures that model that shared shape
+    - the live worktree canary stayed healthy on the standard first-render probe and bounded CDP check for this pass
+  - Next:
+    - continue the measured-geometry authority cleanup by removing unnecessary `useSectionElementSizes(...)` participation from shared scene snapshot resolution itself now that `renderSize` no longer exists on the published scene/store contract
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none

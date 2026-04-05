@@ -13,16 +13,8 @@ import {
 function createSceneSection(
   overrides: Partial<SettingsGraphSubstrateCanarySceneSection> = {},
 ): SettingsGraphSubstrateCanarySceneSection {
-  const renderSize =
-    "renderSize" in overrides
-      ? overrides.renderSize ?? null
-      : { width: 200, height: 100 };
-  const width =
-    "width" in overrides ? overrides.width ?? null : renderSize?.width ?? null;
-  const height =
-    "height" in overrides
-      ? overrides.height ?? null
-      : renderSize?.height ?? null;
+  const width = "width" in overrides ? overrides.width ?? null : 200;
+  const height = "height" in overrides ? overrides.height ?? null : 100;
   const sizeAuthority =
     overrides.sizeAuthority ?? (width && height ? "layout" : undefined);
 
@@ -34,15 +26,8 @@ function createSceneSection(
     tempZIndex: 1,
     width,
     height,
-    renderSize,
     sceneBoundsSize:
-      overrides.sceneBoundsSize ??
-      (renderSize &&
-      (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
-        ? renderSize
-        : width && height
-          ? { width, height }
-          : null),
+      overrides.sceneBoundsSize ?? (width && height ? { width, height } : null),
     positionAndSizeLocked: false,
     ...(sizeAuthority ? { sizeAuthority } : {}),
     ...overrides,
@@ -140,7 +125,6 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
       renderedPosition: { x: 500, y: 100 },
       width: 400,
       height: 200,
-      renderSize: { width: 400, height: 200 },
     });
     const state = createState({
       sceneSnapshot: {
@@ -218,7 +202,6 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     // rest of the canary scene runtime instead of reviving stale bounds.
     const section = createSceneSection({
       height: null,
-      renderSize: null,
       width: null,
     });
     const state = createState({
@@ -246,11 +229,11 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
   });
 
   it("refuses fit view for a section whose measured size is still local-only", () => {
-    // Validates fit-view does not treat sizeAuthority:none render fallback as
-    // authoritative scene geometry.
+    // Validates fit-view does not treat sizeAuthority:none sections as
+    // authoritative scene geometry once local fallback stays out of the
+    // shared scene snapshot entirely.
     const section = createSceneSection({
       height: null,
-      renderSize: { width: 280, height: 190 },
       sizeAuthority: "none",
       width: null,
     });
