@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"setta/internal/sharedtypes"
 )
@@ -284,29 +283,15 @@ func normalizeLocalPythonContractAlias(
 	knownContractNames map[string]struct{},
 ) string {
 	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
+	if value == "" || !strings.Contains(value, "WithDiscriminator") {
+		return value
 	}
-
-	seen := map[string]struct{}{}
-	for _, token := range strings.FieldsFunc(value, func(char rune) bool {
-		return char != '_' && !unicode.IsLetter(char) && !unicode.IsDigit(char)
-	}) {
-		if token == "" {
+	for name := range knownContractNames {
+		alias := name + "WithDiscriminator"
+		if !strings.Contains(value, alias) {
 			continue
 		}
-		if _, duplicate := seen[token]; duplicate {
-			continue
-		}
-		seen[token] = struct{}{}
-		if !strings.HasSuffix(token, "WithDiscriminator") {
-			continue
-		}
-		baseName := strings.TrimSuffix(token, "WithDiscriminator")
-		if _, ok := knownContractNames[baseName]; !ok {
-			continue
-		}
-		value = strings.ReplaceAll(value, token, baseName)
+		value = strings.ReplaceAll(value, alias, name)
 	}
 	return value
 }
