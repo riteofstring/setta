@@ -282,7 +282,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 func discriminatedObjectFamilyMembers(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 ) ([]discriminatedObjectFamilyMember, error) {
-	enumValues, ok, err := frontendBindingEnumValues(family.EnumType)
+	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func discriminatedObjectFamilyDiscriminatorTypeExpr(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 	value string,
 ) (string, error) {
-	enumValues, ok, err := frontendBindingEnumValues(family.EnumType)
+	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
 	if err != nil {
 		return "", err
 	}

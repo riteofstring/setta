@@ -5,9 +5,29 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"setta/internal/stringenumvalues"
 )
 
 var frontendSDKMirrorOwnerTypesByName = newFrontendSDKMirrorOwnerTypesByName()
+
+func discoveredFrontendEnumValues(t reflect.Type) ([]stringenumvalues.EnumValue, bool, error) {
+	values, ok, err := stringenumvalues.Default().Values(canonicalFrontendBindingType(t))
+	if err != nil || !ok || len(values) < 2 {
+		return values, ok, err
+	}
+	deduped := make([]stringenumvalues.EnumValue, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		key := value.Name + "\x00" + value.Value
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		deduped = append(deduped, value)
+	}
+	return deduped, true, nil
+}
 
 type typeConverter struct {
 	declarations []TypeDeclaration
@@ -180,7 +200,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return c.appendAdditionalDeclarationsForType(t)
 	}
 
-	if values, ok, err := frontendBindingEnumValues(t); err != nil {
+	if values, ok, err := discoveredFrontendEnumValues(t); err != nil {
 		return err
 	} else if ok {
 		c.declarations = append(c.declarations, TypeDeclaration{
