@@ -5868,3 +5868,44 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 163
+
+- Item: Open and close the canonical `taskBoardSectionDefault` normalized blank-pane pan lane with a trusted Playwright probe plus fresh-context CDP confirmation.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - items `161` and `162` had already closed recent drag lanes, so repeating another drag probe would have kept the same support pattern alive without changing the renderer question
+    - `taskBoardSectionDefault` already had fresh normalized drag evidence, but it still lacked any named blank-pane pan evidence on `All Settings`
+    - switching the same canonical section to pane pan answered a different motion-family question without inventing a new oracle family
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the task board args filter editable after normalized pane pan on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `taskBoardSectionDefault`, runs shared compare preflight, fits the named section, applies the same short blank-pane pan, compares args-filter anchor drift plus viewport transform deltas, and verifies the filter still edits afterward
+  - What this slice established:
+    - the targeted live Playwright rerun passed on the current run-023 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `taskBoardSectionDefault` pane pan staying within thresholds
+    - fresh-context CDP confirmed the same named lane without surfacing renderer drift:
+      - worktree preflight was healthy on the live `3076/settings` canary tab
+      - the first `main` bootstrap tab hit a stale-token rejection, but the live `3087/settings` legacy tab hydrated normally and the actual main-side preflight was healthy once the sub-agent switched to that live tab
+      - after normalized `All Settings` pane pan, the task-board `Filter` textbox still looked attached and editable on both sides
+    - treat the rejected stale `main` bootstrap tab and the worktree-label chrome difference (`pixijs-graph` vs `main`) as oracle noise, not as renderer evidence on this lane
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the task board args filter editable after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `43.5s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - compared worktree `3076/settings` and read-only `main` `3087/settings` on normalized `All Settings`
+    - noted one stale rejected `main` bootstrap tab, then switched to the live hydrated legacy tab for the actual compare
+  - CDP visual check:
+    - result: done
+    - note: normalized `taskBoardSectionDefault` pane pan kept the filter attached/editable on both sides; only stale-bootstrap/worktree-label noise remained
+- Lane status:
+  - close `taskBoardSectionDefault` as a clean normalized blank-pane pan lane
+  - do not reopen the stale rejected `main` bootstrap tab or the worktree-label chrome difference as renderer drift on this lane
+- Next action:
+  - open the next named normalized blank-pane pan lane on a section that still only has drag/zoom-style coverage, starting with `dropzoneParamCodeObjDefault`
+- LOOP_TERMINAL_MARKER: none
