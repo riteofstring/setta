@@ -349,7 +349,12 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 	declarations := []datamodelDeclaration{}
 	sawDeclaration := false
 	for _, block := range splitDatamodelBlocks(module) {
-		header := datamodelBlockHeader(block)
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		header, _, _ := strings.Cut(block, "\n")
+		header = strings.TrimSpace(header)
 		switch {
 		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
 			continue
@@ -369,9 +374,16 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 				imports = append(imports, trimmed)
 			}
 		default:
-			declaration, err := parseDatamodelDeclaration(block)
-			if err != nil {
-				return datamodelModule{}, err
+			declaration := datamodelDeclaration{Block: block}
+			if strings.HasPrefix(header, "class ") {
+				name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
+				if before, _, ok := strings.Cut(name, "("); ok {
+					name = strings.TrimSpace(before)
+				}
+				if name == "" {
+					return datamodelModule{}, fmt.Errorf("python shared types: datamodel class has empty name")
+				}
+				declaration.Name = name
 			}
 			sawDeclaration = true
 			declarations = append(declarations, declaration)
@@ -404,41 +416,6 @@ func splitDatamodelBlocks(module string) []string {
 	}
 	flush()
 	return blocks
-}
-
-func datamodelBlockHeader(block string) string {
-	header, _, _ := strings.Cut(block, "\n")
-	return strings.TrimSpace(header)
-}
-
-func parseDatamodelDeclaration(block string) (datamodelDeclaration, error) {
-	trimmedBlock := strings.TrimSpace(block)
-	if trimmedBlock == "" {
-		return datamodelDeclaration{}, fmt.Errorf("python shared types: empty datamodel declaration block")
-	}
-	header := datamodelBlockHeader(trimmedBlock)
-	declaration := datamodelDeclaration{Block: trimmedBlock}
-	if !strings.HasPrefix(header, "class ") {
-		return declaration, nil
-	}
-	name, err := parseDatamodelClassName(header)
-	if err != nil {
-		return datamodelDeclaration{}, err
-	}
-	declaration.Name = name
-	return declaration, nil
-}
-
-func parseDatamodelClassName(header string) (string, error) {
-	name := strings.TrimSpace(strings.TrimPrefix(header, "class "))
-	if before, _, ok := strings.Cut(name, "("); ok {
-		name = strings.TrimSpace(before)
-	}
-	name = strings.TrimSuffix(name, ":")
-	if name == "" {
-		return "", fmt.Errorf("python shared types: datamodel class has empty name")
-	}
-	return name, nil
 }
 
 func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
