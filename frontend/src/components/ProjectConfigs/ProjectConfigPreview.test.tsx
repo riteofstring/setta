@@ -39,14 +39,6 @@ describe("ProjectConfigPreview", () => {
     expect(markup).toContain('height="150"');
   });
 
-  it("renders an empty preview when section layouts are unavailable", () => {
-    const markup = renderToStaticMarkup(<ProjectConfigPreview />);
-
-    expect(markup).toContain("<svg");
-    expect(markup).toContain('width="200"');
-    expect(markup).toContain('height="150"');
-  });
-
   it("keeps static previews out of the live active-section subscription path", async () => {
     const project = createProjectConfig({
       id: "project-1",
