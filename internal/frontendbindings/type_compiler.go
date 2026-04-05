@@ -350,13 +350,11 @@ func (c *typeConverter) reflectedObjectDeclaration(
 }
 
 func reflectedMapFieldNeedsGeneratedCreate(fieldType reflect.Type) bool {
-	for fieldType.Kind() == reflect.Pointer {
-		fieldType = fieldType.Elem()
-	}
-	if fieldType.Kind() != reflect.Map {
+	fieldType, _ = unwrapNullableFieldType(fieldType)
+	if fieldType == nil || fieldType.Kind() != reflect.Map {
 		return false
 	}
-	_, _, _, ok := frontendObjectCreateFunctionName(fieldType.Elem())
+	_, ok := frontendObjectCreateTarget(fieldType.Elem())
 	return ok
 }
 

@@ -10,6 +10,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 )
 
 func TestCanonicalFrontendBindingTypeUsesRealtimeMirrorForPythonSDKTypes(t *testing.T) {
@@ -46,6 +47,27 @@ func TestOwnerBackedReflectedObjectDeclarationUsesFieldCreateExprTagsInCreateBod
 	}
 	if !strings.Contains(declaration.CreateBody, "timestamp: options.timestamp ?? \"\"") {
 		t.Fatalf("%s CreateBody missing timestamp tag override:\n%s", declaration.Name, declaration.CreateBody)
+	}
+}
+
+func TestOwnerBackedReflectedObjectDeclarationUsesNullableFieldCreateExprTagsInCreateBody(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	typ := reflect.TypeOf(settingsstate.FrontendSettingsBackend{})
+	if err := converter.ensureDeclaration(typ); err != nil {
+		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	}
+
+	declaration := findTypeDeclaration(t, converter.Declarations(), frontendBindingTypeName(typ))
+	if declaration.CreateBody == "" {
+		t.Fatalf("%s CreateBody is empty", declaration.Name)
+	}
+	if !strings.Contains(
+		declaration.CreateBody,
+		"defaultTerminalShell: options.defaultTerminalShell === null ? null : (options.defaultTerminalShell ?? null)",
+	) {
+		t.Fatalf("%s CreateBody missing nullable ts_create_expr override:\n%s", declaration.Name, declaration.CreateBody)
 	}
 }
 

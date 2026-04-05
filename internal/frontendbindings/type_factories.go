@@ -89,10 +89,36 @@ func buildGenericCreateFieldExprTS(
 	optionsExpr = strings.TrimSpace(optionsExpr)
 	explicitDefaultExpr := strings.TrimSpace(tsMetadata.CreateExpr)
 	if explicitDefaultExpr != "" {
-		return buildGenericDefaultFallbackExprTS(fieldType, optionsExpr, explicitDefaultExpr), true, nil
+		_, nullable := unwrapNullableFieldType(fieldType)
+		if nullable {
+			return fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, explicitDefaultExpr), true, nil
+		}
+		return fmt.Sprintf("%s ?? %s", optionsExpr, explicitDefaultExpr), true, nil
 	}
-	if expr, ok := buildGenericNamedStructFieldExprTS(fieldType, optionsExpr, defaultExpr, hasDefault); ok {
-		return expr, true, nil
+	if target, ok := frontendObjectCreateTarget(fieldType); ok {
+		if target.Nullable {
+			if hasDefault {
+				mergedExpr := fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
+				return fmt.Sprintf(
+					"%s === null ? null : %s(%s as Partial<%s>)",
+					mergedExpr,
+					target.FuncName,
+					mergedExpr,
+					target.TypeName,
+				), true, nil
+			}
+			return fmt.Sprintf(
+				"%s === undefined || %s === null ? null : %s(%s)",
+				optionsExpr,
+				optionsExpr,
+				target.FuncName,
+				optionsExpr,
+			), true, nil
+		}
+		if hasDefault {
+			return fmt.Sprintf("%s(%s ?? %s)", target.FuncName, optionsExpr, defaultExpr), true, nil
+		}
+		return fmt.Sprintf("%s(%s ?? {})", target.FuncName, optionsExpr), true, nil
 	}
 	if tsMetadata.CreateMapValues {
 		if expr, ok := buildGenericMapFieldExprTS(fieldType, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
@@ -102,42 +128,6 @@ func buildGenericCreateFieldExprTS(
 	return "", false, nil
 }
 
-func buildGenericNamedStructFieldExprTS(
-	fieldType reflect.Type,
-	optionsExpr string,
-	defaultExpr string,
-	hasDefault bool,
-) (string, bool) {
-	createFuncName, typeName, nullable, ok := frontendObjectCreateFunctionName(fieldType)
-	if !ok {
-		return "", false
-	}
-	if nullable {
-		if hasDefault {
-			mergedExpr := fmt.Sprintf("(%s ?? %s)", optionsExpr, defaultExpr)
-			return fmt.Sprintf(
-				"%s === null ? null : (%s === null ? null : %s(%s as Partial<%s>))",
-				optionsExpr,
-				mergedExpr,
-				createFuncName,
-				mergedExpr,
-				typeName,
-			), true
-		}
-		return fmt.Sprintf(
-			"%s === undefined || %s === null ? null : %s(%s)",
-			optionsExpr,
-			optionsExpr,
-			createFuncName,
-			optionsExpr,
-		), true
-	}
-	if hasDefault {
-		return fmt.Sprintf("%s(%s ?? %s)", createFuncName, optionsExpr, defaultExpr), true
-	}
-	return fmt.Sprintf("%s(%s ?? {})", createFuncName, optionsExpr), true
-}
-
 func buildGenericMapFieldExprTS(
 	fieldType reflect.Type,
 	resultType string,
@@ -145,15 +135,11 @@ func buildGenericMapFieldExprTS(
 	defaultExpr string,
 	hasDefault bool,
 ) (string, bool) {
-	nullable := false
-	for fieldType.Kind() == reflect.Pointer {
-		nullable = true
-		fieldType = fieldType.Elem()
-	}
-	if fieldType.Kind() != reflect.Map {
+	fieldType, nullable := unwrapNullableFieldType(fieldType)
+	if fieldType == nil || fieldType.Kind() != reflect.Map {
 		return "", false
 	}
-	createFuncName, valueTypeName, _, ok := frontendObjectCreateFunctionName(fieldType.Elem())
+	target, ok := frontendObjectCreateTarget(fieldType.Elem())
 	if !ok {
 		return "", false
 	}
@@ -179,9 +165,9 @@ func buildGenericMapFieldExprTS(
 	builder.WriteString("      }).map(([key, value]) => [\n")
 	builder.WriteString("        key,\n")
 	builder.WriteString("        ")
-	builder.WriteString(createFuncName)
+	builder.WriteString(target.FuncName)
 	builder.WriteString("(value as Partial<")
-	builder.WriteString(valueTypeName)
+	builder.WriteString(target.TypeName)
 	builder.WriteString(">),\n")
 	builder.WriteString("      ]),\n")
 	builder.WriteString("    ) as ")
@@ -189,40 +175,39 @@ func buildGenericMapFieldExprTS(
 	return builder.String(), true
 }
 
-func buildGenericDefaultFallbackExprTS(
-	fieldType reflect.Type,
-	optionsExpr string,
-	defaultExpr string,
-) string {
-	nullable := false
-	for fieldType.Kind() == reflect.Pointer {
-		nullable = true
-		fieldType = fieldType.Elem()
-	}
-	if nullable {
-		return fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
-	}
-	return fmt.Sprintf("%s ?? %s", optionsExpr, defaultExpr)
+type frontendObjectCreateTargetSpec struct {
+	FuncName string
+	TypeName string
+	Nullable bool
 }
 
-func frontendObjectCreateFunctionName(fieldType reflect.Type) (string, string, bool, bool) {
+func frontendObjectCreateTarget(fieldType reflect.Type) (frontendObjectCreateTargetSpec, bool) {
+	fieldType, nullable := unwrapNullableFieldType(fieldType)
+	fieldType = canonicalFrontendBindingType(fieldType)
+	if fieldType == timeType {
+		return frontendObjectCreateTargetSpec{}, false
+	}
+	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
+		return frontendObjectCreateTargetSpec{}, false
+	}
+	if fieldType.Kind() != reflect.Struct {
+		return frontendObjectCreateTargetSpec{}, false
+	}
+	typeName := frontendBindingTypeName(fieldType)
+	return frontendObjectCreateTargetSpec{
+		FuncName: "create" + typeName,
+		TypeName: typeName,
+		Nullable: nullable,
+	}, true
+}
+
+func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
 	nullable := false
-	for fieldType.Kind() == reflect.Pointer {
+	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
 		nullable = true
 		fieldType = fieldType.Elem()
 	}
-	fieldType = canonicalFrontendBindingType(fieldType)
-	if fieldType == timeType {
-		return "", "", false, false
-	}
-	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
-		return "", "", false, false
-	}
-	if fieldType.Kind() != reflect.Struct {
-		return "", "", false, false
-	}
-	typeName := frontendBindingTypeName(fieldType)
-	return "create" + typeName, typeName, nullable, true
+	return fieldType, nullable
 }
 
 func tsPropertyAccessExpr(baseExpr string, propertyName string) string {

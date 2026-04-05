@@ -350,8 +350,10 @@ export function createEngineConfig(
         : (options.runtimeSupport ?? defaults.runtimeSupport) === null
           ? null
           : createEngineRuntimeSupport(
-              (options.runtimeSupport ??
-                defaults.runtimeSupport) as Partial<EngineRuntimeSupport>,
+              options.runtimeSupport === null
+                ? null
+                : ((options.runtimeSupport ??
+                    defaults.runtimeSupport) as Partial<EngineRuntimeSupport>),
             ),
   };
 }
@@ -1560,8 +1562,10 @@ export function createCodeSectionImpl(
         : (options.codeFileBinding ?? defaults.codeFileBinding) === null
           ? null
           : createCodeFileBinding(
-              (options.codeFileBinding ??
-                defaults.codeFileBinding) as Partial<CodeFileBinding>,
+              options.codeFileBinding === null
+                ? null
+                : ((options.codeFileBinding ??
+                    defaults.codeFileBinding) as Partial<CodeFileBinding>),
             ),
     diagnosticsIgnoreState: createCodeSectionDiagnosticsIgnoreState(
       options.diagnosticsIgnoreState ?? defaults.diagnosticsIgnoreState,
@@ -3055,7 +3059,10 @@ export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
         : (options.viewport ?? defaults.viewport) === null
           ? null
           : createViewport(
-              (options.viewport ?? defaults.viewport) as Partial<Viewport>,
+              options.viewport === null
+                ? null
+                : ((options.viewport ??
+                    defaults.viewport) as Partial<Viewport>),
             ),
   };
 }
@@ -4489,7 +4496,10 @@ export function createProjectConfig(
         : (options.viewport ?? defaults.viewport) === null
           ? null
           : createViewport(
-              (options.viewport ?? defaults.viewport) as Partial<Viewport>,
+              options.viewport === null
+                ? null
+                : ((options.viewport ??
+                    defaults.viewport) as Partial<Viewport>),
             ),
     runCapabilities: createProjectRunCapabilities(
       options.runCapabilities ?? defaults.runCapabilities,
@@ -4619,8 +4629,10 @@ export function createSingleConfig(
         : (options.genCodeBinding ?? defaults.genCodeBinding) === null
           ? null
           : createCodeFileBinding(
-              (options.genCodeBinding ??
-                defaults.genCodeBinding) as Partial<CodeFileBinding>,
+              options.genCodeBinding === null
+                ? null
+                : ((options.genCodeBinding ??
+                    defaults.genCodeBinding) as Partial<CodeFileBinding>),
             ),
     projectChatWindowing: createProjectChatWindowingState(
       options.projectChatWindowing ?? defaults.projectChatWindowing,
