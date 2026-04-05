@@ -359,6 +359,56 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-testid="window-controls"');
     expect(markup).not.toContain("Mute diagnostics");
   });
+
+  it("allows a custom leading-controls renderer to own the menu and tag-color boundary", () => {
+    useProjectState.setState((state) => {
+      const section = state.sections[sectionId];
+      if (!section) {
+        throw new Error(`Missing section ${sectionId}`);
+      }
+      section.sharedModifier = { tagColor: "#ff0000" };
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={true}
+        isUserView={true}
+        isRoot={false}
+        hasSectionStyleTheme={true}
+        leadingControlsRenderer={({
+          hasSectionStyleTheme,
+          isInOtherProjectConfigs,
+          sectionId: leadingSectionId,
+          sectionTypeName: leadingSectionTypeName,
+          tagColor,
+        }) => (
+          <div
+            data-has-section-style-theme={
+              hasSectionStyleTheme ? "true" : "false"
+            }
+            data-in-other-project-configs={
+              isInOtherProjectConfigs ? "true" : "false"
+            }
+            data-section-id={leadingSectionId}
+            data-section-type={leadingSectionTypeName}
+            data-tag-color={tagColor ?? "none"}
+            data-testid="custom-leading-controls"
+          />
+        )}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="custom-leading-controls"');
+    expect(markup).toContain('data-has-section-style-theme="true"');
+    expect(markup).toContain('data-in-other-project-configs="true"');
+    expect(markup).toContain('data-section-id="section-1"');
+    expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
+    expect(markup).toContain('data-tag-color="#ff0000"');
+    expect(markup).not.toContain("Color tag: #ff0000");
+  });
 });
 
 describe("SectionHeader follow button", () => {

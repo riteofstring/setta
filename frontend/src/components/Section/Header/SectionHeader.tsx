@@ -55,6 +55,17 @@ export type SectionHeaderLayoutRenderProps = {
 type SectionHeaderLayoutRenderer =
   React.ComponentType<SectionHeaderLayoutRenderProps>;
 
+export type SectionHeaderLeadingControlsRenderProps = {
+  hasSectionStyleTheme: boolean;
+  isInOtherProjectConfigs: boolean;
+  sectionId: string;
+  sectionTypeName: SectionType;
+  tagColor: string | null;
+};
+
+type SectionHeaderLeadingControlsRenderer =
+  React.ComponentType<SectionHeaderLeadingControlsRenderProps>;
+
 export type SectionHeaderControlsRenderProps = {
   codeDiagnosticsLabel: string;
   codeDiagnosticsMuted: boolean;
@@ -97,6 +108,7 @@ type SectionHeaderProps = {
   trackMeasuredHeight?: boolean;
   controlsRenderer?: SectionHeaderControlsRenderer;
   layoutRenderer?: SectionHeaderLayoutRenderer;
+  leadingControlsRenderer?: SectionHeaderLeadingControlsRenderer;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -115,6 +127,7 @@ function _SectionHeader({
   trackMeasuredHeight = true,
   controlsRenderer,
   layoutRenderer,
+  leadingControlsRenderer,
   headerProps,
 }: SectionHeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
@@ -218,22 +231,16 @@ function _SectionHeader({
   const ControlsRenderer =
     controlsRenderer ?? DefaultSectionHeaderControlsDomAdapter;
   const LayoutRenderer = layoutRenderer ?? DefaultSectionHeaderLayoutDomAdapter;
+  const LeadingControlsRenderer =
+    leadingControlsRenderer ?? DefaultSectionHeaderLeadingControlsDomAdapter;
   const leadingControls = (
-    <>
-      <MenuButton
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-      />
-      {tagColor && (
-        <span
-          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-          style={{ backgroundColor: tagColor }}
-          title={`Color tag: ${tagColor}`}
-        />
-      )}
-    </>
+    <LeadingControlsRenderer
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      isInOtherProjectConfigs={isInOtherProjectConfigs}
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      tagColor={tagColor}
+    />
   );
   const title = (
     <MaybeCardTitle
@@ -323,6 +330,32 @@ export function DefaultSectionHeaderLayoutDomAdapter({
       {leadingControls}
       {title}
       <div className="z-10 ml-auto flex items-center">{actions}</div>
+    </>
+  );
+}
+
+export function DefaultSectionHeaderLeadingControlsDomAdapter({
+  hasSectionStyleTheme,
+  isInOtherProjectConfigs,
+  sectionId,
+  sectionTypeName,
+  tagColor,
+}: SectionHeaderLeadingControlsRenderProps) {
+  return (
+    <>
+      <MenuButton
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+      {tagColor && (
+        <span
+          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+          style={{ backgroundColor: tagColor }}
+          title={`Color tag: ${tagColor}`}
+        />
+      )}
     </>
   );
 }

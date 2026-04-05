@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 18:48 EDT
+Last updated: 2026-04-06 19:00 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,53 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `233` collapses the remaining `SectionHeader` leading controls behind one renderer-facing contract, so the generic header no longer hard-codes `MenuButton` plus tag-color composition inline at the same boundary a future scene-owned header would need to replace.
+  - Why this slice was needed:
+    - item `232` let the generic header choose one trailing controls boundary, but `SectionHeader` still assembled the leading menu/tag-color area inline before handing those controls to the shared layout seam
+    - without a leading-controls contract at that composition boundary, a future scene-owned header would still need to reverse-engineer the default DOM menu/tag-color composition even after layout and trailing controls moved behind renderer-facing seams
+    - this remains a real implementation-choice seam inside `SectionHeader`; it is not another pure forwarding hop through the canary wrappers
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - updated `frontend/src/components/Section/Header/SectionHeader.tsx`
+      - added `SectionHeaderLeadingControlsRenderProps`, optional `leadingControlsRenderer`, and `DefaultSectionHeaderLeadingControlsDomAdapter`
+      - `SectionHeader` now resolves the leading menu/tag-color contract once and hands it to one leading-controls renderer instead of hard-coding that composition inline
+    - updated `frontend/src/components/Section/Header/SectionHeader.test.tsx`
+      - added focused coverage proving a custom leading-controls renderer can own the menu/tag-color boundary while still receiving the resolved section/header leading-controls contract
+    - existing focused consumers remained valid:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - `frontend/src/components/Section/Container/SectionWindowSurface.test.tsx`
+  - What this slice established:
+    - the generic header now exposes renderer-facing seams for leading controls, layout, and trailing controls while preserving the current DOM header behavior by default
+    - the DOM-only header fallback lane is now complete; future scene-owned header work can replace header composition without reopening the already-closed canary header-selection/layout/controls seams
+    - this keeps the DOM-backed canary visually stable while moving the remaining renderer ownership decision to the actual future scene-owned implementation rather than more DOM seam lifting
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Header/SectionHeader.tsx src/components/Section/Header/SectionHeader.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Section/Header/SectionHeader.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx`
+      - result: passed (`3 files`, `22 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionHeader(\\.tsx|\\.test\\.tsx)|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx|SectionWindowSurface(\\.test)?\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-009 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000`
+      - result: still not a trustworthy gate; the current-token retry timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed`
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree `http://127.0.0.1:3076/settings` mounted the `graph-substrate-canary`, `All Settings` was reachable, and `rotaryParamCodeObjDefault` was present on the canvas
+      - note: the read-only `main` reference at `http://127.0.0.1:3087/settings` was also healthy enough for a spot-check, although it appears to still be the legacy surface rather than the canary surface
+      - note: no obvious gross leading header controls drift was visible versus `main`
+  - Lane status:
+    - this closes the remaining DOM-only header seam-lift fallback that item `232` named when Pixi approval was still unavailable
+    - do not continue the header seam-lift lane with more DOM forwarding work; it has reached its useful renderer boundary
+    - the repeated Playwright failure is still bootstrap/auth harness noise rather than product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer, body-surface, header-renderer, header-layout, header-controls, and header-leading-controls contracts to land the first scene-owned static shell/header/body surface while the DOM editor/body content stays intact
+    - without that approval, stop extending DOM-only header seams; the next real step is the permission-gated scene-owned implementation rather than another fallback seam
 
 - Ralph item `232` collapses the `SectionHeader` trailing action strip behind one renderer-facing controls contract, so the generic header no longer hard-codes diagnostics/run/follow/window/container button composition inline at the same boundary a future scene-owned header would need to replace.
   - Why this slice was needed:
