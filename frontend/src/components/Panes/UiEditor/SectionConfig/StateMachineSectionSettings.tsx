@@ -1,5 +1,7 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import { setStateMachineSectionSettings } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -9,18 +11,15 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_state_machine_section_settings } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   SectionTypeEnum,
   StateMachineGateType,
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
-
 type StateMachineSectionSettingsProps = {
   sectionId: string;
 };
-
 type StateMachineSectionState = {
   type:
     | SectionTypeEnum.StateMachineStart
@@ -31,7 +30,6 @@ type StateMachineSectionState = {
   gateType: StateMachineGateType | null;
   isFrozen: boolean;
 };
-
 type StateMachineSectionImpl = Extract<
   BaseSectionImplUnion,
   {
@@ -41,7 +39,6 @@ type StateMachineSectionImpl = Extract<
       | SectionTypeEnum.StateMachineEnd;
   }
 >;
-
 const GATE_TYPE_OPTIONS = [
   {
     group: "Gate Types",
@@ -52,7 +49,6 @@ const GATE_TYPE_OPTIONS = [
     ],
   },
 ];
-
 function getStateMachineSectionState(
   impl: StateMachineSectionImpl,
 ): StateMachineSectionState {
@@ -82,7 +78,6 @@ function getStateMachineSectionState(
     isFrozen: impl.isFrozen,
   };
 }
-
 function getDefaultLabel(
   type: StateMachineSectionState["type"],
   gateType: StateMachineGateType | null,
@@ -98,7 +93,6 @@ function getDefaultLabel(
   }
   return "Gate";
 }
-
 export function StateMachineSectionSettings({
   sectionId,
 }: StateMachineSectionSettingsProps) {
@@ -114,18 +108,15 @@ export function StateMachineSectionSettings({
     }
     return getStateMachineSectionState(impl);
   }, _.isEqual);
-
   const isDisabled = sectionState.isFrozen || !canEditLayout;
   const [machineGroupIdDraft, setMachineGroupIdDraft] = React.useState(
     sectionState.machineGroupId,
   );
   const [labelDraft, setLabelDraft] = React.useState(sectionState.label);
-
   React.useEffect(() => {
     setMachineGroupIdDraft(sectionState.machineGroupId);
     setLabelDraft(sectionState.label);
   }, [sectionState.label, sectionState.machineGroupId, sectionState.type]);
-
   function persist(next: {
     machineGroupId: string;
     label: string;
@@ -168,17 +159,20 @@ export function StateMachineSectionSettings({
         );
       },
       send: (frontendOpId) =>
-        route_set_state_machine_section_settings({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          machineGroupId,
-          label,
-          gateType: next.gateType,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setStateMachineSectionSettings({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              machineGroupId,
+              label,
+              gateType: next.gateType,
+              frontendOpId,
+            },
+          } as Parameters<typeof setStateMachineSectionSettings>[0]),
+        ),
     });
   }
-
   function commitDrafts() {
     if (
       machineGroupIdDraft.trim() === sectionState.machineGroupId &&
@@ -192,7 +186,6 @@ export function StateMachineSectionSettings({
       gateType: sectionState.gateType,
     });
   }
-
   return (
     <div className="flex flex-col gap-3 rounded-md border border-setta-200/70 p-3 dark:border-setta-700/70">
       <div className="space-y-1">
