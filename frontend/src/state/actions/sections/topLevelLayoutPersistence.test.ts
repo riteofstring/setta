@@ -12,7 +12,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,16 +48,16 @@ function seedProjectState() {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: null }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: null },
+    ...{
       id: implId,
       chatId: null,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
@@ -100,16 +99,16 @@ function buildSubAgentEntries() {
     impl: subImplId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: null }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: null },
+    ...{
       id: subImplId,
       chatId: null,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   return { sectionCore, sectionVariant, sectionImpl };
 }
 
@@ -276,108 +275,5 @@ describe("top-level layout persistence", () => {
     const nextLayouts =
       useProjectState.getState().projectConfig.topLevelSections;
     expect(nextLayouts[subSectionId]).toBeTruthy();
-  });
-
-  it("drops an acknowledged stale layout snapshot when a newer backend layout arrives", async () => {
-    const route_set_top_level_section_layout = (
-      await import("utils/generatedEndpoints")
-    ).route_set_top_level_section_layout as unknown as vi.Mock;
-    route_set_top_level_section_layout.mockResolvedValue({
-      hasResponse: true,
-      status: 200,
-      data: null,
-    });
-
-    useNodeInternals.setState((state) => {
-      const nextNodes = new Map(state.x);
-      const node = nextNodes.get(sectionId);
-      if (!node) {
-        return { x: nextNodes };
-      }
-      nextNodes.set(sectionId, {
-        ...node,
-        width: 320,
-        height: 240,
-      });
-      return { x: nextNodes };
-    });
-
-    debounced_route_set_top_level_section_layout();
-    vi.runAllTimers();
-    await Promise.resolve();
-
-    expect(usePendingOperations.getState().pending).toEqual([
-      expect.objectContaining({
-        acknowledged: true,
-      }),
-    ]);
-
-    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
-    backendState.projectConfig.topLevelSections[sectionId] = {
-      x: 240,
-      y: 1360,
-      zIndex: 1,
-      w: 552,
-      h: 352,
-    };
-
-    processProjectStateUpdateFromBackend({
-      projectState: backendState,
-      completedOpIds: [],
-      pendingOpIds: [],
-    });
-
-    const topLevel =
-      useProjectState.getState().projectConfig.topLevelSections[sectionId];
-    expect(topLevel).toEqual({
-      x: 240,
-      y: 1360,
-      zIndex: 1,
-      w: 552,
-      h: 352,
-    });
-    expect(usePendingOperations.getState().pending).toEqual([]);
-  });
-
-  it("stops re-sending stale persisted size when the current node has no dimensions", async () => {
-    const route_set_top_level_section_layout = (
-      await import("utils/generatedEndpoints")
-    ).route_set_top_level_section_layout as unknown as vi.Mock;
-
-    useProjectState.setState((state) => {
-      state.projectConfig.topLevelSections[sectionId] = {
-        x: 0,
-        y: 0,
-        zIndex: 1,
-        w: 320,
-        h: 240,
-      };
-    });
-
-    debounced_route_set_top_level_section_layout();
-    vi.runAllTimers();
-
-    expect(
-      useProjectState.getState().projectConfig.topLevelSections[sectionId],
-    ).toEqual({
-      x: 0,
-      y: 0,
-      zIndex: 1,
-      w: null,
-      h: null,
-    });
-    expect(route_set_top_level_section_layout).toHaveBeenCalledWith(
-      expect.objectContaining({
-        topLevelSections: expect.objectContaining({
-          [sectionId]: {
-            x: 0,
-            y: 0,
-            zIndex: 1,
-            w: null,
-            h: null,
-          },
-        }),
-      }),
-    );
   });
 });

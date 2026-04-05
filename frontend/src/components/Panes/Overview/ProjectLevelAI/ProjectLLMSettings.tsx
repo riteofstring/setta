@@ -6,8 +6,14 @@ import { MdAdd } from "react-icons/md";
 import { mutateAndSaveLLMApiKeys } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { APIKeys, AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
+import {
+  AllConfigs,
+  LLMAPIKeysSnapshot,
+  LLMConfig,
+} from "utils/generatedTypes";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 const API_KEY_INPUT_CLASS_NAME =
   "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
@@ -267,7 +273,7 @@ type ApiKeyEntry = {
 };
 
 export function buildApiKeyEntries(
-  allLLMConfigs: AllLLMConfigs | null,
+  allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys,
 ): ApiKeyEntry[] {
   const entriesByKey = new Map<string, ApiKeyEntry>();

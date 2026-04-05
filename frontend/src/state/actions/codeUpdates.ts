@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { getPythonCodegenTarget } from "utils/codegenTargets";
+import { type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_code,
   route_set_gen_code_prefix,
@@ -16,17 +17,23 @@ type PendingCodeUpdate = {
   code: string;
 };
 
+type ProjectCodeMutationRouteResponse = ResponseDataAndStatus<null>;
+
 let pendingCodeUpdate: PendingCodeUpdate | null = null;
 let pendingGenCodePrefix: string | null = null;
 let pendingGenCodeSuffix: string | null = null;
-let lastCodeUpdatePromise: Promise<unknown> | null = null;
+let lastCodeUpdatePromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
 let lastCodeUpdateSectionId: string | null = null;
-let lastGenCodePrefixPromise: Promise<unknown> | null = null;
-let lastGenCodeSuffixPromise: Promise<unknown> | null = null;
+let lastGenCodePrefixPromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
+let lastGenCodeSuffixPromise: Promise<ProjectCodeMutationRouteResponse> | null =
+  null;
 
 function applyCodeUpdate(sectionId: string, code: string) {
   pendingCodeUpdate = null;
   lastCodeUpdateSectionId = sectionId;
+  const projectConfigId = getCurrProjectConfigId();
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
@@ -35,7 +42,7 @@ function applyCodeUpdate(sectionId: string, code: string) {
     },
     send: (frontendOpId) => {
       const promise = route_set_code({
-        projectConfigId: getCurrProjectConfigId(),
+        projectConfigId,
         sectionId,
         code,
         frontendOpId,
@@ -57,11 +64,12 @@ function applyGenCodePrefixUpdate(value: string) {
       pythonTarget.genCodePrefix = value;
     },
     send: (frontendOpId) => {
-      const promise = route_set_gen_code_prefix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodePrefix: value,
-        frontendOpId,
-      });
+      const promise: Promise<ProjectCodeMutationRouteResponse> =
+        route_set_gen_code_prefix({
+          projectConfigId: getCurrProjectConfigId(),
+          genCodePrefix: value,
+          frontendOpId,
+        });
       lastGenCodePrefixPromise = promise;
       return promise;
     },
@@ -79,11 +87,12 @@ function applyGenCodeSuffixUpdate(value: string) {
       pythonTarget.genCodeSuffix = value;
     },
     send: (frontendOpId) => {
-      const promise = route_set_gen_code_suffix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodeSuffix: value,
-        frontendOpId,
-      });
+      const promise: Promise<ProjectCodeMutationRouteResponse> =
+        route_set_gen_code_suffix({
+          projectConfigId: getCurrProjectConfigId(),
+          genCodeSuffix: value,
+          frontendOpId,
+        });
       lastGenCodeSuffixPromise = promise;
       return promise;
     },
