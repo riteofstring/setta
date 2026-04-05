@@ -29,18 +29,34 @@ export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
           visibleViewportRect,
         }),
     );
+  if (
+    viewport === null ||
+    viewport.zoom <= 0 ||
+    visibleViewportWorldRect === null
+  ) {
+    return sceneSections.slice();
+  }
   return measureSettingsGraphSubstrateCanaryMotionAttribution(
     "presentedSceneSectionVisibilityFilter",
-    () =>
-      sceneSections.filter((section) =>
-        shouldPresentSettingsGraphSubstrateCanarySectionShell({
-          draggingSectionId,
-          section,
-          viewport,
-          visibleViewportRect,
-          visibleViewportWorldRect,
-        }),
-      ),
+    () => {
+      const presentedSceneSections: Array<SettingsGraphSubstrateCanarySceneSection> =
+        [];
+      for (const section of sceneSections) {
+        if (
+          shouldAlwaysPresentSettingsGraphSubstrateCanarySection({
+            draggingSectionId,
+            section,
+          }) ||
+          isSettingsGraphSubstrateCanarySectionVisibleInWorldRect({
+            section,
+            visibleViewportWorldRect,
+          })
+        ) {
+          presentedSceneSections.push(section);
+        }
+      }
+      return presentedSceneSections;
+    },
   );
 }
 
@@ -99,8 +115,10 @@ export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
       visibleViewportRect,
     });
   if (
-    section.sectionId === draggingSectionId ||
-    section.isActiveSection === true ||
+    shouldAlwaysPresentSettingsGraphSubstrateCanarySection({
+      draggingSectionId,
+      section,
+    }) ||
     viewport === null ||
     viewport.zoom <= 0 ||
     resolvedVisibleViewportWorldRect === null
@@ -108,12 +126,10 @@ export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
     return true;
   }
 
-  return (
-    getVisibleSettingsGraphSubstrateCanarySectionWorldRect({
-      section,
-      visibleViewportWorldRect: resolvedVisibleViewportWorldRect,
-    }) !== null
-  );
+  return isSettingsGraphSubstrateCanarySectionVisibleInWorldRect({
+    section,
+    visibleViewportWorldRect: resolvedVisibleViewportWorldRect,
+  });
 }
 
 export function shouldMountSettingsGraphSubstrateCanarySectionBody({
@@ -136,8 +152,10 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
       visibleViewportRect,
     });
   if (
-    section.sectionId === draggingSectionId ||
-    section.isActiveSection === true ||
+    shouldAlwaysPresentSettingsGraphSubstrateCanarySection({
+      draggingSectionId,
+      section,
+    }) ||
     viewport === null ||
     viewport.zoom <= 0 ||
     resolvedVisibleViewportWorldRect === null
@@ -196,24 +214,22 @@ function getVisibleSettingsGraphSubstrateCanarySectionWorldRect({
   if (!sectionBoundsSize) {
     return visibleViewportWorldRect;
   }
-
-  const sectionWorldRect = {
-    x: section.renderedPosition.x,
-    y: section.renderedPosition.y,
-    width: sectionBoundsSize.width,
-    height: sectionBoundsSize.height,
-  };
-  return getGraphRectIntersection(sectionWorldRect, visibleViewportWorldRect);
-}
-
-function getGraphRectIntersection(
-  left: GraphRect,
-  right: GraphRect,
-): GraphRect | null {
-  const x = Math.max(left.x, right.x);
-  const y = Math.max(left.y, right.y);
-  const rightEdge = Math.min(left.x + left.width, right.x + right.width);
-  const bottomEdge = Math.min(left.y + left.height, right.y + right.height);
+  const sectionX = section.renderedPosition.x;
+  const sectionY = section.renderedPosition.y;
+  const viewportRightEdge =
+    visibleViewportWorldRect.x + visibleViewportWorldRect.width;
+  const viewportBottomEdge =
+    visibleViewportWorldRect.y + visibleViewportWorldRect.height;
+  const x = Math.max(sectionX, visibleViewportWorldRect.x);
+  const y = Math.max(sectionY, visibleViewportWorldRect.y);
+  const rightEdge = Math.min(
+    sectionX + sectionBoundsSize.width,
+    viewportRightEdge,
+  );
+  const bottomEdge = Math.min(
+    sectionY + sectionBoundsSize.height,
+    viewportBottomEdge,
+  );
   const width = rightEdge - x;
   const height = bottomEdge - y;
   if (width <= 0 || height <= 0) {
@@ -221,4 +237,43 @@ function getGraphRectIntersection(
   }
 
   return { x, y, width, height };
+}
+
+function shouldAlwaysPresentSettingsGraphSubstrateCanarySection({
+  draggingSectionId,
+  section,
+}: {
+  draggingSectionId: string | null;
+  section: SettingsGraphSubstrateCanarySceneSection;
+}) {
+  return (
+    section.sectionId === draggingSectionId || section.isActiveSection === true
+  );
+}
+
+function isSettingsGraphSubstrateCanarySectionVisibleInWorldRect({
+  section,
+  visibleViewportWorldRect,
+}: {
+  section: SettingsGraphSubstrateCanarySceneSection;
+  visibleViewportWorldRect: GraphRect;
+}) {
+  const sectionBoundsSize = section.sceneBoundsSize;
+  if (!sectionBoundsSize) {
+    return true;
+  }
+
+  const viewportRightEdge =
+    visibleViewportWorldRect.x + visibleViewportWorldRect.width;
+  const viewportBottomEdge =
+    visibleViewportWorldRect.y + visibleViewportWorldRect.height;
+  const sectionRightEdge = section.renderedPosition.x + sectionBoundsSize.width;
+  const sectionBottomEdge =
+    section.renderedPosition.y + sectionBoundsSize.height;
+  return (
+    section.renderedPosition.x < viewportRightEdge &&
+    sectionRightEdge > visibleViewportWorldRect.x &&
+    section.renderedPosition.y < viewportBottomEdge &&
+    sectionBottomEdge > visibleViewportWorldRect.y
+  );
 }

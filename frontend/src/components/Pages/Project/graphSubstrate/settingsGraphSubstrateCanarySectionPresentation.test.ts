@@ -5,6 +5,7 @@ import {
   areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
   resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
   shouldMountSettingsGraphSubstrateCanarySectionBody,
+  shouldPresentSettingsGraphSubstrateCanarySectionShell,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 
 describe("settingsGraphSubstrateCanarySectionPresentation", () => {
@@ -54,6 +55,28 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
     ]);
   });
 
+  it("keeps sections without authoritative bounds in the presented subset", () => {
+    const visibleSection = createSceneSection({
+      sectionId: "visible-section",
+    });
+    const unmeasuredSection = createSceneSection({
+      position: { x: 1480, y: 80 },
+      renderedPosition: { x: 1480, y: 80 },
+      sceneBoundsSize: null,
+      sectionId: "unmeasured-section",
+    });
+
+    const presentedSceneSections =
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
+        draggingSectionId: null,
+        sceneSections: [visibleSection, unmeasuredSection],
+        viewport: { x: 0, y: 0, zoom: 1 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      });
+
+    expect(presentedSceneSections).toEqual([visibleSection, unmeasuredSection]);
+  });
+
   it("reuses the previous presented subset reference when section identities are unchanged", () => {
     const visibleSection = createSceneSection({
       sectionId: "visible-section",
@@ -81,6 +104,21 @@ describe("settingsGraphSubstrateCanarySectionPresentation", () => {
         draggingSectionId: null,
         section: partiallyVisibleSection,
         viewport: { x: 0, y: 0, zoom: 2 },
+        visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
+      }),
+    ).toBe(false);
+  });
+
+  it("treats shells that only touch the viewport edge as offscreen", () => {
+    expect(
+      shouldPresentSettingsGraphSubstrateCanarySectionShell({
+        draggingSectionId: null,
+        section: createSceneSection({
+          position: { x: 720, y: 80 },
+          renderedPosition: { x: 720, y: 80 },
+          sectionId: "edge-touching-section",
+        }),
+        viewport: { x: 0, y: 0, zoom: 1 },
         visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
       }),
     ).toBe(false);

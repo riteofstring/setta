@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 09:25 EDT
+Last updated: 2026-04-08 09:42 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,64 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `308` completed one bounded product hypothesis on the canonical
+    `rotaryParamCodeObjDefault` lane, then re-blocked on the required CDP gate
+    after the one allowed headless recovery:
+    - landed one direct-overlap fast path in
+      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+      for presented shell visibility:
+      - returns the full section list immediately when viewport culling is
+        unavailable
+      - uses direct world-rect overlap checks for shell presentation instead of
+        allocating an intersection rect for the boolean-only path
+      - keeps the body-mount threshold path unchanged
+    - added focused guards in
+      [`settingsGraphSubstrateCanarySectionPresentation.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts)
+      for:
+      - no-authoritative-bounds sections remaining presented
+      - edge-touching shells staying offscreen
+    - focused coverage passed:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx` -> passed (`2 files`, `11 tests`)
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed
+    - canonical cross-worktree motion probe on the current `run-025` runtime
+      pair:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<run-025 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-025 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `29.2s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `17.04ms`, max `48ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.05ms`, max `33.2ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - fresh canary motion attribution on the passing rerun:
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0.3ms` total, `0.1ms` max, still dominant
+      - `interactionMiscStateSync`: `1`, `0.1ms` total
+      - `interactionReactFlowStateSync`: `1`, `0.1ms` total
+      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
+      - `pixiViewportPresent`: `0`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-overlap-fast-path.md`
+    - required CDP visual gate is blocked on this pass:
+      - fresh-context CDP sub-agent could not use `chrome-devtools-mcp`
+        because the tool was not exposed in the spawned agent session
+      - direct main-session `chrome-devtools-mcp` retries failed before
+        recovery:
+        - `mcp__chrome_devtools__new_page(...)` -> timed out
+        - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
+      - one bounded headless worktree recovery was attempted as required:
+        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+        - refreshed worktree runtime after recovery: frontend `3076`,
+          backend `8076`, debug port `9298`, bootstrap
+          `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+      - the direct post-recovery CDP retry still failed:
+        - `mcp__chrome_devtools__list_pages()` -> `Network.enable timed out`
+    - reading:
+      - this closes one micro-optimization hypothesis on the current
+        `presentedSceneSectionVisibilityFilter` owner, but it is not a
+        measured win on the canonical lane
+      - do not present this slice as a perf win; the next fresh pass should
+        restart the worktree lifecycle and re-close the required CDP visual
+        gate for item `308` before opening another product hypothesis
   - item `307` completed one bounded verifier-hardening slice on the canonical
     `rotaryParamCodeObjDefault` lane and closed the current visual gate:
     - landed explicit per-phase deadlines in
