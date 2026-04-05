@@ -10,10 +10,6 @@ import (
 	"setta/internal/frontendbindingmeta"
 )
 
-type frontendBindingDiscriminatedObjectFamilyProvider interface {
-	FrontendBindingDiscriminatedObjectFamily() frontendbindingmeta.DiscriminatedObjectFamily
-}
-
 type discriminatedObjectFamilyMember struct {
 	Type      reflect.Type
 	Value     string
@@ -27,7 +23,7 @@ func frontendBindingDiscriminatedFamilies() []frontendbindingmeta.DiscriminatedO
 	frontendBindingDiscriminatedFamiliesOnce.Do(func() {
 		familiesByBase := map[reflect.Type]frontendbindingmeta.DiscriminatedObjectFamily{}
 		for _, t := range DiscoveredConvertibleTypes() {
-			provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingDiscriminatedObjectFamilyProvider](t)
+			provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](canonicalFrontendBindingType(t))
 			if !ok {
 				continue
 			}

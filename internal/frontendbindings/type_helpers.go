@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/frontendbindingmeta"
 	"setta/internal/httpapi"
 	"setta/internal/transcriptionsessions"
 )
@@ -476,6 +477,47 @@ func formatTSNumberLiteral(value float64) string {
 		panic("settings defaults contained a non-finite numeric literal")
 	}
 	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func ownerProvidedTypeDeclaration(
+	converter *typeConverter,
+	t reflect.Type,
+) (TypeDeclaration, bool, error) {
+	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.TypeScriptExprProvider](t); ok {
+		expr := provider.FrontendBindingTypeScriptExpr()
+		if strings.TrimSpace(expr) == "" {
+			return TypeDeclaration{}, false, fmt.Errorf("%s returned an empty frontend TS alias expression", t.String())
+		}
+		return aliasDeclaration(frontendBindingTypeName(t), expr), true, nil
+	}
+
+	provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t)
+	if !ok {
+		return TypeDeclaration{}, false, nil
+	}
+	memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
+	if len(memberTypes) == 0 {
+		return TypeDeclaration{}, false, fmt.Errorf("%s returned no frontend union members", t.String())
+	}
+
+	members := make([]string, 0, len(memberTypes))
+	seen := map[string]struct{}{}
+	for _, memberType := range memberTypes {
+		memberExpr, err := converter.renderTypeExpr(memberType)
+		if err != nil {
+			return TypeDeclaration{}, false, fmt.Errorf("%s union member %v: %w", t.String(), memberType, err)
+		}
+		if _, duplicate := seen[memberExpr]; duplicate {
+			continue
+		}
+		seen[memberExpr] = struct{}{}
+		members = append(members, memberExpr)
+	}
+	if len(members) == 0 {
+		return TypeDeclaration{}, false, fmt.Errorf("%s returned no renderable frontend union members", t.String())
+	}
+
+	return aliasUnionDeclaration(frontendBindingTypeName(t), members...), true, nil
 }
 
 func specialTypeDeclaration(

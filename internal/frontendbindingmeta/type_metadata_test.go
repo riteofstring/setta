@@ -1,4 +1,4 @@
-package frontendbindings
+package frontendbindingmeta
 
 import (
 	"reflect"
@@ -17,10 +17,10 @@ func (*testPointerTypeMetadata) FrontendBindingUnionTypes() []reflect.Type {
 	return []reflect.Type{reflect.TypeOf("")}
 }
 
-func TestFrontendBindingOwnerMetadataProviderSupportsValueReceiver(t *testing.T) {
+func TestLookupProviderSupportsValueReceiver(t *testing.T) {
 	t.Parallel()
 
-	provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingTypeScriptExprProvider](reflect.TypeOf(testValueTypeMetadata{}))
+	provider, ok := LookupProvider[TypeScriptExprProvider](reflect.TypeOf(testValueTypeMetadata{}))
 	if !ok {
 		t.Fatal("expected value-receiver provider")
 	}
@@ -29,10 +29,10 @@ func TestFrontendBindingOwnerMetadataProviderSupportsValueReceiver(t *testing.T)
 	}
 }
 
-func TestFrontendBindingOwnerMetadataProviderSupportsPointerReceiver(t *testing.T) {
+func TestLookupProviderSupportsPointerReceiver(t *testing.T) {
 	t.Parallel()
 
-	provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingUnionTypesProvider](reflect.TypeOf(testPointerTypeMetadata{}))
+	provider, ok := LookupProvider[UnionTypesProvider](reflect.TypeOf(testPointerTypeMetadata{}))
 	if !ok {
 		t.Fatal("expected pointer-receiver provider")
 	}
@@ -41,10 +41,10 @@ func TestFrontendBindingOwnerMetadataProviderSupportsPointerReceiver(t *testing.
 	}
 }
 
-func TestFrontendBindingOwnerMetadataProviderSupportsPointerInputType(t *testing.T) {
+func TestLookupProviderSupportsPointerInputType(t *testing.T) {
 	t.Parallel()
 
-	provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingTypeScriptExprProvider](reflect.TypeOf(&testValueTypeMetadata{}))
+	provider, ok := LookupProvider[TypeScriptExprProvider](reflect.TypeOf(&testValueTypeMetadata{}))
 	if !ok {
 		t.Fatal("expected pointer input type to resolve")
 	}
