@@ -36,7 +36,7 @@ func newOpenAPIProjectRouteDependencies(
 		WorkspaceRoot:                  workspaceRoot,
 		ProjectState:                   projectRuntime,
 		SettingsState:                  settingsRuntime,
-		ChatSectionChatIDs:             staticChatSectionChatIDService{},
+		ChatSectionChatIDs:             projectRuntimeAdapter,
 		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
 		CodegenTargetValidator:         projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error { return nil }),
 		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error { return nil }),
@@ -52,7 +52,7 @@ func newOpenAPILauncherManagementRouteDependencies(
 	return LauncherManagementRouteDependencies{
 		ModePolicy:       modePolicy,
 		DefaultSettaHome: defaultSettaHome,
-		Manager:          openAPILauncherManagementStub{},
+		Manager:          &launcher.ManagementService{},
 	}
 }
 
@@ -88,30 +88,6 @@ func (openAPIProjectRuntimeAdapter) DeclineRenameRefactor(context.Context, strin
 	return projectstate.ErrRenameRefactorPendingNotFound
 }
 
-type staticChatSectionChatIDService struct{}
-
-func (staticChatSectionChatIDService) GetChatID(context.Context, string, string) (*string, error) {
+func (openAPIProjectRuntimeAdapter) GetChatID(context.Context, string, string) (*string, error) {
 	return nil, nil
-}
-
-type openAPILauncherManagementStub struct{}
-
-func (openAPILauncherManagementStub) CollectStatus(string) (launcher.LauncherStatusSnapshot, error) {
-	return launcher.LauncherStatusSnapshot{}, errOpenAPIDocumentRouteDependencyUnavailable
-}
-
-func (openAPILauncherManagementStub) Setup(string, launcher.LauncherSetupInput) (launcher.LauncherSetupResult, error) {
-	return launcher.LauncherSetupResult{}, errOpenAPIDocumentRouteDependencyUnavailable
-}
-
-func (openAPILauncherManagementStub) Repair(string) (launcher.LauncherStatusSnapshot, error) {
-	return launcher.LauncherStatusSnapshot{}, errOpenAPIDocumentRouteDependencyUnavailable
-}
-
-func (openAPILauncherManagementStub) Remove(string) (launcher.LauncherRemoveResult, error) {
-	return launcher.LauncherRemoveResult{}, errOpenAPIDocumentRouteDependencyUnavailable
-}
-
-func (openAPILauncherManagementStub) Update(string, string) (launcher.LauncherUpdateResult, error) {
-	return launcher.LauncherUpdateResult{}, errOpenAPIDocumentRouteDependencyUnavailable
 }
