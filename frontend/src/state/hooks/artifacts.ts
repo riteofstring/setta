@@ -1,5 +1,7 @@
 import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
 import _ from "lodash";
+import { downloadBinary } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
@@ -9,13 +11,11 @@ import {
   useDrawAreaLayerItemTransform,
   useImages,
   useProjectState,
-  useShareSession,
   ZustandDecodedImages,
   ZustandProjectState,
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
-import { C_ADDRESSES } from "utils/c_addresses";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
@@ -24,15 +24,32 @@ import {
 } from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
-  RouteEnum,
+  type ChartDataArtifact,
+  type ImageArtifact,
+  type JSONArtifact,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
+  Array<ImageArtifact>
+>;
+type LoadCachedChartDataRouteResponse = ResponseDataAndStatus<
+  Array<ChartDataArtifact>
+>;
+type LoadCachedBrushStrokesRouteResponse = ResponseDataAndStatus<
+  Array<JSONArtifact>
+>;
+type LoadCachedDrawAreaLayerItemTransformRouteResponse = ResponseDataAndStatus<
+  Array<JSONArtifact>
+>;
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = await route_load_cached_image_artifacts({ paths });
+  const res: LoadCachedImageArtifactsRouteResponse =
+    await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -65,23 +82,15 @@ async function loadCachedImages(paths: Array<string>) {
 }
 
 async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
-  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
-    "{contentId}",
-    encodeURIComponent(contentId),
+  const res: BinaryDownloadRouteResponse = await callOpenAPI(
+    downloadBinary({
+      path: { contentId },
+    }),
   );
-  const shareSession = useShareSession.getState();
-  const headers: HeadersInit = {};
-  if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
-    headers["X-Share-Session-Id"] = shareSession.shareSessionId;
-  }
-  const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {
-    credentials: "include",
-    headers,
-  });
-  if (!res.ok) {
+  if (!res200(res) || !res.data) {
     return null;
   }
-  return await res.blob();
+  return res.data;
 }
 
 export function useImageArtifact(sectionId: string) {
@@ -109,7 +118,10 @@ async function loadCachedChartData(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = await route_load_cached_chart_data({ paths });
+  const res: LoadCachedChartDataRouteResponse =
+    await route_load_cached_chart_data({
+      paths,
+    });
   if (res200(res)) {
     useChartData.setState((state) => {
       const next = { ...state.x };
@@ -166,7 +178,8 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = await route_load_cached_brush_strokes({ paths });
+  const res: LoadCachedBrushStrokesRouteResponse =
+    await route_load_cached_brush_strokes({ paths });
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
@@ -202,7 +215,8 @@ async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res = await route_load_cached_draw_area_layer_item_transform({ paths });
+  const res: LoadCachedDrawAreaLayerItemTransformRouteResponse =
+    await route_load_cached_draw_area_layer_item_transform({ paths });
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };
