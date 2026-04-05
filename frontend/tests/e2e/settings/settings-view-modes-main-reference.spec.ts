@@ -5080,13 +5080,14 @@ test("settings graph parity probe keeps the chart data path row attached after f
     referenceInitialState,
     "All Settings",
   );
+  const chartSectionName = "chartSectionDefault";
   const worktreeChartSectionId = findSectionIdByName(
     worktreeInitialState,
-    "chartSectionDefault",
+    chartSectionName,
   );
   const referenceChartSectionId = findSectionIdByName(
     referenceInitialState,
-    "chartSectionDefault",
+    chartSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -5096,11 +5097,21 @@ test("settings graph parity probe keeps the chart data path row attached after f
     backendOrigin: string;
     expectedSurfaceKind: "legacy" | "canary";
     frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
     await setPageViewModeAndClearViewport(
@@ -5132,9 +5143,20 @@ test("settings graph parity probe keeps the chart data path row attached after f
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: chartSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
     await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
     const sectionLocator = getSettingsGraphSectionLocator(
@@ -5256,12 +5278,14 @@ test("settings graph parity probe keeps the chart data path row attached after f
       backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
       expectedSurfaceKind: "legacy",
       frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
       pageTab: referencePage.getByRole("button", {
         exact: true,
         name: "All Settings",
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceChartSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureChartToolbarZoom({
@@ -5269,12 +5293,14 @@ test("settings graph parity probe keeps the chart data path row attached after f
       backendOrigin: WORKTREE_BACKEND_ORIGIN,
       expectedSurfaceKind: "canary",
       frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
       pageTab: page.getByRole("button", {
         exact: true,
         name: "All Settings",
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeChartSectionId,
+      side: "worktree",
       targetPage: page,
     });
 

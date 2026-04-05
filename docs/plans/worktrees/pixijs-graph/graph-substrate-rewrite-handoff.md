@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 01:49 EDT
+Last updated: 2026-04-05 01:58 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,47 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `148` hardened the existing deterministic `chartSectionDefault` fit-view-plus-toolbar-zoom lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-008 worktree/main surfaces.
+  - Why this slice was needed:
+    - item `147` explicitly pointed to the existing `chartSectionDefault` fit-view-plus-toolbar-zoom lane as the next named lane that still lacked current live evidence in the newer trusted shape
+    - the chart toolbar-zoom probe still used the older direct-fit setup with no explicit restore or side-aware preflight, so the current live result was less trustworthy than the nearby hardened lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - kept a canonical `chartSectionDefault` target name for the lane
+      - restored the initial view-mode layout before the lane runs
+      - replaced the direct `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `initialState` and `side: "reference" | "worktree"` through the helper so preflight asserts the named chart section on both runtimes
+  - What this slice established:
+    - the current live chart ids on run-008 are:
+      - worktree canary `e35726e4-ca57-4d1a-a7aa-888e3bdd16e6`
+      - read-only main legacy `3db69daf-cbba-4d4f-8359-94eb2db8559e`
+    - rerunning the hardened explicit chart toolbar-zoom lane with the current default project URL resolved to `http://127.0.0.1:3076/crisp_falling` passed on run-008 (`1 passed`, `44.0s`)
+    - a fresh-context CDP sub-agent reported that fresh bootstrap was rejected on both targets, so it fell back to the already-authenticated `/settings` sessions on `3076` and `3087`
+    - on that fallback CDP compare, after the shared fit-view landing plus one toolbar `zoom in` on `chartSectionDefault`, the chart card and the `dataPath` row stayed attached on both sides with no obvious structural lane drift
+    - the only remaining mismatch on this pass was dense settings chrome / oracle noise outside the target graph surface; treat that as setup noise, not renderer evidence against the checked chart zoom lane
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-008 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-008/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-008/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-008/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-008/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `44.0s`)
+    - live chart-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","chartSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","chartSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `e35726e4-ca57-4d1a-a7aa-888e3bdd16e6`, reference `3db69daf-cbba-4d4f-8359-94eb2db8559e`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - attempted fresh run-008 bootstrap pages for live worktree `3076` and read-only main `3087`
+      - bootstrap was rejected on both targets, so it fell back to the already-authenticated `/settings` sessions and applied the same `chartSectionDefault` fit-view-plus-one-toolbar-zoom lane there
+    - CDP visual check: done (fresh-context sub-agent; active-session fallback after rejected fresh bootstrap; `chartSectionDefault` card plus `dataPath` row stayed attached after shared fit + one toolbar zoom in, with only dense settings chrome / oracle noise outside the target graph surface)
+  - Lane status:
+    - close the checked `chartSectionDefault` fit-view-plus-toolbar-zoom lane as clean on the current run-008 surfaces
+    - treat the rejected fresh bootstrap and the remaining dense settings chrome / oracle noise as setup noise, not renderer drift
+  - Next frontier:
+    - move to the distinct shared `dropzoneParamCodeObjDefault` dynamic lane on the current live surfaces and run one bounded normalized action anchored on `Mode` before adding another support-only guard or reopening closed dict/chart/browser/taskBoard/group/spreadsheet/draw/chat families
 
 - Ralph item `147` hardened the existing deterministic `dictSectionDefault` fit-view-plus-toolbar-zoom lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-007 worktree/main surfaces.
   - Why this slice was needed:
@@ -4178,6 +4219,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `140`
-- Latest item: `2026-04-04 140`
+- Active history window: items `001` through `148`
+- Latest item: `2026-04-05 148`
 - Older history archives: none yet
