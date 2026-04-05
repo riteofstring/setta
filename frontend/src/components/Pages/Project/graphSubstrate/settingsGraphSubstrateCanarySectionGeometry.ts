@@ -47,11 +47,7 @@ export function shouldObserveSettingsGraphSubstrateCanarySectionElementSize(
     return false;
   }
 
-  if (sizeAuthority === "sectionModel") {
-    return getStoredSectionSize(section) === null;
-  }
-
-  return true;
+  return getStoredSectionSize(section) === null;
 }
 
 function getRenderedSectionPosition(

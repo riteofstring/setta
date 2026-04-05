@@ -76,7 +76,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     });
   });
 
-  it("keeps observing measured size when a section is seeded from shared node authority", () => {
+  it("stops observing measured size when shared-node geometry already exists", () => {
     expect(
       shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
         width: 240,
@@ -84,7 +84,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
         positionAndSizeLocked: false,
         sizeAuthority: "sharedNode",
       }),
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
@@ -98,14 +98,12 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
           positionAndSizeLocked: false,
           sizeAuthority: "sharedNode",
         },
-        {
-          "shared-seeded-section": { width: 360, height: 210 },
-        },
+        {},
         null,
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 360, height: 210 },
+      resolvedSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });

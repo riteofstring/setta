@@ -10114,3 +10114,34 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - move to the next bounded geometry-authority slice under `useSectionElementSizes(...)` / scene-runtime ownership so fresh DOM measurement updates stop acting as steady-state scene input except where explicitly needed for local seed/render fallback
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 07:08 EDT, Ralph item `262`
+  - Summary: stopped steady-state `sharedNode` sections from subscribing the scene runtime to live DOM size churn once stored/controller geometry already exists.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `19 tests`)
+    - fresh-context CDP sub-agent attempt 1 classified the worktree as `worktree_unhealthy`; `/settings/view/All%20Settings` rendered only the shell (`pixijs-graph`, `Home`, `worktree-hint-close`) with no mounted graph surface
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: restarted the worktree on frontend `3076`, backend `8076`, new Setta session `ce0052`, and debug port `9298`
+    - post-recovery runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-028/worktree-ai.log`
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: confirmed frontend `3076`, backend `8076`, fresh bootstrap URL for session `ce0052`, and reachable Chrome DevTools on debug port `9298`
+    - successful retry after recovery -> done; a fresh-context CDP sub-agent bootstrapped through `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, reached `/settings`, and confirmed the `All Settings` canary surface was mounted and populated with visible graph cards/nodes rather than a blank or detached shell
+    - note: docked chat chrome was still visible during the successful retry; acceptable here because this was only a bounded canary-health gate, not a normalized parity compare
+  - Result:
+    - `sharedNode` sections with authoritative stored/controller geometry no longer keep the scene runtime subscribed to registry churn from `useSectionElementSizes(...)`
+    - the runtime and canary-local seed cache now stay stable through fresh shared-node measurement updates instead of re-rendering on steady-state DOM size changes
+    - unresolved sections still keep the local measurement path, so the remaining geometry-authority work can focus on the explicit seed/controller fallback contract rather than reopening this observer seam
+  - Next:
+    - inspect whether `resolveSettingsGraphSubstrateCanarySectionSeedNodes(...)` should keep preferring shared-node `resolvedSize` over stored/controller size now that steady-state shared-node observation is gone, or whether seed refresh should also stop taking DOM measurements outside an explicit unresolved bootstrap gap
+  - LOOP_TERMINAL_MARKER: none

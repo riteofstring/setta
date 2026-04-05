@@ -124,7 +124,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("keeps a shared-node size seed until a fresher measured size arrives", async () => {
+  it("keeps shared-node geometry authoritative and does not resubscribe to measured-size churn", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -164,10 +164,17 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         ],
       });
       expect(readSceneRenderCount(host)).toBe(1);
+      expect(
+        useSettingsGraphSubstrateCanarySceneStore
+          .getState()
+          .sectionSeedNodes.get("section-a"),
+      ).toEqual({
+        width: 260,
+        height: 180,
+        sizeAuthority: "sharedNode",
+      });
     });
 
-    // Once the local registry publishes a fresh measurement, it should take
-    // over from the shared node-internals seed.
     act(() => {
       useSectionElementSizeRegistry.setState({
         "section-a": { width: 420, height: 315 },
@@ -188,7 +195,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
             position: { x: 120, y: 80 },
             positionAndSizeLocked: false,
             renderedPosition: { x: 120, y: 80 },
-            resolvedSize: { width: 420, height: 315 },
+            resolvedSize: { width: 260, height: 180 },
             sectionId: "section-a",
             tempZIndex: 2,
             width: 260,
@@ -196,7 +203,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
           },
         ],
       });
-      expect(readSceneRenderCount(host)).toBe(2);
+      expect(readSceneRenderCount(host)).toBe(1);
       expect(useNodeInternals.getState().x.get("section-a")).toEqual({
         height: 180,
         id: "section-a",
@@ -213,8 +220,8 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
           .getState()
           .sectionSeedNodes.get("section-a"),
       ).toEqual({
-        width: 420,
-        height: 315,
+        width: 260,
+        height: 180,
         sizeAuthority: "sharedNode",
       });
     });

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 06:47 EDT
+Last updated: 2026-04-07 07:08 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,51 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `262` stopped the canary runtime from subscribing steady-state `sharedNode` sections to live DOM size churn once stored/controller geometry already exists; only unresolved sections remain on the `useSectionElementSizes(...)` path.
+
+  - Why this pass stopped here:
+    - item `261` explicitly named scene-runtime measurement ownership as the next frontier, and the smallest real product move was to cut the remaining `sharedNode` steady-state observer path before changing deeper seed/controller contracts
+    - `shouldObserveSettingsGraphSubstrateCanarySectionElementSize(...)` still returned `true` for every `sharedNode` section, so fresh registry updates kept re-entering the scene runtime even after authoritative controller size already existed
+    - this pass stayed bounded to the observer gate plus focused runtime/geometry coverage; it does not yet rewrite `resolveSettingsGraphSubstrateCanarySectionSeedNodes(...)` or remove explicit local fallback support when geometry is actually unresolved
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate remained a bounded worktree canary-health check only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts)
+      - shared-node sections now leave the live section-size registry path once stored/controller width+height already exist
+      - unresolved non-layout sections still observe local measurements, so explicit render fallback remains available where geometry is genuinely missing
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts)
+      - locked that shared-node sections with authoritative geometry no longer opt into live measurement observation
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx)
+      - locked that shared-node sections keep stored/controller size authoritative through registry churn
+      - locked that the scene runtime render count and canary-local seed cache stay stable instead of refreshing from a new measured size
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `19 tests`)
+    - CDP visual gate:
+      - first fresh-context sub-agent reached `/settings/view/All%20Settings` but the worktree rendered only the shell (`pixijs-graph`, `Home`, `worktree-hint-close`) with no mounted graph surface, so this pass classified the app as `worktree_unhealthy` instead of blaming renderer drift
+      - one allowed recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: restarted the worktree on frontend `3076`, backend `8076`, fresh Setta session `ce0052`, and debug port `9298`
+      - post-recovery runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-028/worktree-ai.log`
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: confirmed frontend `3076`, backend `8076`, fresh bootstrap URL for session `ce0052`, and reachable Chrome DevTools on debug port `9298`
+      - successful retry after recovery -> done:
+        - fresh-context CDP sub-agent bootstrapped through `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, reached `/settings`, and confirmed the `All Settings` canary surface was mounted and populated with visible graph cards/nodes rather than a blank or detached shell
+        - docked chat chrome remained visible during this check; that was acceptable because this slice was only a bounded canary-health gate, not a normalized graph-surface parity compare
+  - Lane status:
+    - steady-state `sharedNode` DOM measurement churn no longer re-enters the scene runtime once authoritative geometry already exists
+    - unresolved sections still keep the local measured fallback path, so this cut stays on the planned `useSectionElementSizes(...)` seam without jumping ahead to broader seed/controller rewrites
+    - do not reopen this same observer-gate slice unless a downstream caller reintroduces shared-node measurement subscriptions after authority exists
+  - Next frontier:
+    - inspect whether `resolveSettingsGraphSubstrateCanarySectionSeedNodes(...)` still needs to prefer shared-node `resolvedSize` over stored/controller size now that steady-state shared-node observation is gone, or whether the canary-local seed cache should also stop refreshing from DOM measurements outside an explicit unresolved bootstrap gap
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `261` cleared the pending verification/commit lane for item `260`; there is no new product code beyond the existing shared-node bounds-authority slice.
 
