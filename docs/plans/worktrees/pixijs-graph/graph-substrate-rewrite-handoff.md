@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 19:46 EDT
+Last updated: 2026-04-05 00:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,52 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `141` completed the body-heavy `spreadsheetSectionDefault` motion/search lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-001 worktree/main surfaces.
+  - Why this slice was needed:
+    - item `140` explicitly closed the checked `drawSectionDefault` pane-pan lane and pointed the next bounded step at a body-heavy spreadsheet motion lane instead of reopening chart/draw
+    - the worktree already contained a narrow uncommitted spreadsheet-lane update that reused `runSettingsGraphComparePreflight(...)`; finishing and verifying that exact slice was the smallest honest step that matched the handoff
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - kept the canonical spreadsheet section name explicit
+      - marked the live two-runtime spreadsheet motion/search lane `test.slow()`
+      - replaced the ad hoc `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `side: "reference" | "worktree"` through the helper so the lane asserts the named target section on both runtimes
+  - What this slice established:
+    - the current live spreadsheet ids on run-001 are:
+      - worktree canary `ddce8e34-9473-4b28-a75f-0c5501fd708e`
+      - read-only main legacy `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - the first targeted rerun failed during Playwright global setup because the current live default project route is `crisp_falling`, not `/home`; treat that as runtime/bootstrap setup noise, not renderer drift
+    - rerunning the same lane with the current default project URL resolved to `http://127.0.0.1:3075/crisp_falling` passed on run-001 (`1 passed`, `32.8s`)
+    - a fresh-context CDP sub-agent then opened fresh bootstrap pages, normalized both sides to `/settings` + `All Settings`, fit the named spreadsheet section, applied one shared blank-pane pan plus one toolbar `zoom in`, and found no visible drift between worktree canary and read-only main legacy
+    - the CDP sub-agent captured effectively matching post-motion geometry on both sides:
+      - viewport transform `matrix(0.12, 0, 0, 0.12, 318.88, -456.34)` on worktree vs `matrix(0.12, 0, 0, 0.12, 318.871, -456.34)` on reference
+      - spreadsheet card about `66x42` on both sides after the checked motion
+      - search input stayed attached at the same relative offset inside the card on both sides (`+34px`, `+16px`)
+      - only a small absolute card/search delta remained (`~2px` x, `~7px` y), with no visible detach or lane drift
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-001 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-001/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-001/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/crisp_falling SETTA_BOOTSTRAP_TOKEN='<fresh run-001 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-001 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `32.8s`)
+    - live spreadsheet-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8075","http://127.0.0.1:3075","spreadsheetSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","spreadsheetSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `ddce8e34-9473-4b28-a75f-0c5501fd708e`, reference `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened fresh run-001 bootstrap pages for live worktree `3075` and read-only main `3087`
+      - moved both to `/settings`, normalized to `All Settings`, fit the canonical spreadsheet ids above, then applied one blank-pane pan plus one toolbar `zoom in` before comparing
+    - CDP visual check: done (fresh-context run-001 compare on `spreadsheetSectionDefault`; after shared fit + pane pan + one toolbar zoom in, the widened spreadsheet card and its search input stayed visually attached and matched worktree canary vs read-only main legacy)
+  - Lane status:
+    - close the checked `spreadsheetSectionDefault` motion/search lane as clean on the current run-001 surfaces
+    - for direct live-runtime reruns on this run, use the backend default project name (`crisp_falling`) instead of assuming `/home`; treat the project-route mismatch as setup noise, not renderer evidence
+  - Next frontier:
+    - move to a different renderer-facing named lane that still lacks origin-aware preflight on the current live surfaces, preferably `groupSectionDefault` / `settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary`
 
 - Ralph item `140` made `runSettingsGraphComparePreflight(...)` safe for two-runtime main-reference lanes by letting it read from explicit backend/frontend origins, then used that fix to recheck the named `drawSectionDefault` pane-pan lane on the live run-059 surfaces.
   - Why this slice was needed:

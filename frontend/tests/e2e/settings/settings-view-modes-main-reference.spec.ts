@@ -5290,6 +5290,9 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
   context,
   page,
 }) => {
+  const spreadsheetSectionName = "spreadsheetSectionDefault";
+  test.slow();
+
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -5337,11 +5340,11 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
   );
   const worktreeSpreadsheetSectionId = findSectionIdByName(
     worktreeInitialState,
-    "spreadsheetSectionDefault",
+    spreadsheetSectionName,
   );
   const referenceSpreadsheetSectionId = findSectionIdByName(
     referenceInitialState,
-    "spreadsheetSectionDefault",
+    spreadsheetSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -5356,6 +5359,7 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
     await normalizeSettingsGraphComparePaneState(args.targetPage);
@@ -5389,9 +5393,20 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: spreadsheetSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
 
     await expect
       .poll(async () => {
@@ -5551,6 +5566,7 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceSpreadsheetSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureSpreadsheetSearchAfterMotion({
@@ -5564,6 +5580,7 @@ test("settings graph parity probe keeps the spreadsheet body search input workin
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeSpreadsheetSectionId,
+      side: "worktree",
       targetPage: page,
     });
 
