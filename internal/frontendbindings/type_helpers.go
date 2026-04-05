@@ -242,12 +242,6 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 	}
 }
 
-func renderTSLiteralExpr(value any, orderedKeys []string, indent string) string {
-	var builder strings.Builder
-	writeTSLiteralValue(&builder, indent, value, orderedKeys)
-	return builder.String()
-}
-
 func renderTSObjectKey(key string) string {
 	if key != "__proto__" && tsIdentifierPattern.MatchString(key) {
 		return key
