@@ -1,11 +1,19 @@
+import {
+  launchWorkspace,
+  type HttpapiLaunchResponse as LaunchResponse,
+  type HttpapiWorkspaceLaunchErrorPayload as WorkspaceLaunchErrorPayload,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_launch } from "utils/generatedEndpoints";
-import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
 import {
@@ -14,37 +22,66 @@ import {
   upsertWorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
+  resolveWorkspaceLaunchBackNavigation,
+  resolveWorkspaceLaunchReturnUrl,
+} from "utils/workspaceLaunchNavigation";
+import {
   clearPendingWorkspaceLaunch,
   readPendingWorkspaceLaunch,
   requestOpenWorkspaceSwitcherOnNextMount,
   writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
-
+type LaunchReturnUrlTrust = "same-origin-only" | "backend-validated";
+type LaunchReturnTarget = {
+  returnUrlTrust: LaunchReturnUrlTrust;
+  returnUrl: string;
+  workspaceRoot: string;
+  sshTarget: string | null;
+};
 type LaunchPhase =
-  | { status: "idle" }
   | {
+      status: "idle";
+    }
+  | ({
       status: "loading";
       startedAt: number;
-      returnUrl: string;
-      workspaceRoot: string;
-      sshTarget: string | null;
-    }
-  | {
+    } & LaunchReturnTarget)
+  | ({
       status: "error";
       message: string;
-      returnUrl: string;
-      workspaceRoot: string;
-      sshTarget: string | null;
-    };
-
-type RouteLaunchResult = Awaited<ReturnType<typeof route_launch>>;
-
+    } & LaunchReturnTarget);
+type RouteLaunchResult = ResponseDataAndStatus<LaunchResponse>;
+type WorkspaceRootResolutionSource = {
+  workspaceRoot?: string | null;
+  session?: {
+    workspacePathCanonical?: string | null;
+  } | null;
+};
 const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
 const OUTDATED_PROJECT_SETTINGS_ERROR_CODE = "OutdatedProjectSettings";
 const OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE =
   "This workspace uses an older Setta settings/project format. " +
   "Please migrate the project metadata and try again.";
-
+function normalizeWorkspaceRootCandidate(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+export function resolveLaunchedWorkspaceRoot(
+  response: WorkspaceRootResolutionSource,
+  pendingWorkspaceRoot: string | null | undefined,
+): string {
+  return (
+    normalizeWorkspaceRootCandidate(response.session?.workspacePathCanonical) ??
+    normalizeWorkspaceRootCandidate(response.workspaceRoot) ??
+    normalizeWorkspaceRootCandidate(pendingWorkspaceRoot) ??
+    ""
+  );
+}
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
   if (seconds < 10) {
@@ -52,34 +89,8 @@ function formatElapsedMs(ms: number): string {
   }
   return `${Math.round(seconds)}s`;
 }
-
-export function resolveWorkspaceLaunchReturnUrl(
-  rawReturnUrl: string | null | undefined,
-  baseHref: string,
-): string {
-  const fallback = new URL(HOME_ROUTER_PATH, baseHref).toString();
-  if (!rawReturnUrl) {
-    return fallback;
-  }
-  try {
-    const parsed = new URL(rawReturnUrl, baseHref);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return fallback;
-    }
-    return parsed.toString();
-  } catch {
-    return fallback;
-  }
-}
-
 export function resolveWorkspaceLaunchErrorMessage(
-  rawError:
-    | {
-        code: string | null | undefined;
-        message: string | null | undefined;
-      }
-    | null
-    | undefined,
+  rawError: WorkspaceLaunchErrorPayload | null | undefined,
 ): string {
   if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
     return OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE;
@@ -90,12 +101,10 @@ export function resolveWorkspaceLaunchErrorMessage(
   }
   return rawMessage.trim();
 }
-
 export function WorkspaceLaunchPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<LaunchPhase>({ status: "idle" });
   const [elapsedMs, setElapsedMs] = useState(0);
-
   const startedAt = phase.status === "loading" ? phase.startedAt : null;
   useEffect(() => {
     if (startedAt === null) {
@@ -109,7 +118,6 @@ export function WorkspaceLaunchPage() {
       clearInterval(intervalId);
     };
   }, [startedAt]);
-
   useEffect(() => {
     const pending = readPendingWorkspaceLaunch();
     const defaultReturnUrl =
@@ -120,6 +128,7 @@ export function WorkspaceLaunchPage() {
       setPhase({
         status: "error",
         message: "Missing pending workspace launch request.",
+        returnUrlTrust: "same-origin-only",
         returnUrl: defaultReturnUrl,
         workspaceRoot: "",
         sshTarget: null,
@@ -131,27 +140,33 @@ export function WorkspaceLaunchPage() {
         ? resolveWorkspaceLaunchReturnUrl(
             pending.returnUrl,
             window.location.href,
+            "same-origin-only",
           )
         : pending.returnUrl;
     const pendingSshTarget =
       pending.sshTarget ?? pending.request.sshTarget ?? null;
     const pendingSettaFilesLocation =
       pending.settaFilesLocation ?? pending.request.settaFilesLocation;
-
     let isMounted = true;
     setPhase({
       status: "loading",
       startedAt: pending.requestedAt,
+      returnUrlTrust: "same-origin-only",
       returnUrl: pendingReturnUrl,
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pendingSshTarget,
     });
-
     async function runLaunch() {
       const res = await dedupeInFlightJson(
         inFlightLaunchesByKey,
         pending.request,
-        route_launch,
+        async (request) => {
+          return await callOpenAPI(
+            launchWorkspace({ body: request } as Parameters<
+              typeof launchWorkspace
+            >[0]),
+          );
+        },
         buildLaunchRequestDedupeKey,
       );
       if (!isMounted) {
@@ -169,18 +184,26 @@ export function WorkspaceLaunchPage() {
                 ? `Launch failed (HTTP ${res.status}). Please try again.`
                 : "Launch failed. Please try again."),
           }),
+          returnUrlTrust: "same-origin-only",
           returnUrl: pendingReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
         });
         return;
       }
+      const hasResponseReturnUrl = typeof res.data.returnUrl === "string";
+      const responseReturnUrlTrust: LaunchReturnUrlTrust = hasResponseReturnUrl
+        ? "backend-validated"
+        : "same-origin-only";
       const responseReturnUrl =
         typeof window !== "undefined"
-          ? resolveWorkspaceLaunchReturnUrl(
-              res.data.returnUrl ?? pendingReturnUrl,
-              window.location.href,
-            )
+          ? hasResponseReturnUrl
+            ? resolveWorkspaceLaunchReturnUrl(
+                res.data.returnUrl,
+                window.location.href,
+                responseReturnUrlTrust,
+              )
+            : pendingReturnUrl
           : pendingReturnUrl;
       if (!res.data.ok) {
         setPhase({
@@ -189,6 +212,7 @@ export function WorkspaceLaunchPage() {
             code: res.data.error?.code,
             message: res.data.error?.message ?? "Launch failed.",
           }),
+          returnUrlTrust: responseReturnUrlTrust,
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
@@ -199,15 +223,17 @@ export function WorkspaceLaunchPage() {
         setPhase({
           status: "error",
           message: "Launch succeeded but no bootstrap URL was returned.",
+          returnUrlTrust: responseReturnUrlTrust,
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
         });
         return;
       }
-
-      const resolvedWorkspaceRoot =
-        res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
+      const resolvedWorkspaceRoot = resolveLaunchedWorkspaceRoot(
+        res.data,
+        pending.request.workspaceRoot,
+      );
       let resolvedLocalPort = pending.request.localPort ?? null;
       if (pendingSshTarget) {
         try {
@@ -229,13 +255,11 @@ export function WorkspaceLaunchPage() {
       } else {
         resolvedLocalPort = null;
       }
-
       const historySettaFilesLocation =
         chooseWorkspaceHistorySettaFilesLocation({
           requested: pendingSettaFilesLocation,
           resolved: res.data.settaFilesLocation,
         });
-
       const nextEntry = {
         workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pendingSshTarget,
@@ -243,12 +267,10 @@ export function WorkspaceLaunchPage() {
         settaFilesLocation: historySettaFilesLocation,
         lastUsedAt: Date.now(),
       };
-
       const nextHistory = upsertWorkspaceHistoryEntry(
         loadWorkspaceHistory(),
         nextEntry,
       );
-
       // Keep the switcher selection aligned with what actually happened, so
       // reopening the modal doesn't show a misleading explicit selection.
       writeWorkspaceSwitcherDraft({
@@ -258,27 +280,20 @@ export function WorkspaceLaunchPage() {
         localPort: resolvedLocalPort,
         settaFilesLocation: historySettaFilesLocation,
       });
-
       clearPendingWorkspaceLaunch();
-      const bootstrapUrl = import.meta.env?.DEV
-        ? res.data.bootstrapUrlFragment
-        : appendLauncherOriginToBootstrapUrlFragment(
-            appendWorkspaceHistoryToBootstrapUrlFragment(
-              res.data.bootstrapUrlFragment,
-              nextHistory,
-            ),
-            C_ADDRESSES.LAUNCHER_ORIGIN,
-          );
+      const bootstrapUrl = resolveLauncherBootstrapUrl(
+        appendWorkspaceHistoryToBootstrapUrlFragment(
+          res.data.bootstrapUrlFragment,
+          nextHistory,
+        ),
+      );
       window.location.href = bootstrapUrl;
     }
-
     void runLaunch();
-
     return () => {
       isMounted = false;
     };
   }, []);
-
   const details = useMemo(() => {
     if (phase.status === "idle") {
       return null;
@@ -288,45 +303,20 @@ export function WorkspaceLaunchPage() {
     }
     return "Launch failed";
   }, [elapsedMs, phase.status]);
-
-  function goBack(returnUrl: string) {
+  function goBack(returnUrl: string, returnUrlTrust: LaunchReturnUrlTrust) {
     clearPendingWorkspaceLaunch();
-    try {
-      const url = new URL(returnUrl, window.location.href);
-      const allowedOrigins = new Set<string>([
-        window.location.origin,
-        C_ADDRESSES.BACKEND_ORIGIN,
-        C_ADDRESSES.LAUNCHER_ORIGIN,
-      ]);
-      if (!allowedOrigins.has(url.origin)) {
-        throw new Error("Disallowed return URL origin.");
-      }
-      const isBackendOrLauncherHomeReturn =
-        url.pathname === HOME_ROUTER_PATH &&
-        (url.origin === C_ADDRESSES.BACKEND_ORIGIN ||
-          url.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
-      if (isBackendOrLauncherHomeReturn) {
-        requestOpenWorkspaceSwitcherOnNextMount();
-        url.searchParams.set("__setta_open_workspace_switcher", "1");
-        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
-        return;
-      }
-      if (url.origin === window.location.origin) {
-        requestOpenWorkspaceSwitcherOnNextMount();
-        url.searchParams.set("__setta_open_workspace_switcher", "1");
-        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
-        return;
-      }
-      url.searchParams.set("__setta_open_workspace_switcher", "1");
-      window.location.assign(url.toString());
-    } catch {
-      requestOpenWorkspaceSwitcherOnNextMount();
-      navigate(`${HOME_ROUTER_PATH}?__setta_open_workspace_switcher=1`, {
-        replace: true,
-      });
+    const navigation = resolveWorkspaceLaunchBackNavigation(
+      returnUrl,
+      window.location.href,
+      returnUrlTrust,
+    );
+    if (navigation.kind === "assign") {
+      window.location.assign(navigation.target);
+      return;
     }
+    requestOpenWorkspaceSwitcherOnNextMount();
+    navigate(navigation.target, { replace: true });
   }
-
   const errorMessage = phase.status === "error" ? phase.message : null;
   const returnUrl =
     phase.status === "loading" || phase.status === "error"
@@ -334,6 +324,10 @@ export function WorkspaceLaunchPage() {
       : typeof window !== "undefined"
         ? new URL(HOME_ROUTER_PATH, window.location.href).toString()
         : HOME_ROUTER_PATH;
+  const returnUrlTrust: LaunchReturnUrlTrust =
+    phase.status === "loading" || phase.status === "error"
+      ? phase.returnUrlTrust
+      : "same-origin-only";
   const workspaceLabel =
     phase.status === "loading" || phase.status === "error"
       ? phase.workspaceRoot
@@ -342,7 +336,6 @@ export function WorkspaceLaunchPage() {
     phase.status === "loading" || phase.status === "error"
       ? phase.sshTarget
       : null;
-
   return (
     <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8">
       <section className="flex w-full max-w-[560px] flex-col items-center gap-5 rounded-2xl border border-setta-200 bg-white/70 p-8 text-center shadow-sm backdrop-blur-sm dark:border-setta-700 dark:bg-setta-900/40">
@@ -394,7 +387,7 @@ export function WorkspaceLaunchPage() {
         <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row sm:justify-center">
           <button
             className="cursor-pointer rounded-full border border-setta-300 px-5 py-2 text-sm text-setta-700 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-            onClick={() => goBack(returnUrl)}
+            onClick={() => goBack(returnUrl, returnUrlTrust)}
           >
             Back to Switcher
           </button>
