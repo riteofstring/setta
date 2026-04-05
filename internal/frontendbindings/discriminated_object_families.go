@@ -3,9 +3,7 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
-	"sync"
 
 	"setta/internal/frontendbindingmeta"
 )
@@ -15,74 +13,69 @@ type discriminatedObjectFamilyMember struct {
 	EnumExpr string
 }
 
-var frontendBindingDiscriminatedFamiliesOnce sync.Once
-var frontendBindingDiscriminatedFamiliesCached []frontendbindingmeta.DiscriminatedObjectFamily
-
-func frontendBindingDiscriminatedFamilies() []frontendbindingmeta.DiscriminatedObjectFamily {
-	frontendBindingDiscriminatedFamiliesOnce.Do(func() {
-		familiesByBase := map[reflect.Type]frontendbindingmeta.DiscriminatedObjectFamily{}
-		for _, t := range DiscoveredConvertibleTypes() {
-			provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](canonicalFrontendBindingType(t))
-			if !ok {
-				continue
-			}
-			family := provider.FrontendBindingDiscriminatedObjectFamily()
-			family.BaseType = canonicalFrontendBindingType(family.BaseType)
-			if family.BaseType == nil {
-				continue
-			}
-			familiesByBase[family.BaseType] = family
-		}
-
-		families := make([]frontendbindingmeta.DiscriminatedObjectFamily, 0, len(familiesByBase))
-		for _, family := range familiesByBase {
-			families = append(families, family)
-		}
-		sort.Slice(families, func(i, j int) bool {
-			left := frontendBindingTypeName(families[i].BaseType)
-			right := frontendBindingTypeName(families[j].BaseType)
-			if left == right {
-				return families[i].BaseType.String() < families[j].BaseType.String()
-			}
-			return left < right
-		})
-		frontendBindingDiscriminatedFamiliesCached = families
-	})
-	return frontendBindingDiscriminatedFamiliesCached
-}
-
-func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, bool) {
+func discriminatedObjectFamilyForType(t reflect.Type) (frontendbindingmeta.DiscriminatedObjectFamily, []discriminatedObjectFamilyMember, bool, error) {
 	t = canonicalFrontendBindingType(t)
 	if t == nil {
-		return frontendbindingmeta.DiscriminatedObjectFamily{}, false
+		return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, nil
 	}
-	for _, family := range frontendBindingDiscriminatedFamilies() {
-		if t == family.BaseType {
-			return family, true
-		}
-		if family.DiscriminatorValue == nil {
+	seenBaseTypes := map[reflect.Type]struct{}{}
+	for _, discoveredType := range DiscoveredConvertibleTypes() {
+		provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](canonicalFrontendBindingType(discoveredType))
+		if !ok {
 			continue
 		}
-		if _, ok := family.DiscriminatorValue(t); ok {
-			return family, true
+		family := provider.FrontendBindingDiscriminatedObjectFamily()
+		family.BaseType = canonicalFrontendBindingType(family.BaseType)
+		if family.BaseType == nil {
+			continue
 		}
+		if _, duplicate := seenBaseTypes[family.BaseType]; duplicate {
+			continue
+		}
+		seenBaseTypes[family.BaseType] = struct{}{}
+
+		memberTypes := make([]reflect.Type, 0, len(family.MemberTypes))
+		seenMemberTypes := make(map[reflect.Type]struct{}, len(family.MemberTypes))
+		for _, memberType := range family.MemberTypes {
+			memberType = canonicalFrontendBindingType(memberType)
+			if memberType == nil || memberType == family.BaseType {
+				continue
+			}
+			if _, duplicate := seenMemberTypes[memberType]; duplicate {
+				continue
+			}
+			seenMemberTypes[memberType] = struct{}{}
+			memberTypes = append(memberTypes, memberType)
+		}
+		family.MemberTypes = memberTypes
+		isMember := false
+		for _, memberType := range family.MemberTypes {
+			if memberType == t {
+				isMember = true
+				break
+			}
+		}
+		if t != family.BaseType && !isMember {
+			continue
+		}
+		members, err := discriminatedObjectFamilyMembers(family)
+		if err != nil {
+			return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, err
+		}
+		return family, members, true, nil
 	}
-	return frontendbindingmeta.DiscriminatedObjectFamily{}, false
+	return frontendbindingmeta.DiscriminatedObjectFamily{}, nil, false, nil
 }
 
-func discriminatedObjectFamilyDeclarations(
-	converter *typeConverter,
-	t reflect.Type,
-) ([]TypeDeclaration, bool, error) {
-	family, ok := discriminatedObjectFamilyForType(t)
+func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool, error) {
+	family, members, ok, err := discriminatedObjectFamilyForType(t)
+	if err != nil {
+		return nil, false, err
+	}
 	if !ok {
 		return nil, false, nil
 	}
 	t = canonicalFrontendBindingType(t)
-	members, err := discriminatedObjectFamilyMembers(family)
-	if err != nil {
-		return nil, false, err
-	}
 	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
 	if err != nil {
 		return nil, false, err
@@ -319,21 +312,23 @@ func discriminatedObjectFamilyMembers(
 		order = append(order, enumValue.Value)
 	}
 
-	baseType := canonicalFrontendBindingType(family.BaseType)
-	membersByValue := map[string]reflect.Type{}
-	for _, candidate := range DiscoveredConvertibleTypes() {
-		candidate = canonicalFrontendBindingType(candidate)
-		if candidate == nil || candidate == baseType || family.DiscriminatorValue == nil {
-			continue
+	membersByValue := make(map[string]reflect.Type, len(family.MemberTypes))
+	for _, candidate := range family.MemberTypes {
+		if family.DiscriminatorValue == nil {
+			return nil, fmt.Errorf("%s family is missing discriminator metadata", frontendBindingTypeName(family.BaseType))
 		}
 		value, ok := family.DiscriminatorValue(candidate)
 		if !ok {
-			continue
+			return nil, fmt.Errorf(
+				"%s family member %s is missing a discriminator value",
+				frontendBindingTypeName(family.BaseType),
+				candidate.String(),
+			)
 		}
 		if _, ok := enumExprsByValue[value]; !ok {
 			return nil, fmt.Errorf(
 				"%s family includes %s with unknown discriminator %q",
-				frontendBindingTypeName(baseType),
+				frontendBindingTypeName(family.BaseType),
 				candidate.String(),
 				value,
 			)
@@ -341,7 +336,7 @@ func discriminatedObjectFamilyMembers(
 		if existing, duplicate := membersByValue[value]; duplicate {
 			return nil, fmt.Errorf(
 				"%s family maps discriminator %q to both %s and %s",
-				frontendBindingTypeName(baseType),
+				frontendBindingTypeName(family.BaseType),
 				value,
 				existing.String(),
 				candidate.String(),

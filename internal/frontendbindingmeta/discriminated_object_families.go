@@ -15,6 +15,7 @@ type DiscriminatedObjectTraitSpec struct {
 type DiscriminatedObjectFamily struct {
 	BaseType                     reflect.Type
 	EnumType                     reflect.Type
+	MemberTypes                  []reflect.Type
 	DiscriminatorField           string
 	DiscriminatorValue           func(reflect.Type) (string, bool)
 	DefaultValueForDiscriminator func(string) (any, bool, error)

@@ -12,11 +12,55 @@ var frontendBindingBaseSectionImplType = reflect.TypeOf(FrontendBaseSectionImpl{
 var frontendBindingBaseCodeObjImplType = reflect.TypeOf(FrontendBaseCodeObjImpl{})
 var frontendBindingBaseValueParamCodeObjImplType = reflect.TypeOf(FrontendBaseValueParamCodeObjImpl{})
 var frontendBindingParamCodeObjFieldsType = reflect.TypeOf(FrontendParamCodeObjFields{})
+var frontendBindingSectionImplMemberTypes = frontendBindingDiscriminatedMemberTypes(
+	FrontendBrowserSectionImpl{},
+	FrontendCallableSectionImpl{},
+	FrontendChartSectionImpl{},
+	FrontendChatSectionImpl{},
+	FrontendCodeSectionImpl{},
+	FrontendDictSectionImpl{},
+	FrontendGroupSectionImpl{},
+	FrontendListRootSectionImpl{},
+	FrontendPromptSectionImpl{},
+	FrontendSpreadsheetSectionImpl{},
+	FrontendStateMachineEndSectionImpl{},
+	FrontendStateMachineGateSectionImpl{},
+	FrontendStateMachineStartSectionImpl{},
+	FrontendTaskBoardSectionImpl{},
+	FrontendTerminalSectionImpl{},
+	FrontendTextBlockSectionImpl{},
+)
+var frontendBindingCodeObjImplMemberTypes = frontendBindingDiscriminatedMemberTypes(
+	FrontendButtonParamCodeObjImpl{},
+	FrontendCodeCallableCodeObjImpl{},
+	FrontendCodeParamCodeObjImpl{},
+	FrontendColorPickerParamCodeObjImpl{},
+	FrontendDateParamCodeObjImpl{},
+	FrontendDropdownParamCodeObjImpl{},
+	FrontendDropzoneParamCodeObjImpl{},
+	FrontendNestedParamCodeObjImpl{},
+	FrontendPasswordParamCodeObjImpl{},
+	FrontendRotaryParamCodeObjImpl{},
+	FrontendSliderParamCodeObjImpl{},
+	FrontendSwitchParamCodeObjImpl{},
+	FrontendTextAreaParamCodeObjImpl{},
+	FrontendTextParamCodeObjImpl{},
+	FrontendTimeParamCodeObjImpl{},
+)
+
+func frontendBindingDiscriminatedMemberTypes(values ...any) []reflect.Type {
+	memberTypes := make([]reflect.Type, 0, len(values))
+	for _, value := range values {
+		memberTypes = append(memberTypes, reflect.TypeOf(value))
+	}
+	return memberTypes
+}
 
 func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() frontendbindingmeta.DiscriminatedObjectFamily {
 	return frontendbindingmeta.DiscriminatedObjectFamily{
 		BaseType:           frontendBindingBaseSectionImplType,
 		EnumType:           reflect.TypeOf(FrontendSectionType("")),
+		MemberTypes:        frontendBindingSectionImplMemberTypes,
 		DiscriminatorField: "type",
 		DiscriminatorValue: frontendBindingSectionDiscriminatorValue,
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
@@ -60,6 +104,7 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 	return frontendbindingmeta.DiscriminatedObjectFamily{
 		BaseType:           frontendBindingBaseCodeObjImplType,
 		EnumType:           reflect.TypeOf(FrontendCodeObjType("")),
+		MemberTypes:        frontendBindingCodeObjImplMemberTypes,
 		DiscriminatorField: "type",
 		DiscriminatorValue: frontendBindingCodeObjDiscriminatorValue,
 		DefaultValueForDiscriminator: func(value string) (any, bool, error) {
