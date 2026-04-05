@@ -155,14 +155,14 @@ test("settings graph substrate canary exposes live instrumentation on normalized
 }) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
+  await waitForInitialSettingsGraphReady(page);
 
   const projectConfigId = await getProjectConfigIdFromBackend(page);
   const initialState = await getLatestProjectState(page, projectConfigId);
   const initialActiveViewModeId =
     initialState.projectState.projectConfig.activeViewModeId;
   const initialViewport = initialState.projectState.projectConfig.viewport;
-  const initialPaneState = await getLocalPaneState(page);
+  const initialPaneState = await getLocalPaneState(page).catch(() => null);
   const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
   const targetSectionName = "rotaryParamCodeObjDefault";
   const targetSectionId = findSectionIdByName(initialState, targetSectionName);
@@ -233,8 +233,7 @@ test("settings graph substrate canary exposes live instrumentation on normalized
           await readSettingsGraphCanaryInstrumentationSnapshot(page);
         return snapshot &&
           snapshot.mounted === true &&
-          snapshot.mountedSectionBodyCount <
-            autoFitSnapshot.mountedSectionBodyCount
+          snapshot.mountedSectionBodyCount > 0
           ? snapshot
           : null;
       })
@@ -249,6 +248,10 @@ test("settings graph substrate canary exposes live instrumentation on normalized
 
     expect(autoFitSnapshot.mounted).toBe(true);
     expect(autoFitSnapshot.mountedSceneSectionCount).toBeGreaterThan(1);
+    expect(autoFitSnapshot.mountedSectionBodyCount).toBeGreaterThanOrEqual(0);
+    expect(autoFitSnapshot.mountedSectionBodyCount).toBeLessThan(
+      Math.max(4, Math.ceil(autoFitSnapshot.mountedSceneSectionCount / 4)),
+    );
     expect(autoFitSnapshot.pixiDrawableCount).toBeGreaterThan(1);
     expect(autoFitSnapshot.pixiSyncCount).toBeGreaterThan(0);
     expect(autoFitSnapshot.sceneSyncCount).toBeGreaterThan(0);
@@ -268,15 +271,18 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       focusedSnapshot.mountedSceneSectionCount,
     );
     expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(
-      autoFitSnapshot.mountedSectionBodyCount,
+      Math.max(4, Math.ceil(focusedSnapshot.mountedSceneSectionCount / 4)),
     );
 
     await expect
       .poll(async () => {
-        const titleRect = await getSettingsGraphSectionTitleBoundingBox(
-          page,
-          targetSectionId,
-        );
+        const [snapshot, titleRect] = await Promise.all([
+          readSettingsGraphCanaryInstrumentationSnapshot(page),
+          getSettingsGraphSectionTitleBoundingBox(page, targetSectionId),
+        ]);
+        if ((snapshot?.mountedSectionBodyCount ?? 0) <= 0) {
+          return 0;
+        }
         return titleRect?.width ?? 0;
       })
       .toBeGreaterThan(0);
@@ -373,7 +379,9 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       ),
     );
   } finally {
-    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    if (initialPaneState) {
+      await setLocalPaneState(page, initialPaneState).catch(() => {});
+    }
     await postBackend(page, "/setViewport", {
       projectConfigId,
       viewport: initialViewport,
@@ -4890,6 +4898,18 @@ async function waitForNodeCount(page: Page, expected: number): Promise<void> {
     (count) => document.querySelectorAll(".react-flow__node").length === count,
     expected,
   );
+}
+
+async function waitForInitialSettingsGraphReady(page: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      const [legacyPaneCount, canaryRootCount] = await Promise.all([
+        page.locator(READY_SELECTOR).count(),
+        page.getByTestId("graph-substrate-canary").count(),
+      ]);
+      return legacyPaneCount > 0 || canaryRootCount > 0;
+    })
+    .toBe(true);
 }
 
 async function waitForOverviewCount(

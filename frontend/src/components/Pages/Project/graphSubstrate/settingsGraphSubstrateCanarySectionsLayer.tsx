@@ -18,6 +18,9 @@ import {
   type GraphViewport,
 } from "./viewportTransform";
 
+const MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH = 120;
+const MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT = 24;
+
 type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
   onHoveredSectionChange: (sectionId: string | null) => void;
@@ -171,24 +174,41 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
     section.renderedPosition,
     viewport,
   );
-  return graphRectsIntersect(
-    {
-      x: sectionScreenPosition.x,
-      y: sectionScreenPosition.y,
-      width: sectionBoundsSize.width * viewport.zoom,
-      height: sectionBoundsSize.height * viewport.zoom,
-    },
+  const sectionScreenRect = {
+    x: sectionScreenPosition.x,
+    y: sectionScreenPosition.y,
+    width: sectionBoundsSize.width * viewport.zoom,
+    height: sectionBoundsSize.height * viewport.zoom,
+  };
+  const visibleSectionScreenRect = getGraphRectIntersection(
+    sectionScreenRect,
     visibleViewportRect,
+  );
+  if (visibleSectionScreenRect === null) {
+    return false;
+  }
+
+  return (
+    visibleSectionScreenRect.width >= MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
+    visibleSectionScreenRect.height >= MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
   );
 }
 
-function graphRectsIntersect(left: GraphRect, right: GraphRect) {
-  return (
-    left.x < right.x + right.width &&
-    left.x + left.width > right.x &&
-    left.y < right.y + right.height &&
-    left.y + left.height > right.y
-  );
+function getGraphRectIntersection(
+  left: GraphRect,
+  right: GraphRect,
+): GraphRect | null {
+  const x = Math.max(left.x, right.x);
+  const y = Math.max(left.y, right.y);
+  const rightEdge = Math.min(left.x + left.width, right.x + right.width);
+  const bottomEdge = Math.min(left.y + left.height, right.y + right.height);
+  const width = rightEdge - x;
+  const height = bottomEdge - y;
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { x, y, width, height };
 }
 
 export const SettingsGraphSubstrateCanarySectionsLayer = React.memo(

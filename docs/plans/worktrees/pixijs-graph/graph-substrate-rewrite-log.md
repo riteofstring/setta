@@ -10677,3 +10677,34 @@ LOOP_TERMINAL_MARKER: none
     - land one production slice that reduces the wide auto-fit mounted-body count below `42` without breaking the focused `rotaryParamCodeObjDefault` path or the now-validated motion lane
     - keep the new pan/zoom assertions as regression coverage instead of reopening another motion-only verification pass by default
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 17:01 EDT, Ralph item `280`
+  - Summary: tightened the canary DOM body gate so inactive sections now need useful visible screen-space, which dropped normalized `All Settings` auto-fit mounted bodies from `42` to `0` while keeping the focused `rotaryParamCodeObjDefault` lane populated through pan and zoom.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-screen-space-body-viability-gate.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass measured the whole normalized `All Settings` canary plus the focused fit-view target on the same lane; it did not open a new section-specific parity lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx` -> passed (`1 file`, `12 tests`)
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000` -> passed (`1 passed`, `17.3s`)
+    - Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `4`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `4`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `4`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `4`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - Chrome DevTools visual check -> done; verified the live worktree directly at `http://127.0.0.1:3075/settings`, observed mounted `Settings`, active `All Settings`, canary present, and the focused `rotaryParamCodeObjDefault` lane populated with `Rotary Param` and `Size Mode Height`, then confirmed `minHeight 32.0` stayed visible after one toolbar `zoom in`
+  - Result:
+    - the wide auto-fit DOM body lane is now effectively closed for the current canary because the normalized broad view mounts `0` bodies while the graph surface still renders shells/chrome
+    - the focused canonical lane stayed at `1` mounted body through pan and zoom, so the tighter screen-space cutoff did not reopen the motion blocker already closed in item `279`
+    - with wide-view body ownership removed, the next likely hotspot is whole-scene scene sync / full Pixi drawable redraw rather than more body-gate tuning
+  - Next:
+    - land one bounded production slice that reduces unnecessary whole-scene sync or full drawable redraw work on the `All Settings` canary without regressing the zero-body wide lane or the focused `rotaryParamCodeObjDefault` lane
+    - keep the current normalized Playwright probe on `rotaryParamCodeObjDefault` as regression coverage instead of reopening a new motion-only or body-viability lane
+  - LOOP_TERMINAL_MARKER: none

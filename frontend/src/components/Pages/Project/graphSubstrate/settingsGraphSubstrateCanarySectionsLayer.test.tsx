@@ -180,6 +180,24 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
 
+  it("unmounts tiny visible inactive section bodies until they have useful screen space", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[createSceneSection()]}
+          viewport={{ x: 0, y: 0, zoom: 0.1 }}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="section-content-section-a"]'),
+    ).toBeNull();
+    expect(mockSectionContainer).toHaveBeenCalledTimes(0);
+  });
+
   it("keeps active offscreen section bodies mounted for interaction continuity", async () => {
     await act(async () => {
       root.render(
@@ -203,6 +221,28 @@ describe("SettingsGraphSubstrateCanarySectionsLayer", () => {
       host.querySelector(
         '[data-testid="section-content-active-offscreen-section"]',
       ),
+    ).not.toBeNull();
+    expect(mockSectionContainer).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps active tiny visible section bodies mounted for interaction continuity", async () => {
+    await act(async () => {
+      root.render(
+        <SectionsLayerProbe
+          draggingSectionId={null}
+          sceneSections={[
+            createSceneSection({
+              isActiveSection: true,
+            }),
+          ]}
+          viewport={{ x: 0, y: 0, zoom: 0.1 }}
+          viewportTick={0}
+        />,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="section-content-section-a"]'),
     ).not.toBeNull();
     expect(mockSectionContainer).toHaveBeenCalledTimes(1);
   });
