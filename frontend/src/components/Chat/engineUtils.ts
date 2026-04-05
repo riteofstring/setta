@@ -1,8 +1,5 @@
-import {
-  EngineConfig,
-  EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-} from "utils/generatedTypes";
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
+import { EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 
 type IdNameItem = { id: string; name: string };
 
@@ -48,7 +45,7 @@ export function buildEngineGroups(
 
 export function getExternalEngineStatus(
   engineConfig: EngineConfig | null,
-  health: Array<ExternalAgentPreflightStatus>,
+  health: Array<HttpapiExternalAgentPreflightStatus>,
   healthLoaded: boolean,
 ): ExternalEngineStatus | null {
   if (

@@ -1,6 +1,7 @@
 import {
   getShareDeploymentCurrentSession,
   getShareDeploymentProjectConfig,
+  type GetShareDeploymentCurrentSessionResponses,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
@@ -16,22 +17,22 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import type {
-  ShareDeploymentSessionResponse,
-  SingleConfig,
-} from "utils/generatedTypes";
+import type { SingleConfig } from "utils/generatedTypes";
+
+type ShareDeploymentSession = GetShareDeploymentCurrentSessionResponses[200];
+
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
   forceNewSession?: boolean;
 };
 type ShareDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<ShareDeploymentSessionResponse>;
+  ResponseDataAndStatus<ShareDeploymentSession>;
 type ShareProjectConfigRouteResponse = ResponseDataAndStatus<{
   projectState: SingleConfig;
 }>;
 function normalizeShareSessionResponse(
-  session: ShareDeploymentSessionResponse,
-): ShareDeploymentSessionResponse {
+  session: ShareDeploymentSession,
+): ShareDeploymentSession {
   return {
     ...session,
     manifest: session.manifest ?? null,
@@ -55,7 +56,7 @@ export function resetShareSessionState() {
 }
 function isShareSessionResponse(
   value: unknown,
-): value is ShareDeploymentSessionResponse {
+): value is ShareDeploymentSession {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -80,7 +81,7 @@ function isShareSessionResponse(
   }
   return true;
 }
-function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
+function readShareSessionFromStorage(): ShareDeploymentSession | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -99,7 +100,7 @@ function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
     return null;
   }
 }
-function storeShareSession(session: ShareDeploymentSessionResponse): void {
+function storeShareSession(session: ShareDeploymentSession): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -112,7 +113,7 @@ function storeShareSession(session: ShareDeploymentSessionResponse): void {
     console.warn("Failed to persist share session:", error);
   }
 }
-function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
+function hydrateShareSessionFromStorage(): ShareDeploymentSession | null {
   const stored = readShareSessionFromStorage();
   if (!stored) {
     return null;
@@ -120,7 +121,7 @@ function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null
   setShareSessionFromResponse(stored);
   return stored;
 }
-function getCachedShareSession(): ShareDeploymentSessionResponse | null {
+function getCachedShareSession(): ShareDeploymentSession | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
   if (!shareSession.isDeploymentMode) {
@@ -151,7 +152,7 @@ function getCachedShareSession(): ShareDeploymentSessionResponse | null {
     manifest: null,
   };
 }
-function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
+function setShareSessionFromResponse(session: ShareDeploymentSession) {
   clearShareSessionCookie();
   storeShareSession(session);
   useShareSession.setState({
@@ -175,7 +176,7 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
 }
 export async function ensureShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
-): Promise<ShareDeploymentSessionResponse | null> {
+): Promise<ShareDeploymentSession | null> {
   const forceNewSession = options.forceNewSession ?? false;
   if (forceNewSession) {
     resetShareSessionState();

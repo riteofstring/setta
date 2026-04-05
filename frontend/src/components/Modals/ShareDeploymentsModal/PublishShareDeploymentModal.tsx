@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   checkIfFileExists,
+  type HttpapiDeploymentMetadataResponse,
   type HttpapiPublishShareDeploymentRequest,
   listShareDeployments,
   publishShareDeployment,
@@ -15,12 +16,10 @@ import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
 import { createDefaultSharePolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type {
-  DeploymentMetadataResponse,
-  Policy,
-  RunSnapshotMode,
-} from "utils/generatedTypes";
+import type { Policy, RunSnapshotMode } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
+
+type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type SharePolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 function createDefaultDeploymentName(): string {
@@ -54,9 +53,9 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<DeploymentMetadataResponse | null>(null);
+    useState<DeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<DeploymentMetadataResponse>
+    Array<DeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -100,7 +99,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setIsLoadingRecent(true);
     const res = (await callOpenAPI(
       listShareDeployments(),
-    )) as ResponseDataAndStatus<Array<DeploymentMetadataResponse>>;
+    )) as ResponseDataAndStatus<Array<DeploymentMetadata>>;
     setIsLoadingRecent(false);
     if (res200(res)) {
       setRecentDeployments(res.data ?? []);
@@ -147,7 +146,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       publishShareDeployment({
         body: payload,
       } as Parameters<typeof publishShareDeployment>[0]),
-    )) as ResponseDataAndStatus<DeploymentMetadataResponse>;
+    )) as ResponseDataAndStatus<DeploymentMetadata>;
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
@@ -538,7 +537,7 @@ function RecentDeploymentList({
   onCopy,
   onOpen,
 }: {
-  deployments: Array<DeploymentMetadataResponse>;
+  deployments: Array<DeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
   onOpen: (value: string) => void;
@@ -617,7 +616,7 @@ function buildShareUrl(): string {
 }
 function extractErrorMessage(
   status: number | undefined,
-  data: DeploymentMetadataResponse | undefined,
+  data: DeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

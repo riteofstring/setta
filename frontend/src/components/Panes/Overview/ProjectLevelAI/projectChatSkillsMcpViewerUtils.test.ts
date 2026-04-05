@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import {
   createAgentRun,
   createAllConfigs,
   createEngineConfig,
-  createExternalAgentPreflightStatus,
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
@@ -22,6 +22,29 @@ import {
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
+
+function buildExternalAgentPreflightStatus(
+  overrides: Partial<HttpapiExternalAgentPreflightStatus> = {},
+): HttpapiExternalAgentPreflightStatus {
+  return {
+    available: true,
+    baseUrl: null,
+    cliVersion: null,
+    configId: "external-agent-config",
+    envVars: {
+      missing: [],
+      present: [],
+    },
+    issues: [],
+    name: "Codex",
+    runMode: "subprocess",
+    sdkVersion: null,
+    supported: true,
+    toolType: "codex",
+    workingDir: null,
+    ...overrides,
+  };
+}
 
 describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {
@@ -608,7 +631,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     });
     const externalAgentHealth = [
-      createExternalAgentPreflightStatus({
+      buildExternalAgentPreflightStatus({
         configId: "external-codex",
         name: "Codex Agent",
         toolType: "codex",
@@ -678,7 +701,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     });
     const externalAgentHealth = [
-      createExternalAgentPreflightStatus({
+      buildExternalAgentPreflightStatus({
         configId: "external-codex",
         name: "Codex Agent",
         toolType: "codex",

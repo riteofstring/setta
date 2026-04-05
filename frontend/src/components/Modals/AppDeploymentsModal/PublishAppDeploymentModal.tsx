@@ -7,6 +7,7 @@ import {
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   checkIfFileExists,
+  type HttpapiDeploymentMetadataResponse,
   type HttpapiPublishAppDeploymentRequest,
   listAppDeployments,
   publishAppDeployment,
@@ -23,12 +24,10 @@ import {
 } from "state/definitions";
 import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type {
-  DeploymentMetadataResponse,
-  Policy,
-  RunSnapshotMode,
-} from "utils/generatedTypes";
+import type { Policy, RunSnapshotMode } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
+
+type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type AppPolicyOverridesInput = Policy;
 type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
 function createDefaultDeploymentName(): string {
@@ -88,9 +87,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<DeploymentMetadataResponse | null>(null);
+    useState<DeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<DeploymentMetadataResponse>
+    Array<DeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -128,7 +127,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsLoadingRecent(true);
     const res = (await callOpenAPI(
       listAppDeployments(),
-    )) as ResponseDataAndStatus<Array<DeploymentMetadataResponse>>;
+    )) as ResponseDataAndStatus<Array<DeploymentMetadata>>;
     setIsLoadingRecent(false);
     if (res200(res)) {
       setRecentDeployments(res.data ?? []);
@@ -175,7 +174,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
       publishAppDeployment({
         body: payload,
       } as Parameters<typeof publishAppDeployment>[0]),
-    )) as ResponseDataAndStatus<DeploymentMetadataResponse>;
+    )) as ResponseDataAndStatus<DeploymentMetadata>;
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
@@ -583,7 +582,7 @@ function RecentDeploymentList({
   isLoading,
   onCopy,
 }: {
-  deployments: Array<DeploymentMetadataResponse>;
+  deployments: Array<DeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
 }) {
@@ -639,7 +638,7 @@ function RecentDeploymentList({
 }
 function extractErrorMessage(
   status: number | undefined,
-  data: DeploymentMetadataResponse | undefined,
+  data: DeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

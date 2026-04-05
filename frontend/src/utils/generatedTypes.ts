@@ -42,1153 +42,6 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string;
-  base_url?: string;
-  api_key_env?: string;
-  other_params?: Record<string, unknown>;
-  mcpServerIds?: Array<string>;
-  temporary?: boolean;
-};
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
-}
-
-export type AppRoute = {
-  path: string;
-  name?: string;
-  rootKey?: string;
-};
-
-type BootstrapHandoffProtocol = {
-  workspaceHistoryStorageKey: string;
-  workspaceHistoryQueryParam: string;
-  workspaceHistoryHashParam: string;
-  launcherOriginStorageKey: string;
-  launcherOriginHashParam: string;
-  launcherOriginProofHashParam: string;
-  openWorkspaceSwitcherQueryParam: string;
-  openWorkspaceSwitcherHashParam: string;
-  backendOriginOverrideQueryParam: string;
-  maxValueLength: number;
-};
-
-export type DeploymentMetadataResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-
-const RunSnapshotModeEnum = {
-  ephemeral: "ephemeral",
-  always: "always",
-  never: "never",
-} as const;
-export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
-
-export type ProjectConfigMetadata = {
-  name: string;
-  id: string;
-};
-
-export type Policy = {
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowLayoutChanges: boolean;
-  allowRun: boolean;
-  allowLLM: boolean;
-  allowExternalLinks: boolean;
-  allowFileDownloads: boolean;
-  allowMultipleRuns: boolean;
-  runSnapshotMode: RunSnapshotMode;
-};
-export function createPolicy(options: Partial<Policy> = {}): Policy {
-  return options as Policy;
-}
-
-const TypeEnum = {
-  share: "share",
-  app: "app",
-} as const;
-type Type = ObjectValues<typeof TypeEnum>;
-
-type ListenerConfig = {
-  entrypoint: string;
-  enabled: boolean;
-};
-
-type Manifest = {
-  version: number;
-  deploymentName: string;
-  deploymentType: Type;
-  defaultProjectConfigId: string;
-  deploymentVersion: string;
-  createdAt?: string;
-  listener?: ListenerConfig | null;
-};
-
-export type ShareDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectConfigMetadata>;
-  sharePolicy: Policy;
-  manifest?: Manifest | null;
-};
-
-export type AppDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectConfigMetadata>;
-  appPolicy: Policy;
-  manifest?: Manifest | null;
-};
-
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions<Core>(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-export type SectionCapabilities = {
-  canRun: boolean;
-  runDisabledReason?: string | null;
-  runRequestSectionId?: string | null;
-  canSelectAsEntryCodeBlock: boolean;
-  entryCodeBlockValue?: string | null;
-};
-export function createSectionCapabilities(
-  options: Partial<SectionCapabilities> = {},
-): SectionCapabilities {
-  return mergeGeneratedOptions<SectionCapabilities>(
-    {
-      canRun: false,
-      runDisabledReason: null,
-      runRequestSectionId: null,
-      canSelectAsEntryCodeBlock: false,
-      entryCodeBlockValue: null,
-    },
-    options,
-  );
-}
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions<Variant>(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions<TopLevelSectionLayout>(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
-
-export type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions<ViewMode>(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-
-type ProjectRunCapabilities = {
-  canRunFromMain: boolean;
-  mainRunDisabledReason?: string | null;
-  effectiveEntrySectionId?: string | null;
-};
-export function createProjectRunCapabilities(
-  options: Partial<ProjectRunCapabilities> = {},
-): ProjectRunCapabilities {
-  return mergeGeneratedOptions<ProjectRunCapabilities>(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  );
-}
-
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
-type WatchCodeRegistryEntry = {
-  callableName: string;
-  kind: string;
-  signatureHash: string;
-  bodyHash: string;
-  sourcePath: string;
-  sectionIds?: Array<string>;
-  sectionsCount?: number;
-};
-
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
-
-export type NormalizedFloatingWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
-}
-
-type WindowSpaceWindow = {
-  surfaceKind?: WindowSpaceSurfaceKind;
-  sectionIdOrNull?: string | null;
-  mode?: ChatWindowMode;
-  title?: string | null;
-  chatId?: string | null;
-  embeddedGitPaneVisible?: boolean;
-  zIndex?: number;
-  normalizedBounds?: NormalizedFloatingWindowBounds;
-};
-export function createWindowSpaceWindow(
-  options: Partial<WindowSpaceWindow> = {},
-): WindowSpaceWindow {
-  const defaults: WindowSpaceWindow = {
-    surfaceKind: "project_chat",
-    sectionIdOrNull: null,
-    mode: "project_ai_mode",
-    title: null,
-    chatId: null,
-    embeddedGitPaneVisible: false,
-    zIndex: 0,
-    normalizedBounds: {
-      height: 1,
-      width: 1,
-      x: 0,
-      y: 0,
-    },
-  };
-  return {
-    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
-    normalizedBounds: createNormalizedFloatingWindowBounds(
-      options.normalizedBounds ?? defaults.normalizedBounds,
-    ),
-  };
-}
-
-export type WindowSpaceConfig = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-  id?: string;
-  name?: string;
-  sortIndex?: number;
-};
-export function createWindowSpaceConfig(
-  options: Partial<WindowSpaceConfig> = {},
-): WindowSpaceConfig {
-  return mergeGeneratedOptions<WindowSpaceConfig>(
-    {
-      windowsById: {},
-      order: [],
-      id: "",
-      name: "",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type Edge = {
-  id: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown>;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown>;
-  selected?: boolean;
-};
-
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
-export type AgenticEdge = {
-  id: string;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode;
-  style?: Record<string, unknown>;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  return mergeGeneratedOptions<AgenticEdge>(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: "section_chat",
-      contextMode: "reference_only",
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
-}
-
-const StateMachineSourceFilterTypeEnum = {
-  run_completed: "run_completed",
-  run_failed: "run_failed",
-  signal: "signal",
-} as const;
-type StateMachineSourceFilterType = ObjectValues<
-  typeof StateMachineSourceFilterTypeEnum
->;
-
-type StateMachineSourceFilter = {
-  type?: StateMachineSourceFilterType;
-  signalName?: string | null;
-  payloadField?: string | null;
-  equals?: string | null;
-};
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
-export type StateMachineCountOperator = ObjectValues<
-  typeof StateMachineCountOperatorEnum
->;
-
-type StateMachineSourceActivationCountCondition = {
-  operator?: StateMachineCountOperator;
-  value: number;
-};
-
-const StateMachineTargetActionTypeEnum = {
-  send_prompt: "send_prompt",
-  reset_thread: "reset_thread",
-} as const;
-type StateMachineTargetActionType = ObjectValues<
-  typeof StateMachineTargetActionTypeEnum
->;
-
-const StateMachineThreadStrategyEnum = {
-  continue_current_thread: "continue_current_thread",
-  new_thread_before_send: "new_thread_before_send",
-} as const;
-type StateMachineThreadStrategy = ObjectValues<
-  typeof StateMachineThreadStrategyEnum
->;
-
-type StateMachineTargetAction = {
-  type?: StateMachineTargetActionType;
-  promptTemplateId?: string | null;
-  promptSectionId?: string | null;
-  inlinePrompt?: string | null;
-  promptInputs?: Record<string, string>;
-  threadStrategy?: StateMachineThreadStrategy;
-  stopIfRunning?: boolean;
-  engineConfigId?: string | null;
-  agentProfileId?: string | null;
-  permissionMode?: string | null;
-  searchEnabled?: boolean | null;
-};
-
-type StateMachineEdge = {
-  id: string;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-
-export type ProjectConfig = {
-  id: string;
-  name: string;
-  showParamDisplayNames: boolean;
-  allowJsonSourceKeyEdits: boolean;
-  previewImgColor?: string;
-  viewport: Viewport | null;
-  viewportInitialized: boolean;
-  viewModes: Record<string, ViewMode>;
-  activeViewModeId: string | null;
-  isEditingViewMode: boolean;
-  hasPythonCodegenTarget: boolean;
-  runCapabilities: ProjectRunCapabilities;
-  codegenTargets: Array<ProjectCodegenTarget>;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
-  watchCodeBaselineByPath: Record<string, Array<string>>;
-  entryCodeBlockId: string | null;
-  sectionPathSlugsById: Record<string, string>;
-  sectionIdsByPathSlug: Record<string, Array<string>>;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  windowSpaceSlugsById: Record<string, string>;
-  windowSpaceIdsBySlug: Record<string, Array<string>>;
-  windowSpaces: Record<string, WindowSpaceConfig>;
-  sectionVariantMap: Record<string, string>;
-  activeIds: Array<string>;
-  edges: Array<Edge>;
-  agenticEdges: Array<AgenticEdge>;
-  stateMachineEdges: Array<StateMachineEdge>;
-};
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return mergeGeneratedOptions<ProjectConfig>(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      hasPythonCodegenTarget: false,
-      runCapabilities: {
-        canRunFromMain: false,
-        effectiveEntrySectionId: null,
-        mainRunDisabledReason: null,
-      },
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      sectionPathSlugsById: {},
-      sectionIdsByPathSlug: {},
-      topLevelSections: {},
-      windowSpaceSlugsById: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
-    },
-    options,
-  );
-}
-
-type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return mergeGeneratedOptions<SingletonSections>(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
-type ShownParamIDDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-export type ShownParamIDs = {
-  pinned: ShownParamIDDetails;
-  unpinned: ShownParamIDDetails;
-};
-
-export type CodeFileBinding = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-  autoBinding: boolean;
-};
-
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
-
-export type ChatWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-function createChatWindowBounds(
-  options: Partial<ChatWindowBounds> = {},
-): ChatWindowBounds {
-  return mergeGeneratedOptions<ChatWindowBounds>(
-    {
-      x: 120,
-      y: 120,
-      width: 820,
-      height: 520,
-    },
-    options,
-  );
-}
-
-type ChatWindowDockMetrics = {
-  widthFraction?: number | null;
-  preferredWidthPx?: number | null;
-};
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  return mergeGeneratedOptions<ChatWindowDockMetrics>(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
-}
-
-export type ProjectChatWindowInstance = {
-  instanceId: string;
-  placement?: ChatWindowPlacement;
-  isMinimized?: boolean;
-  isClosed?: boolean;
-  isMaximized?: boolean;
-  bounds?: ChatWindowBounds;
-  dockMetrics?: ChatWindowDockMetrics;
-  zIndex?: number;
-  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
-  mode?: ChatWindowMode;
-  sectionIdOrNull?: string | null;
-  title?: string | null;
-  lastFocusedAt?: number;
-  chatId?: string | null;
-};
-export function createProjectChatWindowInstance(
-  options: Partial<ProjectChatWindowInstance> = {},
-): ProjectChatWindowInstance {
-  const defaults: ProjectChatWindowInstance = {
-    instanceId: "",
-    placement: "bottom_docked",
-    isMinimized: false,
-    isClosed: false,
-    isMaximized: false,
-    bounds: {
-      height: 520,
-      width: 820,
-      x: 120,
-      y: 120,
-    },
-    dockMetrics: {
-      preferredWidthPx: null,
-      widthFraction: null,
-    },
-    zIndex: 0,
-    lastPlacementBeforeMaximize: null,
-    mode: "project_ai_mode",
-    sectionIdOrNull: null,
-    title: null,
-    lastFocusedAt: 0,
-    chatId: null,
-  };
-  return {
-    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
-    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
-    dockMetrics: createChatWindowDockMetrics(
-      options.dockMetrics ?? defaults.dockMetrics,
-    ),
-  };
-}
-
-export type ProjectChatWindowingState = {
-  instancesById: Record<string, ProjectChatWindowInstance>;
-  order: Array<string>;
-  nextInstanceNumber: number;
-};
-export function createProjectChatWindowingState(
-  options: Partial<ProjectChatWindowingState> = {},
-): ProjectChatWindowingState {
-  return mergeGeneratedOptions<ProjectChatWindowingState>(
-    {
-      instancesById: {},
-      order: [],
-      nextInstanceNumber: 1,
-    },
-    options,
-  );
-}
-
-export type SingleConfig = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionCapabilities: Record<string, SectionCapabilities>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-  projectConfig: ProjectConfig;
-  singletonSections: SingletonSections;
-  parentSectionMap: Record<string, string | null>;
-  shownParamIds: Record<string, ShownParamIDs>;
-  requiredDecodedImages: Array<string>;
-  genCodeBinding: CodeFileBinding | null;
-  projectChatWindowing: ProjectChatWindowingState;
-  artifactGroups?: Record<string, unknown>;
-};
-export function createSingleConfig(
-  options: Partial<SingleConfig> = {},
-): SingleConfig {
-  return mergeGeneratedOptions<SingleConfig>(
-    {
-      sections: {},
-      sectionImpls: {},
-      sectionCapabilities: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      projectConfig: {
-        activeIds: [],
-        activeViewModeId: null,
-        agenticEdges: [],
-        allowJsonSourceKeyEdits: false,
-        codegenTargets: [],
-        edges: [],
-        entryCodeBlockId: null,
-        hasPythonCodegenTarget: false,
-        id: "",
-        isEditingViewMode: false,
-        name: "",
-        previewImgColor: "",
-        runCapabilities: {
-          canRunFromMain: false,
-          effectiveEntrySectionId: null,
-          mainRunDisabledReason: null,
-        },
-        sectionIdsByPathSlug: {},
-        sectionPathSlugsById: {},
-        sectionVariantMap: {},
-        showParamDisplayNames: false,
-        stateMachineEdges: [],
-        topLevelSections: {},
-        viewModes: {},
-        viewport: null,
-        viewportInitialized: false,
-        watchCodeBaselineByPath: {},
-        watchCodeEnabled: false,
-        watchCodeFiles: [],
-        watchCodeFolders: [],
-        watchCodeRegistry: {},
-        windowSpaceIdsBySlug: {},
-        windowSpaceSlugsById: {},
-        windowSpaces: {},
-      },
-      singletonSections: {
-        GenPythonCode: null,
-        GenPythonMetadata: null,
-        GlobalVariables: null,
-      },
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      projectChatWindowing: {
-        instancesById: {},
-        nextInstanceNumber: 1,
-        order: [],
-      },
-      artifactGroups: {},
-    },
-    options,
-  );
-}
-
-export type AppDefinition = {
-  appSpecVersion?: string;
-  catalogId?: string;
-  appSpecPath?: string;
-  routes?: Array<AppRoute>;
-  dataBindings?: JSONValue;
-  actions?: JSONValue;
-  theme?: JSONValue;
-  assets?: JSONValue;
-};
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return options as AppDefinition;
-}
-
-export type AppDeploymentStateResponse = {
-  projectState: SingleConfig;
-  appDefinition: AppDefinition | null;
-  appSpec: unknown;
-  appPolicy: Policy;
-};
-
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-type EngineConfigDefaults = {
-  thinking?: boolean | null;
-};
-function createEngineConfigDefaults(
-  options: Partial<EngineConfigDefaults> = {},
-): EngineConfigDefaults {
-  return mergeGeneratedOptions<EngineConfigDefaults>(
-    {
-      thinking: null,
-    },
-    options,
-  );
-}
-
-type EngineRuntimeSupport = {
-  thinking: boolean;
-};
-function createEngineRuntimeSupport(
-  options: Partial<EngineRuntimeSupport> = {},
-): EngineRuntimeSupport {
-  return mergeGeneratedOptions<EngineRuntimeSupport>(
-    {
-      thinking: false,
-    },
-    options,
-  );
-}
-
-type UpdateEngineConfigPayload = {
-  id: string | null;
-  name: string | null;
-  engineType: EngineType | null;
-  settaLlmConfigId: string | null;
-  externalAgentConfigId: string | null;
-  defaults: EngineConfigDefaults | null;
-  runtimeSupport: EngineRuntimeSupport | null;
-};
-
-export type UpdateEngineConfigRequest = {
-  config: UpdateEngineConfigPayload | null;
-};
-
-export const ToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-} as const;
-type ToolType = ObjectValues<typeof ToolTypeEnum>;
-
-export const RunModeEnum = {
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-  app_server: "app_server",
-} as const;
-type RunMode = ObjectValues<typeof RunModeEnum>;
-
-export const SettingsModeEnum = {
-  read_only: "read_only",
-  managed_local: "managed_local",
-  managed_project: "managed_project",
-  explicit_path: "explicit_path",
-} as const;
-type SettingsMode = ObjectValues<typeof SettingsModeEnum>;
-
-export const ClaudeSettingsSourceEnum = {
-  user: "user",
-  project: "project",
-  local: "local",
-} as const;
-type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
-
-type ClaudeSettingsPermissions = {
-  allow: Array<string>;
-  ask: Array<string>;
-  deny: Array<string>;
-};
-
-type ClaudeSettingsManaged = {
-  permissions?: ClaudeSettingsPermissions | null;
-  defaultMode?: string | null;
-  mcp?: Record<string, unknown>;
-};
-
-type SettingsManagedBlock = {
-  claude?: ClaudeSettingsManaged | null;
-  codex?: Record<string, unknown>;
-};
-
-export const WorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
-
-export type ExternalAgentConfig = {
-  id: string;
-  name: string;
-  description: string;
-  toolType: ToolType;
-  runMode: RunMode;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode: SettingsMode;
-  settingsSources?: Array<ClaudeSettingsSource>;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: SettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: WorkingDirStrategy;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
-};
-
-type EnvVarStatus = {
-  present: Array<string>;
-  missing: Array<string>;
-};
-
-export type ExternalAgentPreflightStatus = {
-  configId: string;
-  name: string;
-  toolType: ToolType;
-  runMode: RunMode;
-  supported: boolean;
-  available: boolean;
-  issues: Array<string>;
-  sdkVersion: string | null;
-  cliVersion: string | null;
-  baseUrl: string | null;
-  workingDir: string | null;
-  envVars: EnvVarStatus;
-};
-export function createExternalAgentPreflightStatus(
-  options: Partial<ExternalAgentPreflightStatus> = {},
-): ExternalAgentPreflightStatus {
-  return options as ExternalAgentPreflightStatus;
-}
-
-export const EndpointOriginEnum = {
-  backend: "backend",
-  launcher: "launcher",
-  BackendOrigin: "backend-origin",
-} as const;
-export type EndpointOrigin = ObjectValues<typeof EndpointOriginEnum>;
-
-export const WorkspaceLaunchRouteKindEnum = {
-  ide: "ide",
-  launcher: "launcher",
-  blocked: "blocked",
-} as const;
-export type WorkspaceLaunchRouteKind = ObjectValues<
-  typeof WorkspaceLaunchRouteKindEnum
->;
-
-export type ServerModeCapabilities = {
-  canManageDesktopLauncher: boolean;
-};
-
-type ServerModeBoundary = {
-  capabilities: ServerModeCapabilities;
-  workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
-};
-
-type ServerModeBoundaryPolicy = Record<string, ServerModeBoundary>;
-
-type EndpointOriginPolicy = Record<string, EndpointOrigin>;
-
-type ModeScopedLauncherRoutes = Array<string>;
-
-type ToolNameNormalization = {
-  singlePrefix: string;
-  doublePrefix: string;
-  askUserQuestionToolName: string;
-};
-
-type RootTransportRoutes = {
-  bootstrapPage: string;
-  toolsCall: string;
-};
-
-type BinaryTransportRoutes = {
-  upload: string;
-  download: string;
-};
-
-type WebsocketTransportRoutes = {
-  frontend: string;
-  listenerById: string;
-  terminalBySection: string;
-};
-
-type ServerModeBoundaryRoutes = {
-  launch: string;
-  createWorkspaceLaunchIntent: string;
-  getSettaHomeInfo: string;
-  getLauncherRecentWorkspaces: string;
-  addLauncherRecentWorkspace: string;
-  removeLauncherRecentWorkspace: string;
-  pinLauncherRecentWorkspace: string;
-  getLauncherFilesystemRoots: string;
-  listLauncherDirectory: string;
-  openLauncherWorkspace: string;
-};
-
-type StatusTransportRoutes = {
-  getSettaHomeInfo: string;
-  revealPathInOsFileExplorer: string;
-};
-
-type LauncherManagementTransportRoutes = {
-  getLauncherStatus: string;
-  repairLauncher: string;
-  updateLauncher: string;
-  removeLauncher: string;
-};
-
-type FileBrowserTransportRoutes = {
-  getFileBrowserRoot: string;
-  getFolderContents: string;
-  writeFileBrowserContent: string;
-};
-
-type SettaAPIPresetRoutes = {
-  createTopLevelSection: string;
-  getLatestProjectState: string;
-  saveProject: string;
-};
-
-type TransportRoutes = {
-  apiPrefix: string;
-  root: RootTransportRoutes;
-  binary: BinaryTransportRoutes;
-  websocket: WebsocketTransportRoutes;
-  serverModeBoundary: ServerModeBoundaryRoutes;
-  status: StatusTransportRoutes;
-  launcherManagement: LauncherManagementTransportRoutes;
-  fileBrowser: FileBrowserTransportRoutes;
-  settaApiPresets: SettaAPIPresetRoutes;
-};
-
-type LauncherOperationErrorPayload = {
-  code: string;
-  message: string;
-};
-
-const LauncherOpenModeEnum = {
-  browser: "browser",
-  ChromeApp: "chrome-app",
-} as const;
-type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
-
-const LauncherWorkspaceBehaviorEnum = {
-  last_used_or_prompt: "last_used_or_prompt",
-  always_prompt: "always_prompt",
-} as const;
-type LauncherWorkspaceBehavior = ObjectValues<
-  typeof LauncherWorkspaceBehaviorEnum
->;
-
-const LauncherUpdateCapabilityEnum = {
-  in_app: "in_app",
-  installer_managed: "installer_managed",
-  unsupported: "unsupported",
-} as const;
-type LauncherUpdateCapability = ObjectValues<
-  typeof LauncherUpdateCapabilityEnum
->;
-
-type LauncherStatusResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-};
-export function createLauncherStatusResponse(
-  options: Partial<LauncherStatusResponse> = {},
-): LauncherStatusResponse {
-  return options as LauncherStatusResponse;
-}
-
-export type LLMAPIKeysSnapshot = {
-  apiKeys: Record<string, string>;
-  revision: number;
-  corrupt: boolean;
-  errorCode: string | null;
-  message: string | null;
-};
-
 const ModeEnum = {
   ide: "ide",
   share: "share",
@@ -1203,304 +56,6 @@ const PluginScopeEnum = {
   global: "global",
 } as const;
 type PluginScope = ObjectValues<typeof PluginScopeEnum>;
-
-export type DeleteSectionVariantOrAskRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-};
-
-export type DeleteJSONSourceFileAndVariantRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-  filepath: string;
-};
-
-type ClipboardProjectStateCore = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-};
-
-type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-
-export type Position = {
-  x: number;
-  y: number;
-};
-
-export type ViewportBounds = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-export type CreateTopLevelSectionRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  implType: string;
-  controlCodeObjType: string | null;
-  implOverrides: Record<string, unknown>;
-  position: Position | null;
-  name: string | null;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  viewportBounds: ViewportBounds | null;
-};
-
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
-type EdgePort = {
-  id: string;
-  accessor: string;
-};
-
-export const ListRootViewModeEnum = {
-  default: "default",
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
-
-export const BrowserAreaViewModeEnum = {
-  list: "list",
-  thumbnail: "thumbnail",
-  carousel: "carousel",
-} as const;
-export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
-
-export type BrowserSavedSearch = {
-  id: string;
-  name: string;
-  query: string;
-  searchScope: BrowserSearchScope;
-  typeFilters: BrowserSavedSearchTypeFilters;
-  color: string;
-  quickInfo: string;
-};
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = ObjectValues<
-  typeof SpreadsheetGridDensityEnum
->;
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
-};
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  return mergeGeneratedOptions<TaskBoardColumn>(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
-};
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  return mergeGeneratedOptions<TaskBoardTask>(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: "none",
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type DrawAreaLayerItem = {
-  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
-  dataPath: string;
-  transformId: string;
-};
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  return mergeGeneratedOptions<DrawAreaLayerItem>(
-    {
-      type: "BrushStroke",
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  );
-}
-
-export const ChartTypeEnum = {
-  line: "line",
-  scatter: "scatter",
-} as const;
-export type ChartType = ObjectValues<typeof ChartTypeEnum>;
-
-export const TextBlockDisplayModeEnum = {
-  Render: "Render",
-  Edit: "Edit",
-} as const;
-type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
-
-export const TextBlockFormatEnum = {
-  Plaintext: "Plaintext",
-  Markdown: "Markdown",
-} as const;
-type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const FormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type Format = ObjectValues<typeof FormatEnum>;
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<
-  typeof StateMachineGateTypeEnum
->;
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-
-export type WindowSpaceState = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-};
-export function createWindowSpaceState(
-  options: Partial<WindowSpaceState> = {},
-): WindowSpaceState {
-  return mergeGeneratedOptions<WindowSpaceState>(
-    {
-      windowsById: {},
-      order: [],
-    },
-    options,
-  );
-}
-
-export const NotificationTypeEnum = {
-  error: "error",
-  warning: "warning",
-  info: "info",
-  save: "save",
-} as const;
-export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
-
-export type Notification = {
-  id: string;
-  projectConfigId: string;
-  type: NotificationType;
-  message: string;
-  temporary: boolean;
-  timestamp: string;
-  metadata: Record<string, unknown>;
-  read_status: boolean;
-};
-export function createNotification(
-  options: Partial<Notification> = {},
-): Notification {
-  return options as Notification;
-}
-
-export type NotificationList = Array<Notification>;
-
-export type Template = {
-  id: string;
-  name: string;
-  description: string;
-  template: string;
-  format: Format;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type ContentRef = {
-  contentId: string;
-  byteLength: number;
-  mimeType?: string;
-  sha256?: string;
-};
-export function createContentRef(
-  options: Partial<ContentRef> = {},
-): ContentRef {
-  return options as ContentRef;
-}
-
-const TransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-type TransportMode = ObjectValues<typeof TransportModeEnum>;
 
 const PluginSourceTrustStatusEnum = {
   unverified: "unverified",
@@ -1729,6 +284,40 @@ export const ChatAppGenerationMessageModeEnum = {
   mcp_server: "mcp_server",
 } as const;
 
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+type EngineConfigDefaults = {
+  thinking?: boolean | null;
+};
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return mergeGeneratedOptions<EngineConfigDefaults>(
+    {
+      thinking: null,
+    },
+    options,
+  );
+}
+
+type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  return mergeGeneratedOptions<EngineRuntimeSupport>(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
 export type EngineConfig = {
   id: string;
   name: string;
@@ -1813,15 +402,90 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
   );
 }
 
-const LLMTransportEnum = {
+export const ToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+} as const;
+type ToolType = ObjectValues<typeof ToolTypeEnum>;
+
+export const RunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+type RunMode = ObjectValues<typeof RunModeEnum>;
+
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
+
+type ClaudeSettingsPermissions = {
+  allow: Array<string>;
+  ask: Array<string>;
+  deny: Array<string>;
+};
+
+type ClaudeSettingsManaged = {
+  permissions?: ClaudeSettingsPermissions | null;
+  defaultMode?: string | null;
+  mcp?: Record<string, unknown>;
+};
+
+export const WorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
+
+export const SettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+type SettingsMode = ObjectValues<typeof SettingsModeEnum>;
+
+type SettingsManagedBlock = {
+  claude?: ClaudeSettingsManaged | null;
+  codex?: Record<string, unknown>;
+};
+
+export type ExternalAgentConfig = {
+  id: string;
+  name: string;
+  description: string;
+  toolType: ToolType;
+  runMode: RunMode;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode: SettingsMode;
+  settingsSources?: Array<ClaudeSettingsSource>;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: SettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: WorkingDirStrategy;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+
+const TransportEnum = {
   sse: "sse",
   streamable_http: "streamable_http",
   stdio: "stdio",
 } as const;
-type LLMTransport = ObjectValues<typeof LLMTransportEnum>;
+type Transport = ObjectValues<typeof TransportEnum>;
 
 type ServerConfig = {
-  transport: LLMTransport;
+  transport: Transport;
   url?: string;
   command?: string;
   args?: Array<string>;
@@ -1831,6 +495,20 @@ type ServerConfig = {
   encoding?: string;
   encoding_error_handler?: string;
 };
+
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
 
 export type AllConfigs = {
   configs: Record<string, LLMConfig>;
@@ -1845,12 +523,57 @@ export function createAllConfigs(
   return options as AllConfigs;
 }
 
+export type AppRoute = {
+  path: string;
+  name?: string;
+  rootKey?: string;
+};
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string;
+  routes?: Array<AppRoute>;
+  dataBindings?: JSONValue;
+  actions?: JSONValue;
+  theme?: JSONValue;
+  assets?: JSONValue;
+};
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return options as AppDefinition;
+}
+
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
+
+export const BrowserSearchScopeEnum = {
+  recursive: "recursive",
+  local: "local",
+} as const;
+type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
+
 export type BrowserSavedSearchTypeFilters = {
   image: boolean;
   video: boolean;
   audio: boolean;
   text: boolean;
   data: boolean;
+};
+
+export type BrowserSavedSearch = {
+  id: string;
+  name: string;
+  query: string;
+  searchScope: BrowserSearchScope;
+  typeFilters: BrowserSavedSearchTypeFilters;
+  color: string;
+  quickInfo: string;
 };
 
 export type LineChartSettings = {
@@ -1901,6 +624,12 @@ function createScatterChartSettings(
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
 
+export const ChartTypeEnum = {
+  line: "line",
+  scatter: "scatter",
+} as const;
+export type ChartType = ObjectValues<typeof ChartTypeEnum>;
+
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
   yolo: "yolo",
@@ -1915,6 +644,29 @@ const ChatDictationModeEnum = {
 } as const;
 type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
+
 export type CreateChildSectionsResult = {
   sectionIds: Array<string>;
 };
@@ -1923,9 +675,28 @@ export const ClipboardDataTypeEnum = {
   Sections: "Sections",
 } as const;
 
+type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+
+type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
 export type SectionsClipboardData = {
   type: typeof ClipboardDataTypeEnum.Sections;
   data: ClipboardProjectStateCoreWithSectionVariantMap;
+};
+
+export type Position = {
+  x: number;
+  y: number;
 };
 
 type TypeErrorIgnoreState = {
@@ -1938,6 +709,24 @@ type CodeSectionDiagnosticsIgnoreState = {
   suppressedCodes: Array<string | number>;
 };
 
+export type DrawAreaLayerItem = {
+  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
+  dataPath: string;
+  transformId: string;
+};
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  return mergeGeneratedOptions<DrawAreaLayerItem>(
+    {
+      type: "BrushStroke",
+      dataPath: "",
+      transformId: "",
+    },
+    options,
+  );
+}
+
 const MetaControlSizeModeEnum = {
   any: "any",
   auto_only: "auto_only",
@@ -1949,6 +738,20 @@ const SectionSizeModeEnum = {
   auto: "auto",
 } as const;
 type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -2142,6 +945,12 @@ export type TaskBoardRecurringMonth = ObjectValues<
   typeof TaskBoardRecurringMonthEnum
 >;
 
+export type CodeFileBinding = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+  autoBinding: boolean;
+};
+
 type SectionSizeValue = number | SectionSizeMode;
 
 export type SectionSize = {
@@ -2162,9 +971,108 @@ export function createSectionSize(
   };
 }
 
+type EdgePort = {
+  id: string;
+  accessor: string;
+};
+
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<
+  typeof StateMachineGateTypeEnum
+>;
+
 type StateMachineGateUIState = {
   showDetails?: boolean;
 };
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
+
+export const FormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type Format = ObjectValues<typeof FormatEnum>;
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return mergeGeneratedOptions<TaskBoardColumn>(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return mergeGeneratedOptions<TaskBoardTask>(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: "none",
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
 
 type BaseSectionImpl = {
   type: SectionType;
@@ -4080,6 +2988,117 @@ type GenPythonMetadataSectionImpl = BaseSectionImpl & {
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
 
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+export type ViewportBounds = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions<TopLevelSectionLayout>(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+export type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions<ViewMode>(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+
+export type Edge = {
+  id: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown>;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown>;
+  selected?: boolean;
+};
+
+export type AgenticEdge = {
+  id: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode;
+  style?: Record<string, unknown>;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return mergeGeneratedOptions<AgenticEdge>(
+    {
+      id: "",
+      sourceSectionId: "",
+      targetSectionId: "",
+      kind: "section_chat",
+      contextMode: "reference_only",
+      style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
+}
+
 type LSPDiagnosticPosition = {
   line: number;
   character: number;
@@ -4136,6 +3155,227 @@ export type NameValidationContract = {
   slugReplacementChars: Array<string>;
 };
 
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
+
+export type ChatWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+function createChatWindowBounds(
+  options: Partial<ChatWindowBounds> = {},
+): ChatWindowBounds {
+  return mergeGeneratedOptions<ChatWindowBounds>(
+    {
+      x: 120,
+      y: 120,
+      width: 820,
+      height: 520,
+    },
+    options,
+  );
+}
+
+type ChatWindowDockMetrics = {
+  widthFraction?: number | null;
+  preferredWidthPx?: number | null;
+};
+function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
+  return mergeGeneratedOptions<ChatWindowDockMetrics>(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
+
+export type ProjectChatWindowInstance = {
+  instanceId: string;
+  placement?: ChatWindowPlacement;
+  isMinimized?: boolean;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  bounds?: ChatWindowBounds;
+  dockMetrics?: ChatWindowDockMetrics;
+  zIndex?: number;
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  sectionIdOrNull?: string | null;
+  title?: string | null;
+  lastFocusedAt?: number;
+  chatId?: string | null;
+};
+export function createProjectChatWindowInstance(
+  options: Partial<ProjectChatWindowInstance> = {},
+): ProjectChatWindowInstance {
+  const defaults: ProjectChatWindowInstance = {
+    instanceId: "",
+    placement: "bottom_docked",
+    isMinimized: false,
+    isClosed: false,
+    isMaximized: false,
+    bounds: {
+      height: 520,
+      width: 820,
+      x: 120,
+      y: 120,
+    },
+    dockMetrics: {
+      preferredWidthPx: null,
+      widthFraction: null,
+    },
+    zIndex: 0,
+    lastPlacementBeforeMaximize: null,
+    mode: "project_ai_mode",
+    sectionIdOrNull: null,
+    title: null,
+    lastFocusedAt: 0,
+    chatId: null,
+  };
+  return {
+    ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
+    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
+    dockMetrics: createChatWindowDockMetrics(
+      options.dockMetrics ?? defaults.dockMetrics,
+    ),
+  };
+}
+
+export type ProjectChatWindowingState = {
+  instancesById: Record<string, ProjectChatWindowInstance>;
+  order: Array<string>;
+  nextInstanceNumber: number;
+};
+export function createProjectChatWindowingState(
+  options: Partial<ProjectChatWindowingState> = {},
+): ProjectChatWindowingState {
+  return mergeGeneratedOptions<ProjectChatWindowingState>(
+    {
+      instancesById: {},
+      order: [],
+      nextInstanceNumber: 1,
+    },
+    options,
+  );
+}
+
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
+
+export type NormalizedFloatingWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
+  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
+    {
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
+
+type WindowSpaceWindow = {
+  surfaceKind?: WindowSpaceSurfaceKind;
+  sectionIdOrNull?: string | null;
+  mode?: ChatWindowMode;
+  title?: string | null;
+  chatId?: string | null;
+  embeddedGitPaneVisible?: boolean;
+  zIndex?: number;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
+};
+export function createWindowSpaceWindow(
+  options: Partial<WindowSpaceWindow> = {},
+): WindowSpaceWindow {
+  const defaults: WindowSpaceWindow = {
+    surfaceKind: "project_chat",
+    sectionIdOrNull: null,
+    mode: "project_ai_mode",
+    title: null,
+    chatId: null,
+    embeddedGitPaneVisible: false,
+    zIndex: 0,
+    normalizedBounds: {
+      height: 1,
+      width: 1,
+      x: 0,
+      y: 0,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
+    normalizedBounds: createNormalizedFloatingWindowBounds(
+      options.normalizedBounds ?? defaults.normalizedBounds,
+    ),
+  };
+}
+
+export type WindowSpaceState = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+};
+export function createWindowSpaceState(
+  options: Partial<WindowSpaceState> = {},
+): WindowSpaceState {
+  return mergeGeneratedOptions<WindowSpaceState>(
+    {
+      windowsById: {},
+      order: [],
+    },
+    options,
+  );
+}
+
+export type WindowSpaceConfig = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+  id?: string;
+  name?: string;
+  sortIndex?: number;
+};
+export function createWindowSpaceConfig(
+  options: Partial<WindowSpaceConfig> = {},
+): WindowSpaceConfig {
+  return mergeGeneratedOptions<WindowSpaceConfig>(
+    {
+      windowsById: {},
+      order: [],
+      id: "",
+      name: "",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -4148,6 +3388,18 @@ export const CodeLanguageEnum = {
   plaintext: "plaintext",
 } as const;
 
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
+
+export type ProjectConfigMetadata = {
+  name: string;
+  id: string;
+};
+
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
   ALWAYS_RENAME: "ALWAYS_RENAME",
@@ -4155,10 +3407,103 @@ export const RenameRefactorModeEnum = {
 } as const;
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
+const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+type StateMachineTargetActionType = ObjectValues<
+  typeof StateMachineTargetActionTypeEnum
+>;
+
+const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+type StateMachineThreadStrategy = ObjectValues<
+  typeof StateMachineThreadStrategyEnum
+>;
+
+const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+type StateMachineSourceFilterType = ObjectValues<
+  typeof StateMachineSourceFilterTypeEnum
+>;
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = ObjectValues<
+  typeof StateMachineCountOperatorEnum
+>;
+
+type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+
+type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+
+type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
+
+type StateMachineEdge = {
+  id: string;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+
 export type CreateTopLevelSectionResult = {
   sectionId: string;
   metaControlParamId?: string | null;
   panTo?: Position | null;
+};
+
+export type WatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+
+type WatchCodeRegistryEntry = {
+  callableName: string;
+  kind: string;
+  signatureHash: string;
+  bodyHash: string;
+  sourcePath: string;
+  sectionIds?: Array<string>;
+  sectionsCount?: number;
 };
 
 type AgenticSummaryCacheStatus = {
@@ -4328,6 +3673,18 @@ export const ArtifactTypeEnum = {
   File: "File",
 } as const;
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
+
+export type ContentRef = {
+  contentId: string;
+  byteLength: number;
+  mimeType?: string;
+  sha256?: string;
+};
+export function createContentRef(
+  options: Partial<ContentRef> = {},
+): ContentRef {
+  return options as ContentRef;
+}
 
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
@@ -4956,6 +4313,291 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
+export type Core = {
+  id: string;
+  name: string;
+  displayName: string;
+  variants: Array<string>;
+  defaultVariant: string | null;
+  sharedModifier: Record<string, unknown>;
+  unsharedKeys: Array<string>;
+};
+export function createCore(options: Partial<Core> = {}): Core {
+  return mergeGeneratedOptions<Core>(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  );
+}
+
+export type SectionCapabilities = {
+  canRun: boolean;
+  runDisabledReason?: string | null;
+  runRequestSectionId?: string | null;
+  canSelectAsEntryCodeBlock: boolean;
+  entryCodeBlockValue?: string | null;
+};
+export function createSectionCapabilities(
+  options: Partial<SectionCapabilities> = {},
+): SectionCapabilities {
+  return mergeGeneratedOptions<SectionCapabilities>(
+    {
+      canRun: false,
+      runDisabledReason: null,
+      runRequestSectionId: null,
+      canSelectAsEntryCodeBlock: false,
+      entryCodeBlockValue: null,
+    },
+    options,
+  );
+}
+
+export type Variant = {
+  id: string;
+  name: string;
+  impl: string;
+  nonPresetImpls: Array<string>;
+  modifier: Record<string, unknown>;
+  isFrozen: boolean;
+};
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return mergeGeneratedOptions<Variant>(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  );
+}
+
+type ProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  mainRunDisabledReason?: string | null;
+  effectiveEntrySectionId?: string | null;
+};
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  return mergeGeneratedOptions<ProjectRunCapabilities>(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
+    },
+    options,
+  );
+}
+
+export type ProjectConfig = {
+  id: string;
+  name: string;
+  showParamDisplayNames: boolean;
+  allowJsonSourceKeyEdits: boolean;
+  previewImgColor?: string;
+  viewport: Viewport | null;
+  viewportInitialized: boolean;
+  viewModes: Record<string, ViewMode>;
+  activeViewModeId: string | null;
+  isEditingViewMode: boolean;
+  hasPythonCodegenTarget: boolean;
+  runCapabilities: ProjectRunCapabilities;
+  codegenTargets: Array<ProjectCodegenTarget>;
+  watchCodeEnabled: boolean;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
+  watchCodeBaselineByPath: Record<string, Array<string>>;
+  entryCodeBlockId: string | null;
+  sectionPathSlugsById: Record<string, string>;
+  sectionIdsByPathSlug: Record<string, Array<string>>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaceSlugsById: Record<string, string>;
+  windowSpaceIdsBySlug: Record<string, Array<string>>;
+  windowSpaces: Record<string, WindowSpaceConfig>;
+  sectionVariantMap: Record<string, string>;
+  activeIds: Array<string>;
+  edges: Array<Edge>;
+  agenticEdges: Array<AgenticEdge>;
+  stateMachineEdges: Array<StateMachineEdge>;
+};
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  return mergeGeneratedOptions<ProjectConfig>(
+    {
+      id: "",
+      name: "",
+      showParamDisplayNames: false,
+      allowJsonSourceKeyEdits: false,
+      previewImgColor: "",
+      viewport: null,
+      viewportInitialized: false,
+      viewModes: {},
+      activeViewModeId: null,
+      isEditingViewMode: false,
+      hasPythonCodegenTarget: false,
+      runCapabilities: {
+        canRunFromMain: false,
+        effectiveEntrySectionId: null,
+        mainRunDisabledReason: null,
+      },
+      codegenTargets: [],
+      watchCodeEnabled: false,
+      watchCodeFolders: [],
+      watchCodeFiles: [],
+      watchCodeRegistry: {},
+      watchCodeBaselineByPath: {},
+      entryCodeBlockId: null,
+      sectionPathSlugsById: {},
+      sectionIdsByPathSlug: {},
+      topLevelSections: {},
+      windowSpaceSlugsById: {},
+      windowSpaceIdsBySlug: {},
+      windowSpaces: {},
+      sectionVariantMap: {},
+      activeIds: [],
+      edges: [],
+      agenticEdges: [],
+      stateMachineEdges: [],
+    },
+    options,
+  );
+}
+
+type SingletonSections = {
+  GlobalVariables: string | null;
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+};
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return mergeGeneratedOptions<SingletonSections>(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  );
+}
+
+type ShownParamIDDetails = {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+};
+
+export type ShownParamIDs = {
+  pinned: ShownParamIDDetails;
+  unpinned: ShownParamIDDetails;
+};
+
+export type SingleConfig = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionCapabilities: Record<string, SectionCapabilities>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+  projectConfig: ProjectConfig;
+  singletonSections: SingletonSections;
+  parentSectionMap: Record<string, string | null>;
+  shownParamIds: Record<string, ShownParamIDs>;
+  requiredDecodedImages: Array<string>;
+  genCodeBinding: CodeFileBinding | null;
+  projectChatWindowing: ProjectChatWindowingState;
+  artifactGroups?: Record<string, unknown>;
+};
+export function createSingleConfig(
+  options: Partial<SingleConfig> = {},
+): SingleConfig {
+  return mergeGeneratedOptions<SingleConfig>(
+    {
+      sections: {},
+      sectionImpls: {},
+      sectionCapabilities: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      projectConfig: {
+        activeIds: [],
+        activeViewModeId: null,
+        agenticEdges: [],
+        allowJsonSourceKeyEdits: false,
+        codegenTargets: [],
+        edges: [],
+        entryCodeBlockId: null,
+        hasPythonCodegenTarget: false,
+        id: "",
+        isEditingViewMode: false,
+        name: "",
+        previewImgColor: "",
+        runCapabilities: {
+          canRunFromMain: false,
+          effectiveEntrySectionId: null,
+          mainRunDisabledReason: null,
+        },
+        sectionIdsByPathSlug: {},
+        sectionPathSlugsById: {},
+        sectionVariantMap: {},
+        showParamDisplayNames: false,
+        stateMachineEdges: [],
+        topLevelSections: {},
+        viewModes: {},
+        viewport: null,
+        viewportInitialized: false,
+        watchCodeBaselineByPath: {},
+        watchCodeEnabled: false,
+        watchCodeFiles: [],
+        watchCodeFolders: [],
+        watchCodeRegistry: {},
+        windowSpaceIdsBySlug: {},
+        windowSpaceSlugsById: {},
+        windowSpaces: {},
+      },
+      singletonSections: {
+        GenPythonCode: null,
+        GenPythonMetadata: null,
+        GlobalVariables: null,
+      },
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+      projectChatWindowing: {
+        instancesById: {},
+        nextInstanceNumber: 1,
+        order: [],
+      },
+      artifactGroups: {},
+    },
+    options,
+  );
+}
+
+export type Template = {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  format: Format;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
 export type ColorPickerChoice = {
   color: string;
   description: string;
@@ -5203,6 +4845,13 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
     options,
   );
 }
+
+const RunSnapshotModeEnum = {
+  ephemeral: "ephemeral",
+  always: "always",
+  never: "never",
+} as const;
+export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
 
 type SettingsBackend = {
   showDefaultConfigOnLoad: boolean;
@@ -5994,6 +5643,14 @@ export type WebsocketMessageType = ObjectValues<
   typeof WebsocketMessageTypeEnum
 >;
 
+export const NotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
+
 export const StreamingEventTypeEnum = {
   message_start: "message_start",
   delta: "delta",
@@ -6171,6 +5828,13 @@ export function createConnection(
     options,
   );
 }
+
+const TransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+type TransportMode = ObjectValues<typeof TransportModeEnum>;
 
 export type TranscriptionProfile = {
   id: string;
@@ -6352,6 +6016,19 @@ export type DiffResponse = {
   isTruncated: boolean;
 };
 
+type BootstrapHandoffProtocol = {
+  workspaceHistoryStorageKey: string;
+  workspaceHistoryQueryParam: string;
+  workspaceHistoryHashParam: string;
+  launcherOriginStorageKey: string;
+  launcherOriginHashParam: string;
+  launcherOriginProofHashParam: string;
+  openWorkspaceSwitcherQueryParam: string;
+  openWorkspaceSwitcherHashParam: string;
+  backendOriginOverrideQueryParam: string;
+  maxValueLength: number;
+};
+
 type Constants = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;
   CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: Array<string>;
@@ -6378,7 +6055,124 @@ type Constants = {
   WS_TERMINAL_RESIZE: string;
 };
 
+export type Policy = {
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowLayoutChanges: boolean;
+  allowRun: boolean;
+  allowLLM: boolean;
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowMultipleRuns: boolean;
+  runSnapshotMode: RunSnapshotMode;
+};
+export function createPolicy(options: Partial<Policy> = {}): Policy {
+  return options as Policy;
+}
+
+export const EndpointOriginEnum = {
+  backend: "backend",
+  launcher: "launcher",
+  BackendOrigin: "backend-origin",
+} as const;
+export type EndpointOrigin = ObjectValues<typeof EndpointOriginEnum>;
+
+type EndpointOriginPolicy = Record<string, EndpointOrigin>;
+
+type ModeScopedLauncherRoutes = Array<string>;
+
 type RequiredUIEditorTabMap = Record<string, Array<string>>;
+
+export type ServerModeCapabilities = {
+  canManageDesktopLauncher: boolean;
+};
+
+export const WorkspaceLaunchRouteKindEnum = {
+  ide: "ide",
+  launcher: "launcher",
+  blocked: "blocked",
+} as const;
+export type WorkspaceLaunchRouteKind = ObjectValues<
+  typeof WorkspaceLaunchRouteKindEnum
+>;
+
+type ServerModeBoundary = {
+  capabilities: ServerModeCapabilities;
+  workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
+};
+
+type ServerModeBoundaryPolicy = Record<string, ServerModeBoundary>;
+
+type ToolNameNormalization = {
+  singlePrefix: string;
+  doublePrefix: string;
+  askUserQuestionToolName: string;
+};
+
+type RootTransportRoutes = {
+  bootstrapPage: string;
+  toolsCall: string;
+};
+
+type BinaryTransportRoutes = {
+  upload: string;
+  download: string;
+};
+
+type WebsocketTransportRoutes = {
+  frontend: string;
+  listenerById: string;
+  terminalBySection: string;
+};
+
+type ServerModeBoundaryRoutes = {
+  launch: string;
+  createWorkspaceLaunchIntent: string;
+  getSettaHomeInfo: string;
+  getLauncherRecentWorkspaces: string;
+  addLauncherRecentWorkspace: string;
+  removeLauncherRecentWorkspace: string;
+  pinLauncherRecentWorkspace: string;
+  getLauncherFilesystemRoots: string;
+  listLauncherDirectory: string;
+  openLauncherWorkspace: string;
+};
+
+type StatusTransportRoutes = {
+  getSettaHomeInfo: string;
+  revealPathInOsFileExplorer: string;
+};
+
+type LauncherManagementTransportRoutes = {
+  getLauncherStatus: string;
+  repairLauncher: string;
+  updateLauncher: string;
+  removeLauncher: string;
+};
+
+type FileBrowserTransportRoutes = {
+  getFileBrowserRoot: string;
+  getFolderContents: string;
+  writeFileBrowserContent: string;
+};
+
+type SettaAPIPresetRoutes = {
+  createTopLevelSection: string;
+  getLatestProjectState: string;
+  saveProject: string;
+};
+
+type TransportRoutes = {
+  apiPrefix: string;
+  root: RootTransportRoutes;
+  binary: BinaryTransportRoutes;
+  websocket: WebsocketTransportRoutes;
+  serverModeBoundary: ServerModeBoundaryRoutes;
+  status: StatusTransportRoutes;
+  launcherManagement: LauncherManagementTransportRoutes;
+  fileBrowser: FileBrowserTransportRoutes;
+  settaApiPresets: SettaAPIPresetRoutes;
+};
 
 type JSONValue =
   | null

@@ -7,6 +7,10 @@ import {
   buildLLMConfigGroups,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import type {
+  HttpapiExternalAgentPreflightStatus,
+  HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
 import {
   filterRunsByProjectConfigId,
   getRunLastUpdatedMs,
@@ -18,12 +22,11 @@ import {
   type AllConfigs,
   type BaseChatMessageUnion,
   type EngineConfig,
-  type ExternalAgentPreflightStatus,
-  type LLMAPIKeysSnapshot,
   type SkillEntry,
 } from "utils/generatedTypes";
 
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
+type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
@@ -1019,7 +1022,7 @@ export function buildSlashCommandsByEngine({
   engineConfigs: EngineConfig[];
   allLLMConfigs: AllConfigs | null;
   apiKeys: APIKeys;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealth: ExternalAgentHealthStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): SlashCommandsByEngine[] {
   const availableConfigIds = new Set<string>();

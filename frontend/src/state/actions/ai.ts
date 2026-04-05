@@ -117,8 +117,6 @@ import {
   createMessageTextContent,
   EngineConfig,
   ExternalAgentConfig,
-  ExternalAgentPreflightStatus,
-  LLMAPIKeysSnapshot,
   LLMStreamingResponseContent,
   MessageDeltaEvent,
   MessageFinalizedEvent,
@@ -155,7 +153,9 @@ import {
   shouldIgnoreResponsePlaceholderChunk,
   updateMessageById,
 } from "./chatStreamState";
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
+type ManagedApiKeysSnapshot = HttpapiLlmapiKeysSnapshot;
+type APIKeys = ManagedApiKeysSnapshot["apiKeys"];
 export { persistChatSectionState };
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -253,8 +253,8 @@ function normalizeLLMConfigPayload(payload: LlmconfigAllConfigs): AllConfigs {
   } as AllConfigs;
 }
 function normalizeLLMApiKeysSnapshot(
-  payload: HttpapiLlmapiKeysSnapshot,
-): LLMAPIKeysSnapshot {
+  payload: ManagedApiKeysSnapshot,
+): ManagedApiKeysSnapshot {
   return payload;
 }
 function normalizeAgentProfile(profile: AgentprofilesProfile): AgentProfile {
@@ -285,8 +285,8 @@ function normalizeExternalAgentConfig(
   } as ExternalAgentConfig;
 }
 function normalizeExternalAgentHealth(
-  status: HttpapiExternalAgentPreflightStatus,
-): ExternalAgentPreflightStatus {
+  status: ExternalAgentHealthStatus,
+): ExternalAgentHealthStatus {
   return {
     ...status,
     envVars: {
@@ -294,7 +294,7 @@ function normalizeExternalAgentHealth(
       present: status.envVars.present ?? [],
     },
     issues: status.issues ?? [],
-  } as ExternalAgentPreflightStatus;
+  } as ExternalAgentHealthStatus;
 }
 function normalizeEngineConfig(config: AgentrunsEngineConfig): EngineConfig {
   return {
@@ -885,7 +885,9 @@ export function receiveLLMConfigUpdate(payload: AllConfigs) {
     allLLMConfigsLoadError: null,
   });
 }
-export function receiveLLMApiKeysSnapshotUpdate(payload: LLMAPIKeysSnapshot) {
+export function receiveLLMApiKeysSnapshotUpdate(
+  payload: ManagedApiKeysSnapshot,
+) {
   const isCorrupt =
     payload.corrupt === true ||
     payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
@@ -1227,7 +1229,7 @@ export function receiveExternalAgentConfigsUpdate(
   void loadExternalAgentHealth(true);
 }
 function receiveExternalAgentHealthUpdate(
-  payload: Array<ExternalAgentPreflightStatus>,
+  payload: Array<ExternalAgentHealthStatus>,
 ) {
   useAIStore.setState({
     externalAgentHealth: payload,

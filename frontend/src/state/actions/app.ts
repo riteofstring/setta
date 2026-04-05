@@ -2,6 +2,8 @@ import {
   getAppDeploymentCurrentSession,
   getAppDeploymentProjectConfig,
   getAppDeploymentState,
+  type GetAppDeploymentCurrentSessionResponses,
+  type GetAppDeploymentStateResponses,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
@@ -18,22 +20,22 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import type {
-  AppDeploymentSessionResponse,
-  AppDeploymentStateResponse,
-  SingleConfig,
-} from "utils/generatedTypes";
+import type { SingleConfig } from "utils/generatedTypes";
+
+type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
+type AppDeploymentState = GetAppDeploymentStateResponses[200];
+
 const APP_SESSION_STORAGE_KEY = "settaAppSession";
 type AppSessionOptions = {
   forceNewSession?: boolean;
 };
 type AppDeploymentSessionRouteResponse =
-  ResponseDataAndStatus<AppDeploymentSessionResponse>;
+  ResponseDataAndStatus<AppDeploymentSession>;
 type AppDeploymentStateRouteResponse =
-  ResponseDataAndStatus<AppDeploymentStateResponse>;
+  ResponseDataAndStatus<AppDeploymentState>;
 function normalizeAppSessionResponse(
-  session: AppDeploymentSessionResponse,
-): AppDeploymentSessionResponse {
+  session: AppDeploymentSession,
+): AppDeploymentSession {
   return {
     ...session,
     manifest: session.manifest ?? null,
@@ -41,8 +43,8 @@ function normalizeAppSessionResponse(
   };
 }
 function normalizeAppDeploymentStateResponse(
-  response: AppDeploymentStateResponse,
-): AppDeploymentStateResponse {
+  response: AppDeploymentState,
+): AppDeploymentState {
   return {
     ...response,
     appDefinition: response.appDefinition ?? null,
@@ -67,9 +69,7 @@ export function resetAppSessionState() {
   useAppDefinition.getState().reset?.();
   useAppConfigs.getState().reset?.();
 }
-function isAppSessionResponse(
-  value: unknown,
-): value is AppDeploymentSessionResponse {
+function isAppSessionResponse(value: unknown): value is AppDeploymentSession {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -94,7 +94,7 @@ function isAppSessionResponse(
   }
   return true;
 }
-function readAppSessionFromStorage(): AppDeploymentSessionResponse | null {
+function readAppSessionFromStorage(): AppDeploymentSession | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -113,7 +113,7 @@ function readAppSessionFromStorage(): AppDeploymentSessionResponse | null {
     return null;
   }
 }
-function storeAppSession(session: AppDeploymentSessionResponse): void {
+function storeAppSession(session: AppDeploymentSession): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -126,7 +126,7 @@ function storeAppSession(session: AppDeploymentSessionResponse): void {
     console.warn("Failed to persist app session:", error);
   }
 }
-function hydrateAppSessionFromStorage(): AppDeploymentSessionResponse | null {
+function hydrateAppSessionFromStorage(): AppDeploymentSession | null {
   const stored = readAppSessionFromStorage();
   if (!stored) {
     return null;
@@ -134,7 +134,7 @@ function hydrateAppSessionFromStorage(): AppDeploymentSessionResponse | null {
   setAppSessionFromResponse(stored);
   return stored;
 }
-function getCachedAppSession(): AppDeploymentSessionResponse | null {
+function getCachedAppSession(): AppDeploymentSession | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
   if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
@@ -162,7 +162,7 @@ function getCachedAppSession(): AppDeploymentSessionResponse | null {
     manifest: null,
   };
 }
-function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
+function setAppSessionFromResponse(session: AppDeploymentSession) {
   clearAppSessionCookie();
   storeAppSession(session);
   useShareSession.setState({
@@ -198,7 +198,7 @@ export function incrementAppSessionRunCount(): void {
 }
 export async function ensureAppSessionFromCurrentDeployment(
   options: AppSessionOptions = {},
-): Promise<AppDeploymentSessionResponse | null> {
+): Promise<AppDeploymentSession | null> {
   const forceNewSession = options.forceNewSession ?? false;
   if (forceNewSession) {
     resetAppSessionState();

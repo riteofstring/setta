@@ -1,3 +1,4 @@
+import type { GetShareDeploymentCurrentSessionResponses } from "openapi/http";
 import {
   useAllProjectMetadata,
   useProjectLoading,
@@ -8,7 +9,6 @@ import {
   createPolicy,
   createProjectConfig,
   createSingleConfig,
-  type ShareDeploymentSessionResponse,
   type SingleConfig,
 } from "utils/generatedTypes";
 import {
@@ -64,6 +64,8 @@ import {
   resetShareSessionState,
 } from "./share";
 
+type ShareDeploymentSession = GetShareDeploymentCurrentSessionResponses[200];
+
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
   return {
@@ -89,8 +91,8 @@ function createMemoryStorage(): Storage {
 }
 
 function buildShareSessionResponse(
-  overrides: Partial<ShareDeploymentSessionResponse> = {},
-): ShareDeploymentSessionResponse {
+  overrides: Partial<ShareDeploymentSession> = {},
+): ShareDeploymentSession {
   const defaultProject = createProjectConfig({
     id: "project-alpha",
     name: "Alpha",
@@ -121,7 +123,7 @@ function buildProjectState(
 }
 
 function setDeploymentShareState(
-  session: Partial<ShareDeploymentSessionResponse> = {},
+  session: Partial<ShareDeploymentSession> = {},
 ): void {
   const resolved = buildShareSessionResponse(session);
   useShareSession.setState({

@@ -98,7 +98,6 @@ func main() {
 			FuncName:         "DiscoveredConvertibleTypes",
 			TypeOverrideFunc: "DiscoveredTypeOverrides",
 			Sources: []registrySource{
-				frontendConvertibleRegistrySource("setta/internal/httpapi"),
 				frontendConvertibleRegistrySource("setta/internal/plugins"),
 				frontendConvertibleRegistrySource("setta/internal/agentprofiles"),
 				frontendConvertibleRegistrySource("setta/internal/agentruns"),
@@ -126,13 +125,6 @@ func main() {
 			Package:    "frontendbindings",
 			FuncName:   "DiscoveredEndpointContractTypes",
 			Sources: []registrySource{
-				{
-					PkgPath:                  "setta/internal/httpapi",
-					IncludeZeroFieldStructs:  true,
-					IncludeInterfaces:        true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
 				{
 					PkgPath:                  "setta/internal/appgenskills",
 					IncludeZeroFieldStructs:  true,

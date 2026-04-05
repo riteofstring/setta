@@ -1,5 +1,9 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type {
+  HttpapiExternalAgentPreflightStatus,
+  HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
@@ -45,10 +49,8 @@ import {
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
-  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
-  LLMAPIKeysSnapshot,
   LLMConfig,
   LSPDiagnostic,
   Notification,
@@ -104,7 +106,8 @@ const getPersistStorage = <S>() =>
     return localStorage;
   });
 
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
+type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -932,7 +935,7 @@ type ZustandAIStore = {
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
   externalAgentConfigsLoading: boolean;
-  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealth: Array<ExternalAgentHealthStatus>;
   externalAgentHealthInitialLoadComplete: boolean;
   externalAgentHealthLoadError: string | null;
   externalAgentHealthLoading: boolean;

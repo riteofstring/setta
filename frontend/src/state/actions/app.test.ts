@@ -1,3 +1,4 @@
+import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
 import {
   useAllProjectMetadata,
   useAppConfigs,
@@ -10,7 +11,6 @@ import {
   createPolicy,
   createProjectConfig,
   createSingleConfig,
-  type AppDeploymentSessionResponse,
   type SingleConfig,
 } from "utils/generatedTypes";
 import {
@@ -60,6 +60,8 @@ import {
   resetAppSessionState,
 } from "./app";
 
+type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
+
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
   return {
@@ -85,8 +87,8 @@ function createMemoryStorage(): Storage {
 }
 
 function buildAppSessionResponse(
-  overrides: Partial<AppDeploymentSessionResponse> = {},
-): AppDeploymentSessionResponse {
+  overrides: Partial<AppDeploymentSession> = {},
+): AppDeploymentSession {
   const defaultProject = createProjectConfig({
     id: "project-alpha",
     name: "Alpha",
@@ -117,7 +119,7 @@ function buildProjectState(
 }
 
 function setDeploymentAppState(
-  session: Partial<AppDeploymentSessionResponse> = {},
+  session: Partial<AppDeploymentSession> = {},
 ): void {
   const resolved = buildAppSessionResponse(session);
   useShareSession.setState({

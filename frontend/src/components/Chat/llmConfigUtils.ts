@@ -1,6 +1,7 @@
-import { AllConfigs, LLMAPIKeysSnapshot } from "utils/generatedTypes";
+import type { HttpapiLlmapiKeysSnapshot } from "openapi/http";
+import { AllConfigs } from "utils/generatedTypes";
 
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
 
 type LLMConfigGroup = {
   group: string;

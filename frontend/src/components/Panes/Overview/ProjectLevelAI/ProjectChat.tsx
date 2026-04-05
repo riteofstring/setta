@@ -24,6 +24,7 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import { Resizable } from "re-resizable";
 import {
   SetStateAction,
@@ -72,7 +73,6 @@ import {
   BaseChatMessageUnion,
   EngineConfig,
   EngineTypeEnum,
-  ExternalAgentPreflightStatus,
   NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
@@ -2314,7 +2314,7 @@ function findPreferredEngineId({
   engineConfigs: EngineConfig[];
   allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealth: HttpapiExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): string | null {
   for (const config of engineConfigs) {
@@ -2362,7 +2362,7 @@ function isEngineUsable({
   config: EngineConfig;
   allLLMConfigs: AllConfigs | null;
   availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealth: HttpapiExternalAgentPreflightStatus[];
   externalAgentHealthInitialLoadComplete: boolean;
 }): boolean {
   if (config.engineType === EngineTypeEnum.setta_llm) {

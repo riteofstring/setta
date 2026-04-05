@@ -407,8 +407,17 @@ func frontendBindingPascalizePackageStem(
 			stem = stem[len(match.Lower):]
 			continue
 		}
-		builder.WriteRune(unicode.ToUpper(rune(stem[0])))
-		stem = stem[1:]
+		nextBoundary := len(stem)
+		for i := 1; i < len(stem); i++ {
+			if frontendBindingMatchKnownWordPrefix(stem[i:], knownWords) != nil {
+				nextBoundary = i
+				break
+			}
+		}
+		chunk := stem[:nextBoundary]
+		builder.WriteRune(unicode.ToUpper(rune(chunk[0])))
+		builder.WriteString(chunk[1:])
+		stem = stem[nextBoundary:]
 	}
 	return builder.String()
 }
