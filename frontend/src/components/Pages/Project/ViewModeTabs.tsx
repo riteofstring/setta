@@ -1,17 +1,16 @@
 import _ from "lodash";
+import { setActiveViewMode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_active_view_mode } from "utils/generatedEndpoints";
 import { sortViewModes } from "utils/viewModeOrdering";
 import {
   useViewModeSortableItem,
   ViewModeSortableProvider,
 } from "./ViewModeDnd";
-
 const TAB_LABEL_FALLBACK = "Untitled View";
-
 export function ViewModeTabs() {
   const {
     projectConfigId,
@@ -27,7 +26,10 @@ export function ViewModeTabs() {
         const sortedModes = sortViewModes(
           Object.values(x.projectConfig.viewModes),
         );
-        const tabModes: Array<{ id: string; name: string }> = [];
+        const tabModes: Array<{
+          id: string;
+          name: string;
+        }> = [];
         const tabSlotIndices: Array<number> = [];
         for (let index = 0; index < sortedModes.length; index += 1) {
           const mode = sortedModes[index];
@@ -50,21 +52,22 @@ export function ViewModeTabs() {
   );
   const { canEditVariants, canEditStructure } = useShareCapabilities();
   const sortableEnabled = canEditStructure && tabModes.length > 1;
-
   if (tabModes.length === 0) {
     return null;
   }
-
   const handleSelect = (modeId: string) => {
     if (!canEditVariants || modeId === activeViewModeId) {
       return;
     }
-    void route_set_active_view_mode({
-      projectConfigId,
-      activeViewModeId: modeId,
-    });
+    void callOpenAPI(
+      setActiveViewMode({
+        body: {
+          projectConfigId,
+          activeViewModeId: modeId,
+        },
+      } as Parameters<typeof setActiveViewMode>[0]),
+    );
   };
-
   const handleReorder = (reorderedTabIds: Array<string>) => {
     if (!sortableEnabled) {
       return;
@@ -86,7 +89,6 @@ export function ViewModeTabs() {
     });
     persistViewModeSortOrder(projectConfigId, nextOrderedIds);
   };
-
   return (
     <div
       data-testid="view-mode-tabs-bar"
@@ -121,7 +123,6 @@ export function ViewModeTabs() {
     </div>
   );
 }
-
 function ViewModeTabButton({
   modeId,
   modeName,
@@ -153,7 +154,6 @@ function ViewModeTabButton({
   if (!canEditVariants) {
     tabClasses = `${tabClasses} cursor-not-allowed opacity-60`;
   }
-
   return (
     <button
       ref={sortable.setNodeRef}
