@@ -126,14 +126,6 @@ class SettaPaths:
         return self.runtime_root != self.default_runtime_root
 
 
-def build_default_auth_cookie_name(*, workspace_root: Path) -> str:
-    normalized_workspace_root = workspace_root.resolve(strict=False)
-    workspace_digest = hashlib.sha1(
-        str(normalized_workspace_root).encode("utf-8")
-    ).hexdigest()[:12]
-    return f"setta_auth_{workspace_digest}"
-
-
 def resolve_setta_paths(
     *,
     workspace_root: Path | str | None = None,
@@ -214,11 +206,6 @@ def resolve_setta_paths(
         runtime_root=resolved_runtime_root,
         workspace_root=resolved_workspace,
     )
-    auth_cookie_name = (
-        profile_config.auth_cookie_name
-        if profile_config and profile_config.auth_cookie_name is not None
-        else build_default_auth_cookie_name(workspace_root=resolved_workspace)
-    )
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_home=resolved_setta_home,
@@ -227,7 +214,7 @@ def resolve_setta_paths(
         setta_files_root=resolved_files_root,
         setta_files_location=resolved_location,
         runtime_root=resolved_runtime_root,
-        auth_cookie_name=auth_cookie_name,
+        auth_cookie_name=profile_config.auth_cookie_name if profile_config else None,
     )
 
 

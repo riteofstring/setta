@@ -94,11 +94,10 @@ if [[ "${DEBUG_PORT_WAS_SET}" -eq 0 ]]; then
 fi
 
 RUN_MODE="start"
-BROWSER_MODE=""
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload] [--browser-mode headed|headless] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
+Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
 Uses per-worktree ports and dev paths by default:
@@ -106,8 +105,7 @@ Uses per-worktree ports and dev paths by default:
   SETTA_FILES_ROOT=<worktree>/setta_files_dev
 
 Flags:
-  --reload               Use backend reload mode (pnpm startr)
-  --browser-mode MODE    headed or headless for the devtools browser
+  --reload   Use backend reload mode (pnpm startr)
 EOF
 }
 
@@ -124,24 +122,6 @@ while [[ $# -gt 0 ]]; do
       RUN_MODE="startr"
       shift
       ;;
-    --browser-mode)
-      if [[ $# -lt 2 ]]; then
-        echo "Missing value for --browser-mode" >&2
-        usage >&2
-        exit 1
-      fi
-      BROWSER_MODE="$2"
-      shift 2
-      ;;
-    --browser-mode=*)
-      BROWSER_MODE="${1#*=}"
-      if [[ -z "${BROWSER_MODE}" ]]; then
-        echo "Missing value for --browser-mode" >&2
-        usage >&2
-        exit 1
-      fi
-      shift
-      ;;
     -h|--help)
       usage
       exit 0
@@ -156,24 +136,10 @@ done
 
 setta_path_flags_validate
 
-if [[ -n "${BROWSER_MODE}" ]]; then
-  case "${BROWSER_MODE}" in
-    headed)
-      export DEVTOOLS_HEADLESS="0"
-      ;;
-    headless)
-      export DEVTOOLS_HEADLESS="1"
-      ;;
-    *)
-      echo "Invalid value for --browser-mode: ${BROWSER_MODE}. Expected headed or headless." >&2
-      exit 1
-      ;;
-  esac
-fi
-
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
+export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
 export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
@@ -206,10 +172,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-browser_mcp_args=(--devtools)
-if [[ -n "${BROWSER_MODE}" ]]; then
-  browser_mcp_args+=(--browser-mode "${BROWSER_MODE}")
-fi
-"${ROOT_DIR}/scripts/start-browser-mcp.sh" "${browser_mcp_args[@]}"
+"${ROOT_DIR}/scripts/start-browser-mcp.sh" --devtools
 
 wait "${DEV_PID}"

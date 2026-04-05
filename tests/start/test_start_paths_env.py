@@ -4,11 +4,7 @@ from pathlib import Path
 
 from setta.start import _apply_paths_to_env
 from setta.utils.constants import C
-from setta.utils.paths import (
-    build_default_auth_cookie_name,
-    clear_setta_paths_cache,
-    resolve_setta_paths,
-)
+from setta.utils.paths import clear_setta_paths_cache, resolve_setta_paths
 
 
 def test_apply_paths_to_env_persists_setta_files_location(tmp_path: Path) -> None:
@@ -49,7 +45,7 @@ def test_apply_paths_to_env_persists_setta_files_location(tmp_path: Path) -> Non
         clear_setta_paths_cache()
 
 
-def test_apply_paths_to_env_restores_workspace_default_auth_cookie_name(
+def test_apply_paths_to_env_clears_profile_auth_cookie_override(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -77,9 +73,6 @@ def test_apply_paths_to_env_restores_workspace_default_auth_cookie_name(
     paths_without_profile = resolve_setta_paths(
         workspace_root=workspace, setta_home=setta_home
     )
-    expected_workspace_auth_cookie_name = build_default_auth_cookie_name(
-        workspace_root=workspace
-    )
 
     keys = [
         "SETTA_WORKSPACE_ROOT",
@@ -104,10 +97,8 @@ def test_apply_paths_to_env_restores_workspace_default_auth_cookie_name(
         assert C.AUTH_COOKIE_NAME == "cookie_dev"
 
         _apply_paths_to_env(paths_without_profile)
-        assert (
-            os.environ["SETTA_AUTH_COOKIE_NAME"] == expected_workspace_auth_cookie_name
-        )
-        assert C.AUTH_COOKIE_NAME == expected_workspace_auth_cookie_name
+        assert "SETTA_AUTH_COOKIE_NAME" not in os.environ
+        assert C.AUTH_COOKIE_NAME == previous_auth_cookie_name
     finally:
         for key, value in previous.items():
             if value is None:
@@ -116,39 +107,6 @@ def test_apply_paths_to_env_restores_workspace_default_auth_cookie_name(
                 os.environ[key] = value
         C.AUTH_COOKIE_NAME = previous_auth_cookie_name
         clear_setta_paths_cache()
-
-
-def test_resolve_setta_paths_scopes_default_auth_cookie_name_to_workspace(
-    tmp_path: Path,
-) -> None:
-    first_workspace = tmp_path / "workspace-one"
-    second_workspace = tmp_path / "workspace-two"
-    first_workspace.mkdir()
-    second_workspace.mkdir()
-
-    first_paths = resolve_setta_paths(
-        workspace_root=first_workspace,
-        setta_files_location="local",
-    )
-    first_paths_with_global_files = resolve_setta_paths(
-        workspace_root=first_workspace,
-        setta_files_location="global",
-    )
-    second_paths = resolve_setta_paths(
-        workspace_root=second_workspace,
-        setta_files_location="local",
-    )
-
-    assert first_paths.auth_cookie_name == build_default_auth_cookie_name(
-        workspace_root=first_workspace
-    )
-    assert (
-        first_paths_with_global_files.auth_cookie_name == first_paths.auth_cookie_name
-    )
-    assert second_paths.auth_cookie_name == build_default_auth_cookie_name(
-        workspace_root=second_workspace
-    )
-    assert second_paths.auth_cookie_name != first_paths.auth_cookie_name
 
 
 def test_apply_paths_to_env_preserves_profile_lookup_home_for_profile_setta_home(

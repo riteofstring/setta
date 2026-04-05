@@ -1039,7 +1039,7 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  reconcilePendingTopLevelLayout(nextPending, backendPendingIds, completedIds);
+  reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
@@ -1120,7 +1120,6 @@ function applyViewportFromProjectState(
   if (!viewportChanged && !viewModeChanged) {
     return false;
   }
-  debouncedDispatchViewportUpdate.cancel();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({
       fitViewOnInit: true,
@@ -1289,7 +1288,6 @@ export function createNodesMapFromProjectConfigChildren(
     if (!layout) {
       continue;
     }
-    const currentNode = nodes.get(sectionId);
     if (canFilterByView) {
       const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
@@ -1314,15 +1312,11 @@ export function createNodesMapFromProjectConfigChildren(
       sectionImpl.styleColor.trim() !== ""
         ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
         : null;
-    const authoritativeSize = getAuthoritativeTopLevelSectionNodeSize(
-      layout,
-      currentNode,
-    );
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
-      width: authoritativeSize.width,
-      height: authoritativeSize.height,
+      width: nodes.get(sectionId)?.width ?? layout.w,
+      height: nodes.get(sectionId)?.height ?? layout.h,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
       type: sectionImpl?.type,
@@ -1331,58 +1325,6 @@ export function createNodesMapFromProjectConfigChildren(
   }
 
   return nodesMap;
-}
-
-export function getAuthoritativeTopLevelSectionNodeSize(
-  layout: { h: number | null; w: number | null },
-  currentNode: Pick<Node, "height" | "width"> | undefined,
-) {
-  if (hasPositiveTopLevelSectionNodeSize(layout.w, layout.h)) {
-    return { width: layout.w, height: layout.h };
-  }
-
-  const currentNodeWidth = currentNode?.width ?? null;
-  const currentNodeHeight = currentNode?.height ?? null;
-  if (hasPositiveTopLevelSectionNodeSize(currentNodeWidth, currentNodeHeight)) {
-    return {
-      width: currentNodeWidth,
-      height: currentNodeHeight,
-    };
-  }
-
-  return {
-    width: null,
-    height: null,
-  };
-}
-
-export function getPersistedTopLevelSectionLayoutSize(
-  currentNode: Pick<Node, "height" | "width"> | undefined,
-) {
-  const width = currentNode?.width ?? null;
-  const height = currentNode?.height ?? null;
-  if (hasPositiveTopLevelSectionNodeSize(width, height)) {
-    return {
-      w: width,
-      h: height,
-    };
-  }
-  return {
-    w: null,
-    h: null,
-  };
-}
-
-function hasPositiveTopLevelSectionNodeSize(
-  width: number | null | undefined,
-  height: number | null | undefined,
-) {
-  return (
-    typeof width === "number" &&
-    width > 0 &&
-    typeof height === "number" &&
-    height > 0
-  );
 }
 
 export function setSectionChildren(
@@ -1613,15 +1555,12 @@ export function createTopLevelSectionLayoutDict(
     if (c.id in sections) {
       // need this filter because some sections might be temporary
       const existing = topLevelSections[c.id];
-      const persistedSize = getPersistedTopLevelSectionLayoutSize(c);
       topLevelSections[c.id] = {
         x: c.position.x,
         y: c.position.y,
         zIndex: c.zIndex ?? existing?.zIndex ?? 0,
-        // Preserve existing layouts only for sections missing from node internals.
-        // Once a live node reports no size, keep that lack of authority explicit.
-        w: persistedSize.w,
-        h: persistedSize.h,
+        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
+        h: c.height ?? existing?.h ?? null,
       };
     }
   }
@@ -1699,32 +1638,9 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-function reconcilePendingTopLevelLayout(
-  nextPending: PendingOperation[],
-  backendPendingIds: Set<string>,
-  completedIds: Set<string>,
-) {
+function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
-    return;
-  }
-  const currentPendingOp = nextPending.find((op) => op.opId === currentOpId);
-  const backendStillTracksCurrentOp =
-    backendPendingIds.has(currentOpId) || completedIds.has(currentOpId);
-  if (
-    currentPendingOp?.acknowledged &&
-    !pendingTopLevelLayoutRef.hasQueuedSend &&
-    !backendStillTracksCurrentOp
-  ) {
-    pendingTopLevelLayoutRef.opId = null;
-    pendingTopLevelLayoutRef.snapshot = null;
-    pendingTopLevelLayoutRef.hasQueuedSend = false;
-    const nextPendingIndex = nextPending.findIndex(
-      (op) => op.opId === currentOpId,
-    );
-    if (nextPendingIndex >= 0) {
-      nextPending.splice(nextPendingIndex, 1);
-    }
     return;
   }
   const stillPending = nextPending.some((op) => op.opId === currentOpId);
@@ -1810,11 +1726,7 @@ export function getCurrProjectConfigId() {
 }
 
 function getCurrProjectConfigViewport() {
-  const reactFlowState = useReactFlow.getState();
-  return reactFlowState.fitViewOnInit ||
-    !reactFlowState.viewportPersistenceEnabled
-    ? null
-    : getViewport();
+  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
 }
 
 export function getSectionChildren(
@@ -2116,16 +2028,3 @@ export const debouncedDispatchViewportUpdate = _.debounce(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
   1000,
 );
-
-export async function persistCurrentViewportImmediately(): Promise<void> {
-  const projectConfigId = getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-  // View-mode switches need the current camera on the backend before the mode changes.
-  debouncedDispatchViewportUpdate.cancel();
-  await route_set_viewport({
-    projectConfigId,
-    viewport: getCurrProjectConfigViewport(),
-  });
-}
