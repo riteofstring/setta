@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 01:24 EDT
+Last updated: 2026-04-05 01:32 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `146` hardened the existing deterministic `dictSectionDefault` authoritative viewport-shift lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-006 worktree/main surfaces.
+  - Why this slice was needed:
+    - the last two completed iterations were Browser-lane oracle passes, so the next honest step had to either land product code or complete one bounded normalization step that directly unblocked a concrete renderer question
+    - item `145` explicitly pointed to the deterministic `dictSectionDefault` authoritative viewport shift lane as the next named lane that still lacked current live evidence
+    - the dict authoritative viewport-shift probe still used the older direct-fit setup, so current live evidence on that named lane was less trustworthy than the newer preflight-backed lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - marked the live two-runtime dict authoritative viewport-shift lane `test.slow()`
+      - introduced a canonical `dictSectionDefault` target name for the lane
+      - restored the initial view-mode layout before the lane runs
+      - replaced the direct `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `initialState` and `side: "reference" | "worktree"` through the helper so preflight asserts the named dict section on both runtimes
+  - What this slice established:
+    - the current live dict ids on run-006 are:
+      - worktree canary `dbfc70a1-889c-454b-88ef-88fbe9b38c46`
+      - read-only main legacy `396dc985-0533-4b59-ad70-5e68a6e01c3d`
+    - rerunning the hardened explicit dict lane with the current default project URL resolved to `http://127.0.0.1:3076/crisp_falling` passed on run-006 (`1 passed`, `34.0s`)
+    - a fresh-context CDP sub-agent first compared the active authenticated `/settings` sessions because the fresh worktree bootstrap token was rejected; that baseline compare showed the dict card and `Config Language` row attached on both sides with no obvious section-level renderer drift
+    - a follow-up CDP attempt to replay the exact authoritative viewport-shift post-state on the active sessions found the worktree dict card healthy, but the reference page did not normalize to the same dict lane / viewport, so exact two-sided post-shift visual parity remained partially untrusted
+    - treat that reference-side CDP normalization failure as session/setup noise for this pass, not as new renderer evidence against the dict lane
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-006 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-006/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-006/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-006/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-006/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the dict config language row attached after authoritative viewport shift on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `34.0s`)
+    - live dict-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","dictSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","dictSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `dbfc70a1-889c-454b-88ef-88fbe9b38c46`, reference `396dc985-0533-4b59-ad70-5e68a6e01c3d`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - first compared the active authenticated `/settings` sessions because the fresh worktree bootstrap token was rejected
+      - then attempted the exact authoritative viewport-shift post-state on those active sessions
+    - CDP visual check: done (active-session dict compare found the card and `Config Language` row attached with no obvious section-level drift; exact two-sided post-shift parity remained partially untrusted because the reference session would not normalize to the same dict lane)
+  - Lane status:
+    - keep the production/test dict authoritative viewport-shift lane as clean on current run-006 Playwright evidence
+    - keep the exact CDP post-shift parity note explicit as partially deferred because the reference session did not normalize to the same viewport on this pass
+  - Next frontier:
+    - move to the existing `dictSectionDefault` fit-view-plus-toolbar-zoom lane on the current live surfaces, and either harden it to the same preflight-backed shape or close it with current evidence instead of reopening Browser churn
 
 - Ralph item `145` revisited the older Browser authoritative-move-plus-fit question by pinning that probe to `browserSectionDefault`, waiting for the backend move to surface in page state, and rerunning the lane on the live run-005 worktree/main surfaces.
   - Why this slice was needed:

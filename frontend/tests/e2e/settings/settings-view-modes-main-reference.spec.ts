@@ -4347,6 +4347,7 @@ test("settings graph parity probe keeps the dict config language row attached af
       !MAIN_REFERENCE_BOOTSTRAP_URL,
     "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
   );
+  test.slow();
 
   await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page
@@ -4386,13 +4387,14 @@ test("settings graph parity probe keeps the dict config language row attached af
     referenceInitialState,
     "All Settings",
   );
+  const dictSectionName = "dictSectionDefault";
   const worktreeDictSectionId = findSectionIdByName(
     worktreeInitialState,
-    "dictSectionDefault",
+    dictSectionName,
   );
   const referenceDictSectionId = findSectionIdByName(
     referenceInitialState,
-    "dictSectionDefault",
+    dictSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -4403,11 +4405,21 @@ test("settings graph parity probe keeps the dict config language row attached af
     backendOrigin: string;
     expectedSurfaceKind: "legacy" | "canary";
     frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
     await setPageViewModeAndClearViewport(
@@ -4439,9 +4451,20 @@ test("settings graph parity probe keeps the dict config language row attached af
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: dictSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
     await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
     const sectionLocator = getSettingsGraphSectionLocator(
@@ -4552,12 +4575,14 @@ test("settings graph parity probe keeps the dict config language row attached af
       backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
       expectedSurfaceKind: "legacy",
       frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
       pageTab: referencePage.getByRole("button", {
         exact: true,
         name: "All Settings",
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceDictSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureDictViewportShift({
@@ -4565,12 +4590,14 @@ test("settings graph parity probe keeps the dict config language row attached af
       backendOrigin: WORKTREE_BACKEND_ORIGIN,
       expectedSurfaceKind: "canary",
       frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
       pageTab: page.getByRole("button", {
         exact: true,
         name: "All Settings",
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeDictSectionId,
+      side: "worktree",
       targetPage: page,
     });
 
