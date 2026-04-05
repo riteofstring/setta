@@ -19,7 +19,6 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import {
   useLocalStorage,
   useMisc,
-  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -77,9 +76,8 @@ export function SettingsGraphSubstrateCanary() {
     rootRef,
     behavior: "canvas",
   });
-  const nodeInternals = useNodeInternals((state) => state.x);
   const sections = useProjectState(
-    (state) => selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
+    selectSettingsGraphSubstrateCanarySections,
     _.isEqual,
   );
   const {

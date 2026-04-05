@@ -41,8 +41,14 @@ export function useSettingsGraphSubstrateCanarySceneState(
       sections,
       observedElementSizes,
       sectionPositionOverride,
+      draggingSectionId,
     );
-  }, [observedElementSizes, sectionPositionOverride, sections]);
+  }, [
+    draggingSectionId,
+    observedElementSizes,
+    sectionPositionOverride,
+    sections,
+  ]);
 
   useEffect(() => {
     const nodeInternals = useNodeInternals.getState().x;

@@ -48,6 +48,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         "section-b": { width: 280, height: 190 },
       },
       null,
+      "section-a",
     );
     const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
       nodeInternals,
@@ -61,7 +62,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       width: 240,
       height: 160,
       zIndex: 4,
-      tempZIndex: 7,
+      tempZIndex: 1004,
       type: "Code",
       style: { background: "#111111" },
     });
@@ -87,7 +88,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           width: 240,
           height: 160,
           zIndex: 4,
-          tempZIndex: 7,
+          tempZIndex: 1004,
         },
       ],
     ]);
@@ -110,6 +111,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         "section-a": { width: 360, height: 210 },
       },
       null,
+      "section-a",
     );
     const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
       nodeInternals,

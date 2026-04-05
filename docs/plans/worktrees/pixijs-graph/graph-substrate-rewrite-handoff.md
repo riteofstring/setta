@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 11:40 EDT
+Last updated: 2026-04-05 11:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,67 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `178` removed the canary selector's dependency on shared `nodeInternals` temp-z reads so the scene snapshot now owns active drag z-order and syncs that state back outward.
+  - Why this slice was needed:
+    - item `177` moved scene-snapshot composition behind `useSettingsGraphSubstrateCanarySceneState`, but `SettingsGraphSubstrateCanary.tsx` still selected canary sections through `selectSettingsGraphSubstrateCanarySections(state, nodeInternals)`
+    - transient frontmost drag ownership still originated from `raiseTempZIndex` / node-internals reset behavior in the drag controller, which meant the snapshot still was not authoritative for active z-order
+    - removing that back-edge is a real geometry-authority step, not another controller-only extraction or pure forwarding hop
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now selects canary sections directly from project state without subscribing to `useNodeInternals`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - `selectSettingsGraphSubstrateCanarySections(...)` no longer reads temp z-index from shared node internals; it returns layout-authored canary sections only
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - scene snapshots now derive the active drag section's `tempZIndex` from `draggingSectionId`, so the snapshot owns rendered frontmost state together with rendered position and resolved size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts`
+      - passes `draggingSectionId` into shared snapshot composition before syncing node internals
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+      - shared node internals now mirror `tempZIndex` from the scene snapshot instead of preserving whatever temp z-index happened to already be in the store
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`
+      - default drag effects no longer raise/reset shared temp z-index directly; they only ensure the canary node exists and persist layout on drag end
+    - updated focused tests:
+      - `settingsGraphSubstrateCanaryModel.test.ts`
+      - `settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - `settingsGraphSubstrateCanarySceneState.test.tsx`
+      - `settingsGraphSubstrateCanaryNodeSync.test.ts`
+  - What this slice established:
+    - the canary section selector no longer depends on shared node-internals temp-z state for its render input; base geometry/z-order come from layout, while transient drag z-order is derived inside the scene snapshot from canary-owned drag state
+    - shared `nodeInternals.tempZIndex` is now a mirrored output of the scene snapshot rather than a prerequisite input to build the snapshot
+    - the trusted broad normalized pan+zoom title-edit lane remains green after the z-order ownership change:
+      - canonical target section remains `rotaryParamCodeObjDefault`
+      - the spec `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the refreshed run-008 surfaces
+    - the required CDP visual confirmation is also green on the same broad lane:
+      - the fresh-context sub-agent reused worktree tab `http://127.0.0.1:3076/settings` and main tab `http://127.0.0.1:3087/settings`
+      - on both sides it selected `All Settings`, applied fit view, and checked graph-surface-only output around `rotaryParamCodeObjDefault`
+      - the section stayed visually attached with no gross canary-vs-main drift; only minor main-side viewport-width noise remained
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`7 files`, `33 tests`)
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-008/worktree-ai.log`
+      - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-008/main-ai.log`
+      - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via the live tabs
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.0m`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: reused the already-live worktree/main tabs in the connected browser profile; after `All Settings` normalization and fit view, `rotaryParamCodeObjDefault` stayed visually attached with only minor main-side viewport-width noise
+  - Lane status:
+    - the geometry-authority lane advanced in product code again without reopening a pure node-internals forwarding hop
+    - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage only
+  - Next frontier:
+    - move minimap canary-node derivation onto the shared scene snapshot so the minimap stops mixing layout sections with shared node-internals values for position, size, and temp z-order
+    - rerun the same broad normalized Playwright lane plus CDP confirmation after that product slice
 
 - Ralph item `177` moved canary scene-snapshot composition and transient drag-position ownership behind a dedicated scene-state hook and kept the broad normalized regression lane green on the live run-007 surfaces.
   - Why this slice was needed:

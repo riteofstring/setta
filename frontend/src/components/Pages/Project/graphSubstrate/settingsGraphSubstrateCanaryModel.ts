@@ -1,4 +1,3 @@
-import type { Node } from "forks/xyflow/core/types";
 import {
   getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
@@ -102,14 +101,11 @@ export type GraphSubstrateCanarySection = {
 
 export function selectSettingsGraphSubstrateCanarySections(
   projectState: ZustandProjectState,
-  nodeInternals: Map<string, Node>,
 ): Array<GraphSubstrateCanarySection> {
   return selectSettingsGraphSubstrateCanaryLayoutSections(projectState).map(
     (layoutSection) => {
-      const node = nodeInternals.get(layoutSection.sectionId);
       return {
         ...layoutSection,
-        tempZIndex: node?.tempZIndex ?? layoutSection.tempZIndex,
       };
     },
   );

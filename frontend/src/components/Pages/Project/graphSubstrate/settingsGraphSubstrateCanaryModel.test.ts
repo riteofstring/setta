@@ -1,4 +1,3 @@
-import type { Node } from "forks/xyflow/core/types";
 import type { ZustandProjectState } from "state/definitions";
 import {
   createCodeSectionImpl,
@@ -151,24 +150,8 @@ describe("settingsGraphSubstrateCanaryModel", () => {
 
   it("selects all visible canary sections in legacy display order while keeping layout dimensions authoritative", () => {
     const state = createProjectState();
-    const nodeInternals = new Map<string, Node>([
-      [
-        "section-b",
-        {
-          id: "section-b",
-          position: { x: 999, y: 888 },
-          width: 410,
-          height: 260,
-          zIndex: 1,
-          tempZIndex: 1,
-          type: "Code",
-        },
-      ],
-    ]);
 
-    expect(
-      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
-    ).toEqual([
+    expect(selectSettingsGraphSubstrateCanarySections(state)).toEqual([
       {
         sectionId: "section-a",
         position: { x: 500, y: 200 },
@@ -190,71 +173,24 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
   });
 
-  it("keeps rendering moved sections from the active layout while preserving authoritative geometry", () => {
+  it("keeps layout z-order authoritative until the scene snapshot applies transient drag ownership", () => {
     const state = createProjectState();
-    const nodeInternals = new Map<string, Node>([
-      [
-        "section-a",
-        {
-          id: "section-a",
-          position: { x: 760, y: 420 },
-          width: 240,
-          height: 160,
-          zIndex: 8,
-          tempZIndex: 8,
-          type: "Code",
-        },
-      ],
-    ]);
+    state.projectConfig.viewModes["all-settings"].topLevelSections[
+      "section-a"
+    ] = {
+      x: 760,
+      y: 420,
+      zIndex: 8,
+      w: 240,
+      h: 160,
+    };
 
-    expect(
-      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
-    ).toEqual([
+    expect(selectSettingsGraphSubstrateCanarySections(state)).toEqual([
       {
         sectionId: "section-a",
-        position: { x: 500, y: 200 },
-        zIndex: 2,
+        position: { x: 760, y: 420 },
+        zIndex: 8,
         tempZIndex: 8,
-        width: 240,
-        height: 160,
-        positionAndSizeLocked: false,
-      },
-      {
-        sectionId: "section-b",
-        position: { x: 120, y: 100 },
-        zIndex: 1,
-        tempZIndex: 1,
-        width: 320,
-        height: 240,
-        positionAndSizeLocked: false,
-      },
-    ]);
-  });
-
-  it("prefers the shared temp z-index so the active canary drag stays frontmost", () => {
-    const state = createProjectState();
-    const nodeInternals = new Map<string, Node>([
-      [
-        "section-a",
-        {
-          id: "section-a",
-          position: { x: 500, y: 200 },
-          width: 240,
-          height: 160,
-          zIndex: 2,
-          tempZIndex: 1002,
-        },
-      ],
-    ]);
-
-    expect(
-      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
-    ).toEqual([
-      {
-        sectionId: "section-a",
-        position: { x: 500, y: 200 },
-        zIndex: 2,
-        tempZIndex: 1002,
         width: 240,
         height: 160,
         positionAndSizeLocked: false,

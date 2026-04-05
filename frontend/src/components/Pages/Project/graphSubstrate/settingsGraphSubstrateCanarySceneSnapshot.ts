@@ -27,6 +27,7 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
   observedElementSizes: ObservedSectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
+  draggingSectionId: string | null = null,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
   const sceneSections = sections.map((section) => {
     const sceneSection: SettingsGraphSubstrateCanarySceneSection = {
@@ -36,6 +37,7 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
         sectionPositionOverride,
       ),
       resolvedSize: getResolvedSectionSize(section, observedElementSizes),
+      tempZIndex: getRenderedSectionTempZIndex(section, draggingSectionId),
     };
     return sceneSection;
   });
@@ -48,6 +50,16 @@ export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
       sceneSections.map((section) => [section.sectionId, section]),
     ),
   };
+}
+
+function getRenderedSectionTempZIndex(
+  section: GraphSubstrateCanarySection,
+  draggingSectionId: string | null,
+) {
+  if (draggingSectionId === section.sectionId) {
+    return section.zIndex + 1000;
+  }
+  return section.tempZIndex;
 }
 
 export function getSettingsGraphSubstrateCanarySceneBoundsForSections(

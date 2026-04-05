@@ -20,7 +20,8 @@ export function syncSettingsGraphSubstrateCanaryNodes(
       currentNode.position.y === position.y &&
       currentNode.width === width &&
       currentNode.height === height &&
-      currentNode.zIndex === section.zIndex
+      currentNode.zIndex === section.zIndex &&
+      currentNode.tempZIndex === section.tempZIndex
     ) {
       continue;
     }
@@ -35,7 +36,7 @@ export function syncSettingsGraphSubstrateCanaryNodes(
       width,
       height,
       zIndex: section.zIndex,
-      tempZIndex: currentNode?.tempZIndex ?? section.zIndex,
+      tempZIndex: section.tempZIndex,
       type: currentNode?.type,
       style: currentNode?.style,
     });

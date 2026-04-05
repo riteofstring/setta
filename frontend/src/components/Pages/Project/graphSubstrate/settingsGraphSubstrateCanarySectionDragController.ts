@@ -1,8 +1,4 @@
-import {
-  addNodes,
-  moveNodes,
-  raiseTempZIndex,
-} from "state/actions/nodeInternals";
+import { addNodes, moveNodes } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useNodeInternals } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
@@ -247,10 +243,6 @@ export const defaultSettingsGraphSubstrateCanarySectionDragEffects: SettingsGrap
   {
     beginSectionDrag(section) {
       ensureCanaryNode(section);
-      const activeNode = useNodeInternals.getState().x.get(section.sectionId);
-      if (activeNode) {
-        raiseTempZIndex([activeNode]);
-      }
     },
     persistSectionDrag(section, position) {
       ensureCanaryNode({
@@ -265,19 +257,7 @@ export const defaultSettingsGraphSubstrateCanarySectionDragEffects: SettingsGrap
       ]);
       setZIndices([section.sectionId], true);
     },
-    resetSectionTempZIndex(sectionId) {
-      const nodeInternals = useNodeInternals.getState().x;
-      const node = nodeInternals.get(sectionId);
-      if (!node || node.tempZIndex === node.zIndex) {
-        return;
-      }
-      const nextNodeInternals = new Map(nodeInternals);
-      nextNodeInternals.set(sectionId, {
-        ...node,
-        tempZIndex: node.zIndex,
-      });
-      useNodeInternals.setState({ x: nextNodeInternals });
-    },
+    resetSectionTempZIndex() {},
   };
 
 function ensureCanaryNode(

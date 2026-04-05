@@ -35,6 +35,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         sectionId: "section-a",
         position: { x: 180, y: 140 },
       },
+      "section-a",
     );
 
     expect(snapshot.sections).toEqual([
@@ -46,7 +47,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         height: 160,
         resolvedSize: { width: 240, height: 160 },
         zIndex: 2,
-        tempZIndex: 2,
+        tempZIndex: 1002,
         positionAndSizeLocked: false,
       },
       {
@@ -92,6 +93,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         },
       ],
       {},
+      null,
       null,
     );
 

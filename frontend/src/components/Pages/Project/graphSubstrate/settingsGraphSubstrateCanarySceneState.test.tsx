@@ -23,14 +23,20 @@ type MeasuredElementController = {
 };
 
 function SceneStateProbe({
+  draggingSectionId,
   override,
   sections,
 }: {
+  draggingSectionId: string | null;
   override: SettingsGraphSubstrateCanarySectionPositionOverride;
   sections: Array<GraphSubstrateCanarySection>;
 }) {
-  const { sceneSnapshot, setSectionPositionOverride } =
+  const { sceneSnapshot, setDraggingSectionId, setSectionPositionOverride } =
     useSettingsGraphSubstrateCanarySceneState(sections);
+
+  useEffect(() => {
+    setDraggingSectionId(draggingSectionId);
+  }, [draggingSectionId, setDraggingSectionId]);
 
   useEffect(() => {
     setSectionPositionOverride(override);
@@ -70,7 +76,11 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
   it("drives resolved size and node-internals sync from the same scene snapshot", async () => {
     await act(async () => {
       root.render(
-        <SceneStateProbe override={null} sections={[createSection()]} />,
+        <SceneStateProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection()]}
+        />,
       );
     });
 
@@ -128,6 +138,7 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     await act(async () => {
       root.render(
         <SceneStateProbe
+          draggingSectionId={null}
           override={null}
           sections={[
             createSection({
@@ -166,6 +177,7 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     await act(async () => {
       root.render(
         <SceneStateProbe
+          draggingSectionId={null}
           override={{
             sectionId: "section-a",
             position: { x: 460, y: 260 },
@@ -207,6 +219,80 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual({
       x: 460,
       y: 260,
+    });
+  });
+
+  it("raises and resets the active drag section temp z-index from the shared scene snapshot", async () => {
+    await act(async () => {
+      root.render(
+        <SceneStateProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: 160,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: 240,
+        zIndex: 2,
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneStateProbe
+          draggingSectionId={"section-a"}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host).sections[0]?.tempZIndex).toBe(1002);
+      expect(useNodeInternals.getState().x.get("section-a")?.tempZIndex).toBe(
+        1002,
+      );
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneStateProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host).sections[0]?.tempZIndex).toBe(2);
+      expect(useNodeInternals.getState().x.get("section-a")?.tempZIndex).toBe(
+        2,
+      );
     });
   });
 });
