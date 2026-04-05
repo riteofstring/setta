@@ -18,17 +18,19 @@ func ownerProvidedTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
-	if expr, ok := ownerProvidedTypeScriptExpr(t); ok {
+	if provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingTypeScriptExprProvider](t); ok {
+		expr := provider.FrontendBindingTypeScriptExpr()
 		if strings.TrimSpace(expr) == "" {
 			return TypeDeclaration{}, false, fmt.Errorf("%s returned an empty frontend TS alias expression", t.String())
 		}
 		return aliasDeclaration(frontendBindingTypeName(t), expr), true, nil
 	}
 
-	memberTypes, ok := ownerProvidedUnionTypes(t)
+	provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingUnionTypesProvider](t)
 	if !ok {
 		return TypeDeclaration{}, false, nil
 	}
+	memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
 	if len(memberTypes) == 0 {
 		return TypeDeclaration{}, false, fmt.Errorf("%s returned no frontend union members", t.String())
 	}
@@ -53,50 +55,29 @@ func ownerProvidedTypeDeclaration(
 	return aliasUnionDeclaration(frontendBindingTypeName(t), members...), true, nil
 }
 
-func ownerProvidedTypeScriptExpr(t reflect.Type) (string, bool) {
-	for _, candidate := range ownerProvidedTypeMetadataCandidates(t) {
-		provider, ok := candidate.(frontendBindingTypeScriptExprProvider)
-		if !ok {
-			continue
-		}
-		return provider.FrontendBindingTypeScriptExpr(), true
-	}
-	return "", false
-}
-
-func ownerProvidedUnionTypes(t reflect.Type) ([]reflect.Type, bool) {
-	for _, candidate := range ownerProvidedTypeMetadataCandidates(t) {
-		provider, ok := candidate.(frontendBindingUnionTypesProvider)
-		if !ok {
-			continue
-		}
-		return append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...), true
-	}
-	return nil, false
-}
-
-func ownerProvidedTypeMetadataCandidates(t reflect.Type) []any {
+func frontendBindingOwnerMetadataProvider[P any](t reflect.Type) (P, bool) {
+	var zero P
 	t = canonicalFrontendBindingType(t)
-	if t == nil || strings.TrimSpace(t.PkgPath()) == "" {
-		return nil
-	}
-	for t.Kind() == reflect.Pointer {
+	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	if t == nil {
-		return nil
+	if t == nil || strings.TrimSpace(t.PkgPath()) == "" {
+		return zero, false
 	}
 
-	candidates := []any{}
 	value := reflect.Zero(t)
 	if value.IsValid() && value.CanInterface() {
-		candidates = append(candidates, value.Interface())
-	}
-	if t.Kind() != reflect.Interface {
-		ptr := reflect.New(t)
-		if ptr.IsValid() && ptr.CanInterface() {
-			candidates = append(candidates, ptr.Interface())
+		if provider, ok := value.Interface().(P); ok {
+			return provider, true
 		}
 	}
-	return candidates
+	if t.Kind() == reflect.Interface {
+		return zero, false
+	}
+	ptr := reflect.New(t)
+	if !ptr.IsValid() || !ptr.CanInterface() {
+		return zero, false
+	}
+	provider, ok := ptr.Interface().(P)
+	return provider, ok
 }

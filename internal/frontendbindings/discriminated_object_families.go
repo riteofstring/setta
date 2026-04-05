@@ -27,18 +27,16 @@ func frontendBindingDiscriminatedFamilies() []frontendbindingmeta.DiscriminatedO
 	frontendBindingDiscriminatedFamiliesOnce.Do(func() {
 		familiesByBase := map[reflect.Type]frontendbindingmeta.DiscriminatedObjectFamily{}
 		for _, t := range DiscoveredConvertibleTypes() {
-			for _, candidate := range ownerProvidedTypeMetadataCandidates(t) {
-				provider, ok := candidate.(frontendBindingDiscriminatedObjectFamilyProvider)
-				if !ok {
-					continue
-				}
-				family := provider.FrontendBindingDiscriminatedObjectFamily()
-				family.BaseType = canonicalFrontendBindingType(family.BaseType)
-				if family.BaseType == nil {
-					continue
-				}
-				familiesByBase[family.BaseType] = family
+			provider, ok := frontendBindingOwnerMetadataProvider[frontendBindingDiscriminatedObjectFamilyProvider](t)
+			if !ok {
+				continue
 			}
+			family := provider.FrontendBindingDiscriminatedObjectFamily()
+			family.BaseType = canonicalFrontendBindingType(family.BaseType)
+			if family.BaseType == nil {
+				continue
+			}
+			familiesByBase[family.BaseType] = family
 		}
 
 		families := make([]frontendbindingmeta.DiscriminatedObjectFamily, 0, len(familiesByBase))
