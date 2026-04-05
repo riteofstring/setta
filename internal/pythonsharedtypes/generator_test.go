@@ -154,6 +154,7 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
+		"BaseChatMessageUnion = SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
 		"BaseArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
 		"SectionSizeValue = float | SectionSizeMode",
 		"class SectionSize(SettaSharedTypeModel):",
