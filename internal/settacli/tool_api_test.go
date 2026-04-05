@@ -1,16 +1,188 @@
 package settacli
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/auth"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
 	"setta/internal/sshx"
 )
+
+func mustAPIToolName(t *testing.T) string {
+	t.Helper()
+
+	payloads, err := mcpx.BuildToolPayloads()
+	if err != nil {
+		t.Fatalf("build tool payloads: %v", err)
+	}
+	if len(payloads) == 0 {
+		t.Fatal("expected at least one tool payload")
+	}
+	return payloads[0].Name
+}
+
+func TestParseAPIInvocationSupportsToolBeforeOrAfterFlags(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "tool before flags",
+			args: []string{"testTool", "--json-output", "--base-url", "http://localhost:8000"},
+		},
+		{
+			name: "tool after flags",
+			args: []string{"--json-output", "--base-url", "http://localhost:8000", "testTool"},
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			invocation, err := parseAPIInvocation(testCase.args, &bytes.Buffer{})
+			if err != nil {
+				t.Fatalf("parse api invocation: %v", err)
+			}
+			if invocation.toolName != "testTool" {
+				t.Fatalf("unexpected tool name %q", invocation.toolName)
+			}
+			if !invocation.flags.jsonOutput {
+				t.Fatal("expected json output flag to be set")
+			}
+			if invocation.flags.baseURL != "http://localhost:8000" {
+				t.Fatalf("unexpected base url %q", invocation.flags.baseURL)
+			}
+		})
+	}
+}
+
+func TestRunAPIInvokesToolEndpointWithExplicitAuth(t *testing.T) {
+	t.Parallel()
+
+	toolName := mustAPIToolName(t)
+	captured := struct {
+		toolName  string
+		arguments map[string]any
+		cookie    string
+		projectID string
+		chatID    string
+		sectionID string
+	}{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != httpapi.RouteMCPToolCall {
+			http.Error(w, "unexpected path", http.StatusBadRequest)
+			return
+		}
+		captured.cookie = r.Header.Get("Cookie")
+		captured.projectID = r.Header.Get(mcpx.AgenticContextProjectConfigIDHeader)
+		captured.chatID = r.Header.Get(mcpx.AgenticContextChatIDHeader)
+		captured.sectionID = r.Header.Get(mcpx.AgenticContextSectionIDHeader)
+
+		var payload struct {
+			Tool      string         `json:"tool"`
+			Arguments map[string]any `json:"arguments"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		captured.toolName = payload.Tool
+		captured.arguments = payload.Arguments
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{"ok": true}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err := runAPI(
+		[]string{
+			toolName,
+			"--cookie-header", "Cookie: settaAuth=abc123",
+			"--base-url", server.URL + "/api",
+			"--json", `{"count":2}`,
+			"--json-output",
+			"--agentic-project-config-id", "project-1",
+			"--agentic-chat-id", "chat-2",
+			"--agentic-section-id", "section-3",
+		},
+		globalFlags{},
+		&stdout,
+		&stderr,
+		strings.NewReader(""),
+		os.LookupEnv,
+		time.Now,
+		t.TempDir(),
+	)
+	if err != nil {
+		t.Fatalf("run api: %v", err)
+	}
+	if captured.toolName != toolName {
+		t.Fatalf("unexpected tool name %q", captured.toolName)
+	}
+	if captured.cookie != "settaAuth=abc123" {
+		t.Fatalf("unexpected cookie header %q", captured.cookie)
+	}
+	if captured.projectID != "project-1" || captured.chatID != "chat-2" || captured.sectionID != "section-3" {
+		t.Fatalf("unexpected agentic headers %#v", captured)
+	}
+	count, ok := captured.arguments["count"].(float64)
+	if !ok || count != 2 {
+		t.Fatalf("unexpected arguments %#v", captured.arguments)
+	}
+	if stdout.String() != "{\"ok\":true}\n" {
+		t.Fatalf("unexpected stdout %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", stderr.String())
+	}
+}
+
+func TestRunAPIConflictingStdinModesReturnJSONInputError(t *testing.T) {
+	t.Parallel()
+
+	var stdout bytes.Buffer
+	err := runAPI(
+		[]string{mustAPIToolName(t), "--stdin", "--auth-stdin", "--json-output"},
+		globalFlags{},
+		&stdout,
+		&bytes.Buffer{},
+		strings.NewReader("{}"),
+		os.LookupEnv,
+		time.Now,
+		t.TempDir(),
+	)
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected exit error, got %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("decode json output: %v", err)
+	}
+	if payload["error"] != "InputError" {
+		t.Fatalf("unexpected error payload %#v", payload)
+	}
+	if payload["message"] != "use --auth-stdin or --stdin, not both" {
+		t.Fatalf("unexpected message %#v", payload)
+	}
+}
 
 func TestNormalizeBaseURLStripsAPIAddsSchemeAndRejectsEmpty(t *testing.T) {
 	t.Parallel()

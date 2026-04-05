@@ -37,6 +37,27 @@ type apiFlags struct {
 	agenticSectionID       string
 }
 
+type apiInvocation struct {
+	toolName string
+	flags    apiFlags
+}
+
+type apiRequestTarget struct {
+	baseURL     string
+	cookieValue string
+}
+
+type apiSessionResolver struct {
+	global    globalFlags
+	cwd       string
+	envLookup func(string) (string, bool)
+
+	resolved   bool
+	commandCfg config.Config
+	registry   *localsessions.Registry
+	session    auth.SessionMetadata
+}
+
 func runTools(args []string, stdout io.Writer, stderr io.Writer) error {
 	flags := flag.NewFlagSet("tools", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -55,271 +76,304 @@ func runTools(args []string, stdout io.Writer, stderr io.Writer) error {
 }
 
 func runAPI(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, stdin io.Reader, envLookup func(string) (string, bool), now func() time.Time, cwd string) error {
-	var parsed apiFlags
-	toolArg := ""
-	flagArgs := args
-	if len(args) > 0 && !strings.HasPrefix(strings.TrimSpace(args[0]), "-") {
-		toolArg = strings.TrimSpace(args[0])
-		flagArgs = args[1:]
-	}
-	flags := flag.NewFlagSet("api", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	flags.StringVar(&parsed.jsonPayload, "json", "", "Inline JSON arguments.")
-	flags.BoolVar(&parsed.payloadStdin, "stdin", false, "Read JSON arguments from stdin.")
-	flags.StringVar(&parsed.payloadFile, "file", "", "Read JSON arguments from a file.")
-	flags.BoolVar(&parsed.jsonOutput, "json-output", false, "Emit JSON only on stdout.")
-	flags.StringVar(&parsed.cookieHeader, "cookie-header", "", "Explicit Cookie header value.")
-	flags.StringVar(&parsed.cookie, "cookie", "", "Explicit cookie value.")
-	flags.StringVar(&parsed.authJSONPath, "auth-json", "", "Auth JSON file from `setta auth --json`.")
-	flags.BoolVar(&parsed.authStdin, "auth-stdin", false, "Read auth JSON from stdin.")
-	flags.Float64Var(&parsed.timeoutSeconds, "timeout", 30.0, "Request timeout in seconds (0 disables).")
-	flags.StringVar(&parsed.baseURL, "base-url", "", "Override backend base URL.")
-	flags.StringVar(&parsed.agenticProjectConfigID, "agentic-project-config-id", "", "Set x-setta-project-config-id for scoped tool calls.")
-	flags.StringVar(&parsed.agenticChatID, "agentic-chat-id", "", "Set x-setta-chat-id for scoped tool calls.")
-	flags.StringVar(&parsed.agenticSectionID, "agentic-section-id", "", "Set x-setta-section-id for scoped tool calls.")
-	if err := flags.Parse(flagArgs); err != nil {
+	invocation, err := parseAPIInvocation(args, stderr)
+	if err != nil {
 		return err
 	}
-	if parsed.authStdin && parsed.payloadStdin {
-		return apiInputError(stdout, parsed.jsonOutput, "", fmt.Errorf("use --auth-stdin or --stdin, not both"))
+	if invocation.flags.authStdin && invocation.flags.payloadStdin {
+		return apiInputError(stdout, invocation.flags.jsonOutput, "", fmt.Errorf("use --auth-stdin or --stdin, not both"))
+	}
+
+	normalizedToolName, err := normalizeToolName(invocation.toolName)
+	if err != nil {
+		return apiInputError(stdout, invocation.flags.jsonOutput, strings.TrimSpace(invocation.toolName), err)
+	}
+
+	arguments, err := loadAPIArguments(invocation.flags, stdin)
+	if err != nil {
+		return apiInputError(stdout, invocation.flags.jsonOutput, normalizedToolName, err)
+	}
+
+	authPayload, err := loadAuthPayload(invocation.flags.authJSONPath, invocation.flags.authStdin, stdin)
+	if err != nil {
+		return apiInputError(stdout, invocation.flags.jsonOutput, normalizedToolName, err)
+	}
+
+	if err := ensureKnownAPITool(stdout, normalizedToolName, hasExplicitAPIAuth(invocation.flags), invocation.flags.jsonOutput); err != nil {
+		return err
+	}
+
+	target, err := resolveAPIRequestTarget(invocation.flags, authPayload, global, now, cwd, envLookup)
+	if err != nil {
+		return apiInputError(stdout, invocation.flags.jsonOutput, normalizedToolName, err)
+	}
+
+	request, err := buildAPIToolRequest(normalizedToolName, arguments, invocation.flags, target)
+	if err != nil {
+		return err
+	}
+
+	statusCode, body, err := doAPIToolRequest(request, invocation.flags.timeoutSeconds)
+	return emitAPIToolResult(stdout, invocation.flags.jsonOutput, normalizedToolName, statusCode, body, err)
+}
+
+func parseAPIInvocation(args []string, stderr io.Writer) (apiInvocation, error) {
+	invocation := apiInvocation{}
+	flagArgs := args
+	if len(args) > 0 && !strings.HasPrefix(strings.TrimSpace(args[0]), "-") {
+		invocation.toolName = strings.TrimSpace(args[0])
+		flagArgs = args[1:]
+	}
+
+	flags := flag.NewFlagSet("api", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	flags.StringVar(&invocation.flags.jsonPayload, "json", "", "Inline JSON arguments.")
+	flags.BoolVar(&invocation.flags.payloadStdin, "stdin", false, "Read JSON arguments from stdin.")
+	flags.StringVar(&invocation.flags.payloadFile, "file", "", "Read JSON arguments from a file.")
+	flags.BoolVar(&invocation.flags.jsonOutput, "json-output", false, "Emit JSON only on stdout.")
+	flags.StringVar(&invocation.flags.cookieHeader, "cookie-header", "", "Explicit Cookie header value.")
+	flags.StringVar(&invocation.flags.cookie, "cookie", "", "Explicit cookie value.")
+	flags.StringVar(&invocation.flags.authJSONPath, "auth-json", "", "Auth JSON file from `setta auth --json`.")
+	flags.BoolVar(&invocation.flags.authStdin, "auth-stdin", false, "Read auth JSON from stdin.")
+	flags.Float64Var(&invocation.flags.timeoutSeconds, "timeout", 30.0, "Request timeout in seconds (0 disables).")
+	flags.StringVar(&invocation.flags.baseURL, "base-url", "", "Override backend base URL.")
+	flags.StringVar(&invocation.flags.agenticProjectConfigID, "agentic-project-config-id", "", "Set x-setta-project-config-id for scoped tool calls.")
+	flags.StringVar(&invocation.flags.agenticChatID, "agentic-chat-id", "", "Set x-setta-chat-id for scoped tool calls.")
+	flags.StringVar(&invocation.flags.agenticSectionID, "agentic-section-id", "", "Set x-setta-section-id for scoped tool calls.")
+	if err := flags.Parse(flagArgs); err != nil {
+		return apiInvocation{}, err
 	}
 
 	remaining := flags.Args()
 	switch {
-	case toolArg == "" && len(remaining) == 1:
-		toolArg = strings.TrimSpace(remaining[0])
-	case toolArg == "" && len(remaining) != 1:
-		return fmt.Errorf("api requires exactly one tool name argument")
-	case toolArg != "" && len(remaining) != 0:
-		return fmt.Errorf("api accepts flags either before or after a single tool name, not additional positional arguments")
+	case invocation.toolName == "" && len(remaining) == 1:
+		invocation.toolName = strings.TrimSpace(remaining[0])
+	case invocation.toolName == "" && len(remaining) != 1:
+		return apiInvocation{}, fmt.Errorf("api requires exactly one tool name argument")
+	case invocation.toolName != "" && len(remaining) != 0:
+		return apiInvocation{}, fmt.Errorf("api accepts flags either before or after a single tool name, not additional positional arguments")
 	}
+	return invocation, nil
+}
 
-	normalizedToolName := strings.TrimSpace(toolArg)
-	if _, err := normalizeToolName(toolArg); err != nil {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
-	}
-	normalizedToolName, _ = normalizeToolName(toolArg)
-
-	hasExplicitAuth := strings.TrimSpace(parsed.authJSONPath) != "" || parsed.authStdin || strings.TrimSpace(parsed.cookieHeader) != "" || strings.TrimSpace(parsed.cookie) != ""
-
+func loadAPIArguments(parsed apiFlags, stdin io.Reader) (map[string]any, error) {
 	payload, err := loadJSONPayload(parsed.jsonPayload, parsed.payloadStdin, parsed.payloadFile, stdin)
 	if err != nil {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+		return nil, err
 	}
-	arguments := map[string]any{}
-	if payload != nil {
-		object, ok := payload.(map[string]any)
-		if !ok {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("tool arguments must be a JSON object"))
-		}
-		arguments = object
+	if payload == nil {
+		return map[string]any{}, nil
 	}
+	object, ok := payload.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("tool arguments must be a JSON object")
+	}
+	return object, nil
+}
 
-	authPayload, err := loadAuthPayload(parsed.authJSONPath, parsed.authStdin, stdin)
-	if err != nil {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
-	}
+func hasExplicitAPIAuth(parsed apiFlags) bool {
+	return strings.TrimSpace(parsed.authJSONPath) != "" || parsed.authStdin || strings.TrimSpace(parsed.cookieHeader) != "" || strings.TrimSpace(parsed.cookie) != ""
+}
 
+func ensureKnownAPITool(stdout io.Writer, toolName string, hasExplicitAuth bool, jsonOutput bool) error {
 	toolPayloads, err := mcpx.BuildToolPayloads()
 	if err != nil {
 		return err
 	}
-	toolNames := make(map[string]struct{}, len(toolPayloads))
 	for _, payload := range toolPayloads {
-		toolNames[payload.Name] = struct{}{}
-	}
-	if _, ok := toolNames[normalizedToolName]; !ok {
-		if !hasExplicitAuth {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("%s", missingAuthMessage))
-		}
-		if parsed.jsonOutput {
-			return emitJSONAndExit(stdout, map[string]any{
-				"error": "UnknownTool",
-				"tool":  normalizedToolName,
-			}, fmt.Errorf("unknown tool: %s", normalizedToolName))
-		}
-		return fmt.Errorf("unknown tool: %s", normalizedToolName)
-	}
-
-	var commandCfg config.Config
-	var session auth.SessionMetadata
-	var registry *localsessions.Registry
-	sessionResolved := false
-
-	resolveSession := func() error {
-		if sessionResolved {
+		if payload.Name == toolName {
 			return nil
 		}
-		resolvedCfg, resolvedRegistry, resolvedSession, resolveErr := resolveLatestAPISession(global, cwd, envLookup)
-		if resolveErr != nil {
-			return resolveErr
-		}
-		commandCfg = resolvedCfg
-		registry = resolvedRegistry
-		session = resolvedSession
-		sessionResolved = true
-		return nil
 	}
+	if !hasExplicitAuth {
+		return apiInputError(stdout, jsonOutput, toolName, fmt.Errorf("%s", missingAuthMessage))
+	}
+	if jsonOutput {
+		return emitJSONAndExit(stdout, map[string]any{
+			"error": "UnknownTool",
+			"tool":  toolName,
+		}, fmt.Errorf("unknown tool: %s", toolName))
+	}
+	return fmt.Errorf("unknown tool: %s", toolName)
+}
 
-	resolvedBaseURL := ""
-	if strings.TrimSpace(parsed.baseURL) != "" {
-		resolvedBaseURL, err = normalizeBaseURL(parsed.baseURL)
-		if err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
-		}
+func resolveAPIRequestTarget(parsed apiFlags, authPayload map[string]any, global globalFlags, now func() time.Time, cwd string, envLookup func(string) (string, bool)) (apiRequestTarget, error) {
+	resolver := &apiSessionResolver{
+		global:    global,
+		cwd:       cwd,
+		envLookup: envLookup,
 	}
-	cookieValue := ""
+	target := apiRequestTarget{}
+
+	if strings.TrimSpace(parsed.baseURL) != "" {
+		baseURL, err := normalizeBaseURL(parsed.baseURL)
+		if err != nil {
+			return apiRequestTarget{}, err
+		}
+		target.baseURL = baseURL
+	}
 
 	switch {
 	case strings.TrimSpace(parsed.cookieHeader) != "" || strings.TrimSpace(parsed.cookie) != "":
-		if strings.TrimSpace(parsed.cookieHeader) != "" {
-			cookieValue = stripCookieHeaderPrefix(parsed.cookieHeader)
-		} else {
-			cookieValue = stripCookieHeaderPrefix(parsed.cookie)
-			if !strings.Contains(cookieValue, "=") {
-				return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("cookie must be provided in name=value form"))
-			}
+		cookieValue, err := explicitAPICookieValue(parsed)
+		if err != nil {
+			return apiRequestTarget{}, err
 		}
-		if resolvedBaseURL == "" {
-			if err := resolveSession(); err != nil {
-				return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+		target.cookieValue = cookieValue
+		if target.baseURL == "" {
+			baseURL, err := resolver.baseURL()
+			if err != nil {
+				return apiRequestTarget{}, err
 			}
-			resolvedBaseURL = baseURLFromSession(session)
+			target.baseURL = baseURL
 		}
 	case authPayload != nil:
-		cookieValue, err = cookieHeaderFromAuthPayload(authPayload)
+		cookieValue, err := cookieHeaderFromAuthPayload(authPayload)
 		if err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+			return apiRequestTarget{}, err
 		}
-		if resolvedBaseURL == "" {
-			resolvedBaseURL, err = baseURLFromAuthPayload(authPayload)
+		target.cookieValue = cookieValue
+		if target.baseURL == "" {
+			baseURL, err := baseURLFromAuthPayload(authPayload)
 			if err != nil {
-				return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+				return apiRequestTarget{}, err
 			}
-		}
-		if resolvedBaseURL == "" {
-			if err := resolveSession(); err != nil {
-				return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+			if baseURL == "" {
+				baseURL, err = resolver.baseURL()
+				if err != nil {
+					return apiRequestTarget{}, err
+				}
 			}
-			resolvedBaseURL = baseURLFromSession(session)
+			target.baseURL = baseURL
 		}
 	default:
-		if err := resolveSession(); err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
-		}
-		if resolvedBaseURL == "" {
-			resolvedBaseURL = baseURLFromSession(session)
-		}
-		secret, err := registry.LoadSecret(session)
+		cookieValue, err := resolver.cookieValue(now)
 		if err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("secret file missing for session %s", session.ID))
+			return apiRequestTarget{}, err
 		}
-		cookieName, err := auth.CookieName(commandCfg.Paths.AuthCookieName, session.ID)
-		if err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+		target.cookieValue = cookieValue
+		if target.baseURL == "" {
+			baseURL, err := resolver.baseURL()
+			if err != nil {
+				return apiRequestTarget{}, err
+			}
+			target.baseURL = baseURL
 		}
-		cookieToken, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(session.ID, secret, now())
-		if err != nil {
-			return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
-		}
-		cookieValue = cookieName + "=" + cookieToken
 	}
 
-	if resolvedBaseURL == "" {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("missing base URL. Use --base-url or --auth-json"))
+	if target.baseURL == "" {
+		return apiRequestTarget{}, fmt.Errorf("missing base URL. Use --base-url or --auth-json")
 	}
-	if strings.TrimSpace(cookieValue) == "" {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, fmt.Errorf("missing auth cookie"))
+	if strings.TrimSpace(target.cookieValue) == "" {
+		return apiRequestTarget{}, fmt.Errorf("missing auth cookie")
 	}
+	return target, nil
+}
 
-	requestURL, err := buildToolCallURL(resolvedBaseURL)
+func explicitAPICookieValue(parsed apiFlags) (string, error) {
+	if strings.TrimSpace(parsed.cookieHeader) != "" {
+		return stripCookieHeaderPrefix(parsed.cookieHeader), nil
+	}
+	cookieValue := stripCookieHeaderPrefix(parsed.cookie)
+	if !strings.Contains(cookieValue, "=") {
+		return "", fmt.Errorf("cookie must be provided in name=value form")
+	}
+	return cookieValue, nil
+}
+
+func buildAPIToolRequest(toolName string, arguments map[string]any, parsed apiFlags, target apiRequestTarget) (*http.Request, error) {
+	requestURL, err := buildToolCallURL(target.baseURL)
 	if err != nil {
-		return apiInputError(stdout, parsed.jsonOutput, normalizedToolName, err)
+		return nil, err
 	}
-
 	requestBody, err := json.Marshal(map[string]any{
-		"tool":      normalizedToolName,
+		"tool":      toolName,
 		"arguments": arguments,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	request, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(requestBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Cookie", cookieValue)
-	if trimmed := strings.TrimSpace(parsed.agenticProjectConfigID); trimmed != "" {
-		request.Header.Set(mcpx.AgenticContextProjectConfigIDHeader, trimmed)
-		if chatID := strings.TrimSpace(parsed.agenticChatID); chatID != "" {
-			request.Header.Set(mcpx.AgenticContextChatIDHeader, chatID)
-		}
-		if sectionID := strings.TrimSpace(parsed.agenticSectionID); sectionID != "" {
-			request.Header.Set(mcpx.AgenticContextSectionIDHeader, sectionID)
-		}
-	}
+	request.Header.Set("Cookie", target.cookieValue)
+	applyAPIAgenticContextHeaders(request.Header, parsed)
+	return request, nil
+}
 
+func applyAPIAgenticContextHeaders(header http.Header, parsed apiFlags) {
+	projectConfigID := strings.TrimSpace(parsed.agenticProjectConfigID)
+	if projectConfigID == "" {
+		return
+	}
+	header.Set(mcpx.AgenticContextProjectConfigIDHeader, projectConfigID)
+	if chatID := strings.TrimSpace(parsed.agenticChatID); chatID != "" {
+		header.Set(mcpx.AgenticContextChatIDHeader, chatID)
+	}
+	if sectionID := strings.TrimSpace(parsed.agenticSectionID); sectionID != "" {
+		header.Set(mcpx.AgenticContextSectionIDHeader, sectionID)
+	}
+}
+
+func doAPIToolRequest(request *http.Request, timeoutSeconds float64) (int, []byte, error) {
 	timeout := time.Duration(0)
-	if parsed.timeoutSeconds > 0 {
-		timeout = time.Duration(parsed.timeoutSeconds * float64(time.Second))
+	if timeoutSeconds > 0 {
+		timeout = time.Duration(timeoutSeconds * float64(time.Second))
 	}
 	client := &http.Client{Timeout: timeout}
 	response, err := client.Do(request)
 	if err != nil {
-		if parsed.jsonOutput {
-			return emitJSONAndExit(stdout, map[string]any{
-				"error":   "RequestError",
-				"message": err.Error(),
-				"tool":    normalizedToolName,
-			}, err)
-		}
-		return err
+		return 0, nil, err
 	}
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		if parsed.jsonOutput {
+		return response.StatusCode, nil, err
+	}
+	return response.StatusCode, body, nil
+}
+
+func emitAPIToolResult(stdout io.Writer, jsonOutput bool, toolName string, statusCode int, body []byte, requestErr error) error {
+	if requestErr != nil {
+		if jsonOutput {
 			return emitJSONAndExit(stdout, map[string]any{
 				"error":   "RequestError",
-				"message": err.Error(),
-				"tool":    normalizedToolName,
+				"message": requestErr.Error(),
+				"tool":    toolName,
+			}, requestErr)
+		}
+		return requestErr
+	}
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		err := fmt.Errorf("%d %s", statusCode, strings.TrimSpace(string(body)))
+		if jsonOutput {
+			return emitJSONAndExit(stdout, map[string]any{
+				"error":  "HTTPError",
+				"status": statusCode,
+				"tool":   toolName,
+				"body":   decodeResponseBody(body),
 			}, err)
 		}
 		return err
 	}
-
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		if parsed.jsonOutput {
-			return emitJSONAndExit(stdout, map[string]any{
-				"error":  "HTTPError",
-				"status": response.StatusCode,
-				"tool":   normalizedToolName,
-				"body":   decodeResponseBody(body),
-			}, fmt.Errorf("%d %s", response.StatusCode, strings.TrimSpace(string(body))))
-		}
-		return fmt.Errorf("%d %s", response.StatusCode, strings.TrimSpace(string(body)))
-	}
-
 	if len(body) == 0 {
-		if parsed.jsonOutput {
+		if jsonOutput {
 			return emitJSON(stdout, nil)
 		}
 		return nil
 	}
-
 	var decoded any
 	if err := json.Unmarshal(body, &decoded); err != nil {
-		if parsed.jsonOutput {
+		if jsonOutput {
 			return emitJSON(stdout, map[string]any{"raw": string(body)})
 		}
 		_, _ = fmt.Fprintln(stdout, string(body))
 		return nil
 	}
-
-	if parsed.jsonOutput {
+	if jsonOutput {
 		return emitJSON(stdout, decoded)
 	}
 	pretty, err := json.MarshalIndent(decoded, "", "  ")
@@ -328,6 +382,47 @@ func runAPI(args []string, global globalFlags, stdout io.Writer, stderr io.Write
 	}
 	_, _ = fmt.Fprintln(stdout, string(pretty))
 	return nil
+}
+
+func (resolver *apiSessionResolver) resolve() error {
+	if resolver.resolved {
+		return nil
+	}
+	commandCfg, registry, session, err := resolveLatestAPISession(resolver.global, resolver.cwd, resolver.envLookup)
+	if err != nil {
+		return err
+	}
+	resolver.commandCfg = commandCfg
+	resolver.registry = registry
+	resolver.session = session
+	resolver.resolved = true
+	return nil
+}
+
+func (resolver *apiSessionResolver) baseURL() (string, error) {
+	if err := resolver.resolve(); err != nil {
+		return "", err
+	}
+	return baseURLFromSession(resolver.session), nil
+}
+
+func (resolver *apiSessionResolver) cookieValue(now func() time.Time) (string, error) {
+	if err := resolver.resolve(); err != nil {
+		return "", err
+	}
+	secret, err := resolver.registry.LoadSecret(resolver.session)
+	if err != nil {
+		return "", fmt.Errorf("secret file missing for session %s", resolver.session.ID)
+	}
+	cookieName, err := auth.CookieName(resolver.commandCfg.Paths.AuthCookieName, resolver.session.ID)
+	if err != nil {
+		return "", err
+	}
+	cookieToken, err := auth.NewAuthCookieManager(auth.DefaultAuthCookieTTL).Mint(resolver.session.ID, secret, now())
+	if err != nil {
+		return "", err
+	}
+	return cookieName + "=" + cookieToken, nil
 }
 
 func resolveLatestAPISession(global globalFlags, cwd string, envLookup func(string) (string, bool)) (config.Config, *localsessions.Registry, auth.SessionMetadata, error) {
