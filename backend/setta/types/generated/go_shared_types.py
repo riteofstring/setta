@@ -197,6 +197,32 @@ class ImageArtifact(BaseModel):
     value: ContentRef
 
 
+class LLMConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    api_key_env: str | None = None
+    base_url: str | None = None
+    id: str
+    mcpServerIds: list[str] | None = None
+    model: str
+    other_params: dict[str, Any] | None = None
+    provider: str | None = None
+    temporary: bool = False
+
+
+class LineChartSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    type: ChartType = ChartType.line
+    xAxisColumn: str | None = None
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
+
+
 class ListenerDependencyMode(StrEnum):
     always = "always"
     realtime_only = "realtime_only"
@@ -404,6 +430,17 @@ class RunSnapshotMode(StrEnum):
     never = "never"
 
 
+class ScatterChartSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    categoryColumn: str | None = None
+    type: ChartType = ChartType.scatter
+    xAxisColumn: str | None = None
+    xAxisLog: bool = False
+    yAxisLog: bool = False
+
+
 class SectionCodegenMode(StrEnum):
     inherit = "inherit"
     include = "include"
@@ -568,6 +605,15 @@ class TopLevelSectionLayout(BaseModel):
     x: float
     y: float
     zIndex: int | None = None
+
+
+class Viewport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    x: float = 0.0
+    y: float = 0.0
+    zoom: float = 1.0
 
 
 class WatchCodeCallableKind(StrEnum):
@@ -1344,33 +1390,6 @@ class AssistantChatMessage(SettaSharedTypeModel):
     tool_calls: list[ToolCall] | None = None
 
 
-class ChatSectionBranch(SettaSharedTypeModel):
-    messages: list[BaseChatMessageUnion]
-    createdAt: int = 0
-    parentBranchId: ID | None = None
-    branchFromMessageId: ID | None = None
-
-
-class ChatSectionState(SettaSharedTypeModel):
-    messages: list[BaseChatMessageUnion]
-    inputText: str = ""
-    waitingForResponse: bool = False
-    toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    activeBranchId: ID | None = None
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-
-
-class LLMConfig(SettaSharedTypeModel):
-    id: str
-    model: str
-    provider: str | None = None
-    base_url: str | None = None
-    api_key_env: str | None = None
-    other_params: dict[str, Any] | None = None
-    mcpServerIds: list[str] | None = None
-    temporary: bool = False
-
-
 class Chat(SettaSharedTypeModel):
     id: ID = Field(default_factory=create_new_id)
     name: str
@@ -1389,74 +1408,20 @@ class ChatMetadata(SettaSharedTypeModel):
     projectConfigId: ID | None = None
 
 
-class LineChartSettings(SettaSharedTypeModel):
-    type: ChartType = ChartType.line
-    xAxisColumn: str | None = None
-    secondYAxisColumns: list[str] = Field(default_factory=list)
-    xAxisLog: bool = False
-    y1AxisLog: bool = False
-    y2AxisLog: bool = False
-
-
-class ScatterChartSettings(SettaSharedTypeModel):
-    type: ChartType = ChartType.scatter
-    xAxisColumn: str | None = None
-    categoryColumn: str | None = None
-    xAxisLog: bool = False
-    yAxisLog: bool = False
-
-
-class SectionDependencyKey(SettaSharedTypeModel):
-    type: DependencyKeyType
-    sectionId: ID
-
-
-class SectionParamDependencyKey(SettaSharedTypeModel):
-    type: DependencyKeyType
-    sectionId: ID
-    codeObjId: ID
-
-
-class SystemChatMessage(SettaSharedTypeModel):
-    id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.system
+class ChatSectionBranch(SettaSharedTypeModel):
+    messages: list[BaseChatMessageUnion]
     createdAt: int = 0
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    parentBranchId: ID | None = None
+    branchFromMessageId: ID | None = None
 
 
-class ToolChatMessage(SettaSharedTypeModel):
-    id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.tool
-    createdAt: int = 0
-    tool_call_id: str
-    tool_name: str | None = None
-    arguments: Any = Field(default_factory=dict)
-    result: Any = None
-    content: list[
-        TextContent | ImageContent | EmbeddedResource | ToolReferenceContent
-    ] = Field(default_factory=list)
-    is_error: bool = False
-    started_at: datetime = Field(default_factory=get_now_timestamp)
-    completed_at: datetime | None = None
-
-
-class UserChatMessage(SettaSharedTypeModel):
-    id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.user
-    createdAt: int = 0
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-
-
-class Viewport(SettaSharedTypeModel):
-    x: float = 0.0
-    y: float = 0.0
-    zoom: float = 1.0
+class ChatSectionState(SettaSharedTypeModel):
+    messages: list[BaseChatMessageUnion]
+    inputText: str = ""
+    waitingForResponse: bool = False
+    toolCallArguments: dict[str, str] = Field(default_factory=dict)
+    activeBranchId: ID | None = None
+    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
 class ProjectConfig(SettaSharedTypeModel):
@@ -1692,3 +1657,50 @@ class ProjectConfig(SettaSharedTypeModel):
     edges: list[Edge] = Field(default_factory=list)
     agenticEdges: list[AgenticEdge] = Field(default_factory=list)
     stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
+
+
+class SectionDependencyKey(SettaSharedTypeModel):
+    type: DependencyKeyType
+    sectionId: ID
+
+
+class SectionParamDependencyKey(SettaSharedTypeModel):
+    type: DependencyKeyType
+    sectionId: ID
+    codeObjId: ID
+
+
+class SystemChatMessage(SettaSharedTypeModel):
+    id: ID = Field(default_factory=create_new_id)
+    role: ChatRole = ChatRole.system
+    createdAt: int = 0
+    content: list[
+        MessageTextContent | MessageImageURLContent | MessageThinkingContent
+    ] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+
+
+class ToolChatMessage(SettaSharedTypeModel):
+    id: ID = Field(default_factory=create_new_id)
+    role: ChatRole = ChatRole.tool
+    createdAt: int = 0
+    tool_call_id: str
+    tool_name: str | None = None
+    arguments: Any = Field(default_factory=dict)
+    result: Any = None
+    content: list[
+        TextContent | ImageContent | EmbeddedResource | ToolReferenceContent
+    ] = Field(default_factory=list)
+    is_error: bool = False
+    started_at: datetime = Field(default_factory=get_now_timestamp)
+    completed_at: datetime | None = None
+
+
+class UserChatMessage(SettaSharedTypeModel):
+    id: ID = Field(default_factory=create_new_id)
+    role: ChatRole = ChatRole.user
+    createdAt: int = 0
+    content: list[
+        MessageTextContent | MessageImageURLContent | MessageThinkingContent
+    ] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)

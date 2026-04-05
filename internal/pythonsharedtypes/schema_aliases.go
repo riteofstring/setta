@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -179,6 +180,7 @@ func buildPythonSharedSchemaAliasExprs() (map[string]string, error) {
 
 func pythonSharedSchemaDeclarations(
 	sidecar sharedtypes.SemanticSidecar,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
 	excludedNames map[string]struct{},
 ) ([]string, []string, map[string]struct{}, error) {
 	module, err := pythonSharedSchemaModule()
@@ -202,8 +204,12 @@ func pythonSharedSchemaDeclarations(
 	blocks := make([]string, 0, len(selected))
 	includedNames := make(map[string]struct{}, len(selected))
 	for _, declaration := range selected {
-		blocks = append(blocks, declaration.Block)
-		includedNames[declaration.Name] = struct{}{}
+		updated, err := applyPythonDefaultsToDatamodelDeclaration(declaration, defaultSourcesByType)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		blocks = append(blocks, updated.Block)
+		includedNames[updated.Name] = struct{}{}
 	}
 	return blocks, append([]string(nil), module.ImportLines...), includedNames, nil
 }
@@ -257,6 +263,118 @@ func reachableDatamodelDeclarations(
 		selected = append(selected, declaration)
 	}
 	return selected
+}
+
+func applyPythonDefaultsToDatamodelDeclaration(
+	declaration datamodelDeclaration,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (datamodelDeclaration, error) {
+	if declaration.Kind != datamodelDeclarationKindClass {
+		return declaration, nil
+	}
+
+	ownerType, ok := sharedtypes.TypeByContractName(declaration.Name)
+	if !ok || ownerType == nil || ownerType.Kind() != reflect.Struct {
+		return declaration, nil
+	}
+
+	block, changed, err := applyPythonDefaultsToDatamodelClassBlock(
+		declaration.Block,
+		ownerType,
+		defaultSourcesByType,
+	)
+	if err != nil {
+		return datamodelDeclaration{}, err
+	}
+	if !changed {
+		return declaration, nil
+	}
+
+	updated := declaration
+	updated.Block = block
+	return updated, nil
+}
+
+func applyPythonDefaultsToDatamodelClassBlock(
+	block string,
+	ownerType reflect.Type,
+	defaultSourcesByType map[reflect.Type]reflect.Value,
+) (string, bool, error) {
+	lines := strings.Split(block, "\n")
+	fieldsByJSONName, err := datamodelFieldsByJSONName(ownerType)
+	if err != nil {
+		return "", false, err
+	}
+
+	changed := false
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		fieldName, typeExpr, ok := datamodelClassFieldTypeExpr(trimmed)
+		if !ok {
+			continue
+		}
+
+		field, exists := fieldsByJSONName[fieldName]
+		if !exists {
+			continue
+		}
+		if strings.TrimSpace(field.Tag.Get("py_default")) == "" {
+			continue
+		}
+
+		defaultExpr, err := pythonDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
+		if err != nil {
+			return "", false, fmt.Errorf(
+				"python shared types: %s.%s: %w",
+				ownerType,
+				field.Name,
+				err,
+			)
+		}
+		if defaultExpr == "" {
+			continue
+		}
+
+		lines[index] = fmt.Sprintf(
+			"    %s: %s = %s",
+			fieldName,
+			datamodelFieldTypeExprWithPythonDefault(field, typeExpr, defaultExpr),
+			defaultExpr,
+		)
+		changed = true
+	}
+
+	return strings.Join(lines, "\n"), changed, nil
+}
+
+func datamodelFieldsByJSONName(ownerType reflect.Type) (map[string]reflect.StructField, error) {
+	fieldsByJSONName := make(map[string]reflect.StructField, ownerType.NumField())
+	for _, field := range visibleFields(ownerType) {
+		if strings.TrimSpace(field.Tag.Get("py_default")) == "" {
+			continue
+		}
+		jsonName, err := fieldJSONName(field)
+		if err != nil {
+			return nil, fmt.Errorf("python shared types: %s.%s: %w", ownerType, field.Name, err)
+		}
+		fieldsByJSONName[jsonName] = field
+	}
+	return fieldsByJSONName, nil
+}
+
+func datamodelFieldTypeExprWithPythonDefault(
+	field reflect.StructField,
+	typeExpr string,
+	defaultExpr string,
+) string {
+	typeExpr = strings.TrimSpace(typeExpr)
+	if defaultExpr == "" || defaultExpr == "None" {
+		return typeExpr
+	}
+	if field.Type.Kind() == reflect.Pointer {
+		return typeExpr
+	}
+	return strings.TrimSuffix(typeExpr, " | None")
 }
 
 func parseDatamodelModule(module string) (datamodelModule, error) {

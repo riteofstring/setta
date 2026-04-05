@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	binarypayload "setta/internal/binary"
+	"setta/internal/llmconfig"
+	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
@@ -152,6 +154,15 @@ func TestPythonModelRequiresManualOverrideOnlyForPythonSpecificOverrides(t *test
 	if pythonModelRequiresManualOverride(reflect.TypeOf(scriptablechat.ChatFileAttachment{})) {
 		t.Fatalf("ChatFileAttachment should use the standard schema-generated path")
 	}
+	if pythonModelRequiresManualOverride(reflect.TypeOf(llmconfig.Config{})) {
+		t.Fatalf("LLMConfig should use the standard schema-generated path")
+	}
+	if pythonModelRequiresManualOverride(reflect.TypeOf(projectstate.LineChartSettings{})) {
+		t.Fatalf("LineChartSettings should use the standard schema-generated path")
+	}
+	if pythonModelRequiresManualOverride(reflect.TypeOf(projectstate.Viewport{})) {
+		t.Fatalf("Viewport should use the standard schema-generated path")
+	}
 	if pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectRunCapabilities{})) {
 		t.Fatalf("ProjectRunCapabilities should use the standard schema-generated path")
 	}
@@ -177,6 +188,13 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class Chat(SettaSharedTypeModel):",
 		"class ChatFileAttachment(BaseModel):",
 		"class DependencyEvent(BaseModel):",
+		"class LLMConfig(BaseModel):",
+		"temporary: bool = False",
+		"class LineChartSettings(BaseModel):",
+		"type: ChartType = ChartType.line",
+		"secondYAxisColumns: list[str] = Field(default_factory=list)",
+		"class ScatterChartSettings(BaseModel):",
+		"type: ChartType = ChartType.scatter",
 		"class MessageThinkingDelta(BaseModel):",
 		"class ProjectRunCapabilities(BaseModel):",
 		"class RawArtifact(BaseModel):",
@@ -189,6 +207,9 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"message: BaseChatMessageUnion",
 		"class MessageDeltaEvent(BaseModel):",
 		"content: list[MessageContentDelta] | None",
+		"class Viewport(BaseModel):",
+		"x: float = 0.0",
+		"zoom: float = 1.0",
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)
@@ -197,11 +218,15 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	for _, snippet := range []string{
 		"class ChatFileAttachment(SettaSharedTypeModel):",
 		"class DependencyEvent(SettaSharedTypeModel):",
+		"class LLMConfig(SettaSharedTypeModel):",
+		"class LineChartSettings(SettaSharedTypeModel):",
 		"class MessageThinkingDelta(SettaSharedTypeModel):",
 		"class ProjectRunCapabilities(SettaSharedTypeModel):",
 		"class RawArtifact(SettaSharedTypeModel):",
+		"class ScatterChartSettings(SettaSharedTypeModel):",
 		"class StateMachineEdge(SettaSharedTypeModel):",
 		"class ToolCallDeltaEvent(SettaSharedTypeModel):",
+		"class Viewport(SettaSharedTypeModel):",
 	} {
 		if strings.Contains(output, snippet) {
 			t.Fatalf("generated output should not contain snippet %q", snippet)

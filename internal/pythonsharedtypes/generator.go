@@ -54,7 +54,11 @@ func Build() (GeneratedTypes, error) {
 	}
 
 	manualOverrideNames := contractSpecNameSet(manualOverrideContractSpecs(ctx.ContractSpecs))
-	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(ctx.Sidecar, manualOverrideNames)
+	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(
+		ctx.Sidecar,
+		ctx.DefaultSourcesByType,
+		manualOverrideNames,
+	)
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
@@ -72,6 +76,9 @@ func Build() (GeneratedTypes, error) {
 	}
 	models = sortModelSpecsByDependencies(models)
 	applyAliasRenderNeeds(manualAliases, typingImports, &needsDatetime)
+	if standardBlocksNeedPydanticField(standardBlocks) {
+		needsPydanticField = true
+	}
 
 	return GeneratedTypes{
 		PythonModule: renderGeneratedTypesModule(
@@ -195,9 +202,6 @@ func pythonFieldRequiresManualOverride(field reflect.StructField) bool {
 		return true
 	}
 	if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
-		return true
-	}
-	if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
 		return true
 	}
 	return false
@@ -350,6 +354,15 @@ func renderGeneratedTypesModule(
 	writeModelSpecs(&builder, models)
 	writeAliasSpecs(&builder, aliases)
 	return builder.String()
+}
+
+func standardBlocksNeedPydanticField(blocks []string) bool {
+	for _, block := range blocks {
+		if strings.Contains(block, "Field(") {
+			return true
+		}
+	}
+	return false
 }
 
 func writeStandardImports(
