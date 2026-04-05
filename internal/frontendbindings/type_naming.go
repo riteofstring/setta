@@ -124,12 +124,6 @@ func frontendBindingNamedTypes() []reflect.Type {
 	for _, t := range DiscoveredConvertibleTypes() {
 		visit(t)
 	}
-	for _, t := range DiscoveredEndpointContractTypes() {
-		if !frontendBindingRenderableEndpointContractSeed(t) {
-			continue
-		}
-		visit(t)
-	}
 	for _, export := range DiscoveredFrontendValueExports() {
 		visit(export.Type)
 	}
@@ -146,23 +140,6 @@ func frontendBindingNamedTypes() []reflect.Type {
 		return types[i].PkgPath() < types[j].PkgPath()
 	})
 	return types
-}
-
-func frontendBindingRenderableEndpointContractSeed(t reflect.Type) bool {
-	t = canonicalFrontendBindingType(t)
-	if t == nil || t.Kind() == reflect.Interface {
-		return false
-	}
-	name := strings.TrimSpace(t.Name())
-	if name == "" {
-		return false
-	}
-	for _, suffix := range []string{"RouteDependencies", "Dependencies", "Service", "Provider"} {
-		if strings.HasSuffix(name, suffix) {
-			return false
-		}
-	}
-	return true
 }
 
 func frontendBindingPreferredNamedTypes(types []reflect.Type) []reflect.Type {
