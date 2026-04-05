@@ -6241,3 +6241,58 @@ LOOP_TERMINAL_MARKER: none
   - remove the canary-local `useObservedElementSizes` ownership by routing fallback size input through a shared geometry registry or the existing section-size pipeline instead of a canary-local observer
   - then split the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx`
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 172
+
+- Item: Route canary fallback size observation through shared section refs and remove canary-local observed-size ownership.
+- Status: `blocked`
+- Details:
+  - Why this slice was necessary:
+    - item `171` left the canary with one remaining local geometry-ownership seam: `SettingsGraphSubstrateCanary.tsx` still defined `useObservedElementSizes` and managed its own section wrapper refs plus `ResizeObserver`
+    - the next bounded product step was to move that fallback-size input onto an existing shared boundary instead of lifting another pure-forwarding seam or reopening parity harness work
+    - `SectionContainerCore` already publishes shared section shell refs through `useSectionRefs.selfOnly`, so reusing that path was the narrowest way to deepen geometry ownership
+  - Production/test change:
+    - added `frontend/src/state/hooks/observedSectionElementSizes.ts`
+      - observes requested section ids through `useSectionRefs.selfOnly`
+      - updates stored sizes on resize notifications and keeps the last positive measurement until the shared ref disappears
+    - added `frontend/src/state/hooks/observedSectionElementSizes.test.tsx`
+      - covers shared-ref observation, resize updates, zero-size retention, and cleanup when a ref disappears
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - removed the local `useObservedElementSizes` hook and wrapper-node observation refs
+      - now consumes fallback size input from the shared section-ref observer hook
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - uses the shared observed-size types rather than canary-local ones
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - follows the same shared observed-size type boundary
+  - What this slice established:
+    - the canary no longer owns its own section-size `ResizeObserver`; fallback DOM size now comes from the shared section shell ref pipeline
+    - the broad normalized `shared title editing working after normalized pan and zoom` regression lane still passed after this boundary change, so the product slice did not reintroduce pan/zoom/edit drift
+    - the required CDP side-by-side visual gate is blocked by the reference runtime rather than renderer evidence:
+      - refreshed worktree runtime metadata is healthy, with a fresh bootstrap url and live `debugPort: 9297`
+      - refreshed `main` runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`
+      - the fresh-context CDP sub-agent could reach the worktree browser but could not attach to the read-only `main` reference session, so it could not complete a trustworthy compare of `3076/settings` versus `3087/settings`
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/state/hooks/observedSectionElementSizes.ts src/state/hooks/observedSectionElementSizes.test.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/state/hooks/observedSectionElementSizes.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - result: passed (`4 files`, `8 tests`)
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<current worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<current main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `50.1s`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-002/worktree-ai.log`
+    - result: worktree healthy with fresh bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-002/main-ai.log`
+    - result: `main` remains `reference_unhealthy` for CDP (`debugPort: 9309`, `debugPortSource: default`, `debugPortPid: null`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: blocked; worktree CDP is reachable, but the read-only `main` reference CDP port is not listening, so no trustworthy side-by-side visual compare was possible
+- Lane status:
+  - the geometry-authority lane advanced in product code by moving fallback size ownership onto the shared section-ref path
+  - the current blocker is `reference_unhealthy` visual-oracle availability, not a newly observed renderer defect
+- Next action:
+  - restore the read-only `main` reference CDP session and rerun the pending side-by-side visual gate for the broad normalized `shared title editing working after normalized pan and zoom` lane
+  - once that gate clears, continue with splitting the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx`
+- LOOP_TERMINAL_MARKER: none

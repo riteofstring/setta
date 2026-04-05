@@ -1,16 +1,10 @@
+import type {
+  ObservedSectionElementSize,
+  ObservedSectionElementSizes,
+} from "state/hooks/observedSectionElementSizes";
 import type { Position } from "utils/generatedTypes";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import type { GraphRect } from "./viewportTransform";
-
-export type SettingsGraphSubstrateCanaryObservedElementSize = {
-  width: number;
-  height: number;
-};
-
-export type SettingsGraphSubstrateCanaryObservedElementSizes = Record<
-  string,
-  SettingsGraphSubstrateCanaryObservedElementSize
->;
 
 export type SettingsGraphSubstrateCanarySectionPositionOverride = {
   sectionId: string;
@@ -20,7 +14,7 @@ export type SettingsGraphSubstrateCanarySectionPositionOverride = {
 export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
     renderedPosition: Position;
-    resolvedSize: SettingsGraphSubstrateCanaryObservedElementSize | null;
+    resolvedSize: ObservedSectionElementSize | null;
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
@@ -31,7 +25,7 @@ export type SettingsGraphSubstrateCanarySceneSnapshot = {
 
 export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
-  observedElementSizes: SettingsGraphSubstrateCanaryObservedElementSizes,
+  observedElementSizes: ObservedSectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
   const sceneSections = sections.map((section) => {
@@ -105,7 +99,7 @@ function getRenderedSectionPosition(
 
 function getResolvedSectionSize(
   section: GraphSubstrateCanarySection,
-  observedElementSizes: SettingsGraphSubstrateCanaryObservedElementSizes,
+  observedElementSizes: ObservedSectionElementSizes,
 ) {
   const width = section.width ?? 0;
   const height = section.height ?? 0;

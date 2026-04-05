@@ -30,6 +30,7 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
+import { useObservedSectionElementSizes } from "state/hooks/observedSectionElementSizes";
 import { useTabScope } from "utils/focusManager";
 import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
@@ -49,7 +50,6 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import {
   getSettingsGraphSubstrateCanarySceneBoundsForSections,
   resolveSettingsGraphSubstrateCanarySceneSnapshot,
-  type SettingsGraphSubstrateCanaryObservedElementSizes,
   type SettingsGraphSubstrateCanarySceneSection,
   type SettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
@@ -136,13 +136,16 @@ export function SettingsGraphSubstrateCanary() {
     rootRef,
     behavior: "canvas",
   });
-  const { getObservedElementRef, observedElementSizes } =
-    useObservedElementSizes();
   const nodeInternals = useNodeInternals((state) => state.x);
   const sections = useProjectState(
     (state) => selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     _.isEqual,
   );
+  const canarySectionIds = useMemo(
+    () => sections.map((section) => section.sectionId),
+    [sections],
+  );
+  const observedElementSizes = useObservedSectionElementSizes(canarySectionIds);
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
@@ -1007,7 +1010,6 @@ export function SettingsGraphSubstrateCanary() {
             return (
               <div
                 key={section.sectionId}
-                ref={getObservedElementRef(section.sectionId)}
                 className="react-flow__node"
                 style={{
                   cursor: sectionCursor,
@@ -1020,7 +1022,6 @@ export function SettingsGraphSubstrateCanary() {
                   zIndex: section.tempZIndex,
                 }}
                 data-id={section.sectionId}
-                data-section-id={section.sectionId}
                 data-dragging={
                   draggingSectionId === section.sectionId ? "true" : "false"
                 }
@@ -1183,104 +1184,4 @@ function useElementDimensions(ref: RefObject<HTMLDivElement>) {
   }, [ref]);
 
   return dimensions;
-}
-
-function useObservedElementSizes() {
-  const [observedElementSizes, setObservedElementSizes] =
-    useState<SettingsGraphSubstrateCanaryObservedElementSizes>({});
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const elementsRef = useRef(new Map<string, HTMLDivElement>());
-  const refCallbacksRef = useRef(
-    new Map<string, (element: HTMLDivElement | null) => void>(),
-  );
-
-  useEffect(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      setObservedElementSizes((current) => {
-        let changed = false;
-        const next = { ...current };
-
-        for (const entry of entries) {
-          const sectionId = entry.target.getAttribute("data-section-id");
-          if (!sectionId) {
-            continue;
-          }
-          if (!(entry.target instanceof HTMLElement)) {
-            continue;
-          }
-          const width = entry.target.offsetWidth;
-          const height = entry.target.offsetHeight;
-          if (width <= 0 || height <= 0) {
-            continue;
-          }
-          const previousSize = current[sectionId];
-          if (previousSize?.width === width && previousSize.height === height) {
-            continue;
-          }
-          next[sectionId] = { width, height };
-          changed = true;
-        }
-
-        return changed ? next : current;
-      });
-    });
-
-    observerRef.current = observer;
-    for (const element of elementsRef.current.values()) {
-      observer.observe(element);
-    }
-
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-    };
-  }, []);
-
-  function setObservedElement(
-    sectionId: string,
-    element: HTMLDivElement | null,
-  ) {
-    const currentElement = elementsRef.current.get(sectionId);
-    if (currentElement && currentElement !== element) {
-      observerRef.current?.unobserve(currentElement);
-      elementsRef.current.delete(sectionId);
-    }
-
-    if (!element) {
-      setObservedElementSizes((current) => {
-        if (!(sectionId in current)) {
-          return current;
-        }
-        const next = { ...current };
-        delete next[sectionId];
-        return next;
-      });
-      return;
-    }
-
-    elementsRef.current.set(sectionId, element);
-    observerRef.current?.observe(element);
-  }
-
-  function getObservedElementRef(sectionId: string) {
-    const existing = refCallbacksRef.current.get(sectionId);
-    if (existing) {
-      return existing;
-    }
-
-    const callback = (element: HTMLDivElement | null) => {
-      setObservedElement(sectionId, element);
-    };
-    refCallbacksRef.current.set(sectionId, callback);
-    return callback;
-  }
-
-  return {
-    getObservedElementRef,
-    observedElementSizes,
-  };
 }
