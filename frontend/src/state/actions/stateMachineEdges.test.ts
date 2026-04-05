@@ -14,6 +14,7 @@ import {
   createProjectConfig,
   createSectionSize,
   createStateMachineStartSectionImpl,
+  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -95,22 +96,25 @@ function createStateMachineGateImpl(id: string, machineGroup: string) {
 }
 
 function seedWorkflowSections() {
-  const startImpl = createStateMachineStartSectionImpl({
-    id: startImplId,
-    machineGroupId,
-    label: "Start",
-  });
+  const startImpl = createStateMachineStartSectionImpl(
+    {},
+    {
+      id: startImplId,
+      machineGroupId,
+      label: "Start",
+    },
+  );
   const gateImpl = createStateMachineGateImpl(gateImplId, machineGroupId);
-  const chatImpl = createChatSectionImpl({
-    ...{ chatId: "chat-a" },
-    ...{
+  const chatImpl = createChatSectionImpl(
+    createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
+    {
       id: chatImplId,
       chatId: "chat-a",
       managed: true,
       engineConfigId: "engine-a",
       thinking: false,
     },
-  });
+  );
   const endImpl = createStateMachineEndImpl(endImplId, machineGroupId);
 
   const startVariant = createVariant({

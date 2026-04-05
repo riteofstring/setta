@@ -1,4 +1,7 @@
-import type { CommitChangedFile, StatusEntry } from "utils/generatedTypes";
+import type {
+  GitCommitChangedFile,
+  GitStatusEntry,
+} from "utils/generatedTypes";
 
 export type GitFileStatusCategory =
   | "added"
@@ -39,7 +42,7 @@ export function gitFileStatusCategoryFromCode(
 }
 
 export function gitFileStatusCategoryFromEntry(
-  entry: StatusEntry,
+  entry: GitStatusEntry,
 ): GitFileStatusCategory {
   if (entry.kind === "untracked") {
     return "added";
@@ -53,7 +56,7 @@ export function gitFileStatusCategoryFromEntry(
 }
 
 export function gitFileStatusCategoryFromCommitFile(
-  file: CommitChangedFile,
+  file: GitCommitChangedFile,
 ): GitFileStatusCategory {
   return gitFileStatusCategoryFromCode(file.status);
 }

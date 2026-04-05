@@ -1,7 +1,7 @@
 import { resetProjectStores } from "state/utils";
 import {
-  route_get_llmapi_keys,
-  route_set_llmapi_keys,
+  route_get_llm_api_keys,
+  route_set_llm_api_keys,
 } from "utils/generatedEndpoints";
 import {
   afterAll,
@@ -20,13 +20,13 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_llmapi_keys: vi.fn(),
-    route_set_llmapi_keys: vi.fn(),
+    route_get_llm_api_keys: vi.fn(),
+    route_set_llm_api_keys: vi.fn(),
   };
 });
 
-const mockedRouteGetLLMApiKeys = vi.mocked(route_get_llmapi_keys);
-const mockedRouteSetLLMApiKeys = vi.mocked(route_set_llmapi_keys);
+const mockedRouteGetLLMApiKeys = vi.mocked(route_get_llm_api_keys);
+const mockedRouteSetLLMApiKeys = vi.mocked(route_set_llm_api_keys);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let mutateAndSaveLLMApiKeys: typeof import("state/actions/ai").mutateAndSaveLLMApiKeys;
