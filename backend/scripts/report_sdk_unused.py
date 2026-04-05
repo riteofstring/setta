@@ -96,6 +96,7 @@ class ClassInfo:
 class ModuleInfo:
     module: str
     path: Path
+    tree: ast.Module
     is_package: bool
     reportable: bool
     top_level_defs: dict[str, TopLevelDefinition]
@@ -410,6 +411,151 @@ class DefinitionUsageCollector(TypeCheckingAwareNodeVisitor):
             self.used_members.add((module_name, class_name, member_name))
 
 
+def assignment_target_names(stmt: ast.stmt) -> tuple[str, ...]:
+    if isinstance(stmt, ast.Assign):
+        return tuple(
+            target.id for target in stmt.targets if isinstance(target, ast.Name)
+        )
+    if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+        return (stmt.target.id,)
+    return ()
+
+
+def assignment_value_node(stmt: ast.stmt) -> ast.AST | None:
+    if isinstance(stmt, ast.Assign):
+        return stmt.value
+    if isinstance(stmt, ast.AnnAssign):
+        return stmt.value
+    return None
+
+
+def build_method_member_definition(
+    *,
+    module_name: str,
+    class_name: str,
+    path: Path,
+    stmt: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> ClassMemberDefinition:
+    return ClassMemberDefinition(
+        module=module_name,
+        class_name=class_name,
+        name=stmt.name,
+        kind="method",
+        path=path,
+        start_line=stmt.lineno,
+        end_line=stmt.end_lineno or stmt.lineno,
+    )
+
+
+def build_class_attribute_definition(
+    *,
+    module_name: str,
+    class_name: str,
+    path: Path,
+    stmt: ast.stmt,
+    name: str,
+) -> ClassMemberDefinition:
+    return ClassMemberDefinition(
+        module=module_name,
+        class_name=class_name,
+        name=name,
+        kind="class_attribute",
+        path=path,
+        start_line=stmt.lineno,
+        end_line=stmt.end_lineno or stmt.lineno,
+    )
+
+
+def build_member_definitions_from_stmt(
+    *,
+    module_name: str,
+    class_name: str,
+    path: Path,
+    stmt: ast.stmt,
+) -> list[ClassMemberDefinition]:
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return [
+            build_method_member_definition(
+                module_name=module_name,
+                class_name=class_name,
+                path=path,
+                stmt=stmt,
+            )
+        ]
+    return [
+        build_class_attribute_definition(
+            module_name=module_name,
+            class_name=class_name,
+            path=path,
+            stmt=stmt,
+            name=name,
+        )
+        for name in assignment_target_names(stmt)
+    ]
+
+
+def collect_class_member_definitions(
+    *,
+    module_name: str,
+    class_name: str,
+    path: Path,
+    body: list[ast.stmt],
+) -> list[ClassMemberDefinition]:
+    members: list[ClassMemberDefinition] = []
+    for stmt in body:
+        members.extend(
+            build_member_definitions_from_stmt(
+                module_name=module_name,
+                class_name=class_name,
+                path=path,
+                stmt=stmt,
+            )
+        )
+    return members
+
+
+def collect_class_member_dependency_entries(
+    *,
+    class_name: str,
+    member_names: set[str],
+    stmt: ast.stmt,
+) -> list[tuple[str, set[str]]]:
+    if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        refs = collect_local_member_refs(
+            class_name=class_name,
+            member_names=member_names,
+            node=stmt,
+        )
+        return [(stmt.name, refs - {stmt.name})]
+    target_names = assignment_target_names(stmt)
+    value = assignment_value_node(stmt)
+    if not target_names or value is None:
+        return []
+    refs = collect_local_member_refs(
+        class_name=class_name,
+        member_names=member_names,
+        node=value,
+    )
+    return [(name, refs - {name}) for name in target_names]
+
+
+def collect_class_member_dependencies(
+    *,
+    class_name: str,
+    member_names: set[str],
+    body: list[ast.stmt],
+) -> dict[str, set[str]]:
+    dependencies: dict[str, set[str]] = {}
+    for stmt in body:
+        for name, refs in collect_class_member_dependency_entries(
+            class_name=class_name,
+            member_names=member_names,
+            stmt=stmt,
+        ):
+            dependencies[name] = refs
+    return dependencies
+
+
 def build_class_info(
     *,
     module_name: str,
@@ -424,81 +570,21 @@ def build_class_info(
         start_line=node.lineno,
         end_line=node.end_lineno or node.lineno,
     )
-    members: list[ClassMemberDefinition] = []
-    member_names: set[str] = set()
-    member_dependencies: dict[str, set[str]] = {}
-    for stmt in node.body:
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            members.append(
-                ClassMemberDefinition(
-                    module=module_name,
-                    class_name=node.name,
-                    name=stmt.name,
-                    kind="method",
-                    path=path,
-                    start_line=stmt.lineno,
-                    end_line=stmt.end_lineno or stmt.lineno,
-                )
-            )
-            member_names.add(stmt.name)
-            continue
-        if isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                if isinstance(target, ast.Name):
-                    members.append(
-                        ClassMemberDefinition(
-                            module=module_name,
-                            class_name=node.name,
-                            name=target.id,
-                            kind="class_attribute",
-                            path=path,
-                            start_line=stmt.lineno,
-                            end_line=stmt.end_lineno or stmt.lineno,
-                        )
-                    )
-                    member_names.add(target.id)
-            continue
-        if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-            members.append(
-                ClassMemberDefinition(
-                    module=module_name,
-                    class_name=node.name,
-                    name=stmt.target.id,
-                    kind="class_attribute",
-                    path=path,
-                    start_line=stmt.lineno,
-                    end_line=stmt.end_lineno or stmt.lineno,
-                )
-            )
-            member_names.add(stmt.target.id)
-    for stmt in node.body:
-        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            member_dependencies[stmt.name] = collect_local_member_refs(
-                class_name=node.name,
-                member_names=member_names,
-                node=stmt,
-            ) - {stmt.name}
-            continue
-        if isinstance(stmt, ast.Assign):
-            refs = collect_local_member_refs(
-                class_name=node.name,
-                member_names=member_names,
-                node=stmt.value,
-            )
-            for target in stmt.targets:
-                if isinstance(target, ast.Name):
-                    member_dependencies[target.id] = refs - {target.id}
-            continue
-        if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-            member_dependencies[stmt.target.id] = collect_local_member_refs(
-                class_name=node.name,
-                member_names=member_names,
-                node=stmt.value,
-            ) - {stmt.target.id}
+    members = collect_class_member_definitions(
+        module_name=module_name,
+        class_name=node.name,
+        path=path,
+        body=node.body,
+    )
+    member_names = {member.name for member in members}
     return ClassInfo(
         definition=class_def,
         members=members,
-        member_dependencies=member_dependencies,
+        member_dependencies=collect_class_member_dependencies(
+            class_name=node.name,
+            member_names=member_names,
+            body=node.body,
+        ),
     )
 
 
@@ -545,6 +631,7 @@ def parse_module_info(
     return ModuleInfo(
         module=module_name,
         path=path,
+        tree=tree,
         is_package=is_package,
         reportable=reportable,
         top_level_defs=top_level_defs,
@@ -660,6 +747,105 @@ def propagate_member_dependencies(
     return expanded
 
 
+def collect_root_usage(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    root_modules: set[str],
+) -> tuple[set[tuple[str, str]], set[tuple[str, str, str]], set[tuple[str, str]]]:
+    used_top_level: set[tuple[str, str]] = set()
+    used_members: set[tuple[str, str, str]] = set()
+    root_exported_classes: set[tuple[str, str]] = set()
+
+    for root_module in sorted(root_modules):
+        module_info = module_infos[root_module]
+        exported_names = exported_top_level_names(module_info)
+        used_top_level.update((root_module, name) for name in exported_names)
+        root_exported_classes.update(
+            (root_module, name)
+            for name in exported_names
+            if name in module_info.classes
+        )
+        collector = DefinitionUsageCollector(
+            module_info=module_info,
+            module_infos=module_infos,
+        )
+        collector.mark_root_reexports()
+        used_top_level.update(
+            key for key in collector.used_top_level if key[1] != "__module__"
+        )
+        used_members.update(collector.used_members)
+        for module_name, name in collector.used_top_level:
+            if name == "__module__":
+                continue
+            module_data = module_infos[module_name]
+            if name in module_data.classes and (module_name, name) in used_top_level:
+                root_exported_classes.add((module_name, name))
+
+    return used_top_level, used_members, root_exported_classes
+
+
+def collect_reachable_usage(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    reachable_modules: set[str],
+) -> tuple[set[tuple[str, str]], set[tuple[str, str, str]]]:
+    used_top_level: set[tuple[str, str]] = set()
+    used_members: set[tuple[str, str, str]] = set()
+
+    for module_name in sorted(reachable_modules):
+        module_info = module_infos[module_name]
+        usage_collector = DefinitionUsageCollector(
+            module_info=module_info,
+            module_infos=module_infos,
+        )
+        usage_collector.visit(module_info.tree)
+        used_top_level.update(usage_collector.used_top_level)
+        used_members.update(usage_collector.used_members)
+
+    return used_top_level, used_members
+
+
+def collect_report_findings(
+    *,
+    module_infos: dict[str, ModuleInfo],
+    reachable_modules: set[str],
+    used_top_level: set[tuple[str, str]],
+    used_members: set[tuple[str, str, str]],
+) -> tuple[list[str], list[TopLevelDefinition], list[ClassMemberDefinition]]:
+    unreachable_modules = sorted(
+        module_name
+        for module_name, module_info in module_infos.items()
+        if module_info.reportable and module_name not in reachable_modules
+    )
+    unused_top_level: list[TopLevelDefinition] = []
+    potential_unused_members: list[ClassMemberDefinition] = []
+
+    for module_name in sorted(reachable_modules):
+        module_info = module_infos[module_name]
+        if not module_info.reportable:
+            continue
+        unused_top_level.extend(
+            definition
+            for definition in module_info.top_level_defs.values()
+            if definition.key not in used_top_level
+        )
+        potential_unused_members.extend(
+            member
+            for class_name, class_info in module_info.classes.items()
+            if (module_name, class_name) in used_top_level
+            for member in class_info.members
+            if member.key not in used_members
+        )
+
+    unused_top_level.sort(
+        key=lambda definition: (definition.module, definition.start_line)
+    )
+    potential_unused_members.sort(
+        key=lambda member: (member.module, member.class_name, member.start_line)
+    )
+    return unreachable_modules, unused_top_level, potential_unused_members
+
+
 def analyze_repo(
     *,
     repo_root: Path,
@@ -681,45 +867,16 @@ def analyze_repo(
         module_infos=module_infos,
         root_modules=root_modules,
     )
-    used_top_level: set[tuple[str, str]] = set()
-    used_members: set[tuple[str, str, str]] = set()
-    root_exported_classes: set[tuple[str, str]] = set()
-
-    for root_module in sorted(root_modules):
-        module_info = module_infos[root_module]
-        for name in exported_top_level_names(module_info):
-            used_top_level.add((root_module, name))
-            if name in module_info.classes:
-                root_exported_classes.add((root_module, name))
-        collector = DefinitionUsageCollector(
-            module_info=module_info,
-            module_infos=module_infos,
-        )
-        collector.mark_root_reexports()
-        used_top_level.update(
-            key for key in collector.used_top_level if key[1] != "__module__"
-        )
-        for module_name, class_name, member_name in collector.used_members:
-            used_members.add((module_name, class_name, member_name))
-        for module_name, name in collector.used_top_level:
-            if name == "__module__":
-                continue
-            module_data = module_infos[module_name]
-            if name in module_data.classes and (module_name, name) in used_top_level:
-                root_exported_classes.add((module_name, name))
-
-    for module_name in sorted(reachable_modules):
-        module_info = module_infos[module_name]
-        usage_collector = DefinitionUsageCollector(
-            module_info=module_info,
-            module_infos=module_infos,
-        )
-        tree = ast.parse(
-            module_info.path.read_text(encoding="utf-8"), filename=str(module_info.path)
-        )
-        usage_collector.visit(tree)
-        used_top_level.update(usage_collector.used_top_level)
-        used_members.update(usage_collector.used_members)
+    used_top_level, used_members, root_exported_classes = collect_root_usage(
+        module_infos=module_infos,
+        root_modules=root_modules,
+    )
+    reachable_used_top_level, reachable_used_members = collect_reachable_usage(
+        module_infos=module_infos,
+        reachable_modules=reachable_modules,
+    )
+    used_top_level.update(reachable_used_top_level)
+    used_members.update(reachable_used_members)
 
     for module_name, class_name in root_exported_classes:
         class_info = module_infos[module_name].classes[class_name]
@@ -730,34 +887,13 @@ def analyze_repo(
         module_infos=module_infos,
         used_members=used_members,
     )
-
-    unused_top_level: list[TopLevelDefinition] = []
-    potential_unused_members: list[ClassMemberDefinition] = []
-    unreachable_modules = sorted(
-        module_name
-        for module_name, module_info in module_infos.items()
-        if module_info.reportable and module_name not in reachable_modules
-    )
-
-    for module_name in sorted(reachable_modules):
-        module_info = module_infos[module_name]
-        if not module_info.reportable:
-            continue
-        for definition in module_info.top_level_defs.values():
-            if definition.key not in used_top_level:
-                unused_top_level.append(definition)
-        for class_name, class_info in module_info.classes.items():
-            if (module_name, class_name) not in used_top_level:
-                continue
-            for member in class_info.members:
-                if member.key not in used_members:
-                    potential_unused_members.append(member)
-
-    unused_top_level.sort(
-        key=lambda definition: (definition.module, definition.start_line)
-    )
-    potential_unused_members.sort(
-        key=lambda member: (member.module, member.class_name, member.start_line)
+    unreachable_modules, unused_top_level, potential_unused_members = (
+        collect_report_findings(
+            module_infos=module_infos,
+            reachable_modules=reachable_modules,
+            used_top_level=used_top_level,
+            used_members=used_members,
+        )
     )
 
     return AnalysisReport(
