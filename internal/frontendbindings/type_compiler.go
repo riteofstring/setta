@@ -306,32 +306,102 @@ func (c *typeConverter) namedStructPropertySpec(
 	ownerType reflect.Type,
 	field reflect.StructField,
 ) (reflectedStructProperty, bool, error) {
-	name, optional, skip := jsonFieldName(field)
-	if skip {
+	jsonTag := strings.TrimSpace(field.Tag.Get("json"))
+	if jsonTag == "-" {
 		return reflectedStructProperty{}, false, nil
 	}
-	tsMetadata, err := tsFieldMetadata(field)
-	if err != nil {
-		return reflectedStructProperty{}, false, fmt.Errorf("%s.%s: %w", ownerType.Name(), field.Name, err)
+	if jsonTag == "" {
+		panic(fmt.Sprintf("frontend binding field %s is missing a json tag", field.Name))
 	}
-	if tsMetadata.Skip {
-		return reflectedStructProperty{}, false, nil
+	name, jsonOptions, _ := strings.Cut(jsonTag, ",")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
 	}
-	if tsMetadata.Optional != nil {
-		optional = *tsMetadata.Optional
+	optional := false
+	for jsonOptions != "" {
+		option := jsonOptions
+		option, jsonOptions, _ = strings.Cut(option, ",")
+		if strings.TrimSpace(option) == "omitempty" {
+			optional = true
+		}
 	}
-	typeExpr := strings.TrimSpace(tsMetadata.TypeExpr)
-	fieldType, nullable := unwrapNullableFieldType(field.Type)
+
+	typeExpr := strings.TrimSpace(field.Tag.Get("ts_type"))
+	if tag := strings.TrimSpace(field.Tag.Get("ts_optional")); tag != "" {
+		override, err := strconv.ParseBool(tag)
+		if err != nil {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: invalid ts_optional value %q",
+				ownerType.Name(),
+				field.Name,
+				tag,
+			)
+		}
+		optional = override
+	}
+	createExpr := strings.TrimSpace(field.Tag.Get("ts_create_expr"))
+	createMapValues := false
+	if tag := strings.TrimSpace(field.Tag.Get("ts_create_map_values")); tag != "" {
+		parsed, err := strconv.ParseBool(tag)
+		if err != nil {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: invalid ts_create_map_values value %q",
+				ownerType.Name(),
+				field.Name,
+				tag,
+			)
+		}
+		createMapValues = parsed
+	}
+	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {
+		skip, err := strconv.ParseBool(tag)
+		if err != nil {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: invalid ts_skip value %q",
+				ownerType.Name(),
+				field.Name,
+				tag,
+			)
+		}
+		if skip {
+			return reflectedStructProperty{}, false, nil
+		}
+	}
+
+	nullable := false
+	fieldType := field.Type
+	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
 	createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
-	mapValueCreateTargetTypeName, err := resolvedMapValueCreateTargetTypeName(
-		ownerType,
-		field,
-		fieldType,
-		typeExpr,
-		tsMetadata,
-	)
-	if err != nil {
-		return reflectedStructProperty{}, false, err
+
+	mapValueCreateTargetTypeName := ""
+	if createMapValues {
+		if fieldType == nil || fieldType.Kind() != reflect.Map {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: ts_create_map_values requires a map field",
+				ownerType.Name(),
+				field.Name,
+			)
+		}
+		var ok bool
+		mapValueCreateTargetTypeName, ok = frontendBindingCreateTargetTypeName(fieldType.Elem())
+		if !ok {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: ts_create_map_values requires map values with generated create support",
+				ownerType.Name(),
+				field.Name,
+			)
+		}
+		if typeExpr == "" {
+			return reflectedStructProperty{}, false, fmt.Errorf(
+				"%s.%s: ts_create_map_values requires explicit ts_type",
+				ownerType.Name(),
+				field.Name,
+			)
+		}
 	}
 	return reflectedStructProperty{
 		Property: TypeProperty{
@@ -340,41 +410,10 @@ func (c *typeConverter) namedStructPropertySpec(
 			Optional: optional,
 		},
 		Nullable:                     nullable,
-		CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
+		CreateExpr:                   createExpr,
 		CreateTargetTypeName:         createTargetTypeName,
 		MapValueCreateTargetTypeName: mapValueCreateTargetTypeName,
 	}, true, nil
-}
-
-func resolvedMapValueCreateTargetTypeName(
-	ownerType reflect.Type,
-	field reflect.StructField,
-	fieldType reflect.Type,
-	typeExpr string,
-	tsMetadata tsFieldMetadataSpec,
-) (string, error) {
-	if !tsMetadata.CreateMapValues {
-		return "", nil
-	}
-	if fieldType == nil || fieldType.Kind() != reflect.Map {
-		return "", fmt.Errorf("%s.%s: ts_create_map_values requires a map field", ownerType.Name(), field.Name)
-	}
-	mapValueCreateTargetTypeName, ok := frontendBindingCreateTargetTypeName(fieldType.Elem())
-	if !ok {
-		return "", fmt.Errorf(
-			"%s.%s: ts_create_map_values requires map values with generated create support",
-			ownerType.Name(),
-			field.Name,
-		)
-	}
-	if typeExpr == "" {
-		return "", fmt.Errorf(
-			"%s.%s: ts_create_map_values requires explicit ts_type",
-			ownerType.Name(),
-			field.Name,
-		)
-	}
-	return mapValueCreateTargetTypeName, nil
 }
 
 func frontendBindingCreateTargetTypeName(fieldType reflect.Type) (string, bool) {
@@ -389,80 +428,4 @@ func frontendBindingCreateTargetTypeName(fieldType reflect.Type) (string, bool) 
 		return "", false
 	}
 	return frontendBindingTypeName(fieldType), true
-}
-
-func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
-	nullable := false
-	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
-		nullable = true
-		fieldType = fieldType.Elem()
-	}
-	return fieldType, nullable
-}
-
-func jsonFieldName(field reflect.StructField) (name string, optional bool, skip bool) {
-	tag := field.Tag.Get("json")
-	if tag == "-" {
-		return "", false, true
-	}
-	if tag == "" {
-		panic(fmt.Sprintf("frontend binding field %s is missing a json tag", field.Name))
-	}
-	parts := strings.Split(tag, ",")
-	name = strings.TrimSpace(parts[0])
-	if name == "" {
-		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
-	}
-	for _, part := range parts[1:] {
-		if strings.TrimSpace(part) == "omitempty" {
-			optional = true
-		}
-	}
-	return name, optional, false
-}
-
-type tsFieldMetadataSpec struct {
-	TypeExpr        string
-	Optional        *bool
-	CreateExpr      string
-	CreateMapValues bool
-	Skip            bool
-}
-
-func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
-	spec := tsFieldMetadataSpec{}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_type")); tag != "" {
-		spec.TypeExpr = tag
-	}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_optional")); tag != "" {
-		optional, err := strconv.ParseBool(tag)
-		if err != nil {
-			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_optional value %q", tag)
-		}
-		spec.Optional = &optional
-	}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_create_expr")); tag != "" {
-		spec.CreateExpr = tag
-	}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_create_map_values")); tag != "" {
-		createMapValues, err := strconv.ParseBool(tag)
-		if err != nil {
-			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_create_map_values value %q", tag)
-		}
-		spec.CreateMapValues = createMapValues
-	}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {
-		skip, err := strconv.ParseBool(tag)
-		if err != nil {
-			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_skip value %q", tag)
-		}
-		spec.Skip = skip
-	}
-
-	return spec, nil
 }
