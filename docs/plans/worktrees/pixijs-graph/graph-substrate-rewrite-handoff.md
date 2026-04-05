@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 03:51 EDT
+Last updated: 2026-04-08 03:59 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,19 +62,20 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification state:
-  - item `293` is now landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
-  - the pre-recovery live probes on the current `3077/8077` worktree and `3088/8088` read-only `main` runtimes passed:
+  - item `293` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
+  - the production probes from the prior pass still stand:
     - worktree-only instrumentation probe stayed stable on the focused lane:
       - focused `pixiDrawableCount` stayed `1` at fit-view and `2` after normalized pan/zoom
       - auto-fit still showed `42`
     - the cross-worktree motion-perf probe showed a real improvement for this slice:
       - legacy `main`: average `17.80ms`, max `83.2ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
       - worktree canary: average `18.99ms`, max `66.7ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
-  - Chrome DevTools MCP status for this slice is currently blocked:
-    - two fresh-context CDP sub-agent attempts did not return before shutdown
-    - the returned CDP blocker report said `list_pages` timed out and both `new_page` attempts failed with `Network.enable timed out`
-    - a direct main-thread retry saw the same `Network.enable timed out` failure
-    - one allowed headless `./aireset.sh` recovery restarted the worktree on `3076/8076` with debug port `9298`, but a retry still failed immediately at `list_pages` with the same timeout
+  - the fresh-loop CDP smoke retry on the current `3076/8076` worktree and `3087/8087` read-only `main` runtimes passed:
+    - refreshed runtime info resolved worktree frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
+    - refreshed runtime info resolved main frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
+    - fresh-context Chrome DevTools MCP smoke-check reached both Settings pages and confirmed live workspace signals on both sides (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
+    - the worktree smoke-check saw one transient `navigate_page` timeout at `10000ms`, but the retry succeeded and the transport stayed usable
+    - this closes the smoke gate only; it is not a focused parity proof
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -89,27 +90,25 @@ This section overrides older "next frontier" notes below when choosing the next 
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
   - the next true product hotspot is still the remaining focused viewport-sync or Pixi/scene work that runs after presentation gating and interaction-state dedupe
-  - however, the next iteration must close the blocked CDP smoke gate first because the live surface itself is healthy and only the CDP transport is failing
+  - the blocked smoke gate is no longer the blocker, so the next iteration should return to one bounded production reduction on the same canonical lane instead of reopening transport triage
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- first retry the blocked CDP smoke-check on a fresh lifecycle for item `293`; do not pick a new product slice until the required visual gate is either closed or clearly still transport-blocked
+- land one bounded production reduction in the remaining focused viewport-sync or Pixi/scene path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
 
 Recommended next target:
 
-- start from a fresh loop bootstrap and retry the same bounded CDP smoke-check only:
-  - worktree `http://127.0.0.1:3076/settings`
-  - read-only `main` `http://127.0.0.1:3088/settings`
-- if CDP is healthy again, confirm only that the worktree still renders a live canary workspace and `main` still renders a live legacy workspace; do not spend the retry on deep parity or fragile gestures
-- if that smoke-check closes, then return to one bounded production reduction in the remaining focused viewport-sync or Pixi/scene path on `rotaryParamCodeObjDefault`
+- stay on the same normalized motion lane and use the existing instrumentation/perf probe to choose one production slice that reduces the remaining post-dedupe work
+- prefer a deeper focused viewport-sync or Pixi/scene reduction over another presentation-boundary hop, support-only oracle pass, or baseline-only report
+- keep the CDP work bounded to the required visual confirmation for the chosen product slice; do not spend the default pass re-proving the smoke gate that is now green
 
 Recommended deliverables for the next iteration:
 
-- bounded CDP smoke-check retry after the fresh lifecycle
-- if the retry passes, keep the wheel-interaction dedupe lane closed and pick the next viewport-sync or focused Pixi/scene slice using the same motion probe
-- if the retry fails with the same transport timeout again, record that the blocker survived the fresh lifecycle and stop treating it as a product regression signal
+- one bounded production change on `rotaryParamCodeObjDefault`
+- focused automated verification on the exact hot path that changed
+- required CDP confirmation for that slice, using the smoke-check recovery knowledge only if transport regresses again
 
 Recommended canonical target:
 
@@ -119,7 +118,7 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- a new product refactor before the blocked item `293` CDP smoke gate is resolved or explicitly reclassified
+- another smoke-only retry unless Chrome DevTools MCP transport regresses again
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
@@ -128,6 +127,30 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `294` retried the bounded CDP smoke-check on the fresh loop lifecycle and confirmed that Chrome DevTools MCP transport is usable again on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes, so the smoke gate is closed and the next frontier returns to product code on `rotaryParamCodeObjDefault`.
+
+  - Why this pass completed:
+    - item `293` explicitly handed the next iteration to one bounded CDP smoke-check retry before opening another product slice
+    - the fresh-loop runtime refresh plus fresh-context CDP smoke-check was sufficient to classify the prior blocker without reopening parity or gesture noise
+    - the result is now explicit: the live surface is healthy and the CDP smoke gate is green again, so transport triage should no longer block the next product pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass stayed at smoke-check scope only and did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`graph-substrate-rewrite-handoff.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md) to close the stale CDP transport blocker and hand the next iteration back to the remaining focused viewport-sync or Pixi/scene hotspot
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-011/worktree-ai.log` -> passed; resolved frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-011/main-ai.log` -> passed; resolved frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
+    - fresh-context Chrome DevTools MCP sub-agent -> smoke-check only:
+      - read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - confirmed `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings` both showed live Settings workspace signals (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
+      - the first worktree `navigate_page` attempt hit `Navigation timeout of 10000 ms exceeded`, but the retry succeeded and transport remained usable
+      - this was intentionally a smoke-check only, not a parity proof
+  - Lane status:
+    - the CDP smoke gate for item `293` is closed again and should not be reopened unless transport regresses on a later slice
+    - the repeated wheel interaction-state sync lane remains landed, and the next hotspot is still deeper viewport-sync or focused Pixi/scene work on the same canonical lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `293` deduped repeated wheel interaction-state syncs on the canonical `rotaryParamCodeObjDefault` lane, which produced a real motion win on the trusted cross-worktree probe, but the required CDP smoke-check is blocked because `chrome-devtools-mcp` still times out after one allowed headless `./aireset.sh` recovery.
 

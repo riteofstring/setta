@@ -11199,6 +11199,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 03:51 EDT, Ralph item `293`
+
   - Summary: deduped repeated wheel interaction-state syncs on the canonical `rotaryParamCodeObjDefault` lane, which improved the normalized cross-worktree motion probe, but the required CDP smoke-check remained blocked even after one allowed headless `./aireset.sh` recovery because `chrome-devtools-mcp` kept timing out.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.ts`
@@ -11235,4 +11236,28 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - start the next iteration from a fresh loop bootstrap and retry only the bounded CDP smoke-check for `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3088/settings`
     - if the visual smoke-check closes, return to one bounded viewport-sync or focused Pixi/scene reduction on the same `rotaryParamCodeObjDefault` lane
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 03:59 EDT, Ralph item `294`
+  - Summary: retried the bounded CDP smoke-check on the fresh loop lifecycle, confirmed Chrome DevTools MCP transport is healthy again on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes, and closed the stale smoke-gate blocker without reopening parity or gesture work.
+  - Files:
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass stayed at smoke-check scope only and did not open a new section-specific lane
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-011/worktree-ai.log` -> passed; resolved frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug port `9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-011/main-ai.log` -> passed; resolved frontend `http://127.0.0.1:3087/`, backend `http://127.0.0.1:8087`, bootstrap `http://127.0.0.1:8087/__setta__/bootstrap#token=...`, debug port `9309`
+    - fresh-context Chrome DevTools MCP sub-agent -> smoke-check only:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - confirmed both `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings` showed live Settings workspace signals (`RootWebArea "Settings"`, `main`, `/home`, `Connected to server`)
+      - the first worktree `navigate_page` attempt hit `Navigation timeout of 10000 ms exceeded`, but the retry succeeded and transport remained usable
+      - this was intentionally a smoke-check only, not a focused parity proof
+  - Result:
+    - the stale CDP transport blocker from item `293` is cleared and should not block the next product slice unless transport regresses again
+    - the next true frontier returns to one bounded production reduction in deeper focused viewport-sync or Pixi/scene work on the same canonical lane
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in the remaining post-dedupe viewport-sync or focused Pixi/scene path
+    - keep CDP work bounded to required confirmation for that next product slice instead of reopening smoke-only transport triage
   - LOOP_TERMINAL_MARKER: none
