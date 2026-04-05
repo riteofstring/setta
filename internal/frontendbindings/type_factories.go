@@ -480,32 +480,6 @@ func buildGeneratedImplFactoryBodyTS(
 	) + ";"
 }
 
-func baseChartSettingsUnionFactoryDeclaration() TypeDeclaration {
-	return exportedFunctionDeclaration(
-		"createBaseChartSettingsUnionWithDiscriminator",
-		"BaseChartSettingsUnion",
-		`  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }`,
-		TypeProperty{
-			Name: "options",
-			TypeExpr: `({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>)`,
-		},
-	)
-}
-
-func additionalFactoryDeclarations() []TypeDeclaration {
-	return []TypeDeclaration{
-		baseChartSettingsUnionFactoryDeclaration(),
-	}
-}
-
 func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
 	declarations := []TypeDeclaration{}
 	if familyDeclarations, ok, err := discriminatedObjectFamilyAdditionalDeclarations(t); err != nil {

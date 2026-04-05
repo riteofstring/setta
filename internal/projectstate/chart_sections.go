@@ -23,13 +23,13 @@ const (
 
 type ChartSettingsUpdate struct {
 	Type               ChartType `json:"type"`
-	XAxisColumn        *string   `json:"xAxisColumn"`
-	SecondYAxisColumns []string  `json:"secondYAxisColumns"`
-	CategoryColumn     *string   `json:"categoryColumn"`
-	XAxisLog           bool      `json:"xAxisLog"`
-	Y1AxisLog          bool      `json:"y1AxisLog"`
-	Y2AxisLog          bool      `json:"y2AxisLog"`
-	YAxisLog           bool      `json:"yAxisLog"`
+	XAxisColumn        *string   `json:"xAxisColumn,omitempty"`
+	SecondYAxisColumns []string  `json:"secondYAxisColumns,omitempty"`
+	CategoryColumn     *string   `json:"categoryColumn,omitempty"`
+	XAxisLog           bool      `json:"xAxisLog,omitempty"`
+	Y1AxisLog          bool      `json:"y1AxisLog,omitempty"`
+	Y2AxisLog          bool      `json:"y2AxisLog,omitempty"`
+	YAxisLog           bool      `json:"yAxisLog,omitempty"`
 }
 
 type chartSettingsState struct {

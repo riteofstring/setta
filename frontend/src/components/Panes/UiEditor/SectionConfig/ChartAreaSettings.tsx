@@ -1,6 +1,7 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
+  type ProjectstateChartSettingsUpdate,
   setChartAreaDataPath,
   setChartSettings,
   setChartType,
@@ -16,7 +17,6 @@ import {
   BaseChartSettingsUnion,
   ChartType,
   ChartTypeEnum,
-  createBaseChartSettingsUnionWithDiscriminator,
   LineChartSettings,
   ScatterChartSettings,
   SectionTypeEnum,
@@ -132,6 +132,36 @@ type BooleanKeys<T> = {
   [K in keyof T]: T[K] extends boolean ? K : never;
 }[keyof T] &
   string; // & string ensures we only get string keys
+
+function chartSettingsPatch(
+  chartType: ChartType,
+  patch: Omit<Partial<ProjectstateChartSettingsUpdate>, "type">,
+): ProjectstateChartSettingsUpdate {
+  return {
+    type: chartType,
+    ...patch,
+  };
+}
+
+function chartSettingsBooleanPatch(
+  chartType: ChartType,
+  name: string,
+  value: boolean,
+): ProjectstateChartSettingsUpdate {
+  switch (name) {
+    case "xAxisLog":
+      return chartSettingsPatch(chartType, { xAxisLog: value });
+    case "y1AxisLog":
+      return chartSettingsPatch(chartType, { y1AxisLog: value });
+    case "y2AxisLog":
+      return chartSettingsPatch(chartType, { y2AxisLog: value });
+    case "yAxisLog":
+      return chartSettingsPatch(chartType, { yAxisLog: value });
+    default:
+      throw new Error(`Unsupported chart setting ${name}`);
+  }
+}
+
 function LineChartConfig({
   sectionId,
   chartSettings,
@@ -284,13 +314,12 @@ function XAxisColumnSelection({
               body: {
                 projectConfigId: getCurrProjectConfigId(),
                 sectionId,
-                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-                  type: chartType,
-                  xAxisColumn: v,
+                chartSettings: chartSettingsPatch(chartType, {
+                  xAxisColumn: v ?? undefined,
                 }),
                 changedSettings: ["xAxisColumn"],
               },
-            } as Parameters<typeof setChartSettings>[0]),
+            }),
           );
         }}
         selectedItemCanBeNull={xAxisCanBeNull}
@@ -332,13 +361,12 @@ function CategoryColumnSelection({
               body: {
                 projectConfigId: getCurrProjectConfigId(),
                 sectionId,
-                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-                  type: chartType,
-                  categoryColumn: v,
+                chartSettings: chartSettingsPatch(chartType, {
+                  categoryColumn: v ?? undefined,
                 }),
                 changedSettings: ["categoryColumn"],
               },
-            } as Parameters<typeof setChartSettings>[0]),
+            }),
           )
         }
       />
@@ -415,13 +443,14 @@ function ChartConfigToggle({
               body: {
                 projectConfigId: getCurrProjectConfigId(),
                 sectionId,
-                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-                  type: chartType,
-                  [name]: e.target.checked,
-                }),
+                chartSettings: chartSettingsBooleanPatch(
+                  chartType,
+                  name,
+                  e.target.checked,
+                ),
                 changedSettings: [name],
               },
-            } as Parameters<typeof setChartSettings>[0]),
+            }),
           )
         }
       />

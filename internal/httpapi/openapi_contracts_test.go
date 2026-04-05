@@ -1047,6 +1047,22 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
 	if createWindowSpace.OperationID != "createWindowSpace" {
 		t.Fatalf("create window space operation id = %q, want %q", createWindowSpace.OperationID, "createWindowSpace")
 	}
+
+	assertOpenAPISchemaRequiredProperties(
+		t,
+		document,
+		"#/components/schemas/ProjectstateChartSettingsUpdate",
+		[]string{"type"},
+		[]string{
+			"xAxisColumn",
+			"secondYAxisColumns",
+			"categoryColumn",
+			"xAxisLog",
+			"y1AxisLog",
+			"y2AxisLog",
+			"yAxisLog",
+		},
+	)
 }
 
 func assertOpenAPIOperationID(
@@ -1131,6 +1147,37 @@ func assertOpenAPIStringEnumProperty(
 		got, _ := enumValues[index].(string)
 		if got != want {
 			t.Fatalf("schema %s property %s enum[%d] = %q, want %q", schemaName, propertyName, index, got, want)
+		}
+	}
+}
+
+func assertOpenAPISchemaRequiredProperties(
+	t *testing.T,
+	document *huma.OpenAPI,
+	schemaRef string,
+	wantRequired []string,
+	wantOptional []string,
+) {
+	t.Helper()
+
+	schema := document.Components.Schemas.SchemaFromRef(schemaRef)
+	if schema == nil {
+		t.Fatalf("schema %s missing from document", schemaRef)
+	}
+
+	required := make(map[string]struct{}, len(schema.Required))
+	for _, name := range schema.Required {
+		required[name] = struct{}{}
+	}
+
+	for _, name := range wantRequired {
+		if _, ok := required[name]; !ok {
+			t.Fatalf("schema %s required properties = %#v, want %q to be required", schemaRef, schema.Required, name)
+		}
+	}
+	for _, name := range wantOptional {
+		if _, ok := required[name]; ok {
+			t.Fatalf("schema %s required properties = %#v, want %q to be optional", schemaRef, schema.Required, name)
 		}
 	}
 }

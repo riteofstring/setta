@@ -9,7 +9,6 @@ func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
 		),
 	}
-	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)
 	return declarations
 }

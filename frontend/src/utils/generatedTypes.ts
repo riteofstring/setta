@@ -607,20 +607,6 @@ export type ScatterChartSettings = {
   xAxisLog: boolean;
   yAxisLog: boolean;
 };
-function createScatterChartSettings(
-  options: Partial<ScatterChartSettings> = {},
-): ScatterChartSettings {
-  return mergeGeneratedOptions<ScatterChartSettings>(
-    {
-      type: "scatter",
-      xAxisColumn: null,
-      categoryColumn: null,
-      xAxisLog: false,
-      yAxisLog: false,
-    },
-    options,
-  );
-}
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
 
@@ -6082,21 +6068,6 @@ type JSONValue =
   | string
   | Array<JSONValue>
   | { [key: string]: JSONValue | undefined };
-
-export function createBaseChartSettingsUnionWithDiscriminator(
-  options:
-    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
-): BaseChartSettingsUnion {
-  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }
-}
 
 export const BootstrapProtocol = {
   workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",

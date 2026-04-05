@@ -2939,14 +2939,14 @@ export type ProjectstateBrowserSavedSearchTypeFilters = {
 };
 
 export type ProjectstateChartSettingsUpdate = {
-  categoryColumn: string | null;
-  secondYAxisColumns: Array<string> | null;
+  categoryColumn?: string;
+  secondYAxisColumns?: Array<string> | null;
   type: string;
-  xAxisColumn: string | null;
-  xAxisLog: boolean;
-  y1AxisLog: boolean;
-  y2AxisLog: boolean;
-  yAxisLog: boolean;
+  xAxisColumn?: string;
+  xAxisLog?: boolean;
+  y1AxisLog?: boolean;
+  y2AxisLog?: boolean;
+  yAxisLog?: boolean;
 };
 
 export type ProjectstateChatSectionBranch = {

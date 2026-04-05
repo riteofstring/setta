@@ -8871,7 +8871,7 @@
         "additionalProperties": false,
         "properties": {
           "categoryColumn": {
-            "type": ["string", "null"]
+            "type": "string"
           },
           "secondYAxisColumns": {
             "items": {
@@ -8883,7 +8883,7 @@
             "type": "string"
           },
           "xAxisColumn": {
-            "type": ["string", "null"]
+            "type": "string"
           },
           "xAxisLog": {
             "type": "boolean"
@@ -8898,16 +8898,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "type",
-          "xAxisColumn",
-          "secondYAxisColumns",
-          "categoryColumn",
-          "xAxisLog",
-          "y1AxisLog",
-          "y2AxisLog",
-          "yAxisLog"
-        ],
+        "required": ["type"],
         "type": "object"
       },
       "ProjectstateChatSectionBranch": {
