@@ -325,6 +325,47 @@ version = "1.0.0"
     )
 
 
+def test_normalize_uv_lock_keeps_non_transient_options_block(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "normalize_uv_lock_keep_options"
+    scripts_dir = sandbox_root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/normalize_uv_lock.py"
+    )
+    lockfile = sandbox_root / "uv.lock"
+    lockfile.write_text(
+        """version = 1
+
+[options]
+exclude-newer = "2026-03-24T12:00:00Z"
+native-tls = true
+
+[[package]]
+name = "demo"
+version = "1.0.0"
+""",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "python3",
+            str(sandbox_root / "scripts" / "normalize_uv_lock.py"),
+            str(lockfile),
+        ],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert lockfile.read_text(encoding="utf-8") == (
+        'version = 1\n\n[options]\nexclude-newer = "2026-03-24T12:00:00Z"\nnative-tls = true\n\n[[package]]\nname = "demo"\nversion = "1.0.0"\n'
+    )
+
+
 def test_audit_supply_chain_wires_python_go_and_pnpm_audits(
     tmp_path: Path,
 ) -> None:
