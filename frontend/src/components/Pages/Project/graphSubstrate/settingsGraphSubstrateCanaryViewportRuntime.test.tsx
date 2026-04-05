@@ -42,12 +42,6 @@ function ViewportRuntimeProbe({
   const rootRef = useRef<HTMLDivElement>(null);
   const runtime = useSettingsGraphSubstrateCanaryViewportRuntime({
     defaultZoomLevel: 1,
-    initialSectionPosition: sceneSnapshot.sections[0]?.position
-      ? {
-          x: sceneSnapshot.sections[0].position.x,
-          y: sceneSnapshot.sections[0].position.y,
-        }
-      : null,
     maxZoom: 4,
     minZoom: 0.1,
     overviewTrueWidth: 420,
@@ -240,6 +234,29 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
     });
   });
 
+  it("uses the authoritative rendered scene position for the provisional fallback seed", async () => {
+    await act(async () => {
+      root.render(
+        <ViewportRuntimeProbe
+          localViewport={null}
+          sceneSnapshot={createSceneSnapshot({
+            position: { x: 120, y: 80 },
+            renderedPosition: { x: 480, y: 240 },
+            resolvedSize: null,
+            sceneBounds: null,
+          })}
+          sharedProjectViewport={null}
+        />,
+      );
+    });
+
+    expect(readResolvedViewport(host)).toEqual({
+      x: -432,
+      y: -192,
+      zoom: 1,
+    });
+  });
+
   it("treats local interaction writes as the new authoritative viewport owner", async () => {
     const localViewport = { x: -140, y: 88, zoom: 1.6 };
 
@@ -307,26 +324,36 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
   });
 });
 
-function createSceneSnapshot(): SettingsGraphSubstrateCanarySceneSnapshot {
+function createSceneSnapshot({
+  position = { x: 120, y: 80 },
+  renderedPosition = position,
+  resolvedSize = { width: 240, height: 160 },
+  sceneBounds = {
+    x: renderedPosition.x,
+    y: renderedPosition.y,
+    width: resolvedSize?.width ?? 0,
+    height: resolvedSize?.height ?? 0,
+  },
+}: {
+  position?: { x: number; y: number };
+  renderedPosition?: { x: number; y: number };
+  resolvedSize?: { width: number; height: number } | null;
+  sceneBounds?: SettingsGraphSubstrateCanarySceneSnapshot["sceneBounds"];
+} = {}): SettingsGraphSubstrateCanarySceneSnapshot {
   const section = {
-    height: 160,
-    position: { x: 120, y: 80 },
+    height: resolvedSize?.height ?? 160,
+    position,
     positionAndSizeLocked: false,
-    renderedPosition: { x: 120, y: 80 },
-    resolvedSize: { width: 240, height: 160 },
+    renderedPosition,
+    resolvedSize,
     sectionId: "section-a",
     tempZIndex: 2,
-    width: 240,
+    width: resolvedSize?.width ?? 240,
     zIndex: 2,
   };
 
   return {
-    sceneBounds: {
-      x: 120,
-      y: 80,
-      width: 240,
-      height: 160,
-    },
+    sceneBounds,
     sections: [section],
     sectionsById: new Map([[section.sectionId, section]]),
   };

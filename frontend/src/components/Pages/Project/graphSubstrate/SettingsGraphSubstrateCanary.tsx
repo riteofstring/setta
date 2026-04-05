@@ -119,12 +119,6 @@ export function SettingsGraphSubstrateCanary() {
   const snapToGrid = useLocalStorage((state) => state.snapToGrid);
   const viewportRuntime = useSettingsGraphSubstrateCanaryViewportRuntime({
     defaultZoomLevel,
-    initialSectionPosition: sections[0]
-      ? {
-          x: sections[0].position.x,
-          y: sections[0].position.y,
-        }
-      : null,
     maxZoom,
     minZoom,
     overviewTrueWidth,

@@ -8,7 +8,6 @@ import {
   type RefObject,
 } from "react";
 import { useLocalStorage, useMisc, useSettings } from "state/definitions";
-import type { Position } from "utils/generatedTypes";
 import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
@@ -32,7 +31,6 @@ import type { GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanaryViewportRuntimeArgs = {
   defaultZoomLevel: number;
-  initialSectionPosition: Position | null;
   maxZoom: number;
   minZoom: number;
   overviewTrueWidth: number;
@@ -63,7 +61,6 @@ export type SettingsGraphSubstrateCanaryViewportRuntime = {
 
 export function useSettingsGraphSubstrateCanaryViewportRuntime({
   defaultZoomLevel,
-  initialSectionPosition,
   maxZoom,
   minZoom,
   overviewTrueWidth,
@@ -97,9 +94,9 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
   const fallbackViewport = useMemo(() => {
     return resolveSettingsGraphSubstrateCanaryFallbackViewport(
       defaultZoomLevel,
-      initialSectionPosition,
+      sceneSnapshot,
     );
-  }, [defaultZoomLevel, initialSectionPosition]);
+  }, [defaultZoomLevel, sceneSnapshot]);
 
   const sharedViewport = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySharedViewport(

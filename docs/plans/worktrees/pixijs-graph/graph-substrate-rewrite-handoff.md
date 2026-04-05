@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 14:44 EDT
+Last updated: 2026-04-05 14:58 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,70 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `187` moved the canary viewport fallback seed onto the authoritative scene snapshot, so viewport startup no longer reads raw `sections[0].position` at the canary root.
+  - Why this slice was needed:
+    - item `186` explicitly handed off to the remaining raw scene-geometry inputs at the root, starting with fallback viewport seeding from `sections[0]`
+    - `useSettingsGraphSubstrateCanaryViewportRuntime(...)` still depended on an `initialSectionPosition` prop even though the canary already had a dedicated scene-runtime boundary publishing authoritative rendered positions
+    - this is the next bounded product move on the geometry-authority frontier because it removes one more pre-runtime geometry input from the root without reopening another probe-only lane
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - removed the raw `sections[0]` viewport seed from the canary root
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+      - `resolveSettingsGraphSubstrateCanaryFallbackViewport(...)` now seeds from `sceneSnapshot.sections[0]?.renderedPosition`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - the viewport runtime now derives its provisional fallback directly from `sceneSnapshot`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - now proves the fallback seed uses authoritative rendered scene position instead of raw section position
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - now proves the provisional fallback seed still resolves before fit-view, even when scene bounds are unavailable, from the authoritative rendered position
+  - What this slice established:
+    - the canary root no longer forwards raw first-section geometry into the viewport runtime
+    - fallback viewport seeding, fit logic, and toolbar/controller viewport behavior now all consume the same authoritative scene-runtime snapshot boundary
+    - the focused viewport/runtime coverage is green after the change:
+      - viewport helper, viewport runtime, viewport controller, and scene-runtime tests all passed (`4 files`, `28 tests`)
+    - the same deterministic `rotaryParamCodeObjDefault` regression lane stayed healthy after the change:
+      - legacy rerun: `17.0237ms` average frame duration, `50.1ms` max, `1` long task (`56ms`)
+      - worktree canary: `16.6669ms` average frame duration, `34.1ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is still blocked after the one allowed self-recovery attempt:
+      - the first fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md` but hit `list_pages` / `Network.enable` transport timeouts before it could inspect either live settings page
+      - a bounded `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovery created an additional worktree runtime on `3077/8077`
+      - after that recovery, both `3076/8076` and `3077/8077` still responded, so the recovery did not leave one trustworthy worktree browser/session to compare
+      - the second fresh-context CDP retry also read the quickstart and still reported `CDP transport` failure before it could reach a trustworthy recovery-session page
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`4 files`, `28 tests`)
+    - runtime refresh before the live rerun:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-018/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-018/main-ai.log`
+      - result: `main` healthy on `3087/8087` with refreshed bootstrap url
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `59.4s`)
+    - static verification:
+      - `git diff --check`
+      - result: passed
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked by transport timeouts before any page could be inspected
+    - bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: recovery launched a new worktree runtime on `3077/8077`, but the prior `3076/8076` listeners also remained active
+    - CDP visual retry:
+      - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked by `CDP transport`; no trustworthy recovery-session page was available for comparison
+  - Lane status:
+    - the product slice is landed and the canonical normalized regression lane remains green
+    - the only blocker is the required CDP visual gate, which is still unavailable after the one allowed in-iteration recovery attempt
+  - Next frontier:
+    - start the next iteration with an outer Ralph lifecycle restart so one trustworthy worktree browser/runtime is available again, then rerun the same normalized `rotaryParamCodeObjDefault` CDP compare before taking another product slice
+    - once CDP is trustworthy again, continue removing remaining raw scene-geometry inputs from the canary root instead of reopening new parity lanes
 
 - Ralph item `186` split authoritative scene runtime publication out of `useSettingsGraphSubstrateCanarySceneState(...)`, so the local scene-state hook now only owns transient drag/override/controller state while a new runtime hook owns section-size lookup, authoritative snapshot derivation, scene-store publication, cleanup, and shared node-internals sync.
   - Why this slice was needed:

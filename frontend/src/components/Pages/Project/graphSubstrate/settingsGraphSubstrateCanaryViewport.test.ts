@@ -44,10 +44,12 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
 
   it("uses the top-left fallback only when no authoritative viewport exists", () => {
     const fallbackViewport =
-      resolveSettingsGraphSubstrateCanaryFallbackViewport(0.75, {
-        x: 160,
-        y: 80,
-      });
+      resolveSettingsGraphSubstrateCanaryFallbackViewport(
+        0.75,
+        createSceneSnapshot({
+          renderedPosition: { x: 160, y: 80 },
+        }),
+      );
     expect(fallbackViewport).toEqual({
       x: -72,
       y: -12,
@@ -76,7 +78,12 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
 
   it("ignores a mirrored reactflow viewport when it only matches the fallback seed", () => {
     const fallbackViewport =
-      resolveSettingsGraphSubstrateCanaryFallbackViewport(1, { x: 0, y: 0 });
+      resolveSettingsGraphSubstrateCanaryFallbackViewport(
+        1,
+        createSceneSnapshot({
+          renderedPosition: { x: 0, y: 0 },
+        }),
+      );
     expect(
       resolveSettingsGraphSubstrateCanarySharedViewport(
         null,
@@ -88,7 +95,12 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
 
   it("still accepts a reactflow shared viewport when it differs from the fallback seed", () => {
     const fallbackViewport =
-      resolveSettingsGraphSubstrateCanaryFallbackViewport(1, { x: 0, y: 0 });
+      resolveSettingsGraphSubstrateCanaryFallbackViewport(
+        1,
+        createSceneSnapshot({
+          renderedPosition: { x: 0, y: 0 },
+        }),
+      );
     expect(
       resolveSettingsGraphSubstrateCanarySharedViewport(
         null,
@@ -121,6 +133,22 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
     expect(
       shouldPersistSettingsGraphSubstrateCanaryViewport(null, "local"),
     ).toBe(true);
+  });
+
+  it("uses the rendered scene position instead of the raw section position for fallback seeding", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanaryFallbackViewport(
+        1,
+        createSceneSnapshot({
+          position: { x: 120, y: 80 },
+          renderedPosition: { x: 480, y: 240 },
+        }),
+      ),
+    ).toEqual({
+      x: -432,
+      y: -192,
+      zoom: 1,
+    });
   });
 
   it("fits the canary to the legacy visible center and caps the initial zoom", () => {
@@ -272,3 +300,29 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
     expect(outcome?.nextViewport.zoom).toBeCloseTo(0.139474, 5);
   });
 });
+
+function createSceneSnapshot({
+  position = { x: 0, y: 0 },
+  renderedPosition = position,
+}: {
+  position?: { x: number; y: number };
+  renderedPosition?: { x: number; y: number };
+}) {
+  return {
+    sceneBounds: null,
+    sections: [
+      {
+        height: 120,
+        position,
+        positionAndSizeLocked: false,
+        renderedPosition,
+        resolvedSize: { width: 240, height: 120 },
+        sectionId: "section-a",
+        tempZIndex: 1,
+        width: 240,
+        zIndex: 1,
+      },
+    ],
+    sectionsById: new Map(),
+  };
+}

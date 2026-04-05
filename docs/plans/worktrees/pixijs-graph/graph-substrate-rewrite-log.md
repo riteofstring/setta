@@ -2185,6 +2185,71 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 187
+
+- Item: Move viewport fallback seeding onto the authoritative canary scene snapshot and remove the raw `sections[0]` seed from the canary root.
+- Status: `blocked`
+- Details:
+  - Why this slice was necessary:
+    - item `186` explicitly handed off to the remaining raw scene-geometry inputs at the canary root, starting with fallback viewport seeding from `sections[0]`
+    - the viewport runtime still accepted `initialSectionPosition`, so startup viewport seeding depended on pre-runtime section props even though scene runtime already published authoritative rendered positions
+    - this bounded product slice moves another real consumer onto the scene-runtime boundary instead of reopening another oracle-only lane
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - removed the raw `sections[0]` viewport seed from the canary root
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+      - `resolveSettingsGraphSubstrateCanaryFallbackViewport(...)` now uses `sceneSnapshot.sections[0]?.renderedPosition`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - the viewport runtime now derives its provisional fallback from `sceneSnapshot`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - now proves fallback seeding uses authoritative rendered scene position instead of raw section position
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - now proves the provisional fallback still resolves from authoritative rendered position before fit-view when scene bounds are unavailable
+  - What this slice established:
+    - the canary root no longer forwards raw first-section geometry into the viewport runtime
+    - fallback viewport seeding, auto-fit, and controller viewport behavior now all consume the same authoritative scene snapshot boundary
+    - the focused viewport/runtime coverage is green after the change:
+      - viewport helper, viewport runtime, viewport controller, and scene-runtime tests all passed (`4 files`, `28 tests`)
+    - the same deterministic `rotaryParamCodeObjDefault` regression lane stayed healthy after the change:
+      - legacy rerun: `17.0237ms` average frame duration, `50.1ms` max, `1` long task (`56ms`)
+      - worktree canary: `16.6669ms` average frame duration, `34.1ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is still blocked after the one allowed recovery attempt:
+      - the first fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md` but hit transport timeouts before any page could be inspected
+      - a bounded `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovery created an additional worktree runtime on `3077/8077`
+      - both `3076/8076` and `3077/8077` remained live after that recovery, so no trustworthy single worktree browser/runtime was available to compare
+      - the second fresh-context CDP retry also read the quickstart and still reported `CDP transport` failure before it could reach a trustworthy recovery-session page
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - result: passed (`4 files`, `28 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-018/worktree-ai.log`
+    - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-018/main-ai.log`
+    - result: `main` healthy on `3087/8087` with refreshed bootstrap url
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `59.4s`)
+  - static verification:
+    - `git diff --check`
+    - result: passed
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: blocked by transport timeouts before any page could be inspected
+  - bounded self-recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: recovery launched an additional worktree runtime on `3077/8077`, but the prior `3076/8076` listeners also remained active
+  - CDP visual retry:
+    - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+    - result: blocked by `CDP transport`; no trustworthy recovery-session page was available for comparison
+- Next action:
+  - start the next iteration with an outer Ralph lifecycle restart so one trustworthy worktree browser/runtime is available again, then rerun the normalized `rotaryParamCodeObjDefault` CDP compare before taking another product slice
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 184
 
 - Item: Remove the canary's live React Flow transform render subscription and keep the same normalized perf lane green.

@@ -1,5 +1,6 @@
 import { CLOSED_PANE_WIDTH } from "utils/constants";
-import { PanOnScrollModeEnum, type Position } from "utils/generatedTypes";
+import { PanOnScrollModeEnum } from "utils/generatedTypes";
+import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
@@ -50,8 +51,9 @@ export type SettingsGraphSubstrateCanaryEffectivePaneWidths = {
 
 export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
-  sectionPosition: Position | null,
+  sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot,
 ): GraphViewport | null {
+  const sectionPosition = sceneSnapshot.sections[0]?.renderedPosition ?? null;
   if (!sectionPosition) {
     return null;
   }
