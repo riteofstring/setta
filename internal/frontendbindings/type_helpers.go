@@ -13,10 +13,6 @@ import (
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
 
-type tsRawExpr struct {
-	Expr string
-}
-
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -131,8 +127,6 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 			panic("settings defaults contained a non-finite numeric literal")
 		}
 		builder.WriteString(strconv.FormatFloat(typed, 'f', -1, 64))
-	case tsRawExpr:
-		builder.WriteString(typed.Expr)
 	case []any:
 		if len(typed) == 0 {
 			builder.WriteString("[]")
