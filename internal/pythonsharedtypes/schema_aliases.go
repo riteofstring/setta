@@ -368,69 +368,44 @@ func trimDatamodelFieldDefault(value string) string {
 }
 
 func parseDatamodelModule(module string) (datamodelModule, error) {
-	importLines := datamodelImportLines(module)
-	declarations, err := parseDatamodelDeclarations(module)
-	if err != nil {
-		return datamodelModule{}, err
+	imports := []string{}
+	seen := map[string]struct{}{}
+	declarations := []datamodelDeclaration{}
+	for _, block := range splitDatamodelBlocks(module) {
+		header := datamodelBlockHeader(block)
+		switch {
+		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
+			continue
+		case isDatamodelDeclarationHeader(header):
+			declaration, err := parseDatamodelDeclaration(block)
+			if err != nil {
+				return datamodelModule{}, err
+			}
+			declarations = append(declarations, declaration)
+		default:
+			for _, line := range strings.Split(block, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" || strings.HasPrefix(trimmed, "#") || trimmed == "from __future__ import annotations" {
+					continue
+				}
+				if !strings.HasPrefix(trimmed, "from ") && !strings.HasPrefix(trimmed, "import ") {
+					continue
+				}
+				if _, duplicate := seen[trimmed]; duplicate {
+					continue
+				}
+				seen[trimmed] = struct{}{}
+				imports = append(imports, trimmed)
+			}
+		}
 	}
 	return datamodelModule{
-		ImportLines:  importLines,
+		ImportLines:  imports,
 		Declarations: declarations,
 	}, nil
 }
 
-func datamodelImportLines(module string) []string {
-	lines := strings.Split(module, "\n")
-	imports := []string{}
-	seen := map[string]struct{}{}
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case trimmed == "", strings.HasPrefix(trimmed, "#"):
-			continue
-		case trimmed == "from __future__ import annotations":
-			continue
-		case isDatamodelDeclarationStart(line):
-			return imports
-		case strings.HasPrefix(trimmed, "from "), strings.HasPrefix(trimmed, "import "):
-			if _, duplicate := seen[trimmed]; duplicate {
-				continue
-			}
-			seen[trimmed] = struct{}{}
-			imports = append(imports, trimmed)
-		}
-	}
-	return imports
-}
-
-func parseDatamodelDeclarations(module string) ([]datamodelDeclaration, error) {
-	lines := strings.Split(module, "\n")
-	declarations := []datamodelDeclaration{}
-	start := -1
-	for index, line := range lines {
-		if !isDatamodelDeclarationStart(line) {
-			continue
-		}
-		if start >= 0 {
-			declaration, err := parseDatamodelDeclaration(lines[start:index])
-			if err != nil {
-				return nil, err
-			}
-			declarations = append(declarations, declaration)
-		}
-		start = index
-	}
-	if start >= 0 {
-		declaration, err := parseDatamodelDeclaration(lines[start:])
-		if err != nil {
-			return nil, err
-		}
-		declarations = append(declarations, declaration)
-	}
-	return declarations, nil
-}
-
-func isDatamodelDeclarationStart(line string) bool {
+func isDatamodelDeclarationHeader(line string) bool {
 	trimmedLeft := strings.TrimLeft(line, " \t")
 	if trimmedLeft != line {
 		return false
@@ -439,12 +414,40 @@ func isDatamodelDeclarationStart(line string) bool {
 	return strings.HasPrefix(trimmed, "class ") || strings.HasPrefix(trimmed, "type ")
 }
 
-func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
-	blockLines := trimDatamodelBlockLines(lines)
-	if len(blockLines) == 0 {
+func splitDatamodelBlocks(module string) []string {
+	lines := strings.Split(module, "\n")
+	blocks := make([]string, 0)
+	current := make([]string, 0)
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		blocks = append(blocks, strings.Join(current, "\n"))
+		current = current[:0]
+	}
+	for _, line := range lines {
+		trimmedRight := strings.TrimRight(line, " \t")
+		if strings.TrimSpace(trimmedRight) == "" {
+			flush()
+			continue
+		}
+		current = append(current, trimmedRight)
+	}
+	flush()
+	return blocks
+}
+
+func datamodelBlockHeader(block string) string {
+	header, _, _ := strings.Cut(block, "\n")
+	return strings.TrimSpace(header)
+}
+
+func parseDatamodelDeclaration(block string) (datamodelDeclaration, error) {
+	trimmedBlock := strings.TrimSpace(block)
+	if trimmedBlock == "" {
 		return datamodelDeclaration{}, fmt.Errorf("python shared types: empty datamodel declaration block")
 	}
-	header := strings.TrimSpace(blockLines[0])
+	header := datamodelBlockHeader(trimmedBlock)
 	switch {
 	case strings.HasPrefix(header, "class "):
 		name, err := parseDatamodelClassName(header)
@@ -454,7 +457,7 @@ func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
 		return datamodelDeclaration{
 			Name:  name,
 			Kind:  datamodelDeclarationKindClass,
-			Block: strings.Join(blockLines, "\n"),
+			Block: trimmedBlock,
 		}, nil
 	case strings.HasPrefix(header, "type "):
 		name, err := parseDatamodelTypeAliasName(header)
@@ -464,27 +467,11 @@ func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
 		return datamodelDeclaration{
 			Name:  name,
 			Kind:  datamodelDeclarationKindType,
-			Block: strings.Join(blockLines, "\n"),
+			Block: trimmedBlock,
 		}, nil
 	default:
 		return datamodelDeclaration{}, fmt.Errorf("python shared types: unsupported datamodel declaration header %q", header)
 	}
-}
-
-func trimDatamodelBlockLines(lines []string) []string {
-	start := 0
-	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
-		start++
-	}
-	end := len(lines)
-	for end > start && strings.TrimSpace(lines[end-1]) == "" {
-		end--
-	}
-	trimmed := make([]string, 0, end-start)
-	for _, line := range lines[start:end] {
-		trimmed = append(trimmed, strings.TrimRight(line, " \t"))
-	}
-	return trimmed
 }
 
 func parseDatamodelClassName(header string) (string, error) {

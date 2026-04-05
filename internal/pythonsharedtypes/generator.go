@@ -142,16 +142,12 @@ func appendUniqueImportLines(base []string, extras ...string) []string {
 }
 
 func pythonBlockImportLines(blocks []string) []string {
-	imports := map[string]struct{}{}
 	for _, block := range blocks {
-		if strings.Contains(block, "datetime") {
-			imports["from datetime import datetime"] = struct{}{}
-		}
 		if strings.Contains(block, "TypeAdapter(") {
-			imports["from pydantic import TypeAdapter"] = struct{}{}
+			return []string{"from pydantic import TypeAdapter"}
 		}
 	}
-	return sortedImportNames(imports)
+	return nil
 }
 
 func buildModelFieldSpec(
@@ -245,9 +241,6 @@ func filteredPythonImportLine(
 	if trimmed == "" {
 		return ""
 	}
-	if !strings.HasPrefix(trimmed, "from ") {
-		return trimmed
-	}
 	moduleAndNames := strings.TrimPrefix(trimmed, "from ")
 	module, imported, ok := strings.Cut(moduleAndNames, " import ")
 	if !ok {
@@ -255,22 +248,12 @@ func filteredPythonImportLine(
 	}
 
 	kept := make([]string, 0)
-	for _, part := range strings.Split(imported, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
+	for _, name := range strings.Split(imported, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" || isLocalPythonContractImportName(name, knownContractNames) {
 			continue
 		}
-		name := part
-		if before, _, ok := strings.Cut(part, " as "); ok {
-			name = strings.TrimSpace(before)
-		}
-		if _, local := knownContractNames[name]; local {
-			continue
-		}
-		if normalizeLocalPythonContractAlias(name, knownContractNames) != name {
-			continue
-		}
-		kept = append(kept, part)
+		kept = append(kept, name)
 	}
 	if len(kept) == 0 {
 		return ""
@@ -278,20 +261,28 @@ func filteredPythonImportLine(
 	return fmt.Sprintf("from %s import %s", strings.TrimSpace(module), strings.Join(kept, ", "))
 }
 
+func isLocalPythonContractImportName(
+	name string,
+	knownContractNames map[string]struct{},
+) bool {
+	if _, local := knownContractNames[name]; local {
+		return true
+	}
+	baseName, ok := strings.CutSuffix(name, "WithDiscriminator")
+	if !ok {
+		return false
+	}
+	_, local := knownContractNames[baseName]
+	return local
+}
+
 func normalizeLocalPythonContractAlias(
 	value string,
 	knownContractNames map[string]struct{},
 ) string {
 	value = strings.TrimSpace(value)
-	if value == "" || !strings.Contains(value, "WithDiscriminator") {
-		return value
-	}
 	for name := range knownContractNames {
-		alias := name + "WithDiscriminator"
-		if !strings.Contains(value, alias) {
-			continue
-		}
-		value = strings.ReplaceAll(value, alias, name)
+		value = strings.ReplaceAll(value, name+"WithDiscriminator", name)
 	}
 	return value
 }
