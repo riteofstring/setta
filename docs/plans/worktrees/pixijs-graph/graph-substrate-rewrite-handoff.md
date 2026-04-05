@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 04:09 EDT
+Last updated: 2026-04-07 04:16 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,41 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `250` tightened the remaining `sharedNode` geometry-authority lane by keeping global node internals as a seed only, instead of refreshing that seed from later measured canary sizes.
+
+  - Why this pass stopped here:
+    - item `249` explicitly left the live `sharedNode` node-internals seed/refresh behavior as the next product decision point after the layout-persistence slice was committed
+    - `settingsGraphSubstrateCanaryNodeSync.ts` still mirrored fresh measured `resolvedSize` back into global node internals for sections already marked `sizeAuthority: "sharedNode"`, which kept DOM-measured fallback as an actively refreshed shared authority path
+    - this pass stayed bounded to the refresh half of that lane only; it does not yet remove the initial `sharedNode` seed itself or replace it with a canary-local authority source
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened for this slice
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts)
+      - shared-node sections now preserve an existing positive `sharedNode` width/height from global node internals instead of overwriting that seed with later measured `resolvedSize`
+      - layout, section-model, unresolved, and first-seed paths still sync as before
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts)
+      - added a regression proving an existing shared-node seed is not refreshed from later measured DOM size
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx)
+      - locked the end-to-end behavior: the scene snapshot adopts fresher local measurement while the shared node-internals seed stays on its earlier value
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`2 files`, `16 tests`)
+    - CDP visual gate:
+      - done
+      - a fresh-context CDP sub-agent bootstrapped through the current worktree backend URL rooted at `8076`, landed in the authenticated `3076/settings` session, confirmed the visible `All Settings` canary surface, and reported no blank shell, missing graph surface, or detached section body in the viewport
+  - Lane status:
+    - shared-node measurement is no longer a continuously refreshed shared authority path through global node internals once a positive shared seed already exists
+    - the visible canary still renders from the fresher local measured size in the same session, so this slice reduces shared-state churn without breaking the current scene snapshot path
+    - the remaining geometry-authority frontier is now the initial `sharedNode` seed itself, not the already-closed refresh/persistence behavior
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority slice to the initial `sharedNode` seed boundary: determine whether that seed can move out of shared node internals into a canary-local authority path without reopening controller-refresh regressions
 
 - Ralph item `249` cleared the pending verification/commit lane for the `sharedNode` layout-persistence slice without opening a new geometry refactor.
 

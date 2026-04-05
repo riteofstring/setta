@@ -107,6 +107,59 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
     });
   });
 
+  it("keeps an existing shared-node seed in node internals instead of refreshing it from later measured size", () => {
+    const nodeInternals = new Map<string, Node>([
+      [
+        "section-c",
+        {
+          id: "section-c",
+          position: { x: 260, y: 140 },
+          width: 260,
+          height: 180,
+          sizeAuthority: "sharedNode",
+          zIndex: 3,
+          tempZIndex: 3,
+        },
+      ],
+    ]);
+
+    const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-c",
+          position: { x: 260, y: 140 },
+          width: 260,
+          height: 180,
+          sizeAuthority: "sharedNode",
+          zIndex: 3,
+          tempZIndex: 3,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {
+        "section-c": { width: 320, height: 220 },
+      },
+      null,
+      null,
+    );
+
+    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
+      nodeInternals,
+      sceneSnapshot,
+    );
+
+    expect(nextNodeInternals).toBe(nodeInternals);
+    expect(nextNodeInternals.get("section-c")).toEqual({
+      id: "section-c",
+      position: { x: 260, y: 140 },
+      width: 260,
+      height: 180,
+      sizeAuthority: "sharedNode",
+      zIndex: 3,
+      tempZIndex: 3,
+    });
+  });
+
   it("returns the same map when the shared node internals already match the canary", () => {
     const nodeInternals = new Map<string, Node>([
       [

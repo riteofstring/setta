@@ -9763,3 +9763,27 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
     - narrow the next geometry-authority product slice to the remaining live `sharedNode` node-internals seed/refresh path instead of spending another default pass on transport or anchor rediscovery for this slice
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 04:16 EDT, Ralph item `250`
+  - Summary: stopped refreshing existing `sharedNode` seeds in global node internals from later measured canary sizes, while keeping the local scene snapshot on the fresher measured size.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened for this authority slice
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`2 files`, `16 tests`)
+    - fresh-context CDP sub-agent -> done; bootstrapped through `http://127.0.0.1:8076/__setta__/bootstrap#token=SETTA_HISTORY_REDACTED`, landed in the authenticated `http://127.0.0.1:3076/settings` session, confirmed `All Settings`, and reported no blank shell, missing graph surface, or detached section body in the visible viewport
+  - Result:
+    - an existing positive `sharedNode` entry now acts as a seed in global node internals instead of being continuously refreshed from later measured DOM size
+    - the local canary scene still renders from the fresher measured size in-session, so the slice reduces shared authority churn without regressing the visible graph surface
+    - the remaining geometry-authority frontier is now the initial `sharedNode` seed boundary rather than the already-closed refresh and layout-persistence leaks
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage when it is available again
+    - narrow the next geometry-authority slice to whether the initial `sharedNode` seed can move out of shared node internals into a canary-local authority path without reopening controller-refresh regressions
+  - LOOP_TERMINAL_MARKER: none

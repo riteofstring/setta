@@ -198,6 +198,17 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         ],
       });
       expect(readSceneRenderCount(host)).toBe(2);
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: 180,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        sizeAuthority: "sharedNode",
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: 260,
+        zIndex: 2,
+      });
     });
   });
 
