@@ -211,10 +211,13 @@ exit 0
         in rendered_prompt
     )
     assert (
-        f"`cd {main_root} && pnpm -C frontend cdp-port`" in rendered_prompt
+        f"`./scripts/dev-runtime-info.sh --workspace {main_root} "
+        f"--runtime-log {output_dir / 'run-001' / 'main-ai.log'}`"
+        in rendered_prompt
     )
     assert (
-        "instead of guessing `http://127.0.0.1:3000`" in rendered_prompt
+        "use these current runtime values instead of guessing old ports"
+        in rendered_prompt
     )
     assert "- browser automation mode for this loop: headless" in rendered_prompt
     assert (
@@ -242,6 +245,149 @@ exit 0
     assert captured_env.get("PLAYWRIGHT_HEADLESS") == "1"
     assert captured_env.get("CHROME_BIN") == str(
         output_dir / "run-001" / "ralph-headless-chrome.sh"
+    )
+
+
+def test_run_codex_loop_generic_repo_adapter_omits_setta_runtime_guidance(
+    tmp_path: Path,
+) -> None:
+    repo_root = _repo_root()
+    script_path = repo_root / "scripts" / "run-codex-loop.sh"
+
+    worktree_root = tmp_path / "worktree"
+    stub_dir = tmp_path / "bin"
+    output_dir = tmp_path / "output"
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    prompt_path = tmp_path / "prompt.md"
+    prompt_path.write_text("Generic repo prompt body.\n", encoding="utf-8")
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text("# Plan\n", encoding="utf-8")
+    handoff_path = tmp_path / "handoff.md"
+    handoff_path.write_text("# Handoff\n", encoding="utf-8")
+    history_path = tmp_path / "history.md"
+    history_path.write_text("# History\n", encoding="utf-8")
+    config_path = tmp_path / "RALPH.md"
+    config_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "plan_path: plan.md",
+                "handoff_path: handoff.md",
+                "history_path: history.md",
+                "prompt_file: prompt.md",
+                "workdir: .",
+                "iterations: 1",
+                "new_session_every: 1",
+                "codex_inactivity_timeout_seconds: 1",
+                "repo_adapter: generic",
+                "yolo: false",
+                "worktree_lifecycle: none",
+                "main_lifecycle: none",
+                "terminal_mode: background",
+                "---",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    _write_executable(
+        stub_dir / "git",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == *"worktree list --porcelain"* ]]; then
+  cat <<'EOF'
+worktree {worktree_root}
+HEAD 1111111111111111111111111111111111111111
+branch refs/heads/feature
+EOF
+  exit 0
+fi
+if [[ "$*" == *"rev-parse HEAD"* ]]; then
+  printf '%s\\n' 1111111111111111111111111111111111111111
+  exit 0
+fi
+echo "unsupported git args: $*" >&2
+exit 1
+""",
+    )
+
+    _write_executable(
+        stub_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '\\n## Latest iteration\\n- Status: generic blocked\\n' >> "{handoff_path}"
+printf '\\n- generic blocked prompt test\\n' >> "{history_path}"
+cat <<'EOF'
+LOOP_STATUS: BLOCKED
+LOOP_SUMMARY: generic prompt test
+LOOP_NEXT_ACTION: none
+LOOP_VERIFY_COMMAND: none
+LOOP_VERIFY_RESULT: blocked
+LOOP_RECOVERY: none
+LOOP_COMMIT: none
+EOF
+exit 0
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--config-file",
+            str(config_path),
+            "--prompt-file",
+            str(prompt_path),
+            "--followup-prompt-file",
+            str(prompt_path),
+            "--plan-file",
+            str(plan_path),
+            "--handoff-file",
+            str(handoff_path),
+            "--history-file",
+            str(history_path),
+            "--workdir",
+            str(worktree_root),
+            "--output-dir",
+            str(output_dir),
+            "--iterations",
+            "1",
+            "--worktree-lifecycle",
+            "none",
+            "--main-lifecycle",
+            "none",
+            "--terminal-mode",
+            "background",
+            "--no-yolo",
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    rendered_prompt = (
+        output_dir / "run-001" / "rendered-start-prompt.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "setta status" not in rendered_prompt
+    assert "./scripts/dev-runtime-info.sh" not in rendered_prompt
+    assert "- current worktree frontend url:" not in rendered_prompt
+    assert "- current main reference worktree:" not in rendered_prompt
+    assert "- current worktree lifecycle mode: none" in rendered_prompt
+    assert (
+        "LOOP_STATUS: SUBTASK_DONE|TASK_DONE|BLOCKED|REPLAN_REQUIRED"
+        in rendered_prompt
     )
 
 
@@ -515,8 +661,8 @@ exit 0
         stub_dir / "setta",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-env | sort > "{setta_env_path}"
-printf '%s\\n' "$*" > "{setta_args_path}"
+env | sort >> "{setta_env_path}"
+printf '%s\\n' "$*" >> "{setta_args_path}"
 if [[ "${{SETTA_FILES_ROOT:-}}" == "{worktree_root / 'setta_files_dev'}" ]] \\
   && [[ "$*" == *"status --list-sessions --json --workspace {worktree_root} --server-mode ide"* ]]; then
   printf '%s\\n' '__SETTA_JSON_B64__eyJzZXNzaW9ucyI6W3siaWQiOiJ0ZXN0LXNlc3Npb24ifV19'
@@ -613,13 +759,9 @@ exit 0
     assert result.returncode == 0, result.stderr
     assert not worktree_launch_trace.exists()
 
-    captured_env = {
-        line.split("=", 1)[0]: line.split("=", 1)[1]
-        for line in setta_env_path.read_text(encoding="utf-8").splitlines()
-        if "=" in line
-    }
-    assert captured_env.get("SETTA_FILES_ROOT") == str(
-        worktree_root / "setta_files_dev"
+    assert (
+        f"SETTA_FILES_ROOT={worktree_root / 'setta_files_dev'}"
+        in setta_env_path.read_text(encoding="utf-8")
     )
     assert (
         "status --list-sessions --json --workspace "

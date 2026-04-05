@@ -565,10 +565,41 @@ discover_main_worktree_root() {
   '
 }
 
+repo_looks_like_setta() {
+  [[ -d "${ROOT_DIR}/backend/setta" ]] && [[ -x "${ROOT_DIR}/scripts/dev-runtime-info.sh" ]]
+}
+
+resolve_repo_adapter() {
+  local requested_adapter="$1"
+
+  case "${requested_adapter}" in
+    auto|'')
+      if repo_looks_like_setta; then
+        printf 'setta\n'
+      else
+        printf 'generic\n'
+      fi
+      ;;
+    setta|generic)
+      printf '%s\n' "${requested_adapter}"
+      ;;
+    *)
+      echo "Unsupported repo_adapter value: ${requested_adapter}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+repo_uses_setta_adapter() {
+  [[ "${repo_adapter:-generic}" == "setta" ]]
+}
+
 workspace_setta_status_payload() {
   local target_root="$1"
   local status_payload=""
   local status_command=()
+
+  repo_uses_setta_adapter || return 1
 
   if [[ -f "${target_root}/activate.sh" ]]; then
     # shellcheck disable=SC1090
@@ -599,6 +630,8 @@ workspace_has_live_setta_session() {
   local target_root="$1"
   local status_payload=""
 
+  repo_uses_setta_adapter || return 1
+
   if ! status_payload="$(workspace_setta_status_payload "${target_root}")"; then
     return 1
   fi
@@ -626,6 +659,10 @@ PY
 
 workspace_session_state() {
   local target_root="$1"
+  if ! repo_uses_setta_adapter; then
+    printf 'unknown\n'
+    return 0
+  fi
   if workspace_has_live_setta_session "${target_root}"; then
     printf 'running\n'
   else
@@ -1012,6 +1049,10 @@ wait_for_workspace_session_state() {
   start_ts="$(date +%s)"
   while true; do
     current_state="$(workspace_session_state "${target_root}")"
+    if [[ "${current_state}" == "unknown" ]]; then
+      echo "[bootstrap] ${target_name}: no session-state probe configured; continuing without waiting for ${expected_state}"
+      return 0
+    fi
     if [[ "${current_state}" == "${expected_state}" ]]; then
       echo "[bootstrap] ${target_name}: session state ${expected_state}"
       return 0
@@ -1127,6 +1168,7 @@ runtime_info_shell_assignments() {
   local helper_json=""
   local restore_errexit="0"
 
+  repo_uses_setta_adapter || return 1
   [[ -x "${helper_path}" ]] || return 1
 
   if [[ $- == *e* ]]; then
@@ -1163,6 +1205,34 @@ mapping = {
 for key, value in mapping.items():
     print(f"{key}={shlex.quote(value)}")
 PY
+}
+
+connect_info_command_for_root() {
+  local target_root="$1"
+  local fallback_command=""
+
+  if ! repo_uses_setta_adapter; then
+    return 1
+  fi
+
+  fallback_command="setta status --connect-info --latest --json --workspace ${target_root}"
+  workspace_setta_status_command "${target_root}" --connect-info --latest --json --workspace "${target_root}" \
+    || printf '%s\n' "${fallback_command}"
+}
+
+runtime_info_command_for_root() {
+  local target_root="$1"
+  local runtime_log_path="${2:-}"
+
+  if ! repo_uses_setta_adapter; then
+    return 1
+  fi
+
+  if [[ -n "${runtime_log_path}" ]]; then
+    printf './scripts/dev-runtime-info.sh --workspace %s --runtime-log %s\n' "${target_root}" "${runtime_log_path}"
+  else
+    printf './scripts/dev-runtime-info.sh --workspace %s\n' "${target_root}"
+  fi
 }
 
 lifecycle_log_label() {
@@ -1439,7 +1509,7 @@ run_lifecycle_mode() {
       ) 2>&1 | tee "${kill_log_path}"
       wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
     elif [[ "${session_state}" == "running" ]]; then
-      echo "[bootstrap] ${target_name}: skipping ${label}; a Setta session already exists for ${target_root}"
+      echo "[bootstrap] ${target_name}: skipping ${label}; an existing live session already exists for ${target_root}"
       return 0
     fi
 
@@ -1485,35 +1555,31 @@ render_prompt() {
   local main_connect_info_command=""
   local worktree_runtime_info_command=""
   local main_runtime_info_command=""
+  local has_runtime_context="0"
 
-  worktree_connect_info_command="setta status --connect-info --latest --json --workspace ${workdir}"
-  if worktree_connect_info_command="$(
-    workspace_setta_status_command "${workdir}" --connect-info --latest --json --workspace "${workdir}"
-  )"; then
-    :
-  else
-    worktree_connect_info_command="setta status --connect-info --latest --json --workspace ${workdir}"
-  fi
+  worktree_connect_info_command="$(connect_info_command_for_root "${workdir}" 2>/dev/null || true)"
+  worktree_runtime_info_command="$(runtime_info_command_for_root "${workdir}" "${worktree_runtime_log_path:-}" 2>/dev/null || true)"
 
-  main_connect_info_command="setta status --connect-info --latest --json --workspace ${main_worktree_root:-<main-worktree>}"
   if [[ -n "${main_worktree_root:-}" ]]; then
-    if main_connect_info_command="$(
-      workspace_setta_status_command "${main_worktree_root}" --connect-info --latest --json --workspace "${main_worktree_root}"
-    )"; then
-      :
-    else
-      main_connect_info_command="setta status --connect-info --latest --json --workspace ${main_worktree_root}"
-    fi
+    main_connect_info_command="$(connect_info_command_for_root "${main_worktree_root}" 2>/dev/null || true)"
+    main_runtime_info_command="$(runtime_info_command_for_root "${main_worktree_root}" "${main_runtime_log_path:-}" 2>/dev/null || true)"
   fi
 
-  worktree_runtime_info_command="./scripts/dev-runtime-info.sh --workspace ${workdir}"
-  if [[ -n "${worktree_runtime_log_path:-}" ]]; then
-    worktree_runtime_info_command+=" --runtime-log ${worktree_runtime_log_path}"
-  fi
-
-  main_runtime_info_command="./scripts/dev-runtime-info.sh --workspace ${main_worktree_root:-<main-worktree>}"
-  if [[ -n "${main_runtime_log_path:-}" ]]; then
-    main_runtime_info_command+=" --runtime-log ${main_runtime_log_path}"
+  if [[ -n "${worktree_frontend_url:-}" ]] \
+    || [[ -n "${worktree_backend_url:-}" ]] \
+    || [[ -n "${worktree_bootstrap_url:-}" ]] \
+    || [[ -n "${worktree_debug_port:-}" ]] \
+    || [[ -n "${worktree_runtime_log_path:-}" ]] \
+    || [[ -n "${worktree_connect_info_command}" ]] \
+    || [[ -n "${worktree_runtime_info_command}" ]] \
+    || [[ -n "${main_frontend_url:-}" ]] \
+    || [[ -n "${main_backend_url:-}" ]] \
+    || [[ -n "${main_bootstrap_url:-}" ]] \
+    || [[ -n "${main_debug_port:-}" ]] \
+    || [[ -n "${main_runtime_log_path:-}" ]] \
+    || [[ -n "${main_connect_info_command}" ]] \
+    || [[ -n "${main_runtime_info_command}" ]]; then
+    has_runtime_context="1"
   fi
 
   cat > "${destination}" <<EOF
@@ -1536,27 +1602,75 @@ Loop context:
 - use the plan and handoff files as the durable handoff instead of relying on prior chat context
 - refresh the handoff file every iteration and append the history file every iteration
 - current worktree lifecycle mode: ${worktree_lifecycle:-none}
+- browser automation mode for this loop: ${ralph_browser_mode}
+- browser env prefix for loop-driven restarts/tests: \`${ralph_browser_env_prefix}\`
+- only use headed browser sessions when browser automation mode is headed
+EOF
+
+  if [[ "${has_runtime_context}" == "1" ]]; then
+    cat >> "${destination}" <<EOF
 - current worktree frontend url: ${worktree_frontend_url:-unknown}
 - current worktree backend url: ${worktree_backend_url:-unknown}
 - current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
 - current worktree debug port: ${worktree_debug_port:-unknown}
 - current worktree runtime log: ${worktree_runtime_log_path:-unknown}
-- current main reference worktree: ${main_worktree_root:-unknown}
+EOF
+  fi
+
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    cat >> "${destination}" <<EOF
+- current main reference worktree: ${main_worktree_root}
+EOF
+    if [[ "${has_runtime_context}" == "1" ]]; then
+      cat >> "${destination}" <<EOF
 - current main reference frontend url: ${main_frontend_url:-unknown}
 - current main reference backend url: ${main_backend_url:-unknown}
 - current main reference bootstrap url: ${main_bootstrap_url:-unknown}
 - current main reference debug port: ${main_debug_port:-unknown}
 - current main reference runtime log: ${main_runtime_log_path:-unknown}
-- browser automation mode for this loop: ${ralph_browser_mode}
-- browser env prefix for loop-driven restarts/tests: \`${ralph_browser_env_prefix}\`
-- only use headed browser sessions when browser automation mode is headed
+EOF
+    fi
+  fi
+
+  if [[ -n "${worktree_runtime_info_command}" ]] || [[ -n "${worktree_connect_info_command}" ]] \
+    || [[ -n "${main_runtime_info_command}" ]] || [[ -n "${main_connect_info_command}" ]]; then
+    cat >> "${destination}" <<EOF
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
+EOF
+    if [[ -n "${worktree_runtime_info_command}" ]] || [[ -n "${worktree_connect_info_command}" ]]; then
+      cat >> "${destination}" <<EOF
 - if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
+EOF
+      if [[ -n "${worktree_runtime_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
   - canonical runtime info: \`${worktree_runtime_info_command}\`
+EOF
+      fi
+      if [[ -n "${worktree_connect_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
   - connect info fallback: \`${worktree_connect_info_command}\`
+EOF
+      fi
+    fi
+    if [[ -n "${main_worktree_root:-}" ]] \
+      && ([[ -n "${main_runtime_info_command}" ]] || [[ -n "${main_connect_info_command}" ]]); then
+      cat >> "${destination}" <<EOF
 - if you need to refresh the current main reference runtime values before a side-by-side check:
+EOF
+      if [[ -n "${main_runtime_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
   - canonical runtime info: \`${main_runtime_info_command}\`
+EOF
+      fi
+      if [[ -n "${main_connect_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
   - connect info fallback: \`${main_connect_info_command}\`
+EOF
+      fi
+    fi
+  fi
+
+  cat >> "${destination}" <<EOF
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -1833,6 +1947,7 @@ worktree_lifecycle=""
 main_lifecycle=""
 terminal_mode=""
 model=""
+repo_adapter=""
 headed_browser="0"
 yolo_mode=""
 stop_on_error="0"
@@ -1999,6 +2114,7 @@ config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_
 config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
 config_terminal_mode="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "terminal_mode")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
+config_repo_adapter="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "repo_adapter")")")"
 config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
 config_stop_on_pre_session_exit_code="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "stop_on_pre_session_exit_code")")")"
 
@@ -2090,6 +2206,14 @@ fi
 
 if [[ -z "${model}" ]]; then
   model="${config_model}"
+fi
+
+if [[ -z "${repo_adapter}" ]]; then
+  if [[ -n "${config_repo_adapter}" ]]; then
+    repo_adapter="${config_repo_adapter}"
+  else
+    repo_adapter="auto"
+  fi
 fi
 
 if [[ -z "${yolo_mode}" ]]; then
@@ -2251,6 +2375,7 @@ worktree_backend_url=""
 worktree_bootstrap_url=""
 worktree_debug_port=""
 worktree_runtime_log_path=""
+repo_adapter="$(resolve_repo_adapter "${repo_adapter}")"
 main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
 main_effective_lifecycle=""
 main_frontend_url=""
@@ -2281,6 +2406,7 @@ echo "Plan file: ${plan_file}"
 echo "Handoff file: ${handoff_file}"
 echo "History file: ${history_file}"
 echo "Yolo mode: ${yolo_mode}"
+echo "Repo adapter: ${repo_adapter}"
 echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
 echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
 echo "Browser automation mode: ${ralph_browser_mode}"
