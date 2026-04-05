@@ -295,18 +295,12 @@ func mergeTSLiteralValueFromFieldValue(context string, value reflect.Value, norm
 		return normalized
 	}
 	valueType := value.Type()
-	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
-		field := valueType.Field(fieldIndex)
-		if !field.IsExported() {
+	for _, field := range reflect.VisibleFields(valueType) {
+		if !field.IsExported() || field.Anonymous {
 			continue
 		}
-		fieldValue := value.Field(fieldIndex)
-		if field.Anonymous {
-			merged := mergeTSLiteralValueFromFieldValue(context, fieldValue, object)
-			mergedObject, ok := merged.(map[string]any)
-			if ok {
-				object = mergedObject
-			}
+		fieldValue, ok := reflectedStructFieldValue(value, field.Index)
+		if !ok {
 			continue
 		}
 		name, _, skip := jsonFieldName(field)
@@ -408,83 +402,25 @@ func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 func (c *typeConverter) structPropertySpecs(
 	t reflect.Type,
 ) ([]reflectedStructProperty, error) {
-	return c.structPropertySpecsWithFieldIndex(t, nil)
-}
-
-func (c *typeConverter) structPropertySpecsWithFieldIndex(
-	t reflect.Type,
-	fieldIndexPrefix []int,
-) ([]reflectedStructProperty, error) {
 	properties := make([]reflectedStructProperty, 0, t.NumField())
-	for i := range t.NumField() {
-		field := t.Field(i)
-		fieldIndex := append(append([]int(nil), fieldIndexPrefix...), field.Index...)
-		fieldProperties, err := c.structPropertySpecsForField(
-			t,
-			field,
-			fieldIndex,
-		)
+	for _, field := range reflect.VisibleFields(t) {
+		if !field.IsExported() || field.Anonymous {
+			continue
+		}
+		property, ok, err := c.namedStructPropertySpec(t, field)
 		if err != nil {
 			return nil, err
 		}
-		properties = append(properties, fieldProperties...)
+		if ok {
+			properties = append(properties, property)
+		}
 	}
 	return properties, nil
-}
-
-func (c *typeConverter) structPropertySpecsForField(
-	ownerType reflect.Type,
-	field reflect.StructField,
-	fieldIndex []int,
-) ([]reflectedStructProperty, error) {
-	if !field.IsExported() {
-		return nil, nil
-	}
-	if field.Anonymous {
-		return c.embeddedStructPropertySpecs(
-			ownerType,
-			field,
-			fieldIndex,
-		)
-	}
-	property, ok, err := c.namedStructPropertySpec(
-		ownerType,
-		field,
-		fieldIndex,
-	)
-	if err != nil || !ok {
-		return nil, err
-	}
-	return []reflectedStructProperty{property}, nil
-}
-
-func (c *typeConverter) embeddedStructPropertySpecs(
-	ownerType reflect.Type,
-	field reflect.StructField,
-	fieldIndex []int,
-) ([]reflectedStructProperty, error) {
-	embeddedType := field.Type
-	for embeddedType.Kind() == reflect.Pointer {
-		embeddedType = embeddedType.Elem()
-	}
-	if embeddedType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf(
-			"%s.%s: anonymous field must be a struct, got %s",
-			ownerType.Name(),
-			field.Name,
-			field.Type.String(),
-		)
-	}
-	return c.structPropertySpecsWithFieldIndex(
-		embeddedType,
-		fieldIndex,
-	)
 }
 
 func (c *typeConverter) namedStructPropertySpec(
 	ownerType reflect.Type,
 	field reflect.StructField,
-	fieldIndex []int,
 ) (reflectedStructProperty, bool, error) {
 	name, optional, skip := jsonFieldName(field)
 	if skip {
@@ -519,7 +455,7 @@ func (c *typeConverter) namedStructPropertySpec(
 			TypeExpr: typeExpr,
 			Optional: optional,
 		},
-		FieldIndex:                   fieldIndex,
+		FieldIndex:                   append([]int(nil), field.Index...),
 		Nullable:                     nullable,
 		CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
 		CreateTargetTypeName:         createTargetTypeName,
