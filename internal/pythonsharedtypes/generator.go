@@ -42,11 +42,6 @@ func Build() (GeneratedTypes, error) {
 		return GeneratedTypes{}, err
 	}
 
-	standardImports = appendUniqueImportLines(
-		standardImports,
-		pythonBlockImportLines(standardBlocks)...,
-	)
-
 	return GeneratedTypes{
 		PythonModule: renderGeneratedTypesModule(standardImports, standardBlocks),
 	}, nil
@@ -81,39 +76,6 @@ func renderGeneratedTypesModule(
 	return builder.String()
 }
 
-func appendUniqueImportLines(base []string, extras ...string) []string {
-	out := append([]string(nil), base...)
-	seen := map[string]struct{}{}
-	for _, line := range out {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-	}
-	for _, line := range extras {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		if _, exists := seen[trimmed]; exists {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		out = append(out, trimmed)
-	}
-	return out
-}
-
-func pythonBlockImportLines(blocks []string) []string {
-	for _, block := range blocks {
-		if strings.Contains(block, "TypeAdapter(") {
-			return []string{"from pydantic import TypeAdapter"}
-		}
-	}
-	return nil
-}
-
 func buildModelFieldSpec(
 	contractName string,
 	ownerType reflect.Type,
@@ -143,7 +105,7 @@ func buildModelFieldSpec(
 		)
 	}
 
-	defaultExpr, err := pythonPatchedFieldDefaultExpr(
+	defaultExpr, defaultImports, err := pythonPatchedFieldDefaultExpr(
 		ownerType,
 		field,
 		typeExpr,
@@ -157,6 +119,7 @@ func buildModelFieldSpec(
 			err,
 		)
 	}
+	mergeImportSet(fieldImports, defaultImports)
 	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
 		typeExpr += " | None"
 	}
@@ -226,15 +189,6 @@ func isLocalPythonContractImportName(name string) bool {
 	return local
 }
 
-func normalizeLocalPythonContractAlias(value string) string {
-	value = strings.TrimSpace(value)
-	for _, t := range sharedtypes.DiscoveredTypes() {
-		name := sharedtypes.ContractNameForType(t)
-		value = strings.ReplaceAll(value, name+"WithDiscriminator", name)
-	}
-	return value
-}
-
 func visibleFields(modelType reflect.Type) []reflect.StructField {
 	fields := make([]reflect.StructField, 0, modelType.NumField())
 	for index := 0; index < modelType.NumField(); index++ {
@@ -271,7 +225,7 @@ func pythonPatchedFieldTypeExpr(
 	if importTag != "" {
 		mergePythonImportTagLines(imports, importTag)
 	}
-	override := normalizeLocalPythonContractAlias(field.Tag.Get("py_type"))
+	override := strings.TrimSpace(field.Tag.Get("py_type"))
 	if override != "" {
 		return override, imports, nil
 	}
@@ -287,22 +241,22 @@ func pythonPatchedFieldDefaultExpr(
 	field reflect.StructField,
 	typeExpr string,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, error) {
+) (string, map[string]struct{}, error) {
 	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
 	switch defaultTag {
 	case "":
 		if field.Type.Kind() == reflect.Pointer || strings.HasSuffix(typeExpr, " | None") {
-			return "None", nil
+			return "None", nil, nil
 		}
-		return "", nil
+		return "", nil, nil
 	case "go_value":
 		return pythonGoValueDefaultExpr(ownerType, field, typeExpr, defaultSourcesByType)
 	case "factory:list":
-		return "Field(default_factory=list)", nil
+		return "Field(default_factory=list)", nil, nil
 	case "factory:dict":
-		return "Field(default_factory=dict)", nil
+		return "Field(default_factory=dict)", nil, nil
 	default:
-		return defaultTag, nil
+		return defaultTag, nil, nil
 	}
 }
 
@@ -311,41 +265,41 @@ func pythonGoValueDefaultExpr(
 	field reflect.StructField,
 	typeExpr string,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (string, error) {
+) (string, map[string]struct{}, error) {
 	defaultValue, ok := pythonSharedDefaultValueForField(ownerType, field, defaultSourcesByType)
 	if !ok {
 		defaultValue = reflect.Zero(field.Type)
 	}
 	for defaultValue.IsValid() && defaultValue.Kind() == reflect.Interface {
 		if defaultValue.IsNil() {
-			return "None", nil
+			return "None", nil, nil
 		}
 		defaultValue = defaultValue.Elem()
 	}
 	for defaultValue.IsValid() && defaultValue.Kind() == reflect.Pointer {
 		if defaultValue.IsNil() {
-			return "None", nil
+			return "None", nil, nil
 		}
 		defaultValue = defaultValue.Elem()
 	}
 	if !defaultValue.IsValid() {
-		return "None", nil
+		return "None", nil, nil
 	}
 	if expr, ok := pythonEmptyCollectionDefaultExpr(defaultValue); ok {
-		return expr, nil
+		return expr, nil, nil
 	}
 	if expr, ok := pythonScalarDefaultExpr(defaultValue); ok {
-		return expr, nil
+		return expr, nil, nil
 	}
 	payload, err := json.Marshal(defaultValue.Interface())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	return fmt.Sprintf(
 		"Field(default_factory=lambda: TypeAdapter(%s).validate_json(%q))",
 		strings.TrimSpace(typeExpr),
 		string(payload),
-	), nil
+	), map[string]struct{}{"from pydantic import TypeAdapter": {}}, nil
 }
 
 func pythonEmptyCollectionDefaultExpr(value reflect.Value) (string, bool) {
