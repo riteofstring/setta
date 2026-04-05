@@ -25,57 +25,6 @@ func mustTSLiteralValueFromGoValue(context string, value any) any {
 	return normalized
 }
 
-func mergeTSLiteralValueFromReflectValue(
-	context string,
-	value reflect.Value,
-	normalized any,
-) any {
-	if !value.IsValid() {
-		return normalized
-	}
-	for value.Kind() == reflect.Pointer {
-		if value.IsNil() {
-			return nil
-		}
-		value = value.Elem()
-	}
-	if value.Kind() != reflect.Struct {
-		return normalized
-	}
-	object, ok := normalized.(map[string]any)
-	if !ok {
-		return normalized
-	}
-	valueType := value.Type()
-	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
-		field := valueType.Field(fieldIndex)
-		if !field.IsExported() {
-			continue
-		}
-		fieldValue := value.Field(fieldIndex)
-		if field.Anonymous {
-			merged := mergeTSLiteralValueFromReflectValue(context, fieldValue, object)
-			mergedObject, ok := merged.(map[string]any)
-			if ok {
-				object = mergedObject
-			}
-			continue
-		}
-		name, _, skip := jsonFieldName(field)
-		if skip {
-			continue
-		}
-		fieldContext := context + "." + name
-		normalizedField, ok := object[name]
-		if !ok {
-			object[name] = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
-			continue
-		}
-		object[name] = mergeTSLiteralValueFromReflectValue(fieldContext, fieldValue, normalizedField)
-	}
-	return object
-}
-
 func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 	switch typed := value.(type) {
 	case nil:

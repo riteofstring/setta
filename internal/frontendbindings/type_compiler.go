@@ -37,6 +37,7 @@ type typeConverter struct {
 
 type reflectedStructProperty struct {
 	Property                     TypeProperty
+	FieldIndex                   []int
 	Nullable                     bool
 	CreateExpr                   string
 	CreateTargetTypeName         string
@@ -388,18 +389,25 @@ func buildGoBackedCreateBodyTS(
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
 	normalizedDefaults := mustTSLiteralValueFromGoValue(context, defaultValue)
-	if reflected := reflect.ValueOf(defaultValue); reflected.IsValid() {
-		normalizedDefaults = mergeTSLiteralValueFromReflectValue(context, reflected, normalizedDefaults)
-	}
 	defaultValuesByName, ok := normalizedDefaults.(map[string]any)
 	if !ok {
 		panic(context + ": Go default did not decode to an object")
 	}
+	reflectedDefaults := reflect.ValueOf(defaultValue)
 	defaultsObject := make(map[string]any, len(properties))
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
 		value, hasDefault := defaultValuesByName[property.Name]
+		fieldValue, hasFieldValue := reflectedStructFieldValue(reflectedDefaults, propertySpec.FieldIndex)
+		if hasFieldValue {
+			fieldContext := context + "." + property.Name
+			if !hasDefault {
+				value = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
+				hasDefault = true
+			}
+			value = mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, value)
+		}
 		if !hasDefault {
 			if !property.Optional {
 				panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
@@ -443,6 +451,72 @@ func buildGoBackedCreateBodyTS(
 	builder.WriteString(fieldBuilder.String())
 	builder.WriteString("  };")
 	return builder.String(), nil
+}
+
+func reflectedStructFieldValue(value reflect.Value, fieldIndex []int) (reflect.Value, bool) {
+	for _, index := range fieldIndex {
+		for value.IsValid() && value.Kind() == reflect.Pointer {
+			if value.IsNil() {
+				return reflect.Value{}, false
+			}
+			value = value.Elem()
+		}
+		if !value.IsValid() || value.Kind() != reflect.Struct || index >= value.NumField() {
+			return reflect.Value{}, false
+		}
+		value = value.Field(index)
+	}
+	if !value.IsValid() {
+		return reflect.Value{}, false
+	}
+	return value, true
+}
+
+func mergeTSLiteralValueFromFieldValue(context string, value reflect.Value, normalized any) any {
+	if !value.IsValid() {
+		return normalized
+	}
+	for value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return nil
+		}
+		value = value.Elem()
+	}
+	if value.Kind() != reflect.Struct {
+		return normalized
+	}
+	object, ok := normalized.(map[string]any)
+	if !ok {
+		return normalized
+	}
+	valueType := value.Type()
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		field := valueType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		fieldValue := value.Field(fieldIndex)
+		if field.Anonymous {
+			merged := mergeTSLiteralValueFromFieldValue(context, fieldValue, object)
+			mergedObject, ok := merged.(map[string]any)
+			if ok {
+				object = mergedObject
+			}
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		fieldContext := context + "." + name
+		normalizedField, ok := object[name]
+		if !ok {
+			object[name] = mustTSLiteralValueFromGoValue(fieldContext, fieldValue.Interface())
+			continue
+		}
+		object[name] = mergeTSLiteralValueFromFieldValue(fieldContext, fieldValue, normalizedField)
+	}
+	return object
 }
 
 func buildGenericCreateFieldExprTS(
@@ -549,9 +623,20 @@ func (c *typeConverter) structPropertySpecs(
 	optionalOverrides map[string]bool,
 	ignoredProperties map[string]struct{},
 ) ([]reflectedStructProperty, error) {
+	return c.structPropertySpecsWithFieldIndex(t, typeExprOverrides, optionalOverrides, ignoredProperties, nil)
+}
+
+func (c *typeConverter) structPropertySpecsWithFieldIndex(
+	t reflect.Type,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
+	fieldIndexPrefix []int,
+) ([]reflectedStructProperty, error) {
 	properties := make([]reflectedStructProperty, 0, t.NumField())
 	for i := range t.NumField() {
 		field := t.Field(i)
+		fieldIndex := append(append([]int(nil), fieldIndexPrefix...), field.Index...)
 		if !field.IsExported() {
 			continue
 		}
@@ -568,11 +653,12 @@ func (c *typeConverter) structPropertySpecs(
 					field.Type.String(),
 				)
 			}
-			embeddedProperties, err := c.structPropertySpecs(
+			embeddedProperties, err := c.structPropertySpecsWithFieldIndex(
 				embeddedType,
 				typeExprOverrides,
 				optionalOverrides,
 				ignoredProperties,
+				fieldIndex,
 			)
 			if err != nil {
 				return nil, err
@@ -642,6 +728,7 @@ func (c *typeConverter) structPropertySpecs(
 				TypeExpr: typeExpr,
 				Optional: optional,
 			},
+			FieldIndex:                   fieldIndex,
 			Nullable:                     nullable,
 			CreateExpr:                   strings.TrimSpace(tsMetadata.CreateExpr),
 			CreateTargetTypeName:         createTargetTypeName,

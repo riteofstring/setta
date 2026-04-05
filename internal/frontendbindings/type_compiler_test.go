@@ -138,6 +138,72 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	}
 }
 
+type TestEmbeddedOmitEmptyDefaults struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type testOmitEmptyDefaults struct {
+	TestEmbeddedOmitEmptyDefaults
+	Count int `json:"count,omitempty"`
+}
+
+type TestNestedOmitEmptyDefaultsInner struct {
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+type testNestedOmitEmptyDefaults struct {
+	Inner TestNestedOmitEmptyDefaultsInner `json:"inner"`
+}
+
+func TestBuildGoBackedCreateBodyTSRestoresOmitEmptyDefaultsFromStructFields(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testOmitEmptyDefaults{}), nil, nil, nil)
+	if err != nil {
+		t.Fatalf("structPropertySpecs(testOmitEmptyDefaults): %v", err)
+	}
+
+	createBody, err := buildGoBackedCreateBodyTS(
+		"test omit empty defaults",
+		"TestOmitEmptyDefaults",
+		testOmitEmptyDefaults{},
+		propertySpecs,
+	)
+	if err != nil {
+		t.Fatalf("buildGoBackedCreateBodyTS(testOmitEmptyDefaults): %v", err)
+	}
+	if !strings.Contains(createBody, "count: 0") {
+		t.Fatalf("create body missing zero-value omitempty int default:\n%s", createBody)
+	}
+	if !strings.Contains(createBody, "enabled: false") {
+		t.Fatalf("create body missing zero-value omitempty embedded bool default:\n%s", createBody)
+	}
+}
+
+func TestBuildGoBackedCreateBodyTSRestoresNestedOmitEmptyDefaults(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	propertySpecs, err := converter.structPropertySpecs(reflect.TypeOf(testNestedOmitEmptyDefaults{}), nil, nil, nil)
+	if err != nil {
+		t.Fatalf("structPropertySpecs(testNestedOmitEmptyDefaults): %v", err)
+	}
+
+	createBody, err := buildGoBackedCreateBodyTS(
+		"test nested omit empty defaults",
+		"TestNestedOmitEmptyDefaults",
+		testNestedOmitEmptyDefaults{},
+		propertySpecs,
+	)
+	if err != nil {
+		t.Fatalf("buildGoBackedCreateBodyTS(testNestedOmitEmptyDefaults): %v", err)
+	}
+	if !strings.Contains(createBody, "inner: {\n      enabled: false,") {
+		t.Fatalf("create body missing nested zero-value omitempty default:\n%s", createBody)
+	}
+}
+
 func findTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {
 	t.Helper()
 
