@@ -6183,6 +6183,89 @@ export type LauncherRecentWorkspacesResponse = {
   error: LauncherHomeErrorPayload | null;
 };
 
+export type SharePolicy = {
+  allowParamChanges: boolean;
+  allowVariantChanges: boolean;
+  allowLayoutChanges: boolean;
+  allowRun: boolean;
+  allowLLM: boolean;
+  allowExternalLinks: boolean;
+  allowFileDownloads: boolean;
+  allowMultipleRuns: boolean;
+  runSnapshotMode: RunSnapshotMode;
+};
+export function createSharePolicy(
+  options: Partial<SharePolicy> = {},
+): SharePolicy {
+  return mergeGeneratedOptions<SharePolicy>(
+    {
+      allowParamChanges: true,
+      allowVariantChanges: true,
+      allowLayoutChanges: true,
+      allowRun: false,
+      allowLLM: false,
+      allowExternalLinks: false,
+      allowFileDownloads: false,
+      allowMultipleRuns: true,
+      runSnapshotMode: "ephemeral",
+    },
+    options,
+  );
+}
+
+const DeploymentTypeEnum = {
+  share: "share",
+  app: "app",
+} as const;
+type DeploymentType = ObjectValues<typeof DeploymentTypeEnum>;
+
+type DeploymentListenerConfig = {
+  entrypoint: string;
+  enabled: boolean;
+};
+
+type DeploymentManifest = {
+  version: number;
+  deploymentName: string;
+  deploymentType: DeploymentType;
+  defaultProjectConfigId: string;
+  deploymentVersion: string;
+  createdAt?: string;
+  listener?: DeploymentListenerConfig | null;
+};
+
+export type AppDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  appPolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
+};
+
+export type DeploymentMetadataResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+
+export type LoadDeploymentProjectConfigRequest = {
+  projectConfigId: string;
+};
+
+export type AppDeploymentStateResponse = {
+  projectState: SingleConfig;
+  appDefinition: AppDefinition | null;
+  appSpec: unknown;
+  appPolicy: SharePolicy;
+};
+
 export type AppendDrawAreaLayerItemRequest = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -6284,68 +6367,6 @@ export type CreateAgenticEdgeRequest = {
   zIndex: number;
 };
 
-export type SharePolicy = {
-  allowParamChanges: boolean;
-  allowVariantChanges: boolean;
-  allowLayoutChanges: boolean;
-  allowRun: boolean;
-  allowLLM: boolean;
-  allowExternalLinks: boolean;
-  allowFileDownloads: boolean;
-  allowMultipleRuns: boolean;
-  runSnapshotMode: RunSnapshotMode;
-};
-export function createSharePolicy(
-  options: Partial<SharePolicy> = {},
-): SharePolicy {
-  return mergeGeneratedOptions<SharePolicy>(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: true,
-      allowLayoutChanges: true,
-      allowRun: false,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: "ephemeral",
-    },
-    options,
-  );
-}
-
-const DeploymentTypeEnum = {
-  share: "share",
-  app: "app",
-} as const;
-type DeploymentType = ObjectValues<typeof DeploymentTypeEnum>;
-
-type DeploymentListenerConfig = {
-  entrypoint: string;
-  enabled: boolean;
-};
-
-type DeploymentManifest = {
-  version: number;
-  deploymentName: string;
-  deploymentType: DeploymentType;
-  defaultProjectConfigId: string;
-  deploymentVersion: string;
-  createdAt?: string;
-  listener?: DeploymentListenerConfig | null;
-};
-
-export type AppDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  appPolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
-};
-
 export type CreateChildSectionsRequest = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -6431,17 +6452,6 @@ export type CreatePromptTemplateRequest = {
   format: PromptFormat | null;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
-};
-
-export type ShareDeploymentSessionResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  shareSessionId: string;
-  sessionRunCount: number;
-  defaultProjectConfigId: string;
-  projectMetadata: Array<ProjectMetadataEntry>;
-  sharePolicy: SharePolicy;
-  manifest?: DeploymentManifest | null;
 };
 
 export type CreateStateMachineEdgeRequest = {
@@ -6699,23 +6709,6 @@ export type GetAIFollowSnapshotRequest = {
 
 export type GetAppDefinitionRequest = {
   frontendOpId?: string | null;
-};
-
-export type DeploymentMetadataResponse = {
-  deploymentName: string;
-  deploymentVersion: string;
-  defaultProjectConfigId: string;
-  defaultProjectConfigName: string;
-  createdAt: string;
-  deploymentRoot: string;
-  policyPath: string;
-};
-
-export type AppDeploymentStateResponse = {
-  projectState: SingleConfig;
-  appDefinition: AppDefinition | null;
-  appSpec: unknown;
-  appPolicy: SharePolicy;
 };
 
 export type GetAppGenSkillContentRequest = {
@@ -7381,10 +7374,6 @@ export type LauncherListDirectoryResponse = {
   hasMore: boolean;
   truncated: boolean;
   error: LauncherHomeErrorPayload | null;
-};
-
-export type LoadDeploymentProjectConfigRequest = {
-  projectConfigId: string;
 };
 
 export type ProjectLoadRequest = {
@@ -8233,6 +8222,17 @@ export type SetupLauncherRequest = {
   workspaceBehavior?: string | null;
   installArtifacts?: boolean | null;
   artifactOptions?: Record<string, string> | null;
+};
+
+export type ShareDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  sharePolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
 };
 
 export type StartAgentRunRequest = {

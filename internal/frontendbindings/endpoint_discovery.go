@@ -83,23 +83,6 @@ type namedTypeRegistry struct {
 	byName      map[string][]reflect.Type
 }
 
-var endpointFunctionNameOverrides = map[string]string{
-	"POST RouteShareDeploymentCurrentSession": "route_create_share_session_current",
-	"POST RouteAppDeploymentCurrentSession":   "route_create_app_session_current",
-	"GET RouteShareDeploymentState":           "route_get_share_deployment_state",
-	"POST RouteShareDeploymentProjectConfig":  "route_load_share_project_config",
-	"GET RouteAppDeploymentState":             "route_get_app_deployment_state",
-	"POST RouteAppDeploymentProjectConfig":    "route_load_app_project_config",
-	"GET RouteShareDeployments":               "route_list_share_deployments",
-	"GET RouteShareDeploymentVersions":        "route_list_share_deployment_versions",
-	"GET RouteShareDeploymentLatest":          "route_get_share_deployment_latest",
-	"POST RouteShareDeployments":              "route_publish_share_deployment",
-	"GET RouteAppDeployments":                 "route_list_app_deployments",
-	"GET RouteAppDeploymentVersions":          "route_list_app_deployment_versions",
-	"GET RouteAppDeploymentLatest":            "route_get_app_deployment_latest",
-	"POST RouteAppDeployments":                "route_publish_app_deployment",
-}
-
 var endpointRequestTypeOverrides = map[string]reflect.Type{
 	"POST RouteBinaryUpload":                 reflect.TypeOf(httpapi.BinaryUploadRequest{}),
 	"GET RouteBinaryDownload":                reflect.TypeOf(httpapi.BinaryDownloadRequest{}),
@@ -225,13 +208,51 @@ func discoverCurrentEndpoints() ([]EndpointSpec, error) {
 
 	specs := make([]EndpointSpec, 0, len(discovered))
 	seen := make(map[string]struct{}, len(discovered))
-	for _, endpoint := range discovered {
+	routeNames := make([]string, len(discovered))
+	routeFunctionBindings := make(map[string]map[string]struct{}, len(discovered))
+	handlerBaseBindings := make(map[string]map[string]struct{}, len(discovered))
+	for index, endpoint := range discovered {
 		routePath := routePaths[endpoint.RouteConst]
 		routeName, err := discoveredEndpointRouteName(endpoint.RouteConst, routePath, endpoint.HandlerName, endpoint.Method)
 		if err != nil {
 			return nil, err
 		}
-		functionName := discoveredEndpointFunctionName(endpoint.RouteConst, endpoint.Method, routeName)
+		routeNames[index] = routeName
+		bindingKey := endpoint.Method + "\x00" + routeName
+		defaultName := routeFunctionName(routeName)
+		bindings := routeFunctionBindings[defaultName]
+		if bindings == nil {
+			bindings = map[string]struct{}{}
+			routeFunctionBindings[defaultName] = bindings
+		}
+		bindings[bindingKey] = struct{}{}
+		if handlerBase := endpointHandlerBaseName(endpoint.HandlerName); handlerBase != "" {
+			bindings := handlerBaseBindings[handlerBase]
+			if bindings == nil {
+				bindings = map[string]struct{}{}
+				handlerBaseBindings[handlerBase] = bindings
+			}
+			bindings[bindingKey] = struct{}{}
+		}
+	}
+	routeFunctionNameCounts := make(map[string]int, len(routeFunctionBindings))
+	for name, bindings := range routeFunctionBindings {
+		routeFunctionNameCounts[name] = len(bindings)
+	}
+	handlerBaseCounts := make(map[string]int, len(handlerBaseBindings))
+	for handlerBase, bindings := range handlerBaseBindings {
+		handlerBaseCounts[handlerBase] = len(bindings)
+	}
+
+	for index, endpoint := range discovered {
+		routeName := routeNames[index]
+		functionName := discoveredEndpointFunctionName(
+			endpoint.Method,
+			routeName,
+			endpoint.HandlerName,
+			routeFunctionNameCounts,
+			handlerBaseCounts,
+		)
 
 		spec := EndpointSpec{
 			FunctionName:    functionName,
@@ -311,11 +332,61 @@ func discoveredEndpointRouteName(routeConst string, routePath string, handlerNam
 	return "", fmt.Errorf("route %s has ambiguous frontend route names: %s", routeConst, strings.Join(names, ", "))
 }
 
-func discoveredEndpointFunctionName(routeConst string, method string, routeName string) string {
-	if override, ok := endpointFunctionNameOverrides[method+" "+routeConst]; ok {
-		return override
+func discoveredEndpointFunctionName(
+	method string,
+	routeName string,
+	handlerName string,
+	routeFunctionNameCounts map[string]int,
+	handlerBaseCounts map[string]int,
+) string {
+	defaultName := routeFunctionName(routeName)
+	if routeFunctionNameCounts[defaultName] <= 1 {
+		return defaultName
 	}
-	return "route_" + snakeCaseFrontendIdentifier(routeName)
+
+	handlerBase := endpointHandlerBaseName(handlerName)
+	if handlerBase == "" {
+		return disambiguatedRouteFunctionName(method, routeName, "")
+	}
+	if handlerBaseCounts[handlerBase] <= 1 {
+		return routeFunctionName(handlerBase)
+	}
+	return disambiguatedRouteFunctionName(method, routeName, handlerBase)
+}
+
+func routeFunctionName(value string) string {
+	return "route_" + snakeCaseFrontendIdentifier(value)
+}
+
+func endpointHandlerBaseName(handlerName string) string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(handlerName), "Handler"))
+}
+
+func disambiguatedRouteFunctionName(method string, routeName string, handlerBase string) string {
+	prefix := endpointHandlerActionPrefix(handlerBase)
+	if prefix == "" {
+		prefix = strings.ToLower(strings.TrimSpace(method))
+	}
+	routeSnake := snakeCaseFrontendIdentifier(routeName)
+	if strings.HasPrefix(routeSnake, prefix+"_") {
+		prefix = strings.ToLower(strings.TrimSpace(method))
+		if strings.HasPrefix(routeSnake, prefix+"_") {
+			return routeFunctionName(routeName)
+		}
+	}
+	return "route_" + prefix + "_" + routeSnake
+}
+
+func endpointHandlerActionPrefix(handlerBase string) string {
+	trimmed := strings.TrimSpace(handlerBase)
+	if trimmed == "" {
+		return ""
+	}
+	words := splitFrontendBindingIdentifierWords(strings.ToUpper(trimmed[:1]) + trimmed[1:])
+	if len(words) == 0 {
+		return ""
+	}
+	return strings.ToLower(words[0])
 }
 
 func snakeCaseFrontendIdentifier(value string) string {

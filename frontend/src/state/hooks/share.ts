@@ -7,7 +7,7 @@ import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
-import { route_load_share_project_config } from "utils/generatedEndpoints";
+import { route_share_deployment_project_config } from "utils/generatedEndpoints";
 import type { ProjectMetadataEntry } from "utils/generatedTypes";
 
 function resolveProjectConfigId(
@@ -74,7 +74,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
           }
           return;
         }
-        const stateRes = await route_load_share_project_config(
+        const stateRes = await route_share_deployment_project_config(
           session.deploymentName,
           session.deploymentVersion,
           { projectConfigId: resolvedConfigId },

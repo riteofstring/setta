@@ -29,11 +29,11 @@ const routeGetAppDeploymentStateMock = vi.fn();
 const routeLoadAppProjectConfigMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_create_app_session_current: (...args: unknown[]) =>
+  route_app_deployment_current_session: (...args: unknown[]) =>
     routeCreateAppSessionCurrentMock(...args),
-  route_get_app_deployment_state: (...args: unknown[]) =>
+  route_app_deployment_state: (...args: unknown[]) =>
     routeGetAppDeploymentStateMock(...args),
-  route_load_app_project_config: (...args: unknown[]) =>
+  route_app_deployment_project_config: (...args: unknown[]) =>
     routeLoadAppProjectConfigMock(...args),
 }));
 

@@ -13,9 +13,9 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_create_app_session_current,
-  route_get_app_deployment_state,
-  route_load_app_project_config,
+  route_app_deployment_current_session,
+  route_app_deployment_project_config,
+  route_app_deployment_state,
 } from "utils/generatedEndpoints";
 import type {
   AppDeploymentSessionResponse,
@@ -210,7 +210,7 @@ export async function ensureAppSessionFromCurrentDeployment(
     }
   }
   const sessionRes: AppDeploymentSessionRouteResponse =
-    await route_create_app_session_current();
+    await route_app_deployment_current_session();
   if (!res200(sessionRes)) {
     return null;
   }
@@ -265,12 +265,12 @@ export async function loadAppDeploymentState({
   }
 
   const res: AppDeploymentStateRouteResponse = projectConfigId
-    ? await route_load_app_project_config(
+    ? await route_app_deployment_project_config(
         shareSession.shareDeploymentName,
         shareSession.shareDeploymentVersion,
         { projectConfigId },
       )
-    : await route_get_app_deployment_state(
+    : await route_app_deployment_state(
         shareSession.shareDeploymentName,
         shareSession.shareDeploymentVersion,
       );

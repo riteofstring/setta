@@ -45,6 +45,44 @@ export async function route_add_launcher_recent_workspace(
   return await post(GoHTTPRouteHelpers.addLauncherRecentWorkspace(), x);
 }
 
+export async function route_app_deployment_current_session(): Promise<
+  ResponseDataAndStatus<gt.AppDeploymentSessionResponse>
+> {
+  return await post(GoHTTPRouteHelpers.appDeploymentCurrentSession(), null);
+}
+
+export async function route_app_deployment_latest(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
+  return await get(GoHTTPRouteHelpers.appDeploymentLatest(deploymentName));
+}
+
+export async function route_app_deployment_project_config(
+  deploymentName: string,
+  version: string,
+  x: gt.LoadDeploymentProjectConfigRequest,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+  return await post(
+    GoHTTPRouteHelpers.appDeploymentProjectConfig(deploymentName, version),
+    x,
+  );
+}
+
+export async function route_app_deployment_state(
+  deploymentName: string,
+  version: string,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+  return await get(
+    GoHTTPRouteHelpers.appDeploymentState(deploymentName, version),
+  );
+}
+
+export async function route_app_deployment_versions(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
+  return await get(GoHTTPRouteHelpers.appDeploymentVersions(deploymentName));
+}
+
 export async function route_append_draw_area_layer_item(
   x: gt.AppendDrawAreaLayerItemRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -138,12 +176,6 @@ export async function route_create_agentic_edge(
   return await post(GoHTTPRouteHelpers.createAgenticEdge(), x);
 }
 
-export async function route_create_app_session_current(): Promise<
-  ResponseDataAndStatus<gt.AppDeploymentSessionResponse>
-> {
-  return await post(GoHTTPRouteHelpers.appDeploymentCurrentSession(), null);
-}
-
 export async function route_create_child_sections(
   x: gt.CreateChildSectionsRequest,
 ): Promise<ResponseDataAndStatus<gt.CreateChildSectionsResult>> {
@@ -196,12 +228,6 @@ export async function route_create_prompt_template(
   x: gt.CreatePromptTemplateRequest,
 ): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
   return await post(GoHTTPRouteHelpers.createPromptTemplate(), x);
-}
-
-export async function route_create_share_session_current(): Promise<
-  ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>
-> {
-  return await post(GoHTTPRouteHelpers.shareDeploymentCurrentSession(), null);
 }
 
 export async function route_create_state_machine_edge(
@@ -450,21 +476,6 @@ export async function route_get_app_definition(
   x: gt.GetAppDefinitionRequest,
 ): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResult>> {
   return await post(GoHTTPRouteHelpers.getAppDefinition(), x);
-}
-
-export async function route_get_app_deployment_latest(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
-  return await get(GoHTTPRouteHelpers.appDeploymentLatest(deploymentName));
-}
-
-export async function route_get_app_deployment_state(
-  deploymentName: string,
-  version: string,
-): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
-  return await get(
-    GoHTTPRouteHelpers.appDeploymentState(deploymentName, version),
-  );
 }
 
 export async function route_get_app_gen_skill_content(
@@ -721,23 +732,6 @@ export async function route_get_setta_home_info(): Promise<
   return await get(GoHTTPRouteHelpers.getSettaHomeInfo());
 }
 
-export async function route_get_share_deployment_latest(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
-  return await get(GoHTTPRouteHelpers.shareDeploymentLatest(deploymentName));
-}
-
-export async function route_get_share_deployment_state(
-  deploymentName: string,
-  version: string,
-): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
-> {
-  return await get(
-    GoHTTPRouteHelpers.shareDeploymentState(deploymentName, version),
-  );
-}
-
 export async function route_get_state_machine_run(
   x: gt.GetStateMachineRunRequest,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
@@ -786,12 +780,6 @@ export async function route_launch(
   return await post(GoHTTPRouteHelpers.launch(), x);
 }
 
-export async function route_list_app_deployment_versions(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
-  return await get(GoHTTPRouteHelpers.appDeploymentVersions(deploymentName));
-}
-
 export async function route_list_app_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>
 > {
@@ -804,12 +792,6 @@ export async function route_list_launcher_directory(
   return await post(GoHTTPRouteHelpers.listLauncherDirectory(), x);
 }
 
-export async function route_list_share_deployment_versions(
-  deploymentName: string,
-): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
-  return await get(GoHTTPRouteHelpers.shareDeploymentVersions(deploymentName));
-}
-
 export async function route_list_share_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>
 > {
@@ -820,17 +802,6 @@ export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
   return await post(GoHTTPRouteHelpers.loadAllProjectMetadata(), null);
-}
-
-export async function route_load_app_project_config(
-  deploymentName: string,
-  version: string,
-  x: gt.LoadDeploymentProjectConfigRequest,
-): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
-  return await post(
-    GoHTTPRouteHelpers.appDeploymentProjectConfig(deploymentName, version),
-    x,
-  );
 }
 
 export async function route_load_cached_brush_strokes(
@@ -870,19 +841,6 @@ export async function route_load_settings(): Promise<
   ResponseDataAndStatus<gt.SettingsState>
 > {
   return await post(GoHTTPRouteHelpers.loadSettings(), null);
-}
-
-export async function route_load_share_project_config(
-  deploymentName: string,
-  version: string,
-  x: gt.LoadDeploymentProjectConfigRequest,
-): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
-> {
-  return await post(
-    GoHTTPRouteHelpers.shareDeploymentProjectConfig(deploymentName, version),
-    x,
-  );
 }
 
 export async function route_move_param_groups(
@@ -1608,6 +1566,48 @@ export async function route_setup_launcher(
   x: gt.SetupLauncherRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
   return await post(GoHTTPRouteHelpers.setupLauncher(), x);
+}
+
+export async function route_share_deployment_current_session(): Promise<
+  ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>
+> {
+  return await post(GoHTTPRouteHelpers.shareDeploymentCurrentSession(), null);
+}
+
+export async function route_share_deployment_latest(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
+  return await get(GoHTTPRouteHelpers.shareDeploymentLatest(deploymentName));
+}
+
+export async function route_share_deployment_project_config(
+  deploymentName: string,
+  version: string,
+  x: gt.LoadDeploymentProjectConfigRequest,
+): Promise<
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
+> {
+  return await post(
+    GoHTTPRouteHelpers.shareDeploymentProjectConfig(deploymentName, version),
+    x,
+  );
+}
+
+export async function route_share_deployment_state(
+  deploymentName: string,
+  version: string,
+): Promise<
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
+> {
+  return await get(
+    GoHTTPRouteHelpers.shareDeploymentState(deploymentName, version),
+  );
+}
+
+export async function route_share_deployment_versions(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
+  return await get(GoHTTPRouteHelpers.shareDeploymentVersions(deploymentName));
 }
 
 export async function route_start_agent_run(

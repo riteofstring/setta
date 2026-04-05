@@ -28,9 +28,9 @@ const loadProjectStateMock = vi.fn();
 const requestAIFollowSnapshotMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_create_share_session_current: (...args: unknown[]) =>
+  route_share_deployment_current_session: (...args: unknown[]) =>
     routeCreateShareSessionCurrentMock(...args),
-  route_load_share_project_config: (...args: unknown[]) =>
+  route_share_deployment_project_config: (...args: unknown[]) =>
     routeLoadShareProjectConfigMock(...args),
 }));
 

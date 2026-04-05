@@ -12,8 +12,8 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_create_share_session_current,
-  route_load_share_project_config,
+  route_share_deployment_current_session,
+  route_share_deployment_project_config,
 } from "utils/generatedEndpoints";
 import type {
   ProjectStateSingleConfigWithCompletedOpIDs,
@@ -194,7 +194,7 @@ export async function ensureShareSessionFromCurrentDeployment(
     }
   }
   const sessionRes: ShareDeploymentSessionRouteResponse =
-    await route_create_share_session_current();
+    await route_share_deployment_current_session();
   if (!res200(sessionRes)) {
     return null;
   }
@@ -251,7 +251,7 @@ export async function loadShareProjectConfig({
 
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
   const stateRes: ShareProjectConfigRouteResponse =
-    await route_load_share_project_config(
+    await route_share_deployment_project_config(
       shareSession.shareDeploymentName,
       shareSession.shareDeploymentVersion,
       { projectConfigId },
