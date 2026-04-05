@@ -1,32 +1,49 @@
-from datetime import datetime
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Discriminator, Tag
+from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
+    BaseChatMessageUnion,
+    Chat,
+    ChatRole,
+    ChatSectionBranch,
+    ChatSectionState,
+    LLMStreamingResponseChunk,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
+)
 
-from setta.database.utils import create_new_id
-from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
-from setta.types.llm_config import LLMConfig
-from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
+__all__ = [
+    "AssistantChatMessage",
+    "BaseChatMessageUnion",
+    "BaseChatMessageUnionWithDiscriminator",
+    "Chat",
+    "ChatRole",
+    "ChatSectionBranch",
+    "ChatSectionState",
+    "LLMStreamingResponseChunk",
+    "SystemChatMessage",
+    "ToolChatMessage",
+    "UserChatMessage",
+]
 
 
-class ChatMetadata(BaseModel):
-    id: ID = Field(default_factory=create_new_id)
-    name: str
-    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-    llmConfig: LLMConfig
-    projectConfigId: ID | None = None
-
-    @field_validator("lastUpdated", mode="before")
-    @classmethod
-    def parse_last_updated(cls, v):
-        if isinstance(v, str):
-            return parse_timestamp_str(v)
-        return v
+def _chat_role(value: Any) -> str | None:
+    raw_role = (
+        value.get("role") if isinstance(value, dict) else getattr(value, "role", None)
+    )
+    if isinstance(raw_role, ChatRole):
+        return raw_role.value
+    if isinstance(raw_role, str):
+        return raw_role
+    return None
 
 
-class Chat(ChatMetadata):
-    messages: list[BaseChatMessageUnion]
-    systemPrompt: str | None = None
-
-
-APIKeys = dict[str, str]
+BaseChatMessageUnionWithDiscriminator = Annotated[
+    Annotated[SystemChatMessage, Tag(ChatRole.system.value)]
+    | Annotated[AssistantChatMessage, Tag(ChatRole.assistant.value)]
+    | Annotated[UserChatMessage, Tag(ChatRole.user.value)]
+    | Annotated[ToolChatMessage, Tag(ChatRole.tool.value)],
+    Discriminator(_chat_role),
+]
