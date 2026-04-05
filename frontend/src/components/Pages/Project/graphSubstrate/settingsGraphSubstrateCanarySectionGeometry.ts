@@ -96,9 +96,11 @@ function getSceneBoundsSize(
   section: GraphSubstrateCanarySection,
   resolvedSize: SectionElementSize | null,
 ) {
+  const sizeAuthority =
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
   if (
     hasPositiveSectionSize(resolvedSize) &&
-    getSettingsGraphSubstrateCanarySectionSizeAuthority(section) !== "none"
+    (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
   ) {
     return resolvedSize;
   }

@@ -157,6 +157,48 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     });
   });
 
+  it("keeps shared-node measured refresh local while scene bounds stay on stored controller size", () => {
+    const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 240,
+          height: 160,
+          sizeAuthority: "sharedNode",
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {
+        "section-a": { width: 360, height: 210 },
+      },
+      null,
+      null,
+    );
+
+    expect(snapshot.sections[0]).toEqual({
+      sectionId: "section-a",
+      position: { x: 120, y: 80 },
+      renderedPosition: { x: 120, y: 80 },
+      width: 240,
+      height: 160,
+      sizeAuthority: "sharedNode",
+      resolvedSize: { width: 360, height: 210 },
+      sceneBoundsSize: { width: 240, height: 160 },
+      zIndex: 2,
+      tempZIndex: 2,
+      positionAndSizeLocked: false,
+    });
+    expect(snapshot.sceneBounds).toEqual({
+      x: 120,
+      y: 80,
+      width: 240,
+      height: 160,
+    });
+  });
+
   it("keeps scene bounds on the authoritative subset when another section is still unresolved", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [

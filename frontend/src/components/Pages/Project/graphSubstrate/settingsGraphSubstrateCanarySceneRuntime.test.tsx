@@ -179,8 +179,8 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         sceneBounds: {
           x: 120,
           y: 80,
-          width: 420,
-          height: 315,
+          width: 260,
+          height: 180,
         },
         sections: [
           {

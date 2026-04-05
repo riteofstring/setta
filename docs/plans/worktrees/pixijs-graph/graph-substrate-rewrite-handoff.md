@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 06:08 EDT
+Last updated: 2026-04-07 06:47 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,90 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `261` cleared the pending verification/commit lane for item `260`; there is no new product code beyond the existing shared-node bounds-authority slice.
+
+  - Why this pass stopped here:
+    - item `260` already contained the bounded product change, so the only legitimate next step was to rerun the required canary-health verification and commit that exact slice if the surface was healthy
+    - the first fresh-context CDP sub-agent path was unusable in this loop because fresh sub-agents did not expose `mcp__chrome_devtools__*`, so the retry fell back to the main-session DevTools bridge instead of turning that tooling quirk into a false blocker
+    - the main-session DevTools bridge reproduced the same `list_pages` timeout once, so this pass used the one allowed headless `./aireset.sh` recovery, refreshed runtime values, reran the CDP gate successfully, and stopped before starting another geometry-authority change
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; this remained a bounded worktree canary-health gate only
+  - Product/test change:
+    - no new product code beyond item `260`; this pass commits the existing updates in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed (`7 files`, `49 tests`)
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent could not run the bridge in this loop because `mcp__chrome_devtools__*` was unavailable from the sub-agent context
+      - main-session DevTools attempt 1 reproduced the bridge issue: `list_pages` timed out after `120s`
+      - one allowed recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: restarted the worktree on frontend `3075`, backend `8075`, fresh Setta session `c5f9bd`, and debug port `9297`
+      - post-recovery runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-027/worktree-ai.log`
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: confirmed backend `8075`, fresh bootstrap URL for session `c5f9bd`, and reachable Chrome DevTools on debug port `9297`; `dev-runtime-info` still showed stale frontend `3076` from the supervisor log, so the successful retry trusted the fresh bootstrap route landing on frontend `3075`
+      - successful retry after recovery:
+        - bootstrapped through `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3075/home`, clicked `Open settings`, selected `All Settings`, and the DevTools snapshot showed a populated graph surface with draggable section bodies/cards instead of a blank or detached shell
+  - Lane status:
+    - the item `260` shared-node bounds-authority slice is now verified well enough to commit
+    - authoritative scene bounds stay on stored/controller size for `sharedNode` sections until a later promotion, while local measured render/seed fallback remains intact through `resolvedSize`
+    - do not spend the next pass reopening this same verification lane unless the live canary becomes unhealthy again
+  - Next frontier:
+    - move to the next geometry-authority slice under `useSectionElementSizes(...)` / scene-runtime ownership so fresh DOM measurement updates stop acting as steady-state scene input except where they are explicitly needed for local seed/render fallback
+  - LOOP_TERMINAL_MARKER: none
+
+- Ralph item `260` narrowed the remaining `sharedNode` measured refresh path so fresh local measurements still update local render/seed fallback but no longer widen authoritative `sceneBoundsSize` ahead of the stored/controller size. This slice is not committed yet because the required CDP canary-health gate stayed blocked after the one allowed worktree recovery.
+
+  - Why this pass stopped here:
+    - item `259` explicitly named the `sharedNode` measured refresh path as the next real geometry-authority question, and the smallest product move was to stop letting that local measurement widen authoritative bounds before controller/store promotion caught up
+    - `getSceneBoundsSize(...)` still treated every non-`none` authority as bounds-authoritative, so `sharedNode` sections promoted fresh local measured sizes into `sceneBoundsSize` immediately even though those sizes were only guaranteed locally until the canary seed/controller refresh
+    - this pass stayed bounded to the `sharedNode` scene-bounds contract plus focused fixture/test updates; it does not remove `useSectionElementSizes(...)`, change `sectionModel` fallback semantics, or start a new parity lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate remained a bounded worktree canary-health check only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts)
+      - `sceneBoundsSize` now treats only `layout` and `sectionModel` resolved geometry as immediately authoritative
+      - `sharedNode` sections keep fresh local measurements in `resolvedSize`, but bounds authority now stays on stored/controller width+height until the seed/controller refresh promotes that size
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx)
+      - locked that shared-node measured refresh stays local in `resolvedSize`
+      - locked that authoritative scene bounds remain on stored/controller size until a later shared-node seed refresh updates the section contract
+    - updated direct scene-section fixture helpers in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx)
+      - aligned helper defaults with the new `sceneBoundsSize` contract so tests stop baking in the old “shared-node measured size is immediately authoritative” assumption
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts`
+      - result: passed (`7 files`, `49 tests`)
+    - CDP visual gate:
+      - blocked
+      - fresh-context CDP sub-agent attempt 1 failed before page inspection; `chrome-devtools-mcp` page access timed out on `list_pages`, `new_page` failed with `Network.enable timed out`, and `playwriter reset` reported the Chrome extension was not connected
+      - one allowed recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: restarted the worktree on frontend `3076`, backend `8076`, new Setta session `581915`, and printed a fresh bootstrap URL rooted at `8076`; the launcher advertised debug port `9298`
+      - post-recovery runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-026/worktree-ai.log`
+        - result: confirmed frontend `3076`, backend `8076`, fresh bootstrap URL for session `581915`, and reachable Chrome DevTools via process scan on debug port `9297`
+      - fresh-context CDP sub-agent attempt 2 -> blocked again; `list_pages` / page access still timed out, `list_console_messages` and `list_network_requests` both failed with `Network.enable timed out`, and `playwriter reset` still reported the Chrome extension was not connected
+      - the retry did confirm the browser/debug endpoint itself was alive: `http://127.0.0.1:9297/json/list` exposed live targets including `http://127.0.0.1:3076/settings`
+  - Lane status:
+    - the remaining `sharedNode` bounds-authority leak is removed in code: fresh local measured refresh no longer widens `sceneBoundsSize` ahead of stored/controller size
+    - local render fallback and canary-local seed refresh remain intact through `resolvedSize` and `sectionSeedNodes`
+    - this slice is waiting on the required CDP canary-health verification, so do not start another geometry-authority product change on top of it yet
+  - Next frontier:
+    - rerun the required bounded canary-health CDP check for this exact shared-node bounds slice once the MCP bridge can attach again; if the graph surface is healthy, commit this code before starting the next geometry-authority change
+    - if the next fresh iteration still sees the same MCP-bridge timeout / extension-disconnected failure after startup, treat browser tooling as the active blocker instead of continuing adjacent product refactors
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `259` made scene-bounds authority explicit on each canary scene section via `sceneBoundsSize`, so bounds and `fitView` now consume a declared geometry contract instead of re-inferring authority from `resolvedSize`.
 

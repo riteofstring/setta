@@ -102,7 +102,8 @@ function createSection(
     resolvedSize,
     sceneBoundsSize:
       overrides.sceneBoundsSize ??
-      (resolvedSize && sizeAuthority !== "none"
+      (resolvedSize &&
+      (sizeAuthority === "layout" || sizeAuthority === "sectionModel")
         ? resolvedSize
         : width && height
           ? { width, height }

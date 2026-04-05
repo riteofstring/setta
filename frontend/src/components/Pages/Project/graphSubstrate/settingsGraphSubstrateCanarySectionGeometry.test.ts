@@ -106,7 +106,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
       resolvedSize: { width: 360, height: 210 },
-      sceneBoundsSize: { width: 360, height: 210 },
+      sceneBoundsSize: { width: 240, height: 160 },
     });
   });
 
