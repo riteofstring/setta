@@ -4,6 +4,7 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
+  replaceStateMachineEdge,
   STATE_MACHINE_EDGE_HANDLE_IDS,
 } from "state/actions/stateMachineEdges";
 import { useProjectState, useShareSession } from "state/definitions";
@@ -200,6 +201,44 @@ function createSharedChatTargetConnection(
     targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
   };
 }
+function createExistingWorkflowEdge() {
+  return {
+    id: "edge-existing",
+    machineGroupId,
+    sourceSectionId: startSectionId,
+    sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+    targetSectionId: chatSectionId,
+    targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+    sourceFilter: null,
+    sourceActivationCountCondition: null,
+    targetAction: {
+      type: "reset_thread",
+      promptTemplateId: null,
+      promptSectionId: null,
+      inlinePrompt: null,
+      promptInputs: {},
+      threadStrategy: "continue_current_thread",
+      stopIfRunning: false,
+      engineConfigId: null,
+      agentProfileId: null,
+      permissionMode: null,
+      searchEnabled: null,
+    },
+    style: null,
+    hidden: false,
+    zIndex: 0,
+    selected: false,
+  };
+}
+function mockOpenAPISuccess() {
+  return {
+    data: null,
+    response: {
+      status: 200,
+    },
+  };
+}
+
 describe("state machine edge creation", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -213,11 +252,7 @@ describe("state machine edge creation", () => {
   it("creates a start-to-chat workflow edge with a default reset action", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     createStateMachineEdgeFromConnection(
       createConnection(startSectionId, chatSectionId),
     );
@@ -245,11 +280,7 @@ describe("state machine edge creation", () => {
   it("uses effective machine-group settings instead of stale raw impl values", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     useProjectState.setState((state) => {
       const startImpl = state.sectionImpls[startImplId];
       if (!startImpl || startImpl.type !== SectionTypeEnum.StateMachineStart) {
@@ -272,18 +303,16 @@ describe("state machine edge creation", () => {
     );
     expect(createStateMachineEdge).toHaveBeenCalledWith(
       expect.objectContaining({
-        machineGroupId,
+        body: expect.objectContaining({
+          machineGroupId,
+        }),
       }),
     );
   });
   it("derives a unique machine group from an existing chat workflow edge", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     useProjectState.setState((state) => {
       state.projectConfig.stateMachineEdges = [
         {
@@ -336,11 +365,7 @@ describe("state machine edge creation", () => {
   it("accepts a shared chat target handle and stores canonical workflow ports", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     const connection = createSharedChatTargetConnection(
       startSectionId,
       chatSectionId,
@@ -360,11 +385,7 @@ describe("state machine edge creation", () => {
   it("normalizes reverse drags from workflow targets back to source-to-target edges", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     const reverseConnection: Connection = {
       source: endSectionId,
       sourceHandle: STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart,
@@ -386,11 +407,7 @@ describe("state machine edge creation", () => {
   it("merges workflow machine groups when connecting a gate to an end node", async () => {
     const createStateMachineEdge = (await import("openapi/http"))
       .createStateMachineEdge as unknown as vi.Mock;
-    createStateMachineEdge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    createStateMachineEdge.mockResolvedValue(mockOpenAPISuccess());
     useProjectState.setState((state) => {
       const gateImpl = state.sectionImpls[gateImplId];
       const endImpl = state.sectionImpls[endImplId];
@@ -449,9 +466,11 @@ describe("state machine edge creation", () => {
     });
     expect(createStateMachineEdge).toHaveBeenCalledWith(
       expect.objectContaining({
-        machineGroupId,
-        sourceSectionId: gateSectionId,
-        targetSectionId: endSectionId,
+        body: expect.objectContaining({
+          machineGroupId,
+          sourceSectionId: gateSectionId,
+          targetSectionId: endSectionId,
+        }),
       }),
     );
   });
@@ -469,5 +488,64 @@ describe("state machine edge creation", () => {
         createConnection(chatSectionId, chatSectionId),
       ),
     ).toBe(false);
+  });
+});
+
+describe("state machine edge updates", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    seedWorkflowSections();
+    useShareSession.setState({ isDeploymentMode: false });
+    vi.clearAllMocks();
+    useProjectState.setState((state) => {
+      state.projectConfig.stateMachineEdges = [createExistingWorkflowEdge()];
+    });
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("returns backend errors and rolls back optimistic edge edits", async () => {
+    const updateStateMachineEdge = (await import("openapi/http"))
+      .updateStateMachineEdge as unknown as vi.Mock;
+    updateStateMachineEdge.mockResolvedValue({
+      error: {
+        detail:
+          "State machine edge edge-existing reset_thread actions cannot include prompt content or prompt inputs.",
+      },
+      response: {
+        status: 422,
+      },
+    });
+
+    const response = await replaceStateMachineEdge({
+      ...createExistingWorkflowEdge(),
+      targetAction: {
+        ...createExistingWorkflowEdge().targetAction,
+        promptInputs: {
+          name: "Ada",
+        },
+      },
+    });
+
+    expect(response).toEqual({
+      status: 422,
+      hasResponse: true,
+      data: {
+        detail:
+          "State machine edge edge-existing reset_thread actions cannot include prompt content or prompt inputs.",
+      },
+    });
+    expect(
+      useProjectState.getState().projectConfig.stateMachineEdges[0],
+    ).toEqual(
+      expect.objectContaining({
+        id: "edge-existing",
+        targetAction: expect.objectContaining({
+          stopIfRunning: false,
+        }),
+      }),
+    );
   });
 });

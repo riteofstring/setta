@@ -8,12 +8,14 @@ import {
 import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { SectionTypeEnum, type SingleConfig } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,
+  dispatchOptimisticProjectStateUpdateWithResult,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -42,6 +44,8 @@ type WorkflowMachineGroupMergeSnapshot = {
   edgeMachineGroupById: Record<string, string>;
   sectionMachineGroupById: Record<string, string>;
 };
+type WorkflowEdgeMutationResponse = ResponseDataAndStatus<null>;
+
 function getWorkflowSectionInfo(
   state: SingleConfig,
   sectionId: string,
@@ -681,11 +685,13 @@ export function deleteSelectedStateMachineEdges(): boolean {
   });
   return true;
 }
-export function replaceStateMachineEdge(nextEdge: WorkflowEdge): void {
+export function replaceStateMachineEdge(
+  nextEdge: WorkflowEdge,
+): Promise<WorkflowEdgeMutationResponse> | undefined {
   if (useShareSession.getState().isDeploymentMode) {
-    return;
+    return undefined;
   }
-  dispatchOptimisticProjectStateUpdate({
+  const { result } = dispatchOptimisticProjectStateUpdateWithResult({
     apply: (state) => {
       const index = state.projectConfig.stateMachineEdges.findIndex(
         (edge) => edge.id === nextEdge.id,
@@ -706,4 +712,5 @@ export function replaceStateMachineEdge(nextEdge: WorkflowEdge): void {
         } as Parameters<typeof updateStateMachineEdge>[0]),
       ),
   });
+  return result;
 }

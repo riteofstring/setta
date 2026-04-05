@@ -8,6 +8,7 @@ import {
 } from "state/actions/stateMachineEdges";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   ChatPermissionModeEnum,
   SectionTypeEnum,
@@ -313,90 +314,6 @@ function sanitizeWorkflowEdge(
   return nextEdge;
 }
 
-function getValidationError(
-  edge: WorkflowEdge,
-  sourceType: SectionTypeEnum | null,
-  targetType: SectionTypeEnum | null,
-  promptSourceType: WorkflowPromptSourceType,
-  promptInputsError: string | null,
-  promptTemplateIds: Set<string>,
-): string | null {
-  if (promptInputsError) {
-    return promptInputsError;
-  }
-  const sanitizedEdge = sanitizeWorkflowEdge(
-    edge,
-    sourceType,
-    targetType,
-    promptSourceType,
-  );
-  if (sourceType === SectionTypeEnum.Chat) {
-    const sourceFilter = sanitizedEdge.sourceFilter;
-    if (!sourceFilter) {
-      return "Chat sources need a workflow trigger.";
-    }
-    if (sourceFilter.type === "signal" && !sourceFilter.signalName) {
-      return "Signal triggers require a signal name.";
-    }
-    const hasPayloadField = Boolean(sourceFilter.payloadField);
-    const hasEquals = Boolean(sourceFilter.equals);
-    if (hasPayloadField !== hasEquals) {
-      return "Signal payload matching requires both field and equals values.";
-    }
-  }
-
-  if (targetType === SectionTypeEnum.Chat) {
-    const targetAction = sanitizedEdge.targetAction;
-    if (!targetAction) {
-      return "Chat targets need a workflow action.";
-    }
-    if (targetAction.type === "send_prompt") {
-      const configuredSourceCount = [
-        Boolean(targetAction.promptTemplateId),
-        Boolean(targetAction.promptSectionId),
-        Boolean(targetAction.inlinePrompt?.trim()),
-      ].filter(Boolean).length;
-      if (configuredSourceCount > 1) {
-        return "Send Prompt requires exactly one prompt template, prompt section, or inline prompt.";
-      }
-      if (promptSourceType === "prompt_template") {
-        if (!targetAction.promptTemplateId) {
-          return "Select a prompt template.";
-        }
-        if (!promptTemplateIds.has(targetAction.promptTemplateId)) {
-          return `Prompt template ${targetAction.promptTemplateId} could not be found.`;
-        }
-        return null;
-      }
-      if (promptSourceType === "prompt_section") {
-        if (!targetAction.promptSectionId) {
-          return "Select a prompt section.";
-        }
-        return null;
-      }
-      const hasTemplate = Boolean(targetAction.promptTemplateId);
-      const hasPromptSection = Boolean(targetAction.promptSectionId);
-      const hasInlinePrompt = Boolean(targetAction.inlinePrompt?.trim());
-      if (
-        [hasTemplate, hasPromptSection, hasInlinePrompt].filter(Boolean)
-          .length !== 1
-      ) {
-        return "Send Prompt requires exactly one prompt template, prompt section, or inline prompt.";
-      }
-    }
-  }
-
-  if (
-    sanitizedEdge.sourceActivationCountCondition &&
-    (!Number.isInteger(sanitizedEdge.sourceActivationCountCondition.value) ||
-      sanitizedEdge.sourceActivationCountCondition.value < 0)
-  ) {
-    return "Source activation count conditions require a non-negative integer value.";
-  }
-
-  return null;
-}
-
 function getWorkflowEdgeDetails(
   state: ReturnType<typeof useProjectState.getState>,
   edgeId: string,
@@ -458,6 +375,7 @@ export function StateMachineEdgeInspector({
   const [promptInputsError, setPromptInputsError] = useState<string | null>(
     null,
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraftEdge(edgeDetails.edge ? cloneWorkflowEdge(edgeDetails.edge) : null);
@@ -468,6 +386,7 @@ export function StateMachineEdgeInspector({
       ),
     );
     setPromptInputsError(null);
+    setSaveError(null);
   }, [edgeDetails.edge]);
 
   const promptTemplateOptions = useMemo(
@@ -482,11 +401,6 @@ export function StateMachineEdgeInspector({
     ],
     [promptTemplates],
   );
-  const promptTemplateIds = useMemo(
-    () => new Set(promptTemplates.map((template) => template.id)),
-    [promptTemplates],
-  );
-
   const engineConfigOptions = useMemo(
     () => [
       {
@@ -516,18 +430,12 @@ export function StateMachineEdgeInspector({
     edgeDetails.targetType,
     promptSourceType,
   );
-  const validationError = getValidationError(
-    draftEdge,
-    edgeDetails.sourceType,
-    edgeDetails.targetType,
-    promptSourceType,
-    promptInputsError,
-    promptTemplateIds,
-  );
+  const inlineError = promptInputsError ?? saveError;
   const isDirty = !_.isEqual(sanitizedDraftEdge, edgeDetails.edge);
   const isDisabled = !canEditStructure;
 
   function updateDraft(updater: (current: WorkflowEdge) => WorkflowEdge): void {
+    setSaveError(null);
     setDraftEdge((current) => {
       if (!current) {
         return current;
@@ -539,6 +447,7 @@ export function StateMachineEdgeInspector({
   function handlePromptInputsChange(event: ChangeEvent<HTMLTextAreaElement>) {
     const nextText = event.target.value;
     setPromptInputsText(nextText);
+    setSaveError(null);
     let parsed: unknown;
     try {
       parsed = JSON.parse(nextText);
@@ -573,11 +482,22 @@ export function StateMachineEdgeInspector({
     }));
   }
 
-  function applyChanges(): void {
-    if (isDisabled || validationError || !isDirty) {
+  async function applyChanges(): Promise<void> {
+    if (isDisabled || promptInputsError || !isDirty) {
       return;
     }
-    replaceStateMachineEdge(sanitizedDraftEdge);
+    setSaveError(null);
+    const response = await replaceStateMachineEdge(sanitizedDraftEdge);
+    if (!response) {
+      return;
+    }
+    if (res200(response)) {
+      setSaveError(null);
+      return;
+    }
+    setSaveError(
+      getErrorDetail(response.data) ?? "Failed to update workflow edge.",
+    );
   }
 
   return (
@@ -1074,12 +994,12 @@ export function StateMachineEdgeInspector({
         </section>
       ) : null}
 
-      {validationError ? (
+      {inlineError ? (
         <p
           data-testid="workflow-edge-validation-error"
           className="text-xs text-red-600 dark:text-red-400"
         >
-          {validationError}
+          {inlineError}
         </p>
       ) : null}
 
@@ -1107,6 +1027,7 @@ export function StateMachineEdgeInspector({
                 ),
               );
               setPromptInputsError(null);
+              setSaveError(null);
             }}
             disabled={isDisabled || !isDirty}
             className="rounded border border-setta-200 px-3 py-1.5 text-xs font-medium text-setta-700 disabled:opacity-50 dark:border-setta-700 dark:text-setta-200"
@@ -1117,7 +1038,7 @@ export function StateMachineEdgeInspector({
             type="button"
             data-testid="workflow-edge-apply"
             onClick={applyChanges}
-            disabled={isDisabled || !isDirty || Boolean(validationError)}
+            disabled={isDisabled || !isDirty || Boolean(promptInputsError)}
             className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
           >
             Apply Changes
