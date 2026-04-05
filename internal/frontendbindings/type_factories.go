@@ -232,27 +232,9 @@ func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 	return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
 }
 
-func buildGeneratedImplFactoryBodyTS(
-	context string,
-	implType string,
-	defaultValue any,
-) string {
-	defaultsObject, orderedKeys := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
-	var builder strings.Builder
-	builder.WriteString("  return mergeGeneratedOptions<")
-	builder.WriteString(implType)
-	builder.WriteString(">(\n")
-	builder.WriteString("    ")
-	builder.WriteString(renderTSObjectLiteralExpr(defaultsObject, orderedKeys, "    "))
-	builder.WriteString(",\n")
-	builder.WriteString("    options,\n")
-	builder.WriteString("  );")
-	return builder.String()
-}
-
-func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
+func additionalDeclarationsForType(converter *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {
 	declarations := []TypeDeclaration{}
-	if familyDeclarations, ok, err := discriminatedObjectFamilyAdditionalDeclarations(t); err != nil {
+	if familyDeclarations, ok, err := discriminatedObjectFamilyAdditionalDeclarations(converter, t); err != nil {
 		panic(err)
 	} else if ok {
 		declarations = append(declarations, familyDeclarations...)

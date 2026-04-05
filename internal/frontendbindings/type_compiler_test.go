@@ -95,6 +95,27 @@ func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
 	}
 }
 
+func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	typ := reflect.TypeOf(projectstate.FrontendChatSectionImpl{})
+	if err := converter.ensureDeclaration(typ); err != nil {
+		t.Fatalf("ensureDeclaration(%v): %v", typ, err)
+	}
+
+	declaration := findTypeDeclaration(t, converter.Declarations(), "createChatSectionImpl")
+	if declaration.Kind != "function" {
+		t.Fatalf("createChatSectionImpl kind = %q, want %q", declaration.Kind, "function")
+	}
+	if !strings.Contains(declaration.FunctionBody, "const defaults: ChatSectionImpl = {") {
+		t.Fatalf("createChatSectionImpl should use shared defaults staging:\n%s", declaration.FunctionBody)
+	}
+	if !strings.Contains(declaration.FunctionBody, "createSectionSize(") {
+		t.Fatalf("createChatSectionImpl should reuse nested create helpers:\n%s", declaration.FunctionBody)
+	}
+}
+
 func findTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {
 	t.Helper()
 

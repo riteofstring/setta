@@ -119,6 +119,7 @@ func discriminatedObjectFamilyTypeDeclaration(
 }
 
 func discriminatedObjectFamilyAdditionalDeclarations(
+	converter *typeConverter,
 	t reflect.Type,
 ) ([]TypeDeclaration, bool, error) {
 	family, ok := discriminatedObjectFamilyForType(t)
@@ -145,15 +146,24 @@ func discriminatedObjectFamilyAdditionalDeclarations(
 		return nil, false, nil
 	}
 	typeName := frontendBindingTypeName(t)
+	propertySpecs, err := converter.structPropertySpecs(t, nil, nil, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	createBody, err := buildGoBackedCreateBodyTS(
+		"frontend generated impl defaults "+typeName,
+		typeName,
+		defaultValue,
+		propertySpecs,
+	)
+	if err != nil {
+		return nil, false, err
+	}
 	return []TypeDeclaration{
 		exportedFunctionDeclaration(
 			"create"+typeName,
 			typeName,
-			buildGeneratedImplFactoryBodyTS(
-				"frontend generated impl defaults "+typeName,
-				typeName,
-				defaultValue,
-			),
+			createBody,
 			TypeProperty{
 				Name:         "options",
 				TypeExpr:     "Partial<" + typeName + ">",

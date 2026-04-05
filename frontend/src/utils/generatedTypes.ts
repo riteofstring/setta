@@ -689,11 +689,27 @@ type TypeErrorIgnoreState = {
   callable: boolean;
   params: Record<string, boolean>;
 };
+function createTypeErrorIgnoreState(
+  options: Partial<TypeErrorIgnoreState> = {},
+): TypeErrorIgnoreState {
+  const defaults: TypeErrorIgnoreState = {
+    callable: false,
+    params: {},
+  };
+  return {
+    ...mergeGeneratedOptions<TypeErrorIgnoreState>(defaults, options),
+  };
+}
 
 type CodeSectionDiagnosticsIgnoreState = {
   muted: boolean;
   suppressedCodes: Array<string | number>;
 };
+function createCodeSectionDiagnosticsIgnoreState(
+  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+): CodeSectionDiagnosticsIgnoreState {
+  return options as CodeSectionDiagnosticsIgnoreState;
+}
 
 export type DrawAreaLayerItem = {
   type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
@@ -1231,43 +1247,44 @@ export type ChatSectionImpl = BaseSectionImpl & {
 export function createChatSectionImpl(
   options: Partial<ChatSectionImpl> = {},
 ): ChatSectionImpl {
-  return mergeGeneratedOptions<ChatSectionImpl>(
-    {
-      type: "Chat",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 200,
-        width: 400,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      managed: false,
-      engineConfigId: null,
-      transcriptionProfileId: null,
-      agentProfileId: null,
-      chatId: null,
-      thinking: true,
-      permissionMode: "minimal",
-      searchEnabled: true,
-      dictationMode: "auto",
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
+  const defaults: ChatSectionImpl = {
+    type: "Chat",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 200,
+      width: 400,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    managed: false,
+    engineConfigId: null,
+    transcriptionProfileId: null,
+    agentProfileId: null,
+    chatId: null,
+    thinking: true,
+    permissionMode: "minimal",
+    searchEnabled: true,
+    dictationMode: "auto",
+    messages: [],
+    inputText: "",
+    waitingForResponse: false,
+    toolCallArguments: {},
+    activeBranchId: null,
+    branches: {},
+  };
+  return {
+    ...mergeGeneratedOptions<ChatSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type BrowserSectionImpl = BaseSectionImpl & {
@@ -1288,31 +1305,32 @@ type ListRootSectionImpl = BaseSectionImpl & {
 export function createListRootSectionImpl(
   options: Partial<ListRootSectionImpl> = {},
 ): ListRootSectionImpl {
-  return mergeGeneratedOptions<ListRootSectionImpl>(
-    {
-      type: "ListRoot",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      children: [],
-      defaultChildSectionType: "Callable",
-      viewMode: "default",
+  const defaults: ListRootSectionImpl = {
+    type: "ListRoot",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 250,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    children: [],
+    defaultChildSectionType: "Callable",
+    viewMode: "default",
+  };
+  return {
+    ...mergeGeneratedOptions<ListRootSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type GroupSectionImpl = BaseSectionImpl & {
@@ -1326,32 +1344,33 @@ type GroupSectionImpl = BaseSectionImpl & {
 export function createGroupSectionImpl(
   options: Partial<GroupSectionImpl> = {},
 ): GroupSectionImpl {
-  return mergeGeneratedOptions<GroupSectionImpl>(
-    {
-      type: "Group",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      children: [],
-      isHorizontalOrientation: false,
-      overflowMode: false,
-      defaultChildSectionType: "Callable",
+  const defaults: GroupSectionImpl = {
+    type: "Group",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 250,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    children: [],
+    isHorizontalOrientation: false,
+    overflowMode: false,
+    defaultChildSectionType: "Callable",
+  };
+  return {
+    ...mergeGeneratedOptions<GroupSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type StateMachineStartSectionImpl = BaseSectionImpl & {
@@ -1363,31 +1382,32 @@ type StateMachineStartSectionImpl = BaseSectionImpl & {
 export function createStateMachineStartSectionImpl(
   options: Partial<StateMachineStartSectionImpl> = {},
 ): StateMachineStartSectionImpl {
-  return mergeGeneratedOptions<StateMachineStartSectionImpl>(
-    {
-      type: "StateMachineStart",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 96,
-        width: 240,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      machineGroupId: "",
-      label: "Start",
-      maxIterations: null,
+  const defaults: StateMachineStartSectionImpl = {
+    type: "StateMachineStart",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 96,
+      width: 240,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    machineGroupId: "",
+    label: "Start",
+    maxIterations: null,
+  };
+  return {
+    ...mergeGeneratedOptions<StateMachineStartSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type StateMachineGateSectionImpl = BaseSectionImpl & {
@@ -1417,34 +1437,35 @@ type TextBlockSectionImpl = BaseSectionImpl & {
 export function createTextBlockSectionImpl(
   options: Partial<TextBlockSectionImpl> = {},
 ): TextBlockSectionImpl {
-  return mergeGeneratedOptions<TextBlockSectionImpl>(
-    {
-      type: "TextBlock",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      format: "Plaintext",
-      masterFontSizePx: 14,
-      headingAsSectionName: false,
-      metaControlStyle: false,
-      textDisplayMode: "Render",
-      text: "",
+  const defaults: TextBlockSectionImpl = {
+    type: "TextBlock",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 500,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    format: "Plaintext",
+    masterFontSizePx: 14,
+    headingAsSectionName: false,
+    metaControlStyle: false,
+    textDisplayMode: "Render",
+    text: "",
+  };
+  return {
+    ...mergeGeneratedOptions<TextBlockSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 export type PromptSectionImpl = BaseSectionImpl & {
@@ -1459,35 +1480,36 @@ export type PromptSectionImpl = BaseSectionImpl & {
 export function createPromptSectionImpl(
   options: Partial<PromptSectionImpl> = {},
 ): PromptSectionImpl {
-  return mergeGeneratedOptions<PromptSectionImpl>(
-    {
-      type: "Prompt",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 300,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      promptTemplateId: null,
-      template: "",
-      format: "Jinja",
-      inputs: {},
-      renderedText: "",
-      missingVariables: [],
-      renderError: null,
+  const defaults: PromptSectionImpl = {
+    type: "Prompt",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 300,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    promptTemplateId: null,
+    template: "",
+    format: "Jinja",
+    inputs: {},
+    renderedText: "",
+    missingVariables: [],
+    renderError: null,
+  };
+  return {
+    ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type CodeSectionImpl = BaseSectionImpl & {
@@ -1501,37 +1523,50 @@ type CodeSectionImpl = BaseSectionImpl & {
 export function createCodeSectionImpl(
   options: Partial<CodeSectionImpl> = {},
 ): CodeSectionImpl {
-  return mergeGeneratedOptions<CodeSectionImpl>(
-    {
-      type: "Code",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      children: [],
-      code: "",
-      codeFileBinding: null,
-      attachedTerminalSectionId: null,
-      codeLanguage: "python",
-      diagnosticsIgnoreState: {
-        muted: false,
-        suppressedCodes: [],
-      },
+  const defaults: CodeSectionImpl = {
+    type: "Code",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 500,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    children: [],
+    code: "",
+    codeFileBinding: null,
+    attachedTerminalSectionId: null,
+    codeLanguage: "python",
+    diagnosticsIgnoreState: {
+      muted: false,
+      suppressedCodes: [],
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<CodeSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+    codeFileBinding:
+      options.codeFileBinding === null
+        ? null
+        : (options.codeFileBinding ?? defaults.codeFileBinding) === null
+          ? null
+          : createCodeFileBinding(
+              (options.codeFileBinding ??
+                defaults.codeFileBinding) as Partial<CodeFileBinding>,
+            ),
+    diagnosticsIgnoreState: createCodeSectionDiagnosticsIgnoreState(
+      options.diagnosticsIgnoreState ?? defaults.diagnosticsIgnoreState,
+    ),
+  };
 }
 
 type TerminalSectionImpl = BaseSectionImpl & {
@@ -1541,28 +1576,29 @@ type TerminalSectionImpl = BaseSectionImpl & {
 export function createTerminalSectionImpl(
   options: Partial<TerminalSectionImpl> = {},
 ): TerminalSectionImpl {
-  return mergeGeneratedOptions<TerminalSectionImpl>(
-    {
-      type: "Terminal",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
+  const defaults: TerminalSectionImpl = {
+    type: "Terminal",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 250,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+  };
+  return {
+    ...mergeGeneratedOptions<TerminalSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type CallableSectionImpl = BaseSectionImpl & {
@@ -1583,43 +1619,47 @@ type CallableSectionImpl = BaseSectionImpl & {
 export function createCallableSectionImpl(
   options: Partial<CallableSectionImpl> = {},
 ): CallableSectionImpl {
-  return mergeGeneratedOptions<CallableSectionImpl>(
-    {
-      type: "Callable",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      callable: null,
-      hideParams: false,
+  const defaults: CallableSectionImpl = {
+    type: "Callable",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 250,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    codeObjVariantMap: {},
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: "python",
+    pinnedParams: [],
+    selectedParams: [],
+    ignoreTypeErrors: {
+      callable: false,
+      params: {},
+    },
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    callable: null,
+    hideParams: false,
+  };
+  return {
+    ...mergeGeneratedOptions<CallableSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+    ignoreTypeErrors: createTypeErrorIgnoreState(
+      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
+    ),
+  };
 }
 
 type DictSectionImpl = BaseSectionImpl & {
@@ -1643,45 +1683,49 @@ type DictSectionImpl = BaseSectionImpl & {
 export function createDictSectionImpl(
   options: Partial<DictSectionImpl> = {},
 ): DictSectionImpl {
-  return mergeGeneratedOptions<DictSectionImpl>(
-    {
-      type: "Dict",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
+  const defaults: DictSectionImpl = {
+    type: "Dict",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 150,
+      width: 250,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    codeObjVariantMap: {},
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: "python",
+    pinnedParams: [],
+    selectedParams: [],
+    ignoreTypeErrors: {
+      callable: false,
+      params: {},
+    },
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    topLevelParamId: null,
+    isJsonSource: false,
+    jsonSourceKeys: [],
+    jsonSourceMissing: false,
+  };
+  return {
+    ...mergeGeneratedOptions<DictSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+    ignoreTypeErrors: createTypeErrorIgnoreState(
+      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
+    ),
+  };
 }
 
 type TaskBoardSectionImpl = BaseSectionImpl & {
@@ -1694,31 +1738,32 @@ type TaskBoardSectionImpl = BaseSectionImpl & {
 export function createTaskBoardSectionImpl(
   options: Partial<TaskBoardSectionImpl> = {},
 ): TaskBoardSectionImpl {
-  return mergeGeneratedOptions<TaskBoardSectionImpl>(
-    {
-      type: "TaskBoard",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 430,
-        width: 720,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      viewMode: "kanban",
-      columns: [],
-      tasks: [],
+  const defaults: TaskBoardSectionImpl = {
+    type: "TaskBoard",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 430,
+      width: 720,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    viewMode: "kanban",
+    columns: [],
+    tasks: [],
+  };
+  return {
+    ...mergeGeneratedOptions<TaskBoardSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type ChartSectionImpl = BaseSectionImpl & {
@@ -1730,36 +1775,37 @@ type ChartSectionImpl = BaseSectionImpl & {
 export function createChartSectionImpl(
   options: Partial<ChartSectionImpl> = {},
 ): ChartSectionImpl {
-  return mergeGeneratedOptions<ChartSectionImpl>(
-    {
-      type: "Chart",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 300,
-        width: 300,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      dataPath: "",
-      chartSettings: {
-        secondYAxisColumns: [],
-        type: "line",
-        xAxisLog: false,
-        y1AxisLog: false,
-        y2AxisLog: false,
-      },
+  const defaults: ChartSectionImpl = {
+    type: "Chart",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 300,
+      width: 300,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    dataPath: "",
+    chartSettings: {
+      secondYAxisColumns: [],
+      type: "line",
+      xAxisLog: false,
+      y1AxisLog: false,
+      y2AxisLog: false,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions<ChartSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type SpreadsheetSectionImpl = BaseSectionImpl & {
@@ -1774,34 +1820,35 @@ type SpreadsheetSectionImpl = BaseSectionImpl & {
 export function createSpreadsheetSectionImpl(
   options: Partial<SpreadsheetSectionImpl> = {},
 ): SpreadsheetSectionImpl {
-  return mergeGeneratedOptions<SpreadsheetSectionImpl>(
-    {
-      type: "Spreadsheet",
-      id: "",
-      name: "",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 500,
-        width: 760,
-      },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      filePath: "",
-      activeSheet: null,
-      readOnly: false,
-      showRowNumbers: true,
-      density: "compact",
-      autoReloadOnExternalChange: false,
+  const defaults: SpreadsheetSectionImpl = {
+    type: "Spreadsheet",
+    id: "",
+    name: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      height: 500,
+      width: 760,
     },
-    options,
-  );
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
+    filePath: "",
+    activeSheet: null,
+    readOnly: false,
+    showRowNumbers: true,
+    density: "compact",
+    autoReloadOnExternalChange: false,
+  };
+  return {
+    ...mergeGeneratedOptions<SpreadsheetSectionImpl>(defaults, options),
+    size: createSectionSize(options.size ?? defaults.size),
+  };
 }
 
 type BaseCodeObjImpl = {
@@ -1969,22 +2016,22 @@ type CodeParamCodeObjImpl = BaseCodeObjImpl & {
 export function createCodeParamCodeObjImpl(
   options: Partial<CodeParamCodeObjImpl> = {},
 ): CodeParamCodeObjImpl {
-  return mergeGeneratedOptions<CodeParamCodeObjImpl>(
-    {
-      type: "CodeParam",
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: "TEXT",
-      coreNameEditable: false,
-      passingStyle: "DEFAULT",
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  );
+  const defaults: CodeParamCodeObjImpl = {
+    type: "CodeParam",
+    id: "",
+    name: "",
+    description: "",
+    isPreset: false,
+    coreNameType: "TEXT",
+    coreNameEditable: false,
+    passingStyle: "DEFAULT",
+    typeAnnotation: "",
+    defaultVal: "",
+    value: "",
+  };
+  return {
+    ...mergeGeneratedOptions<CodeParamCodeObjImpl>(defaults, options),
+  };
 }
 
 type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
