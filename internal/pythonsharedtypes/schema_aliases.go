@@ -24,7 +24,6 @@ type datamodelDeclarationKind string
 
 const (
 	datamodelDeclarationKindClass datamodelDeclarationKind = "class"
-	datamodelDeclarationKindType  datamodelDeclarationKind = "type"
 )
 
 type datamodelDeclaration struct {
@@ -448,13 +447,7 @@ func parseDatamodelDeclaration(block string) (datamodelDeclaration, error) {
 			Block: trimmedBlock,
 		}, nil
 	case strings.HasPrefix(header, "type "):
-		name, err := parseDatamodelTypeAliasName(header)
-		if err != nil {
-			return datamodelDeclaration{}, err
-		}
 		return datamodelDeclaration{
-			Name:  name,
-			Kind:  datamodelDeclarationKindType,
 			Block: trimmedBlock,
 		}, nil
 	default:
@@ -510,20 +503,4 @@ func isPythonIdentifier(value string) bool {
 		}
 	}
 	return true
-}
-
-func parseDatamodelTypeAliasName(header string) (string, error) {
-	header = strings.TrimSpace(strings.TrimPrefix(header, "type "))
-	name, rhs, ok := strings.Cut(header, " = ")
-	if !ok {
-		return "", fmt.Errorf("python shared types: malformed datamodel alias header %q", header)
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "", fmt.Errorf("python shared types: datamodel alias has empty name")
-	}
-	if strings.TrimSpace(rhs) == "" {
-		return "", fmt.Errorf("python shared types: datamodel alias %s is missing an expression", name)
-	}
-	return name, nil
 }
