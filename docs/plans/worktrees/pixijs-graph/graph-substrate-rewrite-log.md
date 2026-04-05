@@ -7747,3 +7747,46 @@ LOOP_TERMINAL_MARKER: none
     - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
     - if dependency approval is still unavailable, audit the remaining shared layout writers that still copy `existing?.w/h`, starting with `updateTopLevelLayout(...)` in `frontend/src/state/actions/sections/moveSections.ts`
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `201` | 2026-04-05 18:23 EDT
+  - Subtask: stop optimistic pane-move layout writes from reviving stale persisted `w/h` when a live top-level node moves on the pane.
+  - Why:
+    - item `200` already fixed the snapshot/persistence writer, but `updateTopLevelLayout(...)` in `moveSections.ts` still copied `existing?.w/h` unconditionally during pane moves
+    - that meant a visible section could lose current size authority in node internals while the next optimistic pane-move write immediately reintroduced an older persisted size into `projectConfig.topLevelSections` and the active view mode layout
+    - this is another real geometry-authority seam in shared layout state, not a forwarding or oracle-only pass
+  - Production:
+    - updated `frontend/src/state/actions/sections/moveSections.ts`
+      - `updateTopLevelLayout(...)` now reads the live node from `useNodeInternals` and writes `w/h` from the current node dimensions instead of stale persisted layout state
+  - Tests:
+    - updated `frontend/src/state/actions/sections/moveSections.test.ts`
+      - added a small helper to seed an existing top-level code section with both persisted layout and live node state
+      - added coverage proving a pane move clears stale persisted `w/h` when the live node reports `null` dimensions
+      - added coverage proving a pane move keeps the live node size when the current node already has authoritative dimensions
+    - `pnpm -C frontend exec prettier --write src/state/actions/sections/moveSections.ts src/state/actions/sections/moveSections.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sections/moveSections.test.ts` -> passed (`1 file`, `6 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "moveSections\\.ts|moveSections\\.test\\.ts" || true` -> not a useful gate here because `moveSections.ts` and `moveSections.test.ts` already have baseline strict-type errors outside this slice
+  - Runtime verification:
+    - refreshed run-032 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-032/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-032/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-032 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-032 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `46.8s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `16.62077ms`; worktree average frame duration was `17.04418ms`
+      - visible section count stayed `46` on both sides; worktree recorded one `64ms` long task but no transform drift
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - fresh `/settings` compare on worktree `3076` and read-only `main` `3087` showed mounted, comparable settings graph surfaces with no blocking gross drift around `rotaryParamCodeObjDefault`; remaining differences were expected worktree chrome/state labels outside the target graph surface
+  - Result:
+    - optimistic pane-move layout writes now match the same live-node size authority rule already enforced by top-level layout snapshots
+    - a live top-level section can no longer move around the pane and silently resurrect an older persisted width/height from `projectConfig.topLevelSections`
+    - active view mode top-level layouts stay aligned with the same current-node authority boundary because both shared layout stores receive the same live-node-derived `nextLayout`
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
+LOOP_TERMINAL_MARKER: none
