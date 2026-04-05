@@ -34,6 +34,11 @@ type typeConverter struct {
 	seen         map[reflect.Type]struct{}
 }
 
+type reflectedStructProperty struct {
+	Property TypeProperty
+	Field    reflect.StructField
+}
+
 type reflectedObjectDeclarationSpec struct {
 	DefaultValue any
 }
@@ -318,13 +323,13 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	t reflect.Type,
 	spec reflectedObjectDeclarationSpec,
 ) (TypeDeclaration, error) {
-	properties, err := c.structProperties(t, nil, nil, nil)
+	propertySpecs, err := c.structPropertySpecs(t, nil, nil, nil)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
-	fieldsByName, err := reflectedFieldsByJSONName(t)
-	if err != nil {
-		return TypeDeclaration{}, err
+	properties := make([]TypeProperty, 0, len(propertySpecs))
+	for _, propertySpec := range propertySpecs {
+		properties = append(properties, propertySpec.Property)
 	}
 	declarationName := frontendBindingTypeName(t)
 	if spec.DefaultValue == nil {
@@ -334,10 +339,8 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	createBody, err := buildGoBackedCreateBodyTS(
 		"frontend create defaults "+declarationName,
 		declarationName,
-		t,
 		spec.DefaultValue,
-		properties,
-		fieldsByName,
+		propertySpecs,
 	)
 	if err != nil {
 		return TypeDeclaration{}, err
@@ -363,7 +366,24 @@ func (c *typeConverter) structProperties(
 	optionalOverrides map[string]bool,
 	ignoredProperties map[string]struct{},
 ) ([]TypeProperty, error) {
-	properties := make([]TypeProperty, 0, t.NumField())
+	propertySpecs, err := c.structPropertySpecs(t, typeExprOverrides, optionalOverrides, ignoredProperties)
+	if err != nil {
+		return nil, err
+	}
+	properties := make([]TypeProperty, 0, len(propertySpecs))
+	for _, propertySpec := range propertySpecs {
+		properties = append(properties, propertySpec.Property)
+	}
+	return properties, nil
+}
+
+func (c *typeConverter) structPropertySpecs(
+	t reflect.Type,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
+) ([]reflectedStructProperty, error) {
+	properties := make([]reflectedStructProperty, 0, t.NumField())
 	for i := range t.NumField() {
 		field := t.Field(i)
 		if !field.IsExported() {
@@ -382,7 +402,7 @@ func (c *typeConverter) structProperties(
 					field.Type.String(),
 				)
 			}
-			embeddedProperties, err := c.structProperties(
+			embeddedProperties, err := c.structPropertySpecs(
 				embeddedType,
 				typeExprOverrides,
 				optionalOverrides,
@@ -433,10 +453,13 @@ func (c *typeConverter) structProperties(
 		if tsMetadata.Optional != nil {
 			optional = *tsMetadata.Optional
 		}
-		properties = append(properties, TypeProperty{
-			Name:     name,
-			TypeExpr: typeExpr,
-			Optional: optional,
+		properties = append(properties, reflectedStructProperty{
+			Property: TypeProperty{
+				Name:     name,
+				TypeExpr: typeExpr,
+				Optional: optional,
+			},
+			Field: field,
 		})
 	}
 	return properties, nil

@@ -9,10 +9,8 @@ import (
 func buildGoBackedCreateBodyTS(
 	context string,
 	declarationName string,
-	structType reflect.Type,
 	defaultValue any,
-	properties []TypeProperty,
-	fieldsByName map[string]reflect.StructField,
+	properties []reflectedStructProperty,
 ) (string, error) {
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
@@ -21,19 +19,17 @@ func buildGoBackedCreateBodyTS(
 	defaultsObject := make(map[string]any, len(properties))
 	orderedKeys := make([]string, 0, len(properties))
 	var fieldBuilder strings.Builder
-	for _, property := range properties {
-		field, ok := fieldsByName[property.Name]
-		if !ok {
-			return "", fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
-		}
+	for _, propertySpec := range properties {
+		property := propertySpec.Property
+		field := propertySpec.Field
 		tsMetadata, err := tsFieldMetadata(field)
 		if err != nil {
-			return "", fmt.Errorf("%s.%s: %w", structType.Name(), field.Name, err)
+			return "", fmt.Errorf("%s.%s: %w", declarationName, field.Name, err)
 		}
 		if tsMetadata.CreateMapValues && !reflectedMapFieldNeedsGeneratedCreate(field.Type) {
 			return "", fmt.Errorf(
 				"%s.%s ts_create_map_values requires map values with generated create support",
-				structType.Name(),
+				declarationName,
 				field.Name,
 			)
 		}
@@ -227,40 +223,6 @@ func frontendObjectCreateFunctionName(fieldType reflect.Type) (string, string, b
 	}
 	typeName := frontendBindingTypeName(fieldType)
 	return "create" + typeName, typeName, nullable, true
-}
-
-func reflectedFieldsByJSONName(structType reflect.Type) (map[string]reflect.StructField, error) {
-	fields := map[string]reflect.StructField{}
-	for structType.Kind() == reflect.Pointer {
-		structType = structType.Elem()
-	}
-	if structType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("generic create body requires a struct type, got %s", structType.String())
-	}
-	for fieldIndex := range structType.NumField() {
-		field := structType.Field(fieldIndex)
-		if !field.IsExported() {
-			continue
-		}
-		if field.Anonymous {
-			embeddedFields, err := reflectedFieldsByJSONName(field.Type)
-			if err != nil {
-				return nil, err
-			}
-			for name, embeddedField := range embeddedFields {
-				if _, exists := fields[name]; !exists {
-					fields[name] = embeddedField
-				}
-			}
-			continue
-		}
-		name, _, skip := jsonFieldName(field)
-		if skip {
-			continue
-		}
-		fields[name] = field
-	}
-	return fields, nil
 }
 
 func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
