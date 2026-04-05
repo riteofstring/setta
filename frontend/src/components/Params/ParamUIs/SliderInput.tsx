@@ -1,5 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -11,10 +13,11 @@ import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  type SliderParamCodeObjImpl,
+  CodeObjTypeEnum,
+} from "utils/generatedTypes";
 import { clamp } from "utils/utils";
-
 export function SliderInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -28,7 +31,6 @@ export function SliderInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.SliderParam,
   );
-
   function onChange(newConfig: SliderConfigForFrontend) {
     if (!canEditStructure) {
       return;
@@ -36,7 +38,7 @@ export function SliderInputConfigForParam({
     const configClone = _.cloneDeep(newConfig);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"SliderParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<SliderParamCodeObjImpl>(
           state,
           sectionId,
           paramInfoId,
@@ -44,16 +46,19 @@ export function SliderInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: configClone,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: configClone,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   return (
     <SliderInputConfig
       onChange={onChange}
@@ -62,7 +67,6 @@ export function SliderInputConfigForParam({
     />
   );
 }
-
 function SliderInputConfig({
   onChange,
   config,
@@ -73,14 +77,12 @@ function SliderInputConfig({
   isDisabled: boolean;
 }) {
   const [localConfig, setLocalConfig] = useState(config);
-
   function localOnChange(
     configName: keyof SliderConfigForFrontend,
     value: string,
   ) {
     setLocalConfig({ ...localConfig, [configName]: value });
   }
-
   function onBlur(configName: keyof SliderConfigForFrontend, value: string) {
     const asNum = _.toNumber(value);
     if (
@@ -93,11 +95,9 @@ function SliderInputConfig({
     }
     onChange({ ...localConfig, [configName]: asNum });
   }
-
   useEffect(() => {
     setLocalConfig(config);
   }, [config]);
-
   return (
     <div className="mt-1 flex flex-col">
       {Object.keys(config).map((e, idx) => (
@@ -122,7 +122,6 @@ function SliderInputConfig({
     </div>
   );
 }
-
 function configMakesSense(
   configName: keyof SliderConfigForFrontend,
   newConfigVal: number,
@@ -132,11 +131,9 @@ function configMakesSense(
     ...config,
     [configName]: newConfigVal,
   };
-
   const { min, max, step } = updatedConfig;
   return min < max && step <= max - min;
 }
-
 export function SliderInput({
   value,
   onChange,
@@ -196,7 +193,6 @@ export function SliderInput({
     </div>
   );
 }
-
 function SliderTextField({
   className,
   value,
@@ -220,7 +216,6 @@ function SliderTextField({
   function localOnChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTempValue(e.target.value);
   }
-
   function onBlur(e: React.FocusEvent<HTMLInputElement>) {
     const num = _.toNumber(e.target.value);
     if (e.target.value === "" || !_.isFinite(num)) {
@@ -232,11 +227,9 @@ function SliderTextField({
     onChange?.(clamped);
     onCommit?.(clamped);
   }
-
   useEffect(() => {
     setTempValue(value);
   }, [value]);
-
   return (
     <input
       className={className}
@@ -251,7 +244,6 @@ function SliderTextField({
     />
   );
 }
-
 function SliderOnly({
   value,
   onChange,
@@ -279,7 +271,6 @@ function SliderOnly({
 }) {
   const asNum = _.toNumber(value);
   const valueNum = isNaN(asNum) ? min : clamp(_.toNumber(value), min, max);
-
   return (
     <Slider.Root
       className={sliderRootClassName}
