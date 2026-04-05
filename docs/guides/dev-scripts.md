@@ -122,6 +122,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
   - Always uses disposable temp `SETTA_WORKSPACE_ROOT` + `SETTA_HOME` paths for isolation.
+  - Sources `./activate.sh` internally, so it can be run directly from the repo root as long as the repo `.venv` exists.
 - `./scripts/plugin-fixtures/build.sh`
   - Builds fixture frontend assets under `tests/fixtures/plugins/**/frontend/dist`.
   - Used by fixture link/smoke flows and test runners.
@@ -175,7 +176,9 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
 - `pnpm -C frontend generate-go-frontend-bindings`
-  - Regenerates only the canonical frontend route/type/endpoint files.
+  - Regenerates the Go-owned frontend contract surface, including shared schema/OpenAPI artifacts, generated OpenAPI TypeScript outputs, and `src/utils/generatedTypes.ts`.
+- `pnpm -C frontend generate-http-openapi-bindings`
+  - Regenerates only the HTTP OpenAPI document plus the generated frontend HTTP client/types.
 - `pnpm -C frontend generate-go-python-types`
   - Regenerates the Go-owned Python SDK/shared types, then runs the generated-type prune pass.
 - `pnpm gcf`
@@ -197,7 +200,13 @@ Useful when you need to debug a specific subsystem.
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
 - `frontend/generation/generate_go_frontend_bindings.sh`
-  - Direct frontend route/type/endpoint generation helper.
+  - Runs the full Go-owned frontend generation pipeline: type/route registries, non-HTTP schema/OpenAPI artifacts, generated non-HTTP TS types, `src/utils/generatedTypes.ts`, and the HTTP OpenAPI client/types.
+- `frontend/generation/generate_go_shared_schema.sh`
+  - Emits the non-HTTP shared schema, semantic sidecar, and OpenAPI projection under `frontend/generation/non_http_shared/`.
+- `frontend/generation/generate_non_http_openapi_bindings.sh`
+  - Regenerates the TypeScript output under `frontend/src/openapi/non_http/generated` from the checked-in non-HTTP OpenAPI projection.
+- `frontend/generation/generate_http_openapi_bindings.sh`
+  - Regenerates `frontend/generation/http_openapi/openapi.json` plus the generated frontend HTTP client/types under `frontend/src/openapi/http/generated`.
 - `frontend/generation/generate_go_python_types.sh`
   - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`

@@ -40,7 +40,7 @@
 - If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate before finishing the task.
 - If you need new generated outputs, generate them before cleanup.
 - Prefer `./gcf.sh` when full generate/cleanup/format is appropriate. Large diffs after generation or cleanup are normal.
-- Do not manually edit `backend/setta/types/generated`.
+- Do not manually edit `backend/setta/types/generated`, checked-in OpenAPI artifacts under `frontend/generation/`, or generated frontend clients under `frontend/src/openapi/*/generated`.
 
 ## Workflow & Verification
 

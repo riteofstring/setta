@@ -5,9 +5,12 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
+- `guides/dev-scripts.md` – command map for setup, generation, cleanup, testing, and browser helpers.
 - `guides/dependency-audits.md` – dependency audit and remediation policy, including release-age enforcement.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
+- `guides/verification-checklist.md` – task-level verification expectations, including CDP requirements for UI work.
+- `guides/playwright-e2e-run.md` – direct usage notes for the Playwright runner helper.
 - `guides/chrome-repro-recording.md` – record headed Chrome repro bundles and hand them to Codex.
 - `guides/install-setta-desktop.md` – beginner desktop install flow (no repo required).
 - `guides/install-setta-desktop-macos.md` – macOS desktop install quickstart.
@@ -80,4 +83,3 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/ralph-mode.md` – planning notes for ralph mode.
-- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
