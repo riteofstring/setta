@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 02:03 EDT
+Last updated: 2026-04-08 02:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,59 +62,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification state:
-  - item `290` is now landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic Playwright probes remain the trusted oracle for the normalized `All Settings` canary
+  - item `291` is now landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
   - focused unit coverage now proves both:
-    - viewport-only updates keep section-entry render counts flat when the presented shell set/body mount gate stay unchanged
-    - offscreen inactive shells are skipped from resolver/shell work while active continuity stays intact
-  - the canonical Playwright instrumentation snapshots for the current `3077/8077` loop runtime stayed stable through the slice:
-    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
-    - focused fit-view baseline: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`, zoom `1.1900826446280992`
-    - after normalized blank-pane pan: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`
-    - after one toolbar zoom-in: mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `1`, zoom `1.428099173553719`
-  - the cross-worktree motion-perf probe for item `290` shows the first measured focused-lane motion win from DOM presentation fan-out reduction:
-    - legacy `main`: average `16.67ms`, max `33.4ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
-    - worktree canary: average `17.83ms`, max `35.0ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - inactive offscreen sections are skipped from the focused Pixi drawable set
+    - active offscreen sections keep their Pixi drawables for continuity
+  - the cross-worktree motion-perf probe for item `291` on the current `3077/8077` worktree and `3088/8088` reference runtimes did not show a motion win:
+    - legacy `main`: average `17.80ms`, max `84.3ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `20.93ms`, max `83.3ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - the worktree-only canary Playwright probe now asserts focused `pixiDrawableCount < mountedSceneSectionCount`, but on this live session it timed out during pane normalization before reaching the new assertions even after minting fresh bootstrap tokens from `setta status --connect-info --latest --json --workspace ...`
   - Chrome DevTools MCP status for this slice:
-    - one fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md) and confirmed the worktree app shell loaded `/home` and `/settings` with the settings canvas and tab bar present rather than a blank/crashed surface
-    - two bounded focused retries did not produce a trustworthy `rotaryParamCodeObjDefault` viewport compare because Chrome DevTools MCP timed out on the oversized settings surface (`snapshot/screenshot` timeout, then `list_pages` timeout before attach)
-    - treat the focused visual gate for item `290` as deferred rather than closed; do not reinterpret the partial worktree sanity check as full focused-lane acceptance
+    - one fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md) and confirmed both `http://127.0.0.1:3077/settings` and `http://127.0.0.1:3088/settings` loaded live Settings UI rather than a blank/crashed page
+    - the bounded screenshot pass was only partially reassuring because both pages were dominated by a dark canvas with a centered spinner, so this is not a trustworthy focused graph-surface compare
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the DOM shell-presentation slice reduced focused-lane fan-out:
-    - visible section shells `46 -> 1`
-    - root DOM nodes `180 -> 135`
-    - average frame duration `20.56ms -> 17.83ms` versus the item `288` baseline on the same lane
-  - body continuity and the no-redraw contract remain unchanged:
-    - focused fit-view still mounts `1` body
-    - `pixiSyncCount` still stays flat through the normalized pan and toolbar zoom steps
-  - the remaining focused-lane hotspot is now more likely the full `46`-drawable Pixi shell layer or another scene-presentation path, not DOM shell/body fan-out
+  - the Pixi drawable-presentation slice landed, but the focused motion sample did not improve:
+    - visible section count stayed `1`
+    - root DOM stayed `135`
+    - average frame duration regressed `17.83ms -> 20.93ms`
+  - this means simple drawable presentation gating was not the dominant motion cost on the focused lane
+  - the remaining hotspot is now more likely deeper inside the focused Pixi/scene path than in DOM shell fan-out or the raw drawable-present/not-present boundary
 - Working hypothesis:
-  - the first real motion win came from reducing DOM presentation fan-out on the focused lane, not from more redraw-counter cleanup
-  - the next frontier is not another DOM shell/body gating pass; that lane is now complete unless the visible section count regresses
-  - the next true product hotspot is the Pixi shell presentation path still carrying all `46` drawables on the focused lane
-  - because the focused CDP compare is still deferred, the next pass should keep using the deterministic Playwright oracle for product work and treat Chrome DevTools MCP as a bounded sanity layer until the tool stack is trustworthy again
+  - the measurable motion win came from DOM shell fan-out reduction in item `290`, not from the Pixi drawable-presentation gate in item `291`
+  - the Pixi drawable-presentation lane is now complete unless focused `pixiDrawableCount` regresses again
+  - the next true product hotspot is the remaining focused Pixi/scene work that still runs even after offscreen inactive drawables are gated out
+  - because the worktree-only canary probe is currently timing out before its assertions, use the passing cross-worktree motion probe as the main oracle and treat the worktree-only probe as unstable runtime verification, not renderer evidence
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- on the same canonical `rotaryParamCodeObjDefault` lane, land one bounded production reduction in the Pixi shell presentation path so the focused motion lane stops carrying the full `46`-drawable shell set when it is not needed
+- on the same canonical `rotaryParamCodeObjDefault` lane, land one bounded production reduction in the remaining focused Pixi/scene path now that simple drawable presentation gating has been tried and measured
 
 Recommended next target:
 
-- keep the existing body-gating, scene-sync, shell-redraw, viewport-transform, section-entry memoization, and DOM shell-presentation reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
+- keep the existing body-gating, scene-sync, shell-redraw, viewport-transform, section-entry memoization, DOM shell-presentation reduction, and Pixi drawable-presentation gate as landed; do not reopen those lanes unless the canonical probe regresses
 - reuse the same canonical target and the same normalized probes; do not open a new section-specific lane
-- start from the measured hotspot that remains after item `290`: pure motion now mounts only `1` DOM shell on the focused lane, but Pixi still presents `46` drawables there
-- prefer the smallest slice that reduces that remaining Pixi presentation work without reopening the flat `pixiSyncCount` contract during the normalized pan/zoom steps
+- start from the measured hotspot that remains after item `291`: pure motion now mounts only `1` visible section and should gate offscreen inactive Pixi drawables, but the focused motion sample is still slower than the prior lane
+- prefer the smallest slice that reduces remaining focused Pixi/scene work without reopening the flat `pixiSyncCount` contract or the visible-section-count regression guard during normalized pan/zoom
 
 Recommended deliverables for the next iteration:
 
-- one bounded production change on the same `All Settings` motion lane that reduces Pixi drawable presentation work or an equivalent per-frame shell cost
-- reuse the existing Playwright instrumentation lane plus the cross-worktree motion-perf probe to measure whether that slice produces an actual motion win instead of only shifting counters
-- keep the new visible-section-count regression guard in place while measuring the next Pixi-facing slice
+- one bounded production change on the same `All Settings` motion lane that removes remaining focused Pixi/scene work beyond the already-landed presentation gate
+- reuse the cross-worktree motion-perf probe to measure whether that slice produces an actual motion win instead of only shifting counters
+- keep the visible-section-count and focused-pixi-drawable regression guards in place while measuring the next slice
 - use Chrome DevTools MCP again only for a bounded sanity check; do not spend another default iteration on CDP-only recovery unless the live surface itself regresses
 
 Recommended canonical target:
@@ -135,6 +128,41 @@ Do not use the next iteration for:
 ## Current status
 
 - Ralph item `290` viewport-gated the canary DOM shell presentation set so the focused `rotaryParamCodeObjDefault` motion lane stops mounting offscreen inactive shell wrappers, which produced the first measured fan-out win on that lane while keeping the body continuity and flat `pixiSyncCount` contracts intact.
+
+- Ralph item `291` shared that same presentation boundary with the Pixi shell layer so the focused `rotaryParamCodeObjDefault` lane stops resolving inactive offscreen Pixi drawables, but the normalized motion sample still did not improve on the current `3077/8077` runtime.
+
+  - Why this pass completed:
+    - item `290` explicitly handed the next iteration to one bounded production reduction in the remaining Pixi-facing presentation work on the same canonical lane
+    - the chosen slice stayed on the measured hotspot: the focused lane already mounted only one visible section, but Pixi shell presentation was still derived from the full scene section list
+    - the production change is small and local, and the result is now explicit: drawable gating landed, but it did not produce a motion win on this sample
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific lane
+  - Product/test change:
+    - updated [`SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx) and added [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts) so the Pixi shell layer receives `visibleViewportRect` and shares the same section-presentation gate used by the DOM shell/body layer
+    - updated [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx) so preview color lookup and drawable resolution only run over the presented section subset
+    - updated [`settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx) to cover inactive offscreen drawable removal and active offscreen continuity
+    - updated [`settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx) to consume the shared presentation helper instead of owning a duplicate copy of the same visibility logic
+    - updated [`settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) to require focused `pixiDrawableCount < mountedSceneSectionCount`
+    - added [`2026-04-08_settings-graph-substrate-canary-pixi-drawable-presentation-gating.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-drawable-presentation-gating.md)
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-drawable-presentation-gating.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`3 files`, `21 tests`)
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` -> passed; this minted fresh worktree bootstrap URLs/tokens for repeat Playwright runs more reliably than the loop-context bootstrap fragment
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh token minted from setta status>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.2m`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.80ms`, max `84.3ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `20.93ms`, max `83.3ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh token minted from setta status>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> failed twice on the live session: once at the original `120000ms` limit, once after a temporary local timeout bump, both times timing out during `normalizeSettingsGraphComparePaneState(...)` before the new `pixiDrawableCount` assertions ran
+    - fresh-context Chrome DevTools MCP sub-agent -> partial only:
+      - read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - confirmed `http://127.0.0.1:3077/settings` and `http://127.0.0.1:3088/settings` both loaded live Settings UI instead of a blank/crashed page
+      - screenshots were dominated by a dark canvas with a centered spinner, so this was not a trustworthy graph-surface compare
+  - Lane status:
+    - the Pixi drawable-presentation gate is landed and should not be reopened unless focused `pixiDrawableCount` regresses
+    - the current motion sample did not improve, so this slice closes the simple presentation-gating hypothesis instead of proving a win
+    - the worktree-only canary probe is verification-noisy on the current live runtime; do not treat its timeout as renderer drift by itself
+  - LOOP_TERMINAL_MARKER: none
 
   - Why this pass completed:
     - item `289` explicitly handed the next iteration back to product code on the same canonical lane, and the next meaningful seam was the still-mounted full-scene shell presentation path rather than another harness-only or CDP-only pass

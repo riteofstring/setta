@@ -9375,6 +9375,42 @@ LOOP_TERMINAL_MARKER: none
   - Next: if Pixi approval is still unavailable, collapse the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly.
   - LOOP_TERMINAL_MARKER: none
 
+- 2026-04-08 02:53 EDT, Ralph item `291`
+  - Summary: shared the DOM shell presentation gate with the Pixi shell layer so focused `rotaryParamCodeObjDefault` no longer resolves inactive offscreen Pixi drawables, but the normalized motion sample still did not improve on the current `3077/8077` runtime.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-drawable-presentation-gating.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized motion lane and did not open a new section-specific lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx tests/e2e/settings/settings-view-modes.spec.ts ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-pixi-drawable-presentation-gating.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`3 files`, `21 tests`)
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` -> passed; this minted fresh worktree bootstrap URLs/tokens for repeat Playwright runs more reliably than the loop-context bootstrap fragment
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh token minted from setta status>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.2m`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.80ms`, max `84.3ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `20.93ms`, max `83.3ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN='<fresh token minted from setta status>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=180000` -> failed twice on the live session: once at the original `120000ms` limit, once after a temporary local timeout bump, both times timing out during `normalizeSettingsGraphComparePaneState(...)` before the new `pixiDrawableCount` assertions ran
+    - fresh-context Chrome DevTools MCP sub-agent -> partial only:
+      - confirmed `http://127.0.0.1:3077/settings` and `http://127.0.0.1:3088/settings` loaded live Settings UI instead of a blank/crashed page
+      - screenshots were spinner-heavy, so this was only a bounded shell sanity check and not a trustworthy focused graph compare
+  - Result:
+    - the Pixi drawable-presentation gate is landed and directly covered by focused unit tests
+    - this slice closes the simple presentation-gating hypothesis: focused motion did not improve on the current live sample even though visible section count stayed `1`
+    - the worktree-only canary Playwright probe is runtime-verification noise on this session; do not treat its timeout by itself as renderer drift
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in the remaining focused Pixi/scene path beyond simple presentation gating
+    - reuse the cross-worktree motion-perf probe as the main oracle, keep the focused `pixiDrawableCount` regression guard in place, and treat Chrome DevTools MCP as a bounded shell sanity layer until the focused graph surface is visually trustworthy again
+  - LOOP_TERMINAL_MARKER: none
+
 - 2026-04-06 18:48 EDT, Ralph item `232`
 
   - Summary: collapsed the `SectionHeader` trailing action strip behind a renderer-facing controls contract by adding `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and the default DOM controls adapter; the header now resolves the action-strip contract once instead of hard-coding diagnostics/run/follow/window/container controls inline.

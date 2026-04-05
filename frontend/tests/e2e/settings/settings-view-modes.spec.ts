@@ -279,6 +279,13 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     expect(focusedVisibleSectionCount).toBeLessThan(
       focusedSnapshot.mountedSceneSectionCount,
     );
+    expect(focusedSnapshot.pixiDrawableCount).toBeGreaterThan(0);
+    expect(focusedSnapshot.pixiDrawableCount).toBeLessThan(
+      focusedSnapshot.mountedSceneSectionCount,
+    );
+    expect(focusedSnapshot.pixiDrawableCount).toBeLessThan(
+      autoFitSnapshot.pixiDrawableCount,
+    );
     expect(focusedSnapshot.mountedSectionBodyCount).toBeLessThan(
       Math.max(4, Math.ceil(focusedSnapshot.mountedSceneSectionCount / 4)),
     );
@@ -345,6 +352,13 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       afterPanState.snapshot?.mountedSceneSectionCount ??
         Number.POSITIVE_INFINITY,
     );
+    expect(afterPanState.snapshot?.pixiDrawableCount ?? 0).toBeGreaterThan(0);
+    expect(
+      afterPanState.snapshot?.pixiDrawableCount ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      afterPanState.snapshot?.mountedSceneSectionCount ??
+        Number.POSITIVE_INFINITY,
+    );
     expect(afterPanState.snapshot?.pixiSyncCount).toBe(
       focusedSnapshot.pixiSyncCount,
     );
@@ -368,6 +382,13 @@ test("settings graph substrate canary exposes live instrumentation on normalized
     expect(
       afterZoomState.snapshot?.mountedSectionBodyCount ??
         Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      afterZoomState.snapshot?.mountedSceneSectionCount ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(afterZoomState.snapshot?.pixiDrawableCount ?? 0).toBeGreaterThan(0);
+    expect(
+      afterZoomState.snapshot?.pixiDrawableCount ?? Number.POSITIVE_INFINITY,
     ).toBeLessThan(
       afterZoomState.snapshot?.mountedSceneSectionCount ??
         Number.POSITIVE_INFINITY,

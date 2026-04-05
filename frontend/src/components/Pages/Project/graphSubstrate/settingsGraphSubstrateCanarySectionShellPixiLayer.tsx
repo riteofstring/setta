@@ -13,17 +13,19 @@ import { getSectionStylePreviewColorKey } from "utils/constants";
 import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
+import { shouldPresentSettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionPresentation";
 import {
   areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual,
   resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables,
   type SettingsGraphSubstrateCanarySectionShellPixiDrawable,
 } from "./settingsGraphSubstrateCanarySectionShellPixiModel";
-import type { GraphViewport } from "./viewportTransform";
+import type { GraphRect, GraphViewport } from "./viewportTransform";
 
 type SettingsGraphSubstrateCanarySectionShellPixiLayerProps = {
   draggingSectionId: string | null;
   hoveredSectionId: string | null;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+  visibleViewportRect: GraphRect | null;
   viewport: GraphViewport | null;
 };
 
@@ -31,6 +33,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   draggingSectionId,
   hoveredSectionId,
   sceneSections,
+  visibleViewportRect,
   viewport,
 }: SettingsGraphSubstrateCanarySectionShellPixiLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -40,10 +43,33 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   const drawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
+  const stablePresentedSceneSectionsRef = useRef<
+    Array<SettingsGraphSubstrateCanarySceneSection>
+  >([]);
   const stableDrawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
   const pixiSyncCountRef = useRef(0);
+  const presentedSceneSections = useMemo(() => {
+    const nextPresentedSceneSections = sceneSections.filter((section) =>
+      shouldPresentSettingsGraphSubstrateCanarySectionShell({
+        draggingSectionId,
+        section,
+        viewport,
+        visibleViewportRect,
+      }),
+    );
+    if (
+      areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+        stablePresentedSceneSectionsRef.current,
+        nextPresentedSceneSections,
+      )
+    ) {
+      return stablePresentedSceneSectionsRef.current;
+    }
+    stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
+    return nextPresentedSceneSections;
+  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const activeSectionIds = useActiveSectionUI(
     (state) => state.activeIds,
@@ -55,7 +81,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   );
   const previewStyleColors = useTemporaryMiscState((state) => {
     const next: Record<string, string | null | undefined> = {};
-    for (const section of sceneSections) {
+    for (const section of presentedSceneSections) {
       next[section.sectionId] = state[
         getSectionStylePreviewColorKey(section.sectionId)
       ] as string | null | undefined;
@@ -69,7 +95,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       draggingSectionId,
       hoveredSectionId,
       previewStyleColors,
-      sceneSections,
+      sceneSections: presentedSceneSections,
       sectionSeedNodes,
     });
   }, [
@@ -78,7 +104,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     draggingSectionId,
     hoveredSectionId,
     previewStyleColors,
-    sceneSections,
+    presentedSceneSections,
     sectionSeedNodes,
   ]);
   const stableDrawables = useMemo(() => {
@@ -280,6 +306,24 @@ function areSettingsGraphSubstrateCanarySectionShellPixiViewportsEqual(
     return false;
   }
   return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
+}
+
+function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+  left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+  right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function redrawSettingsGraphSubstrateCanarySectionShellPixiCanvas({

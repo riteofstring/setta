@@ -234,13 +234,69 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
     });
   });
 
+  it("skips offscreen inactive section drawables on the focused viewport", async () => {
+    await renderLayer({
+      sceneSections: [
+        createSceneSection({ sectionId: "visible-section" }),
+        createSceneSection({
+          position: { x: 1280, y: 80 },
+          renderedPosition: { x: 1280, y: 80 },
+          sectionId: "offscreen-section",
+        }),
+      ],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+
+    await vi.waitFor(() => {
+      expect(hoisted.appInstances).toHaveLength(1);
+      expect(hoisted.updateInstrumentationSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pixiDrawableCount: 1,
+        }),
+      );
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("keeps active offscreen section drawables mounted", async () => {
+    await renderLayer({
+      sceneSections: [
+        createSceneSection({ sectionId: "visible-section" }),
+        createSceneSection({
+          isActiveSection: true,
+          position: { x: 1280, y: 80 },
+          renderedPosition: { x: 1280, y: 80 },
+          sectionId: "active-offscreen-section",
+        }),
+      ],
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+
+    await vi.waitFor(() => {
+      expect(hoisted.appInstances).toHaveLength(1);
+      expect(hoisted.updateInstrumentationSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pixiDrawableCount: 2,
+        }),
+      );
+      expect(hoisted.graphicsInstances[0]?.clear).toHaveBeenCalledTimes(1);
+    });
+  });
+
   async function renderLayer({
     hoveredSectionId = null,
     sceneSections,
+    visibleViewportRect = { x: 0, y: 0, width: 720, height: 480 },
     viewport,
   }: {
     hoveredSectionId?: string | null;
     sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
+    visibleViewportRect?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
     viewport: { x: number; y: number; zoom: number } | null;
   }) {
     await act(async () => {
@@ -249,6 +305,7 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
           draggingSectionId={null}
           hoveredSectionId={hoveredSectionId}
           sceneSections={sceneSections}
+          visibleViewportRect={visibleViewportRect}
           viewport={viewport}
         />,
       );

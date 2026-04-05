@@ -63,6 +63,7 @@ export function SettingsGraphSubstrateCanary() {
           draggingSectionId={controller.draggingSectionId}
           hoveredSectionId={hoveredSectionId}
           sceneSections={controller.sceneSections}
+          visibleViewportRect={controller.visibleViewportRect}
           viewport={controller.resolvedViewport}
         />
       ) : null}
