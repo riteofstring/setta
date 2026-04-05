@@ -1560,8 +1560,10 @@ export function createTopLevelSectionLayoutDict(
         x: c.position.x,
         y: c.position.y,
         zIndex: c.zIndex ?? existing?.zIndex ?? 0,
-        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
-        h: c.height ?? existing?.h ?? null,
+        // Preserve existing layouts only for sections missing from node internals.
+        // Once a live node reports no size, keep that lack of authority explicit.
+        w: c.width ?? null,
+        h: c.height ?? null,
       };
     }
   }

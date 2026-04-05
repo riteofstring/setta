@@ -7704,3 +7704,46 @@ LOOP_TERMINAL_MARKER: none
     - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
     - otherwise keep replacing remaining DOM-size subscriptions only where an existing authoritative size signal can be proven; do not reopen parity-only work
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `200` | 2026-04-05 18:14 EDT
+  - Subtask: stop shared top-level layout snapshots from reviving stale persisted `w/h` when a live node currently reports `null` dimensions.
+  - Why:
+    - item `199` already cleared stale width/height from canary node-internals sync, but `createTopLevelSectionLayoutDict(...)` still reintroduced `existingLayouts.w/h` for visible nodes with `null` size
+    - that meant the current canary runtime could correctly say "no authoritative size" while shared project-config persistence and preview consumers kept seeing an older DOM-measured size
+    - this is a real geometry-authority seam in shared persistence, not another forwarding or oracle-only pass
+  - Production:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `createTopLevelSectionLayoutDict(...)` now preserves existing layouts only when a section is missing from node internals entirely
+      - if a live node exists and currently reports `null` width/height, the persisted layout now keeps `w/h` as `null` instead of reviving stale `existingLayouts` size
+  - Tests:
+    - updated `frontend/src/state/actions/sections/topLevelLayoutSnapshot.test.ts`
+      - added coverage proving a visible node with `null` dimensions clears stale persisted `w/h` while missing-node sections still keep their existing layout entries
+    - updated `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+      - added coverage proving `debounced_route_set_top_level_section_layout()` immediately clears stale project-config `w/h` and sends `null` size to the backend when the current node has no dimensions
+    - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sections/topLevelLayoutSnapshot.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts` -> passed (`2 files`, `7 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionInfos\\.ts|topLevelLayoutSnapshot\\.test\\.ts|topLevelLayoutPersistence\\.test\\.ts" || true` -> not a useful gate here because `sectionInfos.ts` already has unrelated baseline type errors outside this slice
+  - Runtime verification:
+    - refreshed run-031 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-031/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-031/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-031 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-031 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `46.9s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.00186ms`; worktree average frame duration was `17.84959ms`
+      - visible section count stayed `46` on both sides; worktree recorded one `95ms` long task but no transform drift
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - direct `/settings` compare on worktree `3076` and read-only `main` `3087` showed no blocking gross graph-surface drift around `rotaryParamCodeObjDefault`; extra worktree chat/window chrome remained oracle noise
+  - Result:
+    - shared top-level layout persistence now matches the canary no-size authority boundary instead of silently reviving older persisted size for live sections
+    - hidden or missing-node sections still remain in the snapshot, so preview/snapshot preservation behavior for absent nodes is unchanged
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if dependency approval is still unavailable, audit the remaining shared layout writers that still copy `existing?.w/h`, starting with `updateTopLevelLayout(...)` in `frontend/src/state/actions/sections/moveSections.ts`
+LOOP_TERMINAL_MARKER: none
