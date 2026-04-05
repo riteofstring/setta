@@ -8,7 +8,6 @@ type DiscriminatedObjectTraitSpec struct {
 	IncludeBase bool
 	Predicate   func(reflect.Type) bool
 	SetName     string
-	SetExported bool
 	GuardName   string
 	GuardInput  string
 }

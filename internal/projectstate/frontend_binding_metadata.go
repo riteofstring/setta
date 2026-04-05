@@ -42,16 +42,6 @@ func (FrontendBaseSectionImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				GuardInput: "BaseSectionImplUnion",
 			},
 			{
-				UnionName:   "BaseDictSectionImplUnion",
-				IncludeBase: false,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeHasJSONField(t, "topLevelParamId")
-				},
-				SetName:    "BaseDictSectionImplTypeSet",
-				GuardName:  "isBaseDictSectionImpl",
-				GuardInput: "BaseSectionImplUnion",
-			},
-			{
 				UnionName:   "BaseSectionWithParamsImplUnion",
 				LocalUnion:  true,
 				IncludeBase: false,
@@ -97,10 +87,9 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				Predicate: func(t reflect.Type) bool {
 					return frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingParamCodeObjFieldsType)
 				},
-				SetName:     "BaseParamCodeObjImplTypeSet",
-				SetExported: true,
-				GuardName:   "isBaseParamCodeObjImpl",
-				GuardInput:  "BaseCodeObjImplUnion",
+				SetName:    "BaseParamCodeObjImplTypeSet",
+				GuardName:  "isBaseParamCodeObjImpl",
+				GuardInput: "BaseCodeObjImplUnion",
 			},
 			{
 				UnionName:   "BaseParentCodeObjImplUnion",
@@ -112,23 +101,6 @@ func (FrontendBaseCodeObjImpl) FrontendBindingDiscriminatedObjectFamily() fronte
 				SetName:    "BaseParentCodeObjImplTypeSet",
 				GuardName:  "isBaseParentCodeObjImpl",
 				GuardInput: "BaseCodeObjImplUnion",
-			},
-			{
-				SetName:     "ControlCodeObjTypeSet",
-				SetExported: true,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingParamCodeObjFieldsType) &&
-						!frontendBindingContractTypeHasJSONField(t, "children")
-				},
-			},
-			{
-				SetName:     "SectionParamCodeObjTypeSet",
-				SetExported: true,
-				Predicate: func(t reflect.Type) bool {
-					return frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingParamCodeObjFieldsType) &&
-						(frontendBindingContractTypeEmbedsAnonymousField(t, frontendBindingBaseValueParamCodeObjImplType) ||
-							frontendBindingContractTypeHasJSONField(t, "children"))
-				},
 			},
 		},
 	}

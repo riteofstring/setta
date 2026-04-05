@@ -251,7 +251,6 @@ func discriminatedObjectFamilyTraitDeclarations(
 			declarations = append(declarations, setDeclaration(
 				trait.SetName,
 				frontendBindingTypeName(family.EnumType),
-				trait.SetExported,
 				discriminatedObjectFamilyMemberEnumExprs(members, trait.Predicate)...,
 			))
 		}

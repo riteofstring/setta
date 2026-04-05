@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"setta/internal/agentruns"
+	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
@@ -69,6 +70,31 @@ func TestOwnerBackedReflectedObjectDeclarationUsesMapValueCreateTags(t *testing.
 	}
 }
 
+func TestDiscriminatedObjectFamiliesSkipUnusedTraitDeclarations(t *testing.T) {
+	t.Parallel()
+
+	converter := newTypeConverter()
+	if err := converter.ensureDeclaration(reflect.TypeOf(projectstate.FrontendBaseSectionImpl{})); err != nil {
+		t.Fatalf("ensureDeclaration(FrontendBaseSectionImpl): %v", err)
+	}
+	if err := converter.ensureDeclaration(reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{})); err != nil {
+		t.Fatalf("ensureDeclaration(FrontendBaseCodeObjImpl): %v", err)
+	}
+
+	assertNoTypeDeclaration(t, converter.Declarations(), "BaseDictSectionImplUnion")
+	assertNoTypeDeclaration(t, converter.Declarations(), "isBaseDictSectionImpl")
+	assertNoTypeDeclaration(t, converter.Declarations(), "ControlCodeObjTypeSet")
+	assertNoTypeDeclaration(t, converter.Declarations(), "SectionParamCodeObjTypeSet")
+
+	declaration := findTypeDeclaration(t, converter.Declarations(), "BaseParamCodeObjImplTypeSet")
+	if declaration.Kind != "set" {
+		t.Fatalf("BaseParamCodeObjImplTypeSet kind = %q, want %q", declaration.Kind, "set")
+	}
+	if declaration.Exported {
+		t.Fatalf("BaseParamCodeObjImplTypeSet should stay local to generated guards")
+	}
+}
+
 func findTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {
 	t.Helper()
 
@@ -79,4 +105,14 @@ func findTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name stri
 	}
 	t.Fatalf("declaration %q not found", name)
 	return TypeDeclaration{}
+}
+
+func assertNoTypeDeclaration(t *testing.T, declarations []TypeDeclaration, name string) {
+	t.Helper()
+
+	for _, declaration := range declarations {
+		if declaration.Name == name {
+			t.Fatalf("unexpected declaration %q found with kind %q", name, declaration.Kind)
+		}
+	}
 }

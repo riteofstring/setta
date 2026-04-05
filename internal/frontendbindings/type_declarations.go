@@ -119,11 +119,10 @@ func localAliasDeclaration(name string, typeParams string, alias string) TypeDec
 	}
 }
 
-func setDeclaration(name string, elementType string, exported bool, members ...string) TypeDeclaration {
+func setDeclaration(name string, elementType string, members ...string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:           name,
 		Kind:           "set",
-		Exported:       exported,
 		SetElementType: elementType,
 		SetMembers:     append([]string(nil), members...),
 	}
