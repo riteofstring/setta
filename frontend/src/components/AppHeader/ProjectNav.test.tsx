@@ -6,11 +6,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createPolicy,
-  createSettingsState,
-  type Policy,
-} from "utils/generatedTypes";
+import { createSettingsState, type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectNav } from "./ProjectNav";
 
@@ -25,8 +21,16 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function buildSharePolicy(overrides: Partial<Policy> = {}): Policy {
-  return createPolicy(overrides);
+function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
+  return {
+    allowParamChanges: true,
+    allowVariantChanges: true,
+    allowLayoutChanges: true,
+    allowRun: false,
+    allowLLM: false,
+    runSnapshotMode: "ephemeral",
+    ...overrides,
+  };
 }
 
 function renderWithProject(projectName = "demo-project") {
