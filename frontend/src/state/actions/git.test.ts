@@ -9,10 +9,12 @@ import {
   route_get_git_status,
 } from "utils/generatedEndpoints";
 import {
-  type Commit,
-  type CommitDetailsResponse,
-  type LogResponse,
-  type StatusResponse,
+  createGetGitCommitDetailsResponse,
+  createGetGitLogResponse,
+  createGetGitStatusResponse,
+  createGitCommit,
+  type GetGitLogResponse,
+  type GitCommit,
 } from "utils/generatedTypes";
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,8 +44,8 @@ vi.mock("state/actions/projectChatWindowing", () => ({
   ensureTrackedGitPaneGraphWindow: vi.fn(),
 }));
 
-function commit(hash: string, parents: string[]): Commit {
-  return {
+function commit(hash: string, parents: string[]): GitCommit {
+  return createGitCommit({
     hash,
     parents,
     authorName: "A",
@@ -51,7 +53,7 @@ function commit(hash: string, parents: string[]): Commit {
     authorTimeMs: 1,
     subject: hash,
     decorations: [],
-  };
+  });
 }
 
 function createLogResponse({
@@ -62,14 +64,14 @@ function createLogResponse({
   hasMore,
   isCapped,
 }: {
-  commits: Commit[];
+  commits: GitCommit[];
   offset: number;
   pageSize: number;
   nextOffset: number | null;
   hasMore: boolean;
   isCapped: boolean;
-}): LogResponse {
-  return {
+}): GetGitLogResponse {
+  return createGetGitLogResponse({
     repoRoot: "/repo",
     headBranch: "main",
     commits,
@@ -78,44 +80,7 @@ function createLogResponse({
     nextOffset,
     hasMore,
     isCapped,
-  };
-}
-
-function createCommitDetailsResponse(
-  overrides: Partial<CommitDetailsResponse> &
-    Pick<CommitDetailsResponse, "commitHash">,
-): CommitDetailsResponse {
-  return {
-    repoRoot: overrides.repoRoot ?? "/repo",
-    commitHash: overrides.commitHash,
-    parents: overrides.parents ?? [],
-    authorName: overrides.authorName ?? "A",
-    authorEmail: overrides.authorEmail ?? "a@example.com",
-    authorTimeMs: overrides.authorTimeMs ?? 1,
-    committerName: overrides.committerName ?? "A",
-    committerEmail: overrides.committerEmail ?? "a@example.com",
-    committerTimeMs: overrides.committerTimeMs ?? 1,
-    subject: overrides.subject ?? overrides.commitHash,
-    body: overrides.body ?? "",
-    files: overrides.files ?? [],
-    isTruncated: overrides.isTruncated ?? false,
-  };
-}
-
-function createStatusResponse(
-  entries: StatusResponse["entries"],
-): StatusResponse {
-  return {
-    repo: {
-      isGitRepo: true,
-      repoRoot: "/repo",
-      headBranch: "main",
-      headCommit: "abc123",
-    },
-    entries,
-    isTruncated: false,
-    worktrees: [],
-  };
+  });
 }
 
 function setGraphOverlayState({
@@ -125,7 +90,7 @@ function setGraphOverlayState({
   loadMoreError = null,
 }: {
   projectConfigId?: string;
-  response: LogResponse;
+  response: GetGitLogResponse;
   filterText?: string;
   loadMoreError?: string | null;
 }): void {
@@ -195,7 +160,16 @@ function setGitStatusResponse(
   useGitStore.setState((state) => ({
     ...state,
     status: {
-      response: createStatusResponse(entries),
+      response: createGetGitStatusResponse({
+        repo: {
+          isGitRepo: true,
+          repoRoot: "/repo",
+          headBranch: "main",
+          headCommit: "abc123",
+        },
+        entries,
+        isTruncated: false,
+      }),
       diffAvailabilityByPath,
       isLoading: false,
       error: null,
@@ -608,7 +582,7 @@ describe("git graph actions", () => {
           return {
             status: 200,
             hasResponse: true,
-            data: createCommitDetailsResponse({
+            data: createGetGitCommitDetailsResponse({
               repoRoot: "/repo",
               commitHash,
               parents: [],
@@ -636,7 +610,7 @@ describe("git graph actions", () => {
         return {
           status: 200,
           hasResponse: true,
-          data: createCommitDetailsResponse({
+          data: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash,
             parents: ["a1b2c3"],
@@ -703,7 +677,7 @@ describe("git graph actions", () => {
     const detailsDeferred = createDeferred<{
       status: number;
       hasResponse: boolean;
-      data: ReturnType<typeof createCommitDetailsResponse>;
+      data: ReturnType<typeof createGetGitCommitDetailsResponse>;
     }>();
     setGraphOverlayState({
       projectConfigId: "project-a",
@@ -747,7 +721,7 @@ describe("git graph actions", () => {
     detailsDeferred.resolve({
       status: 200,
       hasResponse: true,
-      data: createCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo-a",
         commitHash: "a1b2c3",
         parents: [],
@@ -799,7 +773,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -885,7 +859,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -950,7 +924,7 @@ describe("git graph actions", () => {
     vi.mocked(route_get_git_commit_details).mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: createCommitDetailsResponse({
+      data: createGetGitCommitDetailsResponse({
         repoRoot: "/repo",
         commitHash: "a1b2c3",
         parents: [],
@@ -999,7 +973,7 @@ describe("git graph actions", () => {
       hasResponse: true,
       data: createLogResponse({
         commits: [
-          {
+          createGitCommit({
             hash: "abc123",
             parents: ["def456"],
             authorName: "A",
@@ -1007,7 +981,7 @@ describe("git graph actions", () => {
             authorTimeMs: 1,
             subject: "subject",
             decorations: ["HEAD -> main", "origin/main"],
-          },
+          }),
         ],
         offset: 0,
         pageSize: 250,
@@ -1041,7 +1015,7 @@ describe("git graph actions", () => {
       hasResponse: true,
       data: createLogResponse({
         commits: [
-          {
+          createGitCommit({
             hash: "abc123",
             parents: [],
             authorName: "A",
@@ -1049,7 +1023,7 @@ describe("git graph actions", () => {
             authorTimeMs: 1,
             subject: "subject",
             decorations: [],
-          },
+          }),
         ],
         offset: 0,
         pageSize: 250,
@@ -1089,7 +1063,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createCommitDetailsResponse({
+          selectedCommitDetails: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],
@@ -1175,7 +1149,7 @@ describe("git graph actions", () => {
         graph: {
           ...state.graph,
           selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createCommitDetailsResponse({
+          selectedCommitDetails: createGetGitCommitDetailsResponse({
             repoRoot: "/repo",
             commitHash: "b4c5d6",
             parents: ["a1b2c3"],

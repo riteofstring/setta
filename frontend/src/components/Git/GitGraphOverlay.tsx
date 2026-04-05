@@ -23,9 +23,9 @@ import {
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 import type {
-  Commit,
-  CommitChangedFile,
-  CommitDetailsResponse,
+  GetGitCommitDetailsResponse,
+  GitCommit,
+  GitCommitChangedFile,
 } from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
 import {
@@ -224,7 +224,7 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
 };
 const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
 
-export function buildGitCommitSearchBlob(commit: Commit): string {
+export function buildGitCommitSearchBlob(commit: GitCommit): string {
   const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
   return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
 }
@@ -334,7 +334,7 @@ export function summarizeDecorationChips(
 }
 
 function buildDecorationChipSummaryByHash(
-  commits: readonly Commit[],
+  commits: readonly GitCommit[],
 ): Map<string, DecorationChipSummary> {
   const allDecorations: string[] = [];
   for (const commit of commits) {
@@ -354,9 +354,9 @@ function buildDecorationChipSummaryByHash(
 }
 
 export function buildGitCommitLookupByHash(
-  commits: readonly Commit[],
-): Map<string, Commit> {
-  const commitsByHash = new Map<string, Commit>();
+  commits: readonly GitCommit[],
+): Map<string, GitCommit> {
+  const commitsByHash = new Map<string, GitCommit>();
   for (const commit of commits) {
     commitsByHash.set(commit.hash, commit);
   }
@@ -377,7 +377,9 @@ export function buildGitGraphRowHeightCacheKey({
   return `${commitDigest}:${refMode}:${normalizedFilter}`;
 }
 
-export function buildGitGraphCommitDigest(commits: readonly Commit[]): string {
+export function buildGitGraphCommitDigest(
+  commits: readonly GitCommit[],
+): string {
   if (commits.length === 0) {
     return "0";
   }
@@ -1609,7 +1611,7 @@ function ExpandedCommitRow({
   details,
   selectedFilePath,
 }: {
-  details: CommitDetailsResponse;
+  details: GetGitCommitDetailsResponse;
   selectedFilePath: string | null;
 }) {
   const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");
@@ -1709,7 +1711,7 @@ function CommitFileRow({
   file,
   isSelected,
 }: {
-  file: CommitChangedFile;
+  file: GitCommitChangedFile;
   isSelected: boolean;
 }) {
   const additions =
