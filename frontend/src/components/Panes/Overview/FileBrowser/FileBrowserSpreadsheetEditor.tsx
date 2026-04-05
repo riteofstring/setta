@@ -41,9 +41,9 @@ import {
 } from "utils/generatedEndpoints";
 import {
   BinaryDownloadResponse,
-  FileBrowserFileContentResponse,
-  FileBrowserFileStatResponse,
-  WriteFileBrowserFileContentResponse,
+  FileContentResponse,
+  FileStatResponse,
+  WriteFileContentResponse,
 } from "utils/generatedTypes";
 import {
   getSpreadsheetColumnLabel,
@@ -67,11 +67,10 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 6;
 
 type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FileBrowserFileContentResponse>;
-type FileBrowserFileStatRouteResponse =
-  ResponseDataAndStatus<FileBrowserFileStatResponse>;
+  ResponseDataAndStatus<FileContentResponse>;
+type FileBrowserFileStatRouteResponse = ResponseDataAndStatus<FileStatResponse>;
 type WriteFileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<WriteFileBrowserFileContentResponse>;
+  ResponseDataAndStatus<WriteFileContentResponse>;
 type BinaryDownloadRouteResponse =
   ResponseDataAndStatus<BinaryDownloadResponse>;
 

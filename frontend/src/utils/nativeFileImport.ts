@@ -10,20 +10,18 @@ import {
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import type {
-  FileBrowserRootResponse,
-  GetFolderContentsResponse,
-  WriteFileBrowserFileContentResponse,
+  ListFolderResponse,
+  RootResponse,
+  WriteFileContentResponse,
 } from "utils/generatedTypes";
 
 type NativeFileImportResult =
   | { status: "ok"; filePath: string; fileName: string }
   | { status: "failed"; error: string };
-type GetFileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type GetFolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
+type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
+type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
 type WriteFileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<WriteFileBrowserFileContentResponse>;
+  ResponseDataAndStatus<WriteFileContentResponse>;
 const MAX_UNIQUE_NAME_PROBES = 10_000;
 const MAX_WRITE_FILE_CONFLICT_RETRIES = 1_000;
 

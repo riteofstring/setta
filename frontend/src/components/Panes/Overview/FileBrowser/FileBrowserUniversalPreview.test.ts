@@ -10,7 +10,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   createFileBrowserDownloadURLEntry,
-  createFileBrowserFileContentResponse,
+  createFileContentResponse,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -146,7 +146,7 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
 
   it("loads text previews through the Go file-content and binary routes", async () => {
     vi.mocked(route_get_file_browser_file_content).mockResolvedValue({
-      data: createFileBrowserFileContentResponse({
+      data: createFileContentResponse({
         path: "/workspace/readme.md",
         contentId: "content-1",
         mimeType: "text/markdown",

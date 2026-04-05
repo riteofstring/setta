@@ -17,7 +17,7 @@ const COPY_SHORTCUT = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const CUT_SHORTCUT = process.platform === "darwin" ? "Meta+X" : "Control+X";
 const PASTE_SHORTCUT = process.platform === "darwin" ? "Meta+V" : "Control+V";
 
-type FileBrowserRootResponse = {
+type RootResponse = {
   rootPath: string;
 };
 
@@ -289,7 +289,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,
@@ -550,7 +550,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
     page.on("request", onRequest);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,
@@ -714,7 +714,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
     const projectContext = await openIsolatedProject(page);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,

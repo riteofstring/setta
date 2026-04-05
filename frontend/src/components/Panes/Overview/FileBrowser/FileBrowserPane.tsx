@@ -69,11 +69,11 @@ import {
 import {
   CheckWorkspaceInitializedResponse,
   FileBrowserDownloadURLEntry,
-  FileBrowserRootResponse,
   GetFileBrowserDownloadURLsResponse,
-  GetFolderContentsResponse,
+  ListFolderResponse,
   NotificationTypeEnum,
-  TransferFileBrowserEntryResponse,
+  RootResponse,
+  TransferResponse,
 } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
@@ -107,14 +107,12 @@ type SortDirection = "asc" | "desc";
 type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
 type CheckWorkspaceInitializedRouteResponse =
   ResponseDataAndStatus<CheckWorkspaceInitializedResponse>;
-type FileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type FolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
+type FileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
+type FolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
 type FileBrowserDownloadURLsRouteResponse =
   ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
 type TransferFileBrowserEntryRouteResponse =
-  ResponseDataAndStatus<TransferFileBrowserEntryResponse>;
+  ResponseDataAndStatus<TransferResponse>;
 
 export type FileNode = {
   name: string;

@@ -14,7 +14,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   BinaryDownloadResponse,
-  FileBrowserFileContentResponse,
+  FileContentResponse,
   GetFileBrowserDownloadURLsResponse,
 } from "utils/generatedTypes";
 import { isSpreadsheetPath } from "utils/spreadsheet";
@@ -31,7 +31,7 @@ const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
 type FileBrowserDownloadURLsRouteResponse =
   ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
 type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FileBrowserFileContentResponse>;
+  ResponseDataAndStatus<FileContentResponse>;
 type BinaryDownloadRouteResponse =
   ResponseDataAndStatus<BinaryDownloadResponse>;
 

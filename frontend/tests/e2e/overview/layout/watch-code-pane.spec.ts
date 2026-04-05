@@ -10,7 +10,7 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
-type FileBrowserRootResponse = {
+type RootResponse = {
   rootPath?: string;
 };
 
@@ -162,7 +162,7 @@ test("watch code file updates appear live and reload without crashing", async ({
   try {
     projectContext = await openIsolatedProject(page);
 
-    const root = await postBackend<FileBrowserRootResponse>(
+    const root = await postBackend<RootResponse>(
       page,
       "/getFileBrowserRoot",
       null,

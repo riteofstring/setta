@@ -9,7 +9,6 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
-	"setta/internal/filebrowser"
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
@@ -34,12 +33,6 @@ var frontendBindingTypeNameOverrides = map[reflect.Type]string{
 	reflect.TypeOf(externalagentconfigs.SettingsManagedBlock{}): "ExternalAgentSettingsManagedBlock",
 	reflect.TypeOf(externalagentconfigs.Config{}):               "ExternalAgentConfig",
 	reflect.TypeOf(externalagentconfigs.EnvVarStatus{}):         "ExternalAgentEnvVarStatus",
-	reflect.TypeOf(filebrowser.RootResponse{}):                  "FileBrowserRootResponse",
-	reflect.TypeOf(filebrowser.ListFolderResponse{}):            "GetFolderContentsResponse",
-	reflect.TypeOf(filebrowser.FileContentResponse{}):           "FileBrowserFileContentResponse",
-	reflect.TypeOf(filebrowser.FileStatResponse{}):              "FileBrowserFileStatResponse",
-	reflect.TypeOf(filebrowser.WriteFileContentResponse{}):      "WriteFileBrowserFileContentResponse",
-	reflect.TypeOf(filebrowser.TransferResponse{}):              "TransferFileBrowserEntryResponse",
 	reflect.TypeOf(httpapi.DeploymentMetadataResponse{}):        "DeploymentMetadata",
 	reflect.TypeOf(llmconfig.Transport("")):                     "MCPServerTransport",
 	reflect.TypeOf(llmconfig.ServerConfig{}):                    "MCPServerConfig",

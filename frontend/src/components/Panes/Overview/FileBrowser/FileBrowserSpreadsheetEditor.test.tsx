@@ -11,9 +11,9 @@ import {
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import {
-  createFileBrowserFileContentResponse,
-  createFileBrowserFileStatResponse,
-  createWriteFileBrowserFileContentResponse,
+  createFileContentResponse,
+  createFileStatResponse,
+  createWriteFileContentResponse,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -380,7 +380,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
 
   it("loads spreadsheet cells through the Go file-content and binary routes", async () => {
     vi.mocked(route_get_file_browser_file_content).mockResolvedValue({
-      data: createFileBrowserFileContentResponse({
+      data: createFileContentResponse({
         path: "/workspace/report.csv",
         contentId: "content-1",
         mimeType: "text/csv",
@@ -396,7 +396,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       hasResponse: true,
     });
     vi.mocked(route_get_file_browser_file_stat).mockResolvedValue({
-      data: createFileBrowserFileStatResponse({
+      data: createFileStatResponse({
         path: "/workspace/report.csv",
         mtimeNs: 123,
         size: 23,
@@ -405,7 +405,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       hasResponse: true,
     });
     vi.mocked(route_write_file_browser_file_content).mockResolvedValue({
-      data: createWriteFileBrowserFileContentResponse({
+      data: createWriteFileContentResponse({
         path: "/workspace/report.csv",
         mimeType: "text/csv",
         mtimeNs: 124,

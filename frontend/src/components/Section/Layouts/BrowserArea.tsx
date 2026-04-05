@@ -98,10 +98,10 @@ import {
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
   FileBrowserDownloadURLEntry,
-  FileBrowserRootResponse,
   FolderContentItem,
   GetFileBrowserDownloadURLsResponse,
-  GetFolderContentsResponse,
+  ListFolderResponse,
+  RootResponse,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -154,10 +154,8 @@ type OpenableBrowserItem = {
 type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
 type GetFileBrowserDownloadURLsRouteResponse =
   ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
-type GetFolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
-type GetFileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
+type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
+type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
 
 type FileTextPreview = {
   text: string;
@@ -1643,7 +1641,7 @@ function ItemsColumn({
   );
 
   const loadFolderContents = useCallback(
-    async (folderPath: string): Promise<GetFolderContentsResponse | null> => {
+    async (folderPath: string): Promise<ListFolderResponse | null> => {
       const trimmed = folderPath.trim();
       if (!trimmed) {
         setItems([]);

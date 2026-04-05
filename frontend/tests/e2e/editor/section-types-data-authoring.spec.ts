@@ -45,11 +45,11 @@ type LatestProjectStateResponse = {
   };
 };
 
-type FileBrowserRootResponse = {
+type RootResponse = {
   rootPath: string;
 };
 
-type FileBrowserFileContentResponse = {
+type FileContentResponse = {
   contentId: string;
 };
 
@@ -57,7 +57,7 @@ async function readFileBrowserText(
   page: Page,
   filePath: string,
 ): Promise<string> {
-  const fileRead = await postBackend<FileBrowserFileContentResponse>(
+  const fileRead = await postBackend<FileContentResponse>(
     page,
     "/getFileBrowserFileContent",
     { path: filePath },
@@ -755,7 +755,7 @@ test.describe.serial("section types data authoring", () => {
     page.on("request", handleSetTopLevelLayoutRequest);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,
@@ -1250,7 +1250,7 @@ test.describe.serial("section types data authoring", () => {
     await clearProjectChatWindows(page);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,
@@ -1359,7 +1359,7 @@ test.describe.serial("section types data authoring", () => {
     await clearProjectChatWindows(page);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,
@@ -1554,7 +1554,7 @@ test.describe.serial("section types data authoring", () => {
     await clearProjectChatWindows(page);
 
     try {
-      const root = await postBackend<FileBrowserRootResponse>(
+      const root = await postBackend<RootResponse>(
         page,
         "/getFileBrowserRoot",
         null,

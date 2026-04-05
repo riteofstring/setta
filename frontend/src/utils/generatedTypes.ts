@@ -1021,171 +1021,6 @@ export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
 export type LoadCachedDrawAreaLayerItemTransformResponse =
   Array<DrawAreaLayerItemTransformArtifact | null>;
 
-export type CreateFileRequest = {
-  filepath: string;
-};
-
-export type CheckIfFileExistsRequest = {
-  filepath: string;
-};
-
-export type CheckIfFileExistsResponse = boolean;
-
-export type CheckWorkspaceInitializedRequest = {
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-};
-
-export type CheckWorkspaceInitializedResponse = boolean;
-
-export type FileBrowserRootResponse = {
-  rootPath: string;
-  pathSeparator: string;
-  ignorePatterns: Array<string>;
-};
-export function createFileBrowserRootResponse(
-  options: Partial<FileBrowserRootResponse> = {},
-): FileBrowserRootResponse {
-  return options as FileBrowserRootResponse;
-}
-
-export type GetWorkspacePythonSignalRequest = {
-  folderPath: string;
-};
-
-export type WorkspacePythonSignalResponse = {
-  folderPath: string;
-  hasPython: boolean;
-};
-
-const MissingFolderBehaviorEnum = {
-  error: "error",
-  empty: "empty",
-} as const;
-type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
-
-export type GetFolderContentsRequest = {
-  baseFolderPath?: string | null;
-  folderPath: string;
-  allowOutsideWorkspaceRoot?: boolean | null;
-  includeMtime?: boolean | null;
-  includeSize?: boolean | null;
-  includeHidden?: boolean | null;
-  includeSettaInitialized?: boolean | null;
-  ignorePatterns?: Array<string> | null;
-  maxEntries?: number | null;
-  missingFolderBehavior?: MissingFolderBehavior | null;
-};
-
-const FolderContentItemTypeEnum = {
-  folder: "folder",
-  file: "file",
-} as const;
-type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
-
-export type FolderContentItem = {
-  name: string;
-  type: FolderContentItemType;
-  fullPath: string;
-  mtime?: number | null;
-  size?: number | null;
-  isSettaInitialized?: boolean | null;
-};
-export function createFolderContentItem(
-  options: Partial<FolderContentItem> = {},
-): FolderContentItem {
-  return options as FolderContentItem;
-}
-
-export type GetFolderContentsResponse = {
-  folderPath: string;
-  items: Array<FolderContentItem>;
-};
-
-export type GetFileBrowserDownloadURLsRequest = {
-  paths: Array<string>;
-};
-
-export type FileBrowserDownloadURLEntry = {
-  path: string;
-  url: string;
-  expiresAt: number;
-};
-export function createFileBrowserDownloadURLEntry(
-  options: Partial<FileBrowserDownloadURLEntry> = {},
-): FileBrowserDownloadURLEntry {
-  return options as FileBrowserDownloadURLEntry;
-}
-
-export type GetFileBrowserFileContentRequest = {
-  path: string;
-  maxBytes?: number | null;
-};
-
-export type FileBrowserFileContentResponse = {
-  path: string;
-  mimeType: string;
-  contentId: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createFileBrowserFileContentResponse(
-  options: Partial<FileBrowserFileContentResponse> = {},
-): FileBrowserFileContentResponse {
-  return options as FileBrowserFileContentResponse;
-}
-
-export type GetFileBrowserFileStatRequest = {
-  path: string;
-};
-
-export type FileBrowserFileStatResponse = {
-  path: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createFileBrowserFileStatResponse(
-  options: Partial<FileBrowserFileStatResponse> = {},
-): FileBrowserFileStatResponse {
-  return options as FileBrowserFileStatResponse;
-}
-
-export type WriteFileBrowserFileContentRequest = {
-  path: string;
-  contentId: string;
-  expectedMtimeNs?: number | null;
-};
-
-export type WriteFileBrowserFileContentResponse = {
-  path: string;
-  mimeType: string;
-  mtimeNs: number;
-  size: number;
-};
-export function createWriteFileBrowserFileContentResponse(
-  options: Partial<WriteFileBrowserFileContentResponse> = {},
-): WriteFileBrowserFileContentResponse {
-  return options as WriteFileBrowserFileContentResponse;
-}
-
-const TransferOperationEnum = {
-  copy: "copy",
-  move: "move",
-} as const;
-type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
-
-export type TransferFileBrowserEntryRequest = {
-  sourcePath: string;
-  destinationFolderPath: string;
-  operation: TransferOperation;
-};
-
-export type TransferFileBrowserEntryResponse = {
-  sourcePath: string;
-  destinationPath: string;
-  operation: TransferOperation;
-};
-
 type ShownParamIDDetails = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
@@ -7708,6 +7543,15 @@ export type ChangeParamImplRequest = {
   selectedId: string;
 };
 
+export type CheckIfFileExistsRequest = {
+  filepath: string;
+};
+
+export type CheckWorkspaceInitializedRequest = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+};
+
 export type ClearTextFieldCompletionRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -7807,6 +7651,10 @@ export type CreateExternalAgentConfigRequest = {
   workingDirStrategy: ExternalAgentWorkingDirStrategy | null;
   workingDir: string | null;
   codexSkipGitRepoCheck: boolean | null;
+};
+
+export type CreateFileRequest = {
+  filepath: string;
 };
 
 export type CreatePromptTemplateRequest = {
@@ -8079,6 +7927,109 @@ export type GetExternalAgentConfigRequest = {
 };
 
 export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
+
+export type GetFileBrowserDownloadURLsRequest = {
+  paths: Array<string>;
+};
+
+export type FileBrowserDownloadURLEntry = {
+  path: string;
+  url: string;
+  expiresAt: number;
+};
+export function createFileBrowserDownloadURLEntry(
+  options: Partial<FileBrowserDownloadURLEntry> = {},
+): FileBrowserDownloadURLEntry {
+  return options as FileBrowserDownloadURLEntry;
+}
+
+export type GetFileBrowserFileContentRequest = {
+  path: string;
+  maxBytes?: number | null;
+};
+
+export type FileContentResponse = {
+  path: string;
+  mimeType: string;
+  contentId: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileContentResponse(
+  options: Partial<FileContentResponse> = {},
+): FileContentResponse {
+  return options as FileContentResponse;
+}
+
+export type GetFileBrowserFileStatRequest = {
+  path: string;
+};
+
+export type FileStatResponse = {
+  path: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileStatResponse(
+  options: Partial<FileStatResponse> = {},
+): FileStatResponse {
+  return options as FileStatResponse;
+}
+
+export type RootResponse = {
+  rootPath: string;
+  pathSeparator: string;
+  ignorePatterns: Array<string>;
+};
+export function createRootResponse(
+  options: Partial<RootResponse> = {},
+): RootResponse {
+  return options as RootResponse;
+}
+
+const MissingFolderBehaviorEnum = {
+  error: "error",
+  empty: "empty",
+} as const;
+type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
+
+export type GetFolderContentsRequest = {
+  baseFolderPath?: string | null;
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+  includeMtime?: boolean | null;
+  includeSize?: boolean | null;
+  includeHidden?: boolean | null;
+  includeSettaInitialized?: boolean | null;
+  ignorePatterns?: Array<string> | null;
+  maxEntries?: number | null;
+  missingFolderBehavior?: MissingFolderBehavior | null;
+};
+
+const FolderContentItemTypeEnum = {
+  folder: "folder",
+  file: "file",
+} as const;
+type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
+
+export type FolderContentItem = {
+  name: string;
+  type: FolderContentItemType;
+  fullPath: string;
+  mtime?: number | null;
+  size?: number | null;
+  isSettaInitialized?: boolean | null;
+};
+export function createFolderContentItem(
+  options: Partial<FolderContentItem> = {},
+): FolderContentItem {
+  return options as FolderContentItem;
+}
+
+export type ListFolderResponse = {
+  folderPath: string;
+  items: Array<FolderContentItem>;
+};
 
 export type ProjectStateSingleConfigWithCompletedOpIDs = {
   projectState: SingleConfig;
@@ -8417,6 +8368,15 @@ export type GetStateMachineRunRequest = {
   machineGroupId: string;
 };
 
+export type GetWorkspacePythonSignalRequest = {
+  folderPath: string;
+};
+
+export type WorkspacePythonSignalResponse = {
+  folderPath: string;
+  hasPython: boolean;
+};
+
 export type InterruptTerminalProcessesRequest = {
   projectId: string;
 };
@@ -8486,6 +8446,12 @@ export type LauncherListDirectoryResponse = {
 
 export type LoadDeploymentProjectConfigRequest = {
   projectConfigId: string;
+};
+
+export type JSONArtifact = {
+  type: ArtifactType;
+  id: string;
+  value: JSONValue;
 };
 
 const FilesLocationEnum = {
@@ -8917,6 +8883,24 @@ export type TextFieldCompletionRequest = {
   position: number;
 };
 
+const TransferOperationEnum = {
+  copy: "copy",
+  move: "move",
+} as const;
+type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
+
+export type TransferFileBrowserEntryRequest = {
+  sourcePath: string;
+  destinationFolderPath: string;
+  operation: TransferOperation;
+};
+
+export type TransferResponse = {
+  sourcePath: string;
+  destinationPath: string;
+  operation: TransferOperation;
+};
+
 export type TypeCheckRequest = {
   projectConfigId: string;
 };
@@ -9046,6 +9030,24 @@ export type ValidateAppDefinitionRequest = {
   theme?: Record<string, unknown> | null;
   assets?: Array<unknown> | null;
 };
+
+export type WriteFileBrowserFileContentRequest = {
+  path: string;
+  contentId: string;
+  expectedMtimeNs?: number | null;
+};
+
+export type WriteFileContentResponse = {
+  path: string;
+  mimeType: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createWriteFileContentResponse(
+  options: Partial<WriteFileContentResponse> = {},
+): WriteFileContentResponse {
+  return options as WriteFileContentResponse;
+}
 
 export type GeneratedAppGenerationMode =
   | "json_render"

@@ -383,6 +383,9 @@ func resolveDiscoveredEndpointRequestType(
 	discovered sourceTypeRef,
 ) (reflect.Type, error) {
 	if t, ok := registry.fromSource(discovered); ok {
+		if frontendTransportOnlyEndpointType(t) {
+			return nil, nil
+		}
 		if t.Kind() == reflect.Struct && t.NumField() == 0 && t.Name() == "" {
 			return nil, nil
 		}
@@ -401,6 +404,21 @@ func resolveDiscoveredEndpointRequestType(
 		return nil, nil
 	}
 	return nil, fmt.Errorf("unresolved request type for %s", semanticBase)
+}
+
+func frontendTransportOnlyEndpointType(t reflect.Type) bool {
+	if t == nil {
+		return false
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch t.PkgPath() + "." + t.Name() {
+	case "net/http.Request", "net/http.ResponseWriter", "context.Context":
+		return true
+	default:
+		return false
+	}
 }
 
 func resolveDiscoveredEndpointPathParamsType(
@@ -497,15 +515,17 @@ func (r namedTypeRegistry) listTypeForElement(ref sourceTypeRef) (reflect.Type, 
 }
 
 func endpointRequestCandidateNames(semanticBase string, handlerBase string) []string {
+	semanticSubject := requestSubjectName(semanticBase)
+	handlerSubject := requestSubjectName(handlerBase)
 	return uniqueNonEmptyStrings(
-		semanticBase+"RequestInput",
-		semanticBase+"Request",
-		requestSubjectName(semanticBase)+"RequestInput",
-		requestSubjectName(semanticBase)+"Request",
-		handlerBase+"RequestInput",
-		handlerBase+"Request",
-		requestSubjectName(handlerBase)+"RequestInput",
-		requestSubjectName(handlerBase)+"Request",
+		endpointCandidateName(semanticBase, "RequestInput"),
+		endpointCandidateName(semanticBase, "Request"),
+		endpointCandidateName(semanticSubject, "RequestInput"),
+		endpointCandidateName(semanticSubject, "Request"),
+		endpointCandidateName(handlerBase, "RequestInput"),
+		endpointCandidateName(handlerBase, "Request"),
+		endpointCandidateName(handlerSubject, "RequestInput"),
+		endpointCandidateName(handlerSubject, "Request"),
 	)
 }
 
@@ -513,27 +533,35 @@ func endpointResponseCandidateNames(semanticBase string, handlerBase string) []s
 	semanticSubject := requestSubjectName(semanticBase)
 	handlerSubject := requestSubjectName(handlerBase)
 	return uniqueNonEmptyStrings(
-		semanticBase+"Response",
-		semanticBase+"Snapshot",
-		semanticSubject+"Response",
-		semanticSubject+"Snapshot",
-		semanticSubject+"State",
+		endpointCandidateName(semanticBase, "Response"),
+		endpointCandidateName(semanticBase, "Snapshot"),
+		endpointCandidateName(semanticSubject, "Response"),
+		endpointCandidateName(semanticSubject, "Snapshot"),
+		endpointCandidateName(semanticSubject, "State"),
 		semanticSubject,
-		singularFrontendName(semanticSubject)+"List",
-		singularFrontendName(semanticSubject)+"ListResponse",
-		semanticSubject+"List",
-		semanticSubject+"ListResponse",
-		handlerBase+"Response",
-		handlerBase+"Snapshot",
-		handlerSubject+"Response",
-		handlerSubject+"Snapshot",
-		handlerSubject+"State",
+		endpointCandidateName(singularFrontendName(semanticSubject), "List"),
+		endpointCandidateName(singularFrontendName(semanticSubject), "ListResponse"),
+		endpointCandidateName(semanticSubject, "List"),
+		endpointCandidateName(semanticSubject, "ListResponse"),
+		endpointCandidateName(handlerBase, "Response"),
+		endpointCandidateName(handlerBase, "Snapshot"),
+		endpointCandidateName(handlerSubject, "Response"),
+		endpointCandidateName(handlerSubject, "Snapshot"),
+		endpointCandidateName(handlerSubject, "State"),
 		handlerSubject,
-		singularFrontendName(handlerSubject)+"List",
-		singularFrontendName(handlerSubject)+"ListResponse",
-		handlerSubject+"List",
-		handlerSubject+"ListResponse",
+		endpointCandidateName(singularFrontendName(handlerSubject), "List"),
+		endpointCandidateName(singularFrontendName(handlerSubject), "ListResponse"),
+		endpointCandidateName(handlerSubject, "List"),
+		endpointCandidateName(handlerSubject, "ListResponse"),
 	)
+}
+
+func endpointCandidateName(base string, suffix string) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return ""
+	}
+	return base + suffix
 }
 
 func requestSubjectName(value string) string {
@@ -648,6 +676,21 @@ func newNamedTypeRegistry() namedTypeRegistry {
 		case reflect.Map:
 			registerRecursive(t.Key())
 			registerRecursive(t.Elem())
+		case reflect.Struct:
+			for fieldIndex := range t.NumField() {
+				registerRecursive(t.Field(fieldIndex).Type)
+			}
+		case reflect.Interface:
+			for methodIndex := range t.NumMethod() {
+				registerRecursive(t.Method(methodIndex).Type)
+			}
+		case reflect.Func:
+			for inputIndex := range t.NumIn() {
+				registerRecursive(t.In(inputIndex))
+			}
+			for outputIndex := range t.NumOut() {
+				registerRecursive(t.Out(outputIndex))
+			}
 		}
 	}
 

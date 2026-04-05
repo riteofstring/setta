@@ -1,8 +1,8 @@
 import { GoHTTPRoutes, GoRoutePrefixes } from "utils/generatedRoutes";
 import {
-  createFileBrowserRootResponse,
   createFolderContentItem,
-  createWriteFileBrowserFileContentResponse,
+  createRootResponse,
+  createWriteFileContentResponse,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importNativeFileToWorkspace } from "./nativeFileImport";
@@ -48,7 +48,7 @@ describe("importNativeFileToWorkspace", () => {
       const url = input;
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
-          createFileBrowserRootResponse({
+          createRootResponse({
             rootPath: "/workspace",
             pathSeparator: "/",
             ignorePatterns: [],
@@ -76,7 +76,7 @@ describe("importNativeFileToWorkspace", () => {
         writeCallCount += 1;
         writePayload = JSON.parse(init.body);
         return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
+          createWriteFileContentResponse({
             path: "/workspace/drop.csv",
             mimeType: "text/csv",
             mtimeNs: 123,
@@ -109,7 +109,7 @@ describe("importNativeFileToWorkspace", () => {
       const url = input;
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
-          createFileBrowserRootResponse({
+          createRootResponse({
             rootPath: "/workspace",
             pathSeparator: "/",
             ignorePatterns: [],
@@ -145,7 +145,7 @@ describe("importNativeFileToWorkspace", () => {
       const url = input;
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
-          createFileBrowserRootResponse({
+          createRootResponse({
             rootPath: "/workspace",
             pathSeparator: "/",
             ignorePatterns: [],
@@ -181,7 +181,7 @@ describe("importNativeFileToWorkspace", () => {
           return jsonResponse({ detail: "File already exists." }, 409);
         }
         return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
+          createWriteFileContentResponse({
             path: "/workspace/drop-2.csv",
             mimeType: "text/csv",
             mtimeNs: 123,
@@ -220,7 +220,7 @@ describe("importNativeFileToWorkspace", () => {
       const url = input;
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFileBrowserRoot)) {
         return jsonResponse(
-          createFileBrowserRootResponse({
+          createRootResponse({
             rootPath: "/workspace",
             pathSeparator: "/",
             ignorePatterns: [],
@@ -248,7 +248,7 @@ describe("importNativeFileToWorkspace", () => {
           return jsonResponse({ detail: "File already exists." }, 409);
         }
         return jsonResponse(
-          createWriteFileBrowserFileContentResponse({
+          createWriteFileContentResponse({
             path: "/workspace/drop-5.csv",
             mimeType: "text/csv",
             mtimeNs: 123,

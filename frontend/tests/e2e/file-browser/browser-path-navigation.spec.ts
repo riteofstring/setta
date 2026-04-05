@@ -11,7 +11,7 @@ import {
   seedLocalStorage,
 } from "../helpers";
 
-type FileBrowserRootResponse = {
+type RootResponse = {
   rootPath: string;
 };
 
@@ -61,7 +61,7 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
   const projectContext = await openIsolatedProject(page);
 
   try {
-    const root = await postBackend<FileBrowserRootResponse>(
+    const root = await postBackend<RootResponse>(
       page,
       "/getFileBrowserRoot",
       null,

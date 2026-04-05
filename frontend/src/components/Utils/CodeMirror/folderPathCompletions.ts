@@ -7,7 +7,7 @@ import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
 import type {
   FolderContentItem,
-  GetFolderContentsResponse,
+  ListFolderResponse,
 } from "utils/generatedTypes";
 
 type FolderPathCompletionOptions = {
@@ -19,8 +19,7 @@ type FolderPathCompletionOptions = {
 };
 
 const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
-type GetFolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
+type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
 
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");

@@ -16,9 +16,9 @@ import {
 import {
   BrowserAreaViewModeEnum,
   SectionTypeEnum,
-  createFileBrowserRootResponse,
   createFolderContentItem,
   createProjectConfig,
+  createRootResponse,
   type BrowserAreaViewMode,
   type Core,
   type Variant,
@@ -243,7 +243,7 @@ describe("BrowserArea list view", () => {
   it("loads the Go root and folder contents into thumbnail view", async () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.thumbnail);
     vi.mocked(route_get_file_browser_root).mockResolvedValue({
-      data: createFileBrowserRootResponse({
+      data: createRootResponse({
         rootPath: "/workspace",
         ignorePatterns: ["node_modules"],
         pathSeparator: "/",
@@ -293,7 +293,7 @@ describe("BrowserArea list view", () => {
   it("loads the Go root and folder contents into list view with outside-workspace access", async () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.list);
     vi.mocked(route_get_file_browser_root).mockResolvedValue({
-      data: createFileBrowserRootResponse({
+      data: createRootResponse({
         rootPath: "/workspace",
         ignorePatterns: ["node_modules"],
         pathSeparator: "/",

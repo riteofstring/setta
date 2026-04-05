@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"setta/internal/filebrowser"
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
@@ -73,6 +74,53 @@ func TestDiscoverCurrentEndpointsTracksMultiReturnHandlerResponses(t *testing.T)
 		}
 		if spec.ResponseType != tc.wantResponse {
 			t.Fatalf("%s response type = %v, want %v", tc.functionName, spec.ResponseType, tc.wantResponse)
+		}
+	}
+}
+
+func TestDiscoverCurrentEndpointsResolvesServiceInterfaceOwnerResponses(t *testing.T) {
+	specs, err := discoverCurrentEndpoints()
+	if err != nil {
+		t.Fatalf("discover current endpoints: %v", err)
+	}
+
+	for _, spec := range specs {
+		if spec.FunctionName != "route_get_file_browser_root" {
+			continue
+		}
+		wantResponse := reflect.TypeOf(filebrowser.RootResponse{})
+		if spec.ResponseType != wantResponse {
+			t.Fatalf("route_get_file_browser_root response type = %v, want %v", spec.ResponseType, wantResponse)
+		}
+		return
+	}
+
+	t.Fatal("route_get_file_browser_root endpoint not found")
+}
+
+func TestDiscoverCurrentEndpointsIgnoresTransportOnlyRequestTypes(t *testing.T) {
+	specs, err := discoverCurrentEndpoints()
+	if err != nil {
+		t.Fatalf("discover current endpoints: %v", err)
+	}
+
+	cases := []string{
+		"route_get_server_mode",
+		"route_sdk_runtime_handshake",
+	}
+
+	specsByFunction := make(map[string]EndpointSpec, len(specs))
+	for _, spec := range specs {
+		specsByFunction[spec.FunctionName] = spec
+	}
+
+	for _, functionName := range cases {
+		spec, ok := specsByFunction[functionName]
+		if !ok {
+			t.Fatalf("%s endpoint not found", functionName)
+		}
+		if spec.RequestType != nil {
+			t.Fatalf("%s request type = %v, want nil", functionName, spec.RequestType)
 		}
 	}
 }

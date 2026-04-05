@@ -10,8 +10,8 @@ import {
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
-  createFileBrowserRootResponse,
   createFolderContentItem,
+  createRootResponse,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -295,7 +295,7 @@ describe("sortChildPaths", () => {
 
   it("loads the Go root and folder contents into the pane", async () => {
     vi.mocked(route_get_file_browser_root).mockResolvedValue({
-      data: createFileBrowserRootResponse({
+      data: createRootResponse({
         rootPath: "/workspace",
         pathSeparator: "/",
         ignorePatterns: ["node_modules"],

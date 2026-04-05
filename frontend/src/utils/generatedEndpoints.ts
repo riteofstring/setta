@@ -553,25 +553,25 @@ export async function route_get_file_browser_download_urls(
 
 export async function route_get_file_browser_file_content(
   x: gt.GetFileBrowserFileContentRequest,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
+): Promise<ResponseDataAndStatus<gt.FileContentResponse>> {
   return await post(GoHTTPRouteHelpers.getFileBrowserFileContent(), x);
 }
 
 export async function route_get_file_browser_file_stat(
   x: gt.GetFileBrowserFileStatRequest,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileStatResponse>> {
+): Promise<ResponseDataAndStatus<gt.FileStatResponse>> {
   return await post(GoHTTPRouteHelpers.getFileBrowserFileStat(), x);
 }
 
 export async function route_get_file_browser_root(): Promise<
-  ResponseDataAndStatus<gt.FileBrowserRootResponse>
+  ResponseDataAndStatus<gt.RootResponse>
 > {
   return await post(GoHTTPRouteHelpers.getFileBrowserRoot(), null);
 }
 
 export async function route_get_folder_contents(
   x: gt.GetFolderContentsRequest,
-): Promise<ResponseDataAndStatus<gt.GetFolderContentsResponse>> {
+): Promise<ResponseDataAndStatus<gt.ListFolderResponse>> {
   return await post(GoHTTPRouteHelpers.getFolderContents(), x);
 }
 
@@ -835,7 +835,7 @@ export async function route_load_app_project_config(
 
 export async function route_load_cached_brush_strokes(
   x: gt.LoadCachedPathsRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.JSONArtifact>>> {
   return await post(GoHTTPRouteHelpers.loadCachedBrushStrokes(), x);
 }
 
@@ -847,7 +847,7 @@ export async function route_load_cached_chart_data(
 
 export async function route_load_cached_draw_area_layer_item_transform(
   x: gt.LoadCachedPathsRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.JSONArtifact>>> {
   return await post(
     GoHTTPRouteHelpers.loadCachedDrawAreaLayerItemTransform(),
     x,
@@ -1738,7 +1738,7 @@ export async function route_toggle_view_mode_user_facing(
 
 export async function route_transfer_file_browser_entry(
   x: gt.TransferFileBrowserEntryRequest,
-): Promise<ResponseDataAndStatus<gt.TransferFileBrowserEntryResponse>> {
+): Promise<ResponseDataAndStatus<gt.TransferResponse>> {
   return await post(GoHTTPRouteHelpers.transferFileBrowserEntry(), x);
 }
 
@@ -1854,6 +1854,6 @@ export async function route_validate_app_definition(
 
 export async function route_write_file_browser_file_content(
   x: gt.WriteFileBrowserFileContentRequest,
-): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {
+): Promise<ResponseDataAndStatus<gt.WriteFileContentResponse>> {
   return await post(GoHTTPRouteHelpers.writeFileBrowserFileContent(), x);
 }
