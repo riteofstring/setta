@@ -164,7 +164,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
@@ -201,7 +201,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
@@ -236,7 +236,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: initialMessage,
       },
     });
@@ -261,7 +261,7 @@ describe("section chat streaming updates", () => {
       chatId: updatedChatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: updatedMessage,
       },
     });
@@ -297,7 +297,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: assistantMessage,
       },
     });
@@ -336,7 +336,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_RESULT,
+        type: StreamingEventTypeEnum.tool_result,
         result: toolResult,
       },
     });
@@ -353,7 +353,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-tool-call",
           role: ChatRoleEnum.assistant,
@@ -367,7 +367,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-tool-call",
         content: [{ type: "text_delta", index: 0, text: "Launching tasks" }],
       },
@@ -376,7 +376,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-tool-call",
           role: ChatRoleEnum.assistant,
@@ -420,7 +420,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "resp_placeholder_1",
         content: [
           {
@@ -437,7 +437,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-finalized-thinking",
           role: ChatRoleEnum.assistant,
@@ -492,7 +492,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-stream",
           role: ChatRoleEnum.assistant,
@@ -506,7 +506,7 @@ describe("section chat streaming updates", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-stream",
         content: [{ type: "text_delta", index: 0, text: "Streaming" }],
       },

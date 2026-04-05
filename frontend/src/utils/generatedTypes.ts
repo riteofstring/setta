@@ -1512,16 +1512,16 @@ export type TransferFileBrowserEntryRequest = {
 };
 
 export const EndpointOriginEnum = {
-  Backend: "backend",
-  Launcher: "launcher",
+  backend: "backend",
+  launcher: "launcher",
   BackendOrigin: "backend-origin",
 } as const;
 export type EndpointOrigin = ObjectValues<typeof EndpointOriginEnum>;
 
 export const WorkspaceLaunchRouteKindEnum = {
-  IDE: "ide",
-  Launcher: "launcher",
-  Blocked: "blocked",
+  ide: "ide",
+  launcher: "launcher",
+  blocked: "blocked",
 } as const;
 export type WorkspaceLaunchRouteKind = ObjectValues<
   typeof WorkspaceLaunchRouteKindEnum
@@ -1653,23 +1653,23 @@ type LauncherOperationErrorPayload = {
 };
 
 const LauncherOpenModeEnum = {
-  Browser: "browser",
+  browser: "browser",
   ChromeApp: "chrome-app",
 } as const;
 type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
 
 const LauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last_used_or_prompt",
-  AlwaysPrompt: "always_prompt",
+  last_used_or_prompt: "last_used_or_prompt",
+  always_prompt: "always_prompt",
 } as const;
 type LauncherWorkspaceBehavior = ObjectValues<
   typeof LauncherWorkspaceBehaviorEnum
 >;
 
 const LauncherUpdateCapabilityEnum = {
-  InApp: "in_app",
-  InstallerManaged: "installer_managed",
-  Unsupported: "unsupported",
+  in_app: "in_app",
+  installer_managed: "installer_managed",
+  unsupported: "unsupported",
 } as const;
 type LauncherUpdateCapability = ObjectValues<
   typeof LauncherUpdateCapabilityEnum
@@ -1902,10 +1902,10 @@ export type MCPRuntimeStatusResponse = {
 };
 
 const ModeEnum = {
-  IDE: "ide",
-  Share: "share",
-  App: "app",
-  Launcher: "launcher",
+  ide: "ide",
+  share: "share",
+  app: "app",
+  launcher: "launcher",
 } as const;
 type Mode = ObjectValues<typeof ModeEnum>;
 
@@ -1921,9 +1921,9 @@ export type PluginEnableDisableRequest = {
 };
 
 const PluginScopeEnum = {
-  Workspace: "workspace",
-  SettaFiles: "setta_files",
-  Global: "global",
+  workspace: "workspace",
+  setta_files: "setta_files",
+  global: "global",
 } as const;
 type PluginScope = ObjectValues<typeof PluginScopeEnum>;
 
@@ -1935,9 +1935,9 @@ export type PluginLinkRequest = {
 };
 
 const PluginInstallerBackendEnum = {
-  Auto: "auto",
-  Pip: "pip",
-  UV: "uv",
+  auto: "auto",
+  pip: "pip",
+  uv: "uv",
 } as const;
 type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
 
@@ -3493,17 +3493,17 @@ export type WorkspaceLaunchErrorPayload = {
 };
 
 const LaunchSettaFilesLocationEnum = {
-  Auto: "auto",
-  Local: "local",
-  Global: "global",
+  auto: "auto",
+  local: "local",
+  global: "global",
 } as const;
 type LaunchSettaFilesLocation = ObjectValues<
   typeof LaunchSettaFilesLocationEnum
 >;
 
 const LaunchResolvedSettaFilesLocationEnum = {
-  Local: "local",
-  Global: "global",
+  local: "local",
+  global: "global",
 } as const;
 type LaunchResolvedSettaFilesLocation = ObjectValues<
   typeof LaunchResolvedSettaFilesLocationEnum
@@ -3584,7 +3584,7 @@ export type PluginLockApplyResponse = {
 };
 
 const PluginSourceTrustStatusEnum = {
-  Unverified: "unverified",
+  unverified: "unverified",
 } as const;
 type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
 
@@ -3654,16 +3654,16 @@ type PluginConfigDescriptor = {
 };
 
 const PluginSourceManagerEnum = {
-  Setta: "setta",
-  PackageManager: "package_manager",
+  setta: "setta",
+  package_manager: "package_manager",
 } as const;
 type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
 
 const PluginEnablementSourceEnum = {
-  WorkspaceDisabled: "workspace_disabled",
-  WorkspaceEnabled: "workspace_enabled",
-  GlobalAutoEnabled: "global_auto_enabled",
-  ManifestDefault: "manifest_default",
+  workspace_disabled: "workspace_disabled",
+  workspace_enabled: "workspace_enabled",
+  global_auto_enabled: "global_auto_enabled",
+  manifest_default: "manifest_default",
 } as const;
 type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
 
@@ -3691,8 +3691,8 @@ export function createPluginListEntry(
 }
 
 const PluginRestartCapabilityModeEnum = {
-  Manual: "manual",
-  Programmatic: "programmatic",
+  manual: "manual",
+  programmatic: "programmatic",
 } as const;
 type PluginRestartCapabilityMode = ObjectValues<
   typeof PluginRestartCapabilityModeEnum
@@ -3712,9 +3712,9 @@ export type PluginListResponse = {
 };
 
 const PluginBlockedCapabilityReasonEnum = {
-  ModePolicy: "mode_policy",
-  HostPolicy: "host_policy",
-  ManifestInvalid: "manifest_invalid",
+  mode_policy: "mode_policy",
+  host_policy: "host_policy",
+  manifest_invalid: "manifest_invalid",
 } as const;
 type PluginBlockedCapabilityReason = ObjectValues<
   typeof PluginBlockedCapabilityReasonEnum
@@ -3816,19 +3816,19 @@ export type AgentProfile = {
 };
 
 export const AppGenerationModeEnum = {
-  JSONRender: "json_render",
-  JSONRenderWithImage: "json_render_with_image",
-  PromptBuilder: "prompt_builder",
-  MCPServer: "mcp_server",
+  json_render: "json_render",
+  json_render_with_image: "json_render_with_image",
+  prompt_builder: "prompt_builder",
+  mcp_server: "mcp_server",
 } as const;
 export type AppGenerationMode = ObjectValues<typeof AppGenerationModeEnum>;
 
 export const ChatAppGenerationMessageModeEnum = {
-  PlainChat: "plain_chat",
-  JSONRender: "json_render",
-  JSONRenderWithImage: "json_render_with_image",
-  PromptBuilder: "prompt_builder",
-  MCPServer: "mcp_server",
+  plain_chat: "plain_chat",
+  json_render: "json_render",
+  json_render_with_image: "json_render_with_image",
+  prompt_builder: "prompt_builder",
+  mcp_server: "mcp_server",
 } as const;
 
 export type EngineConfig = {
@@ -8192,13 +8192,13 @@ export type WebsocketMessageType = ObjectValues<
 >;
 
 export const StreamingEventTypeEnum = {
-  MESSAGE_START: "message_start",
-  DELTA: "delta",
-  TOOL_CALL_DELTA: "tool_call_delta",
-  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
-  TOOL_RESULT: "tool_result",
-  MESSAGE_STOP: "message_stop",
-  MESSAGE_FINALIZED: "message_finalized",
+  message_start: "message_start",
+  delta: "delta",
+  tool_call_delta: "tool_call_delta",
+  tool_argument_preview_delta: "tool_argument_preview_delta",
+  tool_result: "tool_result",
+  message_stop: "message_stop",
+  message_finalized: "message_finalized",
 } as const;
 
 export type AIFollowToolArgumentsUpdateContent = {
@@ -8235,18 +8235,18 @@ type MessageThinkingDelta = {
 type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
 
 export type MessageStartEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_START;
+  type: typeof StreamingEventTypeEnum.message_start;
   message: BaseChatMessageUnion;
 };
 
 export type MessageDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.DELTA;
+  type: typeof StreamingEventTypeEnum.delta;
   message_id: string;
   content?: Array<MessageContentDelta> | null;
 };
 
 export type ToolCallDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
+  type: typeof StreamingEventTypeEnum.tool_call_delta;
   message_id: string;
   tool_call_id: string;
   arguments_delta: string;
@@ -8254,12 +8254,12 @@ export type ToolCallDeltaEvent = {
 };
 
 export type ToolResultEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_RESULT;
+  type: typeof StreamingEventTypeEnum.tool_result;
   result: ToolChatMessage;
 };
 
 export type ToolArgumentPreviewDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
+  type: typeof StreamingEventTypeEnum.tool_argument_preview_delta;
   message_id: string;
   tool_call_id: string;
   tool_name: string;
@@ -8270,12 +8270,12 @@ export type ToolArgumentPreviewDeltaEvent = {
 };
 
 type MessageStopEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
+  type: typeof StreamingEventTypeEnum.message_stop;
   message_id: string;
 };
 
 export type MessageFinalizedEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
+  type: typeof StreamingEventTypeEnum.message_finalized;
   message: BaseChatMessageUnion;
 };
 

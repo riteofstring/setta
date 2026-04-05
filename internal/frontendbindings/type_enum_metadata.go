@@ -3,24 +3,9 @@ package frontendbindings
 import (
 	"reflect"
 	"strings"
-	"unicode"
 
-	"setta/internal/agentruns"
-	"setta/internal/config"
-	"setta/internal/httpapi"
-	"setta/internal/launcher"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 	"setta/internal/stringenumvalues"
-)
-
-type frontendEnumNamingMode int
-
-const (
-	frontendEnumNamingDiscovered frontendEnumNamingMode = iota
-	frontendEnumNamingPascalValue
-	frontendEnumNamingUpperSnakeValue
 )
 
 var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
@@ -35,41 +20,6 @@ var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
 		"markdown",
 		"plaintext",
 	),
-}
-
-var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
-	reflect.TypeOf(agentruns.AppGenerationMode("")):              frontendEnumNamingPascalValue,
-	reflect.TypeOf(agentruns.ChatAppGenerationMessageMode("")):   frontendEnumNamingPascalValue,
-	reflect.TypeOf(config.Mode("")):                              frontendEnumNamingPascalValue,
-	reflect.TypeOf(httpapi.FrontendEndpointOrigin("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(httpapi.FrontendWorkspaceLaunchRouteKind("")): frontendEnumNamingPascalValue,
-	reflect.TypeOf(httpapi.LaunchSettaFilesLocation("")):         frontendEnumNamingPascalValue,
-	reflect.TypeOf(httpapi.LaunchResolvedSettaFilesLocation("")): frontendEnumNamingPascalValue,
-	reflect.TypeOf(launcher.LauncherOpenMode("")):                frontendEnumNamingPascalValue,
-	reflect.TypeOf(launcher.LauncherWorkspaceBehavior("")):       frontendEnumNamingPascalValue,
-	reflect.TypeOf(launcher.LauncherInstallSource("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(launcher.LauncherUpdateCapability("")):        frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginScope("")):                      frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginEnablementSource("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginSourceManager("")):              frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginInstallerBackend("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginSourceTrustStatus("")):          frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginBlockedCapabilityReason("")):    frontendEnumNamingPascalValue,
-	reflect.TypeOf(plugins.PluginRestartCapabilityMode("")):      frontendEnumNamingPascalValue,
-	reflect.TypeOf(realtime.StreamingEventType("")):              frontendEnumNamingUpperSnakeValue,
-}
-
-var frontendBindingEnumPascalAcronyms = map[string]string{
-	"api":  "API",
-	"http": "HTTP",
-	"id":   "ID",
-	"ide":  "IDE",
-	"json": "JSON",
-	"llm":  "LLM",
-	"mcp":  "MCP",
-	"ui":   "UI",
-	"url":  "URL",
-	"uv":   "UV",
 }
 
 func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
@@ -97,10 +47,7 @@ func frontendBindingAdjustedDiscoveredEnumValues(
 	t reflect.Type,
 	discovered []stringenumvalues.EnumValue,
 ) []EnumValue {
-	values := frontendBindingEnumValuesFromDiscovered(
-		discovered,
-		frontendBindingEnumNamingModes[t],
-	)
+	values := frontendBindingEnumValuesFromDiscovered(discovered)
 	switch t {
 	case reflect.TypeOf(projectstate.FrontendSectionType("")):
 		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
@@ -124,18 +71,11 @@ func frontendBindingFixedEnumValues(values ...string) func() []EnumValue {
 
 func frontendBindingEnumValuesFromDiscovered(
 	discovered []stringenumvalues.EnumValue,
-	mode frontendEnumNamingMode,
 ) []EnumValue {
 	values := make([]EnumValue, 0, len(discovered))
 	seen := make(map[string]struct{}, len(discovered))
 	for _, discoveredValue := range discovered {
 		name := discoveredValue.Name
-		switch mode {
-		case frontendEnumNamingPascalValue:
-			name = frontendBindingPascalEnumValueName(discoveredValue.Value)
-		case frontendEnumNamingUpperSnakeValue:
-			name = frontendBindingUpperSnakeEnumValueName(discoveredValue.Value)
-		}
 		key := name + "\x00" + discoveredValue.Value
 		if _, ok := seen[key]; ok {
 			continue
@@ -208,34 +148,4 @@ func frontendBindingStructFieldEnumName(field reflect.StructField) string {
 		return ""
 	}
 	return name
-}
-
-func frontendBindingPascalEnumValueName(value string) string {
-	parts := strings.FieldsFunc(strings.TrimSpace(value), func(char rune) bool {
-		return char == '-' || char == '_' || !(unicode.IsLetter(char) || unicode.IsDigit(char))
-	})
-	if len(parts) == 0 {
-		return value
-	}
-
-	var builder strings.Builder
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		lower := strings.ToLower(part)
-		if acronym, ok := frontendBindingEnumPascalAcronyms[lower]; ok {
-			builder.WriteString(acronym)
-			continue
-		}
-		runes := []rune(lower)
-		runes[0] = unicode.ToUpper(runes[0])
-		builder.WriteString(string(runes))
-	}
-	return builder.String()
-}
-
-func frontendBindingUpperSnakeEnumValueName(value string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(value), "-", "_")
-	return strings.ToUpper(normalized)
 }

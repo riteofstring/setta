@@ -246,7 +246,7 @@ export function resolveSlashCommandSubmitOptions(
 function requiresImageAttachmentForAppGenerationMode(
   appGenerationMode: AppGenerationMode | null | undefined,
 ): boolean {
-  return appGenerationMode === AppGenerationModeEnum.JSONRenderWithImage;
+  return appGenerationMode === AppGenerationModeEnum.json_render_with_image;
 }
 
 function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {

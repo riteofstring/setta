@@ -812,7 +812,7 @@ export function hasRetainedImageAttachmentFromImageModeThread(
     }
     if (
       appGenerationByMessageId[message.id]?.mode !==
-      AppGenerationModeEnum.JSONRenderWithImage
+      AppGenerationModeEnum.json_render_with_image
     ) {
       return false;
     }

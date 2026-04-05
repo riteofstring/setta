@@ -2797,11 +2797,11 @@ function applyStreamingChunkToSection(
   projectConfigId: string,
 ) {
   const nextState = applyChatSectionStreamDelta(sectionId, chunk);
-  if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
+  if (chunk.type === StreamingEventTypeEnum.tool_argument_preview_delta) {
     applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
     return;
   }
-  if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+  if (chunk.type === StreamingEventTypeEnum.tool_result) {
     maybeApplyAppDefinitionToolResult(chunk.result);
     persistChatSectionState({
       projectConfigId,
@@ -2816,7 +2816,7 @@ function applyStreamingChunkToSection(
     handleAgenticScopeViolation(chunk.result, projectConfigId);
     return;
   }
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+  if (chunk.type === StreamingEventTypeEnum.message_finalized) {
     recordFinalizedMessage(sectionId, chunk.message.id);
     persistChatSectionState({
       projectConfigId,
@@ -2831,7 +2831,7 @@ function applyStreamingChunkToSection(
     clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
     return;
   }
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_STOP) {
+  if (chunk.type === StreamingEventTypeEnum.message_stop) {
     if (!shouldPersistOnMessageStop(sectionId, chunk.message_id)) {
       return;
     }
@@ -2860,16 +2860,16 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   const shouldUpdateChatDetails = !sectionId || isManagedSection;
 
   const shouldMarkActive =
-    chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
-    chunk.type === StreamingEventTypeEnum.DELTA ||
-    chunk.type === StreamingEventTypeEnum.TOOL_CALL_DELTA ||
-    chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
+    chunk.type === StreamingEventTypeEnum.message_start ||
+    chunk.type === StreamingEventTypeEnum.delta ||
+    chunk.type === StreamingEventTypeEnum.tool_call_delta ||
+    chunk.type === StreamingEventTypeEnum.tool_argument_preview_delta;
   if (shouldMarkActive) {
     markChatStreamActive(chatId, sectionId);
   }
   if (
-    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP ||
-    chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED
+    chunk.type === StreamingEventTypeEnum.message_stop ||
+    chunk.type === StreamingEventTypeEnum.message_finalized
   ) {
     clearChatStreamActive(chatId, sectionId);
   }
@@ -2878,23 +2878,23 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   }
   if (shouldUpdateChatDetails) {
     switch (chunk.type) {
-      case StreamingEventTypeEnum.MESSAGE_START:
+      case StreamingEventTypeEnum.message_start:
         handleMessageStart(chatId, chunk);
         return;
-      case StreamingEventTypeEnum.DELTA:
+      case StreamingEventTypeEnum.delta:
         handleMessageDelta(chatId, chunk);
         return;
-      case StreamingEventTypeEnum.TOOL_CALL_DELTA:
+      case StreamingEventTypeEnum.tool_call_delta:
         handleToolCallDelta(chatId, chunk);
         return;
-      case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+      case StreamingEventTypeEnum.tool_argument_preview_delta:
         if (sectionId) {
           applyStreamingChunkToChatDetails(chatId, chunk);
           return;
         }
         handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
         return;
-      case StreamingEventTypeEnum.TOOL_RESULT:
+      case StreamingEventTypeEnum.tool_result:
         if (sectionId) {
           applyStreamingChunkToChatDetails(chatId, chunk);
           clearToolArgumentPreviewByToolCallId(
@@ -2905,10 +2905,10 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
         }
         handleToolResult(chatId, chunk, projectConfigId);
         return;
-      case StreamingEventTypeEnum.MESSAGE_STOP:
+      case StreamingEventTypeEnum.message_stop:
         handleMessageStop(chatId, projectConfigId);
         return;
-      case StreamingEventTypeEnum.MESSAGE_FINALIZED:
+      case StreamingEventTypeEnum.message_finalized:
         handleMessageFinalized(chatId, chunk, projectConfigId);
         return;
       default:
@@ -3149,7 +3149,7 @@ function handleToolResult(
 function handleMessageStop(chatId: string, projectConfigId: string) {
   clearStopEligibleAssistantMessageId(chatId);
   applyStreamingChunkToChatDetails(chatId, {
-    type: StreamingEventTypeEnum.MESSAGE_STOP,
+    type: StreamingEventTypeEnum.message_stop,
     message_id: "",
   });
   clearAIFollowToolArgumentsForChat(projectConfigId, chatId);

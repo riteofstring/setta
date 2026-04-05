@@ -46,7 +46,7 @@ describe("ai tool argument preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "assistant-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__set_code",
@@ -78,7 +78,7 @@ describe("ai tool argument preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "assistant-1",
         tool_call_id: "tool-call-2",
         tool_name: "setta__set_callable",
@@ -110,7 +110,7 @@ describe("ai tool argument preview streaming", () => {
       chatId: "chat-1",
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA,
+        type: StreamingEventTypeEnum.tool_argument_preview_delta,
         message_id: "assistant-1",
         tool_call_id: "tool-call-3",
         tool_name: "setta__set_param_entered_value",

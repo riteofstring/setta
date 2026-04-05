@@ -22,10 +22,10 @@ export type ChatSectionStreamChunk = LLMStreamingResponseContent["chunk"];
 export function shouldIgnoreResponsePlaceholderChunk(
   chunk: LLMStreamingResponseContent["chunk"],
 ): boolean {
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
+  if (chunk.type === StreamingEventTypeEnum.message_start) {
     return shouldIgnoreResponsePlaceholderMessage(chunk.message);
   }
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+  if (chunk.type === StreamingEventTypeEnum.message_finalized) {
     return shouldIgnoreResponsePlaceholderMessage(chunk.message);
   }
   return false;
@@ -202,7 +202,7 @@ export function applyStreamDeltaToChatSectionState(
   };
 
   switch (chunk.type) {
-    case StreamingEventTypeEnum.MESSAGE_START: {
+    case StreamingEventTypeEnum.message_start: {
       messages = upsertMessage(messages, chunk.message);
       waitingForResponse = true;
       const nextBranches = syncActiveBranchMessages(messages);
@@ -215,7 +215,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.DELTA: {
+    case StreamingEventTypeEnum.delta: {
       messages = applyMessageDeltaToChatMessages(messages, chunk);
       const nextBranches = syncActiveBranchMessages(messages);
       return {
@@ -227,7 +227,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.TOOL_CALL_DELTA: {
+    case StreamingEventTypeEnum.tool_call_delta: {
       const result = applyToolCallDeltaToChatMessages(
         messages,
         toolCallArguments,
@@ -245,7 +245,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA: {
+    case StreamingEventTypeEnum.tool_argument_preview_delta: {
       const result = applyToolCallDeltaToChatMessages(
         messages,
         toolCallArguments,
@@ -263,7 +263,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.TOOL_RESULT: {
+    case StreamingEventTypeEnum.tool_result: {
       messages = upsertMessage(messages, chunk.result);
       const nextBranches = syncActiveBranchMessages(messages);
       return {
@@ -275,7 +275,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.MESSAGE_STOP: {
+    case StreamingEventTypeEnum.message_stop: {
       waitingForResponse = false;
       const nextBranches = syncActiveBranchMessages(messages);
       return {
@@ -287,7 +287,7 @@ export function applyStreamDeltaToChatSectionState(
         branches: nextBranches,
       };
     }
-    case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
+    case StreamingEventTypeEnum.message_finalized: {
       const { message: messageToUpsert, targetId } =
         chunk.message.role === ChatRoleEnum.assistant
           ? resolveFinalizedAssistantMessageUpdate(

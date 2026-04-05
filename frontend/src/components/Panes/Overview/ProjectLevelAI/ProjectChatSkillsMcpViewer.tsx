@@ -126,25 +126,25 @@ const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
 
 const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
   {
-    id: ChatAppGenerationMessageModeEnum.PlainChat,
+    id: ChatAppGenerationMessageModeEnum.plain_chat,
     name: "Plain chat",
   },
-  { id: AppGenerationModeEnum.JSONRender, name: "JSON Render" },
+  { id: AppGenerationModeEnum.json_render, name: "JSON Render" },
   {
-    id: AppGenerationModeEnum.JSONRenderWithImage,
+    id: AppGenerationModeEnum.json_render_with_image,
     name: "Image to JSON Render",
   },
   {
-    id: AppGenerationModeEnum.PromptBuilder,
+    id: AppGenerationModeEnum.prompt_builder,
     name: "Prompt Builder",
   },
-  { id: AppGenerationModeEnum.MCPServer, name: "MCP Server" },
+  { id: AppGenerationModeEnum.mcp_server, name: "MCP Server" },
 ] as const;
 
 function getCustomSlashCommandModeLabel(
   mode: AppGenerationMode | null,
 ): string | null {
-  const resolvedId = mode ?? ChatAppGenerationMessageModeEnum.PlainChat;
+  const resolvedId = mode ?? ChatAppGenerationMessageModeEnum.plain_chat;
   return (
     CUSTOM_SLASH_COMMAND_MODE_ITEMS.find((item) => item.id === resolvedId)
       ?.name ?? null
@@ -1909,7 +1909,7 @@ function CustomSlashCommandsPanel({
           ]}
           value={
             newCustomSlashAppGenerationMode ??
-            ChatAppGenerationMessageModeEnum.PlainChat
+            ChatAppGenerationMessageModeEnum.plain_chat
           }
           small={false}
           onSelectedItemChange={onSetNewCustomSlashAppGenerationMode}

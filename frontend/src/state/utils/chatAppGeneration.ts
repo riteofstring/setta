@@ -15,7 +15,7 @@ export type ChatAppGenerationContext = {
 };
 
 export const PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE =
-  ChatAppGenerationMessageModeEnum.PlainChat;
+  ChatAppGenerationMessageModeEnum.plain_chat;
 
 type SerializedChatAppGenerationMessageMode =
   | AppGenerationMode

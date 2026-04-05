@@ -103,7 +103,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-stream",
           role: ChatRoleEnum.assistant,
@@ -117,7 +117,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-stream",
         content: [{ type: "text_delta", index: 0, text: "Streaming" }],
       },
@@ -126,7 +126,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "msg-stream",
       },
     });
@@ -187,7 +187,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -201,7 +201,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.DELTA,
+        type: StreamingEventTypeEnum.delta,
         message_id: "msg-final",
         content: [{ type: "text_delta", index: 0, text: "Finalized" }],
       },
@@ -210,7 +210,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        type: StreamingEventTypeEnum.message_finalized,
         message: {
           id: "msg-final",
           role: ChatRoleEnum.assistant,
@@ -224,7 +224,7 @@ describe("chat streaming persistence", () => {
       chatId,
       sectionId,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "msg-final",
       },
     });

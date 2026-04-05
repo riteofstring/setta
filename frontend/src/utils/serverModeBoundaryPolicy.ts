@@ -40,7 +40,7 @@ export function resolveWorkspaceLaunchRouteKind(
   return resolveGeneratedWorkspaceLaunchRouteKind(
     ServerModeBoundaryPolicyByMode,
     mode,
-    WorkspaceLaunchRouteKindEnum.Blocked,
+    WorkspaceLaunchRouteKindEnum.blocked,
   );
 }
 
@@ -54,7 +54,7 @@ export function resolveEndpointOriginForMode(
     endpointOriginPolicy: EndpointOriginPolicyByRoute,
     modeScopedLauncherRoutes: new Set<string>(ModeScopedLauncherRoutesList),
     backendOriginValue: EndpointOriginEnum.BackendOrigin,
-    launcherOriginValue: EndpointOriginEnum.Launcher,
-    backendValue: EndpointOriginEnum.Backend,
+    launcherOriginValue: EndpointOriginEnum.launcher,
+    backendValue: EndpointOriginEnum.backend,
   });
 }

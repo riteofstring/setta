@@ -299,7 +299,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -350,7 +350,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -402,7 +402,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-local",
           content: [createMessageTextContent({ text: "Local optimistic" })],
@@ -495,7 +495,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -814,7 +814,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -1055,7 +1055,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "assistant-current",
           content: [createMessageTextContent({ text: "Streaming now" })],
@@ -1169,7 +1169,7 @@ describe("stopProjectChatResponse", () => {
       chatId,
       projectConfigId: "project-a",
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        type: StreamingEventTypeEnum.message_stop,
         message_id: "assistant-streaming",
       },
     });

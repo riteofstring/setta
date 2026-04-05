@@ -732,7 +732,7 @@ describe("submitMessage", () => {
       chatId: existingChatId,
       sectionId: null,
       chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_START,
+        type: StreamingEventTypeEnum.message_start,
         message: createAssistantChatMessage({
           id: "existing-assistant-msg",
           content: [createMessageTextContent({ text: "Continuing poem..." })],
