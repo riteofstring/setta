@@ -6,39 +6,54 @@ import {
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useIsSectionUIActive } from "state/activeSectionUI";
-import {
-  useAgenticScopeHighlights,
-  useLocalStorage,
-  useProjectState,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
-import { getSectionContainerShellClassName } from "./sectionChrome";
-import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import {
+  type SectionChromeBodySurface,
+  getSectionContainerShellClassName,
+  resolveSectionChromeShellDecorations,
+} from "./sectionChrome";
+import { useSectionChromeAppearance } from "./sectionChromeAppearance";
+import {
+  SectionContainerCoreResizable,
+  type SectionContainerHeaderRenderProps,
+} from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  forceTransparentBackground?: boolean;
+  headerRenderer?:
+    | React.ComponentType<SectionContainerHeaderRenderProps>
+    | undefined;
   sectionId: string;
   isUserView: boolean;
   forceHideOutline?: boolean;
+  forceHideFrameBorder?: boolean;
+  forceTransparentBorder?: boolean;
+  forceHideTopDragHandle?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
 };
 
 function _SectionContainerCore({
+  bodySurfaceOverride,
+  forceTransparentBackground = false,
+  headerRenderer,
   sectionId,
   isUserView,
   forceHideOutline = false,
+  forceHideFrameBorder = false,
+  forceTransparentBorder = false,
+  forceHideTopDragHandle = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
@@ -73,9 +88,6 @@ function _SectionContainerCore({
   }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
-  const aiHighlightClassName = showAiHighlight
-    ? "setta-ai-gradient-border setta-ai-gradient-border-active"
-    : "";
   const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
     (state) => ({
       scopeReadMap:
@@ -87,57 +99,38 @@ function _SectionContainerCore({
   );
   const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
   const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
-  const scopeHighlightClassName = isWriteScope
-    ? "ring-2 ring-amber-400/70 ring-inset"
-    : isReadScope
-      ? "ring-2 ring-emerald-400/70 ring-inset"
-      : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
-  const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
-  const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (x) => x[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  const darkMode = useLocalStorage((x) => x.darkMode);
-  const sectionStyleTheme =
-    resolvedStyleColor && !useMetaControlStyle
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null;
-  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
-  const sectionStyleVars = sectionStyleTheme
-    ? ({
-        "--setta-section-style-bg": sectionStyleTheme.bg,
-        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-        "--setta-section-style-border": sectionStyleTheme.border,
-        "--setta-section-style-outline": sectionStyleTheme.outline,
-        "--setta-section-style-text": sectionStyleTheme.text,
-        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-        "--setta-section-style-arg-handle": sectionStyleTheme.border,
-        "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
-        "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
-        "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-      } as React.CSSProperties)
-    : undefined;
-  const sectionShellClassName = getSectionContainerShellClassName({
+  const { hasSectionStyleTheme, sectionStyleVars, useMetaControlStyle } =
+    useSectionChromeAppearance({
+      sectionId,
+      sectionTypeName,
+      styleColor,
+      textBlockMetaControlStyle,
+    });
+  const shellDecorations = resolveSectionChromeShellDecorations({
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
+    showAiHighlight,
+    isReadScope,
+    isWriteScope,
+  });
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const sectionShellClassName = getSectionContainerShellClassName({
+    outlineTone: shellDecorations.outlineTone,
+    scopeHighlight: shellDecorations.scopeHighlight,
+    showAiHighlight: shellDecorations.showAiHighlight,
     useMetaControlStyle,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     forceHideOutline,
+    forceTransparentBorder,
     joinedCorners,
     isJoinedAttachedTerminalChild,
     omitAgenticHandleScopeClass,
-    aiHighlightClassName,
-    scopeHighlightClassName,
   });
   const sectionShellStyle = viewportInteractionActive
     ? ({
@@ -165,7 +158,7 @@ function _SectionContainerCore({
 
   return (
     <section
-      className={`${sectionShellClassName} ${isActiveSection ? "z-[150]" : "z-10"}`}
+      className={`${sectionShellClassName} ${shellDecorations.zIndexClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
@@ -184,6 +177,9 @@ function _SectionContainerCore({
       ) : null}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
+        bodySurfaceOverride={bodySurfaceOverride}
+        forceTransparentBackground={forceTransparentBackground}
+        headerRenderer={headerRenderer}
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -191,11 +187,27 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        forceHideFrameBorder={forceHideFrameBorder}
+        forceHideTopDragHandle={forceHideTopDragHandle}
       />
     </section>
   );
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  (previousProps, nextProps) =>
+    previousProps.bodySurfaceOverride === nextProps.bodySurfaceOverride &&
+    previousProps.forceTransparentBackground ===
+      nextProps.forceTransparentBackground &&
+    previousProps.headerRenderer === nextProps.headerRenderer &&
+    previousProps.sectionId === nextProps.sectionId &&
+    previousProps.isUserView === nextProps.isUserView &&
+    previousProps.forceHideOutline === nextProps.forceHideOutline &&
+    previousProps.forceHideFrameBorder === nextProps.forceHideFrameBorder &&
+    previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
+    previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&
+    previousProps.hideAgenticEdgeHandles === nextProps.hideAgenticEdgeHandles &&
+    previousProps.omitAgenticHandleScopeClass ===
+      nextProps.omitAgenticHandleScopeClass &&
+    previousProps.joinedCorners === nextProps.joinedCorners,
 );
