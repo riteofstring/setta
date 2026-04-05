@@ -11602,3 +11602,48 @@ LOOP_TERMINAL_MARKER: none
   - the next bounded pass should restore one trustworthy automated verdict for
     item `303` before opening another hotspot on the lane
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 08:34 EDT - Ralph item 304
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded verifier-restoration subtask named in the handoff:
+  restore one trustworthy automated verdict for the landed item-`303`
+  world-space presented-section culling slice before opening another hotspot.
+- Landed:
+  - fresh canonical motion-perf verdict on the existing item-`303` product
+    slice without changing product/runtime code
+  - perf note
+    `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling-verdict.md`
+  - refreshed `graph-substrate-rewrite-handoff.md` so the next frontier moves
+    away from verifier churn and back to finer attribution on
+    `presentedSceneSectionsResolve`
+- Verification:
+  - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-021/worktree-ai.log) && MAIN_JSON=$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-021/main-ai.log) && env PLAYWRIGHT_BASE_URL="$(printf '%s' "$WORKTREE_JSON" | jq -r '.frontendUrl')" SETTA_BACKEND_ORIGIN="$(printf '%s' "$WORKTREE_JSON" | jq -r '.backendUrl')" SETTA_BOOTSTRAP_TOKEN="$(printf '%s' "$WORKTREE_JSON" | jq -r '.bootstrapUrl | split("#token=")[1]')" SETTA_MAIN_REFERENCE_FRONTEND_URL="$(printf '%s' "$MAIN_JSON" | jq -r '.frontendUrl')" SETTA_MAIN_REFERENCE_BACKEND_ORIGIN="$(printf '%s' "$MAIN_JSON" | jq -r '.backendUrl')" SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$(printf '%s' "$MAIN_JSON" | jq -r '.bootstrapUrl')" BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `49.6s`)
+  - passing normalized motion-perf output:
+    - legacy `main`: average `17.46ms`, max `66.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.87ms`, max `51.9ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - worktree motion attribution on the passing rerun:
+    - `presentedSceneSectionsResolve`: `40` calls, `0.6ms` total, `0.1ms` max, dominant owner
+    - `pixiViewportPresent`: `0`
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+- CDP visual gate:
+  - fresh-context sub-agent completed the required smoke check
+  - worktree `3076` `/settings` rendered Settings graph content with
+    `canvasCount: 1`, `spinnerCount: 0`, `nodeCount: 520`
+  - read-only `main` `3087` `/settings` rendered Settings graph content with
+    `spinnerCount: 0`, `nodeCount: 8350`
+- Result:
+  - the verifier/runtime blocker recorded on item `303` did not reproduce on
+    the current runtime pair; the canonical probe is trustworthy again on this
+    lane
+  - the landed world-space culling slice is now backed by a fresh automated
+    verdict and should not need another verifier-only rerun by default
+  - `presentedSceneSectionsResolve` remains the repeated measured owner, so the
+    next bounded frontier should add finer attribution inside that path before
+    another blind product reduction
+- LOOP_TERMINAL_MARKER: none

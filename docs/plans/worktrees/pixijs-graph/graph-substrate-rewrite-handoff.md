@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 08:27 EDT
+Last updated: 2026-04-08 08:34 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,42 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `304` restored one fresh trustworthy automated verdict for the
+    landed item-`303` world-space culling slice on the canonical
+    `rotaryParamCodeObjDefault` lane:
+    - no product/runtime code changed on this pass; the work stayed bounded to
+      refreshing the canonical measurement on the current `run-021`
+      worktree/reference runtimes with fresh runtime-info-derived bootstrap
+      data
+    - the canonical cross-worktree probe exited cleanly again:
+      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `49.6s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `17.46ms`, max `66.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.87ms`, max `51.9ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - fresh canary motion attribution on the passing rerun:
+      - `presentedSceneSectionsResolve`: `40` calls, `0.6ms` total, `0.1ms` max, dominant owner
+      - `pixiViewportPresent`: `0`
+      - `interactionMiscStateSync`: `1`, `0ms` total
+      - `interactionReactFlowStateSync`: `1`, `0.2ms` total
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-world-space-presented-section-culling-verdict.md`
+    - required fresh CDP visual check completed via a fresh-context sub-agent:
+      - worktree `3076` `/settings` rendered Settings graph content with
+        `canvasCount: 1` and `spinnerCount: 0`
+      - read-only `main` `3087` `/settings` rendered Settings graph content
+        with `spinnerCount: 0`
+    - reading:
+      - the verifier/runtime blocker recorded on item `303` did not reproduce
+        on the current runtime pair; the canonical probe is trustworthy again
+      - the landed world-space culling slice is now backed by a fresh verdict
+        and should not trigger another verifier-only rerun by default
+      - `presentedSceneSectionsResolve` still names the remaining repeated
+        measured owner, so the next bounded frontier should add finer
+        attribution inside that path before another blind product reduction
   - item `303` completed one bounded product reduction on the named
     `presentedSceneSectionsResolve` hotspot:
     - landed world-space presented-section culling in
