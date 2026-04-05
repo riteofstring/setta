@@ -1,50 +1,72 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import {
-  checkIfFileExists,
-  type HttpapiDeploymentMetadataResponse,
-  type HttpapiPublishShareDeploymentRequest,
-  listShareDeployments,
-  publishShareDeployment,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
-import { createDefaultSharePolicy } from "utils/deploymentPolicies";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type { Policy, RunSnapshotMode } from "utils/generatedTypes";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_check_if_file_exists,
+  route_list_share_deployments,
+  route_publish_share_deployment,
+} from "utils/generatedEndpoints";
+import type {
+  PublishShareDeploymentRequestInput,
+  ShareDeploymentMetadata,
+  SharePolicy,
+} from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
-type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
-type SharePolicyOverridesInput = Policy;
-type CheckIfFileExistsRouteResponse = ResponseDataAndStatus<boolean>;
+type SharePolicyOverridesInput = NonNullable<
+  PublishShareDeploymentRequestInput["sharePolicyOverrides"]
+>;
+type RunSnapshotMode = SharePolicy["runSnapshotMode"];
+
+const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
+
+function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
+  return {
+    allowParamChanges: true,
+    allowVariantChanges: true,
+    allowLayoutChanges: true,
+    allowRun: false,
+    allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: true,
+    runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
+  };
+}
+
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
   return `share-${baseName.split("_").join("-")}`;
 }
+
 const LISTENER_ENTRYPOINT_STORAGE_KEY =
   "setta.publishShareDeployment.listenerEntrypoint";
 const DEFAULT_LISTENER_ENTRYPOINT = "listener/app.py";
+
 function loadStoredListenerEntrypoint(): string {
   if (typeof window === "undefined") {
     return "";
   }
   return window.localStorage.getItem(LISTENER_ENTRYPOINT_STORAGE_KEY) ?? "";
 }
+
 function storeListenerEntrypoint(value: string): void {
   if (typeof window === "undefined") {
     return;
   }
   window.localStorage.setItem(LISTENER_ENTRYPOINT_STORAGE_KEY, value);
 }
+
 export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
   const [policyOverrides, setPolicyOverrides] =
-    useState<SharePolicyOverridesInput>(createDefaultSharePolicy);
+    useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState(
     loadStoredListenerEntrypoint,
   );
@@ -53,19 +75,21 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<DeploymentMetadata | null>(null);
+    useState<ShareDeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<DeploymentMetadata>
+    Array<ShareDeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const shareUrl = useMemo(() => {
     if (!publishedDeployment) {
       return null;
     }
     return buildShareUrl();
   }, [publishedDeployment]);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -74,17 +98,14 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     void loadRecentDeployments();
     void maybeAutofillListenerEntrypoint();
   }, [open]);
+
   async function maybeAutofillListenerEntrypoint(): Promise<void> {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res = (await callOpenAPI(
-      checkIfFileExists({
-        body: {
-          filepath: DEFAULT_LISTENER_ENTRYPOINT,
-        },
-      } as Parameters<typeof checkIfFileExists>[0]),
-    )) as CheckIfFileExistsRouteResponse;
+    const res = await route_check_if_file_exists({
+      filepath: DEFAULT_LISTENER_ENTRYPOINT,
+    });
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {
@@ -95,32 +116,35 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       });
     }
   }
+
   async function loadRecentDeployments(): Promise<void> {
     setIsLoadingRecent(true);
-    const res = (await callOpenAPI(
-      listShareDeployments(),
-    )) as ResponseDataAndStatus<Array<DeploymentMetadata>>;
+    const res = await route_list_share_deployments();
     setIsLoadingRecent(false);
     if (res200(res)) {
-      setRecentDeployments(res.data ?? []);
+      setRecentDeployments(res.data);
       return;
     }
     setRecentDeployments([]);
   }
+
   function resetForm(): void {
-    setPolicyOverrides(createDefaultSharePolicy());
+    setPolicyOverrides(createDefaultPolicyOverrides());
     setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
     setPublishedDeployment(null);
     setErrorMessage(null);
   }
+
   function setPolicyFlag(key: PolicyFlag, checked: boolean): void {
     setPolicyOverrides((current) => ({ ...current, [key]: checked }));
   }
+
   function setPolicyRunSnapshotMode(mode: RunSnapshotMode): void {
     setPolicyOverrides((current) => ({ ...current, runSnapshotMode: mode }));
   }
+
   async function handlePublish(): Promise<void> {
     const trimmedDeploymentName = deploymentName.trim();
     let resolvedDeploymentName = trimmedDeploymentName;
@@ -132,21 +156,21 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       setErrorMessage("Select a project config before publishing.");
       return;
     }
+
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: HttpapiPublishShareDeploymentRequest = {
+    const entrypointValue =
+      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
+    const payload: PublishShareDeploymentRequestInput = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
-      listenerEntrypoint: trimmedEntrypoint,
-      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
+      listenerEntrypoint: entrypointValue,
+      listenerEnabled: entrypointValue ? listenerEnabled : false,
     };
-    const res = (await callOpenAPI(
-      publishShareDeployment({
-        body: payload,
-      } as Parameters<typeof publishShareDeployment>[0]),
-    )) as ResponseDataAndStatus<DeploymentMetadata>;
+
+    const res = await route_publish_share_deployment(payload);
     setIsPublishing(false);
     if (res200(res)) {
       setPublishedDeployment(res.data);
@@ -154,20 +178,25 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
       void loadRecentDeployments();
       return;
     }
+
     setErrorMessage(extractErrorMessage(res.status, res.data));
   }
+
   function handleCopy(text: string): void {
     void navigator.clipboard.writeText(text);
     addTemporaryNotification("Copied to clipboard.");
   }
+
   function handleOpenShare(url: string): void {
     window.open(url, "_blank", "noopener,noreferrer");
   }
+
   const publishLabel = publishedDeployment
     ? "Publish New Deployment"
     : "Publish Deployment";
   const publishDisabled =
     isPublishing || projectConfig.id === NULL_PROJECT_CONFIG_ID;
+
   return (
     <div className="flex min-h-0 flex-col gap-4">
       <header className="flex flex-col gap-2">
@@ -254,7 +283,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           <SelectRow
             label="Run snapshot mode"
             description="How run output should be stored."
-            value={policyOverrides.runSnapshotMode}
+            value={policyOverrides.runSnapshotMode ?? DEFAULT_RUN_SNAPSHOT_MODE}
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },
@@ -392,6 +421,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     </div>
   );
 }
+
 type PolicyFlag =
   | "allowParamChanges"
   | "allowVariantChanges"
@@ -401,6 +431,7 @@ type PolicyFlag =
   | "allowExternalLinks"
   | "allowFileDownloads"
   | "allowMultipleRuns";
+
 function SectionCard({
   title,
   subtitle,
@@ -426,6 +457,7 @@ function SectionCard({
     </section>
   );
 }
+
 function ToggleRow({
   label,
   description,
@@ -457,6 +489,7 @@ function ToggleRow({
     </div>
   );
 }
+
 function SelectRow<T extends string>({
   label,
   description,
@@ -468,10 +501,7 @@ function SelectRow<T extends string>({
   label: string;
   description: string;
   value: T;
-  options: Array<{
-    value: T;
-    label: string;
-  }>;
+  options: Array<{ value: T; label: string }>;
   onChange: (value: T) => void;
   disabled?: boolean;
 }) {
@@ -500,6 +530,7 @@ function SelectRow<T extends string>({
     </div>
   );
 }
+
 function ShareValueRow({
   value,
   onCopy,
@@ -531,13 +562,14 @@ function ShareValueRow({
     </div>
   );
 }
+
 function RecentDeploymentList({
   deployments,
   isLoading,
   onCopy,
   onOpen,
 }: {
-  deployments: Array<DeploymentMetadata>;
+  deployments: Array<ShareDeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
   onOpen: (value: string) => void;
@@ -549,9 +581,11 @@ function RecentDeploymentList({
       </div>
     );
   }
+
   if (deployments.length === 0) {
     return null;
   }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
@@ -607,6 +641,7 @@ function RecentDeploymentList({
     </div>
   );
 }
+
 function buildShareUrl(): string {
   const sharePath = buildSharePath(null);
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -614,17 +649,14 @@ function buildShareUrl(): string {
   }
   return sharePath;
 }
+
 function extractErrorMessage(
   status: number | undefined,
-  data: DeploymentMetadata | undefined,
+  data: ShareDeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {
-    const maybeDetail = (
-      payload as {
-        detail?: unknown;
-      }
-    ).detail;
+    const maybeDetail = (payload as { detail?: unknown }).detail;
     if (typeof maybeDetail === "string") {
       return maybeDetail;
     }
