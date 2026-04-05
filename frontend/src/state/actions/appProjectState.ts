@@ -1,8 +1,8 @@
 import { useAppConfigs } from "state/definitions";
-import type { ProjectStateSingleConfigWithCompletedOpIds } from "utils/generatedTypes";
+import type { ProjectStateSingleConfigWithCompletedOpIDs } from "utils/generatedTypes";
 
 export function processAppProjectStateUpdateFromBackend(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
 ) {
   const nextState = payload.projectState;
   useAppConfigs.setState((state) => {
