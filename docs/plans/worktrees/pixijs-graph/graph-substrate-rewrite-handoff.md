@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 14:32 EDT
+Last updated: 2026-04-07 14:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,49 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `274` removed measured DOM size from shared scene snapshot/bounds resolution and narrowed the live `useSectionElementSizes(...)` subscription to unresolved shared-node seed bootstrap only, so unresolved `none`/locked sections no longer resubscribe the shared scene runtime to local measurement churn.
+
+  - Why this pass completed:
+    - item `273` removed `renderSize` from the published scene/store contract, which meant the shared scene snapshot no longer had any legitimate output that depended on measured DOM size
+    - the remaining unnecessary measured-DOM participation was inside the shared snapshot/bounds resolver and the scene runtime subscription itself, not in another shell/minimap consumer hop
+    - this pass stayed bounded to that real product seam: shared scene geometry now derives only from authoritative stored size, while measured DOM size remains local to shared-node seed bootstrap
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - this pass stayed on bounded canary health only; it did not open a new section-specific parity lane
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts) so shared scene bounds now depend only on stored authoritative size plus rendered position, with no measured-size input in the shared snapshot/bounds contract
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts) and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts) so `useSectionElementSizes(...)` now subscribes only for unresolved `sharedNode` sections whose local seed cache still needs bootstrap size
+    - updated the focused runtime/snapshot/geometry/seed/bounds coverage in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx) to lock the new contract where only shared-node seed bootstrap observes measured size
+  - Verification:
+    - initial runtime preflight:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-008/worktree-ai.log`
+      - result: frontend `3075`, backend `8075`, session `daa758`, bootstrap rooted at `8075`, debug port `9297`, `debugPortPid 14592`
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed (`7 files`, `44 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary preserves the All Settings multi-column spread on first render"`
+      - result: passed (`1 passed`, `35.7s`)
+    - bounded lifecycle recovery for the blocked visual gate:
+      - initial fresh-context CDP sub-agent attempt on the original `3075/8075/9297` runtime only reached the `/settings` shell plus `Connected to server`; it could not confirm `All Settings` or a populated graph surface before the bounded wait/snapshot stalled
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: restarted the worktree lifecycle on frontend `3076`, backend `8076`, debug `9298`, session `0096ef`
+      - refreshed runtime values: the same `dev-runtime-info.sh` helper picked up backend `8076`, session `0096ef`, and debug `9298`, but its `frontendUrl` stayed stale at `3075` because the runtime log still pointed at the pre-restart lifecycle; use the live restarted frontend `3076` from the `./aireset.sh` output for follow-up checks on this exact pass
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), restored auth via the refreshed bootstrap URL on `8076`, reached `http://127.0.0.1:3076/settings`, and observed `Settings`, visible `All Settings`, and a populated graph surface with real panels/cards instead of a blank shell or spinner
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - shared scene snapshot/bounds resolution no longer accepts measured element size input, which removes the remaining measured-DOM participation from the published shared scene geometry path left after item `273`
+    - `useSectionElementSizes(...)` in the scene runtime is now limited to unresolved shared-node seed bootstrap, so unresolved `none`/locked sections no longer resubscribe the shared scene runtime to local measurement churn
+    - the one allowed lifecycle recovery succeeded and the retried bounded CDP canary-health check passed on the restarted `3076/8076/9298` runtime
+  - Next frontier:
+    - continue the measured-geometry authority cleanup under the canary runtime by auditing whether the remaining shared-node seed bootstrap can be narrowed further or replaced by a more authoritative scene-owned size source
+    - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and reuse the first-render Playwright probe plus bounded CDP canary-health checks instead of reopening a new section-specific parity lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `273` removed `renderSize` from the published canary scene snapshot/store contract, so shared scene sections now publish only authoritative world position plus `sceneBoundsSize` while local render-only fallback stays out of the shared shape.
 

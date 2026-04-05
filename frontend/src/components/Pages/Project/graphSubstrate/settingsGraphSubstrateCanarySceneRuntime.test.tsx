@@ -65,7 +65,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps measured fallback local while syncing scene position and z-index without promoting scene bounds", async () => {
+  it("keeps size-authority none measurements out of the shared scene runtime", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -99,6 +99,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         ],
       });
     });
+    expect(readSceneRenderCount(host)).toBe(1);
     expect(
       serializeSceneSnapshot(
         useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
@@ -606,7 +607,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("still uses the measured-size fallback for locked sections whose layout geometry is missing without promoting scene bounds", async () => {
+  it("does not subscribe locked unresolved sections to measured-size churn once local render fallback leaves the shared scene path", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -627,24 +628,22 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
       });
     });
 
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: null,
-        sections: [
-          {
-            height: null,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: true,
-            renderedPosition: { x: 120, y: 80 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: null,
-            zIndex: 2,
-          },
-        ],
-      });
-      expect(readSceneRenderCount(host)).toBe(2);
+    expect(readSceneSnapshot(host)).toEqual({
+      sceneBounds: null,
+      sections: [
+        {
+          height: null,
+          position: { x: 120, y: 80 },
+          positionAndSizeLocked: true,
+          renderedPosition: { x: 120, y: 80 },
+          sectionId: "section-a",
+          tempZIndex: 2,
+          width: null,
+          zIndex: 2,
+        },
+      ],
     });
+    expect(readSceneRenderCount(host)).toBe(1);
 
     expect(useNodeInternals.getState().x.get("section-a")).toEqual({
       height: null,

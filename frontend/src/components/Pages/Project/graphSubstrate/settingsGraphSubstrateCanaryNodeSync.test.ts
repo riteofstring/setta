@@ -68,12 +68,6 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 360, height: 210 },
-        "section-b": { width: 280, height: 190 },
-        "section-c": { width: 320, height: 220 },
-        "section-d": { width: 300, height: 200 },
-      },
       null,
       "section-a",
     );
@@ -158,9 +152,6 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-c": { width: 320, height: 220 },
-      },
       null,
       null,
     );
@@ -213,9 +204,6 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 360, height: 210 },
-      },
       null,
       "section-a",
     );
@@ -260,7 +248,6 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {},
       null,
       null,
     );

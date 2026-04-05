@@ -1,4 +1,4 @@
-import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
+import type { SectionElementSize } from "state/definitions";
 import { type GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import {
   resolveSettingsGraphSubstrateCanarySectionGeometry,
@@ -11,7 +11,7 @@ export type { SettingsGraphSubstrateCanarySectionPositionOverride };
 export type SettingsGraphSubstrateCanarySceneSection =
   GraphSubstrateCanarySection & {
     renderedPosition: GraphSubstrateCanarySection["position"];
-    sceneBoundsSize: SectionElementSizes[string] | null;
+    sceneBoundsSize: SectionElementSize | null;
   };
 
 export type SettingsGraphSubstrateCanarySceneSnapshot = {
@@ -30,14 +30,12 @@ export function createEmptySettingsGraphSubstrateCanarySceneSnapshot(): Settings
 
 export function resolveSettingsGraphSubstrateCanarySceneSnapshot(
   sections: Array<GraphSubstrateCanarySection>,
-  sectionElementSizes: SectionElementSizes,
   sectionPositionOverride: SettingsGraphSubstrateCanarySectionPositionOverride,
   draggingSectionId: string | null = null,
 ): SettingsGraphSubstrateCanarySceneSnapshot {
   const sceneSections = sections.map((section) => {
     const geometry = resolveSettingsGraphSubstrateCanarySectionGeometry(
       section,
-      sectionElementSizes,
       sectionPositionOverride,
     );
     const sceneSection: SettingsGraphSubstrateCanarySceneSection = {

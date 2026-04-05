@@ -15,12 +15,6 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        browser: {
-          width: 320,
-          height: 240,
-        },
-      },
       null,
     );
 
@@ -45,12 +39,6 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
           positionAndSizeLocked: true,
         },
       ],
-      {
-        browser: {
-          width: 320,
-          height: 240,
-        },
-      },
       null,
     );
 
@@ -62,7 +50,7 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     });
   });
 
-  it("falls back to the live observed size when layout geometry is missing", () => {
+  it("keeps bounds unresolved when authoritative geometry is missing", () => {
     const bounds = getSettingsGraphSubstrateCanarySceneBounds(
       [
         {
@@ -75,20 +63,9 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        browser: {
-          width: 320,
-          height: 240,
-        },
-      },
       null,
     );
 
-    expect(bounds).toEqual({
-      x: 120,
-      y: 1280,
-      width: 320,
-      height: 240,
-    });
+    expect(bounds).toBeNull();
   });
 });

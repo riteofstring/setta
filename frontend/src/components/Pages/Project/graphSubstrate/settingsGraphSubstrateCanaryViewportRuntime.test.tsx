@@ -188,7 +188,6 @@ describe("useSettingsGraphSubstrateCanaryViewportRuntime", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {},
       null,
       null,
     );

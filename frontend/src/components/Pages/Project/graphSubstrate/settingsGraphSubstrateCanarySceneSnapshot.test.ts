@@ -5,7 +5,7 @@ import {
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
-  it("keeps layout size authoritative when current layout geometry exists while local measured fallback stays out of scene bounds", () => {
+  it("keeps layout size authoritative when current layout geometry exists", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -28,10 +28,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 360, height: 210 },
-        "section-b": { width: 280, height: 190 },
-      },
       {
         sectionId: "section-a",
         position: { x: 180, y: 140 },
@@ -94,7 +90,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {},
       null,
       null,
     );
@@ -127,9 +122,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 620, height: 210 },
-      },
       null,
       null,
     );
@@ -154,7 +146,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     });
   });
 
-  it("keeps shared-node measured refresh local while scene bounds stay on stored controller size", () => {
+  it("keeps shared-node scene bounds on stored controller size", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -168,9 +160,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 360, height: 210 },
-      },
       null,
       null,
     );
@@ -217,7 +206,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {},
       null,
       null,
     );
@@ -248,7 +236,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {},
       null,
       null,
     );
@@ -257,7 +244,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     expect(snapshot.sceneBounds).toBeNull();
   });
 
-  it("keeps size-authority none measurements local while scene bounds stay unresolved", () => {
+  it("keeps size-authority none sections out of scene bounds while geometry stays unresolved", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -271,9 +258,6 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           positionAndSizeLocked: false,
         },
       ],
-      {
-        "section-a": { width: 280, height: 190 },
-      },
       null,
       null,
     );

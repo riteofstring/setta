@@ -15,6 +15,18 @@ export type SettingsGraphSubstrateCanarySectionSeedNodes = ReadonlyMap<
   SettingsGraphSubstrateCanarySectionSeedNode | undefined
 >;
 
+export function shouldObserveSettingsGraphSubstrateCanarySectionSeedSize(
+  section: Pick<
+    GraphSubstrateCanarySection,
+    "height" | "sizeAuthority" | "width"
+  >,
+) {
+  return (
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section) ===
+      "sharedNode" && !hasPositiveSeedSize(section.width, section.height)
+  );
+}
+
 export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
   seedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
   sections: Array<

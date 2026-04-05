@@ -1,7 +1,40 @@
 import { describe, expect, it } from "vitest";
-import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
+import {
+  resolveSettingsGraphSubstrateCanarySectionSeedNodes,
+  shouldObserveSettingsGraphSubstrateCanarySectionSeedSize,
+} from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
+  it("observes measured size only while a shared-node section still needs a local bootstrap seed", () => {
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionSeedSize(
+        createSection({ sizeAuthority: "sharedNode" }),
+      ),
+    ).toBe(true);
+
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionSeedSize(
+        createSection({
+          height: 180,
+          sizeAuthority: "sharedNode",
+          width: 260,
+        }),
+      ),
+    ).toBe(false);
+
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionSeedSize(
+        createSection({ positionAndSizeLocked: true }),
+      ),
+    ).toBe(false);
+
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionSeedSize(
+        createSection({ sizeAuthority: "none" }),
+      ),
+    ).toBe(false);
+  });
+
   it("keeps existing shared-node width and height authoritative over local measured-size fallback", () => {
     const seedNodes = new Map<
       string,
@@ -133,6 +166,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
 function createSection(
   overrides: {
     height?: number | null;
+    positionAndSizeLocked?: boolean;
     sizeAuthority?: "layout" | "none" | "sectionModel" | "sharedNode";
     width?: number | null;
   } = {},
@@ -141,6 +175,7 @@ function createSection(
     sectionId: "section-a",
     width: null,
     height: null,
+    positionAndSizeLocked: false,
     ...overrides,
   };
 }

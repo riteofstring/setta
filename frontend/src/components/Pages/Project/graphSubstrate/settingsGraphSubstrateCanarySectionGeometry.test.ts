@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveSettingsGraphSubstrateCanarySectionGeometry,
-  shouldObserveSettingsGraphSubstrateCanarySectionElementSize,
-} from "./settingsGraphSubstrateCanarySectionGeometry";
+import { resolveSettingsGraphSubstrateCanarySectionGeometry } from "./settingsGraphSubstrateCanarySectionGeometry";
 
 describe("settingsGraphSubstrateCanarySectionGeometry", () => {
-  it("keeps layout size authoritative for locked sections even when the measured registry disagrees", () => {
+  it("keeps stored layout size authoritative for locked sections while applying drag overrides", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
         {
@@ -18,40 +15,17 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
           positionAndSizeLocked: true,
         },
         {
-          "locked-section": { width: 360, height: 210 },
-        },
-        {
           sectionId: "locked-section",
           position: { x: 420, y: 260 },
         },
       ),
     ).toEqual({
       renderedPosition: { x: 420, y: 260 },
-      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });
 
-  it("stops observing shared measured size when layout geometry already exists, even for unlocked sections", () => {
-    expect(
-      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
-        width: 240,
-        height: 160,
-        positionAndSizeLocked: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("stops observing measured size when section-model geometry already exists", () => {
-    expect(
-      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
-        width: 550,
-        height: 78,
-        positionAndSizeLocked: false,
-        sizeAuthority: "sectionModel",
-      }),
-    ).toBe(false);
-
+  it("keeps section-model size authoritative in scene geometry", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
         {
@@ -64,28 +38,15 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
           positionAndSizeLocked: false,
           sizeAuthority: "sectionModel",
         },
-        {
-          "section-model-section": { width: 620, height: 210 },
-        },
         null,
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      renderSize: { width: 550, height: 78 },
       sceneBoundsSize: { width: 550, height: 78 },
     });
   });
 
-  it("stops observing measured size when shared-node geometry already exists", () => {
-    expect(
-      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
-        width: 240,
-        height: 160,
-        positionAndSizeLocked: false,
-        sizeAuthority: "sharedNode",
-      }),
-    ).toBe(false);
-
+  it("keeps shared-node size authoritative in scene geometry", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
         {
@@ -98,91 +59,32 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
           positionAndSizeLocked: false,
           sizeAuthority: "sharedNode",
         },
-        {},
         null,
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      renderSize: { width: 240, height: 160 },
       sceneBoundsSize: { width: 240, height: 160 },
     });
   });
 
-  it("keeps layout size authoritative for unlocked sections even when the measured registry disagrees", () => {
+  it("keeps scene bounds unresolved when the current section size is missing", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
         {
-          sectionId: "unlocked-section",
-          position: { x: 120, y: 80 },
-          width: 240,
-          height: 160,
-          zIndex: 2,
-          tempZIndex: 2,
-          positionAndSizeLocked: false,
-        },
-        {
-          "unlocked-section": { width: 360, height: 210 },
-        },
-        null,
-      ),
-    ).toEqual({
-      renderedPosition: { x: 120, y: 80 },
-      renderSize: { width: 240, height: 160 },
-      sceneBoundsSize: { width: 240, height: 160 },
-    });
-  });
-
-  it("keeps the measured fallback for locked sections whose layout geometry is still missing", () => {
-    expect(
-      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
-        width: null,
-        height: null,
-        positionAndSizeLocked: true,
-      }),
-    ).toBe(true);
-
-    expect(
-      resolveSettingsGraphSubstrateCanarySectionGeometry(
-        {
-          sectionId: "locked-section",
+          sectionId: "unresolved-section",
           position: { x: 120, y: 80 },
           width: null,
           height: null,
           zIndex: 2,
           tempZIndex: 2,
-          positionAndSizeLocked: true,
-        },
-        {
-          "locked-section": { width: 360, height: 210 },
-        },
-        null,
-      ),
-    ).toEqual({
-      renderedPosition: { x: 120, y: 80 },
-      renderSize: { width: 360, height: 210 },
-      sceneBoundsSize: null,
-    });
-  });
-
-  it("falls back to layout size when no measured size exists", () => {
-    expect(
-      resolveSettingsGraphSubstrateCanarySectionGeometry(
-        {
-          sectionId: "section-a",
-          position: { x: 120, y: 80 },
-          width: 240,
-          height: 160,
-          zIndex: 2,
-          tempZIndex: 2,
           positionAndSizeLocked: false,
+          sizeAuthority: "none",
         },
-        {},
         null,
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      renderSize: { width: 240, height: 160 },
-      sceneBoundsSize: { width: 240, height: 160 },
+      sceneBoundsSize: null,
     });
   });
 });
