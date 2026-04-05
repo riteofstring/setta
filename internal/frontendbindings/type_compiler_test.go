@@ -80,7 +80,7 @@ func TestGoBackedCreateFunctionUsesFieldCreateExprTagsInCreateBody(t *testing.T)
 	t.Parallel()
 
 	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(agentruns.RunEvent{}))
-	if !strings.Contains(declaration.FunctionBody, "timestamp: options.timestamp ?? \"\"") {
+	if !strings.Contains(declaration.FunctionBody, `"timestamp": options["timestamp"] ?? ""`) {
 		t.Fatalf("%s body missing timestamp tag override:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 }
@@ -91,7 +91,7 @@ func TestGoBackedCreateFunctionUsesNullableFieldCreateExprTagsInCreateBody(t *te
 	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(settingsstate.FrontendSettingsBackend{}))
 	if !strings.Contains(
 		declaration.FunctionBody,
-		"defaultTerminalShell: options.defaultTerminalShell === null ? null : (options.defaultTerminalShell ?? null)",
+		`"defaultTerminalShell": options["defaultTerminalShell"] === null ? null : (options["defaultTerminalShell"] ?? null)`,
 	) {
 		t.Fatalf("%s body missing nullable ts_create_expr override:\n%s", declaration.Name, declaration.FunctionBody)
 	}

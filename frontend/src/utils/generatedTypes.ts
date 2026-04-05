@@ -195,8 +195,8 @@ export function createBrushStrokeArtifact(
   };
   return {
     ...mergeGeneratedOptions<BrushStrokeArtifact>(defaults, options),
-    id: options.id ?? createJsonArtifactId(),
-    value: options.value ?? createBrushStroke(),
+    id: options["id"] ?? createJsonArtifactId(),
+    value: options["value"] ?? createBrushStroke(),
   };
 }
 
@@ -245,9 +245,9 @@ export function createCallableSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<CallableSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
     ignoreTypeErrors: createTypeErrorIgnoreState(
-      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
+      options["ignoreTypeErrors"] ?? defaults["ignoreTypeErrors"],
     ),
   };
 }
@@ -266,7 +266,7 @@ export function createChartDataArtifact(
   };
   return {
     ...mergeGeneratedOptions<ChartDataArtifact>(defaults, options),
-    id: options.id ?? createCsvArtifactId(),
+    id: options["id"] ?? createCsvArtifactId(),
   };
 }
 
@@ -304,7 +304,7 @@ export function createChartSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ChartSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -353,7 +353,7 @@ export function createChatSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ChatSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -488,8 +488,8 @@ export function createCodeObjValuePolicy(
     ...mergeGeneratedOptions<CodeObjValuePolicy>(defaults, options),
     typePolicies: Object.fromEntries(
       Object.entries({
-        ...(defaults.typePolicies ?? {}),
-        ...(options.typePolicies ?? {}),
+        ...(defaults["typePolicies"] ?? {}),
+        ...(options["typePolicies"] ?? {}),
       }).map(([key, value]) => [
         key,
         createCodeObjTypeValuePolicy(value as Partial<CodeObjTypeValuePolicy>),
@@ -497,8 +497,8 @@ export function createCodeObjValuePolicy(
     ) as Record<CodeObjType, CodeObjTypeValuePolicy>,
     codeObjOverrides: Object.fromEntries(
       Object.entries({
-        ...(defaults.codeObjOverrides ?? {}),
-        ...(options.codeObjOverrides ?? {}),
+        ...(defaults["codeObjOverrides"] ?? {}),
+        ...(options["codeObjOverrides"] ?? {}),
       }).map(([key, value]) => [
         key,
         createCodeObjValueOverride(value as Partial<CodeObjValueOverride>),
@@ -573,20 +573,20 @@ export function createCodeSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<CodeSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
     codeFileBinding:
-      options.codeFileBinding === null
+      options["codeFileBinding"] === null
         ? null
-        : (options.codeFileBinding ?? defaults.codeFileBinding) === null
+        : (options["codeFileBinding"] ?? defaults["codeFileBinding"]) === null
           ? null
           : createCodeFileBinding(
-              options.codeFileBinding === null
+              options["codeFileBinding"] === null
                 ? null
-                : ((options.codeFileBinding ??
-                    defaults.codeFileBinding) as Partial<CodeFileBinding>),
+                : ((options["codeFileBinding"] ??
+                    defaults["codeFileBinding"]) as Partial<CodeFileBinding>),
             ),
     diagnosticsIgnoreState: createCodeSectionDiagnosticsIgnoreState(
-      options.diagnosticsIgnoreState ?? defaults.diagnosticsIgnoreState,
+      options["diagnosticsIgnoreState"] ?? defaults["diagnosticsIgnoreState"],
     ),
   };
 }
@@ -702,9 +702,9 @@ export function createDictSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<DictSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
     ignoreTypeErrors: createTypeErrorIgnoreState(
-      options.ignoreTypeErrors ?? defaults.ignoreTypeErrors,
+      options["ignoreTypeErrors"] ?? defaults["ignoreTypeErrors"],
     ),
   };
 }
@@ -722,7 +722,7 @@ export function createDrawAreaLayer(
   };
   return {
     ...mergeGeneratedOptions<DrawAreaLayer>(defaults, options),
-    name: options.name ?? createRandomName(),
+    name: options["name"] ?? createRandomName(),
   };
 }
 
@@ -774,8 +774,8 @@ export function createDrawAreaLayerItemTransformArtifact(
       defaults,
       options,
     ),
-    id: options.id ?? createJsonArtifactId(),
-    value: options.value ?? createDrawAreaLayerItemTransform(),
+    id: options["id"] ?? createJsonArtifactId(),
+    value: options["value"] ?? createDrawAreaLayerItemTransform(),
   };
 }
 
@@ -805,17 +805,21 @@ export function createEngineConfig(
   };
   return {
     ...mergeGeneratedOptions<EngineConfig>(defaults, options),
-    defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
+    defaults: createEngineConfigDefaults(
+      options["defaults"] ?? defaults["defaults"],
+    ),
     runtimeSupport:
-      options.runtimeSupport === null
+      options["runtimeSupport"] === null
         ? null
-        : (options.runtimeSupport ?? defaults.runtimeSupport) === null
+        : (options["runtimeSupport"] ?? defaults["runtimeSupport"]) === null
           ? null
           : createEngineRuntimeSupport(
-              options.runtimeSupport === null
+              options["runtimeSupport"] === null
                 ? null
-                : ((options.runtimeSupport ??
-                    defaults.runtimeSupport) as Partial<EngineRuntimeSupport>),
+                : ((options["runtimeSupport"] ??
+                    defaults[
+                      "runtimeSupport"
+                    ]) as Partial<EngineRuntimeSupport>),
             ),
   };
 }
@@ -886,7 +890,7 @@ export function createGroupSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<GroupSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -907,8 +911,8 @@ export function createImageArtifact(
   };
   return {
     ...mergeGeneratedOptions<ImageArtifact>(defaults, options),
-    id: options.id ?? createPngArtifactId(),
-    value: options.value ?? createContentRef(),
+    id: options["id"] ?? createPngArtifactId(),
+    value: options["value"] ?? createContentRef(),
   };
 }
 
@@ -979,7 +983,7 @@ export function createListRootSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ListRootSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -1131,49 +1135,49 @@ function createMetaControlSizingPolicyByType(
   return {
     ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(defaults, options),
     CodeCallable: createMetaControlSizingPolicyTypeEntry(
-      options.CodeCallable ?? defaults.CodeCallable,
+      options["CodeCallable"] ?? defaults["CodeCallable"],
     ),
     CodeParam: createMetaControlSizingPolicyTypeEntry(
-      options.CodeParam ?? defaults.CodeParam,
+      options["CodeParam"] ?? defaults["CodeParam"],
     ),
     TextParam: createMetaControlSizingPolicyTypeEntry(
-      options.TextParam ?? defaults.TextParam,
+      options["TextParam"] ?? defaults["TextParam"],
     ),
     DateParam: createMetaControlSizingPolicyTypeEntry(
-      options.DateParam ?? defaults.DateParam,
+      options["DateParam"] ?? defaults["DateParam"],
     ),
     TimeParam: createMetaControlSizingPolicyTypeEntry(
-      options.TimeParam ?? defaults.TimeParam,
+      options["TimeParam"] ?? defaults["TimeParam"],
     ),
     ButtonParam: createMetaControlSizingPolicyTypeEntry(
-      options.ButtonParam ?? defaults.ButtonParam,
+      options["ButtonParam"] ?? defaults["ButtonParam"],
     ),
     SliderParam: createMetaControlSizingPolicyTypeEntry(
-      options.SliderParam ?? defaults.SliderParam,
+      options["SliderParam"] ?? defaults["SliderParam"],
     ),
     RotaryParam: createMetaControlSizingPolicyTypeEntry(
-      options.RotaryParam ?? defaults.RotaryParam,
+      options["RotaryParam"] ?? defaults["RotaryParam"],
     ),
     SwitchParam: createMetaControlSizingPolicyTypeEntry(
-      options.SwitchParam ?? defaults.SwitchParam,
+      options["SwitchParam"] ?? defaults["SwitchParam"],
     ),
     ColorPickerParam: createMetaControlSizingPolicyTypeEntry(
-      options.ColorPickerParam ?? defaults.ColorPickerParam,
+      options["ColorPickerParam"] ?? defaults["ColorPickerParam"],
     ),
     DropdownParam: createMetaControlSizingPolicyTypeEntry(
-      options.DropdownParam ?? defaults.DropdownParam,
+      options["DropdownParam"] ?? defaults["DropdownParam"],
     ),
     PasswordParam: createMetaControlSizingPolicyTypeEntry(
-      options.PasswordParam ?? defaults.PasswordParam,
+      options["PasswordParam"] ?? defaults["PasswordParam"],
     ),
     TextAreaParam: createMetaControlSizingPolicyTypeEntry(
-      options.TextAreaParam ?? defaults.TextAreaParam,
+      options["TextAreaParam"] ?? defaults["TextAreaParam"],
     ),
     DropzoneParam: createMetaControlSizingPolicyTypeEntry(
-      options.DropzoneParam ?? defaults.DropzoneParam,
+      options["DropzoneParam"] ?? defaults["DropzoneParam"],
     ),
     NestedParam: createMetaControlSizingPolicyTypeEntry(
-      options.NestedParam ?? defaults.NestedParam,
+      options["NestedParam"] ?? defaults["NestedParam"],
     ),
   };
 }
@@ -1278,9 +1282,9 @@ export function createProjectChatWindowInstance(
   };
   return {
     ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
-    bounds: createChatWindowBounds(options.bounds ?? defaults.bounds),
+    bounds: createChatWindowBounds(options["bounds"] ?? defaults["bounds"]),
     dockMetrics: createChatWindowDockMetrics(
-      options.dockMetrics ?? defaults.dockMetrics,
+      options["dockMetrics"] ?? defaults["dockMetrics"],
     ),
   };
 }
@@ -1511,10 +1515,10 @@ export function createProjectCodegenPythonTarget(
   return {
     ...mergeGeneratedOptions<ProjectCodegenPythonTarget>(defaults, options),
     sectionPolicy: createSectionCodegenPolicy(
-      options.sectionPolicy ?? defaults.sectionPolicy,
+      options["sectionPolicy"] ?? defaults["sectionPolicy"],
     ),
     codeObjValuePolicy: createCodeObjValuePolicy(
-      options.codeObjValuePolicy ?? defaults.codeObjValuePolicy,
+      options["codeObjValuePolicy"] ?? defaults["codeObjValuePolicy"],
     ),
   };
 }
@@ -1565,18 +1569,18 @@ export function createProjectConfig(
   return {
     ...mergeGeneratedOptions<ProjectConfig>(defaults, options),
     viewport:
-      options.viewport === null
+      options["viewport"] === null
         ? null
-        : (options.viewport ?? defaults.viewport) === null
+        : (options["viewport"] ?? defaults["viewport"]) === null
           ? null
           : createViewport(
-              options.viewport === null
+              options["viewport"] === null
                 ? null
-                : ((options.viewport ??
-                    defaults.viewport) as Partial<Viewport>),
+                : ((options["viewport"] ??
+                    defaults["viewport"]) as Partial<Viewport>),
             ),
     runCapabilities: createProjectRunCapabilities(
-      options.runCapabilities ?? defaults.runCapabilities,
+      options["runCapabilities"] ?? defaults["runCapabilities"],
     ),
   };
 }
@@ -1639,7 +1643,7 @@ export function createPromptSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -1828,8 +1832,8 @@ export function createSectionCodegenPolicy(
     ...mergeGeneratedOptions<SectionCodegenPolicy>(defaults, options),
     typePolicies: Object.fromEntries(
       Object.entries({
-        ...(defaults.typePolicies ?? {}),
-        ...(options.typePolicies ?? {}),
+        ...(defaults["typePolicies"] ?? {}),
+        ...(options["typePolicies"] ?? {}),
       }).map(([key, value]) => [
         key,
         createSectionTypeCodegenPolicy(
@@ -1839,8 +1843,8 @@ export function createSectionCodegenPolicy(
     ) as Record<SectionType, SectionTypeCodegenPolicy>,
     sectionOverrides: Object.fromEntries(
       Object.entries({
-        ...(defaults.sectionOverrides ?? {}),
-        ...(options.sectionOverrides ?? {}),
+        ...(defaults["sectionOverrides"] ?? {}),
+        ...(options["sectionOverrides"] ?? {}),
       }).map(([key, value]) => [
         key,
         createSectionCodegenOverride(value as Partial<SectionCodegenOverride>),
@@ -1864,8 +1868,8 @@ export function createSectionSize(
   };
   return {
     ...mergeGeneratedOptions<SectionSize>(defaults, options),
-    width: options.width ?? SectionSizeModeEnum.auto,
-    height: options.height ?? SectionSizeModeEnum.auto,
+    width: options["width"] ?? SectionSizeModeEnum.auto,
+    height: options["height"] ?? SectionSizeModeEnum.auto,
   };
 }
 
@@ -2132,12 +2136,14 @@ function createSectionSizingPolicy(
   };
   return {
     ...mergeGeneratedOptions<SectionSizingPolicy>(defaults, options),
-    byType: createSectionSizingPolicyByType(options.byType ?? defaults.byType),
+    byType: createSectionSizingPolicyByType(
+      options["byType"] ?? defaults["byType"],
+    ),
     metaControlByType: createMetaControlSizingPolicyByType(
-      options.metaControlByType ?? defaults.metaControlByType,
+      options["metaControlByType"] ?? defaults["metaControlByType"],
     ),
     globals: createSectionSizingPolicyGlobals(
-      options.globals ?? defaults.globals,
+      options["globals"] ?? defaults["globals"],
     ),
   };
 }
@@ -2304,65 +2310,79 @@ function createSectionSizingPolicyByType(
   return {
     ...mergeGeneratedOptions<SectionSizingPolicyByType>(defaults, options),
     Callable: createSectionSizingPolicyCallableTypeEntry(
-      options.Callable ?? defaults.Callable,
+      options["Callable"] ?? defaults["Callable"],
     ),
-    Dict: createSectionSizingPolicyTypeEntry(options.Dict ?? defaults.Dict),
+    Dict: createSectionSizingPolicyTypeEntry(
+      options["Dict"] ?? defaults["Dict"],
+    ),
     ListRoot: createSectionSizingPolicyTypeEntry(
-      options.ListRoot ?? defaults.ListRoot,
+      options["ListRoot"] ?? defaults["ListRoot"],
     ),
-    Group: createSectionSizingPolicyTypeEntry(options.Group ?? defaults.Group),
+    Group: createSectionSizingPolicyTypeEntry(
+      options["Group"] ?? defaults["Group"],
+    ),
     StateMachineStart: createSectionSizingPolicyTypeEntry(
-      options.StateMachineStart ?? defaults.StateMachineStart,
+      options["StateMachineStart"] ?? defaults["StateMachineStart"],
     ),
     StateMachineGate: createSectionSizingPolicyTypeEntry(
-      options.StateMachineGate ?? defaults.StateMachineGate,
+      options["StateMachineGate"] ?? defaults["StateMachineGate"],
     ),
     StateMachineEnd: createSectionSizingPolicyTypeEntry(
-      options.StateMachineEnd ?? defaults.StateMachineEnd,
+      options["StateMachineEnd"] ?? defaults["StateMachineEnd"],
     ),
-    Image: createSectionSizingPolicyTypeEntry(options.Image ?? defaults.Image),
-    Chart: createSectionSizingPolicyTypeEntry(options.Chart ?? defaults.Chart),
-    Draw: createSectionSizingPolicyTypeEntry(options.Draw ?? defaults.Draw),
+    Image: createSectionSizingPolicyTypeEntry(
+      options["Image"] ?? defaults["Image"],
+    ),
+    Chart: createSectionSizingPolicyTypeEntry(
+      options["Chart"] ?? defaults["Chart"],
+    ),
+    Draw: createSectionSizingPolicyTypeEntry(
+      options["Draw"] ?? defaults["Draw"],
+    ),
     Prompt: createSectionSizingPolicyTypeEntry(
-      options.Prompt ?? defaults.Prompt,
+      options["Prompt"] ?? defaults["Prompt"],
     ),
     TextBlock: createSectionSizingPolicyTypeEntry(
-      options.TextBlock ?? defaults.TextBlock,
+      options["TextBlock"] ?? defaults["TextBlock"],
     ),
     MetaControl: createSectionSizingPolicyTypeEntry(
-      options.MetaControl ?? defaults.MetaControl,
+      options["MetaControl"] ?? defaults["MetaControl"],
     ),
     Social: createSectionSizingPolicyTypeEntry(
-      options.Social ?? defaults.Social,
+      options["Social"] ?? defaults["Social"],
     ),
     GlobalVariables: createSectionSizingPolicyTypeEntry(
-      options.GlobalVariables ?? defaults.GlobalVariables,
+      options["GlobalVariables"] ?? defaults["GlobalVariables"],
     ),
-    Code: createSectionSizingPolicyTypeEntry(options.Code ?? defaults.Code),
+    Code: createSectionSizingPolicyTypeEntry(
+      options["Code"] ?? defaults["Code"],
+    ),
     GenPythonCode: createSectionSizingPolicyTypeEntry(
-      options.GenPythonCode ?? defaults.GenPythonCode,
+      options["GenPythonCode"] ?? defaults["GenPythonCode"],
     ),
     GenPythonMetadata: createSectionSizingPolicyTypeEntry(
-      options.GenPythonMetadata ?? defaults.GenPythonMetadata,
+      options["GenPythonMetadata"] ?? defaults["GenPythonMetadata"],
     ),
     Terminal: createSectionSizingPolicyTypeEntry(
-      options.Terminal ?? defaults.Terminal,
+      options["Terminal"] ?? defaults["Terminal"],
     ),
     IFrame: createSectionSizingPolicyTypeEntry(
-      options.IFrame ?? defaults.IFrame,
+      options["IFrame"] ?? defaults["IFrame"],
     ),
-    Chat: createSectionSizingPolicyTypeEntry(options.Chat ?? defaults.Chat),
+    Chat: createSectionSizingPolicyTypeEntry(
+      options["Chat"] ?? defaults["Chat"],
+    ),
     Browser: createSectionSizingPolicyTypeEntry(
-      options.Browser ?? defaults.Browser,
+      options["Browser"] ?? defaults["Browser"],
     ),
     Plugin: createSectionSizingPolicyTypeEntry(
-      options.Plugin ?? defaults.Plugin,
+      options["Plugin"] ?? defaults["Plugin"],
     ),
     TaskBoard: createSectionSizingPolicyTypeEntry(
-      options.TaskBoard ?? defaults.TaskBoard,
+      options["TaskBoard"] ?? defaults["TaskBoard"],
     ),
     Spreadsheet: createSectionSizingPolicyTypeEntry(
-      options.Spreadsheet ?? defaults.Spreadsheet,
+      options["Spreadsheet"] ?? defaults["Spreadsheet"],
     ),
   };
 }
@@ -2444,9 +2464,9 @@ function createSettingsBackend(
   return {
     ...mergeGeneratedOptions<SettingsBackend>(defaults, options),
     defaultTerminalShell:
-      options.defaultTerminalShell === null
+      options["defaultTerminalShell"] === null
         ? null
-        : options.defaultTerminalShell ?? null,
+        : options["defaultTerminalShell"] ?? null,
   };
 }
 
@@ -3003,11 +3023,13 @@ export function createSettingsState(
   };
   return {
     ...mergeGeneratedOptions<SettingsState>(defaults, options),
-    shortcuts: createSettingsShortcuts(options.shortcuts ?? defaults.shortcuts),
-    gui: createSettingsGUI(options.gui ?? defaults.gui),
-    backend: createSettingsBackend(options.backend ?? defaults.backend),
+    shortcuts: createSettingsShortcuts(
+      options["shortcuts"] ?? defaults["shortcuts"],
+    ),
+    gui: createSettingsGUI(options["gui"] ?? defaults["gui"]),
+    backend: createSettingsBackend(options["backend"] ?? defaults["backend"]),
     sectionSizingPolicy: createSectionSizingPolicy(
-      options.sectionSizingPolicy ?? defaults.sectionSizingPolicy,
+      options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
     ),
   };
 }
@@ -3082,24 +3104,24 @@ export function createSingleConfig(
   return {
     ...mergeGeneratedOptions<SingleConfig>(defaults, options),
     projectConfig: createProjectConfig(
-      options.projectConfig ?? defaults.projectConfig,
+      options["projectConfig"] ?? defaults["projectConfig"],
     ),
     singletonSections: createSingletonSections(
-      options.singletonSections ?? defaults.singletonSections,
+      options["singletonSections"] ?? defaults["singletonSections"],
     ),
     genCodeBinding:
-      options.genCodeBinding === null
+      options["genCodeBinding"] === null
         ? null
-        : (options.genCodeBinding ?? defaults.genCodeBinding) === null
+        : (options["genCodeBinding"] ?? defaults["genCodeBinding"]) === null
           ? null
           : createCodeFileBinding(
-              options.genCodeBinding === null
+              options["genCodeBinding"] === null
                 ? null
-                : ((options.genCodeBinding ??
-                    defaults.genCodeBinding) as Partial<CodeFileBinding>),
+                : ((options["genCodeBinding"] ??
+                    defaults["genCodeBinding"]) as Partial<CodeFileBinding>),
             ),
     projectChatWindowing: createProjectChatWindowingState(
-      options.projectChatWindowing ?? defaults.projectChatWindowing,
+      options["projectChatWindowing"] ?? defaults["projectChatWindowing"],
     ),
   };
 }
@@ -3153,7 +3175,7 @@ export function createSpreadsheetSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<SpreadsheetSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -3186,7 +3208,7 @@ export function createStateMachineStartSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<StateMachineStartSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -3237,7 +3259,7 @@ export function createTaskBoardSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TaskBoardSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -3292,7 +3314,7 @@ export function createTerminalSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TerminalSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -3330,7 +3352,7 @@ export function createTextBlockSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TextBlockSectionImpl>(defaults, options),
-    size: createSectionSize(options.size ?? defaults.size),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
   };
 }
 
@@ -3353,7 +3375,9 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   };
   return {
     ...mergeGeneratedOptions<ToolCall>(defaults, options),
-    function: createToolCallFunction(options.function ?? defaults.function),
+    function: createToolCallFunction(
+      options["function"] ?? defaults["function"],
+    ),
   };
 }
 
@@ -3393,7 +3417,7 @@ export function createToolChatMessage(
   };
   return {
     ...mergeGeneratedOptions<ToolChatMessage>(defaults, options),
-    started_at: options.started_at ?? "",
+    started_at: options["started_at"] ?? "",
   };
 }
 
@@ -3490,15 +3514,15 @@ export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
   return {
     ...mergeGeneratedOptions<ViewMode>(defaults, options),
     viewport:
-      options.viewport === null
+      options["viewport"] === null
         ? null
-        : (options.viewport ?? defaults.viewport) === null
+        : (options["viewport"] ?? defaults["viewport"]) === null
           ? null
           : createViewport(
-              options.viewport === null
+              options["viewport"] === null
                 ? null
-                : ((options.viewport ??
-                    defaults.viewport) as Partial<Viewport>),
+                : ((options["viewport"] ??
+                    defaults["viewport"]) as Partial<Viewport>),
             ),
   };
 }
@@ -3574,7 +3598,7 @@ export function createWindowSpaceWindow(
   return {
     ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
     normalizedBounds: createNormalizedFloatingWindowBounds(
-      options.normalizedBounds ?? defaults.normalizedBounds,
+      options["normalizedBounds"] ?? defaults["normalizedBounds"],
     ),
   };
 }

@@ -120,16 +120,11 @@ func buildGoBackedCreateBodyTS(
 	if !ok {
 		return "", fmt.Errorf("%s default literal did not decode to an object", context)
 	}
-	propertyAccessExpr := func(baseExpr string, propertyName string) string {
-		if tsIdentifierPattern.MatchString(propertyName) {
-			return baseExpr + "." + propertyName
-		}
-		return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
-	}
 	defaultsObject := make(map[string]any, len(properties))
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
+		propertyNameExpr := strconv.Quote(property.Name)
 		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
 			if !property.Optional {
@@ -140,19 +135,15 @@ func buildGoBackedCreateBodyTS(
 		}
 		expr, ok := buildGenericCreateFieldExprTS(
 			propertySpec,
-			propertyAccessExpr("defaults", property.Name),
-			propertyAccessExpr("options", property.Name),
+			"defaults["+propertyNameExpr+"]",
+			"options["+propertyNameExpr+"]",
 			hasDefault,
 		)
 		if !ok {
 			continue
 		}
 		fieldBuilder.WriteString("    ")
-		if property.Name != "__proto__" && tsIdentifierPattern.MatchString(property.Name) {
-			fieldBuilder.WriteString(property.Name)
-		} else {
-			fieldBuilder.WriteString(strconv.Quote(property.Name))
-		}
+		fieldBuilder.WriteString(propertyNameExpr)
 		fieldBuilder.WriteString(": ")
 		fieldBuilder.WriteString(expr)
 		fieldBuilder.WriteString(",\n")
@@ -300,12 +291,7 @@ func (c *typeConverter) namedStructPropertySpec(
 	if name == "" {
 		panic(fmt.Sprintf("frontend binding field %s has an empty json field name", field.Name))
 	}
-	optional := false
-	for _, option := range strings.Split(jsonOptions, ",") {
-		if strings.TrimSpace(option) == "omitempty" {
-			optional = true
-		}
-	}
+	optional := strings.Contains(","+jsonOptions+",", ",omitempty,")
 
 	typeExpr := strings.TrimSpace(field.Tag.Get("ts_type"))
 	if override, ok, err := parseBoolTag("ts_optional"); err != nil {
@@ -373,13 +359,7 @@ func (c *typeConverter) namedStructPropertySpec(
 
 func frontendBindingCreateTargetTypeName(fieldType reflect.Type) (string, bool) {
 	fieldType = canonicalFrontendBindingType(fieldType)
-	if fieldType == timeType {
-		return "", false
-	}
-	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
-		return "", false
-	}
-	if fieldType.Kind() != reflect.Struct {
+	if fieldType == nil || fieldType == timeType || fieldType.Kind() != reflect.Struct || fieldType.Name() == "" || fieldType.PkgPath() == "" {
 		return "", false
 	}
 	return frontendBindingTypeName(fieldType), true
