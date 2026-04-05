@@ -17,6 +17,14 @@ func FrontendDefaultProjectConfig() ProjectConfig {
 	return defaults
 }
 
+func FrontendDefaultProjectRunCapabilities() ProjectRunCapabilities {
+	return ProjectRunCapabilities{}
+}
+
+func FrontendDefaultSectionCapabilities() SectionCapabilities {
+	return SectionCapabilities{}
+}
+
 func PythonSharedDefaultProjectConfig() ProjectConfig {
 	viewport := projectstate.FrontendDefaultViewport()
 	defaults := ProjectConfig{

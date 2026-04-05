@@ -96,11 +96,11 @@ var (
 
 type SingleConfig struct {
 	Sections              map[string]Core                        `json:"sections"`
-	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls"`
+	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls" ts_type:"Record<string, BaseSectionImplUnion>"`
 	SectionCapabilities   map[string]SectionCapabilities         `json:"sectionCapabilities"`
 	SectionVariants       map[string]Variant                     `json:"sectionVariants"`
 	CodeObjs              map[string]Core                        `json:"codeObjs"`
-	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls"`
+	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls" ts_type:"Record<string, BaseCodeObjImplUnion>"`
 	CodeObjVariants       map[string]Variant                     `json:"codeObjVariants"`
 	ProjectConfig         ProjectConfig                          `json:"projectConfig"`
 	SingletonSections     SingletonSections                      `json:"singletonSections"`
@@ -125,7 +125,7 @@ type ProjectConfig struct {
 	IsEditingViewMode       bool                                           `json:"isEditingViewMode" py_default:"go_value"`
 	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget" py_default:"go_value"`
 	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities" py_default:"go_value"`
-	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value"`
+	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value" ts_type:"Array<ProjectCodegenTarget>"`
 	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled" py_default:"go_value"`
 	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders" py_default:"go_value"`
 	WatchCodeFiles          []string                                       `json:"watchCodeFiles" py_default:"go_value"`
@@ -147,16 +147,16 @@ type ProjectConfig struct {
 
 type ProjectRunCapabilities struct {
 	CanRunFromMain          bool    `json:"canRunFromMain"`
-	MainRunDisabledReason   *string `json:"mainRunDisabledReason"`
-	EffectiveEntrySectionID *string `json:"effectiveEntrySectionId"`
+	MainRunDisabledReason   *string `json:"mainRunDisabledReason" ts_optional:"true"`
+	EffectiveEntrySectionID *string `json:"effectiveEntrySectionId" ts_optional:"true"`
 }
 
 type SectionCapabilities struct {
 	CanRun                    bool    `json:"canRun"`
-	RunDisabledReason         *string `json:"runDisabledReason"`
-	RunRequestSectionID       *string `json:"runRequestSectionId"`
+	RunDisabledReason         *string `json:"runDisabledReason" ts_optional:"true"`
+	RunRequestSectionID       *string `json:"runRequestSectionId" ts_optional:"true"`
 	CanSelectAsEntryCodeBlock bool    `json:"canSelectAsEntryCodeBlock"`
-	EntryCodeBlockValue       *string `json:"entryCodeBlockValue"`
+	EntryCodeBlockValue       *string `json:"entryCodeBlockValue" ts_optional:"true"`
 }
 
 type Core struct {
@@ -165,7 +165,7 @@ type Core struct {
 	DisplayName    string          `json:"displayName"`
 	Variants       []string        `json:"variants"`
 	DefaultVariant *string         `json:"defaultVariant"`
-	SharedModifier json.RawMessage `json:"sharedModifier"`
+	SharedModifier json.RawMessage `json:"sharedModifier" ts_type:"Record<string, unknown>"`
 	UnsharedKeys   []string        `json:"unsharedKeys"`
 }
 
@@ -174,7 +174,7 @@ type Variant struct {
 	Name           string          `json:"name"`
 	Impl           string          `json:"impl"`
 	NonPresetImpls []string        `json:"nonPresetImpls"`
-	Modifier       json.RawMessage `json:"modifier"`
+	Modifier       json.RawMessage `json:"modifier" ts_type:"Record<string, unknown>"`
 	IsFrozen       bool            `json:"isFrozen"`
 }
 

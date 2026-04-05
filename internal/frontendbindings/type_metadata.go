@@ -6,7 +6,6 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
 	"setta/internal/realtime"
 )
 
@@ -39,6 +38,10 @@ func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 			"BaseChartSettingsUnion",
 			"LineChartSettings | ScatterChartSettings",
 		),
+		aliasDeclaration(
+			"ProjectCodegenTarget",
+			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
+		),
 		generatedBaseParentSectionImplUnionDeclaration(converter),
 		generatedBaseSectionWithParamsImplUnionDeclaration(converter),
 		generatedBaseDictSectionImplUnionDeclaration(converter),
@@ -62,10 +65,6 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 	reflect.TypeOf(projectstate.SectionSizeValue{}): aliasDeclaration(
 		"SectionSizeValue",
 		"number | SectionSizeMode",
-	),
-	reflect.TypeOf(projectview.ProjectCodegenTarget{}): aliasDeclaration(
-		"ProjectCodegenTarget",
-		"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 	),
 	reflect.TypeOf(httpapi.BinaryUploadRequest{}): aliasDeclaration(
 		"BinaryUploadRequest",

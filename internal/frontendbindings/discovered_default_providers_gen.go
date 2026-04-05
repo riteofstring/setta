@@ -130,6 +130,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.ProjectConfig{}): func() any {
 			return projectview.FrontendDefaultProjectConfig()
 		},
+		reflect.TypeOf(projectview.ProjectRunCapabilities{}): func() any {
+			return projectview.FrontendDefaultProjectRunCapabilities()
+		},
 		reflect.TypeOf(agentruns.Run{}): func() any {
 			return agentruns.FrontendDefaultRun()
 		},
@@ -138,6 +141,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		},
 		reflect.TypeOf(projectstate.ScatterChartSettings{}): func() any {
 			return projectstate.FrontendDefaultScatterChartSettings()
+		},
+		reflect.TypeOf(projectview.SectionCapabilities{}): func() any {
+			return projectview.FrontendDefaultSectionCapabilities()
 		},
 		reflect.TypeOf(projectview.SectionCodegenOverride{}): func() any {
 			return projectview.FrontendDefaultSectionCodegenOverride()

@@ -63,28 +63,28 @@ const (
 )
 
 type StateMachineGateUIState struct {
-	ShowDetails bool `json:"showDetails"`
+	ShowDetails bool `json:"showDetails" ts_optional:"true"`
 }
 
 type StateMachineSourceFilter struct {
-	Type         StateMachineSourceFilterType `json:"type"`
+	Type         StateMachineSourceFilterType `json:"type" ts_optional:"true"`
 	SignalName   *string                      `json:"signalName,omitempty"`
 	PayloadField *string                      `json:"payloadField,omitempty"`
 	Equals       *string                      `json:"equals,omitempty"`
 }
 
 type StateMachineSourceActivationCountCondition struct {
-	Operator StateMachineCountOperator `json:"operator"`
+	Operator StateMachineCountOperator `json:"operator" ts_optional:"true"`
 	Value    int                       `json:"value"`
 }
 
 type StateMachineTargetAction struct {
-	Type             StateMachineTargetActionType `json:"type"`
+	Type             StateMachineTargetActionType `json:"type" ts_optional:"true"`
 	PromptTemplateID *string                      `json:"promptTemplateId,omitempty"`
 	PromptSectionID  *string                      `json:"promptSectionId,omitempty"`
 	InlinePrompt     *string                      `json:"inlinePrompt,omitempty"`
 	PromptInputs     map[string]string            `json:"promptInputs,omitempty"`
-	ThreadStrategy   StateMachineThreadStrategy   `json:"threadStrategy"`
+	ThreadStrategy   StateMachineThreadStrategy   `json:"threadStrategy" ts_optional:"true"`
 	StopIfRunning    bool                         `json:"stopIfRunning,omitempty"`
 	EngineConfigID   *string                      `json:"engineConfigId,omitempty"`
 	AgentProfileID   *string                      `json:"agentProfileId,omitempty"`
@@ -102,7 +102,7 @@ type StateMachineEdge struct {
 	SourceFilter                   *StateMachineSourceFilter                   `json:"sourceFilter,omitempty"`
 	SourceActivationCountCondition *StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition,omitempty"`
 	TargetAction                   *StateMachineTargetAction                   `json:"targetAction,omitempty"`
-	Style                          RawJSON                                     `json:"style,omitempty"`
+	Style                          RawJSON                                     `json:"style,omitempty" ts_type:"Record<string, unknown> | null"`
 	Hidden                         bool                                        `json:"hidden,omitempty"`
 	ZIndex                         int                                         `json:"zIndex,omitempty"`
 	Selected                       bool                                        `json:"selected,omitempty"`

@@ -19,21 +19,21 @@ type ClipboardDataType string
 const ClipboardDataTypeSections ClipboardDataType = "Sections"
 
 type ClipboardProjectStateCore struct {
-	Sections        map[string]Section           `json:"sections,omitempty"`
-	SectionImpls    map[string]SectionImpl       `json:"sectionImpls,omitempty"`
-	SectionVariants map[string]SectionVariant    `json:"sectionVariants,omitempty"`
-	CodeObjs        map[string]CodeObject        `json:"codeObjs,omitempty"`
-	CodeObjImpls    map[string]CodeObjectImpl    `json:"codeObjImpls,omitempty"`
-	CodeObjVariants map[string]CodeObjectVariant `json:"codeObjVariants,omitempty"`
+	Sections        map[string]Section           `json:"sections,omitempty" ts_type:"Record<string, Core>" ts_optional:"false"`
+	SectionImpls    map[string]SectionImpl       `json:"sectionImpls,omitempty" ts_type:"Record<string, BaseSectionImplUnion>" ts_optional:"false"`
+	SectionVariants map[string]SectionVariant    `json:"sectionVariants,omitempty" ts_type:"Record<string, Variant>" ts_optional:"false"`
+	CodeObjs        map[string]CodeObject        `json:"codeObjs,omitempty" ts_type:"Record<string, Core>" ts_optional:"false"`
+	CodeObjImpls    map[string]CodeObjectImpl    `json:"codeObjImpls,omitempty" ts_type:"Record<string, BaseCodeObjImplUnion>" ts_optional:"false"`
+	CodeObjVariants map[string]CodeObjectVariant `json:"codeObjVariants,omitempty" ts_type:"Record<string, Variant>" ts_optional:"false"`
 }
 
 type ClipboardProjectStateCoreWithSectionVariantMap struct {
 	Core              ClipboardProjectStateCore `json:"core"`
-	SectionVariantMap map[string]string         `json:"sectionVariantMap,omitempty"`
+	SectionVariantMap map[string]string         `json:"sectionVariantMap,omitempty" ts_optional:"false"`
 }
 
 type SectionsClipboardData struct {
-	Type ClipboardDataType                              `json:"type"`
+	Type ClipboardDataType                              `json:"type" ts_type:"typeof ClipboardDataTypeEnum.Sections"`
 	Data ClipboardProjectStateCoreWithSectionVariantMap `json:"data"`
 }
 

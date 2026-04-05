@@ -41,7 +41,7 @@ type BrowserSavedSearch struct {
 	Name        string                         `json:"name"`
 	Query       string                         `json:"query"`
 	SearchScope BrowserSearchScope             `json:"searchScope"`
-	TypeFilters *BrowserSavedSearchTypeFilters `json:"typeFilters"`
+	TypeFilters *BrowserSavedSearchTypeFilters `json:"typeFilters" ts_type:"BrowserSavedSearchTypeFilters"`
 	Color       string                         `json:"color"`
 	QuickInfo   string                         `json:"quickInfo"`
 }

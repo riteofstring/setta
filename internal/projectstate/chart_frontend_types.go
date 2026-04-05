@@ -1,7 +1,7 @@
 package projectstate
 
 type LineChartSettings struct {
-	Type               ChartType `json:"type" py_default:"ChartType.line"`
+	Type               ChartType `json:"type" py_default:"ChartType.line" ts_type:"typeof ChartTypeEnum.line"`
 	XAxisColumn        *string   `json:"xAxisColumn,omitempty"`
 	SecondYAxisColumns []string  `json:"secondYAxisColumns" py_default:"factory:list"`
 	XAxisLog           bool      `json:"xAxisLog" py_default:"False"`
@@ -10,7 +10,7 @@ type LineChartSettings struct {
 }
 
 type ScatterChartSettings struct {
-	Type           ChartType `json:"type" py_default:"ChartType.scatter"`
+	Type           ChartType `json:"type" py_default:"ChartType.scatter" ts_type:"typeof ChartTypeEnum.scatter"`
 	XAxisColumn    *string   `json:"xAxisColumn,omitempty"`
 	CategoryColumn *string   `json:"categoryColumn,omitempty"`
 	XAxisLog       bool      `json:"xAxisLog" py_default:"False"`

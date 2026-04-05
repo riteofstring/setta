@@ -60,7 +60,7 @@ type EdgePort struct {
 type ViewMode struct {
 	ID                    string                           `json:"id"`
 	Name                  string                           `json:"name"`
-	SortIndex             int                              `json:"sortIndex"`
+	SortIndex             int                              `json:"sortIndex" ts_optional:"true"`
 	IsUserFacing          bool                             `json:"isUserFacing,omitempty"`
 	IsTab                 bool                             `json:"isTab,omitempty"`
 	VisibilityBySectionID map[string]bool                  `json:"visibilityBySectionId,omitempty"`
@@ -79,11 +79,11 @@ type Edge struct {
 	TargetPortID    string  `json:"targetPortId"`
 	Type            string  `json:"type,omitempty"`
 	Label           *string `json:"label,omitempty"`
-	Style           RawJSON `json:"style,omitempty"`
+	Style           RawJSON `json:"style,omitempty" ts_type:"Record<string, unknown>"`
 	Animated        bool    `json:"animated,omitempty"`
 	Hidden          bool    `json:"hidden,omitempty"`
 	ZIndex          int     `json:"zIndex,omitempty"`
-	Data            RawJSON `json:"data,omitempty"`
+	Data            RawJSON `json:"data,omitempty" ts_type:"Record<string, unknown>"`
 	Selected        bool    `json:"selected,omitempty"`
 }
 
@@ -93,7 +93,7 @@ type AgenticEdge struct {
 	TargetSectionID string                 `json:"targetSectionId"`
 	Kind            AgenticEdgeKind        `json:"kind"`
 	ContextMode     AgenticEdgeContextMode `json:"contextMode,omitempty"`
-	Style           RawJSON                `json:"style,omitempty"`
+	Style           RawJSON                `json:"style,omitempty" ts_type:"Record<string, unknown>"`
 	Hidden          bool                   `json:"hidden,omitempty"`
 	ZIndex          int                    `json:"zIndex,omitempty"`
 	Selected        bool                   `json:"selected,omitempty"`

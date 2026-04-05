@@ -20,7 +20,7 @@ const (
 )
 
 type DrawAreaLayerItem struct {
-	Type        DrawAreaLayerItemType `json:"type"`
+	Type        DrawAreaLayerItemType `json:"type" ts_type:"typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke"`
 	DataPath    string                `json:"dataPath"`
 	TransformID string                `json:"transformId"`
 }

@@ -3021,17 +3021,6 @@ type ChatWindowDockMetrics = {
   widthFraction?: number | null;
   preferredWidthPx?: number | null;
 };
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  return mergeGeneratedOptions<ChatWindowDockMetrics>(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
-}
 
 export type ProjectChatWindowInstance = {
   instanceId: string;
@@ -3065,7 +3054,10 @@ export function createProjectChatWindowInstance(
         x: 120,
         y: 120,
       },
-      dockMetrics: createChatWindowDockMetrics(),
+      dockMetrics: {
+        preferredWidthPx: null,
+        widthFraction: null,
+      },
       zIndex: 0,
       lastPlacementBeforeMaximize: null,
       mode: "project_ai_mode",
@@ -3108,19 +3100,6 @@ export type NormalizedFloatingWindowBounds = {
   width: number;
   height: number;
 };
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions<NormalizedFloatingWindowBounds>(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
-}
 
 type WindowSpaceWindow = {
   surfaceKind?: WindowSpaceSurfaceKind;
@@ -3144,7 +3123,12 @@ export function createWindowSpaceWindow(
       chatId: null,
       embeddedGitPaneVisible: false,
       zIndex: 0,
-      normalizedBounds: createNormalizedFloatingWindowBounds(),
+      normalizedBounds: {
+        height: 1,
+        width: 1,
+        x: 0,
+        y: 0,
+      },
     },
     options,
   );
@@ -3169,8 +3153,8 @@ export function createWindowSpaceState(
 export type WindowSpaceConfig = {
   windowsById: Record<string, WindowSpaceWindow>;
   order: Array<string>;
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
   sortIndex?: number;
 };
 export function createWindowSpaceConfig(
@@ -8447,6 +8431,10 @@ export type BaseChatMessageUnion =
   | ToolChatMessage;
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
+export type ProjectCodegenTarget =
+  | ProjectCodegenPythonTarget
+  | ProjectCodegenPluginTarget;
 
 type BaseParentSectionImplUnion = BaseSectionImpl & {
   children: Array<string>;

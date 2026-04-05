@@ -42,11 +42,11 @@ type TaskBoardTask struct {
 	Title            string   `json:"title"`
 	Description      string   `json:"description"`
 	Completed        bool     `json:"completed"`
-	ColumnID         *string  `json:"columnId"`
+	ColumnID         *string  `json:"columnId" ts_optional:"true"`
 	DueDateISO       string   `json:"dueDateIso"`
-	Recurrence       string   `json:"recurrence"`
-	RecurrenceDays   []string `json:"recurrenceDays"`
-	RecurrenceMonths []string `json:"recurrenceMonths"`
+	Recurrence       string   `json:"recurrence" ts_type:"TaskBoardTaskRecurrence"`
+	RecurrenceDays   []string `json:"recurrenceDays" ts_type:"Array<TaskBoardRecurringWeekday>"`
+	RecurrenceMonths []string `json:"recurrenceMonths" ts_type:"Array<TaskBoardRecurringMonth>"`
 	RecurrenceYears  []int    `json:"recurrenceYears"`
 	SortIndex        int      `json:"sortIndex"`
 }
