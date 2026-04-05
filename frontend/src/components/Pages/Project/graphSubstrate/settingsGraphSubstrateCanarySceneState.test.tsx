@@ -2,18 +2,12 @@
 
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import {
-  useNodeInternals,
-  useSectionElementSizeRegistry,
-} from "state/definitions";
+import { useNodeInternals } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
-import type {
-  SettingsGraphSubstrateCanarySceneSnapshot,
-  SettingsGraphSubstrateCanarySectionPositionOverride,
-} from "./settingsGraphSubstrateCanarySceneSnapshot";
+import type { SettingsGraphSubstrateCanarySectionPositionOverride } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 
@@ -26,8 +20,13 @@ function SceneStateProbe({
   override: SettingsGraphSubstrateCanarySectionPositionOverride;
   sections: Array<GraphSubstrateCanarySection>;
 }) {
-  const { sceneSnapshot, setDraggingSectionId, setSectionPositionOverride } =
-    useSettingsGraphSubstrateCanarySceneState(sections);
+  const {
+    draggingSectionId: currentDraggingSectionId,
+    sectionById,
+    sectionPositionOverride,
+    setDraggingSectionId,
+    setSectionPositionOverride,
+  } = useSettingsGraphSubstrateCanarySceneState(sections);
 
   useEffect(() => {
     setDraggingSectionId(draggingSectionId);
@@ -40,7 +39,11 @@ function SceneStateProbe({
   return (
     <div
       data-testid="scene-state-probe"
-      data-scene={JSON.stringify(serializeSceneSnapshot(sceneSnapshot))}
+      data-state={JSON.stringify({
+        draggingSectionId: currentDraggingSectionId,
+        override: sectionPositionOverride,
+        sectionIds: Array.from(sectionById.keys()),
+      })}
     />
   );
 }
@@ -66,7 +69,41 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     vi.unstubAllGlobals();
   });
 
-  it("drives resolved size and node-internals sync from the same scene snapshot", async () => {
+  it("tracks transient drag state and position overrides locally", async () => {
+    await act(async () => {
+      root.render(
+        <SceneStateProbe
+          draggingSectionId={"section-a"}
+          override={{
+            sectionId: "section-a",
+            position: { x: 460, y: 260 },
+          }}
+          sections={[createSection()]}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneState(host)).toEqual({
+        draggingSectionId: "section-a",
+        override: {
+          sectionId: "section-a",
+          position: { x: 460, y: 260 },
+        },
+        sectionIds: ["section-a"],
+      });
+    });
+    expect(
+      useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
+    ).toEqual({
+      sceneBounds: null,
+      sections: [],
+      sectionsById: new Map(),
+    });
+    expect(useNodeInternals.getState().x.size).toBe(0);
+  });
+
+  it("rebuilds the section lookup map when the canary sections change", async () => {
     await act(async () => {
       root.render(
         <SceneStateProbe
@@ -77,192 +114,8 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
       );
     });
 
-    act(() => {
-      useSectionElementSizeRegistry.setState({
-        "section-a": { width: 280, height: 190 },
-      });
-    });
-
     await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 280,
-          height: 190,
-        },
-        sections: [
-          {
-            height: null,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: false,
-            renderedPosition: { x: 120, y: 80 },
-            resolvedSize: { width: 280, height: 190 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: null,
-            zIndex: 2,
-          },
-        ],
-      });
-    });
-    expect(
-      serializeSceneSnapshot(
-        useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
-      ),
-    ).toEqual(readSceneSnapshot(host));
-
-    await vi.waitFor(() => {
-      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: 190,
-        id: "section-a",
-        position: { x: 120, y: 80 },
-        style: undefined,
-        tempZIndex: 2,
-        type: undefined,
-        width: 280,
-        zIndex: 2,
-      });
-    });
-  });
-
-  it("keeps layout position authoritative while applying transient drag overrides to the shared scene snapshot", async () => {
-    await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={null}
-          override={null}
-          sections={[
-            createSection({
-              height: 160,
-              width: 240,
-            }),
-          ]}
-        />,
-      );
-    });
-
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 240,
-          height: 160,
-        },
-        sections: [
-          {
-            height: 160,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: false,
-            renderedPosition: { x: 120, y: 80 },
-            resolvedSize: { width: 240, height: 160 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: 240,
-            zIndex: 2,
-          },
-        ],
-      });
-    });
-
-    await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={null}
-          override={{
-            sectionId: "section-a",
-            position: { x: 460, y: 260 },
-          }}
-          sections={[
-            createSection({
-              height: 160,
-              width: 240,
-            }),
-          ]}
-        />,
-      );
-    });
-
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 460,
-          y: 260,
-          width: 240,
-          height: 160,
-        },
-        sections: [
-          {
-            height: 160,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: false,
-            renderedPosition: { x: 460, y: 260 },
-            resolvedSize: { width: 240, height: 160 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: 240,
-            zIndex: 2,
-          },
-        ],
-      });
-    });
-
-    expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual({
-      x: 460,
-      y: 260,
-    });
-  });
-
-  it("raises and resets the active drag section temp z-index from the shared scene snapshot", async () => {
-    await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={null}
-          override={null}
-          sections={[
-            createSection({
-              height: 160,
-              width: 240,
-            }),
-          ]}
-        />,
-      );
-    });
-
-    await vi.waitFor(() => {
-      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-        height: 160,
-        id: "section-a",
-        position: { x: 120, y: 80 },
-        style: undefined,
-        tempZIndex: 2,
-        type: undefined,
-        width: 240,
-        zIndex: 2,
-      });
-    });
-
-    await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={"section-a"}
-          override={null}
-          sections={[
-            createSection({
-              height: 160,
-              width: 240,
-            }),
-          ]}
-        />,
-      );
-    });
-
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host).sections[0]?.tempZIndex).toBe(1002);
-      expect(useNodeInternals.getState().x.get("section-a")?.tempZIndex).toBe(
-        1002,
-      );
+      expect(readSceneState(host).sectionIds).toEqual(["section-a"]);
     });
 
     await act(async () => {
@@ -272,8 +125,7 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
           override={null}
           sections={[
             createSection({
-              height: 160,
-              width: 240,
+              sectionId: "section-b",
             }),
           ]}
         />,
@@ -281,10 +133,11 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     });
 
     await vi.waitFor(() => {
-      expect(readSceneSnapshot(host).sections[0]?.tempZIndex).toBe(2);
-      expect(useNodeInternals.getState().x.get("section-a")?.tempZIndex).toBe(
-        2,
-      );
+      expect(readSceneState(host)).toEqual({
+        draggingSectionId: null,
+        override: null,
+        sectionIds: ["section-b"],
+      });
     });
   });
 });
@@ -304,37 +157,18 @@ function createSection(
   };
 }
 
-function serializeSceneSnapshot(
-  sceneSnapshot: SettingsGraphSubstrateCanarySceneSnapshot,
-) {
-  return {
-    sceneBounds: sceneSnapshot.sceneBounds,
-    sections: sceneSnapshot.sections.map((section) => {
-      return {
-        height: section.height,
-        position: section.position,
-        positionAndSizeLocked: section.positionAndSizeLocked,
-        renderedPosition: section.renderedPosition,
-        resolvedSize: section.resolvedSize,
-        sectionId: section.sectionId,
-        tempZIndex: section.tempZIndex,
-        width: section.width,
-        zIndex: section.zIndex,
-      };
-    }),
-  };
-}
-
-function readSceneSnapshot(hostElement: HTMLDivElement) {
+function readSceneState(hostElement: HTMLDivElement) {
   const probe = hostElement.querySelector('[data-testid="scene-state-probe"]');
   if (!(probe instanceof HTMLDivElement)) {
     throw new Error("Expected scene state probe.");
   }
-  const sceneAttribute = probe.getAttribute("data-scene");
-  if (!sceneAttribute) {
-    throw new Error("Expected scene snapshot attribute.");
+  const stateAttribute = probe.getAttribute("data-state");
+  if (!stateAttribute) {
+    throw new Error("Expected scene state attribute.");
   }
-  return JSON.parse(sceneAttribute) as ReturnType<
-    typeof serializeSceneSnapshot
-  >;
+  return JSON.parse(stateAttribute) as {
+    draggingSectionId: string | null;
+    override: SettingsGraphSubstrateCanarySectionPositionOverride;
+    sectionIds: Array<string>;
+  };
 }

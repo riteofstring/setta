@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 13:59 EDT
+Last updated: 2026-04-05 14:44 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,66 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `186` split authoritative scene runtime publication out of `useSettingsGraphSubstrateCanarySceneState(...)`, so the local scene-state hook now only owns transient drag/override/controller state while a new runtime hook owns section-size lookup, authoritative snapshot derivation, scene-store publication, cleanup, and shared node-internals sync.
+  - Why this slice was needed:
+    - item `185` explicitly handed off to deepening the scene runtime boundary rather than reopening another parity lane or repeating a geometry-precedence tweak
+    - `useSettingsGraphSubstrateCanarySceneState(...)` still mixed transient controller state with authoritative scene publication and shared node-internals sync, which kept the canary root coupled to a broad hook
+    - moving those effects under one dedicated runtime module is the next real architecture step and gives later viewport/minimap consumers a deeper scene authority seam to target
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - owns canary section-size lookup, scene snapshot resolution, scene-store publication, shared node-internals sync, and cleanup reset on unmount
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now composes local scene state and authoritative scene runtime separately instead of reading `sceneSnapshot` from the state hook
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts`
+      - now only owns `draggingSectionId`, `sectionPositionOverride`, and `sectionById`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+      - now proves the local controller state stays local and the section lookup map updates with the canary inputs
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - proves the dedicated runtime still drives shared scene publication, drag overrides/temp z-index, node-internals sync, and store reset on unmount
+  - What this slice established:
+    - authoritative scene publication and shared node sync now live behind a dedicated scene-runtime boundary instead of the local scene-state/controller hook
+    - `SettingsGraphSubstrateCanary.tsx` now consumes that deeper boundary directly while the local state hook stays focused on transient interaction state
+    - the focused geometry/runtime tests are green after the split:
+      - local scene state, new scene runtime, scene snapshot, node sync, and viewport-runtime coverage all passed (`5 files`, `15 tests`)
+    - the same deterministic `rotaryParamCodeObjDefault` regression lane remained healthy after the boundary change:
+      - legacy rerun: `17.004ms` average frame duration, `49.9ms` max, `1` long task (`50ms`)
+      - worktree canary: `17.002ms` average frame duration, `51.0ms` max, `1` long task (`53ms`)
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is green on the same normalized lane:
+      - the fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - in-browser bootstrap tabs on `8077` and `8088` were rejected, so the compare used the already-live `3077/settings` and `3088/settings` pages
+      - after normalizing both sessions to `All Settings`, selecting `rotaryParamCodeObjDefault`, and applying fit view, no graph/content drift versus `main` was visible; only transient worktree shell chrome appeared during normalization and was cleared before the final compare
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed (`5 files`, `15 tests`)
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-017/worktree-ai.log`
+      - result: worktree healthy on `3077/8077` with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-017/main-ai.log`
+      - result: `main` healthy on `3088/8088` with refreshed bootstrap url
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8088 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `34.8s`)
+    - static verification:
+      - `git diff --check`
+      - result: passed
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: used the live `3077/settings` and `3088/settings` pages, normalized both sides around `rotaryParamCodeObjDefault`, and found no graph/content regression versus `main`
+  - Lane status:
+    - the scene-runtime boundary is now deeper: local controller state and authoritative scene publication/sync are separated
+    - the canonical normalized regression lane remains green after the boundary split, so the next pass should keep moving real consumers onto this boundary instead of reopening probe-only work
+  - Next frontier:
+    - inspect the remaining raw scene-geometry inputs at the canary root, starting with fallback viewport seeding from `sections[0]`, and move the next real consumer onto the dedicated scene-runtime/store boundary
+    - keep the same normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare as the regression gate
 
 - Ralph item `185` made the shared live section-size registry authoritative inside the canary scene snapshot, so visible canary geometry now prefers measured section size over persisted layout size while keeping layout width/height as fallback.
   - Why this slice was needed:

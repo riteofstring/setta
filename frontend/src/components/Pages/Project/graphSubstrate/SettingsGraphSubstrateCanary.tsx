@@ -24,6 +24,7 @@ import {
   createSettingsGraphSubstrateCanaryPaneInteractionController,
   type SettingsGraphSubstrateCanaryPaneInteractionController,
 } from "./settingsGraphSubstrateCanaryPaneInteractionController";
+import { useSettingsGraphSubstrateCanarySceneRuntime } from "./settingsGraphSubstrateCanarySceneRuntime";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import {
   createSettingsGraphSubstrateCanarySectionDragController,
@@ -54,12 +55,16 @@ export function SettingsGraphSubstrateCanary() {
   );
   const {
     draggingSectionId,
-    sceneSnapshot,
     sectionById,
     sectionPositionOverride,
     setDraggingSectionId,
     setSectionPositionOverride,
   } = useSettingsGraphSubstrateCanarySceneState(sections);
+  const sceneSnapshot = useSettingsGraphSubstrateCanarySceneRuntime({
+    draggingSectionId,
+    sectionPositionOverride,
+    sections,
+  });
   const sharedProjectViewport = useProjectState((state) => {
     const { viewport, viewportInitialized } = state.projectConfig;
     if (!viewportInitialized || !viewport) {
