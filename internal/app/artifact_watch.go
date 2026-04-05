@@ -23,6 +23,13 @@ type artifactWatchServiceOptions struct {
 	Logger         *slog.Logger
 }
 
+type artifactWatchUpdateOutputs struct {
+	frontendArtifacts    []any
+	imageDeltasByProject map[string][]realtime.BinarySectionDelta
+}
+
+type artifactWatchCachedLoader[T any] func(context.Context, artifacts.LoadCachedPathsRequest) ([]*T, error)
+
 func newArtifactWatchService(options artifactWatchServiceOptions) (*artifactwatch.Service, error) {
 	if options.Artifacts == nil {
 		return nil, fmt.Errorf("artifact service is required")
@@ -30,105 +37,14 @@ func newArtifactWatchService(options artifactWatchServiceOptions) (*artifactwatc
 
 	return artifactwatch.NewService(artifactwatch.ServiceOptions{
 		OnFileUpdate: func(ctx context.Context, update artifactwatch.FileUpdate) error {
-			frontendArtifacts := make([]any, 0, len(update.Types))
-			imageDeltasByProject := map[string][]realtime.BinarySectionDelta{}
-
-			for _, artifactType := range update.Types {
-				switch artifactType {
-				case artifacts.ArtifactTypeImage:
-					loaded, err := options.Artifacts.LoadCachedImages(ctx, artifacts.LoadCachedPathsRequest{
-						Paths: []string{update.Path},
-					})
-					if err != nil {
-						return err
-					}
-					if len(loaded) == 0 || loaded[0] == nil {
-						continue
-					}
-					imageArtifact := *loaded[0]
-					frontendArtifacts = append(frontendArtifacts, imageArtifact)
-
-					if options.ListenerEvents == nil || len(update.ImageRefs) == 0 {
-						continue
-					}
-					binaryPayload, err := options.Artifacts.ReadBinaryContent(imageArtifact.Value.ContentID)
-					if err != nil {
-						return err
-					}
-					for _, ref := range update.ImageRefs {
-						imageDeltasByProject[ref.ProjectID] = append(imageDeltasByProject[ref.ProjectID], realtime.BinarySectionDelta{
-							SectionID:     ref.SectionID,
-							Value:         imageArtifact.Value,
-							BinaryPayload: binaryPayload,
-						})
-					}
-				case artifacts.ArtifactTypeChartData:
-					loaded, err := options.Artifacts.LoadCachedChartData(ctx, artifacts.LoadCachedPathsRequest{
-						Paths: []string{update.Path},
-					})
-					if err != nil {
-						return err
-					}
-					if len(loaded) == 0 || loaded[0] == nil {
-						continue
-					}
-					frontendArtifacts = append(frontendArtifacts, *loaded[0])
-				case artifacts.ArtifactTypeBrushStroke:
-					loaded, err := options.Artifacts.LoadCachedBrushStrokes(ctx, artifacts.LoadCachedPathsRequest{
-						Paths: []string{update.Path},
-					})
-					if err != nil {
-						return err
-					}
-					if len(loaded) == 0 || loaded[0] == nil {
-						continue
-					}
-					frontendArtifacts = append(frontendArtifacts, *loaded[0])
-				case artifacts.ArtifactTypeDrawAreaLayerItemTransform:
-					loaded, err := options.Artifacts.LoadCachedDrawAreaLayerItemTransforms(ctx, artifacts.LoadCachedPathsRequest{
-						Paths: []string{update.Path},
-					})
-					if err != nil {
-						return err
-					}
-					if len(loaded) == 0 || loaded[0] == nil {
-						continue
-					}
-					frontendArtifacts = append(frontendArtifacts, *loaded[0])
-				}
+			outputs, err := collectArtifactWatchUpdateOutputs(ctx, options.Artifacts, update, options.ListenerEvents != nil)
+			if err != nil {
+				return err
 			}
-
-			if len(frontendArtifacts) > 0 && options.WebsocketHub != nil {
-				if _, err := options.WebsocketHub.BroadcastJSON(
-					ctx,
-					realtime.NewUpdateArtifactsMessage(realtime.UpdateArtifactsContent{
-						Artifacts:  frontendArtifacts,
-						UpdateType: "update",
-					}),
-					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-				); err != nil {
-					return err
-				}
+			if err := broadcastArtifactWatchFrontendArtifacts(ctx, options.WebsocketHub, outputs.frontendArtifacts); err != nil {
+				return err
 			}
-
-			if options.ListenerEvents == nil || len(imageDeltasByProject) == 0 {
-				return nil
-			}
-
-			projectIDs := make([]string, 0, len(imageDeltasByProject))
-			for projectID := range imageDeltasByProject {
-				projectIDs = append(projectIDs, projectID)
-			}
-			sort.Strings(projectIDs)
-			for _, projectID := range projectIDs {
-				if err := options.ListenerEvents.EmitSectionBinaryDeltas(ctx, realtime.EmitSectionBinaryDeltasParams{
-					ProjectID: projectID,
-					Deltas:    imageDeltasByProject[projectID],
-				}); err != nil {
-					return err
-				}
-			}
-			return nil
+			return emitArtifactWatchImageDeltas(ctx, options.ListenerEvents, outputs.imageDeltasByProject)
 		},
 		OnError: func(err error) {
 			if options.Logger != nil {
@@ -136,6 +52,185 @@ func newArtifactWatchService(options artifactWatchServiceOptions) (*artifactwatc
 			}
 		},
 	})
+}
+
+func collectArtifactWatchUpdateOutputs(
+	ctx context.Context,
+	artifactService *artifacts.Service,
+	update artifactwatch.FileUpdate,
+	includeImageDeltas bool,
+) (artifactWatchUpdateOutputs, error) {
+	outputs := artifactWatchUpdateOutputs{
+		frontendArtifacts:    make([]any, 0, len(update.Types)),
+		imageDeltasByProject: map[string][]realtime.BinarySectionDelta{},
+	}
+	for _, artifactType := range update.Types {
+		frontendArtifact, imageDeltasByProject, err := loadArtifactWatchUpdate(
+			ctx,
+			artifactService,
+			update.Path,
+			artifactType,
+			update.ImageRefs,
+			includeImageDeltas,
+		)
+		if err != nil {
+			return artifactWatchUpdateOutputs{}, err
+		}
+		if frontendArtifact != nil {
+			outputs.frontendArtifacts = append(outputs.frontendArtifacts, frontendArtifact)
+		}
+		mergeArtifactWatchImageDeltas(outputs.imageDeltasByProject, imageDeltasByProject)
+	}
+	return outputs, nil
+}
+
+func loadArtifactWatchUpdate(
+	ctx context.Context,
+	artifactService *artifacts.Service,
+	path string,
+	artifactType artifacts.ArtifactType,
+	imageRefs []artifactwatch.ImageRef,
+	includeImageDeltas bool,
+) (any, map[string][]realtime.BinarySectionDelta, error) {
+	switch artifactType {
+	case artifacts.ArtifactTypeImage:
+		return loadArtifactWatchImageUpdate(ctx, artifactService, path, imageRefs, includeImageDeltas)
+	case artifacts.ArtifactTypeChartData:
+		return loadArtifactWatchSimpleUpdate(ctx, path, artifactService.LoadCachedChartData)
+	case artifacts.ArtifactTypeBrushStroke:
+		return loadArtifactWatchSimpleUpdate(ctx, path, artifactService.LoadCachedBrushStrokes)
+	case artifacts.ArtifactTypeDrawAreaLayerItemTransform:
+		return loadArtifactWatchSimpleUpdate(ctx, path, artifactService.LoadCachedDrawAreaLayerItemTransforms)
+	default:
+		return nil, nil, nil
+	}
+}
+
+func loadArtifactWatchImageUpdate(
+	ctx context.Context,
+	artifactService *artifacts.Service,
+	path string,
+	imageRefs []artifactwatch.ImageRef,
+	includeImageDeltas bool,
+) (any, map[string][]realtime.BinarySectionDelta, error) {
+	imageArtifact, err := loadArtifactWatchCachedValue(ctx, path, artifactService.LoadCachedImages)
+	if err != nil || imageArtifact == nil {
+		return nil, nil, err
+	}
+	imageDeltasByProject, err := buildArtifactWatchImageDeltas(artifactService, *imageArtifact, imageRefs, includeImageDeltas)
+	if err != nil {
+		return nil, nil, err
+	}
+	return *imageArtifact, imageDeltasByProject, nil
+}
+
+func loadArtifactWatchSimpleUpdate[T any](
+	ctx context.Context,
+	path string,
+	load artifactWatchCachedLoader[T],
+) (any, map[string][]realtime.BinarySectionDelta, error) {
+	artifact, err := loadArtifactWatchCachedValue(ctx, path, load)
+	if err != nil || artifact == nil {
+		return nil, nil, err
+	}
+	return *artifact, nil, nil
+}
+
+func loadArtifactWatchCachedValue[T any](
+	ctx context.Context,
+	path string,
+	load artifactWatchCachedLoader[T],
+) (*T, error) {
+	loaded, err := load(ctx, artifacts.LoadCachedPathsRequest{
+		Paths: []string{path},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(loaded) == 0 || loaded[0] == nil {
+		return nil, nil
+	}
+	return loaded[0], nil
+}
+
+func buildArtifactWatchImageDeltas(
+	artifactService *artifacts.Service,
+	imageArtifact artifacts.ImageArtifact,
+	imageRefs []artifactwatch.ImageRef,
+	includeImageDeltas bool,
+) (map[string][]realtime.BinarySectionDelta, error) {
+	if !includeImageDeltas || len(imageRefs) == 0 {
+		return nil, nil
+	}
+
+	binaryPayload, err := artifactService.ReadBinaryContent(imageArtifact.Value.ContentID)
+	if err != nil {
+		return nil, err
+	}
+
+	imageDeltasByProject := make(map[string][]realtime.BinarySectionDelta, len(imageRefs))
+	for _, ref := range imageRefs {
+		imageDeltasByProject[ref.ProjectID] = append(imageDeltasByProject[ref.ProjectID], realtime.BinarySectionDelta{
+			SectionID:     ref.SectionID,
+			Value:         imageArtifact.Value,
+			BinaryPayload: binaryPayload,
+		})
+	}
+	return imageDeltasByProject, nil
+}
+
+func mergeArtifactWatchImageDeltas(
+	destination map[string][]realtime.BinarySectionDelta,
+	source map[string][]realtime.BinarySectionDelta,
+) {
+	for projectID, deltas := range source {
+		destination[projectID] = append(destination[projectID], deltas...)
+	}
+}
+
+func broadcastArtifactWatchFrontendArtifacts(
+	ctx context.Context,
+	websocketHub *realtime.WebsocketHub,
+	frontendArtifacts []any,
+) error {
+	if websocketHub == nil || len(frontendArtifacts) == 0 {
+		return nil
+	}
+
+	_, err := websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewUpdateArtifactsMessage(realtime.UpdateArtifactsContent{
+			Artifacts:  frontendArtifacts,
+			UpdateType: "update",
+		}),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
+}
+
+func emitArtifactWatchImageDeltas(
+	ctx context.Context,
+	listenerEvents *realtime.ListenerProducer,
+	imageDeltasByProject map[string][]realtime.BinarySectionDelta,
+) error {
+	if listenerEvents == nil || len(imageDeltasByProject) == 0 {
+		return nil
+	}
+
+	projectIDs := make([]string, 0, len(imageDeltasByProject))
+	for projectID := range imageDeltasByProject {
+		projectIDs = append(projectIDs, projectID)
+	}
+	sort.Strings(projectIDs)
+	for _, projectID := range projectIDs {
+		if err := listenerEvents.EmitSectionBinaryDeltas(ctx, realtime.EmitSectionBinaryDeltasParams{
+			ProjectID: projectID,
+			Deltas:    imageDeltasByProject[projectID],
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func syncArtifactWatchInputs(service *artifactwatch.Service, document projectstate.Document, settaFilesRoot string) error {
