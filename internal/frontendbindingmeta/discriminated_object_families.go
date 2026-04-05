@@ -12,13 +12,6 @@ type DiscriminatedObjectTraitSpec struct {
 	EmbeddedFieldType reflect.Type
 }
 
-func (spec DiscriminatedObjectTraitSpec) Matches(t reflect.Type) bool {
-	if spec.EmbeddedFieldType == nil {
-		return true
-	}
-	return contractTypeEmbedsAnonymousField(t, spec.EmbeddedFieldType)
-}
-
 type DiscriminatedObjectFamily struct {
 	BaseType                     reflect.Type
 	EnumType                     reflect.Type
@@ -48,7 +41,7 @@ func (family DiscriminatedObjectFamily) DiscriminatorValue(t reflect.Type) (stri
 	return value, true
 }
 
-func contractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
+func ContractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -64,7 +57,7 @@ func contractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool 
 		if fieldType == target {
 			return true
 		}
-		if contractTypeEmbedsAnonymousField(fieldType, target) {
+		if ContractTypeEmbedsAnonymousField(fieldType, target) {
 			return true
 		}
 	}

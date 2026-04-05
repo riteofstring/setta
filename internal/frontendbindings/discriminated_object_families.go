@@ -3,6 +3,7 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"setta/internal/frontendbindingmeta"
@@ -43,11 +44,7 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 				family.BaseExtraLines...,
 			),
 		}
-		traits, err := discriminatedObjectFamilyTraitDeclarations(family, members)
-		if err != nil {
-			return nil, false, err
-		}
-		return append(declarations, traits...), true, nil
+		return append(declarations, discriminatedObjectFamilyTraitDeclarations(family, members)...), true, nil
 	}
 	memberProperties, ok := concreteByType[t]
 	if !ok {
@@ -119,7 +116,6 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 	mergedOrder := []string{}
 	mergedByName := map[string]*TypeProperty{}
 	typeExprsByName := map[string][]string{}
-	seenTypeExprsByName := map[string]map[string]struct{}{}
 	for _, member := range members {
 		concreteProperties, err := converter.structProperties(
 			member.Type,
@@ -142,16 +138,13 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 				property.Optional = true
 				copyProperty := property
 				mergedByName[property.Name] = &copyProperty
-				typeExprsByName[property.Name] = []string{}
-				seenTypeExprsByName[property.Name] = map[string]struct{}{}
 				mergedOrder = append(mergedOrder, property.Name)
 				spec = &copyProperty
 			}
 			spec.Optional = true
-			if _, seen := seenTypeExprsByName[property.Name][property.TypeExpr]; seen {
+			if slices.Contains(typeExprsByName[property.Name], property.TypeExpr) {
 				continue
 			}
-			seenTypeExprsByName[property.Name][property.TypeExpr] = struct{}{}
 			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
 		}
 	}
@@ -184,7 +177,7 @@ func discriminatedObjectFamilyDeclarationPropertiesForMembers(
 func discriminatedObjectFamilyTraitDeclarations(
 	family frontendbindingmeta.DiscriminatedObjectFamily,
 	members []discriminatedObjectFamilyMember,
-) ([]TypeDeclaration, error) {
+) []TypeDeclaration {
 	baseUnionName := frontendBindingTypeName(family.BaseType) + "Union"
 	baseTypeName := frontendBindingTypeName(family.BaseType)
 	baseMemberTypeNames := make([]string, 0, len(members))
@@ -201,7 +194,8 @@ func discriminatedObjectFamilyTraitDeclarations(
 		memberTypeNames := []string{}
 		memberEnumExprs := []string{}
 		for _, member := range members {
-			if !trait.Matches(member.Type) {
+			if trait.EmbeddedFieldType != nil &&
+				!frontendbindingmeta.ContractTypeEmbedsAnonymousField(member.Type, trait.EmbeddedFieldType) {
 				continue
 			}
 			memberTypeNames = append(memberTypeNames, frontendBindingTypeName(member.Type))
@@ -236,7 +230,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 			),
 		)
 	}
-	return declarations, nil
+	return declarations
 }
 
 func discriminatedObjectFamilyMembers(
@@ -277,21 +271,12 @@ func discriminatedObjectFamilyMembers(
 				enumValue.Value,
 			)
 		}
-		candidateProvider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.DiscriminatedObjectFamilyProvider](candidate)
-		if !ok {
+		if !frontendbindingmeta.ContractTypeEmbedsAnonymousField(candidate, family.BaseType) {
 			return nil, fmt.Errorf(
-				"%s family member %s is missing discriminated metadata",
+				"%s family member %s does not embed %s",
 				frontendBindingTypeName(family.BaseType),
 				candidate.String(),
-			)
-		}
-		candidateFamily := candidateProvider.FrontendBindingDiscriminatedObjectFamily()
-		if canonicalFrontendBindingType(candidateFamily.BaseType) != family.BaseType {
-			return nil, fmt.Errorf(
-				"%s family member %s resolves to %s",
 				frontendBindingTypeName(family.BaseType),
-				candidate.String(),
-				frontendBindingTypeName(candidateFamily.BaseType),
 			)
 		}
 		members = append(members, discriminatedObjectFamilyMember{
