@@ -228,6 +228,76 @@ url = "http://127.0.0.1:9900/mcp"
 	}
 }
 
+func TestParseCodexMCPServerEntryInfersTransportAndBuildsStdioPayload(t *testing.T) {
+	t.Parallel()
+
+	payload, err := parseCodexMCPServerEntry(map[string]any{
+		"command": "node",
+		"args":    []any{"server.js", " --watch "},
+		"env": map[string]any{
+			"DEBUG": "1",
+		},
+		"cwd": "/tmp/worktree",
+	}, "alpha")
+	if err != nil {
+		t.Fatalf("parse codex stdio payload: %v", err)
+	}
+
+	expected := map[string]any{
+		"transport": "stdio",
+		"command":   "node",
+		"args":      []string{"server.js", "--watch"},
+		"env":       map[string]string{"DEBUG": "1"},
+		"cwd":       "/tmp/worktree",
+	}
+	if !reflect.DeepEqual(payload, expected) {
+		t.Fatalf("expected stdio payload %#v, got %#v", expected, payload)
+	}
+}
+
+func TestParseCodexMCPServerEntryBuildsHTTPPayload(t *testing.T) {
+	t.Parallel()
+
+	payload, err := parseCodexMCPServerEntry(map[string]any{
+		"transport": "SSE",
+		"url":       "http://127.0.0.1:7000/mcp",
+		"http_headers": map[string]any{
+			"Authorization": "Bearer token",
+		},
+	}, "alpha")
+	if err != nil {
+		t.Fatalf("parse codex http payload: %v", err)
+	}
+
+	expected := map[string]any{
+		"transport": "sse",
+		"url":       "http://127.0.0.1:7000/mcp",
+		"http_headers": map[string]string{
+			"Authorization": "Bearer token",
+		},
+	}
+	if !reflect.DeepEqual(payload, expected) {
+		t.Fatalf("expected http payload %#v, got %#v", expected, payload)
+	}
+}
+
+func TestParseCodexMCPServerEntryRejectsInvalidStdioHTTPHeaders(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCodexMCPServerEntry(map[string]any{
+		"command": "node",
+		"http_headers": map[string]any{
+			"Authorization": "Bearer token",
+		},
+	}, "alpha")
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if err.Error() != `server "alpha" stdio transport cannot define http_headers` {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
 func TestNormalizeSettaCodexMCPServerEntryUsesStreamableHTTP(t *testing.T) {
 	t.Parallel()
 

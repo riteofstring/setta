@@ -210,7 +210,70 @@ func validateCodexServerID(rawServerID string) (string, error) {
 	return serverID, nil
 }
 
+type codexMCPServerEntryFields struct {
+	serverID    string
+	entry       map[string]any
+	transport   string
+	command     string
+	url         string
+	httpHeaders map[string]string
+}
+
 func parseCodexMCPServerEntry(rawEntry any, serverID string) (map[string]any, error) {
+	fields, err := parseCodexMCPServerEntryFields(rawEntry, serverID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch fields.transport {
+	case "stdio":
+		return buildCodexStdioServerPayload(fields)
+	case "sse", "streamable_http":
+		return buildCodexHTTPServerPayload(fields)
+	default:
+		return nil, fmt.Errorf("server %q has unsupported transport %q", serverID, fields.transport)
+	}
+}
+
+func parseCodexMCPServerEntryFields(rawEntry any, serverID string) (codexMCPServerEntryFields, error) {
+	entry, err := codexMCPServerEntryMap(rawEntry, serverID)
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	transport, err := parseCodexOptionalStringField(entry, serverID, "transport")
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	command, err := parseCodexOptionalStringField(entry, serverID, "command")
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	url, err := parseCodexOptionalStringField(entry, serverID, "url")
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	if command != "" && url != "" {
+		return codexMCPServerEntryFields{}, fmt.Errorf("server %q cannot declare both command and url", serverID)
+	}
+	httpHeaders, err := parseCodexHTTPHeaders(entry, serverID)
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	resolvedTransport, err := resolveCodexMCPServerTransport(serverID, transport, command, url)
+	if err != nil {
+		return codexMCPServerEntryFields{}, err
+	}
+	return codexMCPServerEntryFields{
+		serverID:    serverID,
+		entry:       entry,
+		transport:   resolvedTransport,
+		command:     command,
+		url:         url,
+		httpHeaders: httpHeaders,
+	}, nil
+}
+
+func codexMCPServerEntryMap(rawEntry any, serverID string) (map[string]any, error) {
 	entry, ok := rawEntry.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("server %q entry must be an object", serverID)
@@ -220,106 +283,96 @@ func parseCodexMCPServerEntry(rawEntry any, serverID string) (map[string]any, er
 			return nil, fmt.Errorf("server %q has unsupported fields: %s", serverID, field)
 		}
 	}
+	return entry, nil
+}
 
-	transport, err := parseCodexOptionalStringField(entry, serverID, "transport")
-	if err != nil {
-		return nil, err
+func resolveCodexMCPServerTransport(serverID string, transport string, command string, url string) (string, error) {
+	resolvedTransport := strings.ToLower(transport)
+	if resolvedTransport != "" {
+		return resolvedTransport, nil
 	}
-	transport = strings.ToLower(transport)
-	command, err := parseCodexOptionalStringField(entry, serverID, "command")
-	if err != nil {
-		return nil, err
-	}
-	url, err := parseCodexOptionalStringField(entry, serverID, "url")
-	if err != nil {
-		return nil, err
-	}
-	if command != "" && url != "" {
-		return nil, fmt.Errorf("server %q cannot declare both command and url", serverID)
-	}
-	httpHeaders, err := parseCodexHTTPHeaders(entry, serverID)
-	if err != nil {
-		return nil, err
-	}
-
-	resolvedTransport := transport
-	if resolvedTransport == "" {
-		switch {
-		case command != "":
-			resolvedTransport = "stdio"
-		case url != "":
-			resolvedTransport = "streamable_http"
-		default:
-			return nil, fmt.Errorf("server %q must declare either command or url", serverID)
-		}
-	}
-
-	switch resolvedTransport {
-	case "stdio":
-		if url != "" {
-			return nil, fmt.Errorf("server %q stdio transport cannot declare url", serverID)
-		}
-		if command == "" {
-			return nil, fmt.Errorf("server %q stdio transport requires command", serverID)
-		}
-		if len(httpHeaders) > 0 {
-			return nil, fmt.Errorf("server %q stdio transport cannot define http_headers", serverID)
-		}
-		encoding, err := parseCodexEncoding(entry, serverID)
-		if err != nil {
-			return nil, err
-		}
-		encodingErrorHandler, err := parseCodexEncodingErrorHandler(entry, serverID)
-		if err != nil {
-			return nil, err
-		}
-		if encoding != "utf-8" || encodingErrorHandler != "strict" {
-			return nil, fmt.Errorf("server %q stdio transport only supports utf-8 strict encoding", serverID)
-		}
-		serverPayload := map[string]any{
-			"transport": "stdio",
-			"command":   command,
-		}
-		args, err := parseCodexArgs(entry, serverID)
-		if err != nil {
-			return nil, err
-		}
-		if len(args) > 0 {
-			serverPayload["args"] = args
-		}
-		env, err := parseCodexEnv(entry, serverID)
-		if err != nil {
-			return nil, err
-		}
-		if len(env) > 0 {
-			serverPayload["env"] = env
-		}
-		cwd, err := parseCodexOptionalStringField(entry, serverID, "cwd")
-		if err != nil {
-			return nil, err
-		}
-		if cwd != "" {
-			serverPayload["cwd"] = cwd
-		}
-		return serverPayload, nil
-	case "sse", "streamable_http":
-		if command != "" {
-			return nil, fmt.Errorf("server %q %s transport cannot declare command", serverID, resolvedTransport)
-		}
-		if url == "" {
-			return nil, fmt.Errorf("server %q %s transport requires url", serverID, resolvedTransport)
-		}
-		serverPayload := map[string]any{
-			"transport": resolvedTransport,
-			"url":       url,
-		}
-		if len(httpHeaders) > 0 {
-			serverPayload["http_headers"] = httpHeaders
-		}
-		return serverPayload, nil
+	switch {
+	case command != "":
+		return "stdio", nil
+	case url != "":
+		return "streamable_http", nil
 	default:
-		return nil, fmt.Errorf("server %q has unsupported transport %q", serverID, resolvedTransport)
+		return "", fmt.Errorf("server %q must declare either command or url", serverID)
 	}
+}
+
+func buildCodexStdioServerPayload(fields codexMCPServerEntryFields) (map[string]any, error) {
+	if fields.url != "" {
+		return nil, fmt.Errorf("server %q stdio transport cannot declare url", fields.serverID)
+	}
+	if fields.command == "" {
+		return nil, fmt.Errorf("server %q stdio transport requires command", fields.serverID)
+	}
+	if len(fields.httpHeaders) > 0 {
+		return nil, fmt.Errorf("server %q stdio transport cannot define http_headers", fields.serverID)
+	}
+	if err := validateCodexStdioEncoding(fields.entry, fields.serverID); err != nil {
+		return nil, err
+	}
+
+	serverPayload := map[string]any{
+		"transport": "stdio",
+		"command":   fields.command,
+	}
+	args, err := parseCodexArgs(fields.entry, fields.serverID)
+	if err != nil {
+		return nil, err
+	}
+	if len(args) > 0 {
+		serverPayload["args"] = args
+	}
+	env, err := parseCodexEnv(fields.entry, fields.serverID)
+	if err != nil {
+		return nil, err
+	}
+	if len(env) > 0 {
+		serverPayload["env"] = env
+	}
+	cwd, err := parseCodexOptionalStringField(fields.entry, fields.serverID, "cwd")
+	if err != nil {
+		return nil, err
+	}
+	if cwd != "" {
+		serverPayload["cwd"] = cwd
+	}
+	return serverPayload, nil
+}
+
+func validateCodexStdioEncoding(entry map[string]any, serverID string) error {
+	encoding, err := parseCodexEncoding(entry, serverID)
+	if err != nil {
+		return err
+	}
+	encodingErrorHandler, err := parseCodexEncodingErrorHandler(entry, serverID)
+	if err != nil {
+		return err
+	}
+	if encoding != "utf-8" || encodingErrorHandler != "strict" {
+		return fmt.Errorf("server %q stdio transport only supports utf-8 strict encoding", serverID)
+	}
+	return nil
+}
+
+func buildCodexHTTPServerPayload(fields codexMCPServerEntryFields) (map[string]any, error) {
+	if fields.command != "" {
+		return nil, fmt.Errorf("server %q %s transport cannot declare command", fields.serverID, fields.transport)
+	}
+	if fields.url == "" {
+		return nil, fmt.Errorf("server %q %s transport requires url", fields.serverID, fields.transport)
+	}
+	serverPayload := map[string]any{
+		"transport": fields.transport,
+		"url":       fields.url,
+	}
+	if len(fields.httpHeaders) > 0 {
+		serverPayload["http_headers"] = fields.httpHeaders
+	}
+	return serverPayload, nil
 }
 
 func NormalizeSettaCodexMCPServerEntry(entry map[string]any, settaServerURL string) map[string]any {
