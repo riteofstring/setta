@@ -57,10 +57,11 @@ func RegisterTranscriptionProfileRoutes(router chi.Router, deps TranscriptionPro
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Profiles == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && deps.Profiles == nil && !documentOnly {
 		return fmt.Errorf("transcription profile service is required in ide mode")
 	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 

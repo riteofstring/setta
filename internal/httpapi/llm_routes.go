@@ -33,7 +33,7 @@ func RegisterLLMRoutes(router chi.Router, deps LLMRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	if deps.ModePolicy.IsIDE() && !openAPIDocumentOnlyFromRouter(router) {
 		if deps.Service == nil {
 			return fmt.Errorf("llm config service is required in ide mode")
 		}

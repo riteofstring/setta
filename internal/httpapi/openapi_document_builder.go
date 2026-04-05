@@ -5,10 +5,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
-	"setta/internal/agenticsummarycache"
-	"setta/internal/agentprofiles"
-	"setta/internal/agentruns"
-	"setta/internal/appgenskills"
 	"setta/internal/artifacts"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
@@ -16,11 +12,9 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
-	"setta/internal/externalagentconfigs"
 	"setta/internal/filebrowser"
 	"setta/internal/gitread"
 	"setta/internal/launcher"
-	"setta/internal/llmconfig"
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/modes"
@@ -29,16 +23,12 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
-	"setta/internal/prompttemplates"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
-	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/settingsstate"
 	"setta/internal/shareartifacts"
-	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
-	"setta/internal/transcriptionprofiles"
 	"setta/internal/workspacelaunch"
 )
 
@@ -212,56 +202,34 @@ func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 			Deployment: deploymentRuntime,
 		},
 		AgentProfile: AgentProfileRouteDependencies{
-			ModePolicy:   ideMode,
-			Profiles:     &agentprofiles.Store{},
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		PromptTemplate: PromptTemplateRouteDependencies{
-			ModePolicy:   ideMode,
-			Templates:    &prompttemplates.Store{},
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		AppGenSkill: AppGenSkillRouteDependencies{
 			ModePolicy: ideMode,
-			Service:    &appgenskills.Service{},
 		},
 		ExternalAgentConfig: ExternalAgentConfigRouteDependencies{
-			ModePolicy:   ideMode,
-			Configs:      &externalagentconfigs.Service{},
-			Preflight:    (*externalagentconfigs.SystemChecker)(nil),
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		EngineConfig: EngineConfigRouteDependencies{
-			ModePolicy:   ideMode,
-			Engines:      &agentruns.EngineStore{},
-			LLM:          &llmconfig.Runtime{},
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		TranscriptionProfile: TranscriptionProfileRouteDependencies{
-			ModePolicy:   ideMode,
-			Profiles:     &transcriptionprofiles.Service{},
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		LLM: LLMRouteDependencies{
-			ModePolicy:   ideMode,
-			Service:      &llmconfig.Service{},
-			WebsocketHub: websocketHub,
+			ModePolicy: ideMode,
 		},
 		AgenticSummaryCache: AgenticSummaryCacheRouteDependencies{
-			ModePolicy:   ideMode,
-			ProjectState: projectStateRuntime,
-			Statuses:     &agenticsummarycache.Service{},
+			ModePolicy: ideMode,
 		},
 		AgentRun: AgentRunRouteDependencies{
 			ModePolicy: ideMode,
-			Profiles:   &agentprofiles.Store{},
-			Runs:       &agentruns.RunStore{},
-			Managed:    &agentruns.Runtime{},
-			Chains:     &runchains.Runtime{},
 		},
 		StateMachine: StateMachineRunRouteDependencies{
 			ModePolicy: ideMode,
-			Runtime:    &statemachineruns.Runtime{},
 		},
 		MCP: MCPRouteDependencies{
 			ModePolicy:    ideMode,

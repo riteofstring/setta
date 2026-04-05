@@ -87,17 +87,20 @@ func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConf
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Configs == nil {
-		return fmt.Errorf("external agent config service is required in ide mode")
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.ModePolicy.IsIDE() && !documentOnly {
+		if deps.Configs == nil {
+			return fmt.Errorf("external agent config service is required in ide mode")
+		}
+		if deps.Preflight == nil {
+			return fmt.Errorf("external agent preflight checker is required in ide mode")
+		}
+		if deps.WebsocketHub == nil {
+			return fmt.Errorf("websocket hub is required in ide mode")
+		}
 	}
-	if deps.ModePolicy.IsIDE() && deps.Preflight == nil {
-		return fmt.Errorf("external agent preflight checker is required in ide mode")
-	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
-	}
-	if deps.ModePolicy.IsIDE() && deps.WebsocketHub == nil {
-		return fmt.Errorf("websocket hub is required in ide mode")
 	}
 
 	registerOpenAPIGet[ExternalAgentConfigList](

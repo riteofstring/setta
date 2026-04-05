@@ -74,10 +74,11 @@ func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDepende
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Profiles == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Profiles == nil && !documentOnly {
 		return fmt.Errorf("agent profile store is required")
 	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 

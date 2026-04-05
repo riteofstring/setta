@@ -56,13 +56,14 @@ func RegisterStateMachineRunRoutes(router chi.Router, deps StateMachineRunRouteD
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
 	if deps.ModePolicy.IsLauncher() {
 		return nil
 	}
-	if deps.ModePolicy.IsDeployment() && deps.ShareSessions == nil {
+	if deps.ModePolicy.IsDeployment() && deps.ShareSessions == nil && !documentOnly {
 		return fmt.Errorf("share session store is required in deployment mode")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Runtime == nil {
+	if deps.ModePolicy.IsIDE() && deps.Runtime == nil && !documentOnly {
 		return fmt.Errorf("state machine runtime is required in ide mode")
 	}
 

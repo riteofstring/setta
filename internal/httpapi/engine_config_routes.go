@@ -70,11 +70,13 @@ func RegisterEngineConfigRoutes(router chi.Router, deps EngineConfigRouteDepende
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Engines == nil {
-		return fmt.Errorf("engine config store is required in ide mode")
-	}
-	if deps.ModePolicy.IsIDE() && deps.WebsocketHub == nil {
-		return fmt.Errorf("websocket hub is required in ide mode")
+	if deps.ModePolicy.IsIDE() && !openAPIDocumentOnlyFromRouter(router) {
+		if deps.Engines == nil {
+			return fmt.Errorf("engine config store is required in ide mode")
+		}
+		if deps.WebsocketHub == nil {
+			return fmt.Errorf("websocket hub is required in ide mode")
+		}
 	}
 
 	protected := router.With(RequireIDEMode(deps.ModePolicy))

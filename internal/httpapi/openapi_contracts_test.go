@@ -863,6 +863,272 @@ func TestRuntimeOpenAPIRouterStillRequiresLauncherManagementDependencies(t *test
 	}
 }
 
+func TestDocumentOnlyOpenAPIRouterRegistersSelectedRoutesWithoutRuntimeDependencies(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name            string
+		register        func(chi.Router) error
+		routePath       string
+		operation       func(*huma.PathItem) *huma.Operation
+		wantOperationID string
+	}{
+		{
+			name: "agent profile",
+			register: func(router chi.Router) error {
+				return RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetAgentProfiles,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getAgentProfiles",
+		},
+		{
+			name: "prompt template",
+			register: func(router chi.Router) error {
+				return RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetPromptTemplates,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getPromptTemplates",
+		},
+		{
+			name: "app gen skill",
+			register: func(router chi.Router) error {
+				return RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetAppGenSkills,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getAppGenSkills",
+		},
+		{
+			name: "external agent config",
+			register: func(router chi.Router) error {
+				return RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetExternalAgentHealth,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getExternalAgentHealth",
+		},
+		{
+			name: "engine config",
+			register: func(router chi.Router) error {
+				return RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetEngineConfigs,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getEngineConfigs",
+		},
+		{
+			name: "transcription profile",
+			register: func(router chi.Router) error {
+				return RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteCreateTranscriptionProfile,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Post },
+			wantOperationID: "createTranscriptionProfile",
+		},
+		{
+			name: "llm",
+			register: func(router chi.Router) error {
+				return RegisterLLMRoutes(router, LLMRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteLLMConfig,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getLlmConfig",
+		},
+		{
+			name: "agentic summary cache",
+			register: func(router chi.Router) error {
+				return RegisterAgenticSummaryCacheRoutes(router, AgenticSummaryCacheRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetAgenticSummaryCacheStatus,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Post },
+			wantOperationID: "getAgenticSummaryCacheStatus",
+		},
+		{
+			name: "agent run",
+			register: func(router chi.Router) error {
+				return RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteGetAgentRuns,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Get },
+			wantOperationID: "getAgentRuns",
+		},
+		{
+			name: "state machine",
+			register: func(router chi.Router) error {
+				return RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			routePath:       RouteStartStateMachineRun,
+			operation:       func(item *huma.PathItem) *huma.Operation { return item.Post },
+			wantOperationID: "startStateMachineRun",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			document := newOpenAPIDocument()
+			router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
+			if err := tc.register(router); err != nil {
+				t.Fatalf("register %s routes with document-only openapi router: %v", tc.name, err)
+			}
+
+			pathItem := document.Paths[tc.routePath]
+			if pathItem == nil {
+				t.Fatalf("expected documented path %s", tc.routePath)
+			}
+			operation := tc.operation(pathItem)
+			if operation == nil {
+				t.Fatalf("expected documented operation for %s", tc.routePath)
+			}
+			if operation.OperationID != tc.wantOperationID {
+				t.Fatalf("%s operation id = %q, want %q", tc.routePath, operation.OperationID, tc.wantOperationID)
+			}
+		})
+	}
+}
+
+func TestRuntimeOpenAPIRouterStillRequiresSelectedRouteDependencies(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		register  func(chi.Router) error
+		wantError string
+	}{
+		{
+			name: "agent profile",
+			register: func(router chi.Router) error {
+				return RegisterAgentProfileRoutes(router, AgentProfileRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "agent profile store is required",
+		},
+		{
+			name: "prompt template",
+			register: func(router chi.Router) error {
+				return RegisterPromptTemplateRoutes(router, PromptTemplateRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "prompt template store is required",
+		},
+		{
+			name: "app gen skill",
+			register: func(router chi.Router) error {
+				return RegisterAppGenSkillRoutes(router, AppGenSkillRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "app gen skill service is required in ide mode",
+		},
+		{
+			name: "external agent config",
+			register: func(router chi.Router) error {
+				return RegisterExternalAgentConfigRoutes(router, ExternalAgentConfigRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "external agent config service is required in ide mode",
+		},
+		{
+			name: "engine config",
+			register: func(router chi.Router) error {
+				return RegisterEngineConfigRoutes(router, EngineConfigRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "engine config store is required in ide mode",
+		},
+		{
+			name: "transcription profile",
+			register: func(router chi.Router) error {
+				return RegisterTranscriptionProfileRoutes(router, TranscriptionProfileRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "transcription profile service is required in ide mode",
+		},
+		{
+			name: "llm",
+			register: func(router chi.Router) error {
+				return RegisterLLMRoutes(router, LLMRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "llm config service is required in ide mode",
+		},
+		{
+			name: "agentic summary cache",
+			register: func(router chi.Router) error {
+				return RegisterAgenticSummaryCacheRoutes(router, AgenticSummaryCacheRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "project state runtime is required in ide mode",
+		},
+		{
+			name: "agent run",
+			register: func(router chi.Router) error {
+				return RegisterAgentRunRoutes(router, AgentRunRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "agent profile store is required in ide mode",
+		},
+		{
+			name: "state machine",
+			register: func(router chi.Router) error {
+				return RegisterStateMachineRunRoutes(router, StateMachineRunRouteDependencies{
+					ModePolicy: modes.NewPolicy(config.ModeIDE),
+				})
+			},
+			wantError: "state machine runtime is required in ide mode",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			document := newOpenAPIDocument()
+			router := wrapRouterWithOpenAPI(chi.NewRouter(), document)
+			err := tc.register(router)
+			if err == nil {
+				t.Fatalf("expected %s dependency validation error", tc.name)
+			}
+			if got := err.Error(); got != tc.wantError {
+				t.Fatalf("%s error = %q, want %q", tc.name, got, tc.wantError)
+			}
+		})
+	}
+}
+
 func assertOpenAPIOperationID(
 	t *testing.T,
 	paths map[string]any,

@@ -77,10 +77,11 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.Templates == nil {
+	documentOnly := openAPIDocumentOnlyFromRouter(router)
+	if deps.Templates == nil && !documentOnly {
 		return fmt.Errorf("prompt template store is required")
 	}
-	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil {
+	if deps.ModePolicy.IsDeployment() && deps.Deployment == nil && !documentOnly {
 		return fmt.Errorf("deployment runtime is required in deployment mode")
 	}
 

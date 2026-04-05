@@ -56,7 +56,7 @@ func RegisterAgentRunRoutes(router chi.Router, deps AgentRunRouteDependencies) e
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() {
+	if deps.ModePolicy.IsIDE() && !openAPIDocumentOnlyFromRouter(router) {
 		if deps.Profiles == nil {
 			return fmt.Errorf("agent profile store is required in ide mode")
 		}

@@ -33,7 +33,7 @@ func RegisterAppGenSkillRoutes(router chi.Router, deps AppGenSkillRouteDependenc
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.Service == nil {
+	if deps.ModePolicy.IsIDE() && deps.Service == nil && !openAPIDocumentOnlyFromRouter(router) {
 		return fmt.Errorf("app gen skill service is required in ide mode")
 	}
 

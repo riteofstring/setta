@@ -29,11 +29,13 @@ func RegisterAgenticSummaryCacheRoutes(router chi.Router, deps AgenticSummaryCac
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
-	if deps.ModePolicy.IsIDE() && deps.ProjectState == nil {
-		return fmt.Errorf("project state runtime is required in ide mode")
-	}
-	if deps.ModePolicy.IsIDE() && deps.Statuses == nil {
-		return fmt.Errorf("agentic summary cache service is required in ide mode")
+	if deps.ModePolicy.IsIDE() && !openAPIDocumentOnlyFromRouter(router) {
+		if deps.ProjectState == nil {
+			return fmt.Errorf("project state runtime is required in ide mode")
+		}
+		if deps.Statuses == nil {
+			return fmt.Errorf("agentic summary cache service is required in ide mode")
+		}
 	}
 
 	registerOpenAPIPost[GetAgenticSummaryCacheStatusRequest, agenticsummarycache.AgenticSummaryCacheStatus](
