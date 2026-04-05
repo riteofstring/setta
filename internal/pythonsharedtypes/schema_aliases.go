@@ -147,10 +147,10 @@ func repoRootFromCaller() (string, error) {
 
 func pythonSharedSchemaDeclarations(
 	defaultSourcesByType map[reflect.Type]reflect.Value,
-) ([]string, []string, map[string]struct{}, error) {
+) ([]string, []string, error) {
 	module, err := pythonSharedSchemaModule()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	selectedNames := map[string]struct{}{}
@@ -166,7 +166,6 @@ func pythonSharedSchemaDeclarations(
 		imports[line] = struct{}{}
 	}
 	blocks := make([]string, 0, len(module.Declarations))
-	includedNames := make(map[string]struct{}, len(module.Declarations))
 	for _, declaration := range module.Declarations {
 		updated, declarationImports, err := applyPythonFieldMetadataToDatamodelDeclaration(
 			declaration,
@@ -174,13 +173,12 @@ func pythonSharedSchemaDeclarations(
 			selectedNames,
 		)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		mergeImportSet(imports, declarationImports)
 		blocks = append(blocks, updated.Block)
-		includedNames[updated.Name] = struct{}{}
 	}
-	return blocks, sortedImportNames(imports), includedNames, nil
+	return blocks, sortedImportNames(imports), nil
 }
 
 func applyPythonFieldMetadataToDatamodelDeclaration(

@@ -36,7 +36,7 @@ func Build() (GeneratedTypes, error) {
 		return GeneratedTypes{}, err
 	}
 
-	standardBlocks, standardImports, _, err := pythonSharedSchemaDeclarations(
+	standardBlocks, standardImports, err := pythonSharedSchemaDeclarations(
 		defaultSources,
 	)
 	if err != nil {
@@ -203,12 +203,6 @@ func buildModelFieldSpec(
 	if field.Type.Kind() == reflect.Pointer && !strings.Contains(typeExpr, " | None") {
 		typeExpr += " | None"
 	}
-	if fieldAllowsMissing(field) && defaultExpr == "" {
-		if !strings.Contains(typeExpr, " | None") {
-			typeExpr += " | None"
-		}
-		defaultExpr = "None"
-	}
 
 	return fieldSpec{
 		Name:        jsonName,
@@ -259,9 +253,6 @@ func filteredPythonImportLine(
 	module, imported, ok := strings.Cut(moduleAndNames, " import ")
 	if !ok {
 		return trimmed
-	}
-	if strings.TrimSpace(module) == "setta.types.generated.go_shared_types" {
-		return ""
 	}
 
 	kept := make([]string, 0)
@@ -345,20 +336,6 @@ func fieldJSONName(field reflect.StructField) (string, error) {
 		return "", fmt.Errorf("missing json field name")
 	}
 	return name, nil
-}
-
-func fieldAllowsMissing(field reflect.StructField) bool {
-	tag := strings.TrimSpace(field.Tag.Get("json"))
-	if tag == "" {
-		return false
-	}
-	parts := strings.Split(tag, ",")
-	for _, part := range parts[1:] {
-		if strings.TrimSpace(part) == "omitempty" {
-			return true
-		}
-	}
-	return false
 }
 
 func pythonPatchedFieldTypeExpr(

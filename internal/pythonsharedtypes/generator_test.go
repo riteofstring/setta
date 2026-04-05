@@ -13,42 +13,6 @@ import (
 	"setta/internal/sharedtypes"
 )
 
-func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
-	t.Helper()
-
-	type omitEmptyExample struct {
-		Name     string `json:"name"`
-		MimeType string `json:"mimeType,omitempty"`
-	}
-
-	ownerType := reflect.TypeOf(omitEmptyExample{})
-	field, ok := ownerType.FieldByName("MimeType")
-	if !ok {
-		t.Fatalf("expected MimeType field")
-	}
-	resolvedField, _, err := buildModelFieldSpec(
-		"omitEmptyExample",
-		ownerType,
-		field,
-		"str",
-		map[string]struct{}{"omitEmptyExample": {}},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
-	}
-
-	if resolvedField.Name != "mimeType" {
-		t.Fatalf("field.Name = %q, want %q", resolvedField.Name, "mimeType")
-	}
-	if resolvedField.TypeExpr != "str | None" {
-		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "str | None")
-	}
-	if resolvedField.DefaultExpr != "None" {
-		t.Fatalf("field.DefaultExpr = %q, want %q", resolvedField.DefaultExpr, "None")
-	}
-}
-
 func TestBuildModelFieldSpecUsesCurrentDatamodelTypeExpr(t *testing.T) {
 	t.Helper()
 
