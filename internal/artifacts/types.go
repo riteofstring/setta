@@ -94,6 +94,10 @@ type ImageArtifact struct {
 
 type ChartDataValue map[string][]any
 
+func (ChartDataValue) FrontendBindingTypeScriptExpr() string {
+	return "Record<string, Array<string | number>>"
+}
+
 type ChartDataArtifact struct {
 	Type  ArtifactType   `json:"type" ts_type:"typeof ArtifactTypeEnum.ChartData"`
 	ID    string         `json:"id" ts_create_expr:"createCsvArtifactId()"`

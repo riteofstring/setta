@@ -18,8 +18,8 @@ func (SectionSizeValue) FrontendBindingTypeScriptExpr() string {
 }
 
 type SectionSize struct {
-	Width  SectionSizeValue
-	Height SectionSizeValue
+	Width  SectionSizeValue `json:"width" ts_create_expr:"SectionSizeModeEnum.auto"`
+	Height SectionSizeValue `json:"height" ts_create_expr:"SectionSizeModeEnum.auto"`
 }
 
 func (v SectionSizeValue) MarshalJSON() ([]byte, error) {

@@ -602,6 +602,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.TaskBoardViewMode("")),
 		reflect.TypeOf(projectstate.TaskBoardColumn{}),
 		reflect.TypeOf(projectstate.TaskBoardTask{}),
+		reflect.TypeOf(projectstate.SectionSize{}),
 		reflect.TypeOf(projectstate.GroupSectionsInput{}),
 		reflect.TypeOf(projectstate.UngroupGroupsInput{}),
 		reflect.TypeOf(projectstate.ToggleParamSelectedInput{}),

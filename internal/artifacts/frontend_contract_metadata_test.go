@@ -22,6 +22,12 @@ func TestFrontendDefaultsMaterializeGeneratorValues(t *testing.T) {
 	}
 }
 
+func TestFrontendBindingTypeScriptExprLivesOnOwnerTypes(t *testing.T) {
+	if got := (ChartDataValue{}).FrontendBindingTypeScriptExpr(); got != "Record<string, Array<string | number>>" {
+		t.Fatalf("unexpected chart data TS expression: %q", got)
+	}
+}
+
 func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 	type tagExpectation struct {
 		typ      reflect.Type

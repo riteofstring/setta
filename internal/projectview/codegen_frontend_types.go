@@ -46,8 +46,8 @@ type SectionCodegenPolicy struct {
 	Allowlist            []string                            `json:"allowlist" ts_type:"Array<SectionType> | null" ts_optional:"true"`
 	MetaControlAllowlist []string                            `json:"metaControlAllowlist" ts_type:"Array<CodeObjType> | null" ts_optional:"true"`
 	Exclude              []string                            `json:"exclude"`
-	TypePolicies         map[string]SectionTypeCodegenPolicy `json:"typePolicies" ts_type:"Record<SectionType, SectionTypeCodegenPolicy>"`
-	SectionOverrides     map[string]SectionCodegenOverride   `json:"sectionOverrides" ts_type:"Record<string, SectionCodegenOverride>"`
+	TypePolicies         map[string]SectionTypeCodegenPolicy `json:"typePolicies" ts_type:"Record<SectionType, SectionTypeCodegenPolicy>" ts_create_map_values:"true"`
+	SectionOverrides     map[string]SectionCodegenOverride   `json:"sectionOverrides" ts_type:"Record<string, SectionCodegenOverride>" ts_create_map_values:"true"`
 }
 
 type CodeObjTypeValuePolicy struct {
@@ -59,8 +59,8 @@ type CodeObjValueOverride struct {
 }
 
 type CodeObjValuePolicy struct {
-	TypePolicies     map[string]CodeObjTypeValuePolicy `json:"typePolicies" ts_type:"Record<CodeObjType, CodeObjTypeValuePolicy>"`
-	CodeObjOverrides map[string]CodeObjValueOverride   `json:"codeObjOverrides" ts_type:"Record<string, CodeObjValueOverride>"`
+	TypePolicies     map[string]CodeObjTypeValuePolicy `json:"typePolicies" ts_type:"Record<CodeObjType, CodeObjTypeValuePolicy>" ts_create_map_values:"true"`
+	CodeObjOverrides map[string]CodeObjValueOverride   `json:"codeObjOverrides" ts_type:"Record<string, CodeObjValueOverride>" ts_create_map_values:"true"`
 }
 
 type ProjectCodegenPythonTarget struct {

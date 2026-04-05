@@ -14,6 +14,21 @@ type typeConverter struct {
 	seen         map[reflect.Type]struct{}
 }
 
+type reflectedObjectDeclarationSpec struct {
+	DeclarationName           string
+	DefaultValue              any
+	HasCreateExpr             bool
+	UseGenericCreateBody      bool
+	CreateBody                string
+	CreateExprOverrides       map[string]string
+	PropertyTypeExprOverrides map[string]string
+	PropertyOptionalOverrides map[string]bool
+	IgnoredProperties         map[string]struct{}
+	ExtraProperties           []TypeProperty
+}
+
+var discoveredFrontendDefaultValueProviderRegistry = discoveredFrontendDefaultValueProviders()
+
 func newFrontendSDKMirrorOwnerTypesByName() map[string]reflect.Type {
 	owners := map[string]reflect.Type{}
 	for _, t := range DiscoveredConvertibleTypes() {
@@ -275,13 +290,21 @@ func frontendBindingTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
-	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok && spec.DeclarationName != "" {
-		return spec.DeclarationName
-	}
 	if name, ok := frontendBindingPublicTypeNames()[t]; ok && strings.TrimSpace(name) != "" {
 		return name
 	}
 	return normalizedFrontendBindingTypeName(t.Name())
+}
+
+func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectDeclarationSpec, bool) {
+	provider, ok := discoveredFrontendDefaultValueProviderRegistry[t]
+	if !ok || provider == nil {
+		return reflectedObjectDeclarationSpec{}, false
+	}
+	return reflectedObjectDeclarationSpec{
+		DefaultValue:  provider(),
+		HasCreateExpr: true,
+	}, true
 }
 
 func (c *typeConverter) reflectedObjectDeclaration(
@@ -356,20 +379,24 @@ func reflectedStructNeedsGenericCreateBody(
 	structType reflect.Type,
 	properties []TypeProperty,
 ) (bool, error) {
-	fieldTypes, err := reflectedFieldTypesByJSONName(structType)
+	fieldSpecs, err := reflectedFieldCreateSpecsByJSONName(structType)
 	if err != nil {
 		return false, err
 	}
 	needsGenericCreateBody := false
 	for _, property := range properties {
-		fieldType, ok := fieldTypes[property.Name]
+		fieldSpec, ok := fieldSpecs[property.Name]
 		if !ok {
 			continue
 		}
-		if reflectedMapFieldNeedsGeneratedCreate(fieldType) {
+		if fieldSpec.CreateMapValues {
+			needsGenericCreateBody = true
+			continue
+		}
+		if reflectedMapFieldNeedsGeneratedCreate(fieldSpec.Type) {
 			return false, nil
 		}
-		if reflectedNamedStructFieldNeedsGeneratedCreate(fieldType) {
+		if reflectedNamedStructFieldNeedsGeneratedCreate(fieldSpec.Type) {
 			needsGenericCreateBody = true
 		}
 	}
@@ -554,6 +581,7 @@ type tsFieldMetadataSpec struct {
 	TypeExpr        string
 	Optional        *bool
 	CreateExpr      string
+	CreateMapValues bool
 	ParseFallback   string
 	UserDefaultSkip bool
 	Skip            bool
@@ -576,6 +604,14 @@ func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_create_expr")); tag != "" {
 		spec.CreateExpr = tag
+	}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_create_map_values")); tag != "" {
+		createMapValues, err := strconv.ParseBool(tag)
+		if err != nil {
+			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_create_map_values value %q", tag)
+		}
+		spec.CreateMapValues = createMapValues
 	}
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_parse_fallback")); tag != "" {

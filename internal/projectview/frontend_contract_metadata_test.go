@@ -44,9 +44,13 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "MetaControlAllowlist", tagName: "ts_type", tagValue: "Array<CodeObjType> | null"},
 		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "MetaControlAllowlist", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "TypePolicies", tagName: "ts_type", tagValue: "Record<SectionType, SectionTypeCodegenPolicy>"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "TypePolicies", tagName: "ts_create_map_values", tagValue: "true"},
 		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "SectionOverrides", tagName: "ts_type", tagValue: "Record<string, SectionCodegenOverride>"},
+		{typ: reflect.TypeOf(SectionCodegenPolicy{}), field: "SectionOverrides", tagName: "ts_create_map_values", tagValue: "true"},
 		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "TypePolicies", tagName: "ts_type", tagValue: "Record<CodeObjType, CodeObjTypeValuePolicy>"},
+		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "TypePolicies", tagName: "ts_create_map_values", tagValue: "true"},
 		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "CodeObjOverrides", tagName: "ts_type", tagValue: "Record<string, CodeObjValueOverride>"},
+		{typ: reflect.TypeOf(CodeObjValuePolicy{}), field: "CodeObjOverrides", tagName: "ts_create_map_values", tagValue: "true"},
 		{typ: reflect.TypeOf(ProjectCodegenPythonTarget{}), field: "Language", tagName: "ts_type", tagValue: "typeof ProjectCodegenLanguageEnum.python"},
 	}
 

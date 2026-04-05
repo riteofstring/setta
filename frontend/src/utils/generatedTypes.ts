@@ -4353,8 +4353,8 @@ export function createSectionSize(
   options: Partial<SectionSize> = {},
 ): SectionSize {
   const defaults: SectionSize = {
-    height: "auto",
     width: "auto",
+    height: "auto",
   };
   return {
     ...mergeGeneratedOptions<SectionSize>(defaults, options),

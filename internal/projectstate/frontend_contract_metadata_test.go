@@ -91,6 +91,10 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(LineChartSettings{}), field: "Type", tagName: "ts_type", tagValue: "typeof ChartTypeEnum.line"},
 		{typ: reflect.TypeOf(ScatterChartSettings{}), field: "Type", tagName: "ts_type", tagValue: "typeof ChartTypeEnum.scatter"},
 		{typ: reflect.TypeOf(BrowserSavedSearch{}), field: "TypeFilters", tagName: "ts_type", tagValue: "BrowserSavedSearchTypeFilters"},
+		{typ: reflect.TypeOf(SectionSize{}), field: "Width", tagName: "json", tagValue: "width"},
+		{typ: reflect.TypeOf(SectionSize{}), field: "Width", tagName: "ts_create_expr", tagValue: "SectionSizeModeEnum.auto"},
+		{typ: reflect.TypeOf(SectionSize{}), field: "Height", tagName: "json", tagValue: "height"},
+		{typ: reflect.TypeOf(SectionSize{}), field: "Height", tagName: "ts_create_expr", tagValue: "SectionSizeModeEnum.auto"},
 	}
 
 	for _, expectation := range expectations {

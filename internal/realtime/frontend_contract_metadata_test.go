@@ -21,6 +21,7 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 		{typ: reflect.TypeOf(UISettingRevealResultStatus{}), field: "ErrorMessage", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(UpdateArtifactsContent{}), field: "Artifacts", tagName: "ts_type", tagValue: "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>"},
 		{typ: reflect.TypeOf(UpdateArtifactsContent{}), field: "UpdateType", tagName: "ts_type", tagValue: "\"update\" | \"delete\""},
+		{typ: reflect.TypeOf(ListenerCoverageSnapshot{}), field: "Dependencies", tagName: "ts_type", tagValue: "Array<BaseDependencyKeyUnion>"},
 	}
 
 	for _, expectation := range expectations {

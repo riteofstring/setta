@@ -494,9 +494,6 @@ func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
-	if declaration, ok, err := artifactTypeDeclaration(t); ok || err != nil {
-		return declaration, ok, err
-	}
 	if declaration, ok, err := ownerProvidedTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}

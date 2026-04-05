@@ -173,6 +173,9 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.SectionCodegenPolicy{}): func() any {
 			return projectview.FrontendDefaultSectionCodegenPolicy()
 		},
+		reflect.TypeOf(projectstate.SectionSize{}): func() any {
+			return projectstate.FrontendDefaultSectionSize()
+		},
 		reflect.TypeOf(projectview.SectionTypeCodegenPolicy{}): func() any {
 			return projectview.FrontendDefaultSectionTypeCodegenPolicy()
 		},
