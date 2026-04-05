@@ -19,8 +19,6 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
-  type DragEventHandler,
-  type ReactNode,
   Suspense,
   lazy,
   useCallback,
@@ -28,6 +26,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type DragEventHandler,
+  type ReactNode,
 } from "react";
 import { BiSolidSelectMultiple } from "react-icons/bi";
 import {
@@ -64,10 +64,14 @@ import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
-import { resolvePathWithinRoot } from "utils/browserPaths";
+import { isAbsoluteBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   filterFileBrowserFolderItems,
@@ -93,7 +97,11 @@ import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   BrowserSavedSearch,
+  FileBrowserDownloadURLEntry,
   FolderContentItem,
+  GetFileBrowserDownloadURLsResponse,
+  ListFolderResponse,
+  RootResponse,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -143,10 +151,11 @@ type OpenableBrowserItem = {
   type: string;
 };
 
-type FileUrlEntry = {
-  url: string;
-  expiresAt: number;
-};
+type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
+type GetFileBrowserDownloadURLsRouteResponse =
+  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
+type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
+type GetFileBrowserRootRouteResponse = ResponseDataAndStatus<RootResponse>;
 
 type FileTextPreview = {
   text: string;
@@ -903,6 +912,7 @@ function ViewSwitch({
         >
           <FileBrowserPane
             useFileBrowserStateHook={useBrowserSectionFileBrowserState}
+            allowOutsideWorkspaceRoot
             showFilter={false}
             showPathNavigation={false}
             onFolderOpen={(node) => onOpenFolder(node.fullPath)}
@@ -1277,31 +1287,14 @@ function ItemsColumn({
     return normalizeFolderPrefix(rootInfo.rootPath);
   }, [rootInfo?.rootPath]);
   const normalizedEffectiveFolderForPrefix = useMemo(() => {
-    if (!rootInfo?.rootPath) {
-      return normalizeFolderPrefix(effectiveFolder);
-    }
-    const resolved = resolvePathWithinRoot(effectiveFolder, rootInfo.rootPath);
-    if (!resolved) {
-      return normalizeFolderPrefix(effectiveFolder);
-    }
-    return normalizeFolderPrefix(resolved);
-  }, [effectiveFolder, rootInfo?.rootPath]);
+    return normalizeFolderPrefix(effectiveFolder);
+  }, [effectiveFolder]);
   const getItemSubLabel = useCallback(
     (item: FolderContentItem): string | null => {
       if (!shouldShowFolderPaths) {
         return null;
       }
-      if (!rootInfo?.rootPath) {
-        return null;
-      }
-      const resolvedItemPath = resolvePathWithinRoot(
-        item.fullPath,
-        rootInfo.rootPath,
-      );
-      if (!resolvedItemPath) {
-        return null;
-      }
-      const folderPath = getFileBrowserFolderPathLabel(resolvedItemPath);
+      const folderPath = getFileBrowserFolderPathLabel(item.fullPath);
       if (!folderPath) {
         return null;
       }
@@ -1341,17 +1334,7 @@ function ItemsColumn({
       if (!showSearchPathTooltips) {
         return null;
       }
-      if (!rootInfo?.rootPath) {
-        return item.fullPath;
-      }
-      const resolvedItemPath = resolvePathWithinRoot(
-        item.fullPath,
-        rootInfo.rootPath,
-      );
-      if (!resolvedItemPath) {
-        return item.fullPath;
-      }
-      const normalizedItemPath = normalizeFolderPrefix(resolvedItemPath);
+      const normalizedItemPath = normalizeFolderPrefix(item.fullPath);
       if (
         normalizedEffectiveFolderForPrefix &&
         normalizedItemPath.startsWith(`${normalizedEffectiveFolderForPrefix}/`)
@@ -1520,9 +1503,10 @@ function ItemsColumn({
       const aggregated: Record<string, FileUrlEntry> = {};
       const chunks = _.chunk(pending, FILE_URL_REQUEST_CHUNK_SIZE);
       for (const chunk of chunks) {
-        const res = await route_get_file_browser_download_urls({
-          paths: chunk,
-        });
+        const res: GetFileBrowserDownloadURLsRouteResponse =
+          await route_get_file_browser_download_urls({
+            paths: chunk,
+          });
         for (const path of chunk) {
           fileUrlRequests.current.delete(path);
         }
@@ -1657,38 +1641,40 @@ function ItemsColumn({
   );
 
   const loadFolderContents = useCallback(
-    async (folderPath: string) => {
+    async (folderPath: string): Promise<ListFolderResponse | null> => {
       const trimmed = folderPath.trim();
       if (!trimmed) {
         setItems([]);
-        return;
+        return null;
       }
       if (!rootInfo?.rootPath) {
         setItems([]);
-        return;
-      }
-      const safeFolder = resolvePathWithinRoot(trimmed, rootInfo.rootPath);
-      if (!safeFolder) {
-        setItems([]);
-        return;
+        return null;
       }
       const requestId = folderRequestIdRef.current + 1;
       folderRequestIdRef.current = requestId;
-      const res = await route_get_folder_contents({
-        folderPath: safeFolder,
-        ignorePatterns: rootInfo?.ignorePatterns ?? null,
-        includeSize: true,
-        missingFolderBehavior: "empty",
-      });
+      const res: GetFolderContentsRouteResponse =
+        await route_get_folder_contents({
+          folderPath: trimmed,
+          baseFolderPath: rootInfo.rootPath,
+          ignorePatterns: rootInfo?.ignorePatterns ?? null,
+          includeSize: true,
+          missingFolderBehavior: "empty",
+        });
       if (folderRequestIdRef.current !== requestId) {
-        return;
+        return null;
       }
       if (res200(res)) {
-        setItems(res.data);
-        folderContentsCacheRef.current.set(safeFolder, res.data);
+        setItems(res.data.items);
+        folderContentsCacheRef.current.set(res.data.folderPath, res.data.items);
+        if (res.data.folderPath !== trimmed) {
+          setLocalFolder(res.data.folderPath);
+        }
+        return res.data;
       } else {
         setItems([]);
-        folderContentsCacheRef.current.delete(safeFolder);
+        folderContentsCacheRef.current.delete(trimmed);
+        return null;
       }
     },
     [rootInfo?.ignorePatterns, rootInfo?.rootPath],
@@ -1721,15 +1707,20 @@ function ItemsColumn({
         return;
       }
       setLocalFolder(trimmed);
-      const safeFolder = rootInfo?.rootPath
-        ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
-        : null;
-      if (safeFolder || !rootInfo?.rootPath) {
+      if (!rootInfo?.rootPath) {
         useBrowserSectionFileBrowserState.setState({
-          rootPath: safeFolder ?? trimmed,
+          rootPath: trimmed,
         });
+        await loadFolderContents(trimmed);
+        return;
       }
-      await loadFolderContents(trimmed);
+      const response = await loadFolderContents(trimmed);
+      if (!response) {
+        return;
+      }
+      useBrowserSectionFileBrowserState.setState({
+        rootPath: response.folderPath,
+      });
     },
     [loadFolderContents, rootInfo?.rootPath],
   );
@@ -1947,7 +1938,8 @@ function ItemsColumn({
     const requestId = rootRequestIdRef.current + 1;
     rootRequestIdRef.current = requestId;
     const loadRoot = async () => {
-      const res = await route_get_file_browser_root();
+      const res: GetFileBrowserRootRouteResponse =
+        await route_get_file_browser_root();
       if (!res200(res)) {
         return;
       }
@@ -2010,8 +2002,7 @@ function ItemsColumn({
       recursiveFilterRequestIdRef.current += 1;
       return;
     }
-    const safeFolder = resolvePathWithinRoot(trimmed, rootInfo.rootPath);
-    if (!safeFolder) {
+    if (!isAbsoluteBrowserPath(trimmed)) {
       setRecursiveFilterResults([]);
       recursiveFilterRequestIdRef.current += 1;
       return;
@@ -2025,7 +2016,7 @@ function ItemsColumn({
     const results: FolderContentItem[] = [...initial];
     setRecursiveFilterResults(results);
 
-    const queue: string[] = [safeFolder];
+    const queue: string[] = [trimmed];
     const visited = new Set<string>();
 
     const crawl = async () => {
@@ -2046,20 +2037,21 @@ function ItemsColumn({
 
         let listing = folderContentsCacheRef.current.get(folder);
         if (!listing) {
-          const res = await route_get_folder_contents({
-            folderPath: folder,
-            ignorePatterns: rootInfo.ignorePatterns ?? null,
-            includeSize: true,
-            missingFolderBehavior: "empty",
-          });
+          const res: GetFolderContentsRouteResponse =
+            await route_get_folder_contents({
+              folderPath: folder,
+              ignorePatterns: rootInfo.ignorePatterns ?? null,
+              includeSize: true,
+              missingFolderBehavior: "empty",
+            });
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
           }
           if (!res200(res)) {
             continue;
           }
-          listing = res.data;
-          folderContentsCacheRef.current.set(folder, listing);
+          listing = res.data.items;
+          folderContentsCacheRef.current.set(res.data.folderPath, listing);
         }
 
         for (const entry of listing) {
@@ -2104,14 +2096,11 @@ function ItemsColumn({
     if (!trimmed) {
       return;
     }
-    const safeFolder = rootInfo?.rootPath
-      ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
-      : trimmed;
-    if (rootInfo?.rootPath && !safeFolder) {
+    if (rootInfo?.rootPath && !isAbsoluteBrowserPath(trimmed)) {
       return;
     }
     useBrowserSectionFileBrowserState.setState({
-      rootPath: safeFolder,
+      rootPath: trimmed,
     });
   }, [effectiveFolder, rootInfo?.rootPath]);
 
