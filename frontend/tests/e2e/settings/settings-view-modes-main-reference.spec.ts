@@ -5636,6 +5636,9 @@ test("settings graph parity probe keeps the group args filter editable after nor
   context,
   page,
 }) => {
+  const groupSectionName = "groupSectionDefault";
+  test.slow();
+
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -5683,11 +5686,11 @@ test("settings graph parity probe keeps the group args filter editable after nor
   );
   const worktreeGroupSectionId = findSectionIdByName(
     worktreeInitialState,
-    "groupSectionDefault",
+    groupSectionName,
   );
   const referenceGroupSectionId = findSectionIdByName(
     referenceInitialState,
-    "groupSectionDefault",
+    groupSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -5702,6 +5705,7 @@ test("settings graph parity probe keeps the group args filter editable after nor
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
     await normalizeSettingsGraphComparePaneState(args.targetPage);
@@ -5735,9 +5739,20 @@ test("settings graph parity probe keeps the group args filter editable after nor
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: groupSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
 
     await expect
       .poll(async () => {
@@ -5880,6 +5895,7 @@ test("settings graph parity probe keeps the group args filter editable after nor
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceGroupSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureGroupArgsFilterAfterPan({
@@ -5893,6 +5909,7 @@ test("settings graph parity probe keeps the group args filter editable after nor
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeGroupSectionId,
+      side: "worktree",
       targetPage: page,
     });
 

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 00:33 EDT
+Last updated: 2026-04-05 00:45 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,51 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `142` completed the `groupSectionDefault` pane-pan editability lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-002 worktree/main surfaces.
+  - Why this slice was needed:
+    - item `141` explicitly closed the checked spreadsheet lane and pointed the next bounded step at `groupSectionDefault` instead of reopening spreadsheet/draw
+    - the existing group pane-pan editability lane still relied on an ad hoc `fitGraphViewportToSection(...)` assumption and no explicit slow-test budget, so current live evidence on that named lane was less trustworthy than the newer preflight-backed lanes
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - kept the canonical group section name explicit
+      - marked the live two-runtime group pane-pan editability lane `test.slow()`
+      - replaced the ad hoc `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `side: "reference" | "worktree"` through the helper so the lane asserts the named target section on both runtimes
+  - What this slice established:
+    - the current live group ids on run-002 are:
+      - worktree canary `916b6a90-bd28-4647-a89e-b62ce4dc4a02`
+      - read-only main legacy `a92931c4-a389-4276-96e1-31816bd21c57`
+    - rerunning the hardened lane with the current default project URL resolved to `http://127.0.0.1:3076/crisp_falling` passed on run-002 (`1 passed`, `30.4s`)
+    - a fresh-context CDP sub-agent then opened fresh bootstrap pages, normalized both sides to `/settings` + `All Settings`, and found the initial worktree landing slightly off-target before applying the same blank-surface pan/final fit normalization on both sides; treat that initial landing as setup noise, not renderer drift
+    - after that shared normalization, the CDP sub-agent found no visible drift between worktree canary and read-only main legacy
+    - the CDP sub-agent captured effectively matching post-pan/post-fit geometry on both sides:
+      - viewport transform `matrix(0.1, 0, 0, 0.1, 450.9, -267.2)` on worktree vs `matrix(0.1, 0, 0, 0.1, 450.892, -267.2)` on reference
+      - focused `groupSectionDefault` row geometry `x=60`, `y=294`, `w=244`, `h=20` on both sides
+      - the args filter stayed visually attached inside the card on both sides with no floating or detached state
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-002 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-002/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-002/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-002/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-002/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `30.4s`)
+    - live group-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","groupSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","groupSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `916b6a90-bd28-4647-a89e-b62ce4dc4a02`, reference `a92931c4-a389-4276-96e1-31816bd21c57`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened fresh run-002 bootstrap pages for live worktree `3076` and read-only main `3087`
+      - moved both to `/settings`, normalized to `All Settings`, used the canonical group ids above, and applied the shared blank-surface pan/final-fit normalization before comparing graph-surface geometry
+    - CDP visual check: done (fresh-context run-002 compare on `groupSectionDefault`; after the shared normalization, the args filter stayed visually attached and the final graph-surface geometry matched worktree canary vs read-only main legacy)
+  - Lane status:
+    - close the checked `groupSectionDefault` pane-pan editability lane as clean on the current run-002 surfaces
+    - treat the initial off-target worktree landing before final normalization as setup noise, not renderer drift
+  - Next frontier:
+    - move to a different renderer-facing named lane that still lacks current live evidence, preferably `taskBoardSectionDefault` / `settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
 
 - Ralph item `141` completed the body-heavy `spreadsheetSectionDefault` motion/search lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-001 worktree/main surfaces.
   - Why this slice was needed:
