@@ -5724,3 +5724,53 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 160
+
+- Item: Open the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane and capture its first trusted drag evidence.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `159` closed `chartSectionDefault`, so the next bounded motion step had to move to another named section instead of repeating a finished lane
+    - `dropzoneParamCodeObjDefault` already had trusted toolbar-zoom coverage, but it still lacked any fresh named pan-or-drag evidence on normalized `All Settings`
+    - after two oracle-only iterations on `chartSectionDefault`, this pass needed to spend its one support slice on a new lane that directly narrows a concrete renderer question
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the dropzone mode row attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the new lane fixes the canonical target to `dropzoneParamCodeObjDefault`, reuses the existing dropzone param-filter normalization, runs the shared compare preflight, fits the named section, applies the same short top-level drag, and compares row-anchor drift plus post-drag graph-surface geometry
+  - What this slice established:
+    - the targeted live Playwright lane passed on the current run-020 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), so the deterministic parity oracle currently sees `dropzoneParamCodeObjDefault` drag staying within thresholds
+    - fresh-context CDP preflight was clean on both sides: worktree mounted `canary`, main mounted `legacy`, both were already on `All Settings`, and both matched the normalized compare pane state with overview/ui editor hidden and `snapToGrid=false`
+    - the fresh-context CDP sub-agent normalized the dropzone param filter before the motion compare:
+      - reference filter was already `""`
+      - worktree filter changed from `"Mode"` to `""`
+    - CDP used the deterministic backend/state post-drag lane instead of manual drag replay:
+      - resolved `dropzoneParamCodeObjDefault` from live project state on both sides
+      - cleared viewport with `setViewport(null)`
+      - fit the named section
+      - applied the same short post-drag delta `{ x: 120, y: 80 }` through `setTopLevelSectionLayout`
+    - under that deterministic post-state, the lane did not visually align:
+      - worktree section id: `566336d2-be81-47ab-8106-40252a2c8028`
+      - main reference section id: `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+      - post-fit viewport matched on both sides at about `x=-1575.83`, `y=-1639.25`, `zoom=1.25165`
+      - after the same backend-driven move, the target section still landed about `105px` apart vertically, so visible post-drag drift remains on the graph surface
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the dropzone mode row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `33.8s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - checked worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings`
+    - normalized both around `dropzoneParamCodeObjDefault`, aligned the dropzone param filter to the reference value, and used deterministic backend/state post-drag instead of mouse replay
+  - CDP visual check:
+    - result: done
+    - note: deterministic post-drag `dropzoneParamCodeObjDefault` graph surface still showed about `105px` vertical drift versus read-only `main`
+- Lane status:
+  - keep `dropzoneParamCodeObjDefault` as the canonical open normalized top-level drag lane
+  - do not treat the green Playwright lane as sufficient to close this section yet; the required deterministic CDP post-state still shows visible drift
+- Next action:
+  - investigate why the canary leaves `dropzoneParamCodeObjDefault` about `105px` off vertically after the same normalized backend-driven post-drag state, now that filter normalization and manual-drag noise are removed
+- LOOP_TERMINAL_MARKER: none
