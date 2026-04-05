@@ -1,4 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { setBrowserHideColumn } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -6,9 +8,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_set_browser_hide_column } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-
 export function HideColumn({ sectionId }) {
   const hideColumn = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -18,7 +18,6 @@ export function HideColumn({ sectionId }) {
     );
     return impl.hideColumn;
   });
-
   function onClick() {
     const nextHideColumn = !hideColumn;
     dispatchOptimisticProjectStateUpdate({
@@ -28,15 +27,18 @@ export function HideColumn({ sectionId }) {
         });
       },
       send: (frontendOpId) =>
-        route_set_browser_hide_column({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          hideColumn: nextHideColumn,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setBrowserHideColumn({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              hideColumn: nextHideColumn,
+              frontendOpId,
+            },
+          } as Parameters<typeof setBrowserHideColumn>[0]),
+        ),
     });
   }
-
   return (
     <MenuItem onClick={onClick}>
       {hideColumn ? "Show Filters" : "Hide Filters"}
