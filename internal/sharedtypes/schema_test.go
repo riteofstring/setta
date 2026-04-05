@@ -66,6 +66,37 @@ func TestBuildSchemaDocumentUsesProjectCodegenTargetUnionForProjectConfig(t *tes
 	}
 }
 
+func TestBuildSchemaDocumentIncludesAuthoritativeRouteEnum(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	routeSchema := document.Defs["Route"]
+	if routeSchema == nil {
+		t.Fatalf("expected Route schema in $defs")
+	}
+	if got := routeSchema.Type; got != "string" {
+		t.Fatalf("Route schema type = %q, want %q", got, "string")
+	}
+
+	routeValues := map[string]struct{}{}
+	for _, value := range routeSchema.Enum {
+		text, ok := value.(string)
+		if !ok {
+			t.Fatalf("Route enum value type = %T, want string", value)
+		}
+		routeValues[text] = struct{}{}
+	}
+	for _, want := range []string{httpapi.RouteAPIPrefix, wsapi.RouteListenerByID} {
+		if _, ok := routeValues[want]; !ok {
+			t.Fatalf("Route schema is missing %q", want)
+		}
+	}
+}
+
 func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -428,5 +459,30 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	}
 	if got, _ := llmConfig["$ref"].(string); got != "#/components/schemas/LLMConfig" {
 		t.Fatalf("Chat.llmConfig projection ref = %q, want %q", got, "#/components/schemas/LLMConfig")
+	}
+
+	routeProjection, ok := schemas["Route"].(map[string]any)
+	if !ok {
+		t.Fatalf("Route projection type = %T, want map[string]any", schemas["Route"])
+	}
+	if got, _ := routeProjection["type"].(string); got != "string" {
+		t.Fatalf("Route projection type = %q, want %q", got, "string")
+	}
+	enumValues, ok := routeProjection["enum"].([]any)
+	if !ok || len(enumValues) == 0 {
+		t.Fatalf("Route projection enum type = %T, want non-empty []any", routeProjection["enum"])
+	}
+	seenRouteValues := map[string]struct{}{}
+	for _, value := range enumValues {
+		text, ok := value.(string)
+		if !ok {
+			t.Fatalf("Route projection enum value type = %T, want string", value)
+		}
+		seenRouteValues[text] = struct{}{}
+	}
+	for _, want := range []string{httpapi.RouteAPIPrefix, wsapi.RouteListenerByID} {
+		if _, ok := seenRouteValues[want]; !ok {
+			t.Fatalf("Route projection is missing %q", want)
+		}
 	}
 }

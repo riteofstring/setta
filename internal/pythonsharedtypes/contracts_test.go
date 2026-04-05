@@ -171,9 +171,13 @@ func fieldSpecForTypeField(t *testing.T, ownerType reflect.Type, fieldName strin
 	if err != nil {
 		t.Fatalf("buildGenerationContext() error = %v", err)
 	}
+	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		t.Fatalf("pythonSharedSchemaModule() error = %v", err)
+	}
 	knownContractNames := map[string]struct{}{}
-	for _, entry := range ctx.Sidecar.Contracts {
-		name := strings.TrimSpace(entry.Name)
+	for _, declaration := range module.Declarations {
+		name := strings.TrimSpace(declaration.Name)
 		if name == "" {
 			continue
 		}

@@ -43,7 +43,7 @@ func Build() (GeneratedTypes, error) {
 		return GeneratedTypes{}, err
 	}
 
-	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(
+	standardBlocks, standardImports, _, err := pythonSharedSchemaDeclarations(
 		ctx.DefaultSourcesByType,
 	)
 	if err != nil {
@@ -53,14 +53,6 @@ func Build() (GeneratedTypes, error) {
 	standardImports = appendUniqueImportLines(
 		standardImports,
 		pythonBlockImportLines(standardBlocks)...,
-	)
-	standardImports = appendUniqueImportLines(
-		standardImports,
-		pythonRouteEnumImportLines(ctx.Sidecar, standardDeclarationNames)...,
-	)
-	standardBlocks = append(
-		standardBlocks,
-		pythonRouteEnumBlocks(ctx.Sidecar, standardDeclarationNames)...,
 	)
 
 	return GeneratedTypes{
@@ -168,43 +160,6 @@ func pythonBlockImportLines(blocks []string) []string {
 		}
 	}
 	return sortedImportNames(imports)
-}
-
-func pythonRouteEnumImportLines(
-	sidecar sharedtypes.SemanticSidecar,
-	standardDeclarationNames map[string]struct{},
-) []string {
-	if len(pythonRouteEnumBlocks(sidecar, standardDeclarationNames)) == 0 {
-		return nil
-	}
-	return []string{"from enum import Enum"}
-}
-
-func pythonRouteEnumBlocks(
-	sidecar sharedtypes.SemanticSidecar,
-	standardDeclarationNames map[string]struct{},
-) []string {
-	if len(sidecar.Routes) == 0 {
-		return nil
-	}
-	if _, present := standardDeclarationNames["Route"]; present {
-		return nil
-	}
-
-	var builder strings.Builder
-	builder.WriteString("class Route(str, Enum):\n")
-	for _, route := range sidecar.Routes {
-		name := strings.TrimSpace(route.Name)
-		if name == "" {
-			continue
-		}
-		builder.WriteString("    ")
-		builder.WriteString(name)
-		builder.WriteString(" = ")
-		builder.WriteString(fmt.Sprintf("%q", route.Path))
-		builder.WriteString("\n")
-	}
-	return []string{builder.String()}
 }
 
 func buildModelFieldSpec(

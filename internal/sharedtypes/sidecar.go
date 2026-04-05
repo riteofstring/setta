@@ -202,6 +202,7 @@ func routeInventoryContractEntry(routes []RouteInventoryEntry) ContractEntry {
 	entry := ContractEntry{
 		Name:       "Route",
 		Kind:       "enum",
+		SchemaRef:  "#/$defs/Route",
 		EnumValues: make([]EnumValueEntry, 0, len(routes)),
 	}
 	for _, route := range routes {

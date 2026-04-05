@@ -23,7 +23,6 @@ type contractSpec struct {
 }
 
 type generationContext struct {
-	Sidecar              sharedtypes.SemanticSidecar
 	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
@@ -49,7 +48,6 @@ func buildGenerationContext() (generationContext, error) {
 	}
 
 	return generationContext{
-		Sidecar:              sidecar,
 		DefaultSourcesByType: defaultSources,
 	}, nil
 }
@@ -189,11 +187,7 @@ func pythonSharedEnumContractSpecs() (map[reflect.Type]contractSpec, error) {
 			}
 			typ, ok := sharedtypes.TypeByContractName(name)
 			if !ok {
-				if strings.TrimSpace(entry.SchemaRef) == "" {
-					continue
-				}
-				pythonSharedEnumSpecsErr = fmt.Errorf("python shared types: missing discovered type for sidecar enum %s", name)
-				return
+				continue
 			}
 			spec, err := enumContractSpecFromSidecarEntry(name, typ, entry.EnumValues)
 			if err != nil {

@@ -42,6 +42,9 @@ func BuildSchemaDocument() (*jsonschema.Schema, error) {
 	if err := appendSyntheticDiscriminatedFamilyUnionDefs(defs); err != nil {
 		return nil, err
 	}
+	if err := appendRouteInventorySchema(defs); err != nil {
+		return nil, err
+	}
 
 	return &jsonschema.Schema{
 		Schema: JSONSchemaDraft202012,
@@ -51,6 +54,33 @@ func BuildSchemaDocument() (*jsonschema.Schema, error) {
 			"x-setta-schema-kind": "non-http-shared-types",
 		},
 	}, nil
+}
+
+func appendRouteInventorySchema(defs map[string]*jsonschema.Schema) error {
+	routes, err := DiscoveredRouteEntries()
+	if err != nil {
+		return err
+	}
+	routeContract := routeInventoryContractEntry(routes)
+	if strings.TrimSpace(routeContract.Name) == "" {
+		return fmt.Errorf("shared schema route inventory contract is missing a name")
+	}
+	enumValues := make([]any, 0, len(routeContract.EnumValues))
+	enumNames := make([]string, 0, len(routeContract.EnumValues))
+	for _, value := range routeContract.EnumValues {
+		enumValues = append(enumValues, value.Value)
+		enumNames = append(enumNames, value.Name)
+	}
+	defs[routeContract.Name] = &jsonschema.Schema{
+		Title: routeContract.Name,
+		Type:  "string",
+		Enum:  enumValues,
+		Extra: map[string]any{
+			"x-enum-varnames": enumNames,
+			"x-enumNames":     enumNames,
+		},
+	}
+	return nil
 }
 
 func schemaForType(t reflect.Type) (*jsonschema.Schema, error) {

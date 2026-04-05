@@ -3047,6 +3047,7 @@
     {
       "name": "Route",
       "kind": "enum",
+      "schemaRef": "#/$defs/Route",
       "enumValues": [
         {
           "name": "ACCEPT_RENAME_REFACTOR",
