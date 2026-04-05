@@ -6,7 +6,6 @@ import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
-import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -32,15 +31,14 @@ import {
   AgentRun,
   AllLLMConfigs,
   AllProjectMetadata,
+  APIKeys,
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
-  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
@@ -48,17 +46,18 @@ import {
   ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
-  LLMAPIKeysSnapshot,
   LLMConfig,
-  LSPDiagnostic,
-  Notification,
+  ProjectStateSingleConfig,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
+  SettaLspDiagnostic,
+  SettaNotification,
+  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
-  SingleConfig,
   TranscriptionProfile,
+  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -104,8 +103,6 @@ const getPersistStorage = <S>() =>
     return localStorage;
   });
 
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
-
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
     immer(
@@ -146,7 +143,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = SingleConfig & {
+export type ZustandProjectState = ProjectStateSingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 
@@ -160,7 +157,6 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
-          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -478,7 +474,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<Notification> };
+type ZustandNotificationState = { notifications: Array<SettaNotification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -690,6 +686,12 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+  ),
+);
+
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -762,9 +764,7 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() =>
-  createSettingsState(),
-);
+export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -789,8 +789,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<LSPDiagnostic>>;
-  unmappedGenCode: Array<LSPDiagnostic>;
+  codeSections: Record<string, Array<SettaLspDiagnostic>>;
+  unmappedGenCode: Array<SettaLspDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(
@@ -825,7 +825,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<Connection>;
+  connections: Array<WebsocketConnectionInfo>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(

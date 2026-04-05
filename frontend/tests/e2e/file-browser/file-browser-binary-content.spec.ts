@@ -9,11 +9,11 @@ import {
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 
-type RootResponse = {
+type FileBrowserRootResponse = {
   rootPath: string;
 };
 
-type FileContentResponse = {
+type FileBrowserFileContentResponse = {
   contentId: string;
 };
 
@@ -22,7 +22,7 @@ test("file browser content endpoint uses binary content ids for read/write", asy
   request,
 }) => {
   await ensureAppReady(page);
-  const root = await postBackend<RootResponse>(
+  const root = await postBackend<FileBrowserRootResponse>(
     page,
     "/getFileBrowserRoot",
     null,
@@ -41,7 +41,7 @@ test("file browser content endpoint uses binary content ids for read/write", asy
 
   // Validate read flow: route returns a content id and bytes are downloaded
   // from the binary endpoint without base64 decoding.
-  const readResult = await postBackend<FileContentResponse>(
+  const readResult = await postBackend<FileBrowserFileContentResponse>(
     page,
     "/getFileBrowserFileContent",
     { path: csvPath },
