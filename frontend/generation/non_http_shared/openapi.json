@@ -875,7 +875,17 @@
         "type": "string"
       },
       "BaseArtifactUnion": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "BrushStroke": "#/components/schemas/BrushStrokeArtifact",
+            "ChartData": "#/components/schemas/ChartDataArtifact",
+            "DrawAreaLayerItemTransform": "#/components/schemas/DrawAreaLayerItemTransformArtifact",
+            "File": "#/components/schemas/FileArtifact",
+            "Image": "#/components/schemas/ImageArtifact"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/ImageArtifact"
           },
@@ -906,7 +916,16 @@
         "title": "BaseChartSettingsUnion"
       },
       "BaseChatMessageUnion": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "assistant": "#/components/schemas/AssistantChatMessage",
+            "system": "#/components/schemas/SystemChatMessage",
+            "tool": "#/components/schemas/ToolChatMessage",
+            "user": "#/components/schemas/UserChatMessage"
+          },
+          "propertyName": "role"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/SystemChatMessage"
           },
@@ -1041,7 +1060,14 @@
         ]
       },
       "BaseDependencyKeyUnion": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "Section": "#/components/schemas/SectionDependencyKey",
+            "SectionParam": "#/components/schemas/SectionParamDependencyKey"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/SectionDependencyKey"
           },
@@ -1052,7 +1078,15 @@
         "title": "BaseDependencyKeyUnion"
       },
       "BaseDependencyValueUnion": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "Binary": "#/components/schemas/BinaryDependencyValue",
+            "FileRead": "#/components/schemas/FileReadDependencyValue",
+            "Literal": "#/components/schemas/LiteralDependencyValue"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/LiteralDependencyValue"
           },
@@ -5816,7 +5850,19 @@
         "type": "object"
       },
       "LLMStreamingResponseChunk": {
-        "anyOf": [
+        "discriminator": {
+          "mapping": {
+            "delta": "#/components/schemas/MessageDeltaEvent",
+            "message_finalized": "#/components/schemas/MessageFinalizedEvent",
+            "message_start": "#/components/schemas/MessageStartEvent",
+            "message_stop": "#/components/schemas/MessageStopEvent",
+            "tool_argument_preview_delta": "#/components/schemas/ToolArgumentPreviewDeltaEvent",
+            "tool_call_delta": "#/components/schemas/ToolCallDeltaEvent",
+            "tool_result": "#/components/schemas/ToolResultEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
           {
             "$ref": "#/components/schemas/MessageStartEvent"
           },

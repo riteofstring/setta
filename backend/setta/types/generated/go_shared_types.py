@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
@@ -655,7 +655,7 @@ class FileArtifact(BaseModel):
         extra="forbid",
     )
     id: str
-    type: ArtifactType
+    type: Literal["File"]
     value: ContentRef
 
 
@@ -664,7 +664,7 @@ class FileReadDependencyValue(BaseModel):
         extra="forbid",
     )
     payload: str
-    type: DependencyValueType
+    type: Literal["FileRead"]
 
 
 class Format(StrEnum):
@@ -884,7 +884,7 @@ class ImageArtifact(BaseModel):
         extra="forbid",
     )
     id: str
-    type: ArtifactType
+    type: Literal["Image"]
     value: ContentRef
 
 
@@ -1031,7 +1031,7 @@ class LiteralDependencyValue(BaseModel):
         extra="forbid",
     )
     payload: str
-    type: DependencyValueType
+    type: Literal["Literal"]
 
 
 class MessageImageURL(BaseModel):
@@ -1590,7 +1590,7 @@ class SectionDependencyKey(BaseModel):
         extra="forbid",
     )
     sectionId: ID
-    type: DependencyKeyType
+    type: Literal["Section"]
 
 
 class SectionParamDependencyKey(BaseModel):
@@ -1599,7 +1599,7 @@ class SectionParamDependencyKey(BaseModel):
     )
     codeObjId: ID
     sectionId: ID
-    type: DependencyKeyType
+    type: Literal["SectionParam"]
 
 
 class SectionRepresentationMode(StrEnum):
@@ -1934,7 +1934,7 @@ class SystemChatMessage(BaseModel):
     ] = Field(default_factory=list)
     createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.system
+    role: Literal["system"] = ChatRole.system
 
 
 class TaskBoardColumn(BaseModel):
@@ -2169,7 +2169,7 @@ class ToolArgumentPreviewDeltaEvent(BaseModel):
     target_ids_by_type: dict[str, list[str]]
     tool_call_id: str
     tool_name: str
-    type: StreamingEventType
+    type: Literal["tool_argument_preview_delta"]
 
 
 class ToolCallDeltaEvent(BaseModel):
@@ -2180,7 +2180,7 @@ class ToolCallDeltaEvent(BaseModel):
     message_id: str
     tool_call_id: str
     tool_name: str | None
-    type: StreamingEventType
+    type: Literal["tool_call_delta"]
 
 
 class ToolCallFunction(BaseModel):
@@ -2204,7 +2204,7 @@ class ToolChatMessage(BaseModel):
     id: ID = Field(default_factory=create_new_id)
     is_error: bool = False
     result: Any = None
-    role: ChatRole = ChatRole.tool
+    role: Literal["tool"] = ChatRole.tool
     started_at: datetime = Field(default_factory=get_now_timestamp)
     tool_call_id: str
     tool_name: str | None = None
@@ -2223,7 +2223,7 @@ class ToolResultEvent(BaseModel):
         extra="forbid",
     )
     result: ToolChatMessage
-    type: StreamingEventType
+    type: Literal["tool_result"]
 
 
 class TopLevelSectionLayout(BaseModel):
@@ -2247,7 +2247,7 @@ class UserChatMessage(BaseModel):
     ] = Field(default_factory=list)
     createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.user
+    role: Literal["user"] = ChatRole.user
 
 
 class Viewport(BaseModel):
@@ -2342,21 +2342,9 @@ class BaseCodeObjImpl(BaseModel):
     type: CodeObjType
 
 
-def _base_dependency_key_union_discriminator(value: Any) -> str | None:
-    raw_value = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_value, DependencyKeyType):
-        return raw_value.value
-    if isinstance(raw_value, str):
-        return raw_value
-    return None
-
-
 type BaseDependencyKeyUnion = Annotated[
-    Annotated[SectionDependencyKey, Tag(DependencyKeyType.Section.value)]
-    | Annotated[SectionParamDependencyKey, Tag(DependencyKeyType.SectionParam.value)],
-    Discriminator(_base_dependency_key_union_discriminator),
+    SectionDependencyKey | SectionParamDependencyKey,
+    Field(..., discriminator="type", title="BaseDependencyKeyUnion"),
 ]
 
 
@@ -2365,7 +2353,7 @@ class BinaryDependencyValue(BaseModel):
         extra="forbid",
     )
     payload: ContentRef
-    type: DependencyValueType
+    type: Literal["Binary"]
 
 
 class BrowserSavedSearch(BaseModel):
@@ -2423,7 +2411,7 @@ class BrushStrokeArtifact(BaseModel):
         extra="forbid",
     )
     id: str
-    type: ArtifactType
+    type: Literal["BrushStroke"]
     value: BrushStroke
 
 
@@ -2498,7 +2486,7 @@ class ChartDataArtifact(BaseModel):
         extra="forbid",
     )
     id: str
-    type: ArtifactType
+    type: Literal["ChartData"]
     value: ChartDataValue
 
 
@@ -2570,7 +2558,7 @@ class DrawAreaLayerItemTransformArtifact(BaseModel):
         extra="forbid",
     )
     id: str
-    type: ArtifactType
+    type: Literal["DrawAreaLayerItemTransform"]
     value: DrawAreaLayerItemTransform
 
 
@@ -2691,7 +2679,7 @@ class MessageDeltaEvent(BaseModel):
     )
     content: list[MessageContentDelta]
     message_id: str
-    type: StreamingEventType
+    type: Literal["delta"]
 
 
 class MessageStopEvent(BaseModel):
@@ -2699,7 +2687,7 @@ class MessageStopEvent(BaseModel):
         extra="forbid",
     )
     message_id: str
-    type: StreamingEventType
+    type: Literal["message_stop"]
 
 
 class RawArtifact(BaseModel):
@@ -2886,51 +2874,22 @@ class AssistantChatMessage(BaseModel):
     ] = Field(default_factory=list)
     createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.assistant
+    role: Literal["assistant"] = ChatRole.assistant
     tool_calls: list[ToolCall] | None = None
 
 
-def _base_artifact_union_discriminator(value: Any) -> str | None:
-    raw_value = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_value, ArtifactType):
-        return raw_value.value
-    if isinstance(raw_value, str):
-        return raw_value
-    return None
-
-
 type BaseArtifactUnion = Annotated[
-    Annotated[ImageArtifact, Tag(ArtifactType.Image.value)]
-    | Annotated[BrushStrokeArtifact, Tag(ArtifactType.BrushStroke.value)]
-    | Annotated[
-        DrawAreaLayerItemTransformArtifact,
-        Tag(ArtifactType.DrawAreaLayerItemTransform.value),
-    ]
-    | Annotated[ChartDataArtifact, Tag(ArtifactType.ChartData.value)]
-    | Annotated[FileArtifact, Tag(ArtifactType.File.value)],
-    Discriminator(_base_artifact_union_discriminator),
+    ImageArtifact
+    | BrushStrokeArtifact
+    | DrawAreaLayerItemTransformArtifact
+    | ChartDataArtifact
+    | FileArtifact,
+    Field(..., discriminator="type", title="BaseArtifactUnion"),
 ]
 
-
-def _base_chat_message_union_discriminator(value: Any) -> str | None:
-    raw_value = (
-        value.get("role") if isinstance(value, dict) else getattr(value, "role", None)
-    )
-    if isinstance(raw_value, ChatRole):
-        return raw_value.value
-    if isinstance(raw_value, str):
-        return raw_value
-    return None
-
-
 type BaseChatMessageUnion = Annotated[
-    Annotated[SystemChatMessage, Tag(ChatRole.system.value)]
-    | Annotated[AssistantChatMessage, Tag(ChatRole.assistant.value)]
-    | Annotated[UserChatMessage, Tag(ChatRole.user.value)]
-    | Annotated[ToolChatMessage, Tag(ChatRole.tool.value)],
-    Discriminator(_base_chat_message_union_discriminator),
+    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage,
+    Field(..., discriminator="role", title="BaseChatMessageUnion"),
 ]
 
 type BaseChildlessCodeObjImplUnion = (
@@ -2968,23 +2927,9 @@ type BaseCodeObjImplUnion = (
     | NestedParamCodeObjImpl
 )
 
-
-def _base_dependency_value_union_discriminator(value: Any) -> str | None:
-    raw_value = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_value, DependencyValueType):
-        return raw_value.value
-    if isinstance(raw_value, str):
-        return raw_value
-    return None
-
-
 type BaseDependencyValueUnion = Annotated[
-    Annotated[LiteralDependencyValue, Tag(DependencyValueType.Literal.value)]
-    | Annotated[FileReadDependencyValue, Tag(DependencyValueType.FileRead.value)]
-    | Annotated[BinaryDependencyValue, Tag(DependencyValueType.Binary.value)],
-    Discriminator(_base_dependency_value_union_discriminator),
+    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue,
+    Field(..., discriminator="type", title="BaseDependencyValueUnion"),
 ]
 
 
@@ -3089,7 +3034,7 @@ class MessageFinalizedEvent(BaseModel):
         extra="forbid",
     )
     message: BaseChatMessageUnion
-    type: StreamingEventType
+    type: Literal["message_finalized"]
 
 
 class MessageStartEvent(BaseModel):
@@ -3097,7 +3042,7 @@ class MessageStartEvent(BaseModel):
         extra="forbid",
     )
     message: BaseChatMessageUnion
-    type: StreamingEventType
+    type: Literal["message_start"]
 
 
 class ProjectCodegenPythonTarget(BaseModel):
@@ -3139,29 +3084,15 @@ class StateMachineEdge(BaseModel):
     zIndex: int | None = None
 
 
-def _llm_streaming_response_chunk_discriminator(value: Any) -> str | None:
-    raw_value = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_value, StreamingEventType):
-        return raw_value.value
-    if isinstance(raw_value, str):
-        return raw_value
-    return None
-
-
 type LLMStreamingResponseChunk = Annotated[
-    Annotated[MessageStartEvent, Tag(StreamingEventType.message_start.value)]
-    | Annotated[MessageDeltaEvent, Tag(StreamingEventType.delta.value)]
-    | Annotated[ToolCallDeltaEvent, Tag(StreamingEventType.tool_call_delta.value)]
-    | Annotated[ToolResultEvent, Tag(StreamingEventType.tool_result.value)]
-    | Annotated[
-        ToolArgumentPreviewDeltaEvent,
-        Tag(StreamingEventType.tool_argument_preview_delta.value),
-    ]
-    | Annotated[MessageStopEvent, Tag(StreamingEventType.message_stop.value)]
-    | Annotated[MessageFinalizedEvent, Tag(StreamingEventType.message_finalized.value)],
-    Discriminator(_llm_streaming_response_chunk_discriminator),
+    MessageStartEvent
+    | MessageDeltaEvent
+    | ToolCallDeltaEvent
+    | ToolResultEvent
+    | ToolArgumentPreviewDeltaEvent
+    | MessageStopEvent
+    | MessageFinalizedEvent,
+    Field(..., discriminator="type", title="LLMStreamingResponseChunk"),
 ]
 
 

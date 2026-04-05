@@ -390,11 +390,21 @@ type BackgroundVariant = "lines" | "dots" | "cross";
  * BaseArtifactUnion
  */
 type BaseArtifactUnion =
-  | ImageArtifact
-  | BrushStrokeArtifact
-  | DrawAreaLayerItemTransformArtifact
-  | ChartDataArtifact
-  | FileArtifact;
+  | ({
+      type: "Image";
+    } & ImageArtifact)
+  | ({
+      type: "BrushStroke";
+    } & BrushStrokeArtifact)
+  | ({
+      type: "DrawAreaLayerItemTransform";
+    } & DrawAreaLayerItemTransformArtifact)
+  | ({
+      type: "ChartData";
+    } & ChartDataArtifact)
+  | ({
+      type: "File";
+    } & FileArtifact);
 
 /**
  * BaseChartSettingsUnion
@@ -405,10 +415,18 @@ export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
  * BaseChatMessageUnion
  */
 export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
+  | ({
+      role: "system";
+    } & SystemChatMessage)
+  | ({
+      role: "assistant";
+    } & AssistantChatMessage)
+  | ({
+      role: "user";
+    } & UserChatMessage)
+  | ({
+      role: "tool";
+    } & ToolChatMessage);
 
 export type BaseChildlessCodeObjImplUnion =
   | BaseCodeObjImpl
@@ -458,16 +476,26 @@ export type BaseCodeObjImplUnion =
  * BaseDependencyKeyUnion
  */
 export type BaseDependencyKeyUnion =
-  | SectionDependencyKey
-  | SectionParamDependencyKey;
+  | ({
+      type: "Section";
+    } & SectionDependencyKey)
+  | ({
+      type: "SectionParam";
+    } & SectionParamDependencyKey);
 
 /**
  * BaseDependencyValueUnion
  */
 export type BaseDependencyValueUnion =
-  | LiteralDependencyValue
-  | FileReadDependencyValue
-  | BinaryDependencyValue;
+  | ({
+      type: "Literal";
+    } & LiteralDependencyValue)
+  | ({
+      type: "FileRead";
+    } & FileReadDependencyValue)
+  | ({
+      type: "Binary";
+    } & BinaryDependencyValue);
 
 /**
  * BaseParamCodeObjImpl
@@ -2378,13 +2406,27 @@ type LLMConfigUpdatedMessage = {
  * LLMStreamingResponseChunk
  */
 type LLMStreamingResponseChunk =
-  | MessageStartEvent
-  | MessageDeltaEvent
-  | ToolCallDeltaEvent
-  | ToolResultEvent
-  | ToolArgumentPreviewDeltaEvent
-  | MessageStopEvent
-  | MessageFinalizedEvent;
+  | ({
+      type: "message_start";
+    } & MessageStartEvent)
+  | ({
+      type: "delta";
+    } & MessageDeltaEvent)
+  | ({
+      type: "tool_call_delta";
+    } & ToolCallDeltaEvent)
+  | ({
+      type: "tool_result";
+    } & ToolResultEvent)
+  | ({
+      type: "tool_argument_preview_delta";
+    } & ToolArgumentPreviewDeltaEvent)
+  | ({
+      type: "message_stop";
+    } & MessageStopEvent)
+  | ({
+      type: "message_finalized";
+    } & MessageFinalizedEvent);
 
 /**
  * LLMStreamingResponseContent

@@ -522,16 +522,23 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	if !ok {
 		t.Fatalf("BaseArtifactUnion projection type = %T, want map[string]any", schemas["BaseArtifactUnion"])
 	}
-	anyOf, ok := baseArtifactUnion["anyOf"].([]any)
-	if !ok || len(anyOf) == 0 {
-		t.Fatalf("BaseArtifactUnion anyOf type = %T, want non-empty []any", baseArtifactUnion["anyOf"])
+	oneOf, ok := baseArtifactUnion["oneOf"].([]any)
+	if !ok || len(oneOf) == 0 {
+		t.Fatalf("BaseArtifactUnion oneOf type = %T, want non-empty []any", baseArtifactUnion["oneOf"])
 	}
-	firstRef, ok := anyOf[0].(map[string]any)["$ref"].(string)
+	firstRef, ok := oneOf[0].(map[string]any)["$ref"].(string)
 	if !ok {
-		t.Fatalf("BaseArtifactUnion first anyOf ref type = %T, want string", anyOf[0])
+		t.Fatalf("BaseArtifactUnion first oneOf ref type = %T, want string", oneOf[0])
 	}
 	if !strings.HasPrefix(firstRef, "#/components/schemas/") {
-		t.Fatalf("BaseArtifactUnion first anyOf ref = %q, want OpenAPI components ref", firstRef)
+		t.Fatalf("BaseArtifactUnion first oneOf ref = %q, want OpenAPI components ref", firstRef)
+	}
+	discriminator, ok := baseArtifactUnion["discriminator"].(map[string]any)
+	if !ok {
+		t.Fatalf("BaseArtifactUnion discriminator type = %T, want map[string]any", baseArtifactUnion["discriminator"])
+	}
+	if got, _ := discriminator["propertyName"].(string); got != "type" {
+		t.Fatalf("BaseArtifactUnion discriminator propertyName = %q, want %q", got, "type")
 	}
 
 	chatProjection, ok := schemas["Chat"].(map[string]any)

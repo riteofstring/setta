@@ -236,19 +236,17 @@ func TestBuildEmitsDiscriminatedSharedUnionAliases(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
-		"def _base_artifact_union_discriminator(value: Any) -> str | None:",
 		"type BaseArtifactUnion = Annotated[",
-		"Tag(ArtifactType.Image.value)",
-		"Discriminator(_base_artifact_union_discriminator)",
-		"def _base_chat_message_union_discriminator(value: Any) -> str | None:",
-		"Tag(ChatRole.assistant.value)",
-		"Discriminator(_base_chat_message_union_discriminator)",
-		"def _base_dependency_value_union_discriminator(value: Any) -> str | None:",
-		"Tag(DependencyValueType.Binary.value)",
-		"Discriminator(_base_dependency_value_union_discriminator)",
-		"def _llm_streaming_response_chunk_discriminator(value: Any) -> str | None:",
-		"Tag(StreamingEventType.message_start.value)",
-		"Discriminator(_llm_streaming_response_chunk_discriminator)",
+		`Field(..., discriminator="type", title="BaseArtifactUnion")`,
+		"type BaseChatMessageUnion = Annotated[",
+		`Field(..., discriminator="role", title="BaseChatMessageUnion")`,
+		`role: Literal["assistant"] = ChatRole.assistant`,
+		"type BaseDependencyValueUnion = Annotated[",
+		`Field(..., discriminator="type", title="BaseDependencyValueUnion")`,
+		`type: Literal["Binary"]`,
+		"type LLMStreamingResponseChunk = Annotated[",
+		`Field(..., discriminator="type", title="LLMStreamingResponseChunk")`,
+		`type: Literal["message_start"]`,
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing discriminated-union snippet %q", snippet)
