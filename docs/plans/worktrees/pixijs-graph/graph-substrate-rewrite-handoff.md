@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 05:58 EDT
+Last updated: 2026-04-05 06:13 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,39 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `159` closed the canonical `chartSectionDefault` normalized top-level drag lane and retired the old manual-CDP replay as an untrusted verification shape.
+  - Why this slice was needed:
+    - item `158` left `chartSectionDefault` open only because a manual CDP drag looked visually off even though the trusted Playwright drag lane was already green
+    - the plan's oracle rules say Playwright should drive motion on these lanes and CDP should confirm the post-state visually, not replay fragile drag input from scratch
+  - Production/test change:
+    - no product or test files changed in this slice
+    - refreshed the durable handoff/history after rerunning the trusted Playwright lane and rechecking the same lane through deterministic post-state CDP normalization
+  - What this slice established:
+    - the targeted live Playwright rerun still passed on the current run-019 surfaces (`3076`/`8076` worktree, `3087`/`8087` main)
+    - fresh-context CDP preflight was clean on both sides: worktree `3076` mounted the `canary` surface, main `3087` mounted the `legacy` surface, both were already on `All Settings`, and both matched the normalized compare pane state with overview/ui editor hidden and `snapToGrid=false`
+    - the fresh-context CDP sub-agent used the backend/state lane instead of mouse drag:
+      - resolved `chartSectionDefault` from the live project state
+      - forced `All Settings`
+      - cleared viewport with `setViewport(null)` and reapplied the backend state
+      - fit `chartSectionDefault`
+      - applied the same short post-drag delta `{ x: 120, y: 80 }` through `setTopLevelSectionLayout`
+    - under that deterministic post-state, the graph surface matched exactly between worktree and read-only `main`: section rect, title rect, `dataPath` relative center, and layout delta all aligned
+    - treat the old manual CDP drag read from item `158` as a false-positive verification shape, not as live renderer drift on `chartSectionDefault`
+  - Verification:
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `33.9s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings`
+      - normalized both around canonical section `chartSectionDefault` and used the deterministic backend/state post-drag lane instead of a manual drag replay
+    - CDP visual check: done (fresh-context sub-agent; deterministic post-drag `chartSectionDefault` graph surface matched read-only `main`)
+  - Lane status:
+    - close `chartSectionDefault` as a clean normalized top-level drag lane
+    - do not reopen the old manual-CDP drag-replay mismatch on this lane; when CDP needs to confirm post-drag visuals here, use the deterministic backend/state post-state instead
+  - Next frontier:
+    - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 
 - Ralph item `158` opened the canonical `chartSectionDefault` normalized top-level drag lane and turned it into the next named motion oracle.
   - Why this slice was needed:

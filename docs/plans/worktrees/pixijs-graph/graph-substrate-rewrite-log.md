@@ -5685,3 +5685,42 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - reconcile the `chartSectionDefault` drag lane by deciding whether the CDP visual mismatch is a real renderer motion artifact or a non-deterministic manual-drag discrepancy against the trusted Playwright oracle
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 159
+
+- Item: Close the canonical `chartSectionDefault` normalized top-level drag lane by replacing the old manual CDP drag replay with deterministic post-state visual confirmation.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `158` had already proven the named drag lane through the trusted Playwright oracle, and the only open question was a manual CDP drag read that did not match the lane rules
+    - the plan's oracle guidance says Playwright should drive the motion and CDP should confirm the resulting post-state visually, not replay a fragile drag from scratch
+  - Production/test change:
+    - no product or test files changed in this slice
+    - refreshed the durable handoff/history after rerunning the trusted lane and rechecking the same post-state through fresh-context CDP normalization
+  - What this slice established:
+    - the targeted live Playwright rerun still passed on the current run-019 surfaces (`3076`/`8076` worktree, `3087`/`8087` main)
+    - fresh-context CDP preflight was clean on both sides: worktree mounted the `canary` surface, main mounted the `legacy` surface, both were on `All Settings`, and both already matched the normalized compare pane state with overview/ui editor hidden and `snapToGrid=false`
+    - the fresh-context CDP sub-agent used the backend/state lane instead of mouse drag:
+      - resolved `chartSectionDefault` from live project state
+      - forced `All Settings`
+      - cleared viewport with `setViewport(null)` and reapplied the backend state
+      - fit `chartSectionDefault`
+      - applied the same short post-drag delta `{ x: 120, y: 80 }` through `setTopLevelSectionLayout`
+    - under that deterministic post-state, the graph surface matched exactly between worktree and read-only `main`: section rect, title rect, `dataPath` relative center, and layout delta all aligned
+    - treat the old manual-CDP drag read from item `158` as a false-positive verification shape, not as live renderer drift on `chartSectionDefault`
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `33.9s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - compared worktree `3076` and read-only `main` `3087` on `Settings` -> `All Settings`
+    - normalized both around canonical section `chartSectionDefault` and used the deterministic backend/state post-drag lane instead of a manual drag replay
+  - CDP visual check:
+    - result: done
+    - note: deterministic post-drag `chartSectionDefault` graph surface matched read-only `main`
+- Lane status:
+  - close `chartSectionDefault` as a clean normalized top-level drag lane
+  - do not reopen the old manual-CDP drag-replay mismatch on this lane; when CDP needs to confirm post-drag visuals here, use the deterministic backend/state post-state instead
+- Next action:
+  - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
+- LOOP_TERMINAL_MARKER: none
