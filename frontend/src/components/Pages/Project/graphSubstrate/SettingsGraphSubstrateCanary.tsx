@@ -55,11 +55,10 @@ export function SettingsGraphSubstrateCanary() {
   );
   const {
     draggingSectionId,
-    sectionById,
     sectionPositionOverride,
     setDraggingSectionId,
     setSectionPositionOverride,
-  } = useSettingsGraphSubstrateCanarySceneState(sections);
+  } = useSettingsGraphSubstrateCanarySceneState();
   const sceneSnapshot = useSettingsGraphSubstrateCanarySceneRuntime({
     draggingSectionId,
     sectionPositionOverride,
@@ -152,8 +151,8 @@ export function SettingsGraphSubstrateCanary() {
     };
   }, []);
 
-  const sectionByIdRef = useRef(sectionById);
-  sectionByIdRef.current = sectionById;
+  const sceneSectionsByIdRef = useRef(sceneSnapshot.sectionsById);
+  sceneSectionsByIdRef.current = sceneSnapshot.sectionsById;
 
   paneInteractionBehaviorRef.current = {
     isMacOs: isMacOs(),
@@ -199,7 +198,8 @@ export function SettingsGraphSubstrateCanary() {
         getNodeDragThreshold: () =>
           sectionDragBehaviorRef.current.nodeDragThreshold,
         getResolvedViewport: viewportRuntime.getResolvedViewport,
-        getSectionById: (sectionId) => sectionByIdRef.current.get(sectionId),
+        getSectionById: (sectionId) =>
+          sceneSectionsByIdRef.current.get(sectionId),
         getSnapSettings: () => ({
           snapGrid: sectionDragBehaviorRef.current.snapGrid,
           snapToGrid: sectionDragBehaviorRef.current.snapToGrid,
@@ -212,19 +212,20 @@ export function SettingsGraphSubstrateCanary() {
 
   useEffect(() => {
     if (
-      (draggingSectionId && !sectionById.has(draggingSectionId)) ||
+      (draggingSectionId &&
+        !sceneSnapshot.sectionsById.has(draggingSectionId)) ||
       (sectionPositionOverride &&
-        !sectionById.has(sectionPositionOverride.sectionId)) ||
-      sections.length === 0
+        !sceneSnapshot.sectionsById.has(sectionPositionOverride.sectionId)) ||
+      sceneSnapshot.sections.length === 0
     ) {
       sectionDragController.cancelSectionDrag();
     }
   }, [
     draggingSectionId,
-    sectionById,
     sectionDragController,
     sectionPositionOverride,
-    sections.length,
+    sceneSnapshot.sections.length,
+    sceneSnapshot.sectionsById,
   ]);
 
   function handlePanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {

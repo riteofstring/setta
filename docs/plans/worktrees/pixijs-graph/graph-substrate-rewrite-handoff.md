@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 14:58 EDT
+Last updated: 2026-04-05 15:30 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,106 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `189` moved canary drag lookup/cancellation onto the authoritative scene snapshot, but the required CDP confirmation is still blocked after the one allowed worktree lifecycle recovery and retry.
+  - Why this slice was needed:
+    - item `188` showed the blocker was the fresh-context CDP path rather than renderer drift, so repeating another probe-only pass would have been churn
+    - the next bounded geometry-authority seam at the canary root was the raw `sectionById` map, which still existed only to drive drag lookup/cancellation outside the authoritative `sceneSnapshot`
+    - this slice keeps the frontier on product code while still honoring the requirement to retry the blocked visual gate before continuing deeper into the rewrite
+  - What this slice established:
+    - the local scene-state hook is now purely transient state and no longer rebuilds a raw section lookup map from `sections`
+    - `SettingsGraphSubstrateCanary.tsx` now routes section drag lookup/cancellation through `sceneSnapshot.sectionsById` and `sceneSnapshot.sections.length`, so that interaction path follows the same authoritative section snapshot as bounds, viewport, and node-sync
+    - `settingsGraphSubstrateCanarySectionDragController.ts` now accepts authoritative scene sections for persisted drag completion, which removes the last need for the raw layout-section lookup at the root
+    - focused coverage is green after the change:
+      - scene-state, scene-runtime, section-drag, and viewport-runtime tests all passed (`4 files`, `16 tests`)
+    - the canonical normalized `rotaryParamCodeObjDefault` regression lane stayed healthy before the recovery attempt:
+      - legacy rerun: `16.6676ms` average frame duration, `31.5ms` max, `0` long tasks
+      - worktree canary: `16.3039ms` average frame duration, `18.7ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the required CDP visual gate is still blocked after the one allowed self-recovery attempt:
+      - the first fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md` but hit `list_pages` timeouts and `Network.enable` timeouts before it could inspect either live settings page
+      - a bounded `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` recovery launched a fresh worktree runtime on `3077/8077` and reported `debug 9299`
+      - the follow-up runtime fallback still showed mixed old/new worktree transport state (`setta status` latest session on `8077`, but `cdp-port.sh` still pointing at `9297`)
+      - the second fresh-context CDP retry also reported `chrome-devtools` inaccessible before it could open any page, so the required normalized visual compare did not run
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneState.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionDragController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - result: passed (`4 files`, `16 tests`)
+    - runtime refresh before the live rerun:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-020/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-020/main-ai.log`
+      - result: `main` healthy on `3087/8087` with refreshed bootstrap url
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `42.6s`)
+    - static verification:
+      - `git diff --check`
+      - result: passed
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked by `list_pages` / `Network.enable` transport timeouts before any page could be inspected
+    - bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: launched a fresh worktree runtime on `3077/8077` and reported `debug 9299`
+    - recovery-session runtime fallback:
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: latest worktree backend/bootstrap session refreshed to `8077`
+      - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+      - result: still reported the prior `9297` transport metadata
+    - CDP visual retry:
+      - fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked again; `chrome-devtools` MCP remained inaccessible before any page could be opened
+  - Lane status:
+    - the raw root-level `sectionById` geometry seam is gone and the drag interaction path now uses authoritative scene-snapshot lookups
+    - the product slice is landed and the canonical normalized regression lane remains green
+    - the only blocker is the required CDP visual gate, which is still unavailable after the one allowed in-iteration recovery attempt
+  - Next frontier:
+    - start the next iteration with a fresh outer lifecycle bootstrap and retry the same normalized `rotaryParamCodeObjDefault` CDP compare before taking another geometry-authority product slice
+    - if fresh-context `chrome-devtools` is still inaccessible on that fresh pass, keep the blocker explicit instead of inventing a non-CDP visual fallback
+
+- Ralph item `188` retried item `187`'s blocked visual gate on the fresh run-019 sessions, but the required CDP confirmation is still blocked at the fresh-context sub-agent tool layer even though the canonical normalized Playwright lane stayed green.
+  - Why this slice was needed:
+    - item `187` explicitly handed off to rerunning the same normalized `rotaryParamCodeObjDefault` CDP compare before taking another product slice
+    - the recent iterations were already a run of geometry-authority product moves, so taking another seam move without first resolving the required visual gate would have been sequencing churn
+  - What this slice established:
+    - the live runtimes themselves are healthy on the current loop session:
+      - worktree refresh reported `3076/8076` with `debugPort: 9297`
+      - read-only `main` refresh reported `3087/8087`
+    - the same deterministic `rotaryParamCodeObjDefault` regression lane stayed healthy again on those run-019 sessions:
+      - legacy rerun: `17.0049ms` average frame duration, `49.9ms` max, `1` long task (`54ms`)
+      - worktree canary: `16.2980ms` average frame duration, `18.7ms` max, `0` long tasks
+      - both sides again ended on the same transform (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+    - the remaining blocker is no longer stale runtime ambiguity:
+      - the fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md` but could not invoke the `chrome-devtools` MCP surface in its own session
+      - in that same fresh browser context, the provided bootstrap URLs on `8076` and `8087` rejected the token, so the sub-agent fell back to direct `/settings` routes only to confirm page load
+      - because the sub-agent never got working `chrome-devtools` access, it did not complete the normalized `All Settings` plus `rotaryParamCodeObjDefault` visual compare
+    - no bounded lifecycle restart was attempted this pass:
+      - both worktree and reference runtimes were already healthy, so the blocker classified as CDP tool access rather than local lifecycle availability
+  - Verification:
+    - runtime refresh:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-019/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-019/main-ai.log`
+      - result: `main` healthy on `3087/8087` with refreshed bootstrap url
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `42.9s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: blocked at the tool-access layer before a normalized visual compare could run
+      - note:
+        - the sub-agent confirmed direct page load on `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings`
+        - it did not complete the required normalized `All Settings` plus `rotaryParamCodeObjDefault` graph-surface compare
+  - Lane status:
+    - item `187`'s product slice remains landed and the canonical normalized regression lane is healthy on the fresh run-019 sessions
+    - the only blocker is fresh-context CDP tool availability, not renderer drift or runtime health
+  - Next frontier:
+    - retry the same normalized `rotaryParamCodeObjDefault` CDP compare in the next fresh outer iteration before taking another geometry-authority product slice
+    - if the fresh-context sub-agent still cannot invoke `chrome-devtools`, keep the blocker explicit instead of inventing a non-CDP visual fallback
 
 - Ralph item `187` moved the canary viewport fallback seed onto the authoritative scene snapshot, so viewport startup no longer reads raw `sections[0].position` at the canary root.
   - Why this slice was needed:

@@ -31,7 +31,9 @@ type SettingsGraphSubstrateCanarySectionDragEffects = {
       | SettingsGraphSubstrateCanarySceneSection,
   ) => void;
   persistSectionDrag: (
-    section: GraphSubstrateCanarySection,
+    section:
+      | GraphSubstrateCanarySection
+      | SettingsGraphSubstrateCanarySceneSection,
     position: Position,
   ) => void;
   resetSectionTempZIndex: (sectionId: string) => void;
@@ -68,7 +70,10 @@ type SettingsGraphSubstrateCanarySectionDragControllerDependencies = {
   getResolvedViewport: () => GraphViewport | null;
   getSectionById: (
     sectionId: string,
-  ) => GraphSubstrateCanarySection | undefined;
+  ) =>
+    | GraphSubstrateCanarySection
+    | SettingsGraphSubstrateCanarySceneSection
+    | undefined;
   getSnapSettings: () => SettingsGraphSubstrateCanarySectionDragSnapSettings;
   onDraggingSectionIdChange: (sectionId: string | null) => void;
   onSectionPositionOverrideChange: (

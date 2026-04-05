@@ -6,7 +6,6 @@ import { useNodeInternals } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import type { SettingsGraphSubstrateCanarySectionPositionOverride } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
@@ -14,19 +13,16 @@ import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstr
 function SceneStateProbe({
   draggingSectionId,
   override,
-  sections,
 }: {
   draggingSectionId: string | null;
   override: SettingsGraphSubstrateCanarySectionPositionOverride;
-  sections: Array<GraphSubstrateCanarySection>;
 }) {
   const {
     draggingSectionId: currentDraggingSectionId,
-    sectionById,
     sectionPositionOverride,
     setDraggingSectionId,
     setSectionPositionOverride,
-  } = useSettingsGraphSubstrateCanarySceneState(sections);
+  } = useSettingsGraphSubstrateCanarySceneState();
 
   useEffect(() => {
     setDraggingSectionId(draggingSectionId);
@@ -42,7 +38,6 @@ function SceneStateProbe({
       data-state={JSON.stringify({
         draggingSectionId: currentDraggingSectionId,
         override: sectionPositionOverride,
-        sectionIds: Array.from(sectionById.keys()),
       })}
     />
   );
@@ -78,7 +73,6 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
             sectionId: "section-a",
             position: { x: 460, y: 260 },
           }}
-          sections={[createSection()]}
         />,
       );
     });
@@ -90,7 +84,6 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
           sectionId: "section-a",
           position: { x: 460, y: 260 },
         },
-        sectionIds: ["section-a"],
       });
     });
     expect(
@@ -103,59 +96,41 @@ describe("useSettingsGraphSubstrateCanarySceneState", () => {
     expect(useNodeInternals.getState().x.size).toBe(0);
   });
 
-  it("rebuilds the section lookup map when the canary sections change", async () => {
+  it("keeps the transient local state isolated from canary section updates", async () => {
     await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={null}
-          override={null}
-          sections={[createSection()]}
-        />,
-      );
-    });
-
-    await vi.waitFor(() => {
-      expect(readSceneState(host).sectionIds).toEqual(["section-a"]);
-    });
-
-    await act(async () => {
-      root.render(
-        <SceneStateProbe
-          draggingSectionId={null}
-          override={null}
-          sections={[
-            createSection({
-              sectionId: "section-b",
-            }),
-          ]}
-        />,
-      );
+      root.render(<SceneStateProbe draggingSectionId={null} override={null} />);
     });
 
     await vi.waitFor(() => {
       expect(readSceneState(host)).toEqual({
         draggingSectionId: null,
         override: null,
-        sectionIds: ["section-b"],
+      });
+    });
+
+    await act(async () => {
+      root.render(
+        <SceneStateProbe
+          draggingSectionId={"section-b"}
+          override={{
+            sectionId: "section-b",
+            position: { x: 120, y: 80 },
+          }}
+        />,
+      );
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneState(host)).toEqual({
+        draggingSectionId: "section-b",
+        override: {
+          sectionId: "section-b",
+          position: { x: 120, y: 80 },
+        },
       });
     });
   });
 });
-
-function createSection(
-  overrides: Partial<GraphSubstrateCanarySection> = {},
-): GraphSubstrateCanarySection {
-  return {
-    sectionId: "section-a",
-    position: { x: 120, y: 80 },
-    zIndex: 2,
-    tempZIndex: 2,
-    width: null,
-    height: null,
-    positionAndSizeLocked: false,
-    ...overrides,
-  };
-}
 
 function readSceneState(hostElement: HTMLDivElement) {
   const probe = hostElement.querySelector('[data-testid="scene-state-probe"]');
@@ -169,6 +144,5 @@ function readSceneState(hostElement: HTMLDivElement) {
   return JSON.parse(stateAttribute) as {
     draggingSectionId: string | null;
     override: SettingsGraphSubstrateCanarySectionPositionOverride;
-    sectionIds: Array<string>;
   };
 }
