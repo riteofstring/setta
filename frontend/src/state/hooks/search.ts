@@ -7,7 +7,7 @@ import { matchSorter } from "match-sorter";
 import { useState } from "react";
 import {
   getDisplayedSectionIdToChildren,
-  getParamDisplayName,
+  getParamDisplayNameIfPresent,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
@@ -106,10 +106,14 @@ function getParamsAndAddToSearchResults(
 ) {
   const ids = getAllVisibleParamsInSection(state, sectionId);
   for (const p of ids) {
+    const name = getParamDisplayNameIfPresent(state, sectionId, p);
+    if (!name) {
+      continue;
+    }
     output.push({
       sectionId,
       paramInfoId: p,
-      name: getParamDisplayName(state, sectionId, p),
+      name,
     });
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLauncherStatusResponse } from "utils/generatedTypes";
+import type { GetLauncherStatusResponse } from "openapi/http";
 
 import {
   buildSetupLauncherRequest,
@@ -10,9 +10,18 @@ import {
   resolveUpdateProgressLabel,
 } from "./DesktopLauncherSettingsSection";
 
+function buildLauncherStatusResponse(
+  overrides: Partial<GetLauncherStatusResponse> = {},
+): GetLauncherStatusResponse {
+  return {
+    ok: true,
+    ...overrides,
+  };
+}
+
 describe("DesktopLauncherSettingsSection helpers", () => {
   it("derives setup state for a fresh installation", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: false,
       updateCapability: "unsupported",
@@ -31,7 +40,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("derives in-app update state and in-flight setup label", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: true,
       updateCapability: "in_app",
@@ -50,7 +59,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("marks installer-managed channels and re-run setup label", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: true,
       updateCapability: "installer_managed",
@@ -101,7 +110,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("builds setup payload from existing launcher status", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: true,
       channel: "uv-tool",
@@ -122,7 +131,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       installArtifacts: true,
       channel: "uv-tool",
       openMode: "browser",
-      workspaceBehavior: "always-prompt",
+      workspaceBehavior: "always_prompt",
       artifactOptions: {
         app_name: "Setta",
       },
@@ -130,7 +139,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("sets installArtifacts=false when launcher has no managed artifacts", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: true,
       managedArtifacts: {},
@@ -145,7 +154,7 @@ describe("DesktopLauncherSettingsSection helpers", () => {
   });
 
   it("omits setup defaults when launcher is not installed", () => {
-    const status = createLauncherStatusResponse({
+    const status = buildLauncherStatusResponse({
       ok: true,
       installed: false,
       updateCapability: "unsupported",
