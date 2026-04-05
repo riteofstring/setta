@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 20:31 EDT
+Last updated: 2026-04-05 20:54 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,61 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `211` preserves unlocked top-level layout `w/h` as canary fallback geometry so the scene runtime no longer waits on measured DOM size when project layout dimensions already exist.
+  - Why this slice was needed:
+    - item `210` moved one real static visual layer to substrate ownership, but the canary model still nulled `layout.w/h` for every unlocked section before scene geometry resolved
+    - that meant unlocked sections still depended on local measured-size arrival even when `All Settings` top-level layout already had positive width/height in project state
+    - this is a real geometry-authority step toward the rewrite goal, not another forwarding or chrome-contract pass
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+      - `selectSettingsGraphSubstrateCanaryLayoutSections(...)` now passes through `layout.w/h` for unlocked and locked sections instead of stripping unlocked layout size to `null`
+      - scene geometry still prefers fresher measured size through `settingsGraphSubstrateCanarySectionGeometry.ts`; this slice only restores source-state fallback authority to the model boundary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - now asserts unlocked sections keep their positive layout fallback size in the selected canary section list
+      - fixture now uses generated helpers (`createViewModeConfig`, `createTopLevelSectionLayout`, `createProjectStateSingleConfig`, `createProjectChatWindowingState`) so narrowed typecheck stays meaningful on the touched file
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - added coverage proving an unlocked section starts from layout fallback size, publishes matching scene bounds/node internals, and then hands authority back to measured size once the registry updates
+  - What this slice established:
+    - unlocked `All Settings` sections now carry project-layout width/height into the canary scene runtime instead of dropping that authority at the selector boundary
+    - scene bounds and shared node internals can start from source-state layout geometry while still switching to measured size when DOM-backed content reports fresher dimensions
+    - this reduces the amount of canary-local DOM measurement needed just to make the first visible scene coherent on unlocked sections
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green on refreshed run-042 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `17.03291ms`; worktree average frame duration was `17.00177ms`
+      - visible section count stayed `46` on both sides
+      - reference recorded one `50ms` long task; worktree recorded none
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - result: passed (`5 files`, `25 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanaryModel(\\.test)?\\.ts|settingsGraphSubstrateCanarySceneRuntime\\.test\\.tsx" || true`
+      - result: no matches
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-042/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-042/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - attempted first-render canary probe:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-042 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary preserves the All Settings multi-column spread on first render' --reporter=line`
+      - result: not used as gate
+      - note: on the already-mounted live loop session, the spec timed out on the legacy `READY_SELECTOR` (`.react-flow__pane`) before the slice was exercised, so it was treated as setup noise rather than renderer evidence
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-042 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh run-042 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `36.3s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md` and compared the normalized `All Settings` graph surface around `rotaryParamCodeObjDefault`
+      - note: the worktree canary still matched read-only `main` on the target lane, with only non-target chrome/noise outside the graph surface (sidebars, minimap, chat window, dense offscreen thumbnails)
+  - Lane status:
+    - this closes the unlocked-layout fallback seam at the canary model boundary and keeps progress on geometry authority rather than reopening header/chrome extraction
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if dependency approval is still unavailable, keep the next bounded slice on the remaining carried-forward geometry fallback in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts` / `settingsGraphSubstrateCanarySceneSnapshot.ts` (`sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`) so scene bounds stop depending on last-known measured DOM size once layout fallback exists
+    - do not reuse the direct live-session first-render spec as the primary gate until its setup is normalized away from the legacy `.react-flow__pane` ready selector
 
 - Ralph item `210` replaced the canary's direct `xyflow` background dependency with a substrate-owned background component so the settings graph surface now owns one real static visual layer at the renderer boundary without adding a new dependency.
   - Why this slice was needed:

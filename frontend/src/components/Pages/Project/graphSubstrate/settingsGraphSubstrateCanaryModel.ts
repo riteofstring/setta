@@ -8,14 +8,6 @@ import {
 import type { ZustandProjectState } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
 
-type TopLevelLayout = {
-  x: number;
-  y: number;
-  zIndex: number;
-  w: number | null;
-  h: number | null;
-};
-
 export type GraphSubstrateCanaryLayoutSection = {
   sectionId: string;
   position: Position;
@@ -74,18 +66,13 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       continue;
     }
     const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    const sizeAuthority = getCanaryLayoutSectionSizeAuthority(
-      layout,
-      impl.positionAndSizeLocked,
-    );
-
     candidates.push({
       sectionId,
       position: { x: layout.x, y: layout.y },
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
-      width: sizeAuthority.width,
-      height: sizeAuthority.height,
+      width: layout.w,
+      height: layout.h,
       positionAndSizeLocked: impl.positionAndSizeLocked,
     });
   }
@@ -113,21 +100,4 @@ export function selectSettingsGraphSubstrateCanarySections(
       };
     },
   );
-}
-
-function getCanaryLayoutSectionSizeAuthority(
-  layout: TopLevelLayout,
-  positionAndSizeLocked: boolean,
-) {
-  if (!positionAndSizeLocked) {
-    return {
-      width: null,
-      height: null,
-    };
-  }
-
-  return {
-    width: layout.w,
-    height: layout.h,
-  };
 }
