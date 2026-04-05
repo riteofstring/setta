@@ -336,101 +336,130 @@ func applyCodexStreamEvent(state *ChatState, eventState *codexEventState, payloa
 	method := strings.TrimSpace(stringValue(payload["method"]))
 	switch method {
 	case "turn/started":
-		if eventState != nil {
-			eventState.resetTurn()
-		}
+		resetCodexTurnState(eventState)
 		return false, nil, nil
 	case "item/started":
-		item, ok := codexEventItem(payload)
-		if !ok {
-			return false, nil, nil
-		}
-		itemType := strings.TrimSpace(stringValue(item["type"]))
-		if isCodexAssistantMessageType(itemType) {
-			messageID := codexEventItemID(payload, item)
-			if messageID == "" {
-				return false, nil, nil
-			}
-			if eventState != nil {
-				messageID = eventState.adoptSyntheticAssistantMessage(state, messageID)
-				eventState.lastAssistantMessageID = messageID
-				eventState.assistantMessageOpen = true
-			}
-			return false, nil, nil
-		}
-		if isCodexRawToolItemType(itemType) {
-			changed, toolResult := applyCodexRawToolItem(state, eventState, payload, item, method)
-			return changed, toolResult, nil
-		}
-		return false, nil, nil
+		return handleCodexStreamItemStarted(state, eventState, payload, method)
 	case "item/assistantMessage/delta", "item/agentMessage/delta", "item/message/delta":
-		params, ok := mapValue(payload["params"])
-		if !ok {
-			return false, nil, nil
-		}
-		messageID := strings.TrimSpace(stringValue(params["itemId"]))
-		delta, ok := mapValue(params["delta"])
-		if !ok {
-			return false, nil, nil
-		}
-		text := stringValue(delta["text"])
-		if messageID == "" || text == "" {
-			return false, nil, nil
-		}
-		if eventState != nil {
-			messageID = eventState.adoptSyntheticAssistantMessage(state, messageID)
-			eventState.lastAssistantMessageID = messageID
-			eventState.assistantMessageOpen = true
-		}
-		appendAssistantDelta(state, messageID, text)
-		return true, nil, nil
+		return handleCodexAssistantDelta(state, eventState, payload)
 	case "item/completed":
-		item, ok := codexEventItem(payload)
-		if !ok {
-			return false, nil, nil
-		}
-		itemType := strings.TrimSpace(stringValue(item["type"]))
-		if isCodexAssistantMessageType(itemType) {
-			messageID := codexEventItemID(payload, item)
-			text := extractCodexMessageText(item)
-			if messageID == "" {
-				return false, nil, nil
-			}
-			if eventState != nil {
-				messageID = eventState.adoptSyntheticAssistantMessage(state, messageID)
-				eventState.lastAssistantMessageID = messageID
-				eventState.assistantMessageOpen = false
-				if eventState.syntheticAssistantID == messageID {
-					eventState.syntheticAssistantID = ""
-				}
-			}
-			upsertAssistantMessage(state, messageID, text)
-			return true, nil, nil
-		}
-		if isCodexRawToolItemType(itemType) {
-			changed, toolResult := applyCodexRawToolItem(state, eventState, payload, item, method)
-			return changed, toolResult, nil
-		}
-		return false, nil, nil
+		return handleCodexStreamItemCompleted(state, eventState, payload, method)
 	case "item.commandExecution.outputDelta":
-		itemID := codexEventItemID(payload, nil)
-		deltaText := extractCodexOutputDeltaText(payload)
-		if eventState == nil || itemID == "" || deltaText == "" {
-			return false, nil, nil
-		}
-		eventState.commandOutputByItemID[itemID] = append(eventState.commandOutputByItemID[itemID], deltaText)
+		bufferCodexOutputDelta(eventState, payload, true)
 		return false, nil, nil
 	case "item.fileChange.outputDelta":
-		itemID := codexEventItemID(payload, nil)
-		deltaText := extractCodexOutputDeltaText(payload)
-		if eventState == nil || itemID == "" || deltaText == "" {
-			return false, nil, nil
-		}
-		eventState.fileChangeOutputByItemID[itemID] = append(eventState.fileChangeOutputByItemID[itemID], deltaText)
+		bufferCodexOutputDelta(eventState, payload, false)
 		return false, nil, nil
 	default:
 		return false, nil, nil
 	}
+}
+
+func resetCodexTurnState(eventState *codexEventState) {
+	if eventState != nil {
+		eventState.resetTurn()
+	}
+}
+
+func handleCodexStreamItemStarted(
+	state *ChatState,
+	eventState *codexEventState,
+	payload map[string]any,
+	method string,
+) (bool, *codexToolResultMetadata, error) {
+	item, ok := codexEventItem(payload)
+	if !ok {
+		return false, nil, nil
+	}
+	itemType := strings.TrimSpace(stringValue(item["type"]))
+	if isCodexAssistantMessageType(itemType) {
+		trackCodexAssistantMessage(state, eventState, codexEventItemID(payload, item), true)
+		return false, nil, nil
+	}
+	if !isCodexRawToolItemType(itemType) {
+		return false, nil, nil
+	}
+	changed, toolResult := applyCodexRawToolItem(state, eventState, payload, item, method)
+	return changed, toolResult, nil
+}
+
+func handleCodexAssistantDelta(
+	state *ChatState,
+	eventState *codexEventState,
+	payload map[string]any,
+) (bool, *codexToolResultMetadata, error) {
+	params, ok := mapValue(payload["params"])
+	if !ok {
+		return false, nil, nil
+	}
+	messageID := strings.TrimSpace(stringValue(params["itemId"]))
+	delta, ok := mapValue(params["delta"])
+	if !ok {
+		return false, nil, nil
+	}
+	text := stringValue(delta["text"])
+	if messageID == "" || text == "" {
+		return false, nil, nil
+	}
+	messageID = trackCodexAssistantMessage(state, eventState, messageID, true)
+	if messageID == "" {
+		return false, nil, nil
+	}
+	appendAssistantDelta(state, messageID, text)
+	return true, nil, nil
+}
+
+func handleCodexStreamItemCompleted(
+	state *ChatState,
+	eventState *codexEventState,
+	payload map[string]any,
+	method string,
+) (bool, *codexToolResultMetadata, error) {
+	item, ok := codexEventItem(payload)
+	if !ok {
+		return false, nil, nil
+	}
+	itemType := strings.TrimSpace(stringValue(item["type"]))
+	if isCodexAssistantMessageType(itemType) {
+		messageID := trackCodexAssistantMessage(state, eventState, codexEventItemID(payload, item), false)
+		if messageID == "" {
+			return false, nil, nil
+		}
+		upsertAssistantMessage(state, messageID, extractCodexMessageText(item))
+		return true, nil, nil
+	}
+	if !isCodexRawToolItemType(itemType) {
+		return false, nil, nil
+	}
+	changed, toolResult := applyCodexRawToolItem(state, eventState, payload, item, method)
+	return changed, toolResult, nil
+}
+
+func trackCodexAssistantMessage(state *ChatState, eventState *codexEventState, messageID string, open bool) string {
+	messageID = strings.TrimSpace(messageID)
+	if messageID == "" || eventState == nil {
+		return messageID
+	}
+	messageID = eventState.adoptSyntheticAssistantMessage(state, messageID)
+	eventState.lastAssistantMessageID = messageID
+	eventState.assistantMessageOpen = open
+	if !open && eventState.syntheticAssistantID == messageID {
+		eventState.syntheticAssistantID = ""
+	}
+	return messageID
+}
+
+func bufferCodexOutputDelta(eventState *codexEventState, payload map[string]any, commandOutput bool) {
+	itemID := codexEventItemID(payload, nil)
+	deltaText := extractCodexOutputDeltaText(payload)
+	if eventState == nil || itemID == "" || deltaText == "" {
+		return
+	}
+	if commandOutput {
+		eventState.commandOutputByItemID[itemID] = append(eventState.commandOutputByItemID[itemID], deltaText)
+		return
+	}
+	eventState.fileChangeOutputByItemID[itemID] = append(eventState.fileChangeOutputByItemID[itemID], deltaText)
 }
 
 func applyCodexRawToolItem(state *ChatState, eventState *codexEventState, payload map[string]any, item map[string]any, method string) (bool, *codexToolResultMetadata) {

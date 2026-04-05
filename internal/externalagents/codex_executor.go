@@ -394,119 +394,174 @@ func (e *CodexExecutor) handleEvent(
 	eventState *codexEventState,
 	backgroundTasks *sync.WaitGroup,
 ) (bool, error) {
-	if currentLiveState, err := e.runtime.GetLiveChatState(request.Run.ID); err == nil && currentLiveState != nil {
-		*state = *currentLiveState.Clone()
-	}
-	if isCodexApprovalRequest(payload) {
-		approvalState, arguments, err := buildCodexApprovalState(request, payload)
-		if err != nil {
-			return false, err
-		}
-		if err := e.runtime.RegisterApproval(approvalState); err != nil {
-			return false, err
-		}
-		session.registerApprovalRawID(approvalState.ApprovalID, payload["id"])
-		appendApprovalRequestMessage(state, approvalState.ApprovalID, arguments)
-		if err := e.persistLiveState(request.Run.ID, *state, session.threadID()); err != nil {
-			return false, err
-		}
-		run, err := e.runs.Load(request.Run.ID)
-		if err != nil {
-			return false, err
-		}
-		appendRunEvent(&run, "approval_request", map[string]any{
-			"approvalId": approvalState.ApprovalID,
-			"payload":    cloneAnyMap(payload),
-		}, e.timeNow())
-		if err := e.runs.Save(run); err != nil {
-			return false, err
-		}
+	e.refreshLiveChatState(request.Run.ID, state)
+	if handled, err := e.handleApprovalRequestEvent(request, session, payload, state); err != nil {
+		return false, err
+	} else if handled {
 		return false, nil
 	}
 	eventState.notePayload(request.Run.ID, payload, e.runtime, time.Now().UTC())
 
-	switch strings.TrimSpace(stringValue(payload["type"])) {
-	case codexResponseItemEnvelope:
-		if handled, toolResult, err := e.applyResponseItem(request.Run.ID, payload, state, session.threadID()); err != nil {
-			return false, err
-		} else if handled {
-			if toolResult != nil {
-				run, err := e.runs.Load(request.Run.ID)
-				if err != nil {
-					return false, err
-				}
-				appendRunEvent(&run, "tool_result", map[string]any{
-					"toolCallId": toolResult.ToolCallID,
-					"toolName":   toolResult.ToolName,
-					"isError":    toolResult.IsError,
-				}, e.timeNow())
-				if err := e.runs.Save(run); err != nil {
-					return false, err
-				}
-			}
-			return false, nil
-		}
+	if handled, err := e.handleResponseItemEvent(request.Run.ID, payload, state, session.threadID()); err != nil {
+		return false, err
+	} else if handled {
+		return false, nil
 	}
 
-	method := strings.TrimSpace(stringValue(payload["method"]))
 	if usagePayload := captureCodexTokenUsageEvent(eventState, payload); usagePayload != nil {
 		if err := e.persistUsagePayload(request.Run.ID, usagePayload); err != nil {
 			return false, err
 		}
 	}
-	switch method {
-	case codexTurnCompletedMethod:
-		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
-		if e.shouldRefreshMCPStatuses(request.Run.ID) {
-			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
-		}
-		usagePayload := eventState.usagePayload()
-		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID(), usagePayload); err != nil {
-			return false, err
-		}
-		return true, nil
-	case codexTurnFailedMethod:
-		errorPayload := map[string]any{}
-		if params, ok := mapValue(payload["params"]); ok {
-			if turn, ok := mapValue(params["turn"]); ok {
-				if turnError := turn["error"]; turnError != nil {
-					errorPayload["error"] = turnError
-				}
-			}
-		}
-		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
-		if e.shouldRefreshMCPStatuses(request.Run.ID) {
-			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
-		}
-		usagePayload := eventState.usagePayload()
-		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID(), usagePayload); err != nil {
-			return false, err
-		}
+	if finished, err := e.handleTurnLifecycleEvent(request, session, payload, state, eventState, backgroundTasks); err != nil {
+		return false, err
+	} else if finished {
 		return true, nil
 	}
 
-	if applied, toolResult, err := applyCodexStreamEvent(state, eventState, payload); err != nil {
+	if err := e.handleStreamEvent(request.Run.ID, session.threadID(), payload, state, eventState); err != nil {
 		return false, err
-	} else if applied {
-		if toolResult != nil {
-			run, err := e.runs.Load(request.Run.ID)
-			if err != nil {
-				return false, err
-			}
-			appendRunEvent(&run, "tool_result", map[string]any{
-				"toolCallId": toolResult.ToolCallID,
-				"toolName":   toolResult.ToolName,
-				"isError":    toolResult.IsError,
-			}, e.timeNow())
-			if err := e.runs.Save(run); err != nil {
-				return false, err
-			}
-		}
-		if err := e.persistLiveState(request.Run.ID, *state, session.threadID()); err != nil {
-			return false, err
-		}
 	}
 	return false, nil
+}
+
+func (e *CodexExecutor) refreshLiveChatState(runID string, state *ChatState) {
+	if currentLiveState, err := e.runtime.GetLiveChatState(runID); err == nil && currentLiveState != nil {
+		*state = *currentLiveState.Clone()
+	}
+}
+
+func (e *CodexExecutor) handleApprovalRequestEvent(
+	request StartRequest,
+	session *codexSession,
+	payload map[string]any,
+	state *ChatState,
+) (bool, error) {
+	if !isCodexApprovalRequest(payload) {
+		return false, nil
+	}
+	approvalState, arguments, err := buildCodexApprovalState(request, payload)
+	if err != nil {
+		return false, err
+	}
+	if err := e.runtime.RegisterApproval(approvalState); err != nil {
+		return false, err
+	}
+	session.registerApprovalRawID(approvalState.ApprovalID, payload["id"])
+	appendApprovalRequestMessage(state, approvalState.ApprovalID, arguments)
+	if err := e.persistLiveState(request.Run.ID, *state, session.threadID()); err != nil {
+		return false, err
+	}
+	run, err := e.runs.Load(request.Run.ID)
+	if err != nil {
+		return false, err
+	}
+	appendRunEvent(&run, "approval_request", map[string]any{
+		"approvalId": approvalState.ApprovalID,
+		"payload":    cloneAnyMap(payload),
+	}, e.timeNow())
+	if err := e.runs.Save(run); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (e *CodexExecutor) handleResponseItemEvent(
+	runID string,
+	payload map[string]any,
+	state *ChatState,
+	threadID string,
+) (bool, error) {
+	if strings.TrimSpace(stringValue(payload["type"])) != codexResponseItemEnvelope {
+		return false, nil
+	}
+	handled, toolResult, err := e.applyResponseItem(runID, payload, state, threadID)
+	if err != nil || !handled {
+		return handled, err
+	}
+	if err := e.recordToolResultEvent(runID, toolResult); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (e *CodexExecutor) handleTurnLifecycleEvent(
+	request StartRequest,
+	session *codexSession,
+	payload map[string]any,
+	state *ChatState,
+	eventState *codexEventState,
+	backgroundTasks *sync.WaitGroup,
+) (bool, error) {
+	runStatus, errorPayload, ok := codexTerminalRunStatus(payload)
+	if !ok {
+		return false, nil
+	}
+	applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
+	if e.shouldRefreshMCPStatuses(request.Run.ID) {
+		e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
+	}
+	usagePayload := eventState.usagePayload()
+	if err := e.finalizeRun(request.Run.ID, runStatus, errorPayload, *state, session.threadID(), usagePayload); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func codexTerminalRunStatus(payload map[string]any) (agentruns.RunStatus, map[string]any, bool) {
+	switch strings.TrimSpace(stringValue(payload["method"])) {
+	case codexTurnCompletedMethod:
+		return agentruns.RunStatusCompleted, nil, true
+	case codexTurnFailedMethod:
+		return agentruns.RunStatusFailed, codexTurnFailedPayload(payload), true
+	default:
+		return "", nil, false
+	}
+}
+
+func codexTurnFailedPayload(payload map[string]any) map[string]any {
+	errorPayload := map[string]any{}
+	if params, ok := mapValue(payload["params"]); ok {
+		if turn, ok := mapValue(params["turn"]); ok {
+			if turnError := turn["error"]; turnError != nil {
+				errorPayload["error"] = turnError
+			}
+		}
+	}
+	return errorPayload
+}
+
+func (e *CodexExecutor) handleStreamEvent(
+	runID string,
+	threadID string,
+	payload map[string]any,
+	state *ChatState,
+	eventState *codexEventState,
+) error {
+	applied, toolResult, err := applyCodexStreamEvent(state, eventState, payload)
+	if err != nil || !applied {
+		return err
+	}
+	if err := e.recordToolResultEvent(runID, toolResult); err != nil {
+		return err
+	}
+	return e.persistLiveState(runID, *state, threadID)
+}
+
+func (e *CodexExecutor) recordToolResultEvent(runID string, toolResult *codexToolResultMetadata) error {
+	if toolResult == nil {
+		return nil
+	}
+	run, err := e.runs.Load(runID)
+	if err != nil {
+		return err
+	}
+	appendRunEvent(&run, "tool_result", map[string]any{
+		"toolCallId": toolResult.ToolCallID,
+		"toolName":   toolResult.ToolName,
+		"isError":    toolResult.IsError,
+	}, e.timeNow())
+	return e.runs.Save(run)
 }
 
 func (e *CodexExecutor) applyResponseItem(runID string, payload map[string]any, state *ChatState, threadID string) (bool, *codexToolResultMetadata, error) {
