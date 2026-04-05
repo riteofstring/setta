@@ -16,6 +16,11 @@ The HTTP contract path should become:
 This is not another cleanup pass on the current endpoint discovery logic. The
 goal is to delete the custom HTTP endpoint conversion path.
 
+After the HTTP path is removed, the follow-through goal is to minimize the
+remaining handwritten exception surface without starting another broad rewrite.
+The target is a small, justified non-HTTP generator boundary, not absolute
+metadata purity.
+
 ## Chosen Stack
 
 Default architecture:
@@ -71,6 +76,12 @@ endpoint compiler.
 - Keep custom generation only for surfaces OpenAPI does not cover:
   websocket contracts, frontend constants, and a small true-exception type
   layer.
+- Do not chase zero explicit metadata at any cost. Keep explicit metadata only
+  when it expresses real semantics that reflection or OpenAPI cannot derive.
+- Prefer owner-provided metadata or typed owner defaults over
+  `frontendbindings` tables when explicit semantics are required.
+- Do not reintroduce `map[string]any` default-provider blobs or handwritten
+  TS-shaped object tables.
 
 ## Target Shape
 
@@ -91,6 +102,8 @@ Expected surviving custom generator scope:
 - websocket message types under `internal/wsapi`
 - frontend constants/defaults/value exports from Go owners
 - narrow owner-provided TS expression or union metadata for true reflection gaps
+- a small amount of generic factory/default code that consumes typed owner
+  defaults instead of restating downstream TypeScript structure
 
 Expected deleted custom generator scope:
 
@@ -249,7 +262,48 @@ Disallowed remaining scope:
 - per-type HTTP request/response compatibility hacks
 - recreating OpenAPI-generated surfaces inside `generatedTypes.ts`
 
-## Phase 6: Adapt Downstream Callers
+## Phase 6: Minimize The Remaining Exception Surface
+
+Once HTTP is out, switch from migration work to targeted exception reduction.
+
+Primary audit targets:
+
+- `internal/frontendbindings/type_enum_metadata.go`
+- `internal/frontendbindings/type_helpers.go`
+- `internal/frontendbindings/owner_type_metadata.go`
+- `internal/frontendbindings/type_factories.go`
+- `internal/frontendbindings/discriminated_object_families.go`
+- `internal/httpapi/openapi_document_builder.go`
+
+Rules:
+
+- delete or collapse exception tables when the owner can express the truth
+  directly
+- keep legitimate explicit metadata only for true TS aliases/unions,
+  discriminated-family declarations, typed owner defaults, and frontend
+  constants/value exports
+- prefer moving semantics to owner packages over adding more hooks to
+  `frontendbindings`
+- do not do another scorched-earth rewrite of the whole package now that the
+  architecture is mostly corrected
+- do not broaden the scope just to chase zero handwritten lines
+
+Good deletions:
+
+- synthetic enum patches that can move to owner enum metadata
+- one-off type overrides that can be fixed by owner DTO shape or owner metadata
+- default/factory code that still duplicates downstream structure instead of
+  consuming typed Go defaults
+- doc-builder-only OpenAPI scaffolding that can be replaced by shared
+  registration descriptors
+
+Bad deletions:
+
+- ripping out typed owner defaults when the semantics are real and frontend-only
+- removing discriminated-family metadata that reflection still cannot express
+- replacing a small explicit owner hook with a larger inferred heuristic
+
+## Phase 7: Adapt Downstream Callers
 
 Update downstream frontend and Python code to the new generated surfaces.
 
@@ -304,3 +358,7 @@ The plan is complete only when all of these are true:
 - no handwritten HTTP compatibility layer replaces the deleted generator
 - the remaining `internal/frontendbindings` package is limited to non-HTTP
   frontend contract generation
+- the remaining explicit metadata/default surface is small, owner-backed, and
+  justified by real reflection or protocol gaps
+- no `map[string]any` or TS-shaped handwritten tables have been reintroduced as
+  a substitute for generation

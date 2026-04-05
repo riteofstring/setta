@@ -6,7 +6,8 @@ usage() {
 Usage: ./scripts/run-codex-frontendbindings-openapi-loop.sh [options] [-- <extra codex exec args>]
 
 Run Codex in a fresh-session loop to replace the bespoke HTTP half of
-`internal/frontendbindings` with an OpenAPI-based pipeline.
+`internal/frontendbindings` with an OpenAPI-based pipeline, then minimize the
+remaining handwritten exception surface.
 
 Defaults:
 - Maximum iterations: 1000
@@ -14,7 +15,8 @@ Defaults:
 - Model: `gpt-5.4`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
-- Stop when Codex explicitly reports the HTTP/OpenAPI migration is complete
+- Stop when Codex explicitly reports the HTTP/OpenAPI migration and
+  post-migration exception cleanup are complete
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
 
 Options:
@@ -44,7 +46,7 @@ state_dir=""
 model="gpt-5.4"
 yolo_mode="1"
 complete_exit_code="42"
-stop_sentinel="CODEX_LOOP_STOP: FRONTENDBINDINGS_HTTP_OPENAPI_COMPLETE"
+stop_sentinel="CODEX_LOOP_STOP: FRONTENDBINDINGS_POST_OPENAPI_MINIMIZED"
 codex_extra_args=()
 default_codex_extra_args=(
   --config
@@ -202,13 +204,17 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Drive the number of live frontend imports of `utils/generatedEndpoints` down every few iterations until HTTP callers are off that path.
 - [ ] Track the remaining frontend-generated HTTP route families explicitly and remove at least one family from the legacy path each iteration.
 - [ ] Treat `internal/httpapi/openapi_document_builder.go` growth as suspicious by default; do not grow doc-only fake-service scaffolding without same-commit legacy deletion.
+- [ ] After HTTP migration is complete, minimize the remaining handwritten exception surface in `internal/frontendbindings` instead of stopping immediately.
+- [ ] Reduce or justify the remaining synthetic enum logic, explicit type overrides, and owner-metadata hooks.
+- [ ] Keep owner-provided defaults typed and semantic; do not reintroduce `map[string]any` or TS-shaped default tables.
 - [ ] Keep the repo clean: regenerate, test, run `./gcf.sh`, run `./check_quality.sh`, and commit every non-stop iteration.
 EOF
 fi
 
 cat > "${prompt_file}" <<EOF
 You are running inside an automated Codex loop to replace the bespoke HTTP half
-of \`internal/frontendbindings\` with an OpenAPI-based pipeline.
+of \`internal/frontendbindings\` with an OpenAPI-based pipeline, then minimize
+the remaining handwritten exception layer.
 
 Primary goal:
 - Stop maintaining custom Go -> TypeScript HTTP endpoint conversion logic.
@@ -217,10 +223,13 @@ Primary goal:
   standard tool.
 - Reduce \`internal/frontendbindings\` to the non-HTTP leftovers that OpenAPI
   does not cover.
+- After the HTTP path is out, keep going until the remaining
+  \`internal/frontendbindings\` exception surface is small, justified, and
+  owner-backed.
 
 Read first, in this order:
 - ${ROOT_DIR}/AGENTS.md
-- ${ROOT_DIR}/docs/notes/chatgpt_recommendation.md
+- ${ROOT_DIR}/docs/notes/chatgpt_recommendation.md if it exists
 - ${ROOT_DIR}/docs/plans/frontendbindings-openapi-replacement-plan.md
 - \`git log --oneline --decorate -n 15\`
 - ${checklist_file}
@@ -231,7 +240,8 @@ Chosen architecture:
 - frontend HTTP generation: standard OpenAPI generator, default
   \`@hey-api/openapi-ts\`
 - keep custom generation only for non-HTTP surfaces like websocket payloads,
-  frontend constants, and true TS-only reflection gaps
+  frontend constants, typed owner defaults, discriminated-family metadata, and
+  true TS-only reflection gaps
 
 Non-negotiable rules:
 - Do not preserve the current custom HTTP endpoint conversion path.
@@ -258,6 +268,18 @@ Non-negotiable rules:
   best. Do not let them accumulate as a steady-state architecture.
 - Treat any increase in \`internal/httpapi/openapi_document_builder.go\` lines
   or doc-only fake-service scaffolding as suspicious by default.
+- Do not chase zero explicit metadata at any cost. Some explicit metadata is
+  legitimate when it expresses true semantics that reflection or OpenAPI
+  cannot infer cleanly.
+- Legitimate remaining metadata is narrow: owner-provided TS alias/union
+  expressions, discriminated-family metadata, typed owner defaults, and
+  frontend constants/value exports.
+- Prefer moving true metadata to Go owners over keeping tables in
+  \`internal/frontendbindings\`.
+- Do not reintroduce \`map[string]any\` default providers or TS-shaped
+  handwritten object tables. If a default must be explicit, it must come from
+  a typed Go owner function returning a real Go value.
+- Do not reopen deleted HTTP generator paths once they are gone.
 - Do not grow the doc builder unless the same commit removes at least one
   corresponding route family from the old \`internal/frontendbindings\` HTTP
   path or from live \`generatedEndpoints.ts\` exports/imports.
@@ -273,17 +295,26 @@ Execution workflow for every iteration:
 - Start with a fresh audit against the checklist.
 - Update the checklist to reflect the current repo state before you choose the
   next task.
-- List the remaining frontend-generated HTTP route families explicitly in the
-  audit section.
-- Pick the highest-leverage remaining violation on the HTTP/OpenAPI path.
-- Prefer deleting old HTTP generator code over adapting it.
+- If HTTP/OpenAPI violations remain, list the remaining frontend-generated HTTP
+  route families explicitly in the audit section.
+- If HTTP/OpenAPI violations are complete, list the remaining handwritten
+  exception surfaces explicitly in the audit section. At minimum audit:
+  \`internal/frontendbindings/type_enum_metadata.go\`,
+  \`internal/frontendbindings/type_helpers.go\`,
+  \`internal/frontendbindings/owner_type_metadata.go\`,
+  \`internal/frontendbindings/type_factories.go\`,
+  \`internal/frontendbindings/discriminated_object_families.go\`, and
+  \`internal/httpapi/openapi_document_builder.go\`.
+- Pick the highest-leverage remaining violation on the HTTP/OpenAPI path or on
+  the post-migration exception path.
+- Prefer deleting old HTTP generator code over adapting it. After HTTP is
+  complete, prefer deleting or collapsing exception tables over renaming them.
 - When a route family migrates to OpenAPI, remove that family from the old
   \`internal/frontendbindings\` HTTP path in the same batch or the very next
   iteration.
 - Every non-stop iteration must remove at least one named route family from the
-  legacy path: from OpenAPI-missing families, from legacy
-  \`generatedEndpoints.ts\` wrappers, or from
-  \`internal/frontendbindings/endpoint_discovery.go\`-backed frontend usage.
+  legacy HTTP path or at least one named handwritten exception surface from the
+  remaining non-HTTP path.
 - When the change touches generation or generated outputs, regenerate before
   finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
@@ -308,21 +339,25 @@ Practical guidance:
 - \`internal/frontendbindings\` may continue to exist for websocket contracts,
   constants, defaults, and small TS metadata hooks, but HTTP endpoint discovery
   and HTTP endpoint rendering must leave that package.
-- Measure real caller migration. Track the live count of frontend imports of
-  \`utils/generatedEndpoints\` and include the before/after count in every final
-  iteration message.
-- Include route-family progress in every final iteration message:
-  - which families remain
-  - which family was removed this iteration
+- Measure real caller migration while HTTP cleanup is active. Track the live
+  count of frontend imports of \`utils/generatedEndpoints\` until it reaches
+  zero, then keep reporting zero so drift is obvious.
+- Include progress in every final iteration message:
+  - which HTTP families remain, or confirm none remain
+  - which exception surface was removed or reduced this iteration
   - whether \`openapi_document_builder.go\` grew or shrank
-- Do not keep choosing only smaller side families forever. Once the easy
-  secondary families are migrated, the next required target is \`project\`
-  unless another family demonstrably removes more live non-test
-  \`utils/generatedEndpoints\` imports in that same iteration.
+  - before/after line counts for any touched files among
+    \`type_enum_metadata.go\`, \`type_helpers.go\`, \`owner_type_metadata.go\`,
+    \`type_factories.go\`, \`discriminated_object_families.go\`, and
+    \`openapi_document_builder.go\`
+- Do not keep choosing only easy side cleanups forever. After HTTP is
+  complete, the next required targets are the smallest remaining handwritten
+  exception surfaces with the highest leverage.
 
-If a fresh audit finds no remaining actionable violations of these rules and the
-checklist is complete, make no repo changes, leave the worktree clean, and end
-your final response with this exact line:
+If a fresh audit finds no remaining actionable HTTP/OpenAPI violations and no
+remaining actionable post-migration exception reductions under these rules, make
+no repo changes, leave the worktree clean, and end your final response with
+this exact line:
   ${stop_sentinel}
 
 Completion discipline:
