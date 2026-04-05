@@ -1,12 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
-  cleanupIsolatedProject,
   createCallableSection,
   ensureAppReady,
-  openIsolatedProject,
+  getCurrentProjectConfigId,
   postBackend,
-  setCallableFromFrontend,
-  setSectionPinnedParamsFromFrontend,
 } from "../helpers";
 
 const CALLABLE_NAME = "sorted";
@@ -15,20 +12,21 @@ test("params area uses section scroll and removes pinned resize handles", async 
   page,
 }) => {
   await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-  const projectConfigId = projectContext.projectConfigId;
+  const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionId = await createCallableSection(page, projectConfigId);
   const minParamsHeight = 38;
 
   try {
-    await setCallableFromFrontend(page, {
+    await postBackend(page, "/setCallable", {
       projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
 
-    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
     await expect(sectionNode).toBeVisible();
 
     const firstParam = sectionNode
@@ -51,7 +49,6 @@ test("params area uses section scroll and removes pinned resize handles", async 
       projectConfigId,
       sectionIds: [sectionId],
     });
-    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
@@ -59,20 +56,21 @@ test("unpinned area keeps its minimum height when pinned params are present", as
   page,
 }) => {
   await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-  const projectConfigId = projectContext.projectConfigId;
+  const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionId = await createCallableSection(page, projectConfigId);
   const minUnpinnedHeight = 36;
 
   try {
-    await setCallableFromFrontend(page, {
+    await postBackend(page, "/setCallable", {
       projectConfigId,
       sectionId,
       callableName: CALLABLE_NAME,
       refetchParams: true,
     });
 
-    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
     await expect(sectionNode).toBeVisible();
 
     const firstParam = sectionNode
@@ -102,7 +100,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
       if (unpinnedParamIds.length === 0) {
         throw new Error("Missing unpinned params to pin.");
       }
-      await setSectionPinnedParamsFromFrontend(page, {
+      await postBackend(page, "/setSectionPinnedParams", {
         projectConfigId,
         sectionId,
         pinnedParams: unpinnedParamIds,
@@ -111,7 +109,9 @@ test("unpinned area keeps its minimum height when pinned params are present", as
     }
 
     await sectionNode.hover();
-    const handle = sectionNode.locator(".section-resize-handle-bottom-right");
+    const handle = sectionNode.locator(
+      ".section-resize-handle-bottom-right",
+    );
     await expect(handle).toHaveCount(1);
 
     const box = await handle.boundingBox();
@@ -139,6 +139,5 @@ test("unpinned area keeps its minimum height when pinned params are present", as
       projectConfigId,
       sectionIds: [sectionId],
     });
-    await cleanupIsolatedProject(page, projectContext);
   }
 });
