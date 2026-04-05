@@ -79,6 +79,37 @@ export type SettingsGraphSubstrateCanarySectionShellPixiDrawable = {
   topDragHandle: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null;
 };
 
+export function areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
+  left: ReadonlyArray<SettingsGraphSubstrateCanarySectionShellPixiDrawable>,
+  right: ReadonlyArray<SettingsGraphSubstrateCanarySectionShellPixiDrawable>,
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftDrawable = left[index];
+    const rightDrawable = right[index];
+    if (!leftDrawable || !rightDrawable) {
+      return false;
+    }
+    if (
+      !areSettingsGraphSubstrateCanarySectionShellPixiDrawableEqual(
+        leftDrawable,
+        rightDrawable,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   activeSectionIds,
   darkMode,
@@ -130,6 +161,97 @@ export function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables({
   }
 
   return drawables;
+}
+
+function areSettingsGraphSubstrateCanarySectionShellPixiDrawableEqual(
+  left: SettingsGraphSubstrateCanarySectionShellPixiDrawable,
+  right: SettingsGraphSubstrateCanarySectionShellPixiDrawable,
+) {
+  return (
+    left.sectionId === right.sectionId &&
+    left.cornerRadius === right.cornerRadius &&
+    left.screenX === right.screenX &&
+    left.screenY === right.screenY &&
+    left.screenWidth === right.screenWidth &&
+    left.screenHeight === right.screenHeight &&
+    areSettingsGraphSubstrateCanarySectionShellPixiFillEqual(
+      left.fill,
+      right.fill,
+    ) &&
+    areSettingsGraphSubstrateCanarySectionShellPixiStrokeEqual(
+      left.border,
+      right.border,
+    ) &&
+    areSettingsGraphSubstrateCanarySectionShellPixiStrokeEqual(
+      left.outline,
+      right.outline,
+    ) &&
+    areSettingsGraphSubstrateCanarySectionShellPixiStrokeEqual(
+      left.surfaceFrame,
+      right.surfaceFrame,
+    ) &&
+    areSettingsGraphSubstrateCanarySectionShellPixiTopDragHandlesEqual(
+      left.topDragHandle,
+      right.topDragHandle,
+    )
+  );
+}
+
+function areSettingsGraphSubstrateCanarySectionShellPixiFillEqual(
+  left: SettingsGraphSubstrateCanarySectionShellPixiFill | null,
+  right: SettingsGraphSubstrateCanarySectionShellPixiFill | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.alpha === right.alpha && left.color === right.color;
+}
+
+function areSettingsGraphSubstrateCanarySectionShellPixiStrokeEqual(
+  left: SettingsGraphSubstrateCanarySectionShellPixiStroke | null,
+  right: SettingsGraphSubstrateCanarySectionShellPixiStroke | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.alignment === right.alignment &&
+    left.alpha === right.alpha &&
+    left.color === right.color &&
+    left.width === right.width
+  );
+}
+
+function areSettingsGraphSubstrateCanarySectionShellPixiTopDragHandlesEqual(
+  left: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null,
+  right: SettingsGraphSubstrateCanarySectionShellPixiTopDragHandle | null,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.cornerRadius === right.cornerRadius &&
+    left.screenX === right.screenX &&
+    left.screenY === right.screenY &&
+    left.screenWidth === right.screenWidth &&
+    left.screenHeight === right.screenHeight &&
+    areSettingsGraphSubstrateCanarySectionShellPixiFillEqual(
+      left.fill,
+      right.fill,
+    )
+  );
 }
 
 function resolveSettingsGraphSubstrateCanarySectionShellPixiDrawable({

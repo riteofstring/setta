@@ -106,6 +106,58 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-07 283
+
+- Item: land one bounded Pixi shell redraw-invalidations slice by suppressing no-op redraws on semantically unchanged drawable output, then rerun the canonical live `rotaryParamCodeObjDefault` lane.
+- Status: `blocked`
+- Details:
+  - This iteration intentionally changed production renderer code in the Pixi shell layer.
+  - Item `282` explicitly handed the next pass back to the Pixi shell redraw frontier, and the next meaningful seam was not another forwarding hop or support-only probe.
+  - Updated the shell drawable model and layer:
+    - added semantic equality for `SettingsGraphSubstrateCanarySectionShellPixiDrawable[]`
+    - reused the previous stable drawable array in the shell layer when the resolved output is semantically unchanged
+    - this keeps the redraw-only `useLayoutEffect([drawables])` path from issuing another full-shell draw on a no-op rerender
+  - Added a focused redraw harness in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx):
+    - baseline behavior before the code change: initial mount plus one semantically identical rerender produced `2` `app.render()` calls
+    - after the code change: the same no-op rerender stays at `1` `app.render()` call, while a real drawable change still advances to `2`
+  - Recorded the append-only perf note in [`perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-shell-noop-redraw-suppression.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-shell-noop-redraw-suppression.md).
+  - The required live canonical lane is blocked again on canary health rather than a proven renderer regression:
+    - refreshed loop runtime info pointed at worktree frontend `3076`, backend `8076`, session `e8c8ab`
+    - direct live Playwright on the canonical normalized lane timed out waiting for `[data-testid="graph-substrate-canary"]` to become visible
+    - one bounded self-recovery was attempted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - the recovery restarted the worktree onto frontend `3075`, backend `8075`, session `57f8e5`, debug port `9297`
+    - fallback runtime refresh via `setta status --connect-info --latest --json` plus `./scripts/cdp-port.sh --workspace ... --json` confirmed the new session metadata
+    - the retried direct live Playwright probe on the recovered runtime failed with the same missing-canary timeout
+  - CDP visual check:
+    - not run
+    - reason: the sanctioned live Playwright lane never reached a healthy mounted canary state after the one allowed recovery attempt
+- Verification:
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+    - result: passed
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`
+    - result: passed (`2 files`, `8 tests`)
+  - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.saLP6k/loop-001/run-017/worktree-ai.log`
+    - result: passed; current loop runtime reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, session `e8c8ab`
+  - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000`
+    - result: failed; timed out waiting for `[data-testid="graph-substrate-canary"]`
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: passed; restarted the worktree onto frontend `3075`, backend `8075`, session `57f8e5`
+  - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+    - result: passed; confirmed restarted backend/session metadata for `57f8e5`
+  - `./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+    - result: passed; confirmed debug port `9297`
+  - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=60000`
+    - result: failed; timed out waiting for `[data-testid="graph-substrate-canary"]`
+- Conclusion:
+  - the bounded Pixi shell redraw suppression slice is complete in code and covered by a focused redraw harness
+  - the current blocker is repeated live worktree canary mount failure, not a reason to keep changing the same redraw seam in this pass
+  - treat this state as `worktree_unhealthy` and recover the live canary before taking another redraw slice
+- Next action:
+  - start the next iteration from a fresh loop-managed lifecycle and rerun the canonical `rotaryParamCodeObjDefault` probe first
+  - if the canary still fails to mount on that fresh runtime, classify the mount-health blocker before claiming more renderer work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-07 240
 
 - Item: narrow the first failing shell-owned Playwright lane so it matches the current Pixi shell contract instead of the removed DOM border path.

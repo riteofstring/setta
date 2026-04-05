@@ -14,6 +14,7 @@ import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./set
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 import {
+  areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual,
   resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables,
   type SettingsGraphSubstrateCanarySectionShellPixiDrawable,
 } from "./settingsGraphSubstrateCanarySectionShellPixiModel";
@@ -36,6 +37,9 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   const appRef = useRef<Application | null>(null);
   const graphicsRef = useRef<Graphics | null>(null);
   const drawablesRef = useRef<
+    Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
+  >([]);
+  const stableDrawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
   const pixiSyncCountRef = useRef(0);
@@ -78,14 +82,27 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     sectionSeedNodes,
     viewport,
   ]);
+  const stableDrawables = useMemo(() => {
+    if (
+      areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual(
+        stableDrawablesRef.current,
+        drawables,
+      )
+    ) {
+      return stableDrawablesRef.current;
+    }
 
-  drawablesRef.current = drawables;
+    stableDrawablesRef.current = drawables;
+    return drawables;
+  }, [drawables]);
+
+  drawablesRef.current = stableDrawables;
 
   useLayoutEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
-      pixiDrawableCount: drawables.length,
+      pixiDrawableCount: stableDrawables.length,
     });
-  }, [drawables.length]);
+  }, [stableDrawables.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,13 +199,13 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     }
     syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
       app,
-      drawables,
+      drawables: stableDrawables,
       graphics,
       hostRef: canvasRef,
     });
-  }, [drawables]);
+  }, [stableDrawables]);
 
-  if (drawables.length === 0) {
+  if (stableDrawables.length === 0) {
     return null;
   }
 
