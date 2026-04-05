@@ -359,7 +359,20 @@ func buildGoBackedCreateBodyTS(
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	defaultValuesByName, _ := mustOrderedTSLiteralObjectFromGoValue(context, defaultValue)
+	normalizedDefaults := mustTSLiteralValueFromGoValue(context, defaultValue)
+	if reflected := reflect.ValueOf(defaultValue); reflected.IsValid() {
+		normalizedDefaults = mergeTSLiteralValueFromReflectValue(context, reflected, normalizedDefaults)
+	}
+	defaultValuesByName, ok := normalizedDefaults.(map[string]any)
+	if !ok {
+		panic(context + ": Go default did not decode to an object")
+	}
+	for _, key := range goJSONFieldOrder(defaultValue) {
+		if _, ok := defaultValuesByName[key]; ok {
+			continue
+		}
+		panic(fmt.Sprintf("%s is missing property %q", context, key))
+	}
 	defaultsObject := make(map[string]any, len(properties))
 	orderedKeys := make([]string, 0, len(properties))
 	var fieldBuilder strings.Builder
@@ -388,6 +401,12 @@ func buildGoBackedCreateBodyTS(
 		fieldBuilder.WriteString(": ")
 		fieldBuilder.WriteString(expr)
 		fieldBuilder.WriteString(",\n")
+	}
+	for key := range defaultValuesByName {
+		if _, ok := defaultsObject[key]; ok {
+			continue
+		}
+		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
 	var builder strings.Builder
 	var defaultsBuilder strings.Builder

@@ -32,35 +32,6 @@ func mustTSLiteralValueFromGoValue(context string, value any) any {
 	return normalized
 }
 
-func mustOrderedTSLiteralObjectFromGoValue(context string, value any) (map[string]any, []string) {
-	normalized := mustTSLiteralValueFromGoValue(context, value)
-	if reflected := reflect.ValueOf(value); reflected.IsValid() {
-		normalized = mergeTSLiteralValueFromReflectValue(context, reflected, normalized)
-	}
-	object, ok := normalized.(map[string]any)
-	if !ok {
-		panic(context + ": Go default did not decode to an object")
-	}
-	orderedKeys := goJSONFieldOrder(value)
-	if len(orderedKeys) == 0 {
-		return object, orderedKeys
-	}
-	expected := make(map[string]struct{}, len(orderedKeys))
-	for _, key := range orderedKeys {
-		expected[key] = struct{}{}
-		if _, ok := object[key]; !ok {
-			panic(fmt.Sprintf("%s is missing property %q", context, key))
-		}
-	}
-	for key := range object {
-		if _, ok := expected[key]; ok {
-			continue
-		}
-		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
-	}
-	return object, orderedKeys
-}
-
 func mergeTSLiteralValueFromReflectValue(
 	context string,
 	value reflect.Value,
