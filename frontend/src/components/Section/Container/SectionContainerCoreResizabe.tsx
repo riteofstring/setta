@@ -56,8 +56,21 @@ import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
+export type SectionContainerHeaderRenderProps = {
+  hasSectionStyleTheme: boolean;
+  isInOtherProjectConfigs: boolean;
+  isRoot: boolean;
+  isUserView: boolean;
+  sectionId: string;
+  sectionTypeName: SectionType;
+};
+
+type SectionContainerHeaderRenderer =
+  React.ComponentType<SectionContainerHeaderRenderProps>;
+
 type SectionContainerCoreResizableProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  headerRenderer?: SectionContainerHeaderRenderer | undefined;
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
@@ -68,8 +81,39 @@ type SectionContainerCoreResizableProps = {
   forceHideTopDragHandle?: boolean;
 };
 
+function DefaultSectionContainerHeaderDomAdapter({
+  hasSectionStyleTheme,
+  isInOtherProjectConfigs,
+  isRoot,
+  isUserView,
+  sectionId,
+  sectionTypeName,
+}: SectionContainerHeaderRenderProps) {
+  return (
+    <SectionHeader
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      isInOtherProjectConfigs={isInOtherProjectConfigs}
+      isUserView={isUserView}
+      isRoot={isRoot}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      extraControls={
+        !isUserView ? (
+          <SectionWindowToggleButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isRoot={isRoot}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
 function _SectionContainerCoreResizable({
   bodySurfaceOverride,
+  headerRenderer,
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
@@ -119,6 +163,16 @@ function _SectionContainerCoreResizable({
     bgColor: defaultBgColor,
     surfaceDecorations: defaultSurfaceDecorations,
   };
+  const headerRenderProps: SectionContainerHeaderRenderProps = {
+    hasSectionStyleTheme,
+    isInOtherProjectConfigs,
+    isRoot,
+    isUserView,
+    sectionId,
+    sectionTypeName,
+  };
+  const HeaderRenderer =
+    headerRenderer ?? DefaultSectionContainerHeaderDomAdapter;
 
   return (
     <CustomResizable
@@ -167,24 +221,7 @@ function _SectionContainerCoreResizable({
           </div>
         )
       ) : !hideHeader ? (
-        <SectionHeader
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          extraControls={
-            !isUserView ? (
-              <SectionWindowToggleButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isRoot={isRoot}
-                hasSectionStyleTheme={hasSectionStyleTheme}
-              />
-            ) : null
-          }
-        />
+        <HeaderRenderer {...headerRenderProps} />
       ) : null}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       <CanvasSectionBody

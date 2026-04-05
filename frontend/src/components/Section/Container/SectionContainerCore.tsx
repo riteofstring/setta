@@ -20,12 +20,18 @@ import {
   resolveSectionChromeShellDecorations,
 } from "./sectionChrome";
 import { useSectionChromeAppearance } from "./sectionChromeAppearance";
-import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import {
+  SectionContainerCoreResizable,
+  type SectionContainerHeaderRenderProps,
+} from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  headerRenderer?:
+    | React.ComponentType<SectionContainerHeaderRenderProps>
+    | undefined;
   sectionId: string;
   isUserView: boolean;
   forceHideOutline?: boolean;
@@ -38,6 +44,7 @@ type SectionContainerCoreProps = {
 
 function _SectionContainerCore({
   bodySurfaceOverride,
+  headerRenderer,
   sectionId,
   isUserView,
   forceHideOutline = false,
@@ -167,6 +174,7 @@ function _SectionContainerCore({
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         bodySurfaceOverride={bodySurfaceOverride}
+        headerRenderer={headerRenderer}
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
@@ -183,6 +191,7 @@ export const SectionContainerCore = React.memo(
   _SectionContainerCore,
   (previousProps, nextProps) =>
     previousProps.bodySurfaceOverride === nextProps.bodySurfaceOverride &&
+    previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.sectionId === nextProps.sectionId &&
     previousProps.isUserView === nextProps.isUserView &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&

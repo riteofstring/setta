@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-06 18:10 EDT
+Last updated: 2026-04-06 18:23 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,58 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `230` collapses the canary section header/title chrome behind one renderer-facing header contract, so `SectionContainerCoreResizable` no longer hard-codes the default `SectionHeader` implementation on the canary path.
+  - Why this slice was needed:
+    - item `229` collapsed DOM body surface/background treatment behind one renderer-facing body contract, but the canary body path still relied on `SectionContainerCoreResizable` to instantiate `SectionHeader` and its window-toggle layout implicitly
+    - a future scene-owned shell/header surface should be able to choose one header implementation boundary without reverse-engineering `SectionHeader` internals from inside the generic section container
+    - this is a real implementation-choice seam at the nearest composition boundary that renders the header; it is not another pure forwarding hop or a return to geometry/parity churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the named `All Settings` spot-check target for this renderer-ownership slice
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.tsx`
+      - introduced `SettingsGraphSubstrateCanarySectionHeader`, `resolveSettingsGraphSubstrateCanarySectionHeader(...)`, and `SettingsGraphSubstrateCanarySectionHeaderDomAdapter`
+      - the canary header contract now owns the window-toggle/header choice instead of exposing the default `SectionHeader` wiring directly
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      - the canary body adapter now passes the canary header renderer into `SectionContainer`
+    - updated shared section-container plumbing:
+      - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - added a renderer-provided `headerRenderer` seam plus `SectionContainerHeaderRenderProps`, and `SectionContainerCoreResizable` now chooses between the default DOM header adapter and a renderer-provided one at the actual header composition boundary
+    - added/updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - What this slice established:
+    - the canary now chooses its DOM header/title chrome at one renderer-facing boundary instead of inheriting the default `SectionHeader` wiring implicitly from the generic container
+    - `SectionContainerCoreResizable` can accept a renderer-provided header implementation without changing the DOM editing/body behavior today
+    - this keeps the DOM-backed canary visually stable while moving the next static shell/header ownership seam closer to a future scene-owned implementation
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - result: passed (`3 files`, `13 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx|CoreResizabe\\.test\\.tsx)|settingsGraphSubstrateCanarySectionBodyAdapter(\\.test)?\\.tsx|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx' || true`
+      - result: no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-006 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; the run timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed` before the spec body executed
+    - CDP visual gate:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - note: the worktree `http://127.0.0.1:3076/settings` was mounted and healthy, `All Settings` was active, and the graph-substrate canary remained visible on `rotaryParamCodeObjDefault`
+      - note: the read-only `main` reference at `http://127.0.0.1:3087/settings` was also mounted and healthy for the spot-check
+      - note: no obvious gross header/title chrome drift was visible versus `main`; the visible label difference was the expected worktree tag (`pixijs-graph` vs `main`)
+  - Lane status:
+    - this closes the header-renderer fallback slice that item `229` named when Pixi approval is still unavailable
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only, and the repeated Playwright failure is still bootstrap/auth harness noise rather than product evidence
+  - Next frontier:
+    - if explicit approval arrives to add the frontend dependency, use the shell-layer, body-surface, and header-renderer contracts to land the first scene-owned static shell/body/header surface while the DOM editor/body content stays intact
+    - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing `SectionHeader` title/actions layout behind one renderer-facing header-layout contract instead of exposing `MenuButton`/`SectionTitle` internals directly
 
 - Ralph item `229` collapses the canary DOM body surface/background treatment behind one renderer-facing body-surface contract, so the canary body path no longer relies on `SectionContainerCoreResizable` to infer that surface implicitly.
   - Why this slice was needed:

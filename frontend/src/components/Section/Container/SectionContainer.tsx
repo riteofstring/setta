@@ -21,6 +21,7 @@ import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
+import type { SectionContainerHeaderRenderProps } from "./SectionContainerCoreResizabe";
 import type { SectionChromeBodySurface } from "./sectionChrome";
 import { getOutlineColor } from "./utils";
 
@@ -51,12 +52,16 @@ function _SectionContainer({
   sectionId,
   isTopLevel = false,
   bodySurfaceOverride,
+  headerRenderer,
   dragListeners,
   forceHideOutline = false,
   forceTransparentBorder = false,
   forceHideTopDragHandle = false,
 }: {
   bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  headerRenderer?:
+    | React.ComponentType<SectionContainerHeaderRenderProps>
+    | undefined;
   sectionId: string;
   isTopLevel?: boolean;
   dragListeners?: any;
@@ -158,6 +163,7 @@ function _SectionContainer({
               <AgenticEdgeHandles isUserView={isUserView} />
               <SectionContainerCore
                 bodySurfaceOverride={bodySurfaceOverride}
+                headerRenderer={headerRenderer}
                 sectionId={sectionId}
                 isUserView={isUserView}
                 forceHideOutline={true}
@@ -180,6 +186,7 @@ function _SectionContainer({
               {!isGroup && (
                 <SectionContainerCore
                   bodySurfaceOverride={bodySurfaceOverride}
+                  headerRenderer={headerRenderer}
                   sectionId={sectionId}
                   isUserView={isUserView}
                   forceHideOutline={forceHideOutline}
@@ -215,6 +222,7 @@ export const SectionContainer = React.memo(
       previousProps.bodySurfaceOverride,
       nextProps.bodySurfaceOverride,
     ) &&
+    previousProps.headerRenderer === nextProps.headerRenderer &&
     previousProps.forceHideOutline === nextProps.forceHideOutline &&
     previousProps.forceTransparentBorder === nextProps.forceTransparentBorder &&
     previousProps.forceHideTopDragHandle === nextProps.forceHideTopDragHandle &&

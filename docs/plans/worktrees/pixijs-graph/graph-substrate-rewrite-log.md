@@ -9145,3 +9145,50 @@ LOOP_TERMINAL_MARKER: none
     - move to the remaining canary-local geometry timing seam, starting with `settingsGraphSubstrateCanaryBounds.ts` / related scene-bounds authority
     - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop; the harness failure repeated before the spec body even after the one allowed restart
 LOOP_TERMINAL_MARKER: none
+
+- Ralph item `230` | 2026-04-06 18:23 EDT
+  - Subtask: collapse canary section header/title chrome behind one renderer-facing header contract so the canary body path no longer hard-codes the default `SectionHeader` inside `SectionContainerCoreResizable`.
+  - Why:
+    - item `229` closed the body-surface fallback, but the canary still depended on `SectionContainerCoreResizable` to instantiate `SectionHeader` and the section-window toggle layout implicitly
+    - a future scene-owned shell/header surface should be able to choose one header implementation boundary without reverse-engineering `SectionHeader` internals from inside the generic section container
+    - this is meaningful renderer-boundary deepening at the actual header composition boundary, not another pure forwarding hop or a return to geometry/parity work
+  - Canonical target section:
+    - `rotaryParamCodeObjDefault`
+  - Production:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.tsx`
+      - introduced `SettingsGraphSubstrateCanarySectionHeader`, `resolveSettingsGraphSubstrateCanarySectionHeader(...)`, and `SettingsGraphSubstrateCanarySectionHeaderDomAdapter`
+      - the canary now resolves one renderer-facing header contract, including whether the section-window toggle belongs to the DOM header path
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx`
+      - now passes the canary header renderer into `SectionContainer`
+    - updated shared section-container plumbing:
+      - `frontend/src/components/Section/Container/SectionContainer.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+      - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+      - added `SectionContainerHeaderRenderProps` plus a renderer-provided `headerRenderer` seam, and `SectionContainerCoreResizable` now chooses between the default DOM header adapter and a renderer-provided one where the header implementation is actually selected
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx`
+      - now proves the canary body adapter passes the header renderer alongside the shell/body suppression overrides
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx`
+      - covers the renderer-facing header contract plus DOM window-toggle ownership behavior
+    - updated `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+      - added coverage proving a renderer-provided header renderer replaces the default DOM header
+  - Verification:
+    - `pnpm -C frontend exec prettier --write src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerCore.tsx src/components/Section/Container/SectionContainerCoreResizabe.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionBodyAdapter.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionHeaderAdapter.test.tsx src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` -> passed (`3 files`, `13 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg 'SectionContainer(\\.tsx|Core\\.tsx|CoreResizabe\\.tsx|CoreResizabe\\.test\\.tsx)|settingsGraphSubstrateCanarySectionBodyAdapter(\\.test)?\\.tsx|settingsGraphSubstrateCanarySectionHeaderAdapter(\\.test)?\\.tsx' || true` -> no matches
+    - targeted live-runtime Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<run-006 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary keeps title editing working after pan and zoom' --reporter=line --timeout=30000`
+      - result: not a trustworthy gate; the run timed out inside `ensureAppReady(...)` at `helpers.ts:1187` with `browserContext.cookies: Target page, context or browser has been closed` before the spec body executed
+    - CDP visual check:
+      - fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - worktree `http://127.0.0.1:3076/settings` was mounted and healthy on `All Settings`
+      - read-only `main` at `http://127.0.0.1:3087/settings` was also mounted and healthy
+      - normalized spot-check on `rotaryParamCodeObjDefault` found no obvious gross header/title chrome drift; the visible label difference was the expected worktree tag only
+  - Result:
+    - the canary now chooses header/title chrome at one renderer-facing boundary rather than inheriting the default `SectionHeader` wiring implicitly from the generic container
+    - `SectionContainerCoreResizable` can accept a renderer-provided header implementation without changing current DOM body/editor behavior
+    - the slice advances renderer ownership while keeping the DOM-backed canary visually stable
+  - Next action:
+    - if Pixi approval arrives, use the shell-layer, body-surface, and header-renderer contracts to land the first scene-owned static shell/body/header surface while the DOM editor/body content stays intact
+    - otherwise collapse `SectionHeader` title/actions layout behind one renderer-facing header-layout contract instead of exposing `MenuButton`/`SectionTitle` internals directly
+LOOP_TERMINAL_MARKER: none

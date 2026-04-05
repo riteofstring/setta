@@ -6,6 +6,7 @@ import {
 import { useSectionChromeAppearance } from "components/Section/Container/sectionChromeAppearance";
 import React, { useMemo } from "react";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SettingsGraphSubstrateCanarySectionHeaderDomAdapter } from "./settingsGraphSubstrateCanarySectionHeaderAdapter";
 
 export type SettingsGraphSubstrateCanarySectionBodyShellChromeOwner =
   | "section-body"
@@ -115,6 +116,7 @@ function _SettingsGraphSubstrateCanarySectionBodyDomAdapter({
   return (
     <SectionContainer
       bodySurfaceOverride={bodySurfaceOverride}
+      headerRenderer={SettingsGraphSubstrateCanarySectionHeaderDomAdapter}
       sectionId={sectionBody.sectionId}
       isTopLevel={true}
       {...getSectionContainerChromeSuppression(sectionBody.shellChromeOwner)}

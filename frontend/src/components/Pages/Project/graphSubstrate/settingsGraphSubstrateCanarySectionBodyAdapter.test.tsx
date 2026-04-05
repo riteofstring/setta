@@ -10,6 +10,7 @@ import {
   resolveSettingsGraphSubstrateCanarySectionBodySurface,
   SettingsGraphSubstrateCanarySectionBodyDomAdapter,
 } from "./settingsGraphSubstrateCanarySectionBodyAdapter";
+import { SettingsGraphSubstrateCanarySectionHeaderDomAdapter } from "./settingsGraphSubstrateCanarySectionHeaderAdapter";
 
 const { mockSectionContainer } = vi.hoisted(() => ({
   mockSectionContainer: vi.fn(
@@ -19,6 +20,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceHideOutline,
       forceTransparentBorder,
       forceHideTopDragHandle,
+      headerRenderer,
       isTopLevel,
     }: {
       bodySurfaceOverride?: {
@@ -31,6 +33,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
       forceHideOutline?: boolean;
       forceHideTopDragHandle?: boolean;
       forceTransparentBorder?: boolean;
+      headerRenderer?: unknown;
       isTopLevel?: boolean;
       sectionId: string;
     }) => (
@@ -52,6 +55,7 @@ const { mockSectionContainer } = vi.hoisted(() => ({
             ? "true"
             : "false"
         }
+        data-header-renderer={headerRenderer ? "true" : "false"}
         data-testid={`section-body-${sectionId}`}
       />
     ),
@@ -131,6 +135,7 @@ describe("SettingsGraphSubstrateCanarySectionBodyAdapter", () => {
       forceHideTopDragHandle: true,
       forceTransparentBorder: true,
       isTopLevel: true,
+      headerRenderer: SettingsGraphSubstrateCanarySectionHeaderDomAdapter,
       sectionId: "section-a",
     });
   });

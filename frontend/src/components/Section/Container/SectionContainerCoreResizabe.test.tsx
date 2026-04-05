@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AreaSwitch,
   SectionContainerCoreResizable,
+  type SectionContainerHeaderRenderProps,
 } from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
@@ -335,6 +336,36 @@ describe("SectionContainerCoreResizable", () => {
 
     expect(markup).toContain('data-show-top-drag-handle="true"');
     expect(markup).not.toContain('data-testid="section-top-drag-handle"');
+  });
+
+  it("prefers a renderer-provided header renderer over the default DOM header", () => {
+    function CustomHeaderRenderer({
+      sectionId,
+      sectionTypeName,
+    }: SectionContainerHeaderRenderProps) {
+      return (
+        <header
+          data-section-id={sectionId}
+          data-section-type={sectionTypeName}
+          data-testid="mock-custom-header"
+        />
+      );
+    }
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        headerRenderer={CustomHeaderRenderer}
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-custom-header"');
+    expect(markup).not.toContain('data-testid="mock-section-header"');
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {
