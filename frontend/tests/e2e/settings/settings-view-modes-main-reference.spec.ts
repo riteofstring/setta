@@ -8285,7 +8285,7 @@ test("settings graph parity probe keeps the section sizing policy title editing 
   test.slow();
   test.fail(
     true,
-    "Known sectionSizingPolicy drift: after the shared fit/pan/zoom path the canary lands visibly farther right/down than read-only main.",
+    "Known sectionSizingPolicy drift: the trusted authoritative viewport-shift plus toolbar-zoom path still diverges on the canary versus read-only main.",
   );
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
@@ -8452,20 +8452,17 @@ test("settings graph parity probe keeps the section sizing policy title editing 
       );
     }
 
-    const panStart = await findSettingsGraphPanePoint(args.targetPage, {
-      panDelta,
-      sectionId: args.sectionId,
-    });
-    await args.targetPage.mouse.move(panStart.x, panStart.y);
-    await args.targetPage.mouse.down();
-    await args.targetPage.mouse.move(
-      panStart.x + panDelta.x,
-      panStart.y + panDelta.y,
-      {
-        steps: 10,
+    await applyViewportFromBackendOrigin({
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      viewport: {
+        x: beforeMotion.transform.x + panDelta.x,
+        y: beforeMotion.transform.y + panDelta.y,
+        zoom: beforeMotion.transform.zoom,
       },
-    );
-    await args.targetPage.mouse.up();
+    });
 
     await expect
       .poll(async () => {
@@ -8473,21 +8470,15 @@ test("settings graph parity probe keeps the section sizing policy title editing 
           args.targetPage,
           args.sectionId,
         );
-        if (!afterPan.rect || !afterPan.transform) {
+        if (!afterPan.transform) {
           return 0;
         }
-        return Math.max(
-          Math.hypot(
-            afterPan.rect.x - beforeMotion.rect.x,
-            afterPan.rect.y - beforeMotion.rect.y,
-          ),
-          Math.hypot(
-            afterPan.transform.x - beforeMotion.transform.x,
-            afterPan.transform.y - beforeMotion.transform.y,
-          ),
+        return Math.hypot(
+          afterPan.transform.x - beforeMotion.transform.x,
+          afterPan.transform.y - beforeMotion.transform.y,
         );
       })
-      .toBeGreaterThan(60);
+      .toBeGreaterThan(20);
 
     const afterPan = await waitForSettledSectionMetrics({
       expectedSurfaceKind: args.expectedSurfaceKind,
@@ -8574,6 +8565,11 @@ test("settings graph parity probe keeps the section sizing policy title editing 
         transform: afterMotion.transform,
       },
       paneState: await getLocalPaneState(args.targetPage),
+      transformDelta: {
+        x: afterMotion.transform.x - beforeMotion.transform.x,
+        y: afterMotion.transform.y - beforeMotion.transform.y,
+        zoom: afterMotion.transform.zoom - beforeMotion.transform.zoom,
+      },
       zoomDelta: afterMotion.transform.zoom - afterPan.transform.zoom,
     };
   }
@@ -8622,26 +8618,30 @@ test("settings graph parity probe keeps the section sizing policy title editing 
     expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
     expect(
       Math.abs(
+        worktreeResult.transformDelta.x - referenceResult.transformDelta.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.transformDelta.y - referenceResult.transformDelta.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
         worktreeResult.afterMotion.centerOffsetFromRootCenter -
           referenceResult.afterMotion.centerOffsetFromRootCenter,
       ),
     ).toBeLessThan(8);
     expect(
       Math.abs(
-        worktreeResult.afterMotion.transform.x -
-          referenceResult.afterMotion.transform.x,
-      ),
-    ).toBeLessThan(8);
-    expect(
-      Math.abs(
-        worktreeResult.afterMotion.transform.y -
-          referenceResult.afterMotion.transform.y,
-      ),
-    ).toBeLessThan(8);
-    expect(
-      Math.abs(
         worktreeResult.afterMotion.transform.zoom -
           referenceResult.afterMotion.transform.zoom,
+      ),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        worktreeResult.transformDelta.zoom -
+          referenceResult.transformDelta.zoom,
       ),
     ).toBeLessThan(0.04);
     expect(

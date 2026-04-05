@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 03:14 EDT
+Last updated: 2026-04-05 03:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,40 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `152` corrected the named `sectionSizingPolicy` lane so it no longer relies on the untrustworthy blank-pane mouse path, then reran it as a trusted expected-fail repro on the live run-012 surfaces.
+  - Why this slice was needed:
+    - item `151` treated `sectionSizingPolicy` as product-side drift, but a live step-by-step probe on the checked lane showed the supposed blank-pane `pan` was not panning the viewport at all
+    - on both worktree canary and read-only main legacy, the old lane kept the viewport transform fixed while the section rect moved, which means the motion step was effectively section drag rather than pane pan
+    - with that motion ambiguity unresolved, the lane was not trustworthy enough to guide a renderer fix, so one bounded normalization step was still justified under the plan rules
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - replaced the `sectionSizingPolicy` mouse-driven blank-pane motion with the trusted authoritative viewport-write path via `applyViewportFromBackendOrigin(...)`
+      - changed the lane to compare motion deltas (`transformDelta`) plus screen-space geometry instead of absolute post-motion viewport translation, which was contaminated by the section's different raw world coordinates across worktree/main
+      - kept the lane marked `test.fail(true, ...)`, but updated the reason so it now describes the corrected authoritative viewport-shift plus toolbar-zoom repro instead of the stale mouse-pan story
+  - What this slice established:
+    - the prior blank-pane path on this lane was invalid oracle evidence; it was moving the `sectionSizingPolicy` section instead of the viewport
+    - once the lane switched to a trusted authoritative viewport shift of `{ x: +90, y: +60 }` followed by one toolbar `zoom in`, the mismatch persisted on the live run-012 surfaces
+    - the raw rerun before re-adding `test.fail(true, ...)` failed on `transformDelta.x`, with a worktree-versus-reference delta around `143.658`, so the remaining mismatch is no longer explained by the bogus pan gesture
+    - rerunning the corrected lane after restoring the expected-fail marker passed as a stable checked repro on the live run-012 surfaces (`1 passed`, `40.3s`)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-012 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-012/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-012/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed as expected failure (`1 passed`, `40.3s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - could not reach the `chrome-devtools-mcp` browser tool layer in that session, so it did not load either runtime or capture visual evidence
+    - CDP visual check: not run (fresh-context sub-agent could not reach the `chrome-devtools-mcp` browser controls in this session)
+  - Lane status:
+    - keep `sectionSizingPolicy` as the canonical expected-fail lane, but treat it as an authoritative viewport-shift plus toolbar-zoom plus title-edit repro now, not as a blank-pane pan lane
+    - do not spend another iteration trying to salvage the old mouse-pan target on this section; that oracle family is closed for this lane
+  - Next frontier:
+    - investigate the product-side reason the corrected `sectionSizingPolicy` authoritative viewport-shift plus toolbar-zoom lane still diverges on the canary versus read-only main, starting from the now-trusted `transformDelta` mismatch rather than from blank-pane gesture setup
 
 - Ralph item `151` opened `sectionSizingPolicy` as a new named normalized Gate 1 / Gate 2 lane, then turned it into a trusted expected-fail repro after the current live worktree/read-only-main compare exposed real post-fit/zoom drift.
   - Why this slice was needed:

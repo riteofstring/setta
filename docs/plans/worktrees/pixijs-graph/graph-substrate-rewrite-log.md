@@ -75,6 +75,7 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+
 ## 2026-04-03 060
 
 - Item: Persist frontmost z-order on the canary after a widened `drawSectionDefault` top-level drag, then lock that drop-state lane with one targeted guard.
@@ -2183,6 +2184,45 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 152
+
+- Item: Correct the named `sectionSizingPolicy` lane so it uses a trusted motion path, then rerun it on the live worktree/read-only-main surfaces.
+- Status: `done`
+- Details:
+  - This iteration stayed intentionally bounded to one normalization step on the active `sectionSizingPolicy` lane because the previous expected-fail repro still depended on an ambiguous blank-pane mouse gesture.
+  - A live step-by-step probe showed the old `sectionSizingPolicy` "pan" was not panning the viewport at all:
+    - the viewport transform stayed fixed on both worktree canary and read-only main legacy
+    - the section rect moved instead, so the action was effectively section drag rather than pane pan
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts` now:
+    - keeps `sectionSizingPolicy` as an expected-fail lane, but updates the reason to describe the corrected authoritative viewport-shift plus toolbar-zoom repro
+    - replaces the old mouse drag with `applyViewportFromBackendOrigin(...)` using a shared viewport delta `{ x: 90, y: 60 }`
+    - compares `transformDelta` plus screen-space geometry instead of absolute post-motion viewport translation, which was polluted by the section's different raw world coordinates across worktree/main
+  - Before restoring `test.fail(true, ...)`, the corrected lane failed on a real post-motion delta:
+    - `transformDelta.x` mismatch about `143.658`
+  - After restoring the expected-fail marker, the corrected live run-012 lane passed as a stable checked repro (`1 passed`, `40.3s`).
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-012/worktree-ai.log`
+    - result: passed
+  - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-012/main-ai.log`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed as expected failure (`1 passed`, `40.3s`)
+  - CDP visual check
+    - result: not run
+    - note:
+      - a fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md`
+      - the sub-agent could not reach the `chrome-devtools-mcp` browser tool layer in its session, so it could not recreate or inspect the corrected lane visually
+- Conclusion:
+  - the old blank-pane mouse path is no longer trustworthy evidence for `sectionSizingPolicy`
+  - the corrected authoritative viewport-shift plus toolbar-zoom lane is now the canonical expected-fail repro for this section
+  - the next real frontier is product-side investigation of the corrected post-motion delta, not more gesture-target support work on this lane
+- Next action:
+  - inspect and fix the renderer-side reason the `sectionSizingPolicy` authoritative viewport-shift plus toolbar-zoom lane still diverges on the canary versus read-only main
+
+LOOP_TERMINAL_MARKER: none
 ## 2026-04-05 01:58 EDT - Ralph item 148
 
 - Item: Harden the existing `chartSectionDefault` fit-view-plus-toolbar-zoom parity lane with origin-aware restore plus named-section preflight, then verify that lane on the live run-008 worktree/main surfaces with Playwright plus CDP.
