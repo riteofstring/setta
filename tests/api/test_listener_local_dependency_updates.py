@@ -15,11 +15,9 @@ from setta.sdk_contracts.generated import (
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
 )
-from setta.types.chat import (
-    ChatSectionState,
-)
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
+    ChatSectionState,
     DependencyValueType,
     ListenerDependencyMode,
     ListenerMessageType,

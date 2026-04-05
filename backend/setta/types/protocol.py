@@ -2,15 +2,13 @@ from typing import Annotated
 
 from pydantic import ConfigDict, Discriminator, Tag
 from setta.types.generated.go_shared_types import (
-    _base_dependency_key_union_discriminator,
-)
-from setta.types.generated.go_shared_types import (
     BaseDependencyValueUnion,
     BinaryDependencyValue,
     DependencyKeyType,
     DependencyValueType,
     FileReadDependencyValue,
     LiteralDependencyValue,
+    _base_dependency_key_union_discriminator,
 )
 from setta.types.generated.go_shared_types import (
     SectionDependencyKey as GoSectionDependencyKey,

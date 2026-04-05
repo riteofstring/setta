@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from setta.types.chat import Chat
 from setta.types.generated.go_shared_types import (
+    Chat,
     ChatMetadata,
 )
 

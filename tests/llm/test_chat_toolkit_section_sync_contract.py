@@ -3,8 +3,9 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta, build_chat_section_state
-from setta.types.chat import BaseChatMessageUnionWithDiscriminator, LLMStreamingResponseChunk
 from setta.types.generated.go_shared_types import (
+    BaseChatMessageUnion,
+    LLMStreamingResponseChunk,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
@@ -22,7 +23,7 @@ _FIXTURE_PATH = (
     / "llm"
     / "managed_chat_stream_contract_cases.json"
 )
-_MESSAGE_ADAPTER = TypeAdapter(BaseChatMessageUnionWithDiscriminator)
+_MESSAGE_ADAPTER = TypeAdapter(BaseChatMessageUnion)
 
 
 def _load_contract_cases() -> list[dict[str, object]]:

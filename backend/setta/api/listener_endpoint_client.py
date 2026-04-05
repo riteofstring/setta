@@ -2,10 +2,11 @@
 
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
-from setta.types.chat import Chat, ChatSectionState
 from setta.types.generated.go_shared_types import (
     BaseChatMessageUnion,
+    Chat,
     ChatMetadata,
+    ChatSectionState,
     LLMStreamingResponseChunk,
     ToolCall,
     ToolChatMessage,

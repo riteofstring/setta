@@ -85,7 +85,7 @@ type ListenerRunMCPToolsRequestPayload struct {
 type ListenerSetChatSectionStateRequestPayload struct {
 	ProjectConfigID *string                       `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID"`
 	SectionID       string                        `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID"`
-	State           projectstate.ChatSectionState `json:"state" py_type:"ChatSectionState" py_import:"from setta.types.chat import ChatSectionState"`
+	State           projectstate.ChatSectionState `json:"state" py_type:"ChatSectionState" py_import:"from setta.types.generated.go_shared_types import ChatSectionState"`
 }
 
 type pythonClientEndpointSpec struct {
@@ -103,7 +103,7 @@ var pythonClientEndpointSpecs = []pythonClientEndpointSpec{
 		RequestType:  reflect.TypeOf(ListenerCreateChatRequestPayload{}),
 		ResponseType: "Chat",
 		ResponseImports: []string{
-			"from setta.types.chat import Chat",
+			"from setta.types.generated.go_shared_types import Chat",
 		},
 	},
 	{
@@ -112,7 +112,7 @@ var pythonClientEndpointSpecs = []pythonClientEndpointSpec{
 		RequestType:  reflect.TypeOf(ListenerGetChatRequestPayload{}),
 		ResponseType: "Chat",
 		ResponseImports: []string{
-			"from setta.types.chat import Chat",
+			"from setta.types.generated.go_shared_types import Chat",
 		},
 	},
 	{
@@ -121,7 +121,7 @@ var pythonClientEndpointSpecs = []pythonClientEndpointSpec{
 		RequestType:  reflect.TypeOf(ListenerAppendChatMessagesRequestPayload{}),
 		ResponseType: "Chat",
 		ResponseImports: []string{
-			"from setta.types.chat import Chat",
+			"from setta.types.generated.go_shared_types import Chat",
 		},
 	},
 	{
@@ -136,7 +136,7 @@ var pythonClientEndpointSpecs = []pythonClientEndpointSpec{
 		RequestType:  reflect.TypeOf(ListenerSetChatSystemPromptRequestPayload{}),
 		ResponseType: "Chat",
 		ResponseImports: []string{
-			"from setta.types.chat import Chat",
+			"from setta.types.generated.go_shared_types import Chat",
 		},
 	},
 	{

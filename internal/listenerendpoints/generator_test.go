@@ -16,6 +16,8 @@ func TestBuildPythonClientRendersGoOwnedPayloadContracts(t *testing.T) {
 	output := generated.PythonModule
 	for _, snippet := range []string{
 		"from setta.types.generated.go_shared_types import BaseChatMessageUnion",
+		"from setta.types.generated.go_shared_types import Chat",
+		"from setta.types.generated.go_shared_types import ChatSectionState",
 		"from setta.types.generated.go_shared_types import LLMStreamingResponseChunk",
 		"class ListenerCreateChatRequestPayload(TypedDict):",
 		"projectConfigId: NotRequired[ID]",
@@ -27,6 +29,9 @@ func TestBuildPythonClientRendersGoOwnedPayloadContracts(t *testing.T) {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)
 		}
+	}
+	if strings.Contains(output, "from setta.types.chat import") {
+		t.Fatalf("generated output should not import legacy setta.types.chat shim")
 	}
 }
 

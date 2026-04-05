@@ -15,8 +15,7 @@ from setta.api.listener_endpoint_client import (
 )
 from setta.llm.chat_toolkit import assistant_message, message_text, user_message
 from setta.llm.chat_toolkit.tool_calls import ToolCallBuilder
-from setta.types.chat import Chat
-from setta.types.generated.go_shared_types import ChatMetadata, LLMConfig, ToolChatMessage
+from setta.types.generated.go_shared_types import Chat, ChatMetadata, LLMConfig, ToolChatMessage
 from setta.types.id import ID
 
 

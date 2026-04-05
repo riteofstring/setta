@@ -1,15 +1,12 @@
 from copy import deepcopy
 
 from pydantic import TypeAdapter
-from setta.types.chat import (
+from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     BaseChatMessageUnion,
-    BaseChatMessageUnionWithDiscriminator,
     ChatSectionBranch,
     ChatSectionState,
     LLMStreamingResponseChunk,
-)
-from setta.types.generated.go_shared_types import (
-    AssistantChatMessage,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
@@ -25,7 +22,7 @@ from setta.types.generated.go_shared_types import (
 )
 from setta.types.id import ID
 
-_CHAT_MESSAGE_TYPE_ADAPTER = TypeAdapter(BaseChatMessageUnionWithDiscriminator)
+_CHAT_MESSAGE_TYPE_ADAPTER = TypeAdapter(BaseChatMessageUnion)
 
 
 def build_chat_section_state(

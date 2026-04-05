@@ -15,11 +15,9 @@ from setta.llm.chat_toolkit.section_sync import (
     build_chat_section_state,
 )
 from setta.sdk_contracts.generated import ListenerDependencyCatalog
-from setta.types.chat import (
+from setta.types.generated.go_shared_types import (
     Chat,
     ChatSectionState,
-)
-from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
     ChatFileAttachment,
     ChatSendEvent,
