@@ -1648,6 +1648,89 @@ func TestRegisterAIRoutesBlocksExternalSendOnPreflightFailure(t *testing.T) {
 	}
 }
 
+func TestResolveGetLLMResponseError(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		name string
+		err  error
+		want llmResponseErrorDetails
+	}{
+		{
+			name: "uses dynamic section id error text",
+			err:  externalagents.ErrSectionIDRequired,
+			want: llmResponseErrorDetails{
+				Status:  http.StatusBadRequest,
+				Code:    "section_id_required",
+				Message: externalagents.ErrSectionIDRequired.Error(),
+			},
+		},
+		{
+			name: "uses typed continuation error text",
+			err:  &managedchat.ContinueFromChatSourceNotFoundError{ChatID: "chat-source"},
+			want: llmResponseErrorDetails{
+				Status:  http.StatusNotFound,
+				Code:    "source_chat_not_found",
+				Message: "Continuation source chat chat-source not found.",
+			},
+		},
+		{
+			name: "uses typed branch error text",
+			err:  &externalagents.BranchMessageNotFoundError{MessageID: "msg-42"},
+			want: llmResponseErrorDetails{
+				Status:  http.StatusNotFound,
+				Code:    "branch_message_not_found",
+				Message: "Message msg-42 not found in chat history",
+			},
+		},
+		{
+			name: "preserves wrapped provider config detail",
+			err:  fmt.Errorf("%w: azure provider requires explicit api_version", managedllm.ErrProviderConfigInvalid),
+			want: llmResponseErrorDetails{
+				Status:  http.StatusBadRequest,
+				Code:    "provider_config_invalid",
+				Message: "managed llm provider config is invalid: azure provider requires explicit api_version",
+			},
+		},
+		{
+			name: "maps external agent config not found to fixed response",
+			err:  fmt.Errorf("%w: %q", externalagentconfigs.ErrConfigNotFound, "codex"),
+			want: llmResponseErrorDetails{
+				Status:  http.StatusInternalServerError,
+				Code:    "external_agent_config_not_found",
+				Message: "External agent config not found.",
+			},
+		},
+		{
+			name: "uses preflight error detail",
+			err: &externalagents.PreflightUnavailableError{
+				Status: externalagentconfigs.Status{
+					Issues: []string{"Missing env vars: OPENAI_API_KEY"},
+				},
+			},
+			want: llmResponseErrorDetails{
+				Status:  http.StatusServiceUnavailable,
+				Code:    "external_agent_preflight_failed",
+				Message: "External agent config is not available: Missing env vars: OPENAI_API_KEY",
+			},
+		},
+		{
+			name: "falls back to internal error",
+			err:  fmt.Errorf("boom"),
+			want: defaultGetLLMResponseError,
+		},
+	} {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := resolveGetLLMResponseError(testCase.err); got != testCase.want {
+				t.Fatalf("expected %#v, got %#v", testCase.want, got)
+			}
+		})
+	}
+}
+
 func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 	t.Parallel()
 
