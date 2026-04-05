@@ -5,15 +5,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   useEffect,
-  useLayoutEffect,
-  useMemo,
   useRef,
-  useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
-  type RefObject,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
@@ -29,31 +25,13 @@ import {
   createSettingsGraphSubstrateCanaryPaneInteractionController,
   type SettingsGraphSubstrateCanaryPaneInteractionController,
 } from "./settingsGraphSubstrateCanaryPaneInteractionController";
-import {
-  createEmptySettingsGraphSubstrateCanarySceneSnapshot,
-  type SettingsGraphSubstrateCanarySceneSection,
-} from "./settingsGraphSubstrateCanarySceneSnapshot";
+import { type SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneState } from "./settingsGraphSubstrateCanarySceneState";
 import {
   createSettingsGraphSubstrateCanarySectionDragController,
   type SettingsGraphSubstrateCanarySectionDragController,
 } from "./settingsGraphSubstrateCanarySectionDragController";
-import {
-  fitSettingsGraphSubstrateCanaryViewport,
-  resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
-  resolveSettingsGraphSubstrateCanaryFallbackViewport,
-  resolveSettingsGraphSubstrateCanarySharedViewport,
-  resolveSettingsGraphSubstrateCanaryViewport,
-  resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
-  shouldAutoFitSettingsGraphSubstrateCanaryViewport,
-  shouldPersistSettingsGraphSubstrateCanaryViewport,
-  type SettingsGraphSubstrateCanaryViewportOwnership,
-} from "./settingsGraphSubstrateCanaryViewport";
-import {
-  createSettingsGraphSubstrateCanaryViewportController,
-  type SettingsGraphSubstrateCanaryViewportControllerState,
-} from "./settingsGraphSubstrateCanaryViewportController";
-import type { GraphViewport } from "./viewportTransform";
+import { useSettingsGraphSubstrateCanaryViewportRuntime } from "./settingsGraphSubstrateCanaryViewportRuntime";
 
 const ROOT_STYLE: CSSProperties = {
   inset: 0,
@@ -65,14 +43,6 @@ const ROOT_STYLE: CSSProperties = {
 
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const viewportOwnershipRef =
-    useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
-  // Legacy toolbar zoom reads from d3's last locally-owned transform even
-  // after backend-originated viewport writes update the rendered surface.
-  const toolbarZoomViewportBaseRef = useRef<GraphViewport | null>(null);
-  const [viewport, setViewport] = useState<GraphViewport | null>(null);
-  const [isViewportPanning, setIsViewportPanning] = useState(false);
-  const wrapperDimensions = useElementDimensions(rootRef);
   useTabScope({
     scopeId: "canvas",
     order: 20,
@@ -139,28 +109,36 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
-  const {
-    overviewVis,
+  const { overviewVis, overviewTrueWidth, uiEditorVis, uiEditorTrueWidth } =
+    useLocalStorage(
+      (state) => ({
+        overviewVis: state.overviewVis,
+        overviewTrueWidth: state.overviewTrueWidth,
+        uiEditorVis: state.uiEditorVis,
+        uiEditorTrueWidth: state.uiEditorTrueWidth,
+      }),
+      _.isEqual,
+    );
+  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
+  const viewportRuntime = useSettingsGraphSubstrateCanaryViewportRuntime({
+    defaultZoomLevel,
+    initialSectionPosition: sections[0]
+      ? {
+          x: sections[0].position.x,
+          y: sections[0].position.y,
+        }
+      : null,
+    maxZoom,
+    minZoom,
     overviewTrueWidth,
-    uiEditorVis,
+    overviewVisible: overviewVis,
+    rootRef,
+    sceneSnapshot,
+    sharedProjectViewport,
+    sharedReactFlowViewport,
     uiEditorTrueWidth,
-    snapToGrid,
-  } = useLocalStorage(
-    (state) => ({
-      overviewVis: state.overviewVis,
-      overviewTrueWidth: state.overviewTrueWidth,
-      uiEditorVis: state.uiEditorVis,
-      uiEditorTrueWidth: state.uiEditorTrueWidth,
-      snapToGrid: state.snapToGrid,
-    }),
-    _.isEqual,
-  );
-  const canaryViewportStateRef =
-    useRef<SettingsGraphSubstrateCanaryViewportControllerState>({
-      resolvedViewport: null,
-      sceneSnapshot: createEmptySettingsGraphSubstrateCanarySceneSnapshot(),
-      wrapperDimensions: { width: 0, height: 0 },
-    });
+    uiEditorVisible: uiEditorVis,
+  });
   const paneInteractionBehaviorRef = useRef({
     isMacOs: isMacOs(),
     maxZoom: 4,
@@ -181,60 +159,12 @@ export function SettingsGraphSubstrateCanary() {
     return () => {
       sectionDragControllerRef.current?.cleanup();
       paneInteractionControllerRef.current?.cleanup();
-      useMisc.setState({ isPanScrolling: false });
-      useReactFlow.setState({
-        paneDragging: false,
-        viewportInteractionActive: false,
-        viewportPersistenceEnabled: true,
-      });
     };
   }, []);
 
   const sectionByIdRef = useRef(sectionById);
   sectionByIdRef.current = sectionById;
 
-  const fallbackViewport = useMemo(() => {
-    const initialSection = sections[0];
-    return resolveSettingsGraphSubstrateCanaryFallbackViewport(
-      defaultZoomLevel,
-      initialSection
-        ? {
-            x: initialSection.position.x,
-            y: initialSection.position.y,
-          }
-        : null,
-    );
-  }, [defaultZoomLevel, sections]);
-
-  const sharedViewport = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanarySharedViewport(
-      sharedProjectViewport,
-      sharedReactFlowViewport,
-      fallbackViewport,
-    );
-  }, [fallbackViewport, sharedProjectViewport, sharedReactFlowViewport]);
-
-  const sceneBounds = sceneSnapshot.sceneBounds;
-  const effectivePaneWidths = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
-      overviewVisible: overviewVis,
-      overviewTrueWidth,
-      uiEditorVisible: uiEditorVis,
-      uiEditorTrueWidth,
-    });
-  }, [overviewTrueWidth, overviewVis, uiEditorTrueWidth, uiEditorVis]);
-  const visibleViewportSize = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
-      wrapperDimensions,
-      effectivePaneWidths.overviewWidth,
-      effectivePaneWidths.uiEditorWidth,
-    );
-  }, [effectivePaneWidths, wrapperDimensions]);
-  const shouldPersistResolvedViewport =
-    shouldPersistSettingsGraphSubstrateCanaryViewport(
-      sharedProjectViewport,
-      viewportOwnershipRef.current,
-    );
   paneInteractionBehaviorRef.current = {
     isMacOs: isMacOs(),
     maxZoom,
@@ -260,18 +190,15 @@ export function SettingsGraphSubstrateCanary() {
   if (paneInteractionControllerRef.current === null) {
     paneInteractionControllerRef.current =
       createSettingsGraphSubstrateCanaryPaneInteractionController({
-        applyControlledViewportChange,
-        commitLocalViewport(nextViewport) {
-          viewportOwnershipRef.current = "local";
-          toolbarZoomViewportBaseRef.current = nextViewport;
-          setViewport(nextViewport);
-        },
-        getResolvedViewport: () =>
-          canaryViewportStateRef.current.resolvedViewport,
-        getRootBounds: () => rootRef.current?.getBoundingClientRect() ?? null,
+        applyControlledViewportChange:
+          viewportRuntime.applyControlledViewportChange,
+        commitLocalViewport: viewportRuntime.commitLocalViewport,
+        getResolvedViewport: viewportRuntime.getResolvedViewport,
+        getRootBounds: viewportRuntime.getRootBounds,
         getWheelBehavior: () => paneInteractionBehaviorRef.current,
-        onViewportPanningChange: setIsViewportPanning,
-        syncViewportInteractionState: syncCanaryViewportInteractionState,
+        onViewportPanningChange: viewportRuntime.onViewportPanningChange,
+        syncViewportInteractionState:
+          viewportRuntime.syncViewportInteractionState,
       });
   }
   const paneInteractionController = paneInteractionControllerRef.current;
@@ -281,8 +208,7 @@ export function SettingsGraphSubstrateCanary() {
       createSettingsGraphSubstrateCanarySectionDragController({
         getNodeDragThreshold: () =>
           sectionDragBehaviorRef.current.nodeDragThreshold,
-        getResolvedViewport: () =>
-          canaryViewportStateRef.current.resolvedViewport,
+        getResolvedViewport: viewportRuntime.getResolvedViewport,
         getSectionById: (sectionId) => sectionByIdRef.current.get(sectionId),
         getSnapSettings: () => ({
           snapGrid: sectionDragBehaviorRef.current.snapGrid,
@@ -309,189 +235,6 @@ export function SettingsGraphSubstrateCanary() {
     sectionDragController,
     sectionPositionOverride,
     sections.length,
-  ]);
-
-  useLayoutEffect(() => {
-    if (sharedProjectViewport === null) {
-      if (viewportOwnershipRef.current !== "shared") {
-        return;
-      }
-      viewportOwnershipRef.current = null;
-      setViewport(null);
-      return;
-    }
-
-    viewportOwnershipRef.current = "shared";
-    setViewport((current) => {
-      if (current === null) {
-        return current;
-      }
-      return null;
-    });
-  }, [sharedProjectViewport]);
-
-  useEffect(() => {
-    if (!sharedViewport || viewportOwnershipRef.current === "local") {
-      return;
-    }
-    if (toolbarZoomViewportBaseRef.current === null) {
-      toolbarZoomViewportBaseRef.current = sharedViewport;
-    }
-    viewportOwnershipRef.current = "shared";
-    setViewport((current) => {
-      if (
-        current &&
-        current.x === sharedViewport.x &&
-        current.y === sharedViewport.y &&
-        current.zoom === sharedViewport.zoom
-      ) {
-        return current;
-      }
-      return sharedViewport;
-    });
-  }, [sharedViewport]);
-
-  useEffect(() => {
-    if (
-      !sceneBounds ||
-      wrapperDimensions.width <= 0 ||
-      wrapperDimensions.height <= 0 ||
-      !shouldAutoFitSettingsGraphSubstrateCanaryViewport(
-        viewport,
-        sharedViewport,
-      )
-    ) {
-      return;
-    }
-
-    const nextViewport = fitSettingsGraphSubstrateCanaryViewport(
-      sceneBounds,
-      wrapperDimensions,
-      {
-        minZoom,
-        maxZoom,
-        defaultZoomLevel,
-        overviewWidth: effectivePaneWidths.overviewWidth,
-        uiEditorWidth: effectivePaneWidths.uiEditorWidth,
-      },
-    );
-    setViewport((current) => {
-      if (
-        current &&
-        current.x === nextViewport.x &&
-        current.y === nextViewport.y &&
-        current.zoom === nextViewport.zoom
-      ) {
-        return current;
-      }
-      viewportOwnershipRef.current = "auto-fit";
-      toolbarZoomViewportBaseRef.current = nextViewport;
-      return nextViewport;
-    });
-  }, [
-    defaultZoomLevel,
-    effectivePaneWidths,
-    maxZoom,
-    minZoom,
-    sceneBounds,
-    sharedViewport,
-    viewport,
-    wrapperDimensions,
-  ]);
-
-  const resolvedViewport = useMemo(() => {
-    return resolveSettingsGraphSubstrateCanaryViewport(
-      viewport,
-      sharedViewport,
-      fallbackViewport,
-    );
-  }, [fallbackViewport, sharedViewport, viewport]);
-
-  useLayoutEffect(() => {
-    // Keep the controller's snapshot current before paint so fast toolbar
-    // actions fit against the latest visible section set.
-    canaryViewportStateRef.current = {
-      resolvedViewport,
-      sceneSnapshot,
-      wrapperDimensions,
-    };
-  }, [resolvedViewport, sceneSnapshot, wrapperDimensions]);
-
-  function applyControlledViewportChange(
-    buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,
-  ) {
-    setViewport((currentViewport) => {
-      const baseViewport =
-        currentViewport ?? canaryViewportStateRef.current.resolvedViewport;
-      if (!baseViewport) {
-        return currentViewport;
-      }
-      const nextViewport = buildNextViewport(baseViewport);
-      if (!nextViewport) {
-        return currentViewport;
-      }
-      if (
-        nextViewport.x === baseViewport.x &&
-        nextViewport.y === baseViewport.y &&
-        nextViewport.zoom === baseViewport.zoom
-      ) {
-        return baseViewport;
-      }
-      viewportOwnershipRef.current = "local";
-      toolbarZoomViewportBaseRef.current = nextViewport;
-      return nextViewport;
-    });
-  }
-
-  useEffect(() => {
-    const viewportController =
-      createSettingsGraphSubstrateCanaryViewportController({
-        applyControlledViewportChange,
-        getPaneWidths: getCurrentCanaryPaneWidths,
-        getSettings: () => {
-          const { defaultZoomLevel, maxZoom, minZoom } =
-            useSettings.getState().gui;
-          return {
-            defaultZoomLevel,
-            maxZoom,
-            minZoom,
-          };
-        },
-        getState: () => canaryViewportStateRef.current,
-        getToolbarZoomViewportBase: () => toolbarZoomViewportBaseRef.current,
-      });
-
-    useReactFlow.setState({ viewportController });
-    return () => {
-      if (useReactFlow.getState().viewportController === viewportController) {
-        useReactFlow.setState({ viewportController: null });
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!rootRef.current || !resolvedViewport) {
-      return;
-    }
-
-    useReactFlow.setState({
-      domNode: rootRef.current,
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      height: wrapperDimensions.height,
-      transform: [
-        resolvedViewport.x,
-        resolvedViewport.y,
-        resolvedViewport.zoom,
-      ],
-      viewportPersistenceEnabled: shouldPersistResolvedViewport,
-      width: visibleViewportSize.width,
-    });
-  }, [
-    resolvedViewport,
-    shouldPersistResolvedViewport,
-    visibleViewportSize.width,
-    wrapperDimensions.height,
   ]);
 
   function handleSectionPointerDown(
@@ -630,7 +373,7 @@ export function SettingsGraphSubstrateCanary() {
       ref={rootRef}
       style={{
         ...ROOT_STYLE,
-        cursor: isViewportPanning ? "grabbing" : "grab",
+        cursor: viewportRuntime.isViewportPanning ? "grabbing" : "grab",
       }}
       className="react-flow setta-light dark:setta-dark"
       data-tab-scope="canvas"
@@ -650,8 +393,8 @@ export function SettingsGraphSubstrateCanary() {
           inset: 0,
           pointerEvents: "none",
           position: "absolute",
-          transform: resolvedViewport
-            ? `translate(${resolvedViewport.x}px, ${resolvedViewport.y}px) scale(${resolvedViewport.zoom})`
+          transform: viewportRuntime.resolvedViewport
+            ? `translate(${viewportRuntime.resolvedViewport.x}px, ${viewportRuntime.resolvedViewport.y}px) scale(${viewportRuntime.resolvedViewport.zoom})`
             : undefined,
           transformOrigin: "0 0",
           zIndex: 1,
@@ -713,63 +456,4 @@ export function SettingsGraphSubstrateCanary() {
       </div>
     </div>
   );
-}
-
-function getCurrentCanaryPaneWidths() {
-  const localStorageState = useLocalStorage.getState();
-  return resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
-    overviewVisible: localStorageState.overviewVis,
-    overviewTrueWidth: localStorageState.overviewTrueWidth,
-    uiEditorVisible: localStorageState.uiEditorVis,
-    uiEditorTrueWidth: localStorageState.uiEditorTrueWidth,
-  });
-}
-
-function syncCanaryViewportInteractionState({
-  isViewportPanning,
-  isPanScrolling,
-  isWheelZooming,
-}: {
-  isViewportPanning: boolean;
-  isPanScrolling: boolean;
-  isWheelZooming: boolean;
-}) {
-  useMisc.setState({ isPanScrolling: isViewportPanning || isPanScrolling });
-  useReactFlow.setState({
-    paneDragging: isViewportPanning,
-    viewportInteractionActive:
-      isViewportPanning || isPanScrolling || isWheelZooming,
-  });
-}
-
-function useElementDimensions(ref: RefObject<HTMLDivElement>) {
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (!ref.current || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) {
-        return;
-      }
-      const width = Math.round(entry.contentRect.width);
-      const height = Math.round(entry.contentRect.height);
-      setDimensions((current) => {
-        if (current.width === width && current.height === height) {
-          return current;
-        }
-        return { width, height };
-      });
-    });
-
-    observer.observe(ref.current);
-    return () => {
-      observer.disconnect();
-    };
-  }, [ref]);
-
-  return dimensions;
 }

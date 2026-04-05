@@ -6752,3 +6752,56 @@ LOOP_TERMINAL_MARKER: none
   - pivot back to geometry authority by moving transient drag-position ownership and scene-snapshot composition farther out of `SettingsGraphSubstrateCanary.tsx`, rather than starting another controller extraction
   - use the same broad normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare as the regression gate after that geometry slice
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-05 181
+
+- Item: Move the canary viewport/runtime lifecycle behind a dedicated hook and rerun the canonical broad normalized regression lane.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - the plan's immediate frontier explicitly called for splitting `SettingsGraphSubstrateCanary.tsx` so viewport/runtime control stops living inline with rendering
+    - on refreshed run-011 surfaces, the broad `rotaryParamCodeObjDefault` lane was already healthy again, so spending this iteration on compare-pane normalization would have been stale blocker churn
+    - viewport ownership, auto-fit, root resize observation, and ReactFlow controller/store sync were still concentrated in the render component even after the scene-state deepening work
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+      - owns shared/local/auto-fit viewport orchestration, root `ResizeObserver` sizing, controller registration, and ReactFlow viewport sync for the canary surface
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+      - covers scene-snapshot auto-fit, restoring a shared backend viewport, and local interaction writes becoming the viewport owner
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - now delegates viewport runtime behavior to the new hook and keeps the render component focused on section rendering plus pointer wiring
+  - What this slice established:
+    - `SettingsGraphSubstrateCanary.tsx` no longer directly owns viewport lifecycle effects, controller registration, or root size observation; that runtime seam is now testable behind `useSettingsGraphSubstrateCanaryViewportRuntime(...)`
+    - the canonical broad normalized `rotaryParamCodeObjDefault` lane stayed green after the refactor:
+      - `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on run-011
+      - the repeated compare-pane normalization blocker from item `180` did not reproduce on the refreshed run-011 surfaces and should be treated as stale/transient verification noise rather than the active blocker
+    - the required CDP visual confirmation is also green on the same lane:
+      - a fresh-context sub-agent compared worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings`
+      - after normalized `All Settings` fit-view alignment, `rotaryParamCodeObjDefault` stayed visually attached with no gross graph-surface drift versus `main`
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx`
+    - result: passed
+  - focused Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryPaneInteractionController.test.ts`
+    - result: passed (`4 files`, `24 tests`)
+  - runtime refresh:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-011/worktree-ai.log`
+    - result: worktree healthy with refreshed bootstrap url and `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-011/main-ai.log`
+    - result: `main` frontend/backend healthy; runtime metadata still reports `debugPort: 9309`, `debugPortSource: default`, and `debugPortPid: null`, but the browser-backed compare still works via the live tabs
+  - targeted live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `59.3s`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - result: done
+  - CDP visual check:
+    - result: done
+    - note: on normalized live worktree/main `settings` pages, `rotaryParamCodeObjDefault` stayed attached with no gross graph-surface drift
+- Lane status:
+  - the plan's viewport/runtime deepening step is now landed
+  - the stale compare-pane blocker from item `180` is closed for sequencing because the refreshed run-011 lane passed without helper changes
+- Next action:
+  - start the first measured normal-zoom performance probe on the same canonical `rotaryParamCodeObjDefault` `All Settings` lane so phase 1 can be judged against the `not obviously worse than legacy` exit criterion
+  - record the findings under `perf/` and use that measurement to choose the next real product hotspot instead of reopening another controller-only extraction lane
+- LOOP_TERMINAL_MARKER: none
