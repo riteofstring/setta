@@ -13,15 +13,9 @@
 ## Generation & Contracts
 
 - When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
-- Prefer generic generation driven by authoritative Go-side structure such as discovery, typed registration metadata, schema metadata, or owner-provided descriptors over hand-maintained allowlists or brittle special cases.
-- Do not over-engineer discovery just to avoid generating some unused outputs. Broad correct discovery plus pruning is usually better than brittle hyper-selective discovery.
-- Keep hardcoded generator special cases to the absolute minimum and require a concrete reason when they cannot be removed.
-- Do not treat helper-wrapped field lists or per-type create builders as generic generation. A generator that enumerates downstream Python or TypeScript fields or defaults one by one is still a handwritten mirror even if it uses helpers like `tsObjectField(...)`, `pyObjectField(...)`, small templates, or builder functions.
-- Prefer generators that interpret Go-owned schema, zero values, tags, enum metadata, typed registration metadata, or other authoritative Go-side descriptors. If a downstream default or TS-specific shape cannot be derived generically, attach the exception to Go-owned metadata or typed owner defaults with a concrete reason instead of restating the object shape inside the generator.
-- Do not embed substantial Python or TypeScript source as raw strings inside generation scripts.
+- Drive generators from authoritative Go-side structure or metadata, prefer broad discovery plus pruning over brittle inventories, and keep generator-specific design constraints in `docs/reference/generation-contracts.md`.
 - For HTTP, frontend callers must use the standard OpenAPI-generated client/types rather than bespoke generated endpoint wrappers. For non-HTTP route/constants surfaces, use the current Go-owned generated or value-exported frontend surface rather than hand-maintained mirrors.
-- If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate before finishing the task.
-- If you need new generated outputs, generate them before cleanup.
+- If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate affected outputs before cleanup and before finishing the task.
 - Prefer `./gcf.sh` when full generate/cleanup/format is appropriate. Large diffs after generation or cleanup are normal.
 - Do not manually edit `backend/setta/types/generated`, checked-in OpenAPI artifacts under `frontend/generation/`, or generated frontend clients under `frontend/src/openapi/*/generated`.
 
