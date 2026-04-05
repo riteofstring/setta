@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import sys
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -187,6 +188,141 @@ def test_claude_sdk_runner_enriches_result_usage_with_context_usage(
             },
         }
     ]
+
+
+def test_claude_sdk_runner_to_jsonable_handles_common_sdk_shapes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_to_jsonable")
+
+    @dataclass
+    class PlainObject:
+        path: Path
+        values: tuple[int, ...]
+
+    class ModelDumpObject:
+        def model_dump(self):
+            return {"path": Path("/tmp/model"), "values": (1, 2)}
+
+    class DictObject:
+        def dict(self):
+            return {"nested": PlainObject(path=Path("/tmp/nested"), values=(3,))}
+
+    payload = {
+        "plain": PlainObject(path=Path("/tmp/plain"), values=(4, 5)),
+        "model": ModelDumpObject(),
+        "dict": DictObject(),
+    }
+
+    assert module.to_jsonable(payload) == {
+        "plain": {"path": "/tmp/plain", "values": [4, 5]},
+        "model": {"path": "/tmp/model", "values": [1, 2]},
+        "dict": {"nested": {"path": "/tmp/nested", "values": [3]}},
+    }
+
+
+def test_claude_sdk_runner_preserves_existing_context_usage_fields(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_context_usage_preserve")
+
+    assert module.merge_context_usage(
+        {
+            "effectiveContextWindowTokens": 777,
+            "autoCompactThresholdTokens": 666,
+        },
+        {
+            "totalTokens": 400,
+            "rawMaxTokens": 1000,
+            "maxTokens": 900,
+            "autoCompactThreshold": 850,
+        },
+    ) == {
+        "contextUsedTokens": 400,
+        "contextWindowTokens": 1000,
+        "effectiveContextWindowTokens": 777,
+        "autoCompactThresholdTokens": 666,
+    }
 
 
 def test_claude_sdk_runner_queries_client_with_string_prompt(

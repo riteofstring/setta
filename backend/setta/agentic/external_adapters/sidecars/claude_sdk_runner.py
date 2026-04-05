@@ -81,6 +81,10 @@ INT_OPTION_FIELDS = (
     ("maxThinkingTokens", "max_thinking_tokens"),
 )
 
+JSON_PRIMITIVE_TYPES = (bool, int, float, str)
+JSONABLE_METHOD_NAMES = ("model_dump", "dict")
+MISSING_JSONABLE_VALUE = object()
+
 
 def write_event(payload: dict[str, Any]) -> None:
     sys.stdout.write(json.dumps(payload) + "\n")
@@ -98,21 +102,36 @@ def log_debug(message: str) -> None:
     print(message, file=sys.stderr)
 
 
-def to_jsonable(value: Any) -> Any:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
+def coerce_jsonable_container(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     if isinstance(value, dict):
         return {str(key): to_jsonable(entry) for key, entry in value.items()}
     if isinstance(value, (list, tuple, set)):
         return [to_jsonable(entry) for entry in value]
-    if hasattr(value, "model_dump"):
-        return to_jsonable(value.model_dump())
-    if hasattr(value, "dict"):
-        return to_jsonable(value.dict())
-    if hasattr(value, "__dict__"):
-        return to_jsonable(vars(value))
+    return MISSING_JSONABLE_VALUE
+
+
+def extract_jsonable_object_state(value: Any) -> Any:
+    for method_name in JSONABLE_METHOD_NAMES:
+        dumper = getattr(value, method_name, None)
+        if callable(dumper):
+            return dumper()
+    object_state = getattr(value, "__dict__", None)
+    if object_state is not None:
+        return vars(value)
+    return MISSING_JSONABLE_VALUE
+
+
+def to_jsonable(value: Any) -> Any:
+    if value is None or isinstance(value, JSON_PRIMITIVE_TYPES):
+        return value
+    container = coerce_jsonable_container(value)
+    if container is not MISSING_JSONABLE_VALUE:
+        return container
+    object_state = extract_jsonable_object_state(value)
+    if object_state is not MISSING_JSONABLE_VALUE:
+        return to_jsonable(object_state)
     return str(value)
 
 
@@ -213,45 +232,76 @@ def attach_session_id(event: dict[str, Any], *candidates: Any) -> dict[str, Any]
     return event
 
 
+def normalize_usage_payload(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return dict(value)
+
+
+def first_context_usage_int(
+    context_usage: dict[str, Any], *field_names: str, positive_only: bool = False
+) -> int | None:
+    for field_name in field_names:
+        value = parse_non_negative_int(context_usage.get(field_name))
+        if value is None:
+            continue
+        if positive_only and value <= 0:
+            continue
+        return value
+    return None
+
+
+def apply_usage_value(
+    usage: dict[str, Any],
+    field_name: str,
+    value: int | None,
+    *,
+    overwrite: bool = True,
+) -> None:
+    if value is None:
+        return
+    if overwrite:
+        usage[field_name] = value
+        return
+    usage.setdefault(field_name, value)
+
+
 def merge_context_usage(
     result_usage: dict[str, Any] | None,
     context_usage: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    if not isinstance(result_usage, dict):
-        result_usage = None
-    if not isinstance(context_usage, dict):
-        return result_usage
+    usage = normalize_usage_payload(result_usage)
+    context = normalize_usage_payload(context_usage)
+    if context is None:
+        return usage
+    if usage is None:
+        usage = {}
 
-    usage = dict(result_usage) if result_usage is not None else {}
-
-    context_used_tokens = parse_non_negative_int(context_usage.get("totalTokens"))
-    if context_used_tokens is not None:
-        usage["contextUsedTokens"] = context_used_tokens
-
-    context_window_tokens = parse_non_negative_int(context_usage.get("rawMaxTokens"))
-    if context_window_tokens is None or context_window_tokens <= 0:
-        context_window_tokens = parse_non_negative_int(context_usage.get("maxTokens"))
-    if context_window_tokens is not None and context_window_tokens > 0:
-        usage["contextWindowTokens"] = context_window_tokens
-
-    effective_window_tokens = parse_non_negative_int(context_usage.get("maxTokens"))
-    if (
-        effective_window_tokens is not None
-        and effective_window_tokens > 0
-        and effective_window_tokens != context_window_tokens
-        and "effectiveContextWindowTokens" not in usage
-    ):
-        usage["effectiveContextWindowTokens"] = effective_window_tokens
-
-    auto_compact_threshold = parse_non_negative_int(
-        context_usage.get("autoCompactThreshold")
+    context_window_tokens = first_context_usage_int(
+        context, "rawMaxTokens", "maxTokens", positive_only=True
     )
-    if (
-        auto_compact_threshold is not None
-        and auto_compact_threshold > 0
-        and "autoCompactThresholdTokens" not in usage
-    ):
-        usage["autoCompactThresholdTokens"] = auto_compact_threshold
+    effective_window_tokens = first_context_usage_int(
+        context, "maxTokens", positive_only=True
+    )
+    if effective_window_tokens == context_window_tokens:
+        effective_window_tokens = None
+
+    apply_usage_value(
+        usage, "contextUsedTokens", first_context_usage_int(context, "totalTokens")
+    )
+    apply_usage_value(usage, "contextWindowTokens", context_window_tokens)
+    apply_usage_value(
+        usage,
+        "effectiveContextWindowTokens",
+        effective_window_tokens,
+        overwrite=False,
+    )
+    apply_usage_value(
+        usage,
+        "autoCompactThresholdTokens",
+        first_context_usage_int(context, "autoCompactThreshold", positive_only=True),
+        overwrite=False,
+    )
 
     return usage if usage else None
 
@@ -262,24 +312,22 @@ def is_stream_event_message(message: Any) -> bool:
     return hasattr(message, "event") or hasattr(message, "stream_event")
 
 
+def normalize_allowed_tool(value: Any) -> str | None:
+    normalized = normalize_optional_string(value)
+    if normalized is None:
+        return None
+    if normalized.lower() == "askuserquestion":
+        return "question"
+    return normalized
+
+
 def normalize_allowed_tools(raw_tools: list[Any] | None) -> list[str]:
     if not isinstance(raw_tools, list):
         return []
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for raw in raw_tools:
-        if not isinstance(raw, str):
-            continue
-        value = raw.strip()
-        if not value:
-            continue
-        if value.lower() == "askuserquestion":
-            value = "question"
-        if value in seen:
-            continue
-        normalized.append(value)
-        seen.add(value)
-    return normalized
+    normalized = [
+        value for raw in raw_tools if (value := normalize_allowed_tool(raw)) is not None
+    ]
+    return list(dict.fromkeys(normalized))
 
 
 def load_mcp_servers(path_value: str | None) -> dict[str, Any] | None:
@@ -310,29 +358,27 @@ def normalize_stream_event(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def normalize_assistant_content_entry(raw_entry: Any) -> tuple[Any, bool]:
+    if not isinstance(raw_entry, dict) or raw_entry.get("type") != "tool_use":
+        return raw_entry, False
+    tool_name = normalize_tool_name(raw_entry.get("name"))
+    if not tool_name or tool_name == raw_entry.get("name"):
+        return raw_entry, False
+    return {**raw_entry, "name": tool_name}, True
+
+
 def normalize_assistant_payload(payload: dict[str, Any]) -> dict[str, Any]:
     raw_content = payload.get("content")
     if not isinstance(raw_content, list):
         return payload
-    content = []
-    changed = False
-    for raw_entry in raw_content:
-        if not isinstance(raw_entry, dict):
-            content.append(raw_entry)
-            continue
-        if raw_entry.get("type") != "tool_use":
-            content.append(raw_entry)
-            continue
-        entry = dict(raw_entry)
-        tool_name = normalize_tool_name(entry.get("name"))
-        if tool_name and tool_name != entry.get("name"):
-            entry["name"] = tool_name
-            changed = True
-        content.append(entry)
+    normalized_entries = [
+        normalize_assistant_content_entry(entry) for entry in raw_content
+    ]
+    changed = any(changed for _, changed in normalized_entries)
     if not changed:
         return payload
     normalized = dict(payload)
-    normalized["content"] = content
+    normalized["content"] = [entry for entry, _ in normalized_entries]
     return normalized
 
 
