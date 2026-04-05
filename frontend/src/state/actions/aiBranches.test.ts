@@ -1,8 +1,8 @@
 import {
   AgentRun,
-  AgentRunStatusEnum,
   ChatRoleEnum,
   createMessageTextContent,
+  RunStatusEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { buildChatBranchIndex, buildMessageBranchInfo } from "./aiBranches";
@@ -25,7 +25,7 @@ function buildRun({
   return {
     id: `run-${chatId}`,
     profileId: null,
-    status: AgentRunStatusEnum.completed,
+    status: RunStatusEnum.completed,
     startedAt: startedAt ?? "2024-01-01T00:00:00Z",
     finishedAt: startedAt ?? "2024-01-01T00:00:01Z",
     inputs: {
