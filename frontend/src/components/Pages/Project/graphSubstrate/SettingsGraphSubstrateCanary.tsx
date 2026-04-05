@@ -10,7 +10,6 @@ import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrate
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
-  measureSettingsGraphSubstrateCanaryMotionAttribution,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
@@ -42,16 +41,12 @@ export function SettingsGraphSubstrateCanary() {
   }, []);
   const presentedSceneSections = useMemo(() => {
     const nextPresentedSceneSections =
-      measureSettingsGraphSubstrateCanaryMotionAttribution(
-        "presentedSceneSectionsResolve",
-        () =>
-          resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
-            draggingSectionId: controller.draggingSectionId,
-            sceneSections: controller.sceneSections,
-            viewport: controller.resolvedViewport,
-            visibleViewportRect: controller.visibleViewportRect,
-          }),
-      );
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
+        draggingSectionId: controller.draggingSectionId,
+        sceneSections: controller.sceneSections,
+        viewport: controller.resolvedViewport,
+        visibleViewportRect: controller.visibleViewportRect,
+      });
     if (
       areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
         stablePresentedSceneSectionsRef.current,

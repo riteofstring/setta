@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 08:34 EDT
+Last updated: 2026-04-08 08:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,50 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `305` completed one bounded attribution split on the residual
+    presentation-path owner named by item `304`:
+    - landed two non-overlapping motion-attribution owners in
+      [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
+      - `presentedSceneVisibleViewportWorldRectResolve`
+      - `presentedSceneSectionVisibilityFilter`
+    - moved the presentation-path measurement into
+      [`settingsGraphSubstrateCanarySectionPresentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts)
+      so the canary no longer wraps the entire resolver in one
+      `presentedSceneSectionsResolve` bucket
+    - updated focused instrumentation expectations in
+      [`SettingsGraphSubstrateCanary.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx)
+      and widened the canonical residual-owner allowlist in
+      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+      to match the new split owners
+    - focused coverage passed:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts` -> passed (`3 files`, `13 tests`)
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split.md`
+    - the canonical cross-worktree probe is untrustworthy again on this slice:
+      - `WORKTREE_JSON=$(./scripts/dev-runtime-info.sh ...) && MAIN_JSON=$(./scripts/dev-runtime-info.sh ...) && env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+      - it reached the Playwright banner / spec body on the current `run-022`
+        runtime pair and then re-entered the known post-banner stall shape
+        without printing a verdict or timeout
+      - after it exceeded the recent healthy runtime window by a wide margin,
+        the orphaned Playwright processes were terminated manually; treat this
+        as verifier debt on the lane, not as evidence that the owner split
+        changed renderer behavior
+    - required CDP visual retries were not trustworthy on this pass:
+      - direct `/settings` checks on both worktree `3076` and read-only `main`
+        `3087` only showed the connected-shell / blank state rather than a
+        comparable settings graph surface
+      - bootstrap retries were inconclusive:
+        - worktree advanced past bootstrap into app UI but still did not show
+          graph root/canvas on `/settings`
+        - main bootstrap rejected the token before reaching comparable graph
+          content
+    - reading:
+      - the finer attribution seam is landed, but there is still no fresh
+        trustworthy numeric verdict naming which of the two split owners now
+        dominates the canonical motion burst
+      - do not open another product reduction on this lane until the verifier
+        is repaired or narrowed enough to produce one trustworthy measurement
   - item `304` restored one fresh trustworthy automated verdict for the
     landed item-`303` world-space culling slice on the canonical
     `rotaryParamCodeObjDefault` lane:
@@ -380,30 +424,30 @@ This section overrides older "next frontier" notes below when choosing the next 
 
 Pick one bounded subtask:
 
-- restore one trustworthy automated verdict for the landed item-`303`
-  world-space culling slice on `rotaryParamCodeObjDefault`
+- restore one trustworthy automated verdict for the landed item-`305`
+  presentation-owner split on `rotaryParamCodeObjDefault`
 
 Recommended next target:
 
-- keep the new world-space culling change in place; do not reopen already
-  closed React Flow / persistence / host-size / pointer-suppression lanes while
-  the current slice still lacks a trustworthy verdict
-- rerun the same canonical cross-worktree perf probe on a fresh lifecycle /
-  runtime pair and capture whether:
-  - `presentedSceneSectionsResolve` shrank, or
-  - a new residual owner replaced it
-- if the same post-banner stall reproduces again on a fresh runtime pair,
-  treat the probe itself as the next blocker and stop opening new product
-  hypotheses on this lane until that verifier is fixed
+- keep the new attribution split in place; do not reopen already closed React
+  Flow / persistence / host-size / pointer-suppression lanes while the current
+  slice still lacks a trustworthy verdict
+- repair or narrowly replace the canonical verifier path on the same
+  `rotaryParamCodeObjDefault` lane so one fresh measurement names whether:
+  - `presentedSceneVisibleViewportWorldRectResolve` dominates, or
+  - `presentedSceneSectionVisibilityFilter` dominates
+- if the same post-banner stall reproduces again on a fresh runtime pair, stop
+  treating the current cross-worktree probe as trustworthy for this lane until
+  a narrower deterministic measurement path is landed
 
 Recommended deliverables for the next iteration:
 
-- one fresh automated motion-attribution verdict for the landed item-`303`
-  product slice
+- one fresh automated motion-attribution verdict for the landed item-`305`
+  instrumentation slice
 - if the probe passes, update the hotspot reading and only then choose the next
   reducer
-- because the next pass should be verifier-only, reuse the satisfied item-`303`
-  CDP smoke signal unless the runtime stops rendering graph content again
+- if the probe still stalls, land one bounded verifier fix or worktree-only
+  deterministic measurement seam instead of another product reduction
 
 Recommended canonical target:
 
@@ -416,7 +460,7 @@ Do not use the next iteration for:
 - another blind transform-consumer / shared-store mirror toggle without fresh attribution that names the next consumer
 - another standalone smoke-only retry unless the deterministic Playwright lane also becomes unhealthy
 - another product reduction on a closed React Flow / persistence / host-size /
-  pointer-suppression lane before the item-`301` verifier blocker is resolved
+  pointer-suppression lane before the item-`305` verifier blocker is resolved
 - another Pixi host-size cache experiment unless a new trace shows that path dominating the lane
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out

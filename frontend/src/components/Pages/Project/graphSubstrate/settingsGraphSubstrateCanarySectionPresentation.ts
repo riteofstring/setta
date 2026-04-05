@@ -1,3 +1,4 @@
+import { measureSettingsGraphSubstrateCanaryMotionAttribution } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   screenPointToWorldPoint,
@@ -20,18 +21,26 @@ export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
   visibleViewportRect: GraphRect | null;
 }): Array<SettingsGraphSubstrateCanarySceneSection> {
   const visibleViewportWorldRect =
-    resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
-      viewport,
-      visibleViewportRect,
-    });
-  return sceneSections.filter((section) =>
-    shouldPresentSettingsGraphSubstrateCanarySectionShell({
-      draggingSectionId,
-      section,
-      viewport,
-      visibleViewportRect,
-      visibleViewportWorldRect,
-    }),
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "presentedSceneVisibleViewportWorldRectResolve",
+      () =>
+        resolveSettingsGraphSubstrateCanaryVisibleViewportWorldRect({
+          viewport,
+          visibleViewportRect,
+        }),
+    );
+  return measureSettingsGraphSubstrateCanaryMotionAttribution(
+    "presentedSceneSectionVisibilityFilter",
+    () =>
+      sceneSections.filter((section) =>
+        shouldPresentSettingsGraphSubstrateCanarySectionShell({
+          draggingSectionId,
+          section,
+          viewport,
+          visibleViewportRect,
+          visibleViewportWorldRect,
+        }),
+      ),
   );
 }
 

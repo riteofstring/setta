@@ -11647,3 +11647,58 @@ LOOP_TERMINAL_MARKER: none
     next bounded frontier should add finer attribution inside that path before
     another blind product reduction
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 08:53 EDT - Ralph item 305
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded attribution slice named in the handoff: split the
+  residual `presentedSceneSectionsResolve` owner into finer non-overlapping
+  presentation-path owners before opening another product reduction.
+- Landed:
+  - split the residual presentation-path attribution seam in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    and
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+    so the canary now records:
+    - `presentedSceneVisibleViewportWorldRectResolve`
+    - `presentedSceneSectionVisibilityFilter`
+  - removed the old top-level `presentedSceneSectionsResolve` wrapper from
+    `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  - updated focused instrumentation expectations in
+    `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+  - updated the canonical residual-owner allowlist in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - perf note
+    `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split.md`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+    - result: passed (`3 files`, `13 tests`)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - canonical cross-worktree perf probe on fresh `run-022` runtime-info-derived
+    bootstrap data:
+    - reached the Playwright banner / spec body
+    - then reproduced the known post-banner stall shape without printing a
+      verdict or timeout
+    - after it exceeded recent healthy runtimes by a wide margin, the orphaned
+      Playwright processes were terminated manually
+- CDP visual gate:
+  - fresh-context direct `/settings` smoke on worktree `3076` and read-only
+    `main` `3087` only showed connected-shell / blank states rather than graph
+    content
+  - fresh bootstrap retries were inconclusive:
+    - worktree advanced past bootstrap into app UI, but `/settings` still did
+      not show graph root/canvas
+    - main bootstrap rejected the token before comparable graph content loaded
+  - treat the CDP visual gate for this slice as not trustworthy on the current
+    runtime pair, not as renderer drift evidence
+- Result:
+  - the finer attribution seam is landed and locally verified
+  - there is still no fresh trustworthy numeric verdict naming whether
+    `presentedSceneVisibleViewportWorldRectResolve` or
+    `presentedSceneSectionVisibilityFilter` dominates the canonical motion
+    burst
+  - the next bounded pass should repair or narrowly replace the verifier path
+    on the same `rotaryParamCodeObjDefault` lane before opening another
+    product reduction
+- LOOP_TERMINAL_MARKER: none

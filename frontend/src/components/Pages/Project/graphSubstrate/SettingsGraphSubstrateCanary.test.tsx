@@ -217,7 +217,7 @@ describe("SettingsGraphSubstrateCanary", () => {
     ).toBe("1");
   });
 
-  it("records the shared presented-scene-section resolve work during active motion capture", async () => {
+  it("records the presented-scene-section visibility split during active motion capture", async () => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
       motionAttributionActive: true,
     });
@@ -226,13 +226,25 @@ describe("SettingsGraphSubstrateCanary", () => {
       root.render(<SettingsGraphSubstrateCanary />);
     });
 
-    const presentedSceneSectionsResolveEntry =
+    const presentedSceneVisibleViewportWorldRectResolveEntry =
       readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
-        .motionAttribution.presentedSceneSectionsResolve;
-    expect(presentedSceneSectionsResolveEntry.count).toBe(1);
-    expect(presentedSceneSectionsResolveEntry.maxDurationMs).toBeGreaterThan(0);
-    expect(presentedSceneSectionsResolveEntry.totalDurationMs).toBeGreaterThan(
-      0,
-    );
+        .motionAttribution.presentedSceneVisibleViewportWorldRectResolve;
+    expect(presentedSceneVisibleViewportWorldRectResolveEntry.count).toBe(1);
+    expect(
+      presentedSceneVisibleViewportWorldRectResolveEntry.maxDurationMs,
+    ).toBeGreaterThan(0);
+    expect(
+      presentedSceneVisibleViewportWorldRectResolveEntry.totalDurationMs,
+    ).toBeGreaterThan(0);
+    const presentedSceneSectionVisibilityFilterEntry =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneSectionVisibilityFilter;
+    expect(presentedSceneSectionVisibilityFilterEntry.count).toBe(1);
+    expect(
+      presentedSceneSectionVisibilityFilterEntry.maxDurationMs,
+    ).toBeGreaterThan(0);
+    expect(
+      presentedSceneSectionVisibilityFilterEntry.totalDurationMs,
+    ).toBeGreaterThan(0);
   });
 });
