@@ -1840,70 +1840,12 @@ const ModeEnum = {
 } as const;
 type Mode = ObjectValues<typeof ModeEnum>;
 
-export type PluginsRescanResponse = {
-  schemaVersion: number;
-  serverMode: Mode;
-  installedPlugins: number;
-  activePlugins: number;
-};
-
-export type PluginEnableDisableRequest = {
-  pluginId: string;
-};
-
 const PluginScopeEnum = {
   workspace: "workspace",
   setta_files: "setta_files",
   global: "global",
 } as const;
 type PluginScope = ObjectValues<typeof PluginScopeEnum>;
-
-export type PluginLinkRequest = {
-  localPluginRoot: string;
-  scope: PluginScope | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-const PluginInstallerBackendEnum = {
-  auto: "auto",
-  pip: "pip",
-  uv: "uv",
-} as const;
-type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
-
-export type PluginInstallRequest = {
-  sourceSpec: string;
-  scope: PluginScope | null;
-  installer: PluginInstallerBackend | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-export type PluginUninstallRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginUpdateRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-  to: string | null;
-};
-
-export type PluginRollbackRequest = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginConfigWriteRequest = {
-  pluginId: string;
-  config: Record<string, unknown>;
-};
-
-export type PluginLockApplyRequest = {
-  check: boolean;
-};
 
 export type ProjectStateSingleConfigWithCompletedOpIDs = {
   projectState: SingleConfig;
@@ -3382,27 +3324,6 @@ export type DeleteTranscriptionProfileRequest = {
   profileId: string | null;
 };
 
-type PluginConfigValidationResult = {
-  ok: boolean;
-};
-
-export type PluginConfigWriteResponse = {
-  pluginId: string;
-  config: Record<string, unknown>;
-  validation: PluginConfigValidationResult;
-};
-
-export type PluginLockWriteResponse = {
-  lockfilePath: string;
-  pluginCount: number;
-};
-
-export type PluginLockApplyResponse = {
-  lockfilePath: string;
-  plannedChanges: Array<string>;
-  applied: boolean;
-};
-
 const PluginSourceTrustStatusEnum = {
   unverified: "unverified",
 } as const;
@@ -3430,27 +3351,6 @@ export type PluginInstallResponse = {
   trustWarning: string;
   components: Array<string>;
   state: PluginRuntimeState;
-  restartRequired: boolean;
-};
-
-export type PluginUninstallResponse = {
-  pluginId: string;
-  removedFromScope: PluginScope;
-  restartRequired: boolean;
-};
-
-export type PluginUpdateResponse = {
-  pluginId: string;
-  fromVersion: string;
-  toVersion: string;
-  sourceDigestSha256: string | null;
-  restartRequired: boolean;
-};
-
-export type PluginRollbackResponse = {
-  pluginId: string;
-  restoredVersion: string;
-  sourceDigestSha256: string | null;
   restartRequired: boolean;
 };
 

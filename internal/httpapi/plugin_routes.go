@@ -134,19 +134,124 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 		return fmt.Errorf("plugin routes: plugin service is required")
 	}
 
-	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRescan, pluginRescanHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsInstall, pluginInstallHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLink, pluginLinkHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUninstall, pluginUninstallHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUpdate, pluginUpdateHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRollback, pluginRollbackHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsEnable, pluginEnableDisableHandler(deps.Service.Enable))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsDisable, pluginEnableDisableHandler(deps.Service.Disable))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLockWrite, pluginLockWriteHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLockApply, pluginLockApplyHandler(deps))
-	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRestart, pluginRestartHandler(deps))
+	registerOpenAPIGet[plugins.PluginRuntimeResponse](
+		router,
+		"getPluginsRuntime",
+		RoutePluginsRuntime,
+		pluginRuntimeHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Get the current plugin runtime state."),
+	)
+
+	ideRouter := router.With(RequireIDEMode(deps.ModePolicy))
+	registerOpenAPIPostNoRequest[PluginsRescanResponse](
+		ideRouter,
+		"rescanPlugins",
+		RoutePluginsRescan,
+		pluginRescanHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Rescan installed plugins and return the updated runtime counts."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginInstallRequest, plugins.PluginInstallResponse](
+		ideRouter,
+		"installPlugin",
+		RoutePluginsInstall,
+		pluginInstallHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Install a plugin from a supported source."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginLinkRequest, plugins.PluginInstallResponse](
+		ideRouter,
+		"linkPlugin",
+		RoutePluginsLink,
+		pluginLinkHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Link a local plugin directory into the runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginUninstallRequest, plugins.PluginUninstallResponse](
+		ideRouter,
+		"uninstallPlugin",
+		RoutePluginsUninstall,
+		pluginUninstallHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Uninstall a plugin from the selected scope."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginUpdateRequest, plugins.PluginUpdateResponse](
+		ideRouter,
+		"updatePlugin",
+		RoutePluginsUpdate,
+		pluginUpdateHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Update an installed plugin."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginRollbackRequest, plugins.PluginRollbackResponse](
+		ideRouter,
+		"rollbackPlugin",
+		RoutePluginsRollback,
+		pluginRollbackHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Roll back a plugin to the previous installed version."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginEnableDisableRequest, plugins.PluginEnableDisableResponse](
+		ideRouter,
+		"enablePlugin",
+		RoutePluginsEnable,
+		pluginEnableDisableHandler(deps.Service.Enable),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Enable an installed plugin."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginEnableDisableRequest, plugins.PluginEnableDisableResponse](
+		ideRouter,
+		"disablePlugin",
+		RoutePluginsDisable,
+		pluginEnableDisableHandler(deps.Service.Disable),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Disable an installed plugin."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginConfigWriteRequest, plugins.PluginConfigWriteResponse](
+		ideRouter,
+		"writePluginConfig",
+		RoutePluginsConfig,
+		pluginConfigHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Write schema-backed plugin configuration values."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPostNoRequest[plugins.PluginLockWriteResponse](
+		ideRouter,
+		"writePluginLockfile",
+		RoutePluginsLockWrite,
+		pluginLockWriteHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Write the plugin lockfile for the current runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPost[PluginLockApplyRequest, plugins.PluginLockApplyResponse](
+		ideRouter,
+		"applyPluginLockfile",
+		RoutePluginsLockApply,
+		pluginLockApplyHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Apply the plugin lockfile to the current runtime."),
+		withOpenAPIModeRequirement("ide"),
+	)
+	registerOpenAPIPostNoRequest[plugins.PluginRestartResponse](
+		ideRouter,
+		"restartPlugins",
+		RoutePluginsRestart,
+		pluginRestartHandler(deps),
+		withOpenAPITags("Plugins"),
+		withOpenAPISummary("Restart the plugin runtime when supported."),
+		withOpenAPIModeRequirement("ide"),
+	)
 	return nil
 }
 

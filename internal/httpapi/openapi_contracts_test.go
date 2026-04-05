@@ -135,6 +135,12 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
+	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    frontendHTTPOpenAPIPluginService{},
+	}); err != nil {
+		t.Fatalf("register plugin routes: %v", err)
+	}
 
 	getSettaHomeInfo := document.Paths[RouteGetSettaHomeInfo].Get
 	if getSettaHomeInfo == nil {
@@ -181,6 +187,25 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 	}
 	if got := mcpStatus.Extensions["x-setta-mode-requirement"]; got != "full-ide" {
 		t.Fatalf("mcp mode requirement = %#v, want %q", got, "full-ide")
+	}
+
+	pluginsRuntime := document.Paths[RoutePluginsRuntime].Get
+	if pluginsRuntime == nil {
+		t.Fatalf("expected %s get operation", RoutePluginsRuntime)
+	}
+	if pluginsRuntime.OperationID != "getPluginsRuntime" {
+		t.Fatalf("plugins runtime operation id = %q, want %q", pluginsRuntime.OperationID, "getPluginsRuntime")
+	}
+
+	pluginsRestart := document.Paths[RoutePluginsRestart].Post
+	if pluginsRestart == nil {
+		t.Fatalf("expected %s post operation", RoutePluginsRestart)
+	}
+	if pluginsRestart.OperationID != "restartPlugins" {
+		t.Fatalf("plugins restart operation id = %q, want %q", pluginsRestart.OperationID, "restartPlugins")
+	}
+	if got := pluginsRestart.Extensions["x-setta-mode-requirement"]; got != "ide" {
+		t.Fatalf("plugins restart mode requirement = %#v, want %q", got, "ide")
 	}
 }
 

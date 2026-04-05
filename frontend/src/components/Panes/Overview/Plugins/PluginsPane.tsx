@@ -1,4 +1,15 @@
 import {
+  disablePlugin,
+  enablePlugin,
+  installPlugin,
+  rescanPlugins,
+  rollbackPlugin,
+  uninstallPlugin,
+  updatePlugin,
+  writePluginConfig,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   requestPluginRestart,
@@ -19,16 +30,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import {
-  route_plugins_config,
-  route_plugins_disable,
-  route_plugins_enable,
-  route_plugins_install,
-  route_plugins_rescan,
-  route_plugins_rollback,
-  route_plugins_uninstall,
-  route_plugins_update,
-} from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
   PluginInstallResponse,
@@ -152,7 +153,7 @@ export function PluginsPane() {
       status: state.status,
       statusMessage: state.statusMessage,
       restartCapability: state.restartCapability,
-      serverMode: state.serverMode,
+      serverMode: state.serverMode ?? "ide",
     }),
     pluginsPaneRuntimeSummaryEqual,
   );
@@ -257,13 +258,13 @@ export function PluginsPane() {
 
   async function runEnablePlugin(pluginId: string) {
     await runAction(`enable:${pluginId}`, "Enable plugin", async () =>
-      route_plugins_enable({ pluginId }),
+      callOpenAPI(enablePlugin({ body: { pluginId } })),
     );
   }
 
   async function runDisablePlugin(pluginId: string) {
     await runAction(`disable:${pluginId}`, "Disable plugin", async () =>
-      route_plugins_disable({ pluginId }),
+      callOpenAPI(disablePlugin({ body: { pluginId } })),
     );
   }
 
@@ -302,8 +303,13 @@ export function PluginsPane() {
       enable: enableAfterInstall,
       force: false,
     };
-    const response = await runAction("install", "Install plugin", async () =>
-      route_plugins_install(installRequest),
+    const response = await runAction<PluginInstallResponse>(
+      "install",
+      "Install plugin",
+      async () =>
+        callOpenAPI(installPlugin({ body: installRequest })) as Promise<
+          ResponseDataAndStatus<PluginInstallResponse>
+        >,
     );
     if (!response || !response.data) {
       return;
@@ -317,7 +323,7 @@ export function PluginsPane() {
       return;
     }
     await runAction("rescan", "Rescan plugins", async () =>
-      route_plugins_rescan(),
+      callOpenAPI(rescanPlugins()),
     );
   }
 
@@ -566,7 +572,6 @@ export function PluginsPane() {
                 plugin={plugin}
                 isSettingsProject={isSettingsProject}
                 writeActionsLocked={writeActionsLocked}
-                isActionBusy={isActionBusy}
                 isAnyPluginActionBusy={isAnyPluginActionBusy}
                 runEnablePlugin={runEnablePlugin}
                 runDisablePlugin={runDisablePlugin}
@@ -668,7 +673,6 @@ type PluginListEntryCardProps = {
   plugin: PluginListEntry;
   isSettingsProject: boolean;
   writeActionsLocked: boolean;
-  isActionBusy: (actionKey: string) => boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
   runEnablePlugin: (pluginId: string) => Promise<void>;
   runDisablePlugin: (pluginId: string) => Promise<void>;
@@ -683,7 +687,6 @@ function PluginListEntryCard({
   plugin,
   isSettingsProject,
   writeActionsLocked,
-  isActionBusy,
   isAnyPluginActionBusy,
   runEnablePlugin,
   runDisablePlugin,
@@ -710,7 +713,7 @@ function PluginListEntryCard({
       to: null,
     };
     await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
-      route_plugins_update(updateRequest),
+      callOpenAPI(updatePlugin({ body: updateRequest })),
     );
   }
 
@@ -722,7 +725,7 @@ function PluginListEntryCard({
     await runAction(
       `rollback:${plugin.pluginId}`,
       "Rollback plugin",
-      async () => route_plugins_rollback(rollbackRequest),
+      async () => callOpenAPI(rollbackPlugin({ body: rollbackRequest })),
     );
   }
 
@@ -734,7 +737,7 @@ function PluginListEntryCard({
     await runAction(
       `uninstall:${plugin.pluginId}`,
       "Uninstall plugin",
-      async () => route_plugins_uninstall(uninstallRequest),
+      async () => callOpenAPI(uninstallPlugin({ body: uninstallRequest })),
     );
   }
 
@@ -1110,10 +1113,14 @@ function PluginConfigEditor({
       `config:${plugin.pluginId}`,
       "Save plugin config",
       async () =>
-        route_plugins_config({
-          pluginId: plugin.pluginId,
-          config: parsedDraft.value,
-        }),
+        callOpenAPI(
+          writePluginConfig({
+            body: {
+              pluginId: plugin.pluginId,
+              config: parsedDraft.value,
+            },
+          }),
+        ),
     );
     if (!response) {
       return;
@@ -1276,7 +1283,7 @@ function PluginConfigTopLevelField({
           }}
           disabled={disabled}
         />
-        {Boolean(value) ? "Enabled" : "Disabled"}
+        {value ? "Enabled" : "Disabled"}
       </label>
     );
   } else if (schemaType === "integer" || schemaType === "number") {

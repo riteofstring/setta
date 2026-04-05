@@ -1,11 +1,12 @@
 import throttle from "lodash/throttle";
+import { getPluginsRuntime } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect } from "react";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useActiveSectionUI, useProjectState } from "state/definitions";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { route_plugins_runtime } from "utils/generatedEndpoints";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -15,6 +16,7 @@ import {
   PluginListEntry,
   PluginListResponse,
   PluginRestartCapability,
+  PluginRuntimeResponse,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   SectionDependencyKey,
@@ -366,7 +368,9 @@ async function loadPluginRuntime(): Promise<void> {
     statusMessage: null,
   }));
 
-  const runtimeResponse = await route_plugins_runtime();
+  const runtimeResponse = (await callOpenAPI(
+    getPluginsRuntime(),
+  )) as ResponseDataAndStatus<PluginRuntimeResponse>;
   if (!res200(runtimeResponse)) {
     setPluginRuntimeLoadError(
       buildPluginRequestErrorMessage("plugins runtime", runtimeResponse),
@@ -1230,7 +1234,7 @@ function registerPluginModule({
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
     },
-    registerContextMenu: (_definition) => {
+    registerContextMenu: () => {
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
@@ -1565,13 +1569,13 @@ function registerPluginModule({
         }
       });
     },
-    openArtifact: (_artifactId) => {
+    openArtifact: () => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "openArtifact is not implemented in this host yet.",
       );
     },
-    createArtifact: async (_payload) => {
+    createArtifact: async () => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "createArtifact is not implemented in this host yet.",

@@ -12,6 +12,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/pathreveal"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
@@ -20,6 +21,7 @@ import (
 )
 
 type frontendHTTPOpenAPIInfoService struct{}
+type frontendHTTPOpenAPIPluginService struct{}
 
 func (frontendHTTPOpenAPIInfoService) ServerMode(context.Context) string {
 	return string(config.ModeIDE)
@@ -49,6 +51,90 @@ func (frontendHTTPOpenAPIInfoService) SDKRuntimeHandshake(context.Context) pytho
 		CoreVersion:        "dev-core",
 		SDKContractVersion: pythonsdkcontracts.SDKContractVersion,
 	}
+}
+
+func (frontendHTTPOpenAPIPluginService) ResolveAssetPath(string, string) (string, error) {
+	return "", nil
+}
+
+func (frontendHTTPOpenAPIPluginService) ResolveRegisteredStaticAssetPath(string) (string, bool, error) {
+	return "", false, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) LookupRegisteredBackendRoute(string, string) (plugins.BackendRouteLookup, error) {
+	return plugins.BackendRouteLookup{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) DispatchRegisteredBackendRoute(context.Context, plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+	return plugins.BackendHTTPResponse{}, false, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) InvokeRegisteredListenerEndpoint(context.Context, plugins.BackendListenerEndpointRequest) (any, bool, error) {
+	return nil, false, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+	return plugins.PluginRuntimeResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) GetBackendUISettings(string) ([]plugins.PluginRegisteredUISetting, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) ReadBackendUISettingValue(context.Context, plugins.BackendUISettingReadOptions) (any, error) {
+	return nil, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) WriteBackendUISettingValue(context.Context, plugins.BackendUISettingWriteOptions) error {
+	return nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Rescan() (plugins.DiscoverySnapshot, error) {
+	return plugins.DiscoverySnapshot{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Install(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
+	return plugins.PluginInstallResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Link(plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
+	return plugins.PluginInstallResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Uninstall(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
+	return plugins.PluginUninstallResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Update(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	return plugins.PluginUpdateResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Rollback(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	return plugins.PluginRollbackResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Enable(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+	return plugins.PluginEnableDisableResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Disable(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+	return plugins.PluginEnableDisableResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+	return plugins.PluginConfigWriteResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) WriteLockfile() (plugins.PluginLockWriteResponse, error) {
+	return plugins.PluginLockWriteResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) ApplyLockfile(context.Context, bool) (plugins.PluginLockApplyResponse, error) {
+	return plugins.PluginLockApplyResponse{}, nil
+}
+
+func (frontendHTTPOpenAPIPluginService) Restart(context.Context) (plugins.PluginRestartResponse, error) {
+	return plugins.PluginRestartResponse{}, nil
 }
 
 func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
@@ -132,6 +218,12 @@ func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 		Launch:     &workspacelaunch.LocalLaunchService{},
 	}); err != nil {
 		return nil, fmt.Errorf("register workspace launch routes: %w", err)
+	}
+	if err := RegisterPluginRoutes(router, PluginRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Service:    frontendHTTPOpenAPIPluginService{},
+	}); err != nil {
+		return nil, fmt.Errorf("register plugin routes: %w", err)
 	}
 	return document, nil
 }

@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { installPlugin } from "openapi/http";
 import { usePluginRuntimeStore } from "plugins/runtime";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -7,7 +8,6 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { route_plugins_install } from "utils/generatedEndpoints";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../../paneTestUtils";
@@ -17,11 +17,11 @@ vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual = await import("openapi/http");
   return {
     ...actual,
-    route_plugins_install: vi.fn(),
+    installPlugin: vi.fn(),
   };
 });
 
@@ -74,7 +74,7 @@ describe("PluginsPane install flow", () => {
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(usePluginRuntimeStore);
-    vi.mocked(route_plugins_install).mockReset();
+    vi.mocked(installPlugin).mockReset();
     vi.mocked(addTemporaryNotification).mockReset();
   });
 
@@ -84,13 +84,12 @@ describe("PluginsPane install flow", () => {
   });
 
   it("submits invalid source specs to the Go route and surfaces the backend error", async () => {
-    vi.mocked(route_plugins_install).mockResolvedValue({
-      status: 400,
-      hasResponse: true,
+    vi.mocked(installPlugin).mockResolvedValue({
       data: {
         detail: "Unsupported plugin source scheme: file",
       } as never,
-    });
+      response: new Response(null, { status: 400 }),
+    } as unknown as Awaited<ReturnType<typeof installPlugin>>);
 
     const { host, root } = await renderPluginsPane();
 
@@ -121,12 +120,14 @@ describe("PluginsPane install flow", () => {
       });
       await flushEffects();
 
-      expect(route_plugins_install).toHaveBeenCalledWith({
-        sourceSpec: "file:/tmp/plugin",
-        scope: "workspace",
-        installer: "auto",
-        enable: true,
-        force: false,
+      expect(installPlugin).toHaveBeenCalledWith({
+        body: {
+          sourceSpec: "file:/tmp/plugin",
+          scope: "workspace",
+          installer: "auto",
+          enable: true,
+          force: false,
+        },
       });
       expect(host.textContent).toContain(
         "Install plugin failed: Unsupported plugin source scheme: file",

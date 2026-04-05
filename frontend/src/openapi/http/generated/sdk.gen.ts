@@ -3,12 +3,21 @@
 import type { Client, Options as ClientOptions, TDataShape } from "./client";
 import { client as _heyApiClient } from "./client.gen";
 import type {
+  ApplyPluginLockfileData,
+  ApplyPluginLockfileErrors,
+  ApplyPluginLockfileResponses,
   CreateWorkspaceLaunchIntentData,
   CreateWorkspaceLaunchIntentErrors,
   CreateWorkspaceLaunchIntentResponses,
+  DisablePluginData,
+  DisablePluginErrors,
+  DisablePluginResponses,
   DocstringToMarkdownData,
   DocstringToMarkdownErrors,
   DocstringToMarkdownResponses,
+  EnablePluginData,
+  EnablePluginErrors,
+  EnablePluginResponses,
   GetAgenticSummaryCacheStatusData,
   GetAgenticSummaryCacheStatusErrors,
   GetAgenticSummaryCacheStatusResponses,
@@ -21,6 +30,9 @@ import type {
   GetMcpServerRuntimeStatusData,
   GetMcpServerRuntimeStatusErrors,
   GetMcpServerRuntimeStatusResponses,
+  GetPluginsRuntimeData,
+  GetPluginsRuntimeErrors,
+  GetPluginsRuntimeResponses,
   GetRuntimeInfoData,
   GetRuntimeInfoErrors,
   GetRuntimeInfoResponses,
@@ -30,21 +42,48 @@ import type {
   GetSettaHomeInfoData,
   GetSettaHomeInfoErrors,
   GetSettaHomeInfoResponses,
+  InstallPluginData,
+  InstallPluginErrors,
+  InstallPluginResponses,
   LaunchWorkspaceData,
   LaunchWorkspaceErrors,
   LaunchWorkspaceResponses,
+  LinkPluginData,
+  LinkPluginErrors,
+  LinkPluginResponses,
   LoadSettingsData,
   LoadSettingsErrors,
   LoadSettingsResponses,
+  RescanPluginsData,
+  RescanPluginsErrors,
+  RescanPluginsResponses,
+  RestartPluginsData,
+  RestartPluginsErrors,
+  RestartPluginsResponses,
   RevealPathInOsFileExplorerData,
   RevealPathInOsFileExplorerErrors,
   RevealPathInOsFileExplorerResponses,
+  RollbackPluginData,
+  RollbackPluginErrors,
+  RollbackPluginResponses,
   SaveSettingsData,
   SaveSettingsErrors,
   SaveSettingsResponses,
   SdkRuntimeHandshakeData,
   SdkRuntimeHandshakeErrors,
   SdkRuntimeHandshakeResponses,
+  UninstallPluginData,
+  UninstallPluginErrors,
+  UninstallPluginResponses,
+  UpdatePluginData,
+  UpdatePluginErrors,
+  UpdatePluginResponses,
+  WritePluginConfigData,
+  WritePluginConfigErrors,
+  WritePluginConfigResponses,
+  WritePluginLockfileData,
+  WritePluginLockfileErrors,
+  WritePluginLockfileResponses,
 } from "./types.gen";
 
 export type Options<
@@ -208,6 +247,250 @@ export const getMcpServerRuntimeStatus = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/mcpServerRuntimeStatus",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Write schema-backed plugin configuration values.
+ */
+export const writePluginConfig = <ThrowOnError extends boolean = false>(
+  options: Options<WritePluginConfigData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    WritePluginConfigResponses,
+    WritePluginConfigErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/config",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Disable an installed plugin.
+ */
+export const disablePlugin = <ThrowOnError extends boolean = false>(
+  options: Options<DisablePluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    DisablePluginResponses,
+    DisablePluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/disable",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Enable an installed plugin.
+ */
+export const enablePlugin = <ThrowOnError extends boolean = false>(
+  options: Options<EnablePluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    EnablePluginResponses,
+    EnablePluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/enable",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Install a plugin from a supported source.
+ */
+export const installPlugin = <ThrowOnError extends boolean = false>(
+  options: Options<InstallPluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    InstallPluginResponses,
+    InstallPluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/install",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Link a local plugin directory into the runtime.
+ */
+export const linkPlugin = <ThrowOnError extends boolean = false>(
+  options: Options<LinkPluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    LinkPluginResponses,
+    LinkPluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/link",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Apply the plugin lockfile to the current runtime.
+ */
+export const applyPluginLockfile = <ThrowOnError extends boolean = false>(
+  options: Options<ApplyPluginLockfileData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    ApplyPluginLockfileResponses,
+    ApplyPluginLockfileErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/lock/apply",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Write the plugin lockfile for the current runtime.
+ */
+export const writePluginLockfile = <ThrowOnError extends boolean = false>(
+  options?: Options<WritePluginLockfileData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    WritePluginLockfileResponses,
+    WritePluginLockfileErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/lock/write",
+    ...options,
+  });
+};
+
+/**
+ * Rescan installed plugins and return the updated runtime counts.
+ */
+export const rescanPlugins = <ThrowOnError extends boolean = false>(
+  options?: Options<RescanPluginsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    RescanPluginsResponses,
+    RescanPluginsErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/rescan",
+    ...options,
+  });
+};
+
+/**
+ * Restart the plugin runtime when supported.
+ */
+export const restartPlugins = <ThrowOnError extends boolean = false>(
+  options?: Options<RestartPluginsData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).post<
+    RestartPluginsResponses,
+    RestartPluginsErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/restart",
+    ...options,
+  });
+};
+
+/**
+ * Roll back a plugin to the previous installed version.
+ */
+export const rollbackPlugin = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackPluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    RollbackPluginResponses,
+    RollbackPluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/rollback",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Get the current plugin runtime state.
+ */
+export const getPluginsRuntime = <ThrowOnError extends boolean = false>(
+  options?: Options<GetPluginsRuntimeData, ThrowOnError>,
+) => {
+  return (options?.client ?? _heyApiClient).get<
+    GetPluginsRuntimeResponses,
+    GetPluginsRuntimeErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/runtime",
+    ...options,
+  });
+};
+
+/**
+ * Uninstall a plugin from the selected scope.
+ */
+export const uninstallPlugin = <ThrowOnError extends boolean = false>(
+  options: Options<UninstallPluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UninstallPluginResponses,
+    UninstallPluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/uninstall",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+};
+
+/**
+ * Update an installed plugin.
+ */
+export const updatePlugin = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePluginData, ThrowOnError>,
+) => {
+  return (options.client ?? _heyApiClient).post<
+    UpdatePluginResponses,
+    UpdatePluginErrors,
+    ThrowOnError
+  >({
+    url: "/plugins/update",
     ...options,
     headers: {
       "Content-Type": "application/json",

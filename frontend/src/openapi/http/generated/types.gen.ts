@@ -127,6 +127,59 @@ export type HttpapiMcpRuntimeStatusResponse = {
   servers: Array<McpxServerRuntimeStatus> | null;
 };
 
+export type HttpapiPluginConfigWriteRequest = {
+  config: {
+    [key: string]: unknown;
+  };
+  pluginId: string;
+};
+
+export type HttpapiPluginEnableDisableRequest = {
+  pluginId: string;
+};
+
+export type HttpapiPluginInstallRequest = {
+  enable: boolean | null;
+  force: boolean | null;
+  installer: string | null;
+  scope: string | null;
+  sourceSpec: string;
+};
+
+export type HttpapiPluginLinkRequest = {
+  enable: boolean | null;
+  force: boolean | null;
+  localPluginRoot: string;
+  scope: string | null;
+};
+
+export type HttpapiPluginLockApplyRequest = {
+  check: boolean;
+};
+
+export type HttpapiPluginRollbackRequest = {
+  pluginId: string;
+  scope: string | null;
+};
+
+export type HttpapiPluginUninstallRequest = {
+  pluginId: string;
+  scope: string | null;
+};
+
+export type HttpapiPluginUpdateRequest = {
+  pluginId: string;
+  scope: string | null;
+  to: string | null;
+};
+
+export type HttpapiPluginsRescanResponse = {
+  activePlugins: number;
+  installedPlugins: number;
+  schemaVersion: number;
+  serverMode: string;
+};
+
 export type HttpapiRevealPathInOsFileExplorerRequest = {
   path: string;
 };
@@ -191,6 +244,206 @@ export type McpxServerRuntimeStatus = {
   state: string;
   toolCount: number;
   transport: string;
+};
+
+export type PluginsPluginBlockedCapability = {
+  capability: string;
+  reason: string;
+};
+
+export type PluginsPluginConfigDescriptor = {
+  currentConfig: {
+    [key: string]: unknown;
+  };
+  currentConfigDigestSha256: string | null;
+  hasSchema: boolean;
+  schemaJson: {
+    [key: string]: unknown;
+  };
+  schemaJsonDigestSha256: string | null;
+};
+
+export type PluginsPluginConfigValidationResult = {
+  ok: boolean;
+};
+
+export type PluginsPluginConfigWriteResponse = {
+  config: {
+    [key: string]: unknown;
+  };
+  pluginId: string;
+  validation: PluginsPluginConfigValidationResult;
+};
+
+export type PluginsPluginContentDescriptor = {
+  hasBlueprints: boolean;
+  hasProjectTemplates: boolean;
+  hasPrompts: boolean;
+};
+
+export type PluginsPluginEnableDisableResponse = {
+  pluginId: string;
+  restartRequired: boolean;
+  state: string;
+};
+
+export type PluginsPluginErrorInfo = {
+  code: string;
+  message: string;
+};
+
+export type PluginsPluginFrontendDescriptor = {
+  entrypointUrl: string | null;
+  styleUrl: string | null;
+};
+
+export type PluginsPluginInstallResponse = {
+  canonicalSourceKey: string;
+  components: Array<string> | null;
+  pluginId: string;
+  requestedCapabilities: Array<string> | null;
+  restartRequired: boolean;
+  sourceDigestSha256: string | null;
+  sourcePath: string;
+  sourceScope: string;
+  sourceScopeLabel: string;
+  state: string;
+  trustStatus: string;
+  trustWarning: string;
+  version: string;
+};
+
+export type PluginsPluginListEntry = {
+  canonicalSourceKey: string;
+  components: Array<string> | null;
+  config: PluginsPluginConfigDescriptor;
+  content: PluginsPluginContentDescriptor;
+  effectiveCapabilities: Array<string> | null;
+  enablementSource: string | null;
+  frontend: PluginsPluginFrontendDescriptor;
+  name: string;
+  pluginId: string;
+  restartRequired: boolean;
+  sourceDigestSha256: string | null;
+  sourceManager: string;
+  sourceManagerHint: string | null;
+  sourceScope: string;
+  sourceScopeLabel: string;
+  version: string;
+};
+
+export type PluginsPluginListResponse = {
+  plugins: Array<PluginsPluginListEntry> | null;
+  restartCapability: PluginsPluginRestartCapability;
+  schemaVersion: number;
+  serverMode: string;
+};
+
+export type PluginsPluginLockApplyResponse = {
+  applied: boolean;
+  lockfilePath: string;
+  plannedChanges: Array<string> | null;
+};
+
+export type PluginsPluginLockWriteResponse = {
+  lockfilePath: string;
+  pluginCount: number;
+};
+
+export type PluginsPluginRegisteredBackendRoute = {
+  methods: Array<string> | null;
+  path: string;
+};
+
+export type PluginsPluginRegisteredCodegenTarget = {
+  defaultFileName: string;
+  language: string;
+  name: string;
+  pluginId: string;
+  targetId: string;
+};
+
+export type PluginsPluginRegisteredListenerEndpoint = {
+  name: string;
+};
+
+export type PluginsPluginRegisteredStaticDir = {
+  dir: string;
+  routePrefix: string;
+};
+
+export type PluginsPluginRestartCapability = {
+  command: string | null;
+  mode: string;
+  reason: string | null;
+};
+
+export type PluginsPluginRestartResponse = {
+  accepted: boolean;
+  command: string | null;
+  mode: string;
+  reason: string | null;
+};
+
+export type PluginsPluginRollbackResponse = {
+  pluginId: string;
+  restartRequired: boolean;
+  restoredVersion: string;
+  sourceDigestSha256: string | null;
+};
+
+export type PluginsPluginRuntimeResponse = {
+  list: PluginsPluginListResponse;
+  schemaVersion: number;
+  status: PluginsPluginStatusResponse;
+};
+
+export type PluginsPluginStatusEntry = {
+  blockedCapabilities: Array<PluginsPluginBlockedCapability> | null;
+  canonicalSourceKey: string;
+  components: Array<string> | null;
+  effectiveCapabilities: Array<string> | null;
+  enablementSource: string | null;
+  errors: Array<PluginsPluginErrorInfo> | null;
+  name: string;
+  pluginId: string;
+  registeredBackendRoutes: Array<PluginsPluginRegisteredBackendRoute> | null;
+  registeredCodegenTargets: Array<PluginsPluginRegisteredCodegenTarget> | null;
+  registeredListenerEndpoints: Array<PluginsPluginRegisteredListenerEndpoint> | null;
+  registeredStaticDirs: Array<PluginsPluginRegisteredStaticDir> | null;
+  requestedCapabilities: Array<string> | null;
+  restartRequired: boolean;
+  runtimePayloadDigestSha256: string;
+  shadowedBySourcePath: string | null;
+  sourceDigestSha256: string | null;
+  sourceManager: string;
+  sourceManagerHint: string | null;
+  sourcePath: string;
+  sourceScope: string;
+  sourceScopeLabel: string;
+  state: string;
+  version: string;
+};
+
+export type PluginsPluginStatusResponse = {
+  plugins: Array<PluginsPluginStatusEntry> | null;
+  restartCapability: PluginsPluginRestartCapability;
+  schemaVersion: number;
+  serverMode: string;
+};
+
+export type PluginsPluginUninstallResponse = {
+  pluginId: string;
+  removedFromScope: string;
+  restartRequired: boolean;
+};
+
+export type PluginsPluginUpdateResponse = {
+  fromVersion: string;
+  pluginId: string;
+  restartRequired: boolean;
+  sourceDigestSha256: string | null;
+  toVersion: string;
 };
 
 export type ProjectstateFrontendMetaControlSizingPolicyByType = {
@@ -619,6 +872,350 @@ export type GetMcpServerRuntimeStatusResponses = {
 
 export type GetMcpServerRuntimeStatusResponse =
   GetMcpServerRuntimeStatusResponses[keyof GetMcpServerRuntimeStatusResponses];
+
+export type WritePluginConfigData = {
+  body: HttpapiPluginConfigWriteRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/config";
+};
+
+export type WritePluginConfigErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type WritePluginConfigError =
+  WritePluginConfigErrors[keyof WritePluginConfigErrors];
+
+export type WritePluginConfigResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginConfigWriteResponse;
+};
+
+export type WritePluginConfigResponse =
+  WritePluginConfigResponses[keyof WritePluginConfigResponses];
+
+export type DisablePluginData = {
+  body: HttpapiPluginEnableDisableRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/disable";
+};
+
+export type DisablePluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type DisablePluginError = DisablePluginErrors[keyof DisablePluginErrors];
+
+export type DisablePluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginEnableDisableResponse;
+};
+
+export type DisablePluginResponse =
+  DisablePluginResponses[keyof DisablePluginResponses];
+
+export type EnablePluginData = {
+  body: HttpapiPluginEnableDisableRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/enable";
+};
+
+export type EnablePluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type EnablePluginError = EnablePluginErrors[keyof EnablePluginErrors];
+
+export type EnablePluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginEnableDisableResponse;
+};
+
+export type EnablePluginResponse =
+  EnablePluginResponses[keyof EnablePluginResponses];
+
+export type InstallPluginData = {
+  body: HttpapiPluginInstallRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/install";
+};
+
+export type InstallPluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type InstallPluginError = InstallPluginErrors[keyof InstallPluginErrors];
+
+export type InstallPluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginInstallResponse;
+};
+
+export type InstallPluginResponse =
+  InstallPluginResponses[keyof InstallPluginResponses];
+
+export type LinkPluginData = {
+  body: HttpapiPluginLinkRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/link";
+};
+
+export type LinkPluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type LinkPluginError = LinkPluginErrors[keyof LinkPluginErrors];
+
+export type LinkPluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginInstallResponse;
+};
+
+export type LinkPluginResponse = LinkPluginResponses[keyof LinkPluginResponses];
+
+export type ApplyPluginLockfileData = {
+  body: HttpapiPluginLockApplyRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/lock/apply";
+};
+
+export type ApplyPluginLockfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type ApplyPluginLockfileError =
+  ApplyPluginLockfileErrors[keyof ApplyPluginLockfileErrors];
+
+export type ApplyPluginLockfileResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginLockApplyResponse;
+};
+
+export type ApplyPluginLockfileResponse =
+  ApplyPluginLockfileResponses[keyof ApplyPluginLockfileResponses];
+
+export type WritePluginLockfileData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/plugins/lock/write";
+};
+
+export type WritePluginLockfileErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type WritePluginLockfileError =
+  WritePluginLockfileErrors[keyof WritePluginLockfileErrors];
+
+export type WritePluginLockfileResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginLockWriteResponse;
+};
+
+export type WritePluginLockfileResponse =
+  WritePluginLockfileResponses[keyof WritePluginLockfileResponses];
+
+export type RescanPluginsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/plugins/rescan";
+};
+
+export type RescanPluginsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RescanPluginsError = RescanPluginsErrors[keyof RescanPluginsErrors];
+
+export type RescanPluginsResponses = {
+  /**
+   * OK
+   */
+  200: HttpapiPluginsRescanResponse;
+};
+
+export type RescanPluginsResponse =
+  RescanPluginsResponses[keyof RescanPluginsResponses];
+
+export type RestartPluginsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/plugins/restart";
+};
+
+export type RestartPluginsErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RestartPluginsError =
+  RestartPluginsErrors[keyof RestartPluginsErrors];
+
+export type RestartPluginsResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginRestartResponse;
+};
+
+export type RestartPluginsResponse =
+  RestartPluginsResponses[keyof RestartPluginsResponses];
+
+export type RollbackPluginData = {
+  body: HttpapiPluginRollbackRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/rollback";
+};
+
+export type RollbackPluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type RollbackPluginError =
+  RollbackPluginErrors[keyof RollbackPluginErrors];
+
+export type RollbackPluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginRollbackResponse;
+};
+
+export type RollbackPluginResponse =
+  RollbackPluginResponses[keyof RollbackPluginResponses];
+
+export type GetPluginsRuntimeData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: "/plugins/runtime";
+};
+
+export type GetPluginsRuntimeErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type GetPluginsRuntimeError =
+  GetPluginsRuntimeErrors[keyof GetPluginsRuntimeErrors];
+
+export type GetPluginsRuntimeResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginRuntimeResponse;
+};
+
+export type GetPluginsRuntimeResponse =
+  GetPluginsRuntimeResponses[keyof GetPluginsRuntimeResponses];
+
+export type UninstallPluginData = {
+  body: HttpapiPluginUninstallRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/uninstall";
+};
+
+export type UninstallPluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UninstallPluginError =
+  UninstallPluginErrors[keyof UninstallPluginErrors];
+
+export type UninstallPluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginUninstallResponse;
+};
+
+export type UninstallPluginResponse =
+  UninstallPluginResponses[keyof UninstallPluginResponses];
+
+export type UpdatePluginData = {
+  body: HttpapiPluginUpdateRequest;
+  path?: never;
+  query?: never;
+  url: "/plugins/update";
+};
+
+export type UpdatePluginErrors = {
+  /**
+   * Error
+   */
+  default: HttpapiErrorResponse;
+};
+
+export type UpdatePluginError = UpdatePluginErrors[keyof UpdatePluginErrors];
+
+export type UpdatePluginResponses = {
+  /**
+   * OK
+   */
+  200: PluginsPluginUpdateResponse;
+};
+
+export type UpdatePluginResponse =
+  UpdatePluginResponses[keyof UpdatePluginResponses];
 
 export type RevealPathInOsFileExplorerData = {
   body: HttpapiRevealPathInOsFileExplorerRequest;
