@@ -141,6 +141,17 @@ type statusListJSON struct {
 	Sessions []sessionJSON `json:"sessions"`
 }
 
+type statusCommandContext struct {
+	registry      *localsessions.Registry
+	workspaceRoot string
+}
+
+type statusConnectInfoPayload struct {
+	session        auth.SessionMetadata
+	response       statusConnectInfoJSON
+	bootstrapToken string
+}
+
 type authJSON struct {
 	BaseURL              string      `json:"baseUrl"`
 	APIBaseURL           string      `json:"apiBaseUrl"`
@@ -228,6 +239,37 @@ func parseGlobalFlags(args []string, stderr io.Writer) (globalFlags, []string, e
 }
 
 func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), now func() time.Time, cwd string) error {
+	parsed, err := parseStatusFlags(args, stderr)
+	if err != nil {
+		return err
+	}
+	if err := validateStatusSelectionFlags(parsed); err != nil {
+		return err
+	}
+	if strings.TrimSpace(parsed.deleteSession) != "" {
+		return runStatusDelete(parsed, global, stdout, envLookup, cwd)
+	}
+	if err := validateStatusDisplayFlags(parsed); err != nil {
+		return err
+	}
+
+	ctx, err := newStatusCommandContext(global, parsed.workspaceRoot, envLookup, cwd)
+	if err != nil {
+		return err
+	}
+	sessions, err := loadStatusDisplaySessions(ctx, parsed)
+	if err != nil {
+		return err
+	}
+
+	if parsed.listSessions {
+		return emitStatusListJSON(stdout, sessions)
+	}
+
+	return runStatusConnectInfo(parsed, stdout, ctx.registry, sessions, now)
+}
+
+func parseStatusFlags(args []string, stderr io.Writer) (statusFlags, error) {
 	var parsed statusFlags
 	flags := flag.NewFlagSet("status", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -242,8 +284,12 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 	flags.StringVar(&parsed.serverMode, "server-mode", "", "Filter sessions by server mode: ide or launcher.")
 	flags.StringVar(&parsed.launcherOrigin, "launcher-origin", "", "Optional launcher origin to bind and sign in connect-info JSON output.")
 	if err := flags.Parse(args); err != nil {
-		return err
+		return statusFlags{}, err
 	}
+	return parsed, nil
+}
+
+func validateStatusSelectionFlags(parsed statusFlags) error {
 	if strings.TrimSpace(parsed.sessionID) != "" && parsed.latest {
 		return fmt.Errorf("use either --session or --latest, not both")
 	}
@@ -252,110 +298,146 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 			return fmt.Errorf("use --delete-session by itself")
 		}
 	}
+	return nil
+}
+
+func validateStatusDisplayFlags(parsed statusFlags) error {
 	if !parsed.connectInfo && !parsed.listSessions {
-		if strings.TrimSpace(parsed.deleteSession) != "" {
-			commandCfg, err := resolveCommandConfig(global, parsed.workspaceRoot, "status", cwd, envLookup)
-			if err != nil {
-				return err
-			}
-			registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
-				SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
-			})
-			if err != nil {
-				return err
-			}
-			sessions, err := registry.LoadSessions()
-			if err != nil {
-				return err
-			}
-			sessions = filterSessionsForWorkspace(sessions, commandCfg.Paths.WorkspaceRoot)
-			if parsed.serverMode != "" {
-				if parsed.serverMode != "ide" && parsed.serverMode != "launcher" {
-					return fmt.Errorf("invalid --server-mode %q", parsed.serverMode)
-				}
-				sessions = filterSessionsByDefaultMode(sessions, "status", false, strings.TrimSpace(parsed.serverMode))
-			}
-			selected, err := selectSession(sessions, parsed.deleteSession, false)
-			if err != nil {
-				return err
-			}
-			if err := deleteLocalSession(registry, selected); err != nil {
-				return err
-			}
-			_, _ = fmt.Fprintf(stdout, "Deleted session %s.\n", selected.ID)
-			return nil
-		}
 		return fmt.Errorf("use --connect-info to print session details")
 	}
 	if parsed.listSessions && !parsed.jsonOutput {
 		return fmt.Errorf("use --json with --list-sessions")
 	}
+	return nil
+}
 
-	commandCfg, err := resolveCommandConfig(global, parsed.workspaceRoot, "status", cwd, envLookup)
+func newStatusCommandContext(global globalFlags, workspaceRoot string, envLookup func(string) (string, bool), cwd string) (statusCommandContext, error) {
+	commandCfg, err := resolveCommandConfig(global, workspaceRoot, "status", cwd, envLookup)
 	if err != nil {
-		return err
+		return statusCommandContext{}, err
 	}
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
 		SessionsRoot: filepath.Join(commandCfg.Paths.RuntimeRoot, "sessions"),
 	})
 	if err != nil {
-		return err
+		return statusCommandContext{}, err
 	}
-	workspaceRoot := commandCfg.Paths.WorkspaceRoot
-	allSessions, err := registry.LoadSessions()
+	return statusCommandContext{
+		registry:      registry,
+		workspaceRoot: commandCfg.Paths.WorkspaceRoot,
+	}, nil
+}
+
+func (ctx statusCommandContext) workspaceSessions() ([]auth.SessionMetadata, error) {
+	allSessions, err := ctx.registry.LoadSessions()
+	if err != nil {
+		return nil, err
+	}
+	return filterSessionsForWorkspace(allSessions, ctx.workspaceRoot), nil
+}
+
+func runStatusDelete(parsed statusFlags, global globalFlags, stdout io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	ctx, err := newStatusCommandContext(global, parsed.workspaceRoot, envLookup, cwd)
 	if err != nil {
 		return err
 	}
-	sessions := filterSessionsForWorkspace(allSessions, workspaceRoot)
-	if parsed.serverMode != "" {
-		if parsed.serverMode != "ide" && parsed.serverMode != "launcher" {
-			return fmt.Errorf("invalid --server-mode %q", parsed.serverMode)
-		}
+	sessions, err := ctx.workspaceSessions()
+	if err != nil {
+		return err
 	}
-	sessions = filterSessionsByDefaultMode(sessions, "status", parsed.connectInfo, strings.TrimSpace(parsed.serverMode))
-	sessions = localsessions.FilterActiveSessions(sessions)
+	sessions, err = filterStatusSessions(sessions, parsed.serverMode, false, false)
+	if err != nil {
+		return err
+	}
+	selected, err := selectSession(sessions, parsed.deleteSession, false)
+	if err != nil {
+		return err
+	}
+	if err := deleteLocalSession(ctx.registry, selected); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(stdout, "Deleted session %s.\n", selected.ID)
+	return nil
+}
+
+func loadStatusDisplaySessions(ctx statusCommandContext, parsed statusFlags) ([]auth.SessionMetadata, error) {
+	sessions, err := ctx.workspaceSessions()
+	if err != nil {
+		return nil, err
+	}
+	sessions, err = filterStatusSessions(sessions, parsed.serverMode, parsed.connectInfo, true)
+	if err != nil {
+		return nil, err
+	}
 	if len(sessions) == 0 {
-		return fmt.Errorf("no matching Setta sessions found")
+		return nil, fmt.Errorf("no matching Setta sessions found")
 	}
+	return sessions, nil
+}
 
-	if parsed.listSessions {
-		response := statusListJSON{Sessions: make([]sessionJSON, 0, len(sessions))}
-		for _, session := range sessions {
-			response.Sessions = append(response.Sessions, sessionToJSON(session))
-		}
-		emitConnectInfoJSON(stdout, response)
-		return nil
+func filterStatusSessions(sessions []auth.SessionMetadata, serverMode string, connectInfo bool, activeOnly bool) ([]auth.SessionMetadata, error) {
+	trimmedMode := strings.TrimSpace(serverMode)
+	if trimmedMode != "" && trimmedMode != "ide" && trimmedMode != "launcher" {
+		return nil, fmt.Errorf("invalid --server-mode %q", trimmedMode)
 	}
+	filtered := filterSessionsByDefaultMode(sessions, "status", connectInfo, trimmedMode)
+	if activeOnly {
+		filtered = localsessions.FilterActiveSessions(filtered)
+	}
+	return filtered, nil
+}
 
+func emitStatusListJSON(stdout io.Writer, sessions []auth.SessionMetadata) error {
+	response := statusListJSON{Sessions: make([]sessionJSON, 0, len(sessions))}
+	for _, session := range sessions {
+		response.Sessions = append(response.Sessions, sessionToJSON(session))
+	}
+	return emitConnectInfoJSON(stdout, response)
+}
+
+func runStatusConnectInfo(parsed statusFlags, stdout io.Writer, registry *localsessions.Registry, sessions []auth.SessionMetadata, now func() time.Time) error {
 	selected, err := selectSession(sessions, parsed.sessionID, parsed.latest)
 	if err != nil {
 		return err
 	}
+	payload, err := buildStatusConnectInfoPayload(parsed.launcherOrigin, registry, selected, now)
+	if err != nil {
+		return err
+	}
+	if parsed.jsonOutput {
+		return emitConnectInfoJSON(stdout, payload.response)
+	}
+	_, _ = fmt.Fprintln(stdout, renderConnectInfoMessage(payload.session, payload.response.BootstrapURLFragment, payload.response.BootstrapURLPlain, payload.bootstrapToken))
+	return nil
+}
+
+func buildStatusConnectInfoPayload(launcherOrigin string, registry *localsessions.Registry, selected auth.SessionMetadata, now func() time.Time) (statusConnectInfoPayload, error) {
 	secret, err := registry.LoadSecret(selected)
 	if err != nil {
-		return fmt.Errorf("secret file missing for session %s", selected.ID)
+		return statusConnectInfoPayload{}, fmt.Errorf("secret file missing for session %s", selected.ID)
 	}
 	bootstrapToken, err := auth.NewBootstrapTokenManager(auth.DefaultBootstrapTokenTTL, auth.NewNonceTracker()).Mint(selected.ID, secret, now())
 	if err != nil {
-		return err
+		return statusConnectInfoPayload{}, err
 	}
 	bootstrapURLFragment, err := launcher.BuildBootstrapURLFragment(selected.Host, selected.Port, bootstrapToken)
 	if err != nil {
-		return err
+		return statusConnectInfoPayload{}, err
 	}
 	bootstrapURLPlain := strings.SplitN(bootstrapURLFragment, "#", 2)[0]
 
-	normalizedLauncherOrigin := frontendorigins.NormalizeOrigin(parsed.launcherOrigin)
-	if strings.TrimSpace(parsed.launcherOrigin) != "" && normalizedLauncherOrigin == "" {
-		return fmt.Errorf("--launcher-origin must be an absolute http(s) origin")
+	normalizedLauncherOrigin := frontendorigins.NormalizeOrigin(launcherOrigin)
+	if strings.TrimSpace(launcherOrigin) != "" && normalizedLauncherOrigin == "" {
+		return statusConnectInfoPayload{}, fmt.Errorf("--launcher-origin must be an absolute http(s) origin")
 	}
 	launcherOriginProof := ""
 	if normalizedLauncherOrigin != "" {
 		launcherOriginProof = frontendorigins.MintLauncherOriginHandoffProof(selected.ID, normalizedLauncherOrigin, secret)
 	}
 
-	if parsed.jsonOutput {
-		response := statusConnectInfoJSON{
+	return statusConnectInfoPayload{
+		session: selected,
+		response: statusConnectInfoJSON{
 			Session:              sessionToJSON(selected),
 			BootstrapURLFragment: bootstrapURLFragment,
 			BootstrapURLPlain:    bootstrapURLPlain,
@@ -367,13 +449,9 @@ func runStatus(args []string, global globalFlags, stdout io.Writer, stderr io.Wr
 			RuntimeRoot:          strings.TrimSpace(selected.RuntimeRoot),
 			SettaHome:            strings.TrimSpace(selected.SettaHome),
 			Profile:              strings.TrimSpace(selected.Profile),
-		}
-		emitConnectInfoJSON(stdout, response)
-		return nil
-	}
-
-	_, _ = fmt.Fprintln(stdout, renderConnectInfoMessage(selected, bootstrapURLFragment, bootstrapURLPlain, bootstrapToken))
-	return nil
+		},
+		bootstrapToken: bootstrapToken,
+	}, nil
 }
 
 func runAuth(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), now func() time.Time, cwd string) error {

@@ -634,6 +634,38 @@ func TestRunStatusDeleteSessionReportsMissingSession(t *testing.T) {
 	}
 }
 
+func TestRunStatusDeleteSessionRejectsInvalidServerMode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCLIFixture(t)
+	proc := fixture.startProcess(t, "setta.server:app")
+	session := fixture.createSession(t, proc, 61234, time.Date(2026, time.March, 8, 12, 0, 0, 0, time.UTC), "ide")
+
+	stdout, stderr, err := fixture.run(
+		"--workspace",
+		fixture.workspaceRoot,
+		"--setta-home",
+		fixture.settaHome,
+		"status",
+		"--delete-session",
+		session.ID,
+		"--server-mode",
+		"share",
+	)
+	if err == nil {
+		t.Fatal("expected invalid server-mode error")
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Fatalf("expected empty stdout, got %q", stdout)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if err.Error() != `invalid --server-mode "share"` {
+		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
 func TestSettaCLIDocsDescribeStatusAndStopServerModeSemantics(t *testing.T) {
 	t.Parallel()
 
