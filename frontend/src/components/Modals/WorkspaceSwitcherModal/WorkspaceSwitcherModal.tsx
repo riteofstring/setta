@@ -1,23 +1,19 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
-import {
-  createWorkspaceLaunchIntent,
-  getSettaHomeInfo,
-  type HttpapiCreateWorkspaceLaunchIntentResponse as CreateWorkspaceLaunchIntentResponse,
-  type HttpapiLaunchRequest as LaunchRequest,
-  type HttpapiSettaHomeInfoResponse as SettaHomeInfoResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_create_workspace_launch_intent,
+  route_get_setta_home_info,
+} from "utils/generatedEndpoints";
+import {
+  type LaunchRequestInput,
+  type SettaHomeInfoResponse,
+} from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
@@ -35,33 +31,22 @@ import {
   writeWorkspaceSwitcherDraft,
   type PendingWorkspaceLaunch,
 } from "utils/workspaceSwitcherLaunch";
+
 type CreatePendingWorkspaceLaunchResult =
-  | {
-      ok: true;
-      pendingLaunch: PendingWorkspaceLaunch;
-    }
-  | {
-      ok: false;
-      message: string;
-    };
-type CreateWorkspaceLaunchIntentRouteResponse =
-  ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>;
-type SettaHomeInfoRouteResponse = ResponseDataAndStatus<SettaHomeInfoResponse>;
+  | { ok: true; pendingLaunch: PendingWorkspaceLaunch }
+  | { ok: false; message: string };
+
 export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest,
   returnUrl,
 }: {
-  launchRequest: LaunchRequest;
+  launchRequest: LaunchRequestInput;
   returnUrl: string;
 }): Promise<CreatePendingWorkspaceLaunchResult> {
-  const response = (await callOpenAPI(
-    createWorkspaceLaunchIntent({
-      body: {
-        launchRequest,
-        returnUrl,
-      },
-    } as Parameters<typeof createWorkspaceLaunchIntent>[0]),
-  )) as CreateWorkspaceLaunchIntentRouteResponse;
+  const response = await route_create_workspace_launch_intent({
+    launchRequest,
+    returnUrl,
+  });
   if (!res200(response) || !response.data) {
     const detail = getErrorDetail(response.data);
     return {
@@ -94,6 +79,7 @@ export async function createPendingWorkspaceLaunchFromIntent({
     },
   };
 }
+
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const serverMode = useServerMode((state) => state.mode);
@@ -115,8 +101,10 @@ export function WorkspaceSwitcherModal() {
   const [history, setHistory] = useState<WorkspaceHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+
   useEffect(() => {
     setHistory(loadWorkspaceHistory());
+
     const draft = readWorkspaceSwitcherDraft();
     if (draft) {
       setWorkspaceRoot(draft.workspaceRoot ?? "");
@@ -131,20 +119,21 @@ export function WorkspaceSwitcherModal() {
       );
     }
   }, []);
+
   useEffect(() => {
     if (!modeResolved) {
       return;
     }
     let isMounted = true;
+
     async function hydrateLauncherSettaHomeInfo() {
       if (!canManageDesktopLauncher) {
         setLauncherSettaHomeInfo(null);
         setLauncherSettaHomeInfoError(null);
         return;
       }
-      const response = (await callOpenAPI(
-        getSettaHomeInfo(),
-      )) as SettaHomeInfoRouteResponse;
+
+      const response = await route_get_setta_home_info();
       if (!isMounted) {
         return;
       }
@@ -157,11 +146,14 @@ export function WorkspaceSwitcherModal() {
       setLauncherSettaHomeInfoError(null);
       setLauncherSettaHomeInfo(response.data);
     }
+
     void hydrateLauncherSettaHomeInfo();
+
     return () => {
       isMounted = false;
     };
   }, [canManageDesktopLauncher, modeResolved]);
+
   const trimmedWorkspace = workspaceRoot.trim();
   const trimmedSshTarget = sshTarget.trim();
   const trimmedSshArgs = sshArgs.trim();
@@ -174,9 +166,11 @@ export function WorkspaceSwitcherModal() {
     globalBaseLabel = launcherSettaHomeInfo.globalSettaFilesBase;
   }
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
+
   const orderedHistory = useMemo(() => {
     return [...history].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
   }, [history]);
+
   function onSelectHistory(entry: WorkspaceHistoryEntry) {
     setWorkspaceRoot(entry.workspaceRoot);
     setSshTarget(entry.sshTarget ?? "");
@@ -186,10 +180,12 @@ export function WorkspaceSwitcherModal() {
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
     setError(null);
   }
+
   function clearHistory() {
     setHistory([]);
     saveWorkspaceHistory([]);
   }
+
   async function handleLaunch() {
     setError(null);
     if (!trimmedWorkspace) {
@@ -210,14 +206,16 @@ export function WorkspaceSwitcherModal() {
       parsedLocalPort = asNumber;
     }
     setIsLaunching(true);
-    const request: LaunchRequest = {
+
+    const request: LaunchRequestInput = {
       workspaceRoot: trimmedWorkspace,
       settaFilesLocation,
-      ...(trimmedSshTarget ? { sshTarget: trimmedSshTarget } : {}),
-      ...(trimmedSshArgs ? { sshArgs: trimmedSshArgs } : {}),
-      ...(trimmedRemoteCmd ? { remoteCmd: trimmedRemoteCmd } : {}),
-      ...(parsedLocalPort !== undefined ? { localPort: parsedLocalPort } : {}),
+      sshTarget: trimmedSshTarget || null,
+      sshArgs: trimmedSshArgs || null,
+      remoteCmd: trimmedRemoteCmd || null,
+      localPort: parsedLocalPort ?? null,
     };
+
     writeWorkspaceSwitcherDraft(request);
     const returnUrl =
       typeof window !== "undefined" ? window.location.href : "/";
@@ -230,10 +228,13 @@ export function WorkspaceSwitcherModal() {
       setIsLaunching(false);
       return;
     }
+
     writePendingWorkspaceLaunch(pendingLaunchResult.pendingLaunch);
+
     closeModal();
     navigate(WORKSPACE_LAUNCH_ROUTER_PATH);
   }
+
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
       <header className="flex flex-col gap-2">
