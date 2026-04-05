@@ -7,11 +7,13 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from glob import has_magic
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Iterable
 
 from watchfiles import Change, awatch
 
 logger = logging.getLogger(__name__)
+_WATCHABLE_CHANGES = frozenset((Change.added, Change.modified, Change.deleted))
 
 if TYPE_CHECKING:
     from setta.api.listener import ListenerCallbackBuilder, SettaListener
@@ -30,109 +32,17 @@ class ListenerHotReloader:
         trigger_refresh: bool = True,
         settle_delay: float = 0.1,
     ) -> None:
+        module, builder_name = self._resolve_builder_metadata(builder)
         self._listener = listener
         self._builder = builder
-        if not callable(builder):
-            raise TypeError("ListenerHotReloader requires a callable builder")
-        builder_name = getattr(builder, "__name__", None)
-        if not builder_name:
-            raise TypeError(
-                "ListenerHotReloader requires a builder with a __name__ attribute"
-            )
-        module = inspect.getmodule(builder)
-        if module is None or module.__name__ is None:
-            raise TypeError(
-                "ListenerHotReloader requires a builder defined in a module"
-            )
         self._module_name = module.__name__
         self._builder_name = builder_name
-        specs: dict[Path, _WatcherSpec] = {}
-        if not ignore_patterns:
-            ignore = ()
-        else:
-            ignore = tuple(pattern.replace("\\", "/") for pattern in ignore_patterns)
-
-        def parse_extra_watch_path(
-            raw_path: str,
-        ) -> Iterable[tuple[Path, str | None]]:
-            path_string = str(Path(raw_path).expanduser())
-            if has_magic(path_string):
-                expanded = Path(path_string).expanduser()
-                parts = expanded.parts
-                root_parts: list[str] = []
-                pattern_parts: list[str] = []
-                for part in parts:
-                    if has_magic(part) or pattern_parts:
-                        pattern_parts.append(part)
-                    else:
-                        root_parts.append(part)
-                if not root_parts:
-                    root = Path(".")
-                else:
-                    root = Path(*root_parts)
-                root = self._resolve_path(root)
-                pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
-                yield root, pattern
-                return
-            normalized = self._resolve_path(Path(path_string))
-            yield normalized, None
-
-        candidate_paths: list[Path] = []
-        module_file = getattr(module, "__file__", None)
-        if module_file:
-            resolved = Path(module_file).expanduser()
-            try:
-                resolved = resolved.resolve()
-            except RuntimeError:
-                resolved = resolved.absolute()
-            candidate_paths.append(resolved)
-            if resolved.name == "__init__.py":
-                candidate_paths.append(resolved.parent)
-        else:
-            spec = getattr(module, "__spec__", None)
-            origin = getattr(spec, "origin", None) if spec else None
-            if origin and origin not in {"built-in", "namespace"}:
-                origin_path = Path(origin).expanduser()
-                try:
-                    origin_path = origin_path.resolve()
-                except RuntimeError:
-                    origin_path = origin_path.absolute()
-                candidate_paths.append(origin_path)
-                if origin_path.name == "__init__.py":
-                    candidate_paths.append(origin_path.parent)
-            if spec and getattr(spec, "submodule_search_locations", None):
-                candidate_paths.extend(
-                    Path(location).expanduser()
-                    for location in spec.submodule_search_locations
-                )
-
-        for candidate in candidate_paths:
-            root_path = self._resolve_path(candidate)
-            spec = specs.get(root_path)
-            if spec is None:
-                specs[root_path] = _WatcherSpec(
-                    root=root_path,
-                    is_file=self._is_probable_file(root_path),
-                    includes=(),
-                    ignores=ignore,
-                )
-                continue
-            specs[root_path] = spec.merged_with((), ignore)
-        if extra_watch_paths:
-            for raw in extra_watch_paths:
-                for root_path, include in parse_extra_watch_path(raw):
-                    spec = specs.get(root_path)
-                    include_tuple = (include,) if include is not None else ()
-                    if spec is None:
-                        specs[root_path] = _WatcherSpec(
-                            root=root_path,
-                            is_file=self._is_probable_file(root_path),
-                            includes=include_tuple,
-                            ignores=ignore,
-                        )
-                        continue
-                    specs[root_path] = spec.merged_with(include_tuple, ignore)
-        self._watch_specs = tuple(specs.values())
+        ignore = self._normalize_patterns(ignore_patterns)
+        self._watch_specs = self._build_watch_specs(
+            module=module,
+            extra_watch_paths=extra_watch_paths,
+            ignores=ignore,
+        )
         self._paths = tuple(dict.fromkeys(spec.root for spec in self._watch_specs))
         if not self._paths:
             raise ValueError("ListenerHotReloader requires at least one path to watch")
@@ -140,22 +50,7 @@ class ListenerHotReloader:
         self._settle_delay = settle_delay
         self._stop_event = asyncio.Event()
         self._reload_lock = asyncio.Lock()
-        allowed_changes = {Change.added, Change.modified, Change.deleted}
-
-        def watch_filter(change: Change, path: str) -> bool:
-            if change not in allowed_changes:
-                return False
-            candidate_path = Path(path)
-            try:
-                candidate = candidate_path.resolve()
-            except RuntimeError:
-                candidate = candidate_path.absolute()
-            for spec in self._watch_specs:
-                if spec.accepts(candidate):
-                    return True
-            return False
-
-        self._watch_filter = watch_filter
+        self._watch_filter = self._should_watch_change
 
     @property
     def listener(self) -> "SettaListener":
@@ -237,6 +132,132 @@ class ListenerHotReloader:
                 builder,
                 trigger_refresh=self._trigger_refresh,
             )
+
+    @staticmethod
+    def _resolve_builder_metadata(
+        builder: "ListenerCallbackBuilder",
+    ) -> tuple[ModuleType, str]:
+        if not callable(builder):
+            raise TypeError("ListenerHotReloader requires a callable builder")
+        builder_name = getattr(builder, "__name__", None)
+        if not builder_name:
+            raise TypeError(
+                "ListenerHotReloader requires a builder with a __name__ attribute"
+            )
+        module = inspect.getmodule(builder)
+        if module is None or module.__name__ is None:
+            raise TypeError(
+                "ListenerHotReloader requires a builder defined in a module"
+            )
+        return module, builder_name
+
+    @classmethod
+    def _build_watch_specs(
+        cls,
+        *,
+        module: ModuleType,
+        extra_watch_paths: Iterable[str] | None,
+        ignores: tuple[str, ...],
+    ) -> tuple["_WatcherSpec", ...]:
+        specs: dict[Path, _WatcherSpec] = {}
+        for candidate in cls._module_watch_candidates(module):
+            cls._merge_watch_spec(specs, root=candidate, includes=(), ignores=ignores)
+        if extra_watch_paths:
+            for raw in extra_watch_paths:
+                for root, include in cls._iter_watch_path_specs(raw):
+                    includes = (include,) if include is not None else ()
+                    cls._merge_watch_spec(
+                        specs,
+                        root=root,
+                        includes=includes,
+                        ignores=ignores,
+                    )
+        return tuple(specs.values())
+
+    @classmethod
+    def _module_watch_candidates(cls, module: ModuleType) -> tuple[Path, ...]:
+        candidates: list[Path] = []
+        module_file = getattr(module, "__file__", None)
+        if module_file:
+            candidates.extend(cls._resolve_origin_candidates(Path(module_file)))
+            return tuple(candidates)
+        spec = getattr(module, "__spec__", None)
+        origin = getattr(spec, "origin", None) if spec else None
+        if origin and origin not in {"built-in", "namespace"}:
+            candidates.extend(cls._resolve_origin_candidates(Path(origin)))
+        search_locations = (
+            getattr(spec, "submodule_search_locations", None) if spec else None
+        )
+        if search_locations:
+            candidates.extend(
+                cls._resolve_path(Path(location)) for location in search_locations
+            )
+        return tuple(candidates)
+
+    @classmethod
+    def _resolve_origin_candidates(cls, origin: Path) -> tuple[Path, ...]:
+        resolved = cls._resolve_path(origin)
+        candidates = [resolved]
+        if resolved.name == "__init__.py":
+            candidates.append(resolved.parent)
+        return tuple(candidates)
+
+    @classmethod
+    def _merge_watch_spec(
+        cls,
+        specs: dict[Path, "_WatcherSpec"],
+        *,
+        root: Path,
+        includes: tuple[str, ...],
+        ignores: tuple[str, ...],
+    ) -> None:
+        existing = specs.get(root)
+        if existing is None:
+            specs[root] = _WatcherSpec(
+                root=root,
+                is_file=cls._is_probable_file(root),
+                includes=includes,
+                ignores=ignores,
+            )
+            return
+        specs[root] = existing.merged_with(includes, ignores)
+
+    @classmethod
+    def _iter_watch_path_specs(
+        cls,
+        raw_path: str,
+    ) -> Iterable[tuple[Path, str | None]]:
+        expanded = Path(raw_path).expanduser()
+        if not has_magic(str(expanded)):
+            yield cls._resolve_path(expanded), None
+            return
+        root_parts, pattern_parts = cls._split_glob_parts(expanded.parts)
+        root = Path(*root_parts) if root_parts else Path(".")
+        pattern = Path(*pattern_parts).as_posix() if pattern_parts else "**"
+        yield cls._resolve_path(root), pattern
+
+    @staticmethod
+    def _split_glob_parts(parts: tuple[str, ...]) -> tuple[list[str], list[str]]:
+        root_parts: list[str] = []
+        pattern_parts: list[str] = []
+        for part in parts:
+            if pattern_parts or has_magic(part):
+                pattern_parts.append(part)
+                continue
+            root_parts.append(part)
+        return root_parts, pattern_parts
+
+    def _should_watch_change(self, change: Change, path: str) -> bool:
+        if change not in _WATCHABLE_CHANGES:
+            return False
+        candidate = self._resolve_path(Path(path))
+        return any(spec.accepts(candidate) for spec in self._watch_specs)
+
+    @staticmethod
+    def _normalize_patterns(patterns: Iterable[str] | None) -> tuple[str, ...]:
+        if not patterns:
+            return ()
+        return tuple(pattern.replace("\\", "/") for pattern in patterns)
 
     @staticmethod
     def _resolve_path(raw_path: Path) -> Path:
