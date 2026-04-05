@@ -1683,8 +1683,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/$defs/BaseChatMessageUnion"
           }
         }
       },
@@ -3748,8 +3747,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/$defs/BaseChatMessageUnion"
           }
         },
         "systemPrompt": {
@@ -6274,8 +6272,7 @@
           ]
         },
         "firstMessage": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/BaseChatMessageUnion"
         }
       },
       "title": "CreateChatRequest",
@@ -7794,7 +7791,9 @@
         "chatId": {
           "type": "string"
         },
-        "chunk": true
+        "chunk": {
+          "$ref": "#/$defs/LLMStreamingResponseChunk"
+        }
       },
       "title": "EmitStreamDeltaRequest",
       "required": [
@@ -26593,8 +26592,7 @@
             "array"
           ],
           "items": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/$defs/ToolCall"
           }
         }
       },

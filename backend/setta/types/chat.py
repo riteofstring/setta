@@ -1,24 +1,32 @@
 from typing import Annotated, Any
 
-from pydantic import Discriminator, Field, Tag
+from pydantic import Discriminator, Tag
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
     BaseChatMessageUnion,
+    Chat,
     ChatRole,
+    ChatSectionBranch,
+    ChatSectionState,
+    LLMStreamingResponseChunk,
     SystemChatMessage,
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.generated.go_shared_types import (
-    Chat as GoChat,
-)
-from setta.types.generated.go_shared_types import (
-    ChatSectionBranch as GoChatSectionBranch,
-)
-from setta.types.generated.go_shared_types import (
-    ChatSectionState as GoChatSectionState,
-)
-from setta.types.id import ID
+
+__all__ = [
+    "AssistantChatMessage",
+    "BaseChatMessageUnion",
+    "BaseChatMessageUnionWithDiscriminator",
+    "Chat",
+    "ChatRole",
+    "ChatSectionBranch",
+    "ChatSectionState",
+    "LLMStreamingResponseChunk",
+    "SystemChatMessage",
+    "ToolChatMessage",
+    "UserChatMessage",
+]
 
 
 def _chat_role(value: Any) -> str | None:
@@ -39,16 +47,3 @@ BaseChatMessageUnionWithDiscriminator = Annotated[
     | Annotated[ToolChatMessage, Tag(ChatRole.tool.value)],
     Discriminator(_chat_role),
 ]
-
-
-class Chat(GoChat):
-    messages: list[BaseChatMessageUnion]
-
-
-class ChatSectionBranch(GoChatSectionBranch):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-
-
-class ChatSectionState(GoChatSectionState):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)

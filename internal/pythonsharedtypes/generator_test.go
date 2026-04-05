@@ -157,9 +157,15 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"BaseArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
 		"SectionSizeValue = float | SectionSizeMode",
 		"class SectionSize(SettaSharedTypeModel):",
+		"class Chat(SettaSharedTypeModel):",
+		"messages: list[BaseChatMessageUnion]",
 		"class DependencyEvent(SettaSharedTypeModel):",
 		"dependencyKey: BaseDependencyKeyUnion",
 		"payload: BaseDependencyValueUnion | None = None",
+		"class MessageStartEvent(SettaSharedTypeModel):",
+		"message: BaseChatMessageUnion",
+		"class MessageDeltaEvent(SettaSharedTypeModel):",
+		"content: list[MessageContentDelta]",
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)

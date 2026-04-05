@@ -580,9 +580,7 @@ type AppValidationIssue = {
  */
 type AppendMessagesRequest = {
   chatId: string;
-  messages: null | Array<{
-    [key: string]: unknown;
-  }>;
+  messages: null | Array<BaseChatMessageUnion>;
   projectConfigId?: null | string;
 };
 
@@ -1262,9 +1260,7 @@ type Chat = {
     provider?: string;
     temporary?: boolean;
   };
-  messages: null | Array<{
-    [key: string]: unknown;
-  }>;
+  messages: null | Array<BaseChatMessageUnion>;
   name: string;
   projectConfigId?: null | string;
   systemPrompt: null | string;
@@ -2070,9 +2066,7 @@ export type Core = {
  */
 type CreateChatRequest = {
   engineConfigId?: null | string;
-  firstMessage: {
-    [key: string]: unknown;
-  };
+  firstMessage: BaseChatMessageUnion;
   projectConfigId?: null | string;
 };
 
@@ -2579,6 +2573,7 @@ type EdgePort = {
  */
 type EmitStreamDeltaRequest = {
   chatId: string;
+  chunk: LLMStreamingResponseChunk;
   projectConfigId: string;
   sectionId: string;
 };
@@ -7958,9 +7953,7 @@ type RunToolsRequest = {
   frontendAffinityToken?: null | string;
   projectConfigId?: null | string;
   sectionId: string;
-  toolCalls: null | Array<{
-    [key: string]: unknown;
-  }>;
+  toolCalls: null | Array<ToolCall>;
 };
 
 /**

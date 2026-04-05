@@ -68,7 +68,7 @@ type Chat struct {
 	LastUpdated     time.Time        `json:"lastUpdated" py_import:"from setta.utils.timestamps import get_now_timestamp" py_default:"Field(default_factory=get_now_timestamp)"`
 	LLMConfig       llmconfig.Config `json:"llmConfig" py_type:"LLMConfig"`
 	ProjectConfigID *string          `json:"projectConfigId,omitempty" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	Messages        []map[string]any `json:"messages"`
+	Messages        []map[string]any `json:"messages" shared_schema_items_ref:"BaseChatMessageUnion"`
 	SystemPrompt    *string          `json:"systemPrompt"`
 }
 
@@ -83,7 +83,7 @@ type ChatMetadata struct {
 type CreateChatRequest struct {
 	ProjectConfigID *string        `json:"projectConfigId,omitempty"`
 	EngineConfigID  *string        `json:"engineConfigId,omitempty"`
-	FirstMessage    map[string]any `json:"firstMessage"`
+	FirstMessage    map[string]any `json:"firstMessage" shared_schema_ref:"BaseChatMessageUnion"`
 }
 
 type GetChatRequest struct {
@@ -94,7 +94,7 @@ type GetChatRequest struct {
 type AppendMessagesRequest struct {
 	ProjectConfigID *string          `json:"projectConfigId,omitempty"`
 	ChatID          string           `json:"chatId"`
-	Messages        []map[string]any `json:"messages"`
+	Messages        []map[string]any `json:"messages" shared_schema_items_ref:"BaseChatMessageUnion"`
 }
 
 type SetSystemPromptRequest struct {
@@ -116,7 +116,7 @@ type EmitStreamDeltaRequest struct {
 	ProjectConfigID string `json:"projectConfigId"`
 	SectionID       string `json:"sectionId"`
 	ChatID          string `json:"chatId"`
-	Chunk           any    `json:"chunk"`
+	Chunk           any    `json:"chunk" shared_schema_ref:"LLMStreamingResponseChunk"`
 	ShareSessionID  string `json:"-"`
 }
 
@@ -125,7 +125,7 @@ type RunToolsRequest struct {
 	ChatID                string           `json:"chatId"`
 	SectionID             string           `json:"sectionId"`
 	FrontendAffinityToken *string          `json:"frontendAffinityToken,omitempty"`
-	ToolCalls             []map[string]any `json:"toolCalls"`
+	ToolCalls             []map[string]any `json:"toolCalls" shared_schema_items_ref:"ToolCall"`
 	ShareSessionID        string           `json:"-"`
 }
 

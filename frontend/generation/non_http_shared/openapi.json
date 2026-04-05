@@ -1364,8 +1364,7 @@
           },
           "messages": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
             "type": ["null", "array"]
           },
@@ -3105,8 +3104,7 @@
           },
           "messages": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/BaseChatMessageUnion"
             },
             "type": ["null", "array"]
           },
@@ -5208,8 +5206,7 @@
             "type": ["null", "string"]
           },
           "firstMessage": {
-            "additionalProperties": true,
-            "type": "object"
+            "$ref": "#/components/schemas/BaseChatMessageUnion"
           },
           "projectConfigId": {
             "type": ["null", "string"]
@@ -6429,7 +6426,9 @@
           "chatId": {
             "type": "string"
           },
-          "chunk": true,
+          "chunk": {
+            "$ref": "#/components/schemas/LLMStreamingResponseChunk"
+          },
           "projectConfigId": {
             "type": "string"
           },
@@ -21354,8 +21353,7 @@
           },
           "toolCalls": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ToolCall"
             },
             "type": ["null", "array"]
           }

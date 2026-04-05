@@ -312,7 +312,7 @@ def cleanup_unused_imports(paths: Iterable[Path], *, dry_run: bool) -> int:
     return updated_files
 
 
-def render_cleaned_import(node: ast.stmt, used_names: set[str]) -> str | None:
+def render_cleaned_import(node: ast.stmt, used_names: set[str]) -> str | None:  # noqa: C901
     if isinstance(node, ast.Import):
         kept_names = []
         for alias in node.names:
@@ -333,6 +333,8 @@ def render_cleaned_import(node: ast.stmt, used_names: set[str]) -> str | None:
 
     if isinstance(node, ast.ImportFrom):
         if node.level:
+            return None
+        if node.module == "__future__":
             return None
         kept_names = []
         for alias in node.names:
@@ -382,7 +384,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str]) -> int:  # noqa: C901
     args = parse_args(argv)
     repo_root = (
         args.repo_root.resolve()

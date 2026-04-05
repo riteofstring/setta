@@ -98,3 +98,29 @@ def test_cleanup_unused_imports_removes_stale_generated_imports(
         "class Thing:\n"
         "    value: Any\n"
     )
+
+
+def test_cleanup_unused_imports_preserves_future_annotations_import(
+    tmp_path: Path,
+) -> None:
+    generated_file = tmp_path / "go_shared_types.py"
+    generated_file.write_text(
+        "from __future__ import annotations\n"
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        '    value: "Later"\n\n'
+        "Later = Any\n",
+        encoding="utf-8",
+    )
+
+    module = _load_prune_generated_types_module()
+    cleaned_files = module.cleanup_unused_imports([generated_file], dry_run=False)
+
+    assert cleaned_files == 0
+    assert generated_file.read_text(encoding="utf-8") == (
+        "from __future__ import annotations\n"
+        "from typing import Any\n\n"
+        "class Thing:\n"
+        '    value: "Later"\n\n'
+        "Later = Any\n"
+    )
