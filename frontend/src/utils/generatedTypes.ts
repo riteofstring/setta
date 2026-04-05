@@ -357,17 +357,6 @@ export type PluginRestartResponse = {
   reason: string | null;
 };
 
-type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
-
-type LLMStreamingResponseChunk =
-  | MessageStartEvent
-  | MessageDeltaEvent
-  | ToolCallDeltaEvent
-  | ToolResultEvent
-  | ToolArgumentPreviewDeltaEvent
-  | MessageStopEvent
-  | MessageFinalizedEvent;
-
 export type AgenticSummaryCacheStatus = {
   maxSummariesPerRun: number;
   summarySectionIds: Array<string>;
@@ -410,23 +399,6 @@ const MetaControlSizeModeEnum = {
 } as const;
 type MetaControlSizeMode = ObjectValues<typeof MetaControlSizeModeEnum>;
 
-export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
-
-export function createBaseChartSettingsUnionWithDiscriminator(
-  options:
-    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
-): BaseChartSettingsUnion {
-  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }
-}
-
 export const AgenticEdgeKindEnum = {
   chat_chat: "chat_chat",
   section_chat: "section_chat",
@@ -440,726 +412,6 @@ export const AgenticEdgeContextModeEnum = {
   summary: "summary",
 } as const;
 type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
-type CodeFileBindingUpdate = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-};
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions<TopLevelSectionLayout>(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
-
-export type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions<ViewMode>(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-
-type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<JSONValue>
-  | { [key: string]: JSONValue | undefined };
-
-type MessageContent =
-  | MessageTextContent
-  | MessageImageUrlContent
-  | MessageThinkingContent;
-
-export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
-
-type UserDefaultChatSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  chatId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-export function createUserDefaultChatSectionImpl(
-  options: Partial<UserDefaultChatSectionImpl> = {},
-): UserDefaultChatSectionImpl {
-  return mergeGeneratedOptions<UserDefaultChatSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 200,
-        width: 400,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      managed: false,
-      engineConfigId: null,
-      transcriptionProfileId: null,
-      agentProfileId: null,
-      chatId: null,
-      thinking: true,
-      permissionMode: "minimal",
-      searchEnabled: true,
-      dictationMode: "auto",
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
-    },
-    options,
-  );
-}
-
-type UserDefaultListRootSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  defaultChildSectionType: SectionType;
-  viewMode: ListRootViewMode;
-};
-export function createUserDefaultListRootSectionImpl(
-  options: Partial<UserDefaultListRootSectionImpl> = {},
-): UserDefaultListRootSectionImpl {
-  return mergeGeneratedOptions<UserDefaultListRootSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      defaultChildSectionType: "Callable",
-      viewMode: "default",
-    },
-    options,
-  );
-}
-
-type UserDefaultGroupSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  isHorizontalOrientation: boolean;
-  overflowMode: boolean;
-  defaultChildSectionType: SectionType;
-};
-export function createUserDefaultGroupSectionImpl(
-  options: Partial<UserDefaultGroupSectionImpl> = {},
-): UserDefaultGroupSectionImpl {
-  return mergeGeneratedOptions<UserDefaultGroupSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isHorizontalOrientation: false,
-      overflowMode: false,
-      defaultChildSectionType: "Callable",
-    },
-    options,
-  );
-}
-
-type UserDefaultStateMachineStartSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  machineGroupId: string;
-  label: string;
-  maxIterations: number | null;
-};
-function createUserDefaultStateMachineStartSectionImpl(
-  options: Partial<UserDefaultStateMachineStartSectionImpl> = {},
-): UserDefaultStateMachineStartSectionImpl {
-  return mergeGeneratedOptions<UserDefaultStateMachineStartSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 96,
-        width: 240,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      machineGroupId: "",
-      label: "Start",
-      maxIterations: null,
-    },
-    options,
-  );
-}
-
-type UserDefaultTextBlockSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  format: TextBlockFormat;
-  masterFontSizePx: number;
-  headingAsSectionName: boolean;
-  metaControlStyle: boolean;
-  textDisplayMode: TextBlockDisplayMode;
-  text: string;
-};
-export function createUserDefaultTextBlockSectionImpl(
-  options: Partial<UserDefaultTextBlockSectionImpl> = {},
-): UserDefaultTextBlockSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTextBlockSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      format: "Plaintext",
-      masterFontSizePx: 14,
-      headingAsSectionName: false,
-      metaControlStyle: false,
-      textDisplayMode: "Render",
-      text: "",
-    },
-    options,
-  );
-}
-
-type UserDefaultPromptSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  template: string;
-  format: PromptFormat;
-  inputs: Record<string, string>;
-  renderedText: string;
-  missingVariables: Array<string>;
-  renderError: string | null;
-};
-export function createUserDefaultPromptSectionImpl(
-  options: Partial<UserDefaultPromptSectionImpl> = {},
-): UserDefaultPromptSectionImpl {
-  return mergeGeneratedOptions<UserDefaultPromptSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 300,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      template: "",
-      format: "Jinja",
-      inputs: {},
-      renderedText: "",
-      missingVariables: [],
-      renderError: null,
-    },
-    options,
-  );
-}
-
-type UserDefaultCodeSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-  codeLanguage: string;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
-export function createUserDefaultCodeSectionImpl(
-  options: Partial<UserDefaultCodeSectionImpl> = {},
-): UserDefaultCodeSectionImpl {
-  return mergeGeneratedOptions<UserDefaultCodeSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      code: "",
-      codeFileBinding: null,
-      attachedTerminalSectionId: null,
-      codeLanguage: "python",
-      diagnosticsIgnoreState: {
-        muted: false,
-        suppressedCodes: [],
-      },
-    },
-    options,
-  );
-}
-
-type UserDefaultTerminalSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-};
-function createUserDefaultTerminalSectionImpl(
-  options: Partial<UserDefaultTerminalSectionImpl> = {},
-): UserDefaultTerminalSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTerminalSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-    },
-    options,
-  );
-}
-
-export type BaseSectionImplUnion =
-  | CallableSectionImpl
-  | DictSectionImpl
-  | ListRootSectionImpl
-  | GroupSectionImpl
-  | StateMachineStartSectionImpl
-  | StateMachineGateSectionImpl
-  | StateMachineEndSectionImpl
-  | ChartSectionImpl
-  | TextBlockSectionImpl
-  | PromptSectionImpl
-  | CodeSectionImpl
-  | TerminalSectionImpl
-  | ChatSectionImpl
-  | BrowserSectionImpl
-  | TaskBoardSectionImpl
-  | SpreadsheetSectionImpl
-  | BaseSectionImpl;
-
-type BaseParentSectionImplUnion = BaseSectionImpl & {
-  children: Array<string>;
-};
-
-type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
-  codeObjVariantMap: Record<string, string>;
-};
-
-type UserDefaultCallableSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  hideParams: boolean;
-};
-export function createUserDefaultCallableSectionImpl(
-  options: Partial<UserDefaultCallableSectionImpl> = {},
-): UserDefaultCallableSectionImpl {
-  return mergeGeneratedOptions<UserDefaultCallableSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      hideParams: false,
-    },
-    options,
-  );
-}
-
-type UserDefaultDictSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-};
-export function createUserDefaultDictSectionImpl(
-  options: Partial<UserDefaultDictSectionImpl> = {},
-): UserDefaultDictSectionImpl {
-  return mergeGeneratedOptions<UserDefaultDictSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      isJsonSource: false,
-      jsonSourceKeys: [],
-    },
-    options,
-  );
-}
-
-type BaseDictSectionImplUnion = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
-
-export type BaseCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeCallableCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-export type BaseChildlessCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | DropzoneParamCodeObjImpl;
-
-type BaseParamCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-type BaseParentCodeObjImplUnion =
-  | CodeCallableCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-type UserDefaultCodeParamCodeObjImpl = {
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-export function createUserDefaultCodeParamCodeObjImpl(
-  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
-): UserDefaultCodeParamCodeObjImpl {
-  return mergeGeneratedOptions<UserDefaultCodeParamCodeObjImpl>(
-    {
-      coreNameType: "TEXT",
-      coreNameEditable: false,
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  );
-}
-
-type UserDefaultTaskBoardSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn> | null;
-  tasks: Array<TaskBoardTask>;
-};
-export function createUserDefaultTaskBoardSectionImpl(
-  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
-): UserDefaultTaskBoardSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTaskBoardSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 430,
-        width: 720,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      viewMode: "kanban",
-      columns: null,
-      tasks: [],
-    },
-    options,
-  );
-}
-
-type UserDefaultChartSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  dataPath: string;
-  chartSettings: BaseChartSettingsUnion;
-};
-export function createUserDefaultChartSectionImpl(
-  options: Partial<UserDefaultChartSectionImpl> = {},
-): UserDefaultChartSectionImpl {
-  return mergeGeneratedOptions<UserDefaultChartSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 300,
-        width: 300,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      dataPath: "",
-      chartSettings: {
-        secondYAxisColumns: [],
-        type: "line",
-        xAxisLog: false,
-        y1AxisLog: false,
-        y2AxisLog: false,
-      },
-    },
-    options,
-  );
-}
-
-type UserDefaultSpreadsheetSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  filePath: string;
-  activeSheet: string | null;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-export function createUserDefaultSpreadsheetSectionImpl(
-  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
-): UserDefaultSpreadsheetSectionImpl {
-  return mergeGeneratedOptions<UserDefaultSpreadsheetSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 500,
-        width: 760,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      filePath: "",
-      activeSheet: null,
-      readOnly: false,
-      showRowNumbers: true,
-      density: "compact",
-      autoReloadOnExternalChange: false,
-    },
-    options,
-  );
-}
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -3526,12 +2778,68 @@ function createSectionSizingPolicy(
   };
 }
 
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export type ViewportBounds = {
   x: number;
   y: number;
   w: number;
   h: number;
 };
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions<TopLevelSectionLayout>(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+export type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions<ViewMode>(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
 
 export type Edge = {
   id: string;
@@ -3832,6 +3140,13 @@ export const CodeLanguageEnum = {
   markdown: "markdown",
   plaintext: "plaintext",
 } as const;
+
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
 
 export type ProjectMetadataEntry = {
   name: string;
@@ -8246,6 +7561,11 @@ export type SetCodeRequest = {
   code: string;
 };
 
+type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+
 export type SetCodeFileBindingRequest = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -9050,6 +8370,688 @@ export function createWriteFileContentResponse(
   options: Partial<WriteFileContentResponse> = {},
 ): WriteFileContentResponse {
   return options as WriteFileContentResponse;
+}
+
+type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+
+type LLMStreamingResponseChunk =
+  | MessageStartEvent
+  | MessageDeltaEvent
+  | ToolCallDeltaEvent
+  | ToolResultEvent
+  | ToolArgumentPreviewDeltaEvent
+  | MessageStopEvent
+  | MessageFinalizedEvent;
+
+export type ViewModeConfig = ViewMode;
+
+type JSONValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<JSONValue>
+  | { [key: string]: JSONValue | undefined };
+
+type MessageContent =
+  | MessageTextContent
+  | MessageImageUrlContent
+  | MessageThinkingContent;
+
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
+
+export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
+type BaseParentSectionImplUnion = BaseSectionImpl & {
+  children: Array<string>;
+};
+
+type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
+  codeObjVariantMap: Record<string, string>;
+};
+
+type BaseDictSectionImplUnion = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
+export type BaseSectionImplUnion =
+  | CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
+  | ChartSectionImpl
+  | TextBlockSectionImpl
+  | PromptSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl;
+
+export type BaseCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+export type BaseChildlessCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | DropzoneParamCodeObjImpl;
+
+type BaseParamCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+type BaseParentCodeObjImplUnion =
+  | CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl;
+
+type UserDefaultCallableSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  hideParams: boolean;
+};
+export function createUserDefaultCallableSectionImpl(
+  options: Partial<UserDefaultCallableSectionImpl> = {},
+): UserDefaultCallableSectionImpl {
+  return mergeGeneratedOptions<UserDefaultCallableSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      hideParams: false,
+    },
+    options,
+  );
+}
+
+type UserDefaultDictSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+};
+export function createUserDefaultDictSectionImpl(
+  options: Partial<UserDefaultDictSectionImpl> = {},
+): UserDefaultDictSectionImpl {
+  return mergeGeneratedOptions<UserDefaultDictSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      isJsonSource: false,
+      jsonSourceKeys: [],
+    },
+    options,
+  );
+}
+
+type UserDefaultListRootSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  defaultChildSectionType: SectionType;
+  viewMode: ListRootViewMode;
+};
+export function createUserDefaultListRootSectionImpl(
+  options: Partial<UserDefaultListRootSectionImpl> = {},
+): UserDefaultListRootSectionImpl {
+  return mergeGeneratedOptions<UserDefaultListRootSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      defaultChildSectionType: "Callable",
+      viewMode: "default",
+    },
+    options,
+  );
+}
+
+type UserDefaultGroupSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  isHorizontalOrientation: boolean;
+  overflowMode: boolean;
+  defaultChildSectionType: SectionType;
+};
+export function createUserDefaultGroupSectionImpl(
+  options: Partial<UserDefaultGroupSectionImpl> = {},
+): UserDefaultGroupSectionImpl {
+  return mergeGeneratedOptions<UserDefaultGroupSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isHorizontalOrientation: false,
+      overflowMode: false,
+      defaultChildSectionType: "Callable",
+    },
+    options,
+  );
+}
+
+type UserDefaultStateMachineStartSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  machineGroupId: string;
+  label: string;
+  maxIterations: number | null;
+};
+function createUserDefaultStateMachineStartSectionImpl(
+  options: Partial<UserDefaultStateMachineStartSectionImpl> = {},
+): UserDefaultStateMachineStartSectionImpl {
+  return mergeGeneratedOptions<UserDefaultStateMachineStartSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 96,
+        width: 240,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      machineGroupId: "",
+      label: "Start",
+      maxIterations: null,
+    },
+    options,
+  );
+}
+
+type UserDefaultChartSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  dataPath: string;
+  chartSettings: BaseChartSettingsUnion;
+};
+export function createUserDefaultChartSectionImpl(
+  options: Partial<UserDefaultChartSectionImpl> = {},
+): UserDefaultChartSectionImpl {
+  return mergeGeneratedOptions<UserDefaultChartSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 300,
+        width: 300,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      dataPath: "",
+      chartSettings: {
+        secondYAxisColumns: [],
+        type: "line",
+        xAxisLog: false,
+        y1AxisLog: false,
+        y2AxisLog: false,
+      },
+    },
+    options,
+  );
+}
+
+type UserDefaultTextBlockSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  format: TextBlockFormat;
+  masterFontSizePx: number;
+  headingAsSectionName: boolean;
+  metaControlStyle: boolean;
+  textDisplayMode: TextBlockDisplayMode;
+  text: string;
+};
+export function createUserDefaultTextBlockSectionImpl(
+  options: Partial<UserDefaultTextBlockSectionImpl> = {},
+): UserDefaultTextBlockSectionImpl {
+  return mergeGeneratedOptions<UserDefaultTextBlockSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 500,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      format: "Plaintext",
+      masterFontSizePx: 14,
+      headingAsSectionName: false,
+      metaControlStyle: false,
+      textDisplayMode: "Render",
+      text: "",
+    },
+    options,
+  );
+}
+
+type UserDefaultPromptSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  template: string;
+  format: PromptFormat;
+  inputs: Record<string, string>;
+  renderedText: string;
+  missingVariables: Array<string>;
+  renderError: string | null;
+};
+export function createUserDefaultPromptSectionImpl(
+  options: Partial<UserDefaultPromptSectionImpl> = {},
+): UserDefaultPromptSectionImpl {
+  return mergeGeneratedOptions<UserDefaultPromptSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 300,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      template: "",
+      format: "Jinja",
+      inputs: {},
+      renderedText: "",
+      missingVariables: [],
+      renderError: null,
+    },
+    options,
+  );
+}
+
+type UserDefaultCodeSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+export function createUserDefaultCodeSectionImpl(
+  options: Partial<UserDefaultCodeSectionImpl> = {},
+): UserDefaultCodeSectionImpl {
+  return mergeGeneratedOptions<UserDefaultCodeSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 500,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      code: "",
+      codeFileBinding: null,
+      attachedTerminalSectionId: null,
+      codeLanguage: "python",
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
+    },
+    options,
+  );
+}
+
+type UserDefaultTerminalSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+};
+function createUserDefaultTerminalSectionImpl(
+  options: Partial<UserDefaultTerminalSectionImpl> = {},
+): UserDefaultTerminalSectionImpl {
+  return mergeGeneratedOptions<UserDefaultTerminalSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+    },
+    options,
+  );
+}
+
+type UserDefaultChatSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  chatId: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+export function createUserDefaultChatSectionImpl(
+  options: Partial<UserDefaultChatSectionImpl> = {},
+): UserDefaultChatSectionImpl {
+  return mergeGeneratedOptions<UserDefaultChatSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 200,
+        width: 400,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId: null,
+      agentProfileId: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: "minimal",
+      searchEnabled: true,
+      dictationMode: "auto",
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
+    },
+    options,
+  );
+}
+
+type UserDefaultTaskBoardSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn> | null;
+  tasks: Array<TaskBoardTask>;
+};
+export function createUserDefaultTaskBoardSectionImpl(
+  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
+): UserDefaultTaskBoardSectionImpl {
+  return mergeGeneratedOptions<UserDefaultTaskBoardSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 430,
+        width: 720,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      viewMode: "kanban",
+      columns: null,
+      tasks: [],
+    },
+    options,
+  );
+}
+
+type UserDefaultSpreadsheetSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  filePath: string;
+  activeSheet: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+export function createUserDefaultSpreadsheetSectionImpl(
+  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
+): UserDefaultSpreadsheetSectionImpl {
+  return mergeGeneratedOptions<UserDefaultSpreadsheetSectionImpl>(
+    {
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 500,
+        width: 760,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      filePath: "",
+      activeSheet: null,
+      readOnly: false,
+      showRowNumbers: true,
+      density: "compact",
+      autoReloadOnExternalChange: false,
+    },
+    options,
+  );
+}
+
+type UserDefaultCodeParamCodeObjImpl = {
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+export function createUserDefaultCodeParamCodeObjImpl(
+  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
+): UserDefaultCodeParamCodeObjImpl {
+  return mergeGeneratedOptions<UserDefaultCodeParamCodeObjImpl>(
+    {
+      coreNameType: "TEXT",
+      coreNameEditable: false,
+      typeAnnotation: "",
+      defaultVal: "",
+      value: "",
+    },
+    options,
+  );
+}
+
+export function createBaseChartSettingsUnionWithDiscriminator(
+  options:
+    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
+): BaseChartSettingsUnion {
+  switch (options.type) {
+    case ChartTypeEnum.line:
+      return createLineChartSettings(options);
+    case ChartTypeEnum.scatter:
+      return createScatterChartSettings(options);
+    default:
+      throw new Error("Unsupported chart type.");
+  }
 }
 
 export type GeneratedAppGenerationMode =

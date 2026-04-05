@@ -2,8 +2,6 @@ package frontendbindings
 
 import (
 	"setta/internal/deployments"
-	"setta/internal/httpapi"
-	"setta/internal/projectstate"
 )
 
 type AgenticSummaryCacheStatus struct {
@@ -26,73 +24,9 @@ type MetaControlSizeMode string
 
 type SectionSizeMode string
 
-type BuiltinCodeLanguage struct{}
-
-type BaseChartSettingsUnion struct{}
-
 type AgenticEdgeKind string
 
 type AgenticEdgeContextMode string
-
-type CodeFileBindingUpdate httpapi.CodeFileBindingUpdate
-
-type ViewModeConfig projectstate.ViewMode
-
-type JSONValue struct{}
-
-type MessageContent struct{}
-
-type BaseChatMessageUnion struct{}
-
-type UserDefaultChatSectionImpl struct{}
-
-type UserDefaultBrowserSectionImpl struct{}
-
-type UserDefaultListRootSectionImpl struct{}
-
-type UserDefaultGroupSectionImpl struct{}
-
-type UserDefaultStateMachineStartSectionImpl struct{}
-
-type UserDefaultStateMachineGateSectionImpl struct{}
-
-type UserDefaultStateMachineEndSectionImpl struct{}
-
-type UserDefaultTextBlockSectionImpl struct{}
-
-type UserDefaultPromptSectionImpl struct{}
-
-type UserDefaultCodeSectionImpl struct{}
-
-type UserDefaultTerminalSectionImpl struct{}
-
-type BaseSectionImplUnion struct{}
-
-type BaseParentSectionImplUnion struct{}
-
-type BaseSectionWithParamsImplUnion struct{}
-
-type UserDefaultCallableSectionImpl struct{}
-
-type UserDefaultDictSectionImpl struct{}
-
-type BaseDictSectionImplUnion struct{}
-
-type BaseCodeObjImplUnion struct{}
-
-type BaseChildlessCodeObjImplUnion struct{}
-
-type BaseParamCodeObjImplUnion struct{}
-
-type BaseParentCodeObjImplUnion struct{}
-
-type UserDefaultCodeParamCodeObjImpl struct{}
-
-type UserDefaultTaskBoardSectionImpl struct{}
-
-type UserDefaultChartSectionImpl struct{}
-
-type UserDefaultSpreadsheetSectionImpl struct{}
 
 type generatedTypeSetSpec struct {
 	Name     string

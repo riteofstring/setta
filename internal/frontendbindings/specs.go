@@ -36,19 +36,10 @@ func CurrentRouteGroups() []RouteGroup {
 }
 
 func CurrentAdditionalDeclarations() []TypeDeclaration {
-	declarations := make(
-		[]TypeDeclaration,
-		0,
-		len(appGenerationSupportDeclarations())+
-			len(nameValidationSupportDeclarations())+
-			len(projectStateSupportDeclarations())+
-			len(websocketSupportDeclarations())+
-			len(bootstrapHandoffSupportDeclarations())+
-			len(frontendConstantsSupportDeclarations())+
-			len(uiEditorTabSupportDeclarations())+
-			len(transportPolicySupportDeclarations())+
-			len(interopSupportDeclarations()),
-	)
+	declarations := []TypeDeclaration{}
+	declarations = append(declarations, typeMetadataDeclarations()...)
+	declarations = append(declarations, mustGeneratedUserDefaultDeclarations()...)
+	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, appGenerationSupportDeclarations()...)
 	declarations = append(declarations, nameValidationSupportDeclarations()...)
 	declarations = append(declarations, projectStateSupportDeclarations()...)

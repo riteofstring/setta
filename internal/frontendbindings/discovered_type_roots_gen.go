@@ -10,7 +10,6 @@ import (
 	detachedruns "setta/internal/detachedruns"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	gitread "setta/internal/gitread"
-	httpapi "setta/internal/httpapi"
 	llmconfig "setta/internal/llmconfig"
 	lspcompletion "setta/internal/lspcompletion"
 	plugins "setta/internal/plugins"
@@ -81,48 +80,14 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginInstallHistoryEntry{}),
 		reflect.TypeOf(plugins.PluginInstallMetadataEntry{}),
 		reflect.TypeOf(plugins.PluginInstallMetadataFile{}),
-		reflect.TypeOf((*MessageContentDelta)(nil)).Elem(),
-		reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(),
 		reflect.TypeOf(AgenticSummaryCacheStatus{}),
 		reflect.TypeOf(BackgroundVariant("")),
 		reflect.TypeOf(SelectionMode("")),
 		reflect.TypeOf(PanOnScrollMode("")),
 		reflect.TypeOf(MetaControlSizeMode("")),
 		reflect.TypeOf(SectionSizeMode("")),
-		reflect.TypeOf(BuiltinCodeLanguage{}),
-		reflect.TypeOf(BaseChartSettingsUnion{}),
 		reflect.TypeOf(AgenticEdgeKind("")),
 		reflect.TypeOf(AgenticEdgeContextMode("")),
-		reflect.TypeOf((*CodeFileBindingUpdate)(nil)).Elem(),
-		reflect.TypeOf((*ViewModeConfig)(nil)).Elem(),
-		reflect.TypeOf(JSONValue{}),
-		reflect.TypeOf(MessageContent{}),
-		reflect.TypeOf(BaseChatMessageUnion{}),
-		reflect.TypeOf(UserDefaultChatSectionImpl{}),
-		reflect.TypeOf(UserDefaultBrowserSectionImpl{}),
-		reflect.TypeOf(UserDefaultListRootSectionImpl{}),
-		reflect.TypeOf(UserDefaultGroupSectionImpl{}),
-		reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}),
-		reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}),
-		reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}),
-		reflect.TypeOf(UserDefaultTextBlockSectionImpl{}),
-		reflect.TypeOf(UserDefaultPromptSectionImpl{}),
-		reflect.TypeOf(UserDefaultCodeSectionImpl{}),
-		reflect.TypeOf(UserDefaultTerminalSectionImpl{}),
-		reflect.TypeOf(BaseSectionImplUnion{}),
-		reflect.TypeOf(BaseParentSectionImplUnion{}),
-		reflect.TypeOf(BaseSectionWithParamsImplUnion{}),
-		reflect.TypeOf(UserDefaultCallableSectionImpl{}),
-		reflect.TypeOf(UserDefaultDictSectionImpl{}),
-		reflect.TypeOf(BaseDictSectionImplUnion{}),
-		reflect.TypeOf(BaseCodeObjImplUnion{}),
-		reflect.TypeOf(BaseChildlessCodeObjImplUnion{}),
-		reflect.TypeOf(BaseParamCodeObjImplUnion{}),
-		reflect.TypeOf(BaseParentCodeObjImplUnion{}),
-		reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}),
-		reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
-		reflect.TypeOf(UserDefaultChartSectionImpl{}),
-		reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}),
 		reflect.TypeOf(WebsocketMsgTypeForFrontend("")),
 		reflect.TypeOf(agentprofiles.Profile{}),
 		reflect.TypeOf(agentruns.EngineType("")),
@@ -549,8 +514,5 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 }
 
 func DiscoveredTypeOverrides() map[reflect.Type]reflect.Type {
-	return map[reflect.Type]reflect.Type{
-		reflect.TypeOf((*CodeFileBindingUpdate)(nil)).Elem(): reflect.TypeOf((*httpapi.CodeFileBindingUpdate)(nil)).Elem(),
-		reflect.TypeOf((*ViewModeConfig)(nil)).Elem():        reflect.TypeOf((*projectstate.ViewMode)(nil)).Elem(),
-	}
+	return map[reflect.Type]reflect.Type{}
 }

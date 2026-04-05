@@ -10,6 +10,46 @@ import (
 	"setta/internal/realtime"
 )
 
+func typeMetadataDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		aliasDeclaration("BuiltinCodeLanguage", "CodeLanguage"),
+		aliasDeclaration("MessageContentDelta", "MessageTextDelta | MessageThinkingDelta"),
+		aliasDeclaration(
+			"LLMStreamingResponseChunk",
+			"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
+		),
+		aliasDeclarationWithCreateExpr(
+			"ViewModeConfig",
+			"ViewMode",
+			"createViewMode(options)",
+		),
+		aliasDeclaration(
+			"JSONValue",
+			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+		),
+		aliasDeclaration(
+			"MessageContent",
+			"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
+		),
+		aliasDeclaration(
+			"BaseChatMessageUnion",
+			"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
+		),
+		aliasDeclaration(
+			"BaseChartSettingsUnion",
+			"LineChartSettings | ScatterChartSettings",
+		),
+		generatedBaseParentSectionImplUnionDeclaration(),
+		generatedBaseSectionWithParamsImplUnionDeclaration(),
+		generatedBaseDictSectionImplUnionDeclaration(),
+		generatedBaseSectionImplUnionDeclaration(),
+		generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", "", true),
+		generatedCodeObjUnionDeclaration("BaseChildlessCodeObjImplUnion", "BaseChildlessCodeObjImplTypeSet", true),
+		generatedCodeObjUnionDeclaration("BaseParamCodeObjImplUnion", "BaseParamCodeObjImplTypeSet", true),
+		generatedCodeObjUnionDeclaration("BaseParentCodeObjImplUnion", "BaseParentCodeObjImplTypeSet", false),
+	}
+}
+
 var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 	reflect.TypeOf(realtime.BaseDependencyKeyUnion{}): aliasDeclaration(
 		"BaseDependencyKeyUnion",
@@ -19,18 +59,6 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 		"BaseDependencyValueUnion",
 		"LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
 	),
-	reflect.TypeOf(BuiltinCodeLanguage{}): aliasDeclaration(
-		"BuiltinCodeLanguage",
-		"CodeLanguage",
-	),
-	reflect.TypeOf((*MessageContentDelta)(nil)).Elem(): aliasDeclaration(
-		"MessageContentDelta",
-		"MessageTextDelta | MessageThinkingDelta",
-	),
-	reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(): aliasDeclaration(
-		"LLMStreamingResponseChunk",
-		"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
-	),
 	reflect.TypeOf(projectstate.SectionSizeValue{}): aliasDeclaration(
 		"SectionSizeValue",
 		"number | SectionSizeMode",
@@ -38,27 +66,6 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 	reflect.TypeOf(projectview.ProjectCodegenTarget{}): aliasDeclaration(
 		"ProjectCodegenTarget",
 		"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
-	),
-	reflect.TypeOf(ViewModeConfig{}): aliasDeclarationWithCreateExpr(
-		"ViewModeConfig",
-		"ViewMode",
-		"createViewMode(options)",
-	),
-	reflect.TypeOf(JSONValue{}): aliasDeclaration(
-		"JSONValue",
-		"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
-	),
-	reflect.TypeOf(MessageContent{}): aliasDeclaration(
-		"MessageContent",
-		"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
-	),
-	reflect.TypeOf(BaseChatMessageUnion{}): aliasDeclaration(
-		"BaseChatMessageUnion",
-		"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
-	),
-	reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclaration(
-		"BaseChartSettingsUnion",
-		"LineChartSettings | ScatterChartSettings",
 	),
 	reflect.TypeOf(httpapi.BinaryUploadRequest{}): aliasDeclaration(
 		"BinaryUploadRequest",
@@ -74,46 +81,10 @@ func specialMetadataTypeDeclaration(t reflect.Type) (TypeDeclaration, bool) {
 	if declaration, ok := specialMetadataDeclarations[t]; ok {
 		return declaration, true
 	}
-	if declaration, ok := generatedConcreteCodeObjMetadataDeclaration(t); ok {
-		return declaration, true
-	}
 	if declaration, ok := generatedConcreteSectionMetadataDeclaration(t); ok {
 		return declaration, true
 	}
-	if declaration, ok := generatedCodeObjMetadataDeclaration(t); ok {
-		return declaration, true
-	}
-	return generatedSectionMetadataDeclaration(t)
-}
-
-func generatedSectionMetadataDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	switch t {
-	case reflect.TypeOf(BaseParentSectionImplUnion{}):
-		return generatedBaseParentSectionImplUnionDeclaration(), true
-	case reflect.TypeOf(BaseSectionWithParamsImplUnion{}):
-		return generatedBaseSectionWithParamsImplUnionDeclaration(), true
-	case reflect.TypeOf(BaseDictSectionImplUnion{}):
-		return generatedBaseDictSectionImplUnionDeclaration(), true
-	case reflect.TypeOf(BaseSectionImplUnion{}):
-		return generatedBaseSectionImplUnionDeclaration(), true
-	default:
-		return TypeDeclaration{}, false
-	}
-}
-
-func generatedCodeObjMetadataDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	switch t {
-	case reflect.TypeOf(BaseCodeObjImplUnion{}):
-		return generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", "", true), true
-	case reflect.TypeOf(BaseChildlessCodeObjImplUnion{}):
-		return generatedCodeObjUnionDeclaration("BaseChildlessCodeObjImplUnion", "BaseChildlessCodeObjImplTypeSet", true), true
-	case reflect.TypeOf(BaseParamCodeObjImplUnion{}):
-		return generatedCodeObjUnionDeclaration("BaseParamCodeObjImplUnion", "BaseParamCodeObjImplTypeSet", true), true
-	case reflect.TypeOf(BaseParentCodeObjImplUnion{}):
-		return generatedCodeObjUnionDeclaration("BaseParentCodeObjImplUnion", "BaseParentCodeObjImplTypeSet", false), true
-	default:
-		return TypeDeclaration{}, false
-	}
+	return generatedConcreteCodeObjMetadataDeclaration(t)
 }
 
 func generatedBaseParentSectionImplUnionDeclaration() TypeDeclaration {

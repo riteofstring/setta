@@ -536,9 +536,6 @@ func generatedCodeObjImplName(t reflect.Type) (string, bool) {
 }
 
 func generatedFrontendSectionContractType(t reflect.Type) bool {
-	if t.PkgPath() == "setta/internal/frontendbindings" {
-		return true
-	}
 	return generatedContractTypeEmbedsAnonymousField(
 		t,
 		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
@@ -546,9 +543,6 @@ func generatedFrontendSectionContractType(t reflect.Type) bool {
 }
 
 func generatedFrontendCodeObjContractType(t reflect.Type) bool {
-	if t.PkgPath() == "setta/internal/frontendbindings" {
-		return true
-	}
 	return generatedContractTypeEmbedsAnonymousField(
 		t,
 		reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
@@ -802,16 +796,11 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 	)
 }
 
-func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
-	switch t {
-	case reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}):
-		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
-	case reflect.TypeOf(BaseChartSettingsUnion{}):
-		return []TypeDeclaration{
-			exportedFunctionDeclaration(
-				"createBaseChartSettingsUnionWithDiscriminator",
-				"BaseChartSettingsUnion",
-				`  switch (options.type) {
+func baseChartSettingsUnionFactoryDeclaration() TypeDeclaration {
+	return exportedFunctionDeclaration(
+		"createBaseChartSettingsUnionWithDiscriminator",
+		"BaseChartSettingsUnion",
+		`  switch (options.type) {
     case ChartTypeEnum.line:
       return createLineChartSettings(options);
     case ChartTypeEnum.scatter:
@@ -819,13 +808,24 @@ func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
     default:
       throw new Error("Unsupported chart type.");
   }`,
-				TypeProperty{
-					Name: "options",
-					TypeExpr: `({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+		TypeProperty{
+			Name: "options",
+			TypeExpr: `({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
     | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>)`,
-				},
-			),
-		}, true
+		},
+	)
+}
+
+func additionalFactoryDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		baseChartSettingsUnionFactoryDeclaration(),
+	}
+}
+
+func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
+	switch t {
+	case reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}):
+		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
 	}
 	if declaration, ok := generatedSectionImplFactoryDeclaration(t); ok {
 		return []TypeDeclaration{declaration}, true

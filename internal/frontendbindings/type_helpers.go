@@ -427,12 +427,6 @@ func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
-	if declaration, ok, err := generatedUserDefaultCodeParamCodeObjDeclaration(t); ok || err != nil {
-		return declaration, ok, err
-	}
-	if declaration, ok, err := generatedUserDefaultSectionDeclaration(t); ok || err != nil {
-		return declaration, ok, err
-	}
 	if declaration, ok, err := artifactTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}
@@ -472,57 +466,62 @@ func ensureSpecialDeclarationDependencies(converter *typeConverter, t reflect.Ty
 	return nil
 }
 
-func generatedUserDefaultCodeParamCodeObjDeclaration(
-	t reflect.Type,
-) (TypeDeclaration, bool, error) {
-	if t != reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}) {
-		return TypeDeclaration{}, false, nil
+func mustGeneratedUserDefaultDeclarations() []TypeDeclaration {
+	sectionNames := generatedUserDefaultSectionNames()
+	declarations := make([]TypeDeclaration, 0, len(sectionNames)+1)
+	for _, sectionName := range sectionNames {
+		declaration, err := generatedUserDefaultSectionDeclaration(sectionName)
+		if err != nil {
+			panic("load generated user default section declaration: " + err.Error())
+		}
+		declarations = append(declarations, declaration)
 	}
+	declaration, err := generatedUserDefaultCodeParamCodeObjDeclaration()
+	if err != nil {
+		panic("load generated code param user default declaration: " + err.Error())
+	}
+	declarations = append(declarations, declaration)
+	return declarations
+}
+
+func generatedUserDefaultCodeParamCodeObjDeclaration() (TypeDeclaration, error) {
 	properties, err := generatedUserDefaultCodeParamCodeObjProperties()
 	if err != nil {
-		return TypeDeclaration{}, false, err
+		return TypeDeclaration{}, err
 	}
 	return objectDeclarationWithGoBackedCreateExpr(
 		"UserDefaultCodeParamCodeObjImpl",
 		projectstate.FrontendDefaultCodeParamCodeObjImpl(),
 		properties...,
-	), true, nil
+	), nil
 }
 
-func generatedUserDefaultSectionDeclaration(
-	t reflect.Type,
-) (TypeDeclaration, bool, error) {
-	sectionName, ok := generatedUserDefaultSectionNameForType(t)
-	if !ok {
-		return TypeDeclaration{}, false, nil
-	}
+func generatedUserDefaultSectionDeclaration(sectionName string) (TypeDeclaration, error) {
 	properties, err := generatedUserDefaultSectionProperties(sectionName)
 	if err != nil {
-		return TypeDeclaration{}, false, err
+		return TypeDeclaration{}, err
 	}
 	return objectDeclarationWithGoBackedSectionDefaults(
-		t.Name(),
+		generatedSectionImplDefaultTypeName(sectionName),
 		sectionName,
 		properties...,
-	), true, nil
+	), nil
 }
 
-func generatedUserDefaultSectionNameForType(t reflect.Type) (string, bool) {
-	if t == nil || t.Kind() != reflect.Struct {
-		return "", false
+func generatedUserDefaultSectionNames() []string {
+	names := []string{}
+	for _, sectionName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendSectionType("")),
+	) {
+		if _, ok := generatedSectionImplTypeForSectionName(sectionName); !ok {
+			continue
+		}
+		if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
+			continue
+		}
+		names = append(names, sectionName)
 	}
-	name := strings.TrimSpace(t.Name())
-	if !strings.HasPrefix(name, "UserDefault") || !strings.HasSuffix(name, "SectionImpl") {
-		return "", false
-	}
-	sectionName := strings.TrimSuffix(strings.TrimPrefix(name, "UserDefault"), "SectionImpl")
-	if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
-		return "", false
-	}
-	if _, ok := generatedSectionImplTypeForSectionName(sectionName); !ok {
-		return "", false
-	}
-	return sectionName, true
+	return names
 }
 
 func generatedUserDefaultSectionProperties(sectionName string) ([]TypeProperty, error) {
