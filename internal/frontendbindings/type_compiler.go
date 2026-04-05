@@ -35,16 +35,7 @@ type typeConverter struct {
 }
 
 type reflectedObjectDeclarationSpec struct {
-	DeclarationName           string
-	DefaultValue              any
-	HasCreateExpr             bool
-	UseGenericCreateBody      bool
-	CreateBody                string
-	CreateExprOverrides       map[string]string
-	PropertyTypeExprOverrides map[string]string
-	PropertyOptionalOverrides map[string]bool
-	IgnoredProperties         map[string]struct{}
-	ExtraProperties           []TypeProperty
+	DefaultValue any
 }
 
 var discoveredFrontendDefaultValueProviderRegistry = discoveredFrontendDefaultValueProviders()
@@ -319,8 +310,7 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedObjectDeclarationSpec{}, false
 	}
 	return reflectedObjectDeclarationSpec{
-		DefaultValue:  provider(),
-		HasCreateExpr: true,
+		DefaultValue: provider(),
 	}, true
 }
 
@@ -328,31 +318,22 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	t reflect.Type,
 	spec reflectedObjectDeclarationSpec,
 ) (TypeDeclaration, error) {
-	properties, err := c.structProperties(
-		t,
-		spec.PropertyTypeExprOverrides,
-		spec.PropertyOptionalOverrides,
-		spec.IgnoredProperties,
-	)
+	properties, err := c.structProperties(t, nil, nil, nil)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
-	if len(spec.ExtraProperties) > 0 {
-		properties = append(properties, spec.ExtraProperties...)
-	}
-	createExprOverrides, err := mergedFieldCreateExprOverrides(t, spec.CreateExprOverrides)
+	createExprOverrides, err := reflectedFieldCreateExprOverridesByJSONName(t)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
 	declarationName := frontendBindingTypeName(t)
+	if spec.DefaultValue == nil {
+		return TypeDeclaration{}, fmt.Errorf("%s has no Go default value", declarationName)
+	}
 	declaration := objectDeclaration(declarationName, properties...)
-	useGenericCreateBody := spec.UseGenericCreateBody
-	if !useGenericCreateBody && spec.DefaultValue != nil {
-		autoGenericCreateBody, err := reflectedStructNeedsGenericCreateBody(t, properties)
-		if err != nil {
-			return TypeDeclaration{}, err
-		}
-		useGenericCreateBody = autoGenericCreateBody
+	useGenericCreateBody, err := reflectedStructNeedsGenericCreateBody(t, properties)
+	if err != nil {
+		return TypeDeclaration{}, err
 	}
 	if useGenericCreateBody {
 		context := "frontend create defaults " + declarationName
@@ -368,9 +349,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 			return TypeDeclaration{}, err
 		}
 		declaration.CreateBody = createBody
-	} else if spec.CreateBody != "" {
-		declaration.CreateBody = spec.CreateBody
-	} else if spec.HasCreateExpr {
+	} else {
 		context := "frontend create defaults " + declarationName
 		if len(createExprOverrides) > 0 {
 			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(

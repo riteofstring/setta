@@ -343,44 +343,11 @@ func reflectedFieldCreateExprOverridesByJSONName(structType reflect.Type) (map[s
 	return overrides, nil
 }
 
-func mergedFieldCreateExprOverrides(
-	structType reflect.Type,
-	explicitOverrides map[string]string,
-) (map[string]string, error) {
-	tagOverrides, err := reflectedFieldCreateExprOverridesByJSONName(structType)
-	if err != nil {
-		return nil, err
-	}
-	if len(tagOverrides) == 0 && len(explicitOverrides) == 0 {
-		return nil, nil
-	}
-	merged := make(map[string]string, len(tagOverrides)+len(explicitOverrides))
-	for name, expr := range tagOverrides {
-		merged[name] = expr
-	}
-	for name, expr := range explicitOverrides {
-		merged[name] = expr
-	}
-	return merged, nil
-}
-
 func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 	if tsIdentifierPattern.MatchString(propertyName) {
 		return baseExpr + "." + propertyName
 	}
 	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
-}
-
-func objectDeclarationWithGoBackedCreateExpr(
-	name string,
-	defaultValue any,
-	properties ...TypeProperty,
-) TypeDeclaration {
-	return objectDeclarationWithCreateExpr(
-		name,
-		buildGoBackedCreateExprTS("frontend create defaults "+name, name, defaultValue, properties),
-		properties...,
-	)
 }
 
 func buildGoBackedCreateExprTS(

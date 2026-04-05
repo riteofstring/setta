@@ -45,18 +45,6 @@ func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration 
 	}
 }
 
-func objectDeclarationWithCreateExpr(name string, createExpr string, properties ...TypeProperty) TypeDeclaration {
-	declaration := objectDeclaration(name, properties...)
-	declaration.CreateExpr = createExpr
-	return declaration
-}
-
-func objectDeclarationWithCreateBody(name string, createBody string, properties ...TypeProperty) TypeDeclaration {
-	declaration := objectDeclaration(name, properties...)
-	declaration.CreateBody = createBody
-	return declaration
-}
-
 func renderInlineAliasObject(properties []TypeProperty, extraLines ...string) string {
 	if len(properties) == 0 && len(extraLines) == 0 {
 		return "Record<string, never>"
@@ -120,12 +108,6 @@ func aliasDeclaration(name string, alias string) TypeDeclaration {
 		Kind:  "alias",
 		Alias: alias,
 	}
-}
-
-func aliasDeclarationWithCreateExpr(name string, alias string, createExpr string) TypeDeclaration {
-	declaration := aliasDeclaration(name, alias)
-	declaration.CreateExpr = createExpr
-	return declaration
 }
 
 func localAliasDeclaration(name string, typeParams string, alias string) TypeDeclaration {
