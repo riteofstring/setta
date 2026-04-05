@@ -1289,6 +1289,7 @@ export function createNodesMapFromProjectConfigChildren(
     if (!layout) {
       continue;
     }
+    const currentNode = nodes.get(sectionId);
     if (canFilterByView) {
       const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
@@ -1316,8 +1317,8 @@ export function createNodesMapFromProjectConfigChildren(
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
-      width: nodes.get(sectionId)?.width ?? layout.w,
-      height: nodes.get(sectionId)?.height ?? layout.h,
+      width: currentNode ? currentNode.width : layout.w,
+      height: currentNode ? currentNode.height : layout.h,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
       type: sectionImpl?.type,

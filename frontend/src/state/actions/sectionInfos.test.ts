@@ -606,6 +606,134 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     expect(nodesMap.has(sectionHidden)).toBe(false);
   });
 
+  it("clears stale persisted size when a current node reports null dimensions", () => {
+    const sectionId = "section-visible";
+    const variantId = "variant-visible";
+    const implId = "impl-visible";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const projectState = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map([
+        [
+          sectionId,
+          {
+            id: sectionId,
+            position: { x: 25, y: 50 },
+            width: null,
+            height: null,
+            zIndex: 7,
+            tempZIndex: 7,
+          },
+        ],
+      ]),
+    );
+
+    expect(nodesMap.get(sectionId)).toMatchObject({
+      position: { x: layout.x, y: layout.y },
+      width: null,
+      height: null,
+      zIndex: layout.zIndex,
+      tempZIndex: layout.zIndex,
+    });
+  });
+
+  it("falls back to persisted layout size only when the current node is missing", () => {
+    const sectionId = "section-visible";
+    const variantId = "variant-visible";
+    const implId = "impl-visible";
+    const layout = { x: 30, y: 40, zIndex: 2, w: 320, h: 240 };
+    const projectState = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map(),
+    );
+
+    expect(nodesMap.get(sectionId)).toMatchObject({
+      position: { x: layout.x, y: layout.y },
+      width: layout.w,
+      height: layout.h,
+      zIndex: layout.zIndex,
+      tempZIndex: layout.zIndex,
+    });
+  });
+
   it("skips sections that are missing visibility in the active view mode", () => {
     const sectionVisible = "section-visible";
     const sectionMissingVisibility = "section-missing-visibility";

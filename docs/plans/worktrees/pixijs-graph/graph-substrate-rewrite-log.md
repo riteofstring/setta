@@ -75,6 +75,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `202` | 2026-04-05 18:36 EDT
+  - Subtask: stop shared read-side top-level node hydration from reviving stale persisted `w/h` when a live node currently reports `null` dimensions.
+  - Why:
+    - item `200` fixed top-level snapshot persistence and item `201` fixed optimistic pane-move writes, but `createNodesMapFromProjectConfigChildren(...)` still rebuilt live nodes with `nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`
+    - that meant a live top-level section could clear current size authority to `null` and still reacquire an older persisted width/height the next time project load or backend reconciliation rehydrated node internals from top-level layouts
+    - this slice closes the remaining shared read-side version of the same geometry-authority bug instead of opening a new parity lane
+  - Production:
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `createNodesMapFromProjectConfigChildren(...)` now falls back to persisted `layout.w/h` only when the current node is missing entirely
+      - if a live node exists and reports `null` dimensions, the rebuilt node preserves `null` width/height instead of reviving stale persisted size
+  - Tests:
+    - updated `frontend/src/state/actions/sectionInfos.test.ts`
+      - added coverage proving a live node with `null` dimensions stays `null` through shared node-map hydration
+      - added coverage proving persisted `layout.w/h` are still used when the current node is absent entirely
+    - `pnpm -C frontend exec prettier --write src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts` -> passed (`1 file`, `25 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "sectionInfos\\.ts|sectionInfos\\.test\\.ts" || true` -> not a useful gate here because `sectionInfos.ts` and `sectionInfos.test.ts` already have unrelated baseline strict-type errors outside this slice
+  - Runtime verification:
+    - refreshed run-033 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-033/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-033/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-033 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-033 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `38.1s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `17.00023ms`; worktree average frame duration was `16.6685ms`
+      - visible section count stayed `46` on both sides; worktree recorded no long tasks and reference recorded one `54ms` long task
+    - Chrome DevTools MCP:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - first fresh-context sub-agent completed only the worktree-side normalization and surface check
+      - replacement fresh-context sub-agent reported gross drift from mismatched fresh-tab viewport states and was rejected as untrusted because it did not document the required shared normalization
+      - direct fallback CDP verification then normalized both already-open `/settings` tabs by setting compare pane state and running the same targeted `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })` path on worktree `3076` and read-only `main` `3087`
+      - after that shared normalization, both pages showed the same mounted `rotaryParamCodeObjDefault` target section with no blocking gross graph-surface drift; worktree chat/worktree-label chrome remained oracle noise
+  - Result:
+    - shared read-side node hydration now matches the same no-size authority rule already enforced in top-level snapshot persistence and optimistic pane-move writes
+    - project load and backend reconciliation can no longer silently repopulate stale DOM-measured size back into live node internals after the current runtime cleared it
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains green and visually comparable after the change
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if dependency approval is still unavailable, audit whether `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` should keep treating persisted `layout.w/h` as size authority or whether that boundary needs the next explicit split
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `199` | 2026-04-05 18:06 EDT
   - Subtask: stop canary node sync from preserving stale previously measured width/height after the current scene snapshot loses authoritative size.
   - Why:
