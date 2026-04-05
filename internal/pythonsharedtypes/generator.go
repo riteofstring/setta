@@ -43,7 +43,6 @@ func Build() (GeneratedTypes, error) {
 	}
 
 	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(
-		ctx.Sidecar,
 		ctx.DefaultSourcesByType,
 	)
 	if err != nil {

@@ -33,6 +33,98 @@ class ArtifactType(StrEnum):
     File = "File"
 
 
+class BrowserAreaViewMode(StrEnum):
+    list = "list"
+    thumbnail = "thumbnail"
+    carousel = "carousel"
+
+
+class BrowserSavedSearchTypeFilters(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    audio: bool = True
+    data: bool = True
+    image: bool = True
+    text: bool = True
+    video: bool = True
+
+
+class BrowserSearchScope(StrEnum):
+    recursive = "recursive"
+    local = "local"
+
+
+class BrowserSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class BrowserSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class BrowserSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: BrowserSectionImplSizeHeight
+    width: BrowserSectionImplSizeWidth
+
+
+class ButtonActionMode(StrEnum):
+    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
+    HTTP_REQUEST = "HTTP_REQUEST"
+    SETTA_API = "SETTA_API"
+
+
+class CallableSectionImplEdgeOutputPort(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    accessor: str
+    id: str
+
+
+class CallableSectionImplIgnoreTypeErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: bool
+    params: dict[str, bool]
+
+
+class CallableSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class CallableSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class CallableSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: CallableSectionImplSizeHeight
+    width: CallableSectionImplSizeWidth
+
+
 type CanvasPoint = Annotated[
     list[float], Field(..., max_length=2, min_length=2, title="CanvasPoint")
 ]
@@ -40,9 +132,61 @@ type CanvasPoint = Annotated[
 type ChartDataValue = dict[str, list[str | float]]
 
 
+class ChartSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ChartSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ChartSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: ChartSectionImplSizeHeight
+    width: ChartSectionImplSizeWidth
+
+
+class ChartSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    chartSettings: Any
+    dataPath: str
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: ChartSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
 class ChartType(StrEnum):
     line = "line"
     scatter = "scatter"
+
+
+class ChatDictationMode(StrEnum):
+    auto = "auto"
+    browser = "browser"
+    provider = "provider"
 
 
 class ChatFileAttachment(BaseModel):
@@ -55,11 +199,86 @@ class ChatFileAttachment(BaseModel):
     size: int | None = None
 
 
+class ChatPermissionMode(StrEnum):
+    minimal = "minimal"
+    yolo = "yolo"
+    config_toml_custom = "config_toml_custom"
+
+
 class ChatRole(StrEnum):
     system = "system"
     user = "user"
     assistant = "assistant"
     tool = "tool"
+
+
+class ChatSectionImplBranches(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    branchFromMessageId: str | None
+    createdAt: int
+    messages: list[dict[str, Any]] | None
+    parentBranchId: str | None
+
+
+class ChatSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ChatSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ChatSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: ChatSectionImplSizeHeight
+    width: ChatSectionImplSizeWidth
+
+
+class ChatSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    activeBranchId: str | None
+    agentProfileId: str | None = None
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    branches: dict[str, ChatSectionImplBranches]
+    chatId: str | None = None
+    dictationMode: ChatDictationMode
+    engineConfigId: str | None = None
+    id: str
+    inputText: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    managed: bool
+    messages: list[dict[str, Any]] | None
+    name: str
+    permissionMode: ChatPermissionMode
+    positionAndSizeLocked: bool
+    searchEnabled: bool
+    size: ChatSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    thinking: bool
+    toolCallArguments: dict[str, str]
+    transcriptionProfileId: str | None = None
+    type: str
+    waitingForResponse: bool
 
 
 class ChatSendAction(StrEnum):
@@ -100,6 +319,33 @@ class ChatWindowMode(StrEnum):
     git_graph_mode = "git_graph_mode"
 
 
+class CodeCallableCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    children: list[str] | None
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    type: str
+
+
+class CodeFileAccessMode(StrEnum):
+    read_write = "read_write"
+    read_only = "read_only"
+    write_only = "write_only"
+
+
+class CodeFileBinding(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    access_mode: CodeFileAccessMode
+    autoBinding: bool
+    canonical_path: str
+
+
 class CodeObjType(StrEnum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
@@ -126,6 +372,104 @@ class CodeObjValueRepresentationMode(StrEnum):
     file_read = "file_read"
 
 
+class CodeParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
+class CodeSectionDiagnosticsIgnoreState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    muted: bool
+    suppressedCodes: list[Any] | None
+
+
+class CodeSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class CodeSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class CodeSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: CodeSectionImplSizeHeight
+    width: CodeSectionImplSizeWidth
+
+
+class CodeSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    attachedTerminalSectionId: str | None = None
+    children: list[str] | None
+    code: str
+    codeFileBinding: CodeFileBinding | None = None
+    codeLanguage: str
+    diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: CodeSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class ColorPickerParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    colorChoices: list[dict[str, str]] | None
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
+class ConfigLanguage(StrEnum):
+    python = "python"
+    json = "json"
+
+
 class ContentRef(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -134,6 +478,28 @@ class ContentRef(BaseModel):
     contentId: str
     mimeType: str | None = None
     sha256: str | None = None
+
+
+class DateCalendarWeekStart(StrEnum):
+    sunday = "sunday"
+    monday = "monday"
+
+
+class DateControlMode(StrEnum):
+    input = "input"
+    calendar = "calendar"
+
+
+class DateDisplayFormat(StrEnum):
+    iso = "iso"
+    us = "us"
+    eu = "eu"
+    long = "long"
+
+
+class DateSelectionMode(StrEnum):
+    single = "single"
+    multiple = "multiple"
 
 
 class DependencyKeyType(StrEnum):
@@ -147,6 +513,80 @@ class DependencyValueType(StrEnum):
     FileRead = "FileRead"
 
 
+class DictSectionImplEdgeOutputPort(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    accessor: str
+    id: str
+
+
+class DictSectionImplIgnoreTypeErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: bool
+    params: dict[str, bool]
+
+
+class DictSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class DictSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class DictSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: DictSectionImplSizeHeight
+    width: DictSectionImplSizeWidth
+
+
+class DictSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    codeObjVariantMap: dict[str, str]
+    columnWidth: float | None
+    configLanguage: str
+    edgeInputParams: list[str] | None
+    edgeOutputPorts: list[DictSectionImplEdgeOutputPort] | None
+    hideUnpinnedParams: bool
+    id: str
+    ignoreTypeErrors: DictSectionImplIgnoreTypeErrors
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isJsonSource: bool
+    isMinimized: bool
+    isPreset: bool
+    jsonSourceKeys: list[str] | None
+    jsonSourceMissing: bool
+    name: str
+    paramFilter: str
+    pinnedParams: list[str] | None
+    positionAndSizeLocked: bool
+    selectedParams: list[str] | None
+    size: DictSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    topLevelParamId: str | None = None
+    type: str
+
+
 class DrawAreaBrushShape(StrEnum):
     butt = "butt"
     round = "round"
@@ -156,6 +596,49 @@ class DrawAreaBrushShape(StrEnum):
 type DrawAreaTransform = Annotated[
     list[float], Field(..., max_length=6, min_length=6, title="DrawAreaTransform")
 ]
+
+
+class DropdownParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    choices: list[str] | None
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
+class DropzoneMode(StrEnum):
+    STATEFUL = "STATEFUL"
+    STATELESS = "STATELESS"
+
+
+class DropzoneParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    maxAttachments: int | None = None
+    mode: DropzoneMode
+    name: str
+    passingStyle: str
+    placeholder: str
+    type: str
+    typeAnnotation: str
+    value: str
 
 
 class EndpointOrigin(StrEnum):
@@ -182,6 +665,218 @@ class FileReadDependencyValue(BaseModel):
     )
     payload: str
     type: DependencyValueType
+
+
+class Format(StrEnum):
+    Jinja = "Jinja"
+
+
+class GenPythonCodeSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GenPythonCodeSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GenPythonCodeSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: GenPythonCodeSectionImplSizeHeight
+    width: GenPythonCodeSectionImplSizeWidth
+
+
+class GenPythonCodeSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    attachedTerminalSectionId: str | None = None
+    children: list[str] | None
+    code: str
+    codeFileBinding: CodeFileBinding | None = None
+    codeLanguage: str
+    diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: GenPythonCodeSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class GenPythonMetadataSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GenPythonMetadataSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GenPythonMetadataSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: GenPythonMetadataSectionImplSizeHeight
+    width: GenPythonMetadataSectionImplSizeWidth
+
+
+class GenPythonMetadataSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    attachedTerminalSectionId: str | None = None
+    children: list[str] | None
+    code: str
+    codeFileBinding: CodeFileBinding | None = None
+    codeLanguage: str
+    diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: GenPythonMetadataSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class GlobalVariablesSectionImplEdgeOutputPort(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    accessor: str
+    id: str
+
+
+class GlobalVariablesSectionImplIgnoreTypeErrors(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callable: bool
+    params: dict[str, bool]
+
+
+class GlobalVariablesSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GlobalVariablesSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GlobalVariablesSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: GlobalVariablesSectionImplSizeHeight
+    width: GlobalVariablesSectionImplSizeWidth
+
+
+class GlobalVariablesSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    codeObjVariantMap: dict[str, str]
+    columnWidth: float | None
+    configLanguage: str
+    edgeInputParams: list[str] | None
+    edgeOutputPorts: list[GlobalVariablesSectionImplEdgeOutputPort] | None
+    hideUnpinnedParams: bool
+    id: str
+    ignoreTypeErrors: GlobalVariablesSectionImplIgnoreTypeErrors
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isJsonSource: bool
+    isMinimized: bool
+    isPreset: bool
+    jsonSourceKeys: list[str] | None
+    jsonSourceMissing: bool
+    name: str
+    paramFilter: str
+    pinnedParams: list[str] | None
+    positionAndSizeLocked: bool
+    selectedParams: list[str] | None
+    size: GlobalVariablesSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    topLevelParamId: str | None = None
+    type: str
+
+
+class GroupSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GroupSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class GroupSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: GroupSectionImplSizeHeight
+    width: GroupSectionImplSizeWidth
+
+
+class HTTPRequestMethod(StrEnum):
+    GET = "GET"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
+    HEAD = "HEAD"
+    OPTIONS = "OPTIONS"
 
 
 class ImageArtifact(BaseModel):
@@ -217,6 +912,36 @@ class LineChartSettings(BaseModel):
     xAxisLog: bool = False
     y1AxisLog: bool = False
     y2AxisLog: bool = False
+
+
+class ListRootSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ListRootSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class ListRootSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: ListRootSectionImplSizeHeight
+    width: ListRootSectionImplSizeWidth
+
+
+class ListRootViewMode(StrEnum):
+    default = "default"
+    task_list = "task_list"
+    kanban = "kanban"
 
 
 class ListenerDependencyMode(StrEnum):
@@ -368,6 +1093,22 @@ type ModeScopedLauncherRoutes = Annotated[
 ]
 
 
+class NestedParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    children: list[str] | None
+    coreNameEditable: bool
+    coreNameType: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+
+
 class NormalizedFloatingWindowBounds(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -391,6 +1132,24 @@ class ParameterPassingStyle(StrEnum):
     KEYWORD_ONLY = "KEYWORD_ONLY"
 
 
+class PasswordParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    hasSecret: bool
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
 class ProjectCodegenLanguage(StrEnum):
     python = "python"
 
@@ -412,12 +1171,83 @@ class ProjectRunCapabilities(BaseModel):
     mainRunDisabledReason: str | None = None
 
 
+class PromptSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class PromptSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class PromptSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: PromptSectionImplSizeHeight
+    width: PromptSectionImplSizeWidth
+
+
+class PromptSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    format: Format
+    id: str
+    inputs: dict[str, str]
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    missingVariables: list[str] | None
+    name: str
+    positionAndSizeLocked: bool
+    promptTemplateId: str | None = None
+    renderError: str | None = None
+    renderedText: str
+    size: PromptSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    template: str
+    type: str
+
+
 type RawMessage = Annotated[
     bool | float | str | list[RawMessage] | dict[str, RawMessage] | None,
     Field(..., title="RawMessage"),
 ]
 
 type RequiredUIEditorTabMap = dict[str, list[str]] | None
+
+
+class RotaryParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    max: float
+    min: float
+    name: str
+    passingStyle: str
+    step: float
+    type: str
+    typeAnnotation: str
+    value: str
 
 
 class RunSnapshotMode(StrEnum):
@@ -518,12 +1348,170 @@ class ServerModeCapabilities(BaseModel):
     canManageDesktopLauncher: bool
 
 
+class SliderParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    max: float
+    min: float
+    name: str
+    passingStyle: str
+    step: float
+    type: str
+    typeAnnotation: str
+    value: str
+
+
+class SpreadsheetGridDensity(StrEnum):
+    compact = "compact"
+    comfortable = "comfortable"
+
+
+class SpreadsheetSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class SpreadsheetSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class SpreadsheetSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: SpreadsheetSectionImplSizeHeight
+    width: SpreadsheetSectionImplSizeWidth
+
+
+class SpreadsheetSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    activeSheet: str | None = None
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    autoReloadOnExternalChange: bool
+    density: SpreadsheetGridDensity
+    filePath: str
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    readOnly: bool
+    showRowNumbers: bool
+    size: SpreadsheetSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
 class StateMachineCountOperator(StrEnum):
     lt = "lt"
     lte = "lte"
     eq = "eq"
     gte = "gte"
     gt = "gt"
+
+
+class StateMachineEndSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineEndSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineEndSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: StateMachineEndSectionImplSizeHeight
+    width: StateMachineEndSectionImplSizeWidth
+
+
+class StateMachineEndSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    label: str
+    machineGroupId: str
+    name: str
+    positionAndSizeLocked: bool
+    size: StateMachineEndSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class StateMachineGateSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineGateSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineGateSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: StateMachineGateSectionImplSizeHeight
+    width: StateMachineGateSectionImplSizeWidth
+
+
+class StateMachineGateType(StrEnum):
+    AND = "AND"
+    OR = "OR"
+    XOR = "XOR"
+
+
+class StateMachineGateUIState(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    showDetails: bool
 
 
 class StateMachineSourceActivationCountCondition(BaseModel):
@@ -538,6 +1526,53 @@ class StateMachineSourceFilterType(StrEnum):
     run_completed = "run_completed"
     run_failed = "run_failed"
     signal = "signal"
+
+
+class StateMachineStartSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineStartSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class StateMachineStartSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: StateMachineStartSectionImplSizeHeight
+    width: StateMachineStartSectionImplSizeWidth
+
+
+class StateMachineStartSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    label: str
+    machineGroupId: str
+    maxIterations: int | None = None
+    name: str
+    positionAndSizeLocked: bool
+    size: StateMachineStartSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
 
 
 class StateMachineTargetActionType(StrEnum):
@@ -560,6 +1595,23 @@ class StreamingEventType(StrEnum):
     message_finalized = "message_finalized"
 
 
+class SwitchParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
 class SystemChatMessage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -571,6 +1623,227 @@ class SystemChatMessage(BaseModel):
     createdAt: int = 0
     id: ID = Field(default_factory=create_new_id)
     role: ChatRole = ChatRole.system
+
+
+class TaskBoardColumn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    color: str
+    id: str
+    name: str
+    sortIndex: int
+
+
+class TaskBoardSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TaskBoardSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TaskBoardSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: TaskBoardSectionImplSizeHeight
+    width: TaskBoardSectionImplSizeWidth
+
+
+class TaskBoardTask(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    columnId: str | None = None
+    completed: bool
+    description: str
+    dueDateIso: str
+    id: str
+    recurrence: str
+    recurrenceDays: list[str] | None
+    recurrenceMonths: list[str] | None
+    recurrenceYears: list[int] | None
+    sortIndex: int
+    title: str
+
+
+class TaskBoardViewMode(StrEnum):
+    task_list = "task_list"
+    kanban = "kanban"
+
+
+class TerminalSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TerminalSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TerminalSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: TerminalSectionImplSizeHeight
+    width: TerminalSectionImplSizeWidth
+
+
+class TerminalSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: TerminalSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class TextAreaParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
+class TextBlockDisplayMode(StrEnum):
+    Render = "Render"
+    Edit = "Edit"
+
+
+class TextBlockFormat(StrEnum):
+    Plaintext = "Plaintext"
+    Markdown = "Markdown"
+
+
+class TextBlockSectionImplSizeHeight(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TextBlockSectionImplSizeWidth(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    Auto: bool
+    Value: float
+
+
+class TextBlockSectionImplSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: TextBlockSectionImplSizeHeight
+    width: TextBlockSectionImplSizeWidth
+
+
+class TextBlockSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    format: TextBlockFormat
+    headingAsSectionName: bool
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    masterFontSizePx: float
+    metaControlStyle: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: TextBlockSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    text: str
+    textDisplayMode: TextBlockDisplayMode
+    type: str
+
+
+class TextParamInputUIType(StrEnum):
+    plain = "plain"
+    time = "time"
+    date = "date"
+
+
+class TimeControlMode(StrEnum):
+    input = "input"
+    display = "display"
+
+
+class TimeDisplayFont(StrEnum):
+    clock = "clock"
+    monospace = "monospace"
+    system = "system"
+
+
+class TimeDisplayFormat(StrEnum):
+    twenty_four_hour = "twenty_four_hour"
+    twelve_hour = "twelve_hour"
+
+
+class TimeParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    timeControlMode: TimeControlMode
+    timeDisplayFont: TimeDisplayFont
+    timeDisplayFormat: TimeDisplayFormat
+    timeDisplayScale: float
+    timeDisplayTransparent: bool
+    type: str
+    typeAnnotation: str
+    value: str
 
 
 class ToolArgumentPreviewDeltaEvent(BaseModel):
@@ -745,6 +2018,18 @@ type BaseChartSettingsUnion = Annotated[
     LineChartSettings | ScatterChartSettings, Field(..., title="BaseChartSettingsUnion")
 ]
 
+
+class BaseCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    type: CodeObjType
+
+
 type BaseDependencyKeyUnion = Annotated[
     SectionDependencyKey | SectionParamDependencyKey,
     Field(..., title="BaseDependencyKeyUnion"),
@@ -757,6 +2042,45 @@ class BinaryDependencyValue(BaseModel):
     )
     payload: ContentRef
     type: DependencyValueType
+
+
+class BrowserSavedSearch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    color: str
+    id: str
+    name: str
+    query: str
+    quickInfo: str
+    searchScope: BrowserSearchScope
+    typeFilters: BrowserSavedSearchTypeFilters | None = None
+
+
+class BrowserSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    columnWidth: float | None = None
+    folder: str
+    hideColumn: bool
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    savedSearches: list[BrowserSavedSearch] | None
+    size: BrowserSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+    typesColumnWidth: float | None = None
+    viewMode: BrowserAreaViewMode
 
 
 class BrushStroke(BaseModel):
@@ -789,6 +2113,60 @@ class BrushStrokeWithTransform(BaseModel):
     points: list[Any] | None
     strokeStyle: str
     transform: DrawAreaTransform
+
+
+class ButtonParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    actionMode: ButtonActionMode
+    coreNameEditable: bool
+    coreNameType: str
+    description: str
+    id: str
+    isPreset: bool
+    label: str
+    name: str
+    passingStyle: str
+    requestBody: str
+    requestHeaderKey: str
+    requestHeaderValue: str
+    requestMethod: HTTPRequestMethod
+    requestUrl: str
+    type: str
+    typeAnnotation: str
+
+
+class CallableSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    callable: str | None = None
+    codeObjVariantMap: dict[str, str]
+    columnWidth: float | None
+    configLanguage: ConfigLanguage
+    edgeInputParams: list[str] | None
+    edgeOutputPorts: list[CallableSectionImplEdgeOutputPort] | None
+    hideParams: bool
+    hideUnpinnedParams: bool
+    id: str
+    ignoreTypeErrors: CallableSectionImplIgnoreTypeErrors
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    paramFilter: str
+    pinnedParams: list[str] | None
+    positionAndSizeLocked: bool
+    selectedParams: list[str] | None
+    size: CallableSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
 
 
 class ChartDataArtifact(BaseModel):
@@ -833,6 +2211,28 @@ class CodeObjValuePolicy(BaseModel):
     typePolicies: dict[str, CodeObjTypeValuePolicy]
 
 
+class DateParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    dateCalendarWeekStart: DateCalendarWeekStart
+    dateControlMode: DateControlMode
+    dateDisplayFormat: DateDisplayFormat
+    dateIncludesTime: bool
+    dateSelectionMode: DateSelectionMode
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    value: str
+
+
 class DrawAreaLayerItemTransform(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -869,6 +2269,53 @@ class Edge(BaseModel):
     targetVariantId: str
     type: str | None = None
     zIndex: int | None = None
+
+
+class GroupSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    children: list[str] | None
+    defaultChildSectionType: SectionType
+    id: str
+    isFrozen: bool
+    isHorizontalOrientation: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    overflowMode: bool
+    positionAndSizeLocked: bool
+    size: GroupSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+
+
+class ListRootSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    children: list[str] | None
+    defaultChildSectionType: SectionType
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: ListRootSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+    viewMode: ListRootViewMode
 
 
 class ListenerErrorMessage(BaseModel):
@@ -959,6 +2406,14 @@ class SectionCodegenPolicy(BaseModel):
     typePolicies: dict[str, SectionTypeCodegenPolicy]
 
 
+class SectionSize(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: SectionSizeValue
+    width: SectionSizeValue
+
+
 class ServerModeBoundary(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -968,6 +2423,30 @@ class ServerModeBoundary(BaseModel):
 
 
 type ServerModeBoundaryPolicy = dict[str, ServerModeBoundary]
+
+
+class StateMachineGateSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    gateType: StateMachineGateType
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    label: str
+    machineGroupId: str
+    name: str
+    positionAndSizeLocked: bool
+    size: StateMachineGateSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    type: str
+    ui: StateMachineGateUIState
 
 
 class StateMachineSourceFilter(BaseModel):
@@ -995,6 +2474,47 @@ class StateMachineTargetAction(BaseModel):
     stopIfRunning: bool | None = None
     threadStrategy: StateMachineThreadStrategy
     type: StateMachineTargetActionType
+
+
+class TaskBoardSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    columns: list[TaskBoardColumn] | None
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: TaskBoardSectionImplSize
+    styleColor: str | None
+    tagColor: str | None
+    tasks: list[TaskBoardTask] | None
+    type: str
+    viewMode: TaskBoardViewMode
+
+
+class TextParamCodeObjImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    coreNameEditable: bool
+    coreNameType: str
+    defaultVal: str
+    description: str
+    id: str
+    isPreset: bool
+    name: str
+    passingStyle: str
+    type: str
+    typeAnnotation: str
+    uiType: TextParamInputUIType
+    value: str
 
 
 class ToolCall(BaseModel):
@@ -1060,10 +2580,89 @@ type BaseChatMessageUnion = Annotated[
     Field(..., title="BaseChatMessageUnion"),
 ]
 
+type BaseChildlessCodeObjImplUnion = (
+    BaseCodeObjImpl
+    | CodeParamCodeObjImpl
+    | ColorPickerParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | DropdownParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
+    | PasswordParamCodeObjImpl
+    | RotaryParamCodeObjImpl
+    | SliderParamCodeObjImpl
+    | SwitchParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | TextParamCodeObjImpl
+    | TimeParamCodeObjImpl
+)
+
+type BaseCodeObjImplUnion = (
+    BaseCodeObjImpl
+    | CodeCallableCodeObjImpl
+    | CodeParamCodeObjImpl
+    | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
+    | ButtonParamCodeObjImpl
+    | SliderParamCodeObjImpl
+    | RotaryParamCodeObjImpl
+    | SwitchParamCodeObjImpl
+    | ColorPickerParamCodeObjImpl
+    | DropdownParamCodeObjImpl
+    | PasswordParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
+    | NestedParamCodeObjImpl
+)
+
 type BaseDependencyValueUnion = Annotated[
     LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue,
     Field(..., title="BaseDependencyValueUnion"),
 ]
+
+
+class BaseSectionImpl(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    aspectRatio: Any
+    aspectRatioExtraHeight: float
+    aspectRatioExtraWidth: float
+    id: str
+    isFrozen: bool
+    isInOtherProjectConfigs: bool
+    isMinimized: bool
+    isPreset: bool
+    name: str
+    positionAndSizeLocked: bool
+    size: SectionSize
+    styleColor: str | None = None
+    tagColor: str | None = None
+    type: SectionType
+
+
+type BaseSectionImplUnion = (
+    BaseSectionImpl
+    | CallableSectionImpl
+    | DictSectionImpl
+    | ListRootSectionImpl
+    | GroupSectionImpl
+    | StateMachineStartSectionImpl
+    | StateMachineGateSectionImpl
+    | StateMachineEndSectionImpl
+    | ChartSectionImpl
+    | TextBlockSectionImpl
+    | PromptSectionImpl
+    | GlobalVariablesSectionImpl
+    | CodeSectionImpl
+    | GenPythonCodeSectionImpl
+    | GenPythonMetadataSectionImpl
+    | TerminalSectionImpl
+    | ChatSectionImpl
+    | BrowserSectionImpl
+    | TaskBoardSectionImpl
+    | SpreadsheetSectionImpl
+)
 
 
 class Chat(BaseModel):

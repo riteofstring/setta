@@ -27,16 +27,14 @@ const (
 )
 
 type datamodelDeclaration struct {
-	Name         string
-	Kind         datamodelDeclarationKind
-	Block        string
-	Dependencies []string
+	Name  string
+	Kind  datamodelDeclarationKind
+	Block string
 }
 
 type datamodelModule struct {
-	ImportLines       []string
-	Declarations      []datamodelDeclaration
-	declarationByName map[string]datamodelDeclaration
+	ImportLines  []string
+	Declarations []datamodelDeclaration
 }
 
 var (
@@ -143,7 +141,6 @@ func repoRootFromCaller() (string, error) {
 }
 
 func pythonSharedSchemaDeclarations(
-	sidecar sharedtypes.SemanticSidecar,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) ([]string, []string, map[string]struct{}, error) {
 	module, err := pythonSharedSchemaModule()
@@ -151,18 +148,8 @@ func pythonSharedSchemaDeclarations(
 		return nil, nil, nil, err
 	}
 
-	rootNames := map[string]struct{}{}
-	for _, entry := range sidecar.Contracts {
-		name := strings.TrimSpace(entry.Name)
-		if name == "" {
-			continue
-		}
-		rootNames[name] = struct{}{}
-	}
-
-	selected := reachableDatamodelDeclarations(module, rootNames, nil)
 	selectedNames := map[string]struct{}{}
-	for _, declaration := range selected {
+	for _, declaration := range module.Declarations {
 		selectedNames[declaration.Name] = struct{}{}
 	}
 	imports := map[string]struct{}{}
@@ -173,9 +160,9 @@ func pythonSharedSchemaDeclarations(
 		}
 		imports[line] = struct{}{}
 	}
-	blocks := make([]string, 0, len(selected))
-	includedNames := make(map[string]struct{}, len(selected))
-	for _, declaration := range selected {
+	blocks := make([]string, 0, len(module.Declarations))
+	includedNames := make(map[string]struct{}, len(module.Declarations))
+	for _, declaration := range module.Declarations {
 		updated, declarationImports, err := applyPythonFieldMetadataToDatamodelDeclaration(
 			declaration,
 			defaultSourcesByType,
@@ -189,57 +176,6 @@ func pythonSharedSchemaDeclarations(
 		includedNames[updated.Name] = struct{}{}
 	}
 	return blocks, sortedImportNames(imports), includedNames, nil
-}
-
-func reachableDatamodelDeclarations(
-	module datamodelModule,
-	rootNames map[string]struct{},
-	excludedNames map[string]struct{},
-) []datamodelDeclaration {
-	included := map[string]struct{}{}
-	queue := make([]string, 0, len(rootNames))
-
-	enqueue := func(name string) {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			return
-		}
-		if _, excluded := excludedNames[name]; excluded {
-			return
-		}
-		if _, ok := module.declarationByName[name]; !ok {
-			return
-		}
-		if _, seen := included[name]; seen {
-			return
-		}
-		included[name] = struct{}{}
-		queue = append(queue, name)
-	}
-
-	for name := range rootNames {
-		enqueue(name)
-	}
-	for len(queue) > 0 {
-		name := queue[0]
-		queue = queue[1:]
-		declaration, ok := module.declarationByName[name]
-		if !ok {
-			continue
-		}
-		for _, dependency := range declaration.Dependencies {
-			enqueue(dependency)
-		}
-	}
-
-	selected := make([]datamodelDeclaration, 0, len(included))
-	for _, declaration := range module.Declarations {
-		if _, ok := included[declaration.Name]; !ok {
-			continue
-		}
-		selected = append(selected, declaration)
-	}
-	return selected
 }
 
 func applyPythonFieldMetadataToDatamodelDeclaration(
@@ -434,14 +370,9 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 	if err != nil {
 		return datamodelModule{}, err
 	}
-	declarationByName := make(map[string]datamodelDeclaration, len(declarations))
-	for _, declaration := range declarations {
-		declarationByName[declaration.Name] = declaration
-	}
 	return datamodelModule{
-		ImportLines:       importLines,
-		Declarations:      declarations,
-		declarationByName: declarationByName,
+		ImportLines:  importLines,
+		Declarations: declarations,
 	}, nil
 }
 
@@ -518,21 +449,19 @@ func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
 			return datamodelDeclaration{}, err
 		}
 		return datamodelDeclaration{
-			Name:         name,
-			Kind:         datamodelDeclarationKindClass,
-			Block:        strings.Join(blockLines, "\n"),
-			Dependencies: datamodelClassDependencies(blockLines),
+			Name:  name,
+			Kind:  datamodelDeclarationKindClass,
+			Block: strings.Join(blockLines, "\n"),
 		}, nil
 	case strings.HasPrefix(header, "type "):
-		name, expr, err := parseDatamodelTypeAliasBlock(blockLines)
+		name, _, err := parseDatamodelTypeAliasBlock(blockLines)
 		if err != nil {
 			return datamodelDeclaration{}, err
 		}
 		return datamodelDeclaration{
-			Name:         name,
-			Kind:         datamodelDeclarationKindType,
-			Block:        strings.Join(blockLines, "\n"),
-			Dependencies: datamodelAliasDependencies(expr),
+			Name:  name,
+			Kind:  datamodelDeclarationKindType,
+			Block: strings.Join(blockLines, "\n"),
 		}, nil
 	default:
 		return datamodelDeclaration{}, fmt.Errorf("python shared types: unsupported datamodel declaration header %q", header)
@@ -567,27 +496,6 @@ func parseDatamodelClassName(header string) (string, error) {
 	return name, nil
 }
 
-func datamodelClassDependencies(lines []string) []string {
-	dependencies := map[string]struct{}{}
-	for _, line := range lines[1:] {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "model_config") {
-			continue
-		}
-		fieldName, typeExpr, ok := datamodelClassFieldTypeExpr(trimmed)
-		if !ok || fieldName == "" {
-			continue
-		}
-		for _, name := range referencedTypeNames(typeExpr) {
-			if pythonTypeNameIsBuiltin(name) {
-				continue
-			}
-			dependencies[name] = struct{}{}
-		}
-	}
-	return sortedImportNames(dependencies)
-}
-
 func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
 	fieldName, rhs, ok := strings.Cut(line, ": ")
 	if !ok {
@@ -605,42 +513,6 @@ func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
 		return "", "", false
 	}
 	return fieldName, typeExpr, true
-}
-
-func datamodelAliasDependencies(expr string) []string {
-	dependencies := map[string]struct{}{}
-	for _, name := range referencedTypeNames(expr) {
-		if pythonTypeNameIsBuiltin(name) {
-			continue
-		}
-		dependencies[name] = struct{}{}
-	}
-	return sortedImportNames(dependencies)
-}
-
-func extractDatamodelTypeAliases(module string) (map[string]string, error) {
-	parsed, err := parseDatamodelModule(module)
-	if err != nil {
-		return nil, err
-	}
-	aliases := map[string]string{}
-	for _, declaration := range parsed.Declarations {
-		if declaration.Kind != datamodelDeclarationKindType {
-			continue
-		}
-		name, expr, err := parseDatamodelTypeAliasBlock(strings.Split(declaration.Block, "\n"))
-		if err != nil {
-			return nil, err
-		}
-		if name == "" {
-			continue
-		}
-		if datamodelAliasExprReferencesName(name, expr) {
-			continue
-		}
-		aliases[name] = expr
-	}
-	return aliases, nil
 }
 
 func parseDatamodelTypeAliasBlock(lines []string) (string, string, error) {
@@ -720,13 +592,4 @@ func firstTopLevelDelimitedSegment(expr string) (string, error) {
 		return "", fmt.Errorf("unbalanced alias expression %q", expr)
 	}
 	return strings.TrimSpace(expr), nil
-}
-
-func datamodelAliasExprReferencesName(name string, expr string) bool {
-	for _, referenced := range referencedTypeNames(expr) {
-		if referenced == name {
-			return true
-		}
-	}
-	return false
 }
