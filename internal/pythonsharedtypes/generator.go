@@ -71,10 +71,7 @@ func pythonFieldRequiresStandardFieldPatch(field reflect.StructField) bool {
 	if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
 		return true
 	}
-	if strings.HasPrefix(strings.TrimSpace(field.Tag.Get("py_default")), "Field(") {
-		return true
-	}
-	return false
+	return strings.HasPrefix(strings.TrimSpace(field.Tag.Get("py_default")), "Field(")
 }
 
 func renderGeneratedTypesModule(
@@ -86,15 +83,6 @@ func renderGeneratedTypesModule(
 	builder.WriteString("\n")
 	builder.WriteString("from __future__ import annotations\n")
 	builder.WriteString("\n")
-	writeRawImportLines(&builder, importLines)
-	writeStandardSchemaBlocks(&builder, blocks)
-	return builder.String()
-}
-
-func writeRawImportLines(builder *strings.Builder, importLines []string) {
-	if len(importLines) == 0 {
-		return
-	}
 	for _, line := range importLines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
@@ -104,9 +92,6 @@ func writeRawImportLines(builder *strings.Builder, importLines []string) {
 		builder.WriteString("\n")
 	}
 	builder.WriteString("\n")
-}
-
-func writeStandardSchemaBlocks(builder *strings.Builder, blocks []string) {
 	for _, block := range blocks {
 		trimmed := strings.TrimSpace(block)
 		if trimmed == "" {
@@ -115,6 +100,7 @@ func writeStandardSchemaBlocks(builder *strings.Builder, blocks []string) {
 		builder.WriteString(trimmed)
 		builder.WriteString("\n\n")
 	}
+	return builder.String()
 }
 
 func appendUniqueImportLines(base []string, extras ...string) []string {
@@ -235,12 +221,10 @@ func filteredPythonImportLine(line string) string {
 	if trimmed == "" {
 		return ""
 	}
-	moduleAndNames := strings.TrimPrefix(trimmed, "from ")
-	module, imported, ok := strings.Cut(moduleAndNames, " import ")
+	module, imported, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
 	if !ok {
 		return trimmed
 	}
-
 	kept := make([]string, 0)
 	for _, name := range strings.Split(imported, ",") {
 		name = strings.TrimSpace(name)
@@ -256,13 +240,9 @@ func filteredPythonImportLine(line string) string {
 }
 
 func isLocalPythonContractImportName(name string) bool {
-	name = strings.TrimSpace(name)
+	name = strings.TrimSpace(strings.TrimSuffix(name, "WithDiscriminator"))
 	if name == "" {
 		return false
-	}
-	baseName, ok := strings.CutSuffix(name, "WithDiscriminator")
-	if ok {
-		name = baseName
 	}
 	_, local := sharedtypes.TypeByContractName(name)
 	return local
