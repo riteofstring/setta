@@ -1,3 +1,10 @@
+import {
+  indentParams,
+  moveParamGroups,
+  moveParams,
+  unindentParams,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   buildParamParentMap,
@@ -23,17 +30,10 @@ import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
-  route_indent_params,
-  route_move_param_groups,
-  route_move_params,
-  route_unindent_params,
-} from "utils/generatedEndpoints";
-import {
   CodeObjTypeEnum,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-
 type ParamSelectionBase = {
   sectionId: string;
   rootId: string;
@@ -41,17 +41,14 @@ type ParamSelectionBase = {
   parentById: Record<string, string | null>;
   visibleIds: Set<string>;
 };
-
 type ParamMoveGroup = {
   paramIds: string[];
   newParentId: string;
   newIndex: number;
 };
-
 function insertItems<T>(arr: T[], index: number, items: T[]): T[] {
   return [...arr.slice(0, index), ...items, ...arr.slice(index)];
 }
-
 function applyParamMove(
   state: ZustandProjectState,
   sectionId: string,
@@ -82,7 +79,6 @@ function applyParamMove(
   );
   const paramSet = new Set(orderedParamIds);
   const remaining = oldParentImpl.children.filter((id) => !paramSet.has(id));
-
   if (move.newParentId === oldParentId) {
     if (move.newIndex < 0 || move.newIndex > remaining.length) {
       return;
@@ -94,7 +90,6 @@ function applyParamMove(
     syncShownParamTopLevelOrder(state, sectionId);
     return;
   }
-
   const newParentImpl = getCurrEffectiveCodeObjImpl(
     state,
     sectionId,
@@ -128,7 +123,6 @@ function applyParamMove(
   });
   syncShownParamTopLevelOrder(state, sectionId);
 }
-
 function ensureParentParamImpl(
   state: ZustandProjectState,
   sectionId: string,
@@ -148,7 +142,6 @@ function ensureParentParamImpl(
   }
   return nextImpl;
 }
-
 export function selectOnlyParam(sectionId: string, paramId: string) {
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -162,7 +155,6 @@ export function selectOnlyParam(sectionId: string, paramId: string) {
   unselectAllParams();
   toggleParamSelected(sectionId, paramId);
 }
-
 export function orderParamIdsByParent(
   state: ZustandProjectState,
   sectionId: string,
@@ -176,7 +168,6 @@ export function orderParamIdsByParent(
   const paramSet = new Set(paramIds);
   return parentImpl.children.filter((id) => paramSet.has(id));
 }
-
 function syncShownParamTopLevelOrder(
   state: ZustandProjectState,
   sectionId: string,
@@ -201,7 +192,6 @@ function syncShownParamTopLevelOrder(
     shown.unpinned.requiredParamIdsToPaths,
   );
 }
-
 function filterTopLevelIds(
   rootChildren: string[],
   requiredParamIdsToPaths: Record<string, string[]>,
@@ -212,7 +202,6 @@ function filterTopLevelIds(
   const included = new Set(Object.keys(requiredParamIdsToPaths));
   return rootChildren.filter((id) => included.has(id));
 }
-
 export function moveParamsWithBackend({
   sectionId,
   paramIds,
@@ -236,17 +225,20 @@ export function moveParamsWithBackend({
       });
     },
     send: (frontendOpId) =>
-      route_move_params({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        paramIds,
-        newParentId,
-        newIndex,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        moveParams({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            paramIds,
+            newParentId,
+            newIndex,
+            frontendOpId,
+          },
+        } as Parameters<typeof moveParams>[0]),
+      ),
   });
 }
-
 function moveParamGroupsWithBackend({
   sectionId,
   moves,
@@ -264,49 +256,56 @@ function moveParamGroupsWithBackend({
       }
     },
     send: (frontendOpId) =>
-      route_move_param_groups({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        moves,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        moveParamGroups({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            moves,
+            frontendOpId,
+          },
+        } as Parameters<typeof moveParamGroups>[0]),
+      ),
   });
 }
-
 export function indentSelectedParams(): boolean {
   const context = getParamMovementContext();
   if (!context) {
     return false;
   }
-  route_indent_params({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: context.sectionId,
-    paramIds: context.rootSelected,
-  });
+  callOpenAPI(
+    indentParams({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId: context.sectionId,
+        paramIds: context.rootSelected,
+      },
+    } as Parameters<typeof indentParams>[0]),
+  );
   return true;
 }
-
 export function unindentSelectedParams(): boolean {
   const context = getParamUnindentContext();
   if (!context) {
     return false;
   }
-  route_unindent_params({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: context.sectionId,
-    paramIds: context.rootSelected,
-  });
+  callOpenAPI(
+    unindentParams({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId: context.sectionId,
+        paramIds: context.rootSelected,
+      },
+    } as Parameters<typeof unindentParams>[0]),
+  );
   return true;
 }
-
 export function moveSelectedParamsUp(): boolean {
   return moveSelectedParamsByOffset(-1);
 }
-
 export function moveSelectedParamsDown(): boolean {
   return moveSelectedParamsByOffset(1);
 }
-
 function buildVisibleSelectionGroups(
   visibleSiblings: string[],
   selectedSet: Set<string>,
@@ -328,7 +327,6 @@ function buildVisibleSelectionGroups(
   }
   return groups;
 }
-
 function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   const context = getParamMovementContext();
   if (!context) {
@@ -356,7 +354,6 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
   let fullChildren = [...parentImpl.children];
   const groupsToProcess = direction < 0 ? groups : [...groups].reverse();
   const moves: ParamMoveGroup[] = [];
-
   for (const group of groupsToProcess) {
     const movingIds = new Set(group);
     const firstId = group[0];
@@ -366,7 +363,6 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
     if (firstIndex < 0 || lastIndex < 0) {
       continue;
     }
-
     const remainingVisible = visibleSiblings.filter((id) => !movingIds.has(id));
     let targetVisibleIndex: number | null = null;
     if (direction < 0) {
@@ -399,7 +395,6 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
     if (targetVisibleIndex === null) {
       continue;
     }
-
     const orderedGroupIds = fullChildren.filter((id) => movingIds.has(id));
     const newIndex = resolveFullIndexForVisibleInsertion({
       targetVisibleIndex,
@@ -410,7 +405,6 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
     if (newIndex === null) {
       continue;
     }
-
     moves.push({
       paramIds: orderedGroupIds,
       newParentId: sharedParent,
@@ -427,14 +421,12 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
       orderedGroupIds,
     );
   }
-
   if (moves.length === 0) {
     return false;
   }
   moveParamGroupsWithBackend({ sectionId, moves });
   return true;
 }
-
 function getParamSelectionBase(): ParamSelectionBase | null {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -478,7 +470,6 @@ function getParamSelectionBase(): ParamSelectionBase | null {
     visibleIds,
   };
 }
-
 function getParamMovementContext(): {
   sectionId: string;
   rootSelected: string[];
@@ -494,7 +485,6 @@ function getParamMovementContext(): {
     addTemporaryNotification("Param selection spans multiple parents.");
     return null;
   }
-
   const state = useProjectState.getState();
   const rootImpl = getCurrEffectiveCodeObjImpl(
     state,
@@ -521,7 +511,6 @@ function getParamMovementContext(): {
     tree,
   };
 }
-
 function getParamUnindentContext(): {
   sectionId: string;
   rootSelected: string[];
@@ -532,7 +521,6 @@ function getParamUnindentContext(): {
   }
   return { sectionId: base.sectionId, rootSelected: base.rootSelected };
 }
-
 function resolveSectionWithSelectedParams(
   state: ZustandProjectState,
 ): string | null {
@@ -551,7 +539,6 @@ function resolveSectionWithSelectedParams(
   }
   return null;
 }
-
 function buildVisibleParamIdSet(
   state: ZustandProjectState,
   sectionId: string,

@@ -1,13 +1,9 @@
-import type {
-  PromptFormat,
-  PromptSectionImpl,
-  PromptTemplate,
-} from "utils/generatedTypes";
+import type { Format, PromptSectionImpl, Template } from "utils/generatedTypes";
 
 type ResolvedPromptSectionSource = {
-  format: PromptFormat;
+  format: Format;
   isLinked: boolean;
-  linkedTemplate: PromptTemplate | null;
+  linkedTemplate: Template | null;
   linkedTemplateMissing: boolean;
   templateText: string;
 };
@@ -17,7 +13,7 @@ export function resolvePromptSectionSource(
     PromptSectionImpl,
     "format" | "promptTemplateId" | "template"
   >,
-  promptTemplates: Array<PromptTemplate>,
+  promptTemplates: Array<Template>,
 ): ResolvedPromptSectionSource {
   const promptTemplateId = promptSection.promptTemplateId ?? null;
   if (!promptTemplateId) {
