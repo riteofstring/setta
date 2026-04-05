@@ -1,10 +1,14 @@
 import json
 from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from setta.logging import context as logging_context_module
 from setta.logging.context import push_logging_context, reset_logging_context
-from setta.logging.redaction import REDACTED_VALUE, Sensitive
+from setta.logging.redaction import (
+    REDACTED_VALUE,
+    Sensitive,
+    sanitize_for_logging_context,
+)
 
 
 def _current_context() -> dict[str, str]:
@@ -44,3 +48,25 @@ class TestLoggingRedaction:
         assert parsed["len"] == 50
         assert parsed["truncated"]
         assert len(parsed["sample"]) == 25
+
+    def test_sanitize_handles_scalar_and_fallback_types(self) -> None:
+        class Stringable:
+            def __str__(self) -> str:
+                return "line1\nline2"
+
+        sanitized = sanitize_for_logging_context(
+            {
+                "secret": SecretStr("token"),
+                "payload": b"abc",
+                "error": ValueError("boom"),
+                "custom": Stringable(),
+            },
+            max_string_len=8,
+        )
+
+        assert sanitized == {
+            "secret": REDACTED_VALUE,
+            "payload": "bytes(len=3)",
+            "error": "ValueError('boom')",
+            "custom": "line1\\nl...(+4)",
+        }
