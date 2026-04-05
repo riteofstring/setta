@@ -166,7 +166,41 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any, ord
 	case tsRawExpr:
 		builder.WriteString(typed.Expr)
 	case []any:
-		writeTSArrayLiteral(builder, indent, typed)
+		if len(typed) == 0 {
+			builder.WriteString("[]")
+			return
+		}
+		inline := true
+		for _, value := range typed {
+			switch value.(type) {
+			case nil, bool, string, float64:
+			default:
+				inline = false
+			}
+			if !inline {
+				break
+			}
+		}
+		if inline {
+			builder.WriteString("[")
+			for index, value := range typed {
+				if index > 0 {
+					builder.WriteString(", ")
+				}
+				writeTSLiteralValue(builder, indent, value, nil)
+			}
+			builder.WriteString("]")
+			return
+		}
+		builder.WriteString("[\n")
+		childIndent := indent + "  "
+		for _, value := range typed {
+			builder.WriteString(childIndent)
+			writeTSLiteralValue(builder, childIndent, value, nil)
+			builder.WriteString(",\n")
+		}
+		builder.WriteString(indent)
+		builder.WriteString("]")
 	case map[string]any:
 		builder.WriteString("{\n")
 		childIndent := indent + "  "
@@ -212,45 +246,6 @@ func renderTSLiteralExpr(value any, orderedKeys []string, indent string) string 
 	var builder strings.Builder
 	writeTSLiteralValue(&builder, indent, value, orderedKeys)
 	return builder.String()
-}
-
-func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) {
-	if len(values) == 0 {
-		builder.WriteString("[]")
-		return
-	}
-	inline := true
-	for _, value := range values {
-		switch value.(type) {
-		case nil, bool, string, float64:
-		default:
-			inline = false
-		}
-		if !inline {
-			break
-		}
-	}
-	if inline {
-		builder.WriteString("[")
-		for index, value := range values {
-			if index > 0 {
-				builder.WriteString(", ")
-			}
-			writeTSLiteralValue(builder, indent, value, nil)
-		}
-		builder.WriteString("]")
-		return
-	}
-
-	builder.WriteString("[\n")
-	childIndent := indent + "  "
-	for _, value := range values {
-		builder.WriteString(childIndent)
-		writeTSLiteralValue(builder, childIndent, value, nil)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString(indent)
-	builder.WriteString("]")
 }
 
 func renderTSObjectKey(key string) string {
