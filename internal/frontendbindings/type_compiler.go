@@ -35,8 +35,10 @@ type typeConverter struct {
 }
 
 type reflectedStructProperty struct {
-	Property TypeProperty
-	Field    reflect.StructField
+	Property  TypeProperty
+	FieldName string
+	FieldType reflect.Type
+	Metadata  tsFieldMetadataSpec
 }
 
 type reflectedObjectDeclarationSpec struct {
@@ -451,7 +453,9 @@ func (c *typeConverter) structPropertySpecs(
 				TypeExpr: typeExpr,
 				Optional: optional,
 			},
-			Field: field,
+			FieldName: field.Name,
+			FieldType: field.Type,
+			Metadata:  tsMetadata,
 		})
 	}
 	return properties, nil

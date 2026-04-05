@@ -21,11 +21,7 @@ func buildGoBackedCreateBodyTS(
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
-		field := propertySpec.Field
-		tsMetadata, err := tsFieldMetadata(field)
-		if err != nil {
-			return "", fmt.Errorf("%s.%s: %w", declarationName, field.Name, err)
-		}
+		tsMetadata := propertySpec.Metadata
 		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
 			if !property.Optional {
@@ -36,8 +32,8 @@ func buildGoBackedCreateBodyTS(
 			orderedKeys = append(orderedKeys, property.Name)
 		}
 		expr, ok, err := buildGenericCreateFieldExprTS(
-			declarationName+"."+field.Name,
-			field.Type,
+			declarationName+"."+propertySpec.FieldName,
+			propertySpec.FieldType,
 			tsMetadata,
 			property,
 			tsPropertyAccessExpr("defaults", property.Name),
