@@ -16,13 +16,13 @@ import {
 import type {
   CheckIfFileExistsResponse,
   DeploymentMetadata,
-  PublishShareDeploymentRequestInput,
+  PublishShareDeploymentRequest,
   RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type SharePolicyOverridesInput = NonNullable<
-  PublishShareDeploymentRequestInput["sharePolicyOverrides"]
+  PublishShareDeploymentRequest["sharePolicyOverrides"]
 >;
 type CheckIfFileExistsRouteResponse =
   ResponseDataAndStatus<CheckIfFileExistsResponse>;
@@ -148,7 +148,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: PublishShareDeploymentRequestInput = {
+    const payload: PublishShareDeploymentRequest = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,

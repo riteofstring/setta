@@ -38,25 +38,7 @@ type DeploymentNameRouteParams struct {
 	DeploymentName string `json:"deploymentName"`
 }
 
-type LoadDeploymentProjectConfigRequestInput httpapi.LoadDeploymentProjectConfigRequest
-
 type AppDeploymentStateResponse httpapi.AppDeploymentStateResponse
-
-type PublishShareDeploymentRequestInput struct {
-	DeploymentName       string       `json:"deploymentName"`
-	ProjectConfigID      string       `json:"projectConfigId"`
-	SharePolicyOverrides *SharePolicy `json:"sharePolicyOverrides,omitempty"`
-	ListenerEntrypoint   string       `json:"listenerEntrypoint"`
-	ListenerEnabled      bool         `json:"listenerEnabled"`
-}
-
-type PublishAppDeploymentRequestInput struct {
-	DeploymentName     string       `json:"deploymentName"`
-	ProjectConfigID    string       `json:"projectConfigId"`
-	AppPolicyOverrides *SharePolicy `json:"appPolicyOverrides,omitempty"`
-	ListenerEntrypoint string       `json:"listenerEntrypoint"`
-	ListenerEnabled    bool         `json:"listenerEnabled"`
-}
 
 type LoadProjectConfigRequestInput httpapi.ProjectLoadRequest
 

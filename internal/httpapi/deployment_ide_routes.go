@@ -38,7 +38,7 @@ type DeploymentMetadataResponse struct {
 	PolicyPath         string    `json:"policyPath"`
 }
 
-type publishShareDeploymentRequest struct {
+type PublishShareDeploymentRequest struct {
 	DeploymentName       string                            `json:"deploymentName"`
 	ProjectConfigID      string                            `json:"projectConfigId"`
 	SharePolicyOverrides *deployments.SharePolicyOverrides `json:"sharePolicyOverrides"`
@@ -46,7 +46,7 @@ type publishShareDeploymentRequest struct {
 	ListenerEnabled      *bool                             `json:"listenerEnabled"`
 }
 
-type publishAppDeploymentRequest struct {
+type PublishAppDeploymentRequest struct {
 	DeploymentName     string                          `json:"deploymentName"`
 	ProjectConfigID    string                          `json:"projectConfigId"`
 	AppPolicyOverrides *deployments.AppPolicyOverrides `json:"appPolicyOverrides"`
@@ -123,7 +123,7 @@ func latestDeploymentMetadataHandler(catalog *deployments.Catalog, deploymentTyp
 
 func publishShareDeploymentHandler(projectState *projectstate.Runtime, publisher *deployments.SharePublisher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[publishShareDeploymentRequest](r)
+		payload, err := decodeStrictJSONBody[PublishShareDeploymentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -154,7 +154,7 @@ func publishShareDeploymentHandler(projectState *projectstate.Runtime, publisher
 
 func publishAppDeploymentHandler(projectState *projectstate.Runtime, publisher *deployments.AppPublisher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[publishAppDeploymentRequest](r)
+		payload, err := decodeStrictJSONBody[PublishAppDeploymentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return

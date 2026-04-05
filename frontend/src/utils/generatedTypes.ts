@@ -728,14 +728,6 @@ export function createExternalAgentPreflightStatus(
   return options as ExternalAgentPreflightStatus;
 }
 
-export type BinaryUploadRequestInput = FormData;
-
-export type BinaryDownloadRequestInput = {
-  contentId: string;
-};
-
-export type BinaryDownloadResponse = Uint8Array;
-
 const UploadScopeEnum = {
   chat: "chat",
   generic: "generic",
@@ -1011,12 +1003,6 @@ export type ArtifactSaveResult = {
   message?: string | null;
 };
 
-export type UpdateArtifactsRequestInput = {
-  artifacts: Array<ArtifactUnion>;
-  conflictStrategy?: SaveConflictStrategy | null;
-  uploadScope?: string | null;
-};
-
 type DeleteRequestItem = {
   id: string;
   type: ArtifactType;
@@ -1034,11 +1020,6 @@ export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
 
 export type LoadCachedDrawAreaLayerItemTransformResponse =
   Array<DrawAreaLayerItemTransformArtifact | null>;
-
-export type UpdateArtifactMsgContent = {
-  artifacts: Array<ArtifactUnion>;
-  updateType: "update" | "delete";
-};
 
 export type CreateFileRequest = {
   filepath: string;
@@ -1295,10 +1276,6 @@ export type AppDeploymentSessionResponse = {
   projectMetadata: Array<ProjectMetadataEntry>;
   appPolicy: SharePolicy;
   manifest?: DeploymentManifest | null;
-};
-
-export type LoadDeploymentProjectConfigRequest = {
-  projectConfigId: string;
 };
 
 export type Core = {
@@ -1970,22 +1947,6 @@ export type AppDeploymentStateResponse = {
   appDefinition: AppDefinition | null;
   appSpec: unknown;
   appPolicy: SharePolicy;
-};
-
-export type PublishShareDeploymentRequestInput = {
-  deploymentName: string;
-  projectConfigId: string;
-  sharePolicyOverrides?: SharePolicy | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean;
-};
-
-export type PublishAppDeploymentRequestInput = {
-  deploymentName: string;
-  projectConfigId: string;
-  appPolicyOverrides?: SharePolicy | null;
-  listenerEntrypoint: string;
-  listenerEnabled: boolean;
 };
 
 export type ProjectLoadRequest = {
@@ -7719,6 +7680,14 @@ export type Delta = {
   isFinal: boolean;
 };
 
+export type BinaryDownloadRequest = {
+  contentId: string;
+};
+
+export type BinaryDownloadResponse = Uint8Array;
+
+export type BinaryUploadRequest = FormData;
+
 export type CancelRunRequest = {
   runId: string;
 };
@@ -8515,6 +8484,10 @@ export type LauncherListDirectoryResponse = {
   error: LauncherHomeErrorPayload | null;
 };
 
+export type LoadDeploymentProjectConfigRequest = {
+  projectConfigId: string;
+};
+
 const FilesLocationEnum = {
   auto: "auto",
   local: "local",
@@ -8614,6 +8587,34 @@ export type PluginUpdateRequest = {
   pluginId: string;
   scope: PluginScope | null;
   to: string | null;
+};
+
+type SharePolicyOverrides = {
+  allowParamChanges?: boolean | null;
+  allowVariantChanges?: boolean | null;
+  allowLayoutChanges?: boolean | null;
+  allowRun?: boolean | null;
+  allowLLM?: boolean | null;
+  allowExternalLinks?: boolean | null;
+  allowFileDownloads?: boolean | null;
+  allowMultipleRuns?: boolean | null;
+  runSnapshotMode?: RunSnapshotMode | null;
+};
+
+export type PublishAppDeploymentRequest = {
+  deploymentName: string;
+  projectConfigId: string;
+  appPolicyOverrides: SharePolicyOverrides | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean | null;
+};
+
+export type PublishShareDeploymentRequest = {
+  deploymentName: string;
+  projectConfigId: string;
+  sharePolicyOverrides: SharePolicyOverrides | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean | null;
 };
 
 export type LauncherRequestBase = {
@@ -8934,6 +8935,12 @@ type AgentProfilePayload = {
 
 export type UpdateAgentProfileRequest = {
   profile: AgentProfilePayload | null;
+};
+
+export type UpdateArtifactsRequest = {
+  artifacts: Array<ArtifactUnion>;
+  conflictStrategy?: SaveConflictStrategy | null;
+  uploadScope: UploadScope;
 };
 
 type UpdateEngineConfigPayload = {

@@ -24,13 +24,13 @@ import {
 import type {
   CheckIfFileExistsResponse,
   DeploymentMetadata,
-  PublishAppDeploymentRequestInput,
+  PublishAppDeploymentRequest,
   RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type AppPolicyOverridesInput = NonNullable<
-  PublishAppDeploymentRequestInput["appPolicyOverrides"]
+  PublishAppDeploymentRequest["appPolicyOverrides"]
 >;
 type CheckIfFileExistsRouteResponse =
   ResponseDataAndStatus<CheckIfFileExistsResponse>;
@@ -177,7 +177,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const payload: PublishAppDeploymentRequestInput = {
+    const payload: PublishAppDeploymentRequest = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       appPolicyOverrides: policyOverrides,

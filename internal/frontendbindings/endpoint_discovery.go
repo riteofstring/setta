@@ -101,13 +101,16 @@ var endpointFunctionNameOverrides = map[string]string{
 }
 
 var endpointRequestTypeOverrides = map[string]reflect.Type{
-	"POST RouteShareDeployments":             reflect.TypeOf(PublishShareDeploymentRequestInput{}),
-	"POST RouteAppDeployments":               reflect.TypeOf(PublishAppDeploymentRequestInput{}),
-	"POST RouteShareDeploymentProjectConfig": reflect.TypeOf(LoadDeploymentProjectConfigRequestInput{}),
-	"POST RouteAppDeploymentProjectConfig":   reflect.TypeOf(LoadDeploymentProjectConfigRequestInput{}),
+	"POST RouteBinaryUpload":                 reflect.TypeOf(httpapi.BinaryUploadRequest{}),
+	"GET RouteBinaryDownload":                reflect.TypeOf(httpapi.BinaryDownloadRequest{}),
+	"POST RouteShareDeployments":             reflect.TypeOf(httpapi.PublishShareDeploymentRequest{}),
+	"POST RouteAppDeployments":               reflect.TypeOf(httpapi.PublishAppDeploymentRequest{}),
+	"POST RouteShareDeploymentProjectConfig": reflect.TypeOf(httpapi.LoadDeploymentProjectConfigRequest{}),
+	"POST RouteAppDeploymentProjectConfig":   reflect.TypeOf(httpapi.LoadDeploymentProjectConfigRequest{}),
 }
 
 var endpointResponseTypeOverrides = map[string]reflect.Type{
+	"GET RouteBinaryDownload":                  reflect.TypeOf(httpapi.BinaryDownloadResponse{}),
 	"POST RouteBinaryUpload":                   reflect.TypeOf(binarypayload.ContentRef{}),
 	"POST RouteGetAppDefinition":               reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
 	"POST RouteValidateAppDefinition":          reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),

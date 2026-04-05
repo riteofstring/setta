@@ -791,8 +791,14 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}):       reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(SetTextBlockFormatRequestInput{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(SetCodeFileBindingRequestInput{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
-	reflect.TypeOf(UpdateArtifactMsgContent{}): {
+	reflect.TypeOf(httpapi.UpdateArtifactsRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
+			"artifacts": "Array<ArtifactUnion>",
+		},
+	},
+	reflect.TypeOf(realtime.UpdateArtifactsContent{}): {
+		PropertyTypeExprOverrides: map[string]string{
+			"artifacts":  "Array<ArtifactUnion>",
 			"updateType": `"update" | "delete"`,
 		},
 	},

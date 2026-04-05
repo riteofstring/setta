@@ -70,7 +70,7 @@ export async function route_auto_layout_top_level_sections(
 }
 
 export async function route_binary_download(
-  x: gt.BinaryDownloadRequestInput,
+  x: gt.BinaryDownloadRequest,
 ): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
   return await getBinary(
     GoHTTPRouteHelpers.binaryDownload(x.contentId),
@@ -79,7 +79,7 @@ export async function route_binary_download(
 }
 
 export async function route_binary_upload(
-  x: gt.BinaryUploadRequestInput,
+  x: gt.BinaryUploadRequest,
 ): Promise<ResponseDataAndStatus<gt.ContentRef>> {
   return await post(GoHTTPRouteHelpers.binaryUpload(), x);
 }
@@ -1012,13 +1012,13 @@ export async function route_prepare_sections_for_copy(
 }
 
 export async function route_publish_app_deployment(
-  x: gt.PublishAppDeploymentRequestInput,
+  x: gt.PublishAppDeploymentRequest,
 ): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
   return await post(GoHTTPRouteHelpers.appDeployments(), x);
 }
 
 export async function route_publish_share_deployment(
-  x: gt.PublishShareDeploymentRequestInput,
+  x: gt.PublishShareDeploymentRequest,
 ): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
   return await post(GoHTTPRouteHelpers.shareDeployments(), x);
 }
@@ -1787,7 +1787,7 @@ export async function route_update_agentic_edge(
 }
 
 export async function route_update_artifacts(
-  x: gt.UpdateArtifactsRequestInput,
+  x: gt.UpdateArtifactsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.ArtifactSaveResult>>> {
   return await post(GoHTTPRouteHelpers.updateArtifacts(), x);
 }

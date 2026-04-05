@@ -47,6 +47,12 @@ type ShareArtifactService interface {
 	Delete(ctx context.Context, sessionID string, request artifacts.DeleteRequest) ([]string, error)
 }
 
+type UpdateArtifactsRequest struct {
+	Artifacts        []artifacts.RawArtifact         `json:"artifacts"`
+	ConflictStrategy *artifacts.SaveConflictStrategy `json:"conflictStrategy,omitempty"`
+	UploadScope      artifacts.UploadScope           `json:"uploadScope"`
+}
+
 func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -292,12 +298,16 @@ func updateArtifactsHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		payload, err := decodeJSONBody[artifacts.UpdateRequest](r)
+		payload, err := decodeJSONBody[UpdateArtifactsRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
-		results, err := deps.Artifacts.Update(r.Context(), payload)
+		results, err := deps.Artifacts.Update(r.Context(), artifacts.UpdateRequest{
+			Artifacts:        payload.Artifacts,
+			ConflictStrategy: payload.ConflictStrategy,
+			UploadScope:      payload.UploadScope,
+		})
 		if err != nil {
 			writeArtifactRouteError(w, r, err)
 			return
@@ -317,12 +327,16 @@ func updateArtifactsShareHandler(deps ArtifactRouteDependencies) http.HandlerFun
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		payload, err := decodeJSONBody[artifacts.UpdateRequest](r)
+		payload, err := decodeJSONBody[UpdateArtifactsRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
-		results, err := deps.ShareArtifacts.Update(r.Context(), sessionID, payload)
+		results, err := deps.ShareArtifacts.Update(r.Context(), sessionID, artifacts.UpdateRequest{
+			Artifacts:        payload.Artifacts,
+			ConflictStrategy: payload.ConflictStrategy,
+			UploadScope:      payload.UploadScope,
+		})
 		if err != nil {
 			writeArtifactRouteError(w, r, err)
 			return

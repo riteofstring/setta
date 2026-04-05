@@ -5,14 +5,6 @@ import (
 	"setta/internal/projectstate"
 )
 
-type BinaryUploadRequestInput struct{}
-
-type BinaryDownloadRequestInput struct {
-	ContentID string `json:"contentId"`
-}
-
-type BinaryDownloadResponse struct{}
-
 type ImportFilesToArtifactsRequestInput artifacts.ImportFilesRequest
 
 type ImportFilesToArtifactsResponseItem artifacts.ImportFilesResponseItem
@@ -73,12 +65,6 @@ type ArtifactSaveStatus artifacts.SaveStatus
 
 type ArtifactSaveResult artifacts.ArtifactSaveResult
 
-type UpdateArtifactsRequestInput struct {
-	Artifacts        []ArtifactUnion               `json:"artifacts"`
-	ConflictStrategy *ArtifactSaveConflictStrategy `json:"conflictStrategy,omitempty"`
-	UploadScope      *string                       `json:"uploadScope,omitempty"`
-}
-
 type UpdateArtifactsResponse []ArtifactSaveResult
 
 type DeleteArtifactRequestItem artifacts.DeleteRequestItem
@@ -94,8 +80,3 @@ type LoadCachedChartDataResponse []*artifacts.ChartDataArtifact
 type LoadCachedBrushStrokesResponse []*BrushStrokeArtifact
 
 type LoadCachedDrawAreaLayerItemTransformResponse []*DrawAreaLayerItemTransformArtifact
-
-type UpdateArtifactMsgContent struct {
-	Artifacts  []ArtifactUnion `json:"artifacts"`
-	UpdateType string          `json:"updateType"`
-}

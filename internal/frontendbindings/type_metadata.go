@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
@@ -59,11 +60,11 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 		"BaseChartSettingsUnion",
 		"LineChartSettings | ScatterChartSettings",
 	),
-	reflect.TypeOf(BinaryUploadRequestInput{}): aliasDeclaration(
-		"BinaryUploadRequestInput",
+	reflect.TypeOf(httpapi.BinaryUploadRequest{}): aliasDeclaration(
+		"BinaryUploadRequest",
 		"FormData",
 	),
-	reflect.TypeOf(BinaryDownloadResponse{}): aliasDeclaration(
+	reflect.TypeOf(httpapi.BinaryDownloadResponse{}): aliasDeclaration(
 		"BinaryDownloadResponse",
 		"Uint8Array",
 	),

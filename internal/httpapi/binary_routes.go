@@ -24,6 +24,14 @@ type BinaryRouteDependencies struct {
 	Store         *binarypayload.Store
 }
 
+type BinaryUploadRequest struct{}
+
+type BinaryDownloadRequest struct {
+	ContentID string `json:"contentId"`
+}
+
+type BinaryDownloadResponse struct{}
+
 func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
