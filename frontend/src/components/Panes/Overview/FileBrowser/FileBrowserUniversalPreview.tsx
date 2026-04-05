@@ -1,34 +1,24 @@
-import {
-  downloadBinary,
-  getFileBrowserDownloadUrls,
-  getFileBrowserFileContent,
-  type FilebrowserFileBrowserDownloadUrlEntry,
-  type FilebrowserFileContentResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_binary_download,
+  route_get_file_browser_download_urls,
+  route_get_file_browser_file_content,
+} from "utils/generatedEndpoints";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
+
 const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
   const module = await import("./FileBrowserSpreadsheetEditor");
   return { default: module.FileBrowserSpreadsheetEditor };
 });
-const TEXT_PREVIEW_CHAR_LIMIT = 4000;
+
+const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
-type FileBrowserDownloadURLsRouteResponse = ResponseDataAndStatus<
-  Array<FilebrowserFileBrowserDownloadUrlEntry>
->;
-type FileBrowserFileContentRouteResponse =
-  ResponseDataAndStatus<FilebrowserFileContentResponse>;
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+
 export function resolveFileBrowserPreviewKind({
   filePath,
   fileName,
@@ -46,6 +36,7 @@ export function resolveFileBrowserPreviewKind({
     size: null,
   });
 }
+
 export function isFileBrowserPreviewRequestStale(args: {
   activeRequestId: number;
   requestId: number;
@@ -57,6 +48,7 @@ export function isFileBrowserPreviewRequestStale(args: {
     args.currentSelectedPath !== args.requestedPath
   );
 }
+
 export function FileBrowserUniversalPreview({
   selectedNode,
 }: {
@@ -89,6 +81,7 @@ export function FileBrowserUniversalPreview({
   });
   const selectedFilePathRef = useRef<string | null>(selectedFilePath);
   const textPreviewRequestIdRef = useRef(0);
+
   const previewKind = useMemo(() => {
     if (!selectedFilePath || !selectedFileName) {
       return null;
@@ -98,9 +91,11 @@ export function FileBrowserUniversalPreview({
       fileName: selectedFileName,
     });
   }, [selectedFileName, selectedFilePath]);
+
   useEffect(() => {
     selectedFilePathRef.current = selectedFilePath;
   }, [selectedFilePath]);
+
   useEffect(() => {
     setFileUrl(null);
     setIsUrlLoading(false);
@@ -112,6 +107,7 @@ export function FileBrowserUniversalPreview({
       error: null,
     });
   }, [selectedFilePath]);
+
   useEffect(() => {
     if (!selectedFilePath) {
       return;
@@ -129,13 +125,9 @@ export function FileBrowserUniversalPreview({
     setUrlError(null);
     const loadUrl = async () => {
       try {
-        const response = (await callOpenAPI(
-          getFileBrowserDownloadUrls({
-            body: {
-              paths: [selectedFilePath],
-            },
-          } as Parameters<typeof getFileBrowserDownloadUrls>[0]),
-        )) as FileBrowserDownloadURLsRouteResponse;
+        const response = await route_get_file_browser_download_urls({
+          paths: [selectedFilePath],
+        });
         if (!isMounted) {
           return;
         }
@@ -165,6 +157,7 @@ export function FileBrowserUniversalPreview({
       isMounted = false;
     };
   }, [previewKind, selectedFilePath]);
+
   useEffect(() => {
     if (!selectedFilePath || previewKind !== "text") {
       return;
@@ -188,14 +181,10 @@ export function FileBrowserUniversalPreview({
     });
     const loadText = async () => {
       try {
-        const response = (await callOpenAPI(
-          getFileBrowserFileContent({
-            body: {
-              path: selectedFilePath,
-              maxBytes: TEXT_PREVIEW_MAX_BYTES,
-            },
-          } as Parameters<typeof getFileBrowserFileContent>[0]),
-        )) as FileBrowserFileContentRouteResponse;
+        const response = await route_get_file_browser_file_content({
+          path: selectedFilePath,
+          maxBytes: TEXT_PREVIEW_MAX_BYTES,
+        });
         if (!isMounted || isStaleRequest()) {
           return;
         }
@@ -208,13 +197,9 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const binaryResponse = (await callOpenAPI(
-          downloadBinary({
-            path: {
-              contentId: response.data.contentId,
-            },
-          } as Parameters<typeof downloadBinary>[0]),
-        )) as BinaryDownloadRouteResponse;
+        const binaryResponse = await route_binary_download(
+          response.data.contentId,
+        );
         if (!isMounted || isStaleRequest()) {
           return;
         }
@@ -228,9 +213,7 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const text = new TextDecoder().decode(
-          await binaryResponse.data.arrayBuffer(),
-        );
+        const text = new TextDecoder().decode(binaryResponse.data);
         const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
         if (!isMounted || isStaleRequest()) {
           return;
@@ -258,6 +241,7 @@ export function FileBrowserUniversalPreview({
       isMounted = false;
     };
   }, [previewKind, selectedFilePath]);
+
   if (!selectedNode) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
@@ -265,6 +249,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (selectedNode.type === "folder") {
     return (
       <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
@@ -272,6 +257,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (!selectedFile || !previewKind) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
@@ -279,6 +265,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "spreadsheet") {
     return (
       <div
@@ -297,6 +284,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "text") {
     if (textPreview.isLoading) {
       return (
@@ -332,6 +320,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "archive") {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
@@ -340,6 +329,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "other") {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
@@ -348,6 +338,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (isUrlLoading) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
@@ -355,6 +346,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (urlError || !fileUrl) {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 rounded-lg border border-setta-200 bg-white/70 px-4 text-center text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
@@ -366,6 +358,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "image") {
     return (
       <div
@@ -380,6 +373,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "pdf") {
     return (
       <div
@@ -394,6 +388,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "audio") {
     return (
       <div
@@ -406,6 +401,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   if (previewKind === "video") {
     return (
       <div
@@ -418,6 +414,7 @@ export function FileBrowserUniversalPreview({
       </div>
     );
   }
+
   return (
     <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
       Preview unavailable.
