@@ -75,6 +75,37 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `215` | 2026-04-05 21:54 EDT
+  - Subtask:
+    - add a focused live-reload regression proving the worktree canary restores a persisted shared viewport on `All Settings` after a full page reload
+  - Why:
+    - item `214` left a CDP-only mounted-tab framing mismatch where the worktree sometimes looked more overview-framed than read-only `main`
+    - before spending another product slice on viewport/camera hydration, the loop needed one bounded proof of whether the canary actually drops a persisted shared viewport on reload or whether that mounted-tab mismatch is just session/oracle noise
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary restores the persisted shared viewport on All Settings after a full reload`
+      - the spec forces `All Settings`, writes the shared viewport `{ x: 320, y: -180, zoom: 0.42 }`, reloads, and asserts the canary returns on the same transform with multiple visible sections
+      - setup now waits on the shared `All Settings` tab instead of the legacy-only `.react-flow__pane`, so the regression works whether the mounted session initially lands on canary or legacy
+  - Verification:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - refreshed run-046 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-046/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`
+    - targeted Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-046 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary restores the persisted shared viewport on All Settings after a full reload' --reporter=line`
+      - result: passed (`1 passed`, `22.1s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - forced `All Settings` active, wrote `{ x: 320, y: -180, zoom: 0.42 }`, reloaded the live worktree tab, and confirmed the hydrated transform stayed `translate(320px, -180px) scale(0.42)`
+      - post-reload snapshot stayed focused on the canary surface with `46` sections visible and no fallback fit-to-overview behavior
+  - Result:
+    - the worktree canary does restore a persisted backend/shared viewport through a full reload on the checked lane
+    - item `214`'s mounted-tab framing mismatch is now narrowed to session/oracle noise on untouched mounted tabs rather than a broken viewport hydration path in the canary runtime
+  - Next:
+    - do not spend another iteration on this reload-hydration lane unless a deterministic lane regresses
+    - return to the next real product frontier from the plan: the first scene-owned static layer / Pixi-owned graph output beyond the existing background while section bodies stay DOM-backed
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `213` | 2026-04-05 21:23 EDT
   - Subtask: make positive layout `w/h` authoritative for unlocked canary sections so the scene runtime only falls back to shared DOM size when layout geometry is actually missing.
   - Why:

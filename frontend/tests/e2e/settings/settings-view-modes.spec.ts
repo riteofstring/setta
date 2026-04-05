@@ -1396,6 +1396,98 @@ test("settings graph substrate canary restores the persisted shared viewport on 
   }
 });
 
+test("settings graph substrate canary restores the persisted shared viewport on All Settings after a full reload", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const allSettingsInitialViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const targetViewport = { x: 320, y: -180, zoom: 0.42 };
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: targetViewport,
+    });
+    const stateWithViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithViewport);
+
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(targetViewport.x, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(targetViewport.y, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(targetViewport.zoom, 2);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(allTab).toBeVisible();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(targetViewport.x, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(targetViewport.y, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(targetViewport.zoom, 2);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: allSettingsInitialViewport,
+    });
+    if (
+      initialActiveViewModeId &&
+      initialActiveViewModeId !== allSettingsViewModeId
+    ) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      await postBackend(page, "/setViewport", {
+        projectConfigId,
+        viewport: initialState.projectState.projectConfig.viewport,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary does not persist a provisional initial viewport", async ({
   page,
 }) => {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 21:40 EDT
+Last updated: 2026-04-05 21:54 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,41 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `215` adds a focused live-reload regression proving the worktree canary restores a persisted shared viewport on `All Settings` after a full page reload.
+  - Why this slice was needed:
+    - item `214` left an unresolved CDP-only mounted-tab framing mismatch where the worktree sometimes reloaded into a broader overview-style `All Settings` framing while read-only `main` stayed focused on `rotaryParamCodeObjDefault`
+    - before spending another product slice on viewport/camera hydration, the loop needed one bounded proof of whether the worktree canary actually loses a persisted shared viewport across a full reload or whether that mounted-tab mismatch is session/oracle noise
+    - this is a narrow normalization/support step directly tied to the current visual blocker, not a new parity lane
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary restores the persisted shared viewport on All Settings after a full reload`
+      - the new spec forces `All Settings`, writes the authoritative shared viewport `{ x: 320, y: -180, zoom: 0.42 }`, reloads the page, and asserts the canary comes back on the same transform with multiple rendered sections
+      - the setup waits on the shared `All Settings` tab visibility instead of the legacy-only `.react-flow__pane`, so the regression works whether the mounted session initially lands on the canary or legacy surface
+  - What this slice established:
+    - the worktree canary does restore a persisted backend/shared viewport through a full page reload; it did not fall back to a fresh overview fit on the checked lane
+    - the live worktree reload path came back at `translate(320px, -180px) scale(0.42)` with `46` canary sections visible
+    - that narrows the item `214` mounted-tab framing mismatch to session/oracle noise on untouched mounted tabs rather than a broken persisted viewport hydration path in the canary runtime
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - runtime refresh for fresh worktree token:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-046/worktree-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`
+    - targeted Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-046 worktree token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts --grep 'settings graph substrate canary restores the persisted shared viewport on All Settings after a full reload' --reporter=line`
+      - result: passed (`1 passed`, `22.1s`)
+    - CDP visual check:
+      - result: done
+      - note: a fresh-context sub-agent read `docs/guides/browser-mcp-quickstart.md`, forced `All Settings` active on the live worktree tab, wrote `{ x: 320, y: -180, zoom: 0.42 }`, reloaded the page, and confirmed the hydrated transform stayed `translate(320px, -180px) scale(0.42)`
+      - note: the post-reload snapshot remained a focused canary surface with `46` sections visible and no fallback fit-to-overview behavior
+  - Lane status:
+    - this closes the specific mounted reload hydration suspicion opened by item `214`
+    - do not reopen this reload-hydration lane unless a deterministic broader lane now shows real transform drift
+  - Next frontier:
+    - treat untouched mounted-session framing differences as session/oracle noise unless deterministic evidence regresses
+    - move back to the next real product frontier from the plan: the first scene-owned static layer / Pixi-owned graph output beyond the existing background, while section bodies stay DOM-backed
 
 - Ralph item `214` makes positive top-level layout `w/h` authoritative when shared node internals are rebuilt from backend project state.
   - Why this slice was needed:
