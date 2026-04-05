@@ -1,4 +1,3 @@
-import type { Node } from "forks/xyflow/core/types";
 import type { SettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 export type SettingsGraphSubstrateCanarySectionSeedNode = Pick<
@@ -10,31 +9,6 @@ export type SettingsGraphSubstrateCanarySectionSeedNodes = ReadonlyMap<
   string,
   SettingsGraphSubstrateCanarySectionSeedNode | undefined
 >;
-
-export function resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes(
-  nodeInternals: ReadonlyMap<
-    string,
-    Pick<Node, "height" | "sizeAuthority" | "width"> | undefined
-  >,
-): SettingsGraphSubstrateCanarySectionSeedNodes {
-  const nextSeedNodes = new Map<
-    string,
-    SettingsGraphSubstrateCanarySectionSeedNode | undefined
-  >();
-
-  for (const [sectionId, currentNode] of nodeInternals) {
-    if (!isSharedNodeSeedNode(currentNode)) {
-      continue;
-    }
-    nextSeedNodes.set(sectionId, currentNode);
-  }
-
-  if (nextSeedNodes.size === nodeInternals.size) {
-    return nodeInternals;
-  }
-
-  return nextSeedNodes;
-}
 
 export function resolveSettingsGraphSubstrateCanarySectionSeedNodes(
   seedNodes: SettingsGraphSubstrateCanarySectionSeedNodes,
@@ -108,14 +82,5 @@ function hasPositiveSeedSize(
     width > 0 &&
     typeof height === "number" &&
     height > 0
-  );
-}
-
-function isSharedNodeSeedNode(
-  currentNode: Pick<Node, "height" | "sizeAuthority" | "width"> | undefined,
-): currentNode is SettingsGraphSubstrateCanarySectionSeedNode {
-  return (
-    currentNode?.sizeAuthority === "sharedNode" &&
-    hasPositiveSeedSize(currentNode.width, currentNode.height)
   );
 }

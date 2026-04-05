@@ -1,62 +1,16 @@
-import type { Node } from "forks/xyflow/core/types";
 import { describe, expect, it } from "vitest";
-import {
-  resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes,
-  resolveSettingsGraphSubstrateCanarySectionSeedNodes,
-} from "./settingsGraphSubstrateCanarySectionSeedNodes";
+import { resolveSettingsGraphSubstrateCanarySectionSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 
 describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
-  it("keeps only explicit shared-node seeds when bootstrapping from global node internals", () => {
-    const nodeInternals = new Map<
+  it("prefers the previous canary shared-node resolved size over an earlier shared-node seed", () => {
+    const seedNodes = new Map<
       string,
-      Pick<Node, "height" | "sizeAuthority" | "width"> | undefined
-    >([
-      [
-        "shared-section",
-        {
-          width: 260,
-          height: 180,
-          sizeAuthority: "sharedNode",
-        },
-      ],
-      [
-        "section-model-section",
-        {
-          width: 550,
-          height: 78,
-          sizeAuthority: "sectionModel",
-        },
-      ],
-      [
-        "empty-section",
-        {
-          width: null,
-          height: null,
-          sizeAuthority: "sharedNode",
-        },
-      ],
-    ]);
-
-    expect(
-      resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes(nodeInternals),
-    ).toEqual(
-      new Map([
-        [
-          "shared-section",
-          {
-            width: 260,
-            height: 180,
-            sizeAuthority: "sharedNode",
-          },
-        ],
-      ]),
-    );
-  });
-
-  it("prefers the previous canary shared-node resolved size over stale global node internals", () => {
-    const nodeInternals = new Map<
-      string,
-      Pick<Node, "height" | "sizeAuthority" | "width"> | undefined
+      | {
+          height: number;
+          sizeAuthority: "sharedNode";
+          width: number;
+        }
+      | undefined
     >([
       [
         "section-a",
@@ -69,7 +23,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     ]);
 
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-      nodeInternals,
+      seedNodes,
       {
         sections: [
           {
@@ -88,7 +42,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
       },
     );
 
-    expect(nextSeedNodes).not.toBe(nodeInternals);
+    expect(nextSeedNodes).not.toBe(seedNodes);
     expect(nextSeedNodes.get("section-a")).toEqual({
       width: 420,
       height: 315,
@@ -96,10 +50,15 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     });
   });
 
-  it("leaves non-shared scene sections on the existing node-internals seed path", () => {
-    const nodeInternals = new Map<
+  it("leaves non-shared scene sections on the existing seed path", () => {
+    const seedNodes = new Map<
       string,
-      Pick<Node, "height" | "sizeAuthority" | "width"> | undefined
+      | {
+          height: number;
+          sizeAuthority: "sharedNode";
+          width: number;
+        }
+      | undefined
     >([
       [
         "section-a",
@@ -112,7 +71,7 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
     ]);
 
     const nextSeedNodes = resolveSettingsGraphSubstrateCanarySectionSeedNodes(
-      nodeInternals,
+      seedNodes,
       {
         sections: [
           {
@@ -131,6 +90,6 @@ describe("settingsGraphSubstrateCanarySectionSeedNodes", () => {
       },
     );
 
-    expect(nextSeedNodes).toBe(nodeInternals);
+    expect(nextSeedNodes).toBe(seedNodes);
   });
 });

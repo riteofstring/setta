@@ -12,7 +12,6 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import {
   useLocalStorage,
   useMisc,
-  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -22,7 +21,6 @@ import {
   selectSettingsGraphSubstrateCanaryLayoutSections,
 } from "./settingsGraphSubstrateCanaryModel";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
-import { resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes } from "./settingsGraphSubstrateCanarySectionSeedNodes";
 import {
   useSettingsGraphSubstrateCanarySurfaceRuntime,
   type SettingsGraphSubstrateCanarySurfaceRuntime,
@@ -57,7 +55,6 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     selectSettingsGraphSubstrateCanaryLayoutSections,
     _.isEqual,
   );
-  const nodeInternals = useNodeInternals((state) => state.x, _.isEqual);
   const canarySectionSeedNodes = useSettingsGraphSubstrateCanarySceneStore(
     (state) => state.sectionSeedNodes,
     _.isEqual,
@@ -105,19 +102,13 @@ export function useSettingsGraphSubstrateCanaryController(): SettingsGraphSubstr
     }),
     _.isEqual,
   );
-  const sectionSeedNodes = useMemo(() => {
-    if (canarySectionSeedNodes.size > 0) {
-      return canarySectionSeedNodes;
-    }
-    return resolveSettingsGraphSubstrateCanaryBootstrapSeedNodes(nodeInternals);
-  }, [canarySectionSeedNodes, nodeInternals]);
   const sections = useMemo(() => {
     return resolveSettingsGraphSubstrateCanarySections(
       layoutSections,
-      sectionSeedNodes,
+      canarySectionSeedNodes,
       sectionSizingPolicy,
     );
-  }, [layoutSections, sectionSeedNodes, sectionSizingPolicy]);
+  }, [canarySectionSeedNodes, layoutSections, sectionSizingPolicy]);
   const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
     (state) => ({
       overviewTrueWidth: state.overviewTrueWidth,

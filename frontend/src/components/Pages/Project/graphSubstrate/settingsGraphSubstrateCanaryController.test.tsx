@@ -36,7 +36,6 @@ const hoisted = vi.hoisted(() => ({
       sectionId: "layout-a",
     },
   ],
-  nodeInternals: new Map<string, Record<string, unknown>>(),
   reactFlowSelectorState: {
     nodeDragThreshold: 8,
     zoomActivationKeyPressed: true,
@@ -129,10 +128,6 @@ vi.mock("state/definitions", () => ({
     (selector: (state: typeof hoisted.projectState) => unknown) =>
       selector(hoisted.projectState),
   ),
-  useNodeInternals: vi.fn(
-    (selector: (state: { x: typeof hoisted.nodeInternals }) => unknown) =>
-      selector({ x: hoisted.nodeInternals }),
-  ),
   useSettings: vi.fn(
     (selector: (state: typeof hoisted.settingsState) => unknown) =>
       selector(hoisted.settingsState),
@@ -197,7 +192,6 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     };
     hoisted.projectState.projectConfig.viewportInitialized = true;
     hoisted.layoutSections = [{ sectionId: "layout-a" }];
-    hoisted.nodeInternals = new Map();
     hoisted.reactFlowSelectorState.nodeDragThreshold = 8;
     hoisted.reactFlowSelectorState.zoomActivationKeyPressed = true;
     hoisted.sectionSeedNodes = new Map();
@@ -260,7 +254,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       .mock.calls[0]?.[0];
 
     expect(resolvedSectionsArgs?.[0]).toEqual(hoisted.layoutSections);
-    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.nodeInternals);
+    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.sectionSeedNodes);
     expect(runtimeArgs).toEqual(
       expect.objectContaining({
         defaultZoomLevel: 1.25,
@@ -288,17 +282,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     );
   });
 
-  it("prefers the canary-local shared-node seed cache over stale global node internals when recomputing sections", async () => {
-    hoisted.nodeInternals = new Map([
-      [
-        "section-a",
-        {
-          width: 260,
-          height: 180,
-          sizeAuthority: "sharedNode",
-        },
-      ],
-    ]);
+  it("prefers the canary-local shared-node seed cache when recomputing sections", async () => {
     hoisted.sectionSeedNodes = new Map([
       [
         "section-a",
@@ -337,26 +321,7 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
     });
   });
 
-  it("falls back only to explicit shared-node bootstrap seeds when the canary-local seed cache is empty", async () => {
-    hoisted.nodeInternals = new Map([
-      [
-        "section-a",
-        {
-          width: 260,
-          height: 180,
-          sizeAuthority: "sharedNode",
-        },
-      ],
-      [
-        "section-b",
-        {
-          width: 550,
-          height: 78,
-          sizeAuthority: "sectionModel",
-        },
-      ],
-    ]);
-
+  it("keeps first-mount section seeding on the canary-local cache when no shared seed has been established yet", async () => {
     await act(async () => {
       root.render(<ControllerProbe />);
     });
@@ -365,18 +330,8 @@ describe("useSettingsGraphSubstrateCanaryController", () => {
       resolveSettingsGraphSubstrateCanarySections,
     ).mock.calls[0];
 
-    expect(resolvedSectionsArgs?.[1]).toEqual(
-      new Map([
-        [
-          "section-a",
-          {
-            width: 260,
-            height: 180,
-            sizeAuthority: "sharedNode",
-          },
-        ],
-      ]),
-    );
+    expect(resolvedSectionsArgs?.[1]).toBe(hoisted.sectionSeedNodes);
+    expect(resolvedSectionsArgs?.[1]).toEqual(new Map());
   });
 
   it("routes pane background clicks through the controller-owned pane click handler", async () => {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 05:05 EDT
+Last updated: 2026-04-07 05:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,98 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `256` cleared the pending verification/commit lane for item `255` after one allowed worktree lifecycle recovery; there is no new product code beyond the existing controller/bootstrap-seed slice.
+
+  - Why this pass stopped here:
+    - item `255` already contained the bounded product change, so the only legitimate next step was to rerun the required canary-health verification and commit that exact slice if the surface was healthy
+    - the first fresh-context CDP sub-agent proved transport could attach again, but the loop-context bootstrap URL had already gone stale and the bootstrap page rejected the token before the settings app mounted
+    - after a runtime refresh produced a fresh bootstrap URL, a second fresh-context CDP attach regressed to `Network.enable timed out`, so this pass used the one allowed headless `./aireset.sh` recovery, refreshed runtime values, reran the CDP gate successfully, and stopped before starting another geometry-authority change
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; this remained a bounded first-mount canary-health gate only
+  - Product/test change:
+    - no new product code beyond item `255`; this pass commits the existing updates in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed (`2 files`, `8 tests`)
+    - CDP visual gate:
+      - done
+      - fresh-context CDP sub-agent attempt 1 attached successfully but the original loop-context bootstrap URL was stale; the bootstrap page rendered `Token rejected. Request a new token and try again.`
+      - runtime refresh before retry:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-022/worktree-ai.log`
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: refreshed backend `8076`, debug port `9297`, and a fresh bootstrap URL rooted at `8076`
+      - fresh-context CDP sub-agent attempt 2 -> blocked again before page load; `new_page` failed with `Network.enable timed out`
+      - one allowed recovery:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: restarted the worktree on frontend `3075`, backend `8075`, bootstrap session `6b6d41`, and debug port `9297`
+      - post-recovery runtime refresh:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-022/worktree-ai.log`
+        - result: confirmed backend `8075`, a fresh bootstrap URL rooted at `8075`, and debug port `9297`; the runtime log still reported stale frontend `3076`, so the successful retry trusted the newly launched `3075` frontend reached through bootstrap
+      - fresh-context CDP sub-agent retry after recovery -> done; bootstrapped through `http://127.0.0.1:8075/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3075/settings`, and the DevTools snapshot/screenshot showed a populated `All Settings` substrate with rendered section bodies/tag rows rather than a blank or detached first-mount surface
+  - Lane status:
+    - the item `255` controller/bootstrap-seed slice is now verified well enough to commit
+    - the controller no longer depends on global `nodeInternals` to seed first-mount shared-node sizes, so that geometry-authority leak is closed at the controller boundary
+    - do not spend the next pass reopening this same verification lane unless the live worktree canary becomes unhealthy again
+  - Next frontier:
+    - move the next geometry-authority slice into scene-runtime / scene-snapshot / node-sync ownership rather than the controller, starting with the measured DOM size feedback that still flows through `useSectionElementSizes(...)`, `resolvedSize`, and the later global node-internals sync path
+  - LOOP_TERMINAL_MARKER: none
+
+- Ralph item `255` removed the controller's remaining first-mount `sharedNode` bootstrap read from global `nodeInternals`, but the required CDP canary-health gate stayed blocked after the one allowed worktree recovery so this slice is not committed yet.
+
+  - Why this pass stopped here:
+    - item `254` explicitly named the remaining first-mount `sharedNode` seed dependency as the next geometry-authority frontier, and the next meaningful slice was to remove that controller-level global read rather than lift the seam again
+    - `useSettingsGraphSubstrateCanaryController()` still subscribed to `useNodeInternals()` only to build an empty-cache bootstrap seed map, even though `resolveTopLevelSectionNodeSize(...)` already has a deterministic section-model/layout fallback when the canary-local seed cache is empty
+    - this pass stayed bounded to that controller/bootstrap seam only; it does not change scene-runtime measurement ownership or the later global node-internals sync path
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened; the visual gate was a bounded worktree canary-health check on first mount only
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts)
+      - removed the controller's `useNodeInternals()` bootstrap fallback so section recomputes now seed only from the canary-local `sectionSeedNodes` cache
+      - first mount now falls through to the existing section-model/layout sizing path until local canary measurements establish shared-node seeds
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx)
+      - locked that the controller passes the canary-local seed map directly and keeps the first-mount seed map empty when no local shared-node seed exists yet
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts)
+      - removed the now-unused global-bootstrap seed helper so the module only maintains canary-local shared-node seed updates
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts)
+      - tightened focused coverage around local shared-node seed updates after the bootstrap helper removal
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryController.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionSeedNodes.test.ts`
+      - result: passed (`2 files`, `8 tests`)
+    - CDP visual gate:
+      - blocked
+      - fresh-context CDP sub-agent attempt 1 -> blocked before page inspection; `chrome-devtools-mcp list_pages` / attach failed with `Network.enable timed out`
+      - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - recovery output reported frontend `3076`, backend `8076`, debug port `9298`, and bootstrap session `21388d`
+      - canonical runtime refresh remained stale after recovery:
+        - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-021/worktree-ai.log`
+        - result: still reported the pre-restart session `a6243d` and debug port `9297`
+      - fallback runtime refresh:
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: confirmed live Setta session `21388d` on backend `8076` with a fresh bootstrap URL rooted at `8076`
+        - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+        - result: reported reachable Chrome DevTools on debug port `9297` via process scan even though the reset script printed `9298`
+      - fresh-context CDP sub-agent attempt 2 -> blocked again after recovery; `chrome-devtools-mcp list_pages` timed out, and `new_page` against the live bootstrap URL still failed with `Network.enable timed out`
+  - Lane status:
+    - the controller no longer depends on global `nodeInternals` to seed first-mount shared-node sizes, so the geometry-authority leak at that boundary is removed in code
+    - this slice is not committed because the required CDP visual confirmation could not be completed after the allowed recovery attempt
+    - the current external blocker is Chrome DevTools MCP transport, not another remaining seam-lift inside the controller
+  - Next frontier:
+    - rerun the required bounded canary-health CDP check for this exact slice once Chrome DevTools MCP can attach again; if the graph surface is healthy on first mount, commit this code before starting another geometry-authority change
+    - if the next fresh iteration still hits the same post-restart `Network.enable timed out` / `list_pages` timeout pair, treat Chrome DevTools transport as the active blocker instead of extending graph-substrate product work
+    - because the code slice is already landed locally, do not spend the next pass on another seam-lift or support-only refactor in the controller
+    - the next recovery mode should be a fresh outer-loop worktree lifecycle restart rather than more in-iteration product edits
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `254` cleared the pending verification/commit lane for the filtered bootstrap-seed slice from item `253` after one allowed worktree recovery, without opening a new geometry-authority change.
 
