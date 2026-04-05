@@ -265,6 +265,70 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
+  it("clears stale shared node size when measured fallback disappears without layout authority", async () => {
+    await act(async () => {
+      root.render(
+        <SceneRuntimeProbe
+          draggingSectionId={null}
+          override={null}
+          sections={[createSection()]}
+        />,
+      );
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({
+        "section-a": { width: 280, height: 190 },
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: 190,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: 280,
+        zIndex: 2,
+      });
+    });
+
+    act(() => {
+      useSectionElementSizeRegistry.setState({}, true);
+    });
+
+    await vi.waitFor(() => {
+      expect(readSceneSnapshot(host)).toEqual({
+        sceneBounds: null,
+        sections: [
+          {
+            height: null,
+            position: { x: 120, y: 80 },
+            positionAndSizeLocked: false,
+            renderedPosition: { x: 120, y: 80 },
+            resolvedSize: null,
+            sectionId: "section-a",
+            tempZIndex: 2,
+            width: null,
+            zIndex: 2,
+          },
+        ],
+      });
+      expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+        height: null,
+        id: "section-a",
+        position: { x: 120, y: 80 },
+        style: undefined,
+        tempZIndex: 2,
+        type: undefined,
+        width: null,
+        zIndex: 2,
+      });
+    });
+  });
+
   it("keeps layout position authoritative while applying transient drag overrides to the shared scene snapshot", async () => {
     await act(async () => {
       root.render(

@@ -75,6 +75,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `199` | 2026-04-05 18:06 EDT
+  - Subtask: stop canary node sync from preserving stale previously measured width/height after the current scene snapshot loses authoritative size.
+  - Why:
+    - item `198` removed unnecessary live measurement subscriptions for locked sections with authoritative layout size, but `settingsGraphSubstrateCanaryNodeSync.ts` still fell back to `currentNode.width` and `currentNode.height`
+    - that let an older measured DOM size remain visible in shared node internals even when the current canary snapshot no longer had layout or measured geometry for the section
+    - this slice keeps the geometry-authority boundary explicit instead of letting stale shared node state outlive the authoritative scene snapshot
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+      - width/height now resolve only from the current scene snapshot's resolved size or persisted layout size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - added coverage proving stale prior measured size is cleared when the current scene snapshot has no authoritative size
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - added runtime coverage proving the hook clears shared node width/height back to `null` when the measured fallback disappears and no layout size exists
+  - Verification:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`5 files`, `20 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanaryNodeSync|settingsGraphSubstrateCanarySceneRuntime" || true` -> no matches
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-030/worktree-ai.log` -> worktree healthy on `3076/8076`, refreshed bootstrap token, `debugPort: 9297`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-030/main-ai.log` -> read-only `main` healthy on `3087/8087`
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-030 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-030 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `40.9s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration `16.68895ms`; worktree average frame duration `17.04586ms`
+      - worktree recorded one `55ms` long task but no transform drift
+    - fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md`
+    - direct `/settings` CDP compare retry on worktree `3076` and read-only `main` `3087` -> no blocking gross graph-surface drift around the normalized `rotaryParamCodeObjDefault` lane; extra worktree chat/window chrome remained oracle noise
+  - Result:
+    - shared node internals now clear width/height back to `null` when the canary currently has no authoritative size instead of preserving an older measured DOM size
+    - scene snapshot and shared node internals now agree on the same no-size authority boundary
+    - the broad normalized regression lane remains green after the change
+  - Next:
+    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - otherwise keep removing stale DOM-size authority only where an existing authoritative signal can be proven; the next bounded candidate is auditing shared-node/top-level-layout persistence paths such as `createTopLevelSectionLayoutDict(...)`
+LOOP_TERMINAL_MARKER: none
+
 
 ## 2026-04-03 060
 

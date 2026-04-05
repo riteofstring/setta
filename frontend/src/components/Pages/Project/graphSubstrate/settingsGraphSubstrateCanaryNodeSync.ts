@@ -9,10 +9,8 @@ export function syncSettingsGraphSubstrateCanaryNodes(
 
   for (const section of sceneSnapshot.sections) {
     const currentNode = nodeInternals.get(section.sectionId);
-    const width =
-      section.resolvedSize?.width ?? currentNode?.width ?? section.width;
-    const height =
-      section.resolvedSize?.height ?? currentNode?.height ?? section.height;
+    const width = section.resolvedSize?.width ?? section.width;
+    const height = section.resolvedSize?.height ?? section.height;
     const position = section.renderedPosition;
     if (
       currentNode &&

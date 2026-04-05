@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 17:56 EDT
+Last updated: 2026-04-05 18:06 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,58 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `199` cut one more stale DOM-size authority path out of the canary sync layer: shared node internals no longer keep reasserting a previously measured width/height after the current scene snapshot loses authoritative size.
+  - Why this slice was needed:
+    - item `198` already stopped unnecessary live measurement subscriptions for locked sections with authoritative layout size, but `settingsGraphSubstrateCanaryNodeSync.ts` still fell back to `currentNode.width` and `currentNode.height`
+    - that meant an old measured size could survive in shared node state even after the current scene snapshot no longer had layout or measured geometry for that section
+    - keeping that stale fallback alive contradicts the geometry-authority direction in the plan because shared consumers can keep seeing a size the current canary runtime no longer considers authoritative
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts`
+      - width/height now come only from the current scene snapshot's resolved size or persisted layout size, not from stale `currentNode` fallback
+    - updated focused tests:
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+  - What this slice established:
+    - shared node internals now clear width/height back to `null` when the canary currently has no authoritative size instead of silently preserving an older measured DOM size
+    - scene snapshot state and node-internals sync now agree on the same authority boundary for the no-size case
+    - the broad normalized `rotaryParamCodeObjDefault` regression lane stayed green on refreshed run-030 sessions:
+      - Playwright again ended on the same transform on both sides (`x -258.735`, `y -8992.72`, `zoom 1.18577`)
+      - reference average frame duration was `16.68895ms`; worktree average frame duration was `17.04586ms`
+      - worktree recorded one `55ms` long task but no transform or visible-section drift versus read-only `main`
+    - the required CDP visual gate is green on the same lane after one bounded fresh-page retry:
+      - the first fresh direct `/settings` check was limited because read-only `main` was still on the `PREPARING SETTA` loading gate
+      - one immediate fresh direct `/settings` retry on worktree `3076` and read-only `main` `3087` showed no blocking gross graph-surface drift around `rotaryParamCodeObjDefault`
+      - extra worktree chat/window chrome remained oracle noise outside the target lane
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`5 files`, `20 tests`)
+    - narrowed typecheck sanity:
+      - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanaryNodeSync|settingsGraphSubstrateCanarySceneRuntime" || true`
+      - result: no matches
+    - runtime refresh for fresh tokens:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-030/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-030/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap token and `debugPort: 9297`; read-only `main` healthy on `3087/8087`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<refreshed run-030 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed run-030 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `40.9s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - note: the first direct `/settings` compare was briefly limited by a `PREPARING SETTA` gate on read-only `main`, but one immediate fresh-page retry showed no blocking gross graph-surface drift around `rotaryParamCodeObjDefault`
+  - Lane status:
+    - this is another real geometry-authority slice, not a forwarding hop or a third oracle-only pass
+    - the broad normalized `rotaryParamCodeObjDefault` lane remains regression coverage only
+  - Next frontier:
+    - if explicit approval arrives to add Pixi, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
+    - if dependency approval is still not available, keep removing stale DOM-size authority only where an existing authoritative signal already exists; the next bounded candidate is auditing shared-node/top-level-layout persistence paths such as `createTopLevelSectionLayoutDict(...)` instead of reopening parity-only work
 
 - Ralph item `198` cut one more real DOM-measurement dependency out of the canary scene runtime: locked sections with authoritative layout width/height no longer subscribe to shared section-size registry churn.
   - Why this slice was needed:
