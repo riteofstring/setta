@@ -26,13 +26,12 @@ Chat sections store the following fields on the section impl:
 
 ## Managed mode
 
-Managed mode uses the Go AI routes and runtime in `internal/httpapi/llm_routes.go`,
-`internal/managedchat`, and `internal/managedllm`:
+Managed mode uses the central LLM chat manager:
 
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
-- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`), and the Go runtime persists those settings onto the run inputs before provider execution starts.
-- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state from the Go live runtime.
+- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`) and the backend injects those settings into the run prompt metadata.
+- Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
   - Response includes `alreadyStopped`, plus optional `stoppedRunId` and `stoppedMessageId` for stop-state reconciliation.
@@ -93,9 +92,9 @@ Scriptable mode keeps chat state inside the section:
 
 - Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).
 - Attachments are stored as File artifacts; messages and send payloads carry `attachments` metadata (`id`, `name`, `mimeType`, `size`).
-- Limits use the shared attachment policy scope `chat`: max files, max bytes per file, and optional MIME-prefix filtering.
+- Limits use the shared attachment policy scope `chat`, driven by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
 - In share mode, attachments require `allowParamChanges`; the UI disables attachment actions and the backend enforces the same policy on artifact updates.
-- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after the shared attachment-token TTL.
+- Clients resolve download URLs via `Route.GET_ATTACHMENT_DOWNLOAD_URL(S)`; tokens expire after `C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS`.
 - The chat UI previews attachments in-place; clicking an attachment opens a preview dialog (images, text, PDF, audio, video). Large files may be truncated or show a "preview unavailable" message.
 - Managed mode inlines attachments into the LLM prompt: text files are inserted as `[Attachment: ...]` blocks, supported images (JPEG/PNG/GIF/WebP) are embedded as data URLs, and other files are represented by metadata placeholders.
 - Unsupported image types are rejected client-side and skipped during attachment import.
@@ -124,14 +123,16 @@ behalf of a scoped Chat section are restricted to the sections reachable via
 these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
 
-Linked chat edges are still surfaced in scoped chat context and executable-target
-discovery, but the old standalone `invoke_linked_chat` MCP tool is not part of
-the current Go-owned MCP surface.
+Linked chat edges also back the `invoke_linked_chat` MCP tool:
 
-- Only directly linked `chat_chat` targets with executable chat configuration
-  are advertised in linked-chat context blocks.
-- Project Chat remains unscoped and does not gain extra tool access from these
-  links.
+- It can invoke only a directly linked target from a `chat_chat` edge.
+- It requires section-scoped agentic context; unscoped Project Chat cannot call
+  it implicitly.
+- The target chat section reuses or persists its managed `chatId` binding before
+  starting the run.
+- Recursion is bounded to one nested hop and cycles are rejected explicitly.
+- Runtime policy still applies: linked-chat invocation requires LLM access and
+  run-start authorization.
 
 ## Workflow integration
 

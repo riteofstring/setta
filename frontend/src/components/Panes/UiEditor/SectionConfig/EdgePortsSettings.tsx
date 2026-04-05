@@ -15,7 +15,7 @@ import {
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
@@ -36,7 +36,6 @@ import {
   route_set_variant_json_source_keys,
 } from "utils/generatedEndpoints";
 import {
-  BaseDictSectionImplUnion,
   isBaseDictSectionImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
@@ -105,7 +104,7 @@ function buildParamLabels(
     const path = requiredParamIdsToPaths[paramId];
     const label = path
       ? paramNameFromPathArray(state, sectionId, path)
-      : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
+      : getParamDisplayName(state, sectionId, paramId);
     return { id: paramId, label };
   });
 }
@@ -300,7 +299,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setSectionVariantImplValue<BaseDictSectionImplUnion>(
+        setSectionVariantImplValue<"BaseDictSection">(
           state,
           sectionId,
           targetVariantId,
@@ -328,7 +327,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           );
           if (shouldRollback) {
             useProjectState.setState((state) => {
-              setSectionVariantImplValue<BaseDictSectionImplUnion>(
+              setSectionVariantImplValue<"BaseDictSection">(
                 state,
                 sectionId,
                 targetVariantId,
