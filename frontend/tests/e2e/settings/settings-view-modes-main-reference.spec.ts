@@ -8283,10 +8283,6 @@ test("settings graph parity probe keeps the section sizing policy title editing 
   page,
 }) => {
   test.slow();
-  test.fail(
-    true,
-    "Known sectionSizingPolicy drift: the trusted authoritative viewport-shift plus toolbar-zoom path still diverges on the canary versus read-only main.",
-  );
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||

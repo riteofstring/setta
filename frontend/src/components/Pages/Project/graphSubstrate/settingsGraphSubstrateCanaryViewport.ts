@@ -177,16 +177,25 @@ export function resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
   };
 }
 
-export function resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
+export function resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
+  viewport: GraphViewport,
   viewportSize: GraphViewportSize,
-): Position | null {
-  if (viewportSize.width <= 0 || viewportSize.height <= 0) {
-    return null;
+  options: {
+    nextZoom: number;
+    minZoom: number;
+    maxZoom: number;
+  },
+): GraphViewport {
+  const centerScreenPoint =
+    resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(viewportSize);
+  if (!centerScreenPoint) {
+    return viewport;
   }
-  return {
-    x: viewportSize.width / 2,
-    y: viewportSize.height / 2,
-  };
+  return zoomViewportAroundScreenPoint(
+    viewport,
+    centerScreenPoint,
+    Math.min(options.maxZoom, Math.max(options.minZoom, options.nextZoom)),
+  );
 }
 
 export function resolveSettingsGraphSubstrateCanaryWheelOutcome(
@@ -295,4 +304,16 @@ function resolveWheelDeltaModeFactor(deltaMode: number): number {
     return 0.002;
   }
   return 1;
+}
+
+function resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
+  viewportSize: GraphViewportSize,
+): Position | null {
+  if (viewportSize.width <= 0 || viewportSize.height <= 0) {
+    return null;
+  }
+  return {
+    x: viewportSize.width / 2,
+    y: viewportSize.height / 2,
+  };
 }

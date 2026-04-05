@@ -49,10 +49,10 @@ import {
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
+  resolveSettingsGraphSubstrateCanaryToolbarZoomViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   resolveSettingsGraphSubstrateCanaryWheelOutcome,
-  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
   shouldPersistSettingsGraphSubstrateCanaryViewport,
   type SettingsGraphSubstrateCanaryViewportOwnership,
@@ -62,7 +62,6 @@ import {
   fitViewportToWorldRect,
   screenDeltaToWorldDelta,
   translateViewport,
-  zoomViewportAroundScreenPoint,
   type GraphRect,
   type GraphViewport,
 } from "./viewportTransform";
@@ -118,6 +117,9 @@ export function SettingsGraphSubstrateCanary() {
   const isWheelZoomingRef = useRef(false);
   const viewportOwnershipRef =
     useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
+  // Legacy toolbar zoom reads from d3's last locally-owned transform even
+  // after backend-originated viewport writes update the rendered surface.
+  const toolbarZoomViewportBaseRef = useRef<GraphViewport | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
@@ -322,6 +324,9 @@ export function SettingsGraphSubstrateCanary() {
     if (!sharedViewport || viewportOwnershipRef.current === "local") {
       return;
     }
+    if (toolbarZoomViewportBaseRef.current === null) {
+      toolbarZoomViewportBaseRef.current = sharedViewport;
+    }
     viewportOwnershipRef.current = "shared";
     setViewport((current) => {
       if (
@@ -370,6 +375,7 @@ export function SettingsGraphSubstrateCanary() {
         return current;
       }
       viewportOwnershipRef.current = "auto-fit";
+      toolbarZoomViewportBaseRef.current = nextViewport;
       return nextViewport;
     });
   }, [
@@ -446,6 +452,7 @@ export function SettingsGraphSubstrateCanary() {
         return baseViewport;
       }
       viewportOwnershipRef.current = "local";
+      toolbarZoomViewportBaseRef.current = nextViewport;
       return nextViewport;
     });
   }
@@ -474,48 +481,56 @@ export function SettingsGraphSubstrateCanary() {
           if (!effectiveViewport) {
             return currentViewport;
           }
-          return translateViewport(effectiveViewport, delta);
+          const nextViewport = translateViewport(effectiveViewport, delta);
+          toolbarZoomViewportBaseRef.current = nextViewport;
+          return nextViewport;
         });
         return true;
       },
       zoomBy: (factor: number) => {
         const { resolvedViewport, wrapperDimensions } =
           canaryViewportStateRef.current;
-        const centerScreenPoint =
-          resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
-            wrapperDimensions,
-          );
-        if (!resolvedViewport || !centerScreenPoint || factor === 1) {
+        if (!resolvedViewport || factor === 1) {
           return;
         }
+        const toolbarZoomBaseViewport =
+          toolbarZoomViewportBaseRef.current ?? resolvedViewport;
         const { minZoom, maxZoom } = useSettings.getState().gui;
         const nextZoom = Math.min(
           maxZoom,
           Math.max(minZoom, resolvedViewport.zoom * factor),
         );
-        applyControlledViewportChange((currentViewport) =>
-          zoomViewportAroundScreenPoint(
-            currentViewport,
-            centerScreenPoint,
-            nextZoom,
+        applyControlledViewportChange(() =>
+          resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
+            toolbarZoomBaseViewport,
+            wrapperDimensions,
+            {
+              maxZoom,
+              minZoom,
+              nextZoom,
+            },
           ),
         );
       },
       zoomTo: (zoomLevel: number) => {
-        const centerScreenPoint =
-          resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
-            canaryViewportStateRef.current.wrapperDimensions,
-          );
-        if (!centerScreenPoint) {
+        const { resolvedViewport, wrapperDimensions } =
+          canaryViewportStateRef.current;
+        if (!resolvedViewport) {
           return;
         }
+        const toolbarZoomBaseViewport =
+          toolbarZoomViewportBaseRef.current ?? resolvedViewport;
         const { minZoom, maxZoom } = useSettings.getState().gui;
         const nextZoom = Math.min(maxZoom, Math.max(minZoom, zoomLevel));
-        applyControlledViewportChange((currentViewport) =>
-          zoomViewportAroundScreenPoint(
-            currentViewport,
-            centerScreenPoint,
-            nextZoom,
+        applyControlledViewportChange(() =>
+          resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
+            toolbarZoomBaseViewport,
+            wrapperDimensions,
+            {
+              maxZoom,
+              minZoom,
+              nextZoom,
+            },
           ),
         );
       },
@@ -773,12 +788,12 @@ export function SettingsGraphSubstrateCanary() {
     }
 
     viewportOwnershipRef.current = "local";
-    setViewport(
-      translateViewport(activePan.originViewport, {
-        x: event.clientX - activePan.originScreenPoint.x,
-        y: event.clientY - activePan.originScreenPoint.y,
-      }),
-    );
+    const nextViewport = translateViewport(activePan.originViewport, {
+      x: event.clientX - activePan.originScreenPoint.x,
+      y: event.clientY - activePan.originScreenPoint.y,
+    });
+    toolbarZoomViewportBaseRef.current = nextViewport;
+    setViewport(nextViewport);
     event.preventDefault();
   }
 

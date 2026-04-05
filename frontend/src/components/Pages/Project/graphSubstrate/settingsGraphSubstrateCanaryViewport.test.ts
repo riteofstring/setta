@@ -5,10 +5,10 @@ import {
   resolveSettingsGraphSubstrateCanaryEffectivePaneWidths,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
+  resolveSettingsGraphSubstrateCanaryToolbarZoomViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   resolveSettingsGraphSubstrateCanaryWheelOutcome,
-  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
   shouldPersistSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
@@ -185,22 +185,27 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
     });
   });
 
-  it("anchors zoom controls to the full graph surface center", () => {
-    expect(
-      resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint({
-        width: 1440,
-        height: 828,
-      }),
-    ).toEqual({
-      x: 720,
-      y: 414,
-    });
-    expect(
-      resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint({
-        width: 0,
-        height: 828,
-      }),
-    ).toBeNull();
+  it("matches legacy toolbar center-point zoom once the d3-owned base viewport is supplied", () => {
+    const nextViewport = resolveSettingsGraphSubstrateCanaryToolbarZoomViewport(
+      {
+        x: -265.613,
+        y: -522.798,
+        zoom: 0.988142,
+      },
+      {
+        width: 1280,
+        height: 648,
+      },
+      {
+        minZoom: 0.1,
+        maxZoom: 2,
+        nextZoom: 0.988142 * 1.2,
+      },
+    );
+
+    expect(nextViewport.x).toBeCloseTo(-446.736, 3);
+    expect(nextViewport.y).toBeCloseTo(-692.158, 3);
+    expect(nextViewport.zoom).toBeCloseTo(1.18577, 5);
   });
 
   it("matches legacy pan-on-scroll behavior for plain wheel input", () => {

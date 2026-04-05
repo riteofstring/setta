@@ -5473,3 +5473,53 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - investigate and fix why the `sectionSizingPolicy` targeted fit/zoom landing leaves the canary farther right/down than read-only main, then rerun this expected-fail lane until it turns into a normal pass
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-05 04:34 EDT - Ralph item 154
+
+- Item: Close the normalized `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom drift lane by matching the legacy d3 toolbar zoom base after backend-driven viewport writes.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - item `153` had already ruled out geometry authority, but the live lane still failed on the same `transformDelta.x` gap around `143.658`
+    - live probe work before this pass showed fit-view and the authoritative `+120,+80` viewport shift already matched, so the remaining drift was isolated to the post-shift toolbar `zoom in`
+    - the legacy path still zoomed from d3's last locally-owned transform after `/setViewport`, while the canary was zooming from the latest shared viewport
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - added `toolbarZoomViewportBaseRef` to preserve the last locally-owned viewport for toolbar zoom
+      - seeded that ref from the initial shared/auto-fit viewport, updated it on local pan/fit/zoom changes, and used it for toolbar `zoomBy` / `zoomTo`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+      - replaced the browser-dependent d3 simulation helper with pure center-point toolbar zoom math once the correct base viewport is supplied
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - added focused coverage for the toolbar zoom math on the legacy d3-owned base viewport
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - removed the stale `test.fail(true, ...)` marker from the named `sectionSizingPolicy` lane
+  - What this slice established:
+    - the focused viewport unit coverage passed after the toolbar-base change
+    - the first live rerun with the old expected-fail marker returned `Expected to fail, but passed`, which confirmed the product fix before the lane marker was removed
+    - rerunning the same named lane after removing the marker passed normally on the live run-014 surfaces (`1 passed`, `39.9s`)
+    - rerunning that fixed lane together with the clean `chartSectionDefault` control lane also passed on the same live surfaces (`2 passed`, `1.2m`)
+    - fresh-context CDP showed the normalized `sectionSizingPolicy` graph surface matched between worktree and read-only main; the title bbox matched exactly at `x=595.9283`, `y=271.0273`, `w=428.8536`, `h=21.7391`
+    - the only visible difference was outside the graph surface: the top-right workspace label showed `pixijs-graph` on the worktree and `main` on the reference
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - focused unit tests:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`1 file`, `13 tests`)
+  - targeted live-runtime Playwright rerun with the stale expected-fail marker still present:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed as an unexpected pass (`Expected to fail, but passed`)
+  - targeted live-runtime Playwright rerun after removing the expected-fail marker:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `39.9s`)
+  - targeted live-runtime Playwright rerun with the fixed `sectionSizingPolicy` lane plus the clean chart control lane:
+    - `worktree_json=\"$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-014/worktree-ai.log)\"; main_json=\"$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-014/main-ai.log)\"; ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary|settings graph parity probe keeps the section sizing policy title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`2 passed`, `1.2m`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized the live worktree `http://127.0.0.1:3076/settings` and read-only main `http://127.0.0.1:3087/settings` tabs
+    - visually compared the normalized `sectionSizingPolicy` lane after the shared post-state
+  - CDP visual check: done (fresh-context sub-agent; the `sectionSizingPolicy` graph surface matched main, and only the expected workspace-label chrome differed outside the target surface)
+- Next action:
+  - use the now-clean `sectionSizingPolicy` lane to open one trusted normalized pan or top-level drag compare on the same named section, or move to another named section that still lacks current motion evidence
+- LOOP_TERMINAL_MARKER: none
