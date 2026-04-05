@@ -11045,3 +11045,28 @@ LOOP_TERMINAL_MARKER: none
     - on the next fresh loop-managed lifecycle, retry only the blocked Chrome DevTools MCP visual gate for item `288` before landing more product code
     - if that gate succeeds, return to the next real product hotspot: whole-scene presentation/fan-out work on the same canonical `rotaryParamCodeObjDefault` lane
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 01:34 EDT, Ralph item `289`
+  - Summary: closed the blocked Chrome DevTools MCP visual gate for item `288` on the fresh loop-managed `3076/8076` runtime; the worktree and read-only `main` both showed a live `All Settings` workspace, so the item `288` canary is no longer blocked on "blank/crashed" verification.
+  - Files:
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the existing normalized verification lane only to close the missing CDP visual gate; it did not open a new section-specific lane
+  - Product/test change:
+    - none; this was the bounded visual verification retry requested by item `288`
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-003/worktree-ai.log` -> passed; current loop runtime resolved to frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug metadata port `9297`
+    - fresh-context Chrome DevTools MCP sub-agent -> passed:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - loaded the worktree `Settings` route at `http://127.0.0.1:3076/settings` and visually confirmed `All Settings` plus a live graph workspace rather than a blank/crashed canary
+      - sanity-checked the read-only `main` reference at `http://127.0.0.1:3087/settings`, which showed the same general settings workspace shape
+      - backend state still includes `rotaryParamCodeObjDefault`; the exact label was not legible in the bounded CDP viewport after fit-view, but the gate needed for item `288` is satisfied
+  - Result:
+    - the item `288` code slice is no longer blocked on CDP tooling for the required visual gate
+    - no new product measurements changed in this iteration; the remaining hotspot is still the previously measured whole-scene fan-out / presentation path across `46` visible sections
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction on the `46`-section motion lane
+    - reuse the existing Playwright instrumentation lane plus the cross-worktree motion-perf probe to measure whether that next slice produces an actual motion win
+  - LOOP_TERMINAL_MARKER: none

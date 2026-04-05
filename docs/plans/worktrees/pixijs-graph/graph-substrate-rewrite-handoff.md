@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 01:25 EDT
+Last updated: 2026-04-08 01:34 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,32 +62,20 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
 - Current live verification state:
-  - item `288` landed a bounded section-entry memoization slice on the canonical lane and kept the deterministic Playwright probes green on the pre-restart `3076/8076` worktree runtime
-  - focused unit coverage now proves viewport-only updates keep section-entry render counts flat when the body mount gate stays unchanged and only rerender the affected entry when that gate flips
-  - the canonical Playwright instrumentation probe remained green on `rotaryParamCodeObjDefault` with the same stable canary counters as item `287`:
+  - item `288` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and its deterministic Playwright probes are still the trusted oracle for the normalized `All Settings` canary
+  - focused unit coverage still proves viewport-only updates keep section-entry render counts flat when the body mount gate stays unchanged and only rerender the affected entry when that gate flips
+  - the canonical Playwright instrumentation snapshots for the current `3076/8076` loop runtime remain unchanged from the landed item `288` slice:
     - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
     - focused fit-view baseline: mounted section bodies `1`, Pixi syncs `1`, zoom `1.1900826446280992`
     - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
     - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, zoom `1.428099173553719`
-  - the cross-worktree motion-perf probe did not improve on this sample:
+  - the cross-worktree motion-perf probe from item `288` still says the canary is close to but slower than legacy on this sample:
     - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`63ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
     - worktree canary: average `20.56ms`, max `101ms`, `43` samples, `2` long tasks (`158ms` total, `101ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
-  - the required CDP visual gate is now blocked for this slice:
-    - fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md) but `chrome-devtools-mcp` timed out before a usable session (`Network.enable timed out`)
-    - one bounded in-iteration self-recovery ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`, which restarted the worktree onto backend `8075`, bootstrap `8075`, and debug port `9297` (Vite output reported `http://127.0.0.1:3075/`)
-    - a second fresh-context sub-agent still could not get a usable DevTools session after the restart (`list_pages` timed out after `120s`), so no trustworthy CDP visual confirmation was obtained
-  - item `287` landed the bounded viewport-motion invalidation reduction on the canonical lane and kept the deterministic probes green on the live `3076/8076` worktree runtime
-  - the canonical Playwright instrumentation probe now shows the intended redraw change on `rotaryParamCodeObjDefault`:
-    - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `1`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
-    - focused fit-view baseline: mounted section bodies `1`, Pixi syncs `1`, zoom `1.1900826446280992`
-    - after normalized blank-pane pan: mounted section bodies `1`, Pixi syncs `1`
-    - after one toolbar zoom-in: mounted section bodies `1`, Pixi syncs `1`, zoom `1.428099173553719`
-  - the cross-worktree motion-perf probe still shows the canary in the same general range as legacy, but not faster on this run:
-    - legacy `main`: average `17.40ms`, max `66.4ms`, `44` samples, `1` long task (`70ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
-    - worktree canary: average `18.99ms`, max `66.5ms`, `43` samples, `2` long tasks (`119ms` total, `69ms` max), root DOM `180`, target section DOM `132`, editable controls `2`
-  - the required CDP visual gate is no longer deferred for this slice:
-    - a fresh-context sub-agent used Chrome DevTools MCP, opened `/settings` directly, and visually confirmed `All Settings` with the expected graph workspace content rather than a blank/crashed canary
-    - note: the bootstrap token was rejected in that sub-agent context, so the visual confirmation used the direct frontend route instead of the bootstrap page
+  - the previously blocked CDP visual gate for item `288` is now closed on the fresh loop-managed lifecycle:
+    - a fresh-context sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md), loaded the worktree at `http://127.0.0.1:3076/settings`, and visually confirmed `All Settings` plus a populated graph workspace rather than a blank/crashed canary
+    - the same bounded CDP pass also sanity-checked the read-only `main` reference at `http://127.0.0.1:3087/settings`, which showed the same general settings workspace shape
+    - the backend state still includes `rotaryParamCodeObjDefault`; the exact label was not legible in the bounded CDP viewport after fit-view, but the gate needed for item `288` is satisfied for "surface is live and not blank/crashed"
 - Current renderer stance:
   - keep the hybrid path
   - Pixi owns shared static shell/chrome where batching helps
@@ -104,26 +92,26 @@ This section overrides older "next frontier" notes below when choosing the next 
   - the current win is still "one batched shell surface plus aggressive DOM body reduction", not "Pixi solved the whole graph"
   - the live counters now show that pure viewport motion no longer redraws the shell geometry, so the next frontier is not more no-op redraw cleanup
   - the section-entry memoization slice removed a real rebuild path but did not produce a measured motion win, which keeps the next true product hotspot on broader whole-scene fan-out or presentation work
-  - before more product code lands, the blocked CDP visual gate for item `288` needs one fresh outer-loop retry or explicit tooling reclassification
+  - with the item `288` CDP gate now closed, the next pass should return to product code on the same canonical lane instead of more tooling-only recovery work
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- on the next fresh loop-managed lifecycle, retry only the blocked Chrome DevTools MCP visual gate for item `288` on the canonical `rotaryParamCodeObjDefault` lane before landing more product code
+- on the same canonical `rotaryParamCodeObjDefault` lane, land one bounded production reduction that narrows whole-scene fan-out or presentation work across the `46`-section motion path
 
 Recommended next target:
 
 - keep the existing body-gating, scene-sync, shell-redraw, viewport-transform, and section-entry memoization reductions as landed; do not reopen those lanes unless the canonical Playwright probe regresses
 - reuse the same canonical target and the same normalized probes; do not open a new section-specific lane
-- use the next fresh lifecycle bootstrap values instead of the in-iteration `3075/8075` recovery numbers when retrying the CDP gate
-- if the CDP gate succeeds on the next pass, move back to the next true product hotspot: whole-scene presentation/fan-out work on the same `46`-section motion lane
+- start from the measured hotspot that remains after item `288`: pure motion still carries `46` visible sections / `46` Pixi drawables even though bodies stay gated and redraw counters stay flat
+- prefer the smallest slice that reduces work across that broader presentation path instead of another shell-only or React-entry-only cleanup
 
 Recommended deliverables for the next iteration:
 
-- one bounded CDP-only verification retry on the canonical `All Settings` canary with `rotaryParamCodeObjDefault` as the focused target
-- if that retry succeeds, close the blocked gate in the handoff/history and only then choose the next bounded product slice
-- if that retry still fails on a fresh lifecycle, keep the tooling blocker explicit instead of spending another iteration on adjacent product work plus a second repeated CDP failure
+- one bounded production change on the same `All Settings` motion lane that reduces broader scene presentation/fan-out work
+- reuse the existing Playwright instrumentation lane plus the cross-worktree motion-perf probe to measure whether that slice produces an actual motion win instead of only shifting counters
+- keep CDP as the required visual confirmation layer for that next product slice, but do not spend another default iteration on CDP-only recovery unless the live surface regresses again
 
 Recommended canonical target:
 
@@ -133,7 +121,7 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another product refactor before the blocked CDP gate for item `288` is resolved or explicitly reclassified
+- another CDP-only retry on a healthy live surface
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - more body-viability tuning unless a live regression reopens wide-view blanking or focused-body continuity
 - another baseline-only report unless the next product slice changes the measured motion lane
@@ -141,6 +129,29 @@ Do not use the next iteration for:
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
+
+- Ralph item `289` closed the blocked Chrome DevTools MCP visual gate for item `288` on the fresh loop-managed runtime, without changing product code.
+
+  - Why this pass completed:
+    - item `288` explicitly handed the next fresh iteration to one bounded CDP-only retry before any more product refactors
+    - the canonical Playwright oracle for `rotaryParamCodeObjDefault` was already green, so the only remaining task was to close or explicitly reclassify the missing live visual gate
+    - the fresh-context CDP sub-agent succeeded on the new loop lifecycle, so another tooling-only retry would now be churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new lane; it reused the existing canonical verification lane only to close the missing visual gate
+  - Product/test change:
+    - none; this was the bounded visual verification retry requested by item `288`
+  - Verification:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.hnEFcN/loop-001/run-003/worktree-ai.log` -> passed; current loop runtime resolved to frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, debug metadata port `9297`
+    - fresh-context Chrome DevTools MCP sub-agent -> passed:
+      - read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - loaded the worktree `Settings` route at `http://127.0.0.1:3076/settings` and visually confirmed `All Settings` plus a live graph workspace rather than a blank/crashed canary
+      - sanity-checked the read-only `main` reference at `http://127.0.0.1:3087/settings`, which showed the same general settings workspace shape
+      - note: the canonical target `rotaryParamCodeObjDefault` still exists in backend state, but the exact label was not legible in the bounded CDP viewport after fit-view; the gate needed for item `288` is still satisfied
+  - Lane status:
+    - item `288` is now fully verified, including the required CDP visual confirmation for "surface loads and is not blank/crashed"
+    - the next true frontier is back on product code: reduce whole-scene fan-out / presentation work on the same `46`-section motion lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `288` memoized the canary section-entry render path so viewport-only motion no longer rebuilds every mounted section entry when the section snapshot and body-mount gate stay unchanged, but the required Chrome DevTools MCP visual check is still blocked even after the one allowed `./aireset.sh` recovery.
 
