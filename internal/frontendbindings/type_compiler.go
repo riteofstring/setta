@@ -322,7 +322,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
-	fieldSpecsByName, err := reflectedFieldCreateSpecsByJSONName(t)
+	fieldsByName, err := reflectedFieldsByJSONName(t)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -337,7 +337,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		t,
 		spec.DefaultValue,
 		properties,
-		fieldSpecsByName,
+		fieldsByName,
 	)
 	if err != nil {
 		return TypeDeclaration{}, err

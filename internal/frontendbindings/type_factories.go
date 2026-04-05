@@ -3,15 +3,8 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 )
-
-type reflectedFieldCreateSpec struct {
-	Type            reflect.Type
-	CreateExpr      string
-	CreateMapValues bool
-}
 
 func buildGoBackedCreateBodyTS(
 	context string,
@@ -19,7 +12,7 @@ func buildGoBackedCreateBodyTS(
 	structType reflect.Type,
 	defaultValue any,
 	properties []TypeProperty,
-	fieldSpecsByName map[string]reflectedFieldCreateSpec,
+	fieldsByName map[string]reflect.StructField,
 ) (string, error) {
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
@@ -29,9 +22,20 @@ func buildGoBackedCreateBodyTS(
 	orderedKeys := make([]string, 0, len(properties))
 	var fieldBuilder strings.Builder
 	for _, property := range properties {
-		fieldSpec, ok := fieldSpecsByName[property.Name]
+		field, ok := fieldsByName[property.Name]
 		if !ok {
 			return "", fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
+		}
+		tsMetadata, err := tsFieldMetadata(field)
+		if err != nil {
+			return "", fmt.Errorf("%s.%s: %w", structType.Name(), field.Name, err)
+		}
+		if tsMetadata.CreateMapValues && !reflectedMapFieldNeedsGeneratedCreate(field.Type) {
+			return "", fmt.Errorf(
+				"%s.%s ts_create_map_values requires map values with generated create support",
+				structType.Name(),
+				field.Name,
+			)
 		}
 		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
@@ -43,10 +47,11 @@ func buildGoBackedCreateBodyTS(
 			orderedKeys = append(orderedKeys, property.Name)
 		}
 		expr, ok, err := buildGenericCreateFieldExprTS(
-			fieldSpec,
+			field.Type,
+			tsMetadata,
 			property,
-			renderTSPropertyAccessExpr("defaults", property.Name),
-			renderTSPropertyAccessExpr("options", property.Name),
+			tsPropertyAccessExpr("defaults", property.Name),
+			tsPropertyAccessExpr("options", property.Name),
 			hasDefault,
 		)
 		if err != nil {
@@ -77,7 +82,8 @@ func buildGoBackedCreateBodyTS(
 }
 
 func buildGenericCreateFieldExprTS(
-	fieldSpec reflectedFieldCreateSpec,
+	fieldType reflect.Type,
+	tsMetadata tsFieldMetadataSpec,
 	property TypeProperty,
 	defaultExpr string,
 	optionsExpr string,
@@ -85,15 +91,15 @@ func buildGenericCreateFieldExprTS(
 ) (string, bool, error) {
 	defaultExpr = strings.TrimSpace(defaultExpr)
 	optionsExpr = strings.TrimSpace(optionsExpr)
-	explicitDefaultExpr := strings.TrimSpace(fieldSpec.CreateExpr)
+	explicitDefaultExpr := strings.TrimSpace(tsMetadata.CreateExpr)
 	if explicitDefaultExpr != "" {
-		return buildGenericDefaultFallbackExprTS(fieldSpec.Type, optionsExpr, explicitDefaultExpr), true, nil
+		return buildGenericDefaultFallbackExprTS(fieldType, optionsExpr, explicitDefaultExpr), true, nil
 	}
-	if expr, ok := buildGenericNamedStructFieldExprTS(fieldSpec.Type, optionsExpr, defaultExpr, hasDefault); ok {
+	if expr, ok := buildGenericNamedStructFieldExprTS(fieldType, optionsExpr, defaultExpr, hasDefault); ok {
 		return expr, true, nil
 	}
-	if fieldSpec.CreateMapValues {
-		if expr, ok := buildGenericMapFieldExprTS(fieldSpec.Type, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
+	if tsMetadata.CreateMapValues {
+		if expr, ok := buildGenericMapFieldExprTS(fieldType, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
 			return expr, true, nil
 		}
 	}
@@ -223,8 +229,8 @@ func frontendObjectCreateFunctionName(fieldType reflect.Type) (string, string, b
 	return "create" + typeName, typeName, nullable, true
 }
 
-func reflectedFieldCreateSpecsByJSONName(structType reflect.Type) (map[string]reflectedFieldCreateSpec, error) {
-	fields := map[string]reflectedFieldCreateSpec{}
+func reflectedFieldsByJSONName(structType reflect.Type) (map[string]reflect.StructField, error) {
+	fields := map[string]reflect.StructField{}
 	for structType.Kind() == reflect.Pointer {
 		structType = structType.Elem()
 	}
@@ -237,13 +243,13 @@ func reflectedFieldCreateSpecsByJSONName(structType reflect.Type) (map[string]re
 			continue
 		}
 		if field.Anonymous {
-			embeddedFields, err := reflectedFieldCreateSpecsByJSONName(field.Type)
+			embeddedFields, err := reflectedFieldsByJSONName(field.Type)
 			if err != nil {
 				return nil, err
 			}
-			for name, fieldSpec := range embeddedFields {
+			for name, embeddedField := range embeddedFields {
 				if _, exists := fields[name]; !exists {
-					fields[name] = fieldSpec
+					fields[name] = embeddedField
 				}
 			}
 			continue
@@ -252,34 +258,16 @@ func reflectedFieldCreateSpecsByJSONName(structType reflect.Type) (map[string]re
 		if skip {
 			continue
 		}
-		tsMetadata, err := tsFieldMetadata(field)
-		if err != nil {
-			return nil, err
-		}
-		if tsMetadata.Skip {
-			continue
-		}
-		if tsMetadata.CreateMapValues && !reflectedMapFieldNeedsGeneratedCreate(field.Type) {
-			return nil, fmt.Errorf(
-				"%s.%s ts_create_map_values requires map values with generated create support",
-				structType.Name(),
-				field.Name,
-			)
-		}
-		fields[name] = reflectedFieldCreateSpec{
-			Type:            field.Type,
-			CreateExpr:      strings.TrimSpace(tsMetadata.CreateExpr),
-			CreateMapValues: tsMetadata.CreateMapValues,
-		}
+		fields[name] = field
 	}
 	return fields, nil
 }
 
-func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
+func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
 	if tsIdentifierPattern.MatchString(propertyName) {
 		return baseExpr + "." + propertyName
 	}
-	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
+	return baseExpr + "[" + fmt.Sprintf("%q", propertyName) + "]"
 }
 
 func buildGeneratedImplFactoryBodyTS(
