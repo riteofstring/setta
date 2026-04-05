@@ -56,6 +56,10 @@ endpoint compiler.
 
 - Go remains the source of truth for HTTP contracts and behavior.
 - OpenAPI is the artifact for HTTP contracts, not a second handwritten source.
+- HTTP route definition and HTTP contract metadata must be declared once, at the
+  route registration site.
+- Do not define runtime routes in one place and maintain separate doc-only
+  metadata somewhere else.
 - Do not maintain handwritten endpoint inventories, route manifests, or AST
   handler-body inference for HTTP generation.
 - Do not write a second custom OpenAPI generator when a standard backend layer
@@ -140,6 +144,11 @@ Rules:
 
 - operation ids are authoritative and become generated frontend function names
 - do not derive operation ids from AST heuristics
+- do not let `openapi_document_builder.go` or any similar file become a second
+  manifest of route metadata
+- if one shared registration path cannot directly serve both runtime and
+  OpenAPI, use typed descriptors consumed by both; do not duplicate route
+  declarations
 - do not keep the old route/endpoint discovery path alive once the new one
   covers a route family
 
@@ -162,6 +171,9 @@ Rules:
 - do not push that complexity back into `internal/frontendbindings`
 - if a schema needs custom shaping, put it on the Go owner or operation schema,
   not in a frontend compatibility table
+- fake service implementations used only for doc generation are not an end
+  state; treat them as temporary scaffolding and delete or replace them with
+  shared typed descriptors as soon as practical
 
 ## Phase 3: Generate Frontend HTTP Types And Client From OpenAPI
 
@@ -189,6 +201,8 @@ Success bar:
 
 - frontend HTTP callers no longer depend on `internal/frontendbindings`
   endpoint discovery or templates
+- the number of real imports of `frontend/src/utils/generatedEndpoints.ts`
+  keeps decreasing as route families migrate
 
 ## Phase 4: Delete HTTP Logic From `internal/frontendbindings`
 
@@ -201,6 +215,12 @@ Delete:
 - custom HTTP route naming logic used only for frontend endpoints
 - custom HTTP endpoint templates
 - custom HTTP endpoint tests that only validate the deleted generator path
+
+Deletion rule:
+
+- when a route family migrates to OpenAPI, remove that family from the old
+  `internal/frontendbindings` HTTP path in the same batch or the very next one;
+  do not let both systems carry the same family for long
 
 Keep only if still needed outside HTTP:
 
@@ -264,6 +284,8 @@ For deletion work:
 
 - verify removed custom generator paths are no longer referenced
 - do not replace them with equivalent metadata tables elsewhere
+- track the count of live frontend imports of `utils/generatedEndpoints` and
+  keep driving it down
 
 Always run:
 

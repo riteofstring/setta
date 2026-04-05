@@ -198,6 +198,8 @@ if [[ ! -f "${checklist_file}" ]]; then
 - [ ] Delete `internal/frontendbindings` HTTP endpoint discovery, naming inference, and HTTP endpoint templates.
 - [ ] Keep `internal/frontendbindings` only for non-HTTP frontend contract generation that OpenAPI does not cover.
 - [ ] Update frontend callers to the OpenAPI-generated client without compatibility shims.
+- [ ] Keep HTTP route definition and HTTP contract metadata declared once at the route registration site; do not grow a separate doc-only metadata layer.
+- [ ] Drive the number of live frontend imports of `utils/generatedEndpoints` down every few iterations until HTTP callers are off that path.
 - [ ] Keep the repo clean: regenerate, test, run `./gcf.sh`, run `./check_quality.sh`, and commit every non-stop iteration.
 EOF
 fi
@@ -241,6 +243,17 @@ Non-negotiable rules:
   compatibility-name shims, or per-endpoint wrapper tables.
 - Do not add or preserve per-endpoint wrappers around the generated OpenAPI
   client.
+- HTTP route definition and HTTP contract metadata must be declared once, at
+  the route registration site.
+- Do not define runtime routes in one place and maintain separate doc-only
+  metadata somewhere else.
+- Do not let \`internal/httpapi/openapi_document_builder.go\` or any similar
+  file become a second manifest of route metadata.
+- If one shared registration path cannot directly serve both runtime and
+  OpenAPI, use typed descriptors consumed by both. Do not duplicate route
+  declarations.
+- Fake service implementations used only for doc generation are temporary at
+  best. Do not let them accumulate as a steady-state architecture.
 - Do not preserve existing generated TypeScript or Python names for
   compatibility.
 - Update callers instead of shimming.
@@ -251,8 +264,13 @@ Non-negotiable rules:
 
 Execution workflow for every iteration:
 - Start with a fresh audit against the checklist.
+- Update the checklist to reflect the current repo state before you choose the
+  next task.
 - Pick the highest-leverage remaining violation on the HTTP/OpenAPI path.
 - Prefer deleting old HTTP generator code over adapting it.
+- When a route family migrates to OpenAPI, remove that family from the old
+  \`internal/frontendbindings\` HTTP path in the same batch or the very next
+  iteration.
 - When the change touches generation or generated outputs, regenerate before
   finishing the iteration.
 - Run \`./gcf.sh\` before committing. If it fails, fix the failure or stop
@@ -277,6 +295,9 @@ Practical guidance:
 - \`internal/frontendbindings\` may continue to exist for websocket contracts,
   constants, defaults, and small TS metadata hooks, but HTTP endpoint discovery
   and HTTP endpoint rendering must leave that package.
+- Measure real caller migration. Track the live count of frontend imports of
+  \`utils/generatedEndpoints\` and include the before/after count in every final
+  iteration message.
 
 If a fresh audit finds no remaining actionable violations of these rules and the
 checklist is complete, make no repo changes, leave the worktree clean, and end
