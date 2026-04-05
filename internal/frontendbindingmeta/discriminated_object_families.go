@@ -30,14 +30,11 @@ type DiscriminatedObjectFamily struct {
 }
 
 func (family DiscriminatedObjectFamily) DiscriminatorValue(t reflect.Type) (string, bool) {
-	return namedConcreteTypeValue(t, family.ConcreteTypeSuffix)
-}
-
-func namedConcreteTypeValue(t reflect.Type, suffix string) (string, bool) {
+	suffix := strings.TrimSpace(family.ConcreteTypeSuffix)
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	if t == nil || t.Kind() != reflect.Struct || strings.TrimSpace(suffix) == "" {
+	if t == nil || t.Kind() != reflect.Struct || suffix == "" {
 		return "", false
 	}
 	name := t.Name()

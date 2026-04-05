@@ -38,18 +38,6 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 	if err != nil {
 		return nil, false, err
 	}
-	if t != family.BaseType {
-		isMember := false
-		for _, member := range members {
-			if member.Type == t {
-				isMember = true
-				break
-			}
-		}
-		if !isMember {
-			return nil, false, nil
-		}
-	}
 	baseProperties, concreteByType, err := discriminatedObjectFamilyDeclarationPropertiesForMembers(converter, family, members)
 	if err != nil {
 		return nil, false, err
@@ -70,11 +58,7 @@ func discriminatedObjectFamilyDeclarations(converter *typeConverter, t reflect.T
 	}
 	memberProperties, ok := concreteByType[t]
 	if !ok {
-		return nil, false, fmt.Errorf(
-			"%s family is missing concrete properties for %s",
-			frontendBindingTypeName(family.BaseType),
-			t.String(),
-		)
+		return nil, false, nil
 	}
 	declarations := []TypeDeclaration{
 		aliasIntersectionDeclarationFromProperties(
