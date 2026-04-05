@@ -1,5 +1,8 @@
 import type { SectionElementSizes } from "state/hooks/sectionElementSizes";
-import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
+import {
+  getSettingsGraphSubstrateCanarySectionSizeAuthority,
+  type GraphSubstrateCanarySection,
+} from "./settingsGraphSubstrateCanaryModel";
 import {
   resolveSettingsGraphSubstrateCanarySectionGeometry,
   type SettingsGraphSubstrateCanarySectionPositionOverride,
@@ -83,7 +86,7 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
   let hasAuthoritativeSectionBounds = false;
 
   for (const section of sections) {
-    const boundsSize = getPositiveSceneBoundsSize(section.resolvedSize);
+    const boundsSize = getRenderableSceneBoundsSize(section);
     if (!boundsSize) {
       continue;
     }
@@ -108,7 +111,13 @@ export function getSettingsGraphSubstrateCanarySceneBoundsForSections(
 }
 
 function getPositiveSceneBoundsSize(
-  size: SectionElementSizes[string] | null | undefined,
+  size:
+    | {
+        height: number | null | undefined;
+        width: number | null | undefined;
+      }
+    | null
+    | undefined,
 ) {
   if (
     typeof size?.width === "number" &&
@@ -120,4 +129,19 @@ function getPositiveSceneBoundsSize(
   }
 
   return null;
+}
+
+function getRenderableSceneBoundsSize(
+  section: SettingsGraphSubstrateCanarySceneSection,
+) {
+  const resolvedSize = getPositiveSceneBoundsSize(section.resolvedSize);
+  if (resolvedSize) {
+    const sizeAuthority =
+      getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
+    if (sizeAuthority !== "none") {
+      return resolvedSize;
+    }
+  }
+
+  return getPositiveSceneBoundsSize(section);
 }

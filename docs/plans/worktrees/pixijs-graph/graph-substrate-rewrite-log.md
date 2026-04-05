@@ -9984,3 +9984,28 @@ LOOP_TERMINAL_MARKER: none
   - Next:
     - move the next bounded geometry-authority slice into scene-snapshot ownership by separating local measured fallback from authoritative scene geometry for `sizeAuthority: "none"` sections so bounds/fit-view stop treating unresolved DOM measurements as authoritative
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 05:54 EDT, Ralph item `258`
+  - Summary: stopped `sceneBounds` and targeted `fitView` from treating `sizeAuthority: "none"` measured fallback as authoritative geometry while keeping the same local `resolvedSize` render fallback for visible canary shells.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened; the visual gate stayed on bounded worktree canary health only
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed (`3 files`, `24 tests`)
+    - fresh-context CDP sub-agent -> done; attached to the live worktree browser, navigated through `http://127.0.0.1:8076/__setta__/bootstrap#token=...`, landed on `http://127.0.0.1:3076/home`, clicked `Open settings`, and finished on `http://127.0.0.1:3076/settings`
+    - DevTools result: the `All Settings` canary surface was populated with visible graph nodes/section bodies rather than a blank or detached shell
+  - Result:
+    - shared `sceneBounds` now exclude unresolved `sizeAuthority: "none"` local measured fallback even though the same sections still expose local `resolvedSize` for rendering
+    - targeted `fitView` now refuses sections whose size is still only that local measured fallback, so viewport ownership no longer promotes the same DOM measurement path as authoritative geometry
+    - layout, section-model, and shared-node sections keep their prior bounds behavior in this slice; the change stayed bounded to the `sizeAuthority: "none"` path
+  - Next:
+    - carry the geometry-authority split into a more explicit scene-section bounds contract so viewport/bounds consumers stop inferring authority from `resolvedSize`, then check whether any remaining `sharedNode` measured refresh path still widens bounds before authoritative promotion
+  - LOOP_TERMINAL_MARKER: none

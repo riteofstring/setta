@@ -5,7 +5,7 @@ import {
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
-  it("keeps layout size authoritative when current layout geometry exists while still applying live drag overrides", () => {
+  it("keeps layout size authoritative when current layout geometry exists while local measured fallback stays out of scene bounds", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -22,6 +22,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
           position: { x: 400, y: 220 },
           width: null,
           height: null,
+          sizeAuthority: "none",
           zIndex: 1,
           tempZIndex: 1,
           positionAndSizeLocked: false,
@@ -56,6 +57,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         renderedPosition: { x: 400, y: 220 },
         width: null,
         height: null,
+        sizeAuthority: "none",
         resolvedSize: { width: 280, height: 190 },
         zIndex: 1,
         tempZIndex: 1,
@@ -65,8 +67,8 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     expect(snapshot.sceneBounds).toEqual({
       x: 180,
       y: 140,
-      width: 500,
-      height: 270,
+      width: 240,
+      height: 160,
     });
   });
 
@@ -211,6 +213,42 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     );
 
     expect(snapshot.sections[0]?.resolvedSize).toBeNull();
+    expect(snapshot.sceneBounds).toBeNull();
+  });
+
+  it("keeps size-authority none measurements local while scene bounds stay unresolved", () => {
+    const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: null,
+          height: null,
+          sizeAuthority: "none",
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {
+        "section-a": { width: 280, height: 190 },
+      },
+      null,
+      null,
+    );
+
+    expect(snapshot.sections[0]).toEqual({
+      sectionId: "section-a",
+      position: { x: 120, y: 80 },
+      renderedPosition: { x: 120, y: 80 },
+      width: null,
+      height: null,
+      sizeAuthority: "none",
+      resolvedSize: { width: 280, height: 190 },
+      zIndex: 2,
+      tempZIndex: 2,
+      positionAndSizeLocked: false,
+    });
     expect(snapshot.sceneBounds).toBeNull();
   });
 });

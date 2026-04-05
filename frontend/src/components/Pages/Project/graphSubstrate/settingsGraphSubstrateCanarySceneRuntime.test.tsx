@@ -65,7 +65,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps measured fallback local while syncing scene position and z-index", async () => {
+  it("keeps measured fallback local while syncing scene position and z-index without promoting scene bounds", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -84,12 +84,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 280,
-          height: 190,
-        },
+        sceneBounds: null,
         sections: [
           {
             height: null,
@@ -495,7 +490,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("still uses the measured-size fallback for locked sections whose layout geometry is missing", async () => {
+  it("still uses the measured-size fallback for locked sections whose layout geometry is missing without promoting scene bounds", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -518,12 +513,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 280,
-          height: 190,
-        },
+        sceneBounds: null,
         sections: [
           {
             height: null,
@@ -719,23 +709,22 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         <SceneRuntimeProbe
           draggingSectionId={null}
           override={null}
-          sections={[createSection()]}
+          sections={[
+            createSection({
+              height: 160,
+              width: 240,
+            }),
+          ]}
         />,
       );
-    });
-
-    act(() => {
-      useSectionElementSizeRegistry.setState({
-        "section-a": { width: 280, height: 190 },
-      });
     });
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host).sceneBounds).toEqual({
         x: 120,
         y: 80,
-        width: 280,
-        height: 190,
+        width: 240,
+        height: 160,
       });
     });
 

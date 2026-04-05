@@ -222,4 +222,39 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     expect(controller.fitView()).toBe(false);
     expect(harness.applyControlledViewportChange).not.toHaveBeenCalled();
   });
+
+  it("refuses fit view for a section whose measured size is still local-only", () => {
+    // Validates fit-view does not treat sizeAuthority:none render fallback as
+    // authoritative scene geometry.
+    const section = createSceneSection({
+      height: null,
+      resolvedSize: { width: 280, height: 190 },
+      sizeAuthority: "none",
+      width: null,
+    });
+    const state = createState({
+      sceneSnapshot: {
+        sceneBounds: null,
+        sections: [section],
+        sectionsById: new Map([[section.sectionId, section]]),
+      },
+    });
+    const harness = createApplyHarness();
+    const controller = createSettingsGraphSubstrateCanaryViewportController({
+      applyControlledViewportChange: harness.applyControlledViewportChange,
+      getPaneWidths: () => ({ overviewWidth: 320, uiEditorWidth: 0 }),
+      getSettings: () => ({
+        defaultZoomLevel: 1,
+        maxZoom: 4,
+        minZoom: 0.1,
+      }),
+      getState: () => state,
+      getToolbarZoomViewportBase: () => null,
+    });
+
+    expect(controller.fitView({ nodes: [{ id: section.sectionId }] })).toBe(
+      false,
+    );
+    expect(harness.applyControlledViewportChange).not.toHaveBeenCalled();
+  });
 });
