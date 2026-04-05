@@ -886,6 +886,7 @@ export function SettingsGraphSubstrateCanary() {
     };
     const wheelBehavior = {
       isMacOs: isMacOs(),
+      isPanScrolling: isPanScrollingRef.current,
       maxZoom,
       minZoom,
       panOnScroll,

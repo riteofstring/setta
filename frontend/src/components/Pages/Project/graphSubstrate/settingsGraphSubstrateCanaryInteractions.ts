@@ -10,6 +10,7 @@ const SETTINGS_GRAPH_SUBSTRATE_CANARY_DRAG_BLOCKING_SELECTOR =
 type SettingsGraphSubstrateCanaryWheelTargetBehavior = {
   ctrlKey: boolean;
   isMacOs: boolean;
+  isPanScrolling: boolean;
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
 };
@@ -47,6 +48,10 @@ export function shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
   }
 
   if (target.closest(`.${NO_WHEEL_CLASS_NAME}`) === null) {
+    return false;
+  }
+
+  if (behavior.isPanScrolling) {
     return false;
   }
 

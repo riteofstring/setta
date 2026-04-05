@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 07:12 EDT
+Last updated: 2026-04-05 07:27 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `164` landed a renderer-side wheel-pan fix so ongoing canary pan-scroll bursts no longer stall when the pointer crosses a `.nowheel` island inside a section body.
+  - Why this slice was needed:
+    - the last three iterations had all been parity-lane support work, so the next bounded step needed to be product code instead of another probe-only lane
+    - the canary wheel gate was still stricter than legacy `ZoomPane`: legacy keeps a pan-scroll burst alive across `.nowheel` descendants once the burst is already in progress, while the canary blocked those follow-up wheel events
+    - that mismatch could surface as canary-only pan stutter during normal graph movement, which is a renderer/interation issue rather than oracle debt
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+      - added `isPanScrolling` to the canary wheel-target behavior and stopped blocking `.nowheel` descendants when the pan-scroll burst is already active
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - threaded `isPanScrollingRef.current` into the wheel-target gate used by the live canary surface
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - added focused coverage for the legacy-matching case where an active pan-scroll burst continues across a `.nowheel` island
+  - What this slice established:
+    - the focused Vitest rerun passed, covering the exact canary gate that differs from legacy
+    - the existing live Playwright wheel-pan parity lane still passed on the current run-024 surfaces, so the wheel interaction fix did not regress the trusted plain-wheel pan path
+    - fresh-context CDP confirmed the live worktree canary still renders on `All Settings` and that a synthetic wheel-pan burst kept moving after the second wheel event targeted a `.nowheel` descendant
+    - the provided worktree bootstrap URL was stale by the time CDP ran, so the sub-agent reused the already-live `http://127.0.0.1:3076/settings` canary tab instead; treat that stale bootstrap token as lifecycle noise, not renderer evidence
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed (`1 passed`, `10 tests`)
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<current worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<current main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe applies the same section-chrome plain-wheel pan delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `34.1s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - verified the live `3076/settings` canary directly after the provided bootstrap URL was rejected as stale
+      - observed the viewport transform continue from about `... 445.304` to `... 325.304` after the first wheel event and then to `... 205.304` after the second wheel event on a `.nowheel` descendant
+    - CDP visual check: done (fresh-context sub-agent; live worktree canary rendered on `All Settings` and an ongoing wheel-pan burst continued across a `.nowheel` body island)
+  - Lane status:
+    - close this wheel-pan gating mismatch as fixed on the canary surface
+    - do not reopen the stale worktree bootstrap URL rejection as renderer drift; the live canary tab was healthy and sufficient for the required visual gate
+  - Next frontier:
+    - return to the normalized `All Settings` motion lane sequence by opening the next named blank-pane pan lane on `dropzoneParamCodeObjDefault`
 
 - Ralph item `163` opened and closed the canonical `taskBoardSectionDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation.
   - Why this slice was needed:

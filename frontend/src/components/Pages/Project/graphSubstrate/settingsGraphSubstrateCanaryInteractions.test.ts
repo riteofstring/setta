@@ -29,6 +29,7 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
       shouldBlockSettingsGraphSubstrateCanaryWheelTarget(target, {
         ctrlKey: false,
         isMacOs: true,
+        isPanScrolling: false,
         zoomActivationKeyPressed: false,
         zoomOnPinch: true,
       }),
@@ -53,10 +54,33 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
       shouldBlockSettingsGraphSubstrateCanaryWheelTarget(target, {
         ctrlKey: false,
         isMacOs: true,
+        isPanScrolling: false,
         zoomActivationKeyPressed: false,
         zoomOnPinch: true,
       }),
     ).toBe(true);
+  });
+
+  it("keeps an active pan-scroll burst running across nowheel islands", () => {
+    document.body.innerHTML = `
+      <div data-testid="graph-substrate-canary-section">
+        <div class="nowheel">
+          <div id="target">Scrollable body</div>
+        </div>
+      </div>
+    `;
+
+    const target = document.getElementById("target");
+    expect(target).not.toBeNull();
+    expect(
+      shouldBlockSettingsGraphSubstrateCanaryWheelTarget(target, {
+        ctrlKey: false,
+        isMacOs: true,
+        isPanScrolling: true,
+        zoomActivationKeyPressed: false,
+        zoomOnPinch: true,
+      }),
+    ).toBe(false);
   });
 
   it("allows modified-wheel zoom inside explicit nowheel islands", () => {
@@ -74,6 +98,7 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
       shouldBlockSettingsGraphSubstrateCanaryWheelTarget(target, {
         ctrlKey: false,
         isMacOs: true,
+        isPanScrolling: false,
         zoomActivationKeyPressed: true,
         zoomOnPinch: true,
       }),
@@ -82,6 +107,7 @@ describe("settingsGraphSubstrateCanaryInteractions", () => {
       shouldBlockSettingsGraphSubstrateCanaryWheelTarget(target, {
         ctrlKey: true,
         isMacOs: true,
+        isPanScrolling: false,
         zoomActivationKeyPressed: false,
         zoomOnPinch: true,
       }),
