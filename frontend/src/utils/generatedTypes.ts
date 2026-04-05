@@ -1150,13 +1150,18 @@ type EdgePort = {
   accessor: string;
 };
 
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
 } as const;
-export type SpreadsheetGridDensity = ObjectValues<
-  typeof SpreadsheetGridDensityEnum
+export type StateMachineGateType = ObjectValues<
+  typeof StateMachineGateTypeEnum
 >;
+
+type StateMachineGateUIState = {
+  showDetails?: boolean;
+};
 
 export const TextBlockFormatEnum = {
   Plaintext: "Plaintext",
@@ -1169,6 +1174,79 @@ export const TextBlockDisplayModeEnum = {
   Edit: "Edit",
 } as const;
 type TextBlockDisplayMode = ObjectValues<typeof TextBlockDisplayModeEnum>;
+
+export const PromptFormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return mergeGeneratedOptions<TaskBoardColumn>(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return mergeGeneratedOptions<TaskBoardTask>(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: "none",
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
 
 type BaseSectionImpl = {
   type: SectionType;
@@ -1185,67 +1263,93 @@ type BaseSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   isPreset: boolean;
-  children?: Array<string>;
-  defaultChildSectionType?: SectionType;
-  viewMode?: ListRootViewMode;
   codeObjVariantMap?: Record<string, string>;
   hideUnpinnedParams?: boolean;
   paramFilter?: string;
   columnWidth?: number | null;
-  configLanguage?: string;
+  configLanguage?: ConfigLanguage | string;
   pinnedParams?: Array<string>;
   selectedParams?: Array<string>;
   ignoreTypeErrors?: TypeErrorIgnoreState;
   edgeInputParams?: Array<string>;
   edgeOutputPorts?: Array<EdgePort>;
+  callable?: string | null;
+  hideParams?: boolean;
   topLevelParamId?: string | null;
   isJsonSource?: boolean;
   jsonSourceKeys?: Array<string>;
   jsonSourceMissing?: boolean;
-  messages?: Array<BaseChatMessageUnion>;
-  inputText?: string;
-  waitingForResponse?: boolean;
-  toolCallArguments?: Record<string, string>;
+  children?: Array<string>;
+  defaultChildSectionType?: SectionType;
+  viewMode?: ListRootViewMode | BrowserAreaViewMode | TaskBoardViewMode;
+  isHorizontalOrientation?: boolean;
+  overflowMode?: boolean;
+  machineGroupId?: string;
+  label?: string;
+  maxIterations?: number | null;
+  gateType?: StateMachineGateType;
+  ui?: StateMachineGateUIState;
+  dataPath?: string;
+  chartSettings?: BaseChartSettingsUnion;
+  format?: TextBlockFormat | PromptFormat;
+  masterFontSizePx?: number;
+  headingAsSectionName?: boolean;
+  metaControlStyle?: boolean;
+  textDisplayMode?: TextBlockDisplayMode;
+  text?: string;
+  promptTemplateId?: string | null;
+  template?: string;
+  inputs?: Record<string, string>;
+  renderedText?: string;
+  missingVariables?: Array<string>;
+  renderError?: string | null;
   code?: string;
   codeFileBinding?: CodeFileBinding | null;
   attachedTerminalSectionId?: string | null;
   codeLanguage?: string;
+  diagnosticsIgnoreState?: CodeSectionDiagnosticsIgnoreState;
+  managed?: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking?: boolean;
+  permissionMode?: ChatPermissionMode;
+  searchEnabled?: boolean;
+  dictationMode?: ChatDictationMode;
+  messages?: Array<BaseChatMessageUnion>;
+  inputText?: string;
+  waitingForResponse?: boolean;
+  toolCallArguments?: Record<string, string>;
+  activeBranchId?: string | null;
+  branches?: Record<string, ChatSectionBranch>;
   folder?: string;
   hideColumn?: boolean;
-  isHorizontalOrientation?: boolean;
-  overflowMode?: boolean;
+  typesColumnWidth?: number | null;
+  savedSearches?: Array<BrowserSavedSearch>;
+  columns?: Array<TaskBoardColumn>;
+  tasks?: Array<TaskBoardTask>;
   filePath?: string;
   activeSheet?: string | null;
   readOnly?: boolean;
   showRowNumbers?: boolean;
-  density?: string;
+  density?: SpreadsheetGridDensity;
   autoReloadOnExternalChange?: boolean;
-  metaControlStyle?: boolean;
-  text?: string;
-  dataPath?: string;
-  chartSettings?: BaseChartSettingsUnion;
-  metaControlParamId?: string | null;
-  showSectionTitle?: boolean;
-  pluginId?: string;
-  kind?: string;
-  data?: Record<string, unknown>;
-  schemaVersion?: number | null;
-  imagePath?: string;
 };
 
-export type ChatSectionImpl = BaseSectionImpl &
-  ChatSectionState & {
-    type: typeof SectionTypeEnum.Chat;
-    managed: boolean;
-    engineConfigId?: string | null;
-    transcriptionProfileId?: string | null;
-    agentProfileId?: string | null;
-    chatId?: string | null;
-    thinking: boolean;
-    permissionMode: ChatPermissionMode;
-    searchEnabled: boolean;
-    dictationMode: ChatDictationMode;
-  };
+export type ChatSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Chat;
+  managed: boolean;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  branches: Record<string, ChatSectionBranch>;
+};
 
 export function createChatSectionImpl(
   defaultsOrOverrides:
@@ -1297,12 +1401,10 @@ export function createChatSectionImpl(
   return mergeGeneratedOptions<ChatSectionImpl>(defaults, resolved.overrides);
 }
 
-type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
+type BrowserSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Browser;
   folder: string;
   hideColumn: boolean;
-  columnWidth?: number | null;
-  typesColumnWidth?: number | null;
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 };
@@ -1406,7 +1508,6 @@ type StateMachineStartSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.StateMachineStart;
   machineGroupId: string;
   label: string;
-  maxIterations?: number | null;
 };
 
 export function createStateMachineStartSectionImpl(
@@ -1453,19 +1554,6 @@ export function createStateMachineStartSectionImpl(
     resolved.overrides,
   );
 }
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<
-  typeof StateMachineGateTypeEnum
->;
-
-type StateMachineGateUIState = {
-  showDetails?: boolean;
-};
 
 type StateMachineGateSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.StateMachineGate;
@@ -1535,20 +1623,13 @@ export function createTextBlockSectionImpl(
   );
 }
 
-export const PromptFormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
-
 export type PromptSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Prompt;
-  promptTemplateId?: string | null;
   template: string;
   format: PromptFormat;
   inputs: Record<string, string>;
   renderedText: string;
   missingVariables: Array<string>;
-  renderError?: string | null;
 };
 
 export function createPromptSectionImpl(
@@ -1597,8 +1678,6 @@ type CodeSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Code;
   children: Array<string>;
   code: string;
-  codeFileBinding?: CodeFileBinding | null;
-  attachedTerminalSectionId?: string | null;
   codeLanguage: string;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
@@ -1701,7 +1780,6 @@ type CallableSectionImpl = BaseSectionImpl & {
   ignoreTypeErrors: TypeErrorIgnoreState;
   edgeInputParams: Array<string>;
   edgeOutputPorts: Array<EdgePort>;
-  callable?: string | null;
   hideParams: boolean;
 };
 
@@ -1828,67 +1906,7 @@ export function createDictSectionImpl(
   return mergeGeneratedOptions<DictSectionImpl>(defaults, resolved.overrides);
 }
 
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
-};
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  return mergeGeneratedOptions<TaskBoardColumn>(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
-};
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  return mergeGeneratedOptions<TaskBoardTask>(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: "none",
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
+type TaskBoardSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.TaskBoard;
   viewMode: TaskBoardViewMode;
   columns: Array<TaskBoardColumn>;
@@ -1988,7 +2006,6 @@ export function createChartSectionImpl(
 type SpreadsheetSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Spreadsheet;
   filePath: string;
-  activeSheet?: string | null;
   readOnly: boolean;
   showRowNumbers: boolean;
   density: SpreadsheetGridDensity;
@@ -2052,11 +2069,42 @@ type BaseCodeObjImpl = {
   typeAnnotation?: string;
   defaultVal?: string;
   value?: string;
+  uiType?: TextParamInputUIType;
+  dateDisplayFormat?: DateDisplayFormat;
+  dateControlMode?: DateControlMode;
+  dateSelectionMode?: DateSelectionMode;
+  dateCalendarWeekStart?: DateCalendarWeekStart;
+  dateIncludesTime?: boolean;
+  timeControlMode?: TimeControlMode;
+  timeDisplayFormat?: TimeDisplayFormat;
+  timeDisplayTransparent?: boolean;
+  timeDisplayScale?: number;
+  timeDisplayFont?: TimeDisplayFont;
+  label?: string;
+  actionMode?: ButtonActionMode;
+  requestMethod?: HTTPRequestMethod;
+  requestUrl?: string;
+  requestHeaderKey?: string;
+  requestHeaderValue?: string;
+  requestBody?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  colorChoices?: Array<ColorPickerChoice>;
+  choices?: Array<string>;
+  hasSecret?: boolean;
+  mode?: DropzoneMode;
+  maxAttachments?: number | null;
+  placeholder?: string;
   [key: string]: unknown;
 };
 
 type CodeParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2099,11 +2147,19 @@ export function createCodeParamCodeObjImpl(
 
 type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeCallable;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   children: Array<string>;
 };
 
 type NestedParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.NestedParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   children: Array<string>;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
@@ -2113,6 +2169,10 @@ type NestedParamCodeObjImpl = BaseCodeObjImpl & {
 
 type TextParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TextParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2124,6 +2184,10 @@ type TextParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type DateParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DateParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2139,6 +2203,10 @@ export type DateParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TimeParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2154,6 +2222,10 @@ export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.ButtonParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2169,6 +2241,10 @@ export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.SliderParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2182,6 +2258,10 @@ export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.RotaryParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2195,6 +2275,10 @@ export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
 
 type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.SwitchParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2205,6 +2289,10 @@ type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.ColorPickerParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2216,6 +2304,10 @@ export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DropdownParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2227,6 +2319,10 @@ export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
 
 type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.PasswordParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2238,6 +2334,10 @@ type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
 
 type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.TextAreaParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;
@@ -2248,6 +2348,10 @@ type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
 
 export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.DropzoneParam;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
   coreNameType: ParamNameType;
   coreNameEditable: boolean;
   passingStyle: ParameterPassingStyle;

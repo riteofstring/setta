@@ -727,6 +727,16 @@ func generatedUserDefaultReflectedProperties(
 	converter *typeConverter,
 	t reflect.Type,
 ) ([]TypeProperty, error) {
+	if sectionName, ok := generatedSectionImplName(t); ok {
+		return generatedConcreteSectionProperties(converter, t, sectionName)
+	}
+	if codeObjName, ok := generatedCodeObjImplName(t); ok {
+		return generatedConcreteCodeObjProperties(
+			converter,
+			t,
+			strings.TrimSuffix(codeObjName, "CodeObjImpl"),
+		)
+	}
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
 		spec.DefaultValue = nil
 		spec.HasCreateExpr = false

@@ -115,14 +115,15 @@ func generatedBaseSectionWithParamsImplUnionDeclaration(converter *typeConverter
 }
 
 func generatedBaseDictSectionImplUnionDeclaration(converter *typeConverter) TypeDeclaration {
-	properties := append(
-		[]TypeProperty(nil),
-		generatedSectionImplAliasProperties(
-			converter,
-			reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
-			"Dict",
-		)...,
+	properties, err := generatedSectionImplAliasProperties(
+		converter,
+		reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
+		"Dict",
 	)
+	if err != nil {
+		panic(err)
+	}
+	properties = append([]TypeProperty(nil), properties...)
 	for index := range properties {
 		if properties[index].Name == "type" {
 			properties[index].TypeExpr = "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"
@@ -166,10 +167,6 @@ func generatedCodeObjUnionDeclaration(
 	return aliasUnionDeclaration(name, members...)
 }
 
-func generatedCodeObjImplTypeNames() []string {
-	return generatedCodeObjImplTypeNamesMatching(nil)
-}
-
 func generatedCodeObjImplTypeNamesMatching(predicate func(reflect.Type) bool) []string {
 	names := []string{}
 	for _, codeObjName := range mustGeneratedEnumValues(
@@ -199,43 +196,6 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"type":                    {},
 }
 
-var generatedBaseSectionOptionalPropertySeeds = []reflect.Type{
-	reflect.TypeOf(projectstate.FrontendListRootSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
-	reflect.TypeOf(projectstate.ChatSectionState{}),
-	reflect.TypeOf(projectstate.FrontendCodeSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendBrowserSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendSpreadsheetSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendTextBlockSectionImpl{}),
-	reflect.TypeOf(projectstate.FrontendChartSectionImpl{}),
-}
-
-var generatedBaseSectionOptionalIgnoredProperties = map[string]struct{}{
-	"callable":               {},
-	"hideParams":             {},
-	"activeBranchId":         {},
-	"branches":               {},
-	"diagnosticsIgnoreState": {},
-	"typesColumnWidth":       {},
-	"savedSearches":          {},
-	"format":                 {},
-	"masterFontSizePx":       {},
-	"headingAsSectionName":   {},
-	"textDisplayMode":        {},
-}
-
-var generatedBaseSectionOptionalPropertyTypeOverrides = map[string]string{
-	"configLanguage": "string",
-	"density":        "string",
-}
-
-var generatedBaseCodeObjOptionalPropertySeeds = []reflect.Type{
-	reflect.TypeOf(projectstate.FrontendCodeCallableCodeObjImpl{}),
-	reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
-}
-
 func generatedConcreteSectionMetadataDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
@@ -247,7 +207,11 @@ func generatedConcreteSectionMetadataDeclaration(
 	if !ok {
 		return TypeDeclaration{}, false
 	}
-	return generatedSectionImplAliasDeclaration(converter, t, sectionName), true
+	declaration, err := generatedSectionImplAliasDeclaration(converter, t, sectionName)
+	if err != nil {
+		panic(err)
+	}
+	return declaration, true
 }
 
 func generatedConcreteCodeObjMetadataDeclaration(
@@ -261,11 +225,15 @@ func generatedConcreteCodeObjMetadataDeclaration(
 	if !ok {
 		return TypeDeclaration{}, false
 	}
-	return generatedCodeObjImplAliasDeclaration(
+	declaration, err := generatedCodeObjImplAliasDeclaration(
 		converter,
 		t,
 		strings.TrimSuffix(implName, "CodeObjImpl"),
-	), true
+	)
+	if err != nil {
+		panic(err)
+	}
+	return declaration, true
 }
 
 func generatedBaseSectionImplDeclaration(converter *typeConverter) TypeDeclaration {
@@ -288,120 +256,106 @@ func generatedSectionImplAliasDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 	sectionName string,
-) TypeDeclaration {
+) (TypeDeclaration, error) {
+	properties, err := generatedSectionImplAliasProperties(converter, t, sectionName)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
 	return aliasIntersectionDeclarationFromProperties(
 		frontendBindingTypeName(t),
-		generatedSectionImplAliasBaseExpr(sectionName),
-		generatedSectionImplAliasProperties(converter, t, sectionName),
-	)
+		"BaseSectionImpl",
+		properties,
+	), nil
 }
 
 func generatedCodeObjImplAliasDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 	codeObjName string,
-) TypeDeclaration {
+) (TypeDeclaration, error) {
+	properties, err := generatedCodeObjImplAliasProperties(converter, t, codeObjName)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
 	return aliasIntersectionDeclarationFromProperties(
 		frontendBindingTypeName(t),
 		"BaseCodeObjImpl",
-		generatedCodeObjImplAliasProperties(converter, t, codeObjName),
-	)
-}
-
-func generatedSectionImplAliasBaseExpr(sectionName string) string {
-	switch sectionName {
-	case "Chat":
-		return "BaseSectionImpl & ChatSectionState"
-	case "Browser", "TaskBoard":
-		return `Omit<BaseSectionImpl, "viewMode">`
-	default:
-		return "BaseSectionImpl"
-	}
+		properties,
+	), nil
 }
 
 func generatedSectionImplAliasProperties(
 	converter *typeConverter,
 	t reflect.Type,
 	sectionName string,
-) []TypeProperty {
-	properties := mustGeneratedReflectedProperties(converter, t)
-	baseNames := generatedPropertyNameSet(mustGeneratedSectionBaseCoreProperties(converter))
-	excludedNames := map[string]struct{}{}
-	if sectionName == "Chat" {
-		excludedNames = generatedPropertyNameSet(
-			mustGeneratedReflectedProperties(converter, reflect.TypeOf(projectstate.ChatSectionState{})),
-		)
+) ([]TypeProperty, error) {
+	properties, err := generatedConcreteSectionProperties(converter, t, sectionName)
+	if err != nil {
+		return nil, err
 	}
-
-	filtered := make([]TypeProperty, 0, len(properties))
-	for _, property := range properties {
-		if property.Name != "type" {
-			if _, ok := baseNames[property.Name]; ok {
-				continue
-			}
-			if _, ok := excludedNames[property.Name]; ok {
-				continue
-			}
-		}
-		filtered = append(filtered, property)
-	}
-	return filtered
+	return generatedAliasProperties(
+		generatedBaseSectionImplDeclaration(converter).Properties,
+		properties,
+	), nil
 }
 
 func generatedCodeObjImplAliasProperties(
 	converter *typeConverter,
 	t reflect.Type,
-	_ string,
-) []TypeProperty {
-	properties := mustGeneratedReflectedProperties(converter, t)
-	baseNames := generatedPropertyNameSet(mustGeneratedCodeObjBaseCoreProperties(converter))
-
-	filtered := make([]TypeProperty, 0, len(properties))
-	for _, property := range properties {
-		if property.Name != "type" {
-			if _, ok := baseNames[property.Name]; ok {
-				continue
-			}
-		}
-		filtered = append(filtered, property)
+	codeObjName string,
+) ([]TypeProperty, error) {
+	properties, err := generatedConcreteCodeObjProperties(converter, t, codeObjName)
+	if err != nil {
+		return nil, err
 	}
-	return filtered
+	return generatedAliasProperties(
+		generatedBaseCodeObjImplDeclaration(converter).Properties,
+		properties,
+	), nil
 }
 
 func generatedBaseSectionOptionalProperties(
 	converter *typeConverter,
 	coreProperties []TypeProperty,
 ) []TypeProperty {
-	properties := generatedSeedOptionalProperties(
-		converter,
+	return generatedMergedOptionalProperties(
 		coreProperties,
-		generatedBaseSectionOptionalPropertySeeds,
-		generatedBaseSectionOptionalIgnoredProperties,
-		generatedBaseSectionOptionalPropertyTypeOverrides,
+		generatedSectionImplTypes(),
+		func(t reflect.Type) ([]TypeProperty, error) {
+			sectionName, ok := generatedSectionImplName(t)
+			if !ok {
+				return nil, nil
+			}
+			return generatedConcreteSectionProperties(converter, t, sectionName)
+		},
 	)
-	return append(properties, generatedBaseSectionSyntheticOptionalProperties()...)
 }
 
 func generatedBaseCodeObjOptionalProperties(
 	converter *typeConverter,
 	coreProperties []TypeProperty,
 ) []TypeProperty {
-	return generatedSeedOptionalProperties(
-		converter,
+	return generatedMergedOptionalProperties(
 		coreProperties,
-		generatedBaseCodeObjOptionalPropertySeeds,
-		nil,
-		nil,
+		generatedCodeObjImplTypes(),
+		func(t reflect.Type) ([]TypeProperty, error) {
+			codeObjName, ok := generatedCodeObjImplName(t)
+			if !ok {
+				return nil, nil
+			}
+			return generatedConcreteCodeObjProperties(
+				converter,
+				t,
+				strings.TrimSuffix(codeObjName, "CodeObjImpl"),
+			)
+		},
 	)
 }
 
 func mustGeneratedSectionBaseCoreProperties(converter *typeConverter) []TypeProperty {
 	properties, err := converter.structProperties(
 		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
-		map[string]string{
-			"type":        "SectionType",
-			"aspectRatio": "boolean | number",
-		},
+		nil,
 		nil,
 		nil,
 	)
@@ -414,9 +368,7 @@ func mustGeneratedSectionBaseCoreProperties(converter *typeConverter) []TypeProp
 func mustGeneratedCodeObjBaseCoreProperties(converter *typeConverter) []TypeProperty {
 	properties, err := converter.structProperties(
 		reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
-		map[string]string{
-			"type": "CodeObjType",
-		},
+		nil,
 		nil,
 		nil,
 	)
@@ -426,65 +378,106 @@ func mustGeneratedCodeObjBaseCoreProperties(converter *typeConverter) []TypeProp
 	return properties
 }
 
-func mustGeneratedReflectedProperties(converter *typeConverter, t reflect.Type) []TypeProperty {
-	properties, err := generatedUserDefaultReflectedProperties(converter, t)
-	if err != nil {
-		panic(err)
-	}
-	return properties
-}
-
-func generatedPropertyNameSet(properties []TypeProperty) map[string]struct{} {
-	names := make(map[string]struct{}, len(properties))
+func generatedPropertyMap(properties []TypeProperty) map[string]TypeProperty {
+	names := make(map[string]TypeProperty, len(properties))
 	for _, property := range properties {
-		names[property.Name] = struct{}{}
+		names[property.Name] = property
 	}
 	return names
 }
 
-func generatedSeedOptionalProperties(
-	converter *typeConverter,
-	coreProperties []TypeProperty,
-	seeds []reflect.Type,
-	ignoredNames map[string]struct{},
-	typeOverrides map[string]string,
+func generatedAliasProperties(
+	baseProperties []TypeProperty,
+	properties []TypeProperty,
 ) []TypeProperty {
-	coreNames := generatedPropertyNameSet(coreProperties)
-	properties := make([]TypeProperty, 0, len(seeds)*4)
-	seen := make(map[string]struct{}, len(coreNames))
-
-	for name := range coreNames {
-		seen[name] = struct{}{}
-	}
-	for _, seed := range seeds {
-		for _, property := range mustGeneratedReflectedProperties(converter, seed) {
-			if _, ok := seen[property.Name]; ok {
-				continue
-			}
-			if _, ok := ignoredNames[property.Name]; ok {
-				continue
-			}
-			property.Optional = true
-			if override, ok := typeOverrides[property.Name]; ok {
-				property.TypeExpr = override
-			}
-			properties = append(properties, property)
-			seen[property.Name] = struct{}{}
+	baseByName := generatedPropertyMap(baseProperties)
+	filtered := make([]TypeProperty, 0, len(properties))
+	for _, property := range properties {
+		baseProperty, ok := baseByName[property.Name]
+		if !ok ||
+			baseProperty.TypeExpr != property.TypeExpr ||
+			baseProperty.Optional != property.Optional {
+			filtered = append(filtered, property)
 		}
+	}
+	return filtered
+}
+
+func generatedMergedOptionalProperties(
+	coreProperties []TypeProperty,
+	types []reflect.Type,
+	propertiesForType func(reflect.Type) ([]TypeProperty, error),
+) []TypeProperty {
+	coreByName := generatedPropertyMap(coreProperties)
+	order := []string{}
+	merged := map[string]*TypeProperty{}
+	typeExprsByName := map[string][]string{}
+	seenTypeExprsByName := map[string]map[string]struct{}{}
+
+	for _, t := range types {
+		properties, err := propertiesForType(t)
+		if err != nil {
+			panic(err)
+		}
+		for _, property := range properties {
+			if _, ok := coreByName[property.Name]; ok {
+				continue
+			}
+			spec, ok := merged[property.Name]
+			if !ok {
+				property.Optional = true
+				copyProperty := property
+				merged[property.Name] = &copyProperty
+				typeExprsByName[property.Name] = []string{}
+				seenTypeExprsByName[property.Name] = map[string]struct{}{}
+				order = append(order, property.Name)
+				spec = &copyProperty
+			}
+			spec.Optional = true
+			if _, seen := seenTypeExprsByName[property.Name][property.TypeExpr]; seen {
+				continue
+			}
+			seenTypeExprsByName[property.Name][property.TypeExpr] = struct{}{}
+			typeExprsByName[property.Name] = append(typeExprsByName[property.Name], property.TypeExpr)
+		}
+	}
+	properties := make([]TypeProperty, 0, len(order))
+	for _, name := range order {
+		property := *merged[name]
+		property.TypeExpr = strings.Join(typeExprsByName[name], " | ")
+		properties = append(properties, property)
 	}
 	return properties
 }
 
-func generatedBaseSectionSyntheticOptionalProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
-		{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
-		{Name: "pluginId", TypeExpr: "string", Optional: true},
-		{Name: "kind", TypeExpr: "string", Optional: true},
-		{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
-		{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
-		{Name: "imagePath", TypeExpr: "string", Optional: true},
-	}
+func generatedConcreteSectionProperties(
+	converter *typeConverter,
+	t reflect.Type,
+	sectionName string,
+) ([]TypeProperty, error) {
+	return converter.structProperties(
+		t,
+		map[string]string{
+			"type": "typeof " + generatedSectionImplTypeExpr(sectionName),
+		},
+		nil,
+		nil,
+	)
+}
+
+func generatedConcreteCodeObjProperties(
+	converter *typeConverter,
+	t reflect.Type,
+	codeObjName string,
+) ([]TypeProperty, error) {
+	return converter.structProperties(
+		t,
+		map[string]string{
+			"type": "typeof CodeObjTypeEnum." + codeObjName,
+		},
+		nil,
+		nil,
+	)
 }
 
 func mustGeneratedEnumValues(t reflect.Type) []string {
@@ -511,4 +504,32 @@ func generatedCodeObjImplTypeForCodeObjName(codeObjName string) (reflect.Type, b
 		}
 	}
 	return nil, false
+}
+
+func generatedSectionImplTypes() []reflect.Type {
+	types := []reflect.Type{}
+	for _, sectionName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendSectionType("")),
+	) {
+		t, ok := generatedSectionImplTypeForSectionName(sectionName)
+		if !ok {
+			continue
+		}
+		types = append(types, t)
+	}
+	return types
+}
+
+func generatedCodeObjImplTypes() []reflect.Type {
+	types := []reflect.Type{}
+	for _, codeObjName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
+	) {
+		t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName)
+		if !ok {
+			continue
+		}
+		types = append(types, t)
+	}
+	return types
 }

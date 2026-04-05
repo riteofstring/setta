@@ -2,7 +2,6 @@ package frontendbindings
 
 import (
 	"reflect"
-	"strings"
 
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
@@ -150,61 +149,8 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpecs[t]; ok {
 		return reflectedSpecWithDiscoveredDefault(t, spec), true
 	}
-	if spec, ok := generatedOwnerBackedReflectedObjectDeclarationSpec(t); ok {
-		return reflectedSpecWithDiscoveredDefault(t, spec), true
-	}
 	if spec := reflectedSpecWithDiscoveredDefault(t, reflectedObjectDeclarationSpec{}); spec.HasCreateExpr {
 		return spec, true
 	}
 	return reflectedObjectDeclarationSpec{}, false
-}
-
-func generatedOwnerBackedReflectedObjectDeclarationSpec(
-	t reflect.Type,
-) (reflectedObjectDeclarationSpec, bool) {
-	if t == reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}) {
-		return reflectedObjectDeclarationSpec{
-			PropertyTypeExprOverrides: map[string]string{
-				"type":        "SectionType",
-				"aspectRatio": "boolean | number",
-			},
-		}, true
-	}
-	if sectionName, ok := generatedSectionImplName(t); ok {
-		return generatedSectionImplReflectedSpec(sectionName), true
-	}
-	if codeObjName, ok := generatedCodeObjImplName(t); ok {
-		return generatedCodeObjImplReflectedSpec(
-			strings.TrimSuffix(codeObjName, "CodeObjImpl"),
-		), true
-	}
-	return reflectedObjectDeclarationSpec{}, false
-}
-
-func generatedSectionImplReflectedSpec(sectionName string) reflectedObjectDeclarationSpec {
-	overrides := map[string]string{
-		"type":        "typeof " + generatedSectionImplTypeExpr(sectionName),
-		"aspectRatio": "boolean | number",
-	}
-	switch sectionName {
-	case "Chart":
-		overrides["chartSettings"] = "BaseChartSettingsUnion"
-	case "Chat":
-		overrides["messages"] = "Array<BaseChatMessageUnion>"
-	}
-	return reflectedObjectDeclarationSpec{
-		PropertyTypeExprOverrides: overrides,
-	}
-}
-
-func generatedCodeObjImplReflectedSpec(codeObjName string) reflectedObjectDeclarationSpec {
-	overrides := map[string]string{
-		"type": "typeof CodeObjTypeEnum." + codeObjName,
-	}
-	if codeObjName == "ColorPickerParam" {
-		overrides["colorChoices"] = "Array<ColorPickerChoice>"
-	}
-	return reflectedObjectDeclarationSpec{
-		PropertyTypeExprOverrides: overrides,
-	}
 }

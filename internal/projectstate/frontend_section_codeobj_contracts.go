@@ -218,7 +218,7 @@ type FrontendBaseSectionImpl struct {
 	TagColor                *string             `json:"tagColor"`
 	StyleColor              *string             `json:"styleColor"`
 	Size                    SectionSize         `json:"size"`
-	AspectRatio             any                 `json:"aspectRatio"`
+	AspectRatio             any                 `json:"aspectRatio" ts_type:"boolean | number"`
 	AspectRatioExtraHeight  float64             `json:"aspectRatioExtraHeight"`
 	AspectRatioExtraWidth   float64             `json:"aspectRatioExtraWidth"`
 	IsMinimized             bool                `json:"isMinimized"`
@@ -377,7 +377,7 @@ type FrontendTaskBoardSectionImpl struct {
 type FrontendChartSectionImpl struct {
 	FrontendBaseSectionImpl
 	DataPath      string `json:"dataPath"`
-	ChartSettings any    `json:"chartSettings"`
+	ChartSettings any    `json:"chartSettings" ts_type:"BaseChartSettingsUnion"`
 }
 
 type FrontendSpreadsheetSectionImpl struct {
@@ -485,7 +485,7 @@ type FrontendSwitchParamCodeObjImpl struct {
 
 type FrontendColorPickerParamCodeObjImpl struct {
 	FrontendBaseValueParamCodeObjImpl
-	ColorChoices []map[string]string `json:"colorChoices"`
+	ColorChoices []map[string]string `json:"colorChoices" ts_type:"Array<ColorPickerChoice>"`
 }
 
 type FrontendDropdownParamCodeObjImpl struct {
