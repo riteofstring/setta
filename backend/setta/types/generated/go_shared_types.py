@@ -330,6 +330,17 @@ class MessageThinkingContent(BaseModel):
     type: str
 
 
+class MessageThinkingDelta(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    index: int
+    signature: str | None
+    summary: str | None
+    thinking: str
+    type: str
+
+
 type ModeScopedLauncherRoutes = Annotated[
     list[str], Field(..., title="ModeScopedLauncherRoutes")
 ]
@@ -368,6 +379,15 @@ class ProjectCodegenPluginTarget(BaseModel):
     )
     language: str
     options: dict[str, Any]
+
+
+class ProjectRunCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    canRunFromMain: bool
+    effectiveEntrySectionId: str | None
+    mainRunDisabledReason: str | None
 
 
 type RawMessage = Annotated[
@@ -501,6 +521,17 @@ class ToolArgumentPreviewDeltaEvent(BaseModel):
     target_ids_by_type: dict[str, list[str]]
     tool_call_id: str
     tool_name: str
+    type: StreamingEventType
+
+
+class ToolCallDeltaEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    arguments_delta: str
+    message_id: str
+    tool_call_id: str
+    tool_name: str | None
     type: StreamingEventType
 
 
@@ -783,6 +814,15 @@ class MessageStopEvent(BaseModel):
     )
     message_id: str
     type: StreamingEventType
+
+
+class RawArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: RawMessage | None
 
 
 class SectionCodegenOverride(BaseModel):
@@ -1358,26 +1398,6 @@ class LineChartSettings(SettaSharedTypeModel):
     y2AxisLog: bool = False
 
 
-class MessageThinkingDelta(SettaSharedTypeModel):
-    type: str
-    index: int
-    thinking: str
-    summary: str | None = None
-    signature: str | None = None
-
-
-class ProjectRunCapabilities(SettaSharedTypeModel):
-    canRunFromMain: bool
-    mainRunDisabledReason: str | None = None
-    effectiveEntrySectionId: str | None = None
-
-
-class RawArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: Any | None = None
-
-
 class ScatterChartSettings(SettaSharedTypeModel):
     type: ChartType = ChartType.scatter
     xAxisColumn: str | None = None
@@ -1405,14 +1425,6 @@ class SystemChatMessage(SettaSharedTypeModel):
         MessageTextContent | MessageImageURLContent | MessageThinkingContent
     ] = Field(default_factory=list)
     attachments: list[ChatFileAttachment] = Field(default_factory=list)
-
-
-class ToolCallDeltaEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message_id: str
-    tool_call_id: str
-    arguments_delta: str
-    tool_name: str | None = None
 
 
 class ToolChatMessage(SettaSharedTypeModel):

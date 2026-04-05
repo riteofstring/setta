@@ -191,9 +191,6 @@ func pythonModelRequiresManualOverride(t reflect.Type) bool {
 }
 
 func pythonFieldRequiresManualOverride(field reflect.StructField) bool {
-	if field.Type.Kind() == reflect.Pointer && !fieldAllowsMissing(field) {
-		return true
-	}
 	if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
 		return true
 	}

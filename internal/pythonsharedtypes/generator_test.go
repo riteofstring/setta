@@ -152,8 +152,8 @@ func TestPythonModelRequiresManualOverrideOnlyForPythonSpecificOverrides(t *test
 	if pythonModelRequiresManualOverride(reflect.TypeOf(scriptablechat.ChatFileAttachment{})) {
 		t.Fatalf("ChatFileAttachment should use the standard schema-generated path")
 	}
-	if !pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectRunCapabilities{})) {
-		t.Fatalf("ProjectRunCapabilities should stay on the manual override path")
+	if pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectRunCapabilities{})) {
+		t.Fatalf("ProjectRunCapabilities should use the standard schema-generated path")
 	}
 	if !pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectConfig{})) {
 		t.Fatalf("ProjectConfig should remain on the manual override path")
@@ -176,8 +176,12 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class SectionSize(BaseModel):",
 		"class Chat(SettaSharedTypeModel):",
 		"class ChatFileAttachment(BaseModel):",
-		"class DependencyEvent(SettaSharedTypeModel):",
+		"class DependencyEvent(BaseModel):",
+		"class MessageThinkingDelta(BaseModel):",
+		"class ProjectRunCapabilities(BaseModel):",
+		"class RawArtifact(BaseModel):",
 		"class StateMachineEdge(BaseModel):",
+		"class ToolCallDeltaEvent(BaseModel):",
 		"messages: list[BaseChatMessageUnion]",
 		"dependencyKey: BaseDependencyKeyUnion",
 		"payload: BaseDependencyValueUnion | None",
@@ -192,7 +196,12 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	}
 	for _, snippet := range []string{
 		"class ChatFileAttachment(SettaSharedTypeModel):",
+		"class DependencyEvent(SettaSharedTypeModel):",
+		"class MessageThinkingDelta(SettaSharedTypeModel):",
+		"class ProjectRunCapabilities(SettaSharedTypeModel):",
+		"class RawArtifact(SettaSharedTypeModel):",
 		"class StateMachineEdge(SettaSharedTypeModel):",
+		"class ToolCallDeltaEvent(SettaSharedTypeModel):",
 	} {
 		if strings.Contains(output, snippet) {
 			t.Fatalf("generated output should not contain snippet %q", snippet)
