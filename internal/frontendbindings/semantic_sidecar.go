@@ -337,8 +337,8 @@ func semanticDiscriminatedFamilyDeclarations() ([]TypeDeclaration, error) {
 }
 
 func frontendBindingTypesByName() map[string]reflect.Type {
-	typesByName := make(map[string]reflect.Type, len(frontendBindingPublicTypeNames()))
-	for t, name := range frontendBindingPublicTypeNames() {
+	typesByName := make(map[string]reflect.Type, len(frontendBindingGeneratedTypeNamesByType))
+	for t, name := range frontendBindingGeneratedTypeNamesByType {
 		trimmedName := strings.TrimSpace(name)
 		if trimmedName == "" {
 			continue

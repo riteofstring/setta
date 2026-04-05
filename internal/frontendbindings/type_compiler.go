@@ -101,10 +101,18 @@ func frontendBindingTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
-	if name, ok := frontendBindingPublicTypeNames()[t]; ok && strings.TrimSpace(name) != "" {
+	if name, ok := frontendBindingGeneratedTypeNamesByType[t]; ok && strings.TrimSpace(name) != "" {
 		return name
 	}
-	return normalizedFrontendBindingTypeName(t.Name())
+	name := strings.TrimSpace(t.Name())
+	if strings.HasPrefix(name, "Frontend") && len(name) > len("Frontend") {
+		return strings.TrimPrefix(name, "Frontend")
+	}
+	return name
+}
+
+func BindingTypeName(t reflect.Type) string {
+	return frontendBindingTypeName(t)
 }
 
 func (c *typeConverter) goBackedCreateFunctionDeclaration(t reflect.Type, defaultValue any) (TypeDeclaration, error) {
