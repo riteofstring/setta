@@ -487,7 +487,7 @@ export async function route_get_attachment_download_url(
 
 export async function route_get_attachment_download_urls(
   x: gt.GetAttachmentDownloadURLsRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.AttachmentDownloadURLEntry>>> {
   return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrls(), x);
 }
 
@@ -540,7 +540,7 @@ export async function route_get_external_agent_configs(): Promise<
 }
 
 export async function route_get_external_agent_health(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.ExternalAgentPreflightStatusList>
 > {
   return await get(GoHTTPRouteHelpers.getExternalAgentHealth());
 }

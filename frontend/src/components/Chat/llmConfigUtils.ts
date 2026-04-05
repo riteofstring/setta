@@ -1,4 +1,6 @@
-import { AllLLMConfigs, APIKeys } from "utils/generatedTypes";
+import { AllLLMConfigs, LLMAPIKeysSnapshot } from "utils/generatedTypes";
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 type LLMConfigGroup = {
   group: string;

@@ -32,7 +32,6 @@ import {
   AgentRun,
   AllLLMConfigs,
   AllProjectMetadata,
-  APIKeys,
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
@@ -49,6 +48,7 @@ import {
   ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
+  LLMAPIKeysSnapshot,
   LLMConfig,
   LSPDiagnostic,
   Notification,
@@ -103,6 +103,8 @@ const getPersistStorage = <S>() =>
     }
     return localStorage;
   });
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(

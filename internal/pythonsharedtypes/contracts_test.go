@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/frontendbindings"
+	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 )
@@ -154,9 +154,9 @@ func TestBuildModelSpecUsesGoValueDefaultsForOwnerTypes(t *testing.T) {
 	}
 
 	llmConfigModel, err := buildModelSpec(contractSpec{
-		Name: reflect.TypeOf(frontendbindings.LLMConfig{}).Name(),
+		Name: pythonSharedContractNameForType(reflect.TypeOf(llmconfig.Config{})),
 		Kind: contractKindModel,
-		Type: reflect.TypeOf(frontendbindings.LLMConfig{}),
+		Type: reflect.TypeOf(llmconfig.Config{}),
 	}, map[string]struct{}{"LLMConfig": {}})
 	if err != nil {
 		t.Fatalf("buildModelSpec(LLMConfig) error = %v", err)

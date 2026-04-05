@@ -14,14 +14,16 @@ import {
 import {
   EngineTypeEnum,
   ExternalAgentToolTypeEnum,
-  type APIKeys,
   type AgentRun,
   type AllLLMConfigs,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
+  type LLMAPIKeysSnapshot,
   type SkillEntry,
 } from "utils/generatedTypes";
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(

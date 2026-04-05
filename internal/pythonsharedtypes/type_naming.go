@@ -4,12 +4,21 @@ import (
 	"reflect"
 	"strings"
 	"unicode"
+
+	"setta/internal/frontendbindings"
 )
 
 var pythonSharedOwnerContractNamesByType = newPythonSharedOwnerContractNamesByType()
 
 func newPythonSharedOwnerContractNamesByType() map[reflect.Type]string {
 	contractNames := map[reflect.Type]string{}
+	for _, t := range frontendbindings.DiscoveredConvertibleTypes() {
+		contractName := strings.TrimSpace(frontendbindings.BindingTypeName(t))
+		if contractName == "" {
+			continue
+		}
+		contractNames[t] = contractName
+	}
 	for _, t := range discoveredSharedTypes() {
 		contractName := normalizedPythonSharedContractName(t.Name())
 		if contractName == "" {

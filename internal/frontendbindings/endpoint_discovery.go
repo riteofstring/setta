@@ -1352,6 +1352,13 @@ func (r *sourceResolver) resolveCallExprReturnTypes(
 ) ([]sourceTypeRef, bool) {
 	switch fun := call.Fun.(type) {
 	case *ast.Ident:
+		if fun.Name == "make" && len(call.Args) > 0 {
+			ref, ok := r.resolveTypeExpr(ctx, call.Args[0])
+			if !ok {
+				return nil, false
+			}
+			return []sourceTypeRef{ref}, true
+		}
 		if isBuiltinTypeName(fun.Name) || ctx.pkg.types[fun.Name] != nil {
 			ref, ok := r.resolveTypeExpr(ctx, fun)
 			if !ok {

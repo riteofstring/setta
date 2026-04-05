@@ -93,7 +93,6 @@ import {
   AgentRun,
   AgentRunStatusEnum,
   AllLLMConfigs,
-  APIKeys,
   AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
@@ -159,6 +158,8 @@ import {
   shouldIgnoreResponsePlaceholderChunk,
   updateMessageById,
 } from "./chatStreamState";
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 export { persistChatSectionState };
 

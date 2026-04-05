@@ -357,193 +357,7 @@ export type PluginRestartResponse = {
   reason: string | null;
 };
 
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-type EngineConfigDefaults = {
-  thinking?: boolean | null;
-};
-
-type EngineRuntimeSupport = {
-  thinking: boolean;
-};
-
-export type EngineConfig = {
-  id: string;
-  name: string;
-  engineType: EngineType;
-  settaLlmConfigId?: string | null;
-  externalAgentConfigId?: string | null;
-  defaults?: EngineConfigDefaults;
-  runtimeSupport?: EngineRuntimeSupport | null;
-};
-export function createEngineConfig(
-  options: Partial<EngineConfig> = {},
-): EngineConfig {
-  return options as EngineConfig;
-}
-
-export type AgentProfile = {
-  id: string;
-  name: string;
-  description: string;
-  systemPrompt: string;
-  enableBackgroundSummaryFill: boolean;
-  enableLlmChatTitles: boolean;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-type TranscriptionTransportMode = ObjectValues<
-  typeof TranscriptionTransportModeEnum
->;
-
-export type TranscriptionProfile = {
-  id: string;
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  supportsRealtimeTranscription: boolean;
-  language?: string | null;
-};
-
-export const AgentRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
-
-type RunEvent = {
-  id: string;
-  timestamp: string;
-  type: string;
-  payload?: Record<string, unknown>;
-};
-
-export type AgentRun = {
-  id: string;
-  profileId?: string | null;
-  status: AgentRunStatus;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  inputs?: Record<string, unknown>;
-  outputs?: Record<string, unknown>;
-  toolCalls: Array<Record<string, unknown>>;
-  cost?: number | null;
-  events: Array<RunEvent>;
-};
-export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
-  return options as AgentRun;
-}
-
-const DetachedRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  exited: "exited",
-  failed: "failed",
-  canceled: "canceled",
-  lost: "lost",
-} as const;
-type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
-
-export type DetachedRun = {
-  runId: string;
-  status: DetachedRunStatus;
-  createdAtMs: number;
-  startedAtMs: number | null;
-  exitedAtMs: number | null;
-  exitCode: number | null;
-  pid: number | null;
-  command: string;
-  snapshotPath: string;
-  projectConfigId: string;
-  entrySectionId: string | null;
-  tags: Record<string, string>;
-};
-
-export const StreamingEventTypeEnum = {
-  MESSAGE_START: "message_start",
-  DELTA: "delta",
-  TOOL_CALL_DELTA: "tool_call_delta",
-  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
-  TOOL_RESULT: "tool_result",
-  MESSAGE_STOP: "message_stop",
-  MESSAGE_FINALIZED: "message_finalized",
-} as const;
-
-type MessageTextDelta = {
-  type: "text_delta";
-  index: number;
-  text: string;
-};
-
-type MessageThinkingDelta = {
-  type: "thinking_delta";
-  index: number;
-  thinking: string;
-  summary?: string | null;
-  signature?: string | null;
-};
-
 type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
-
-export type MessageStartEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_START;
-  message: BaseChatMessageUnion;
-};
-
-export type MessageDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.DELTA;
-  message_id: string;
-  content?: Array<MessageContentDelta> | null;
-};
-
-export type ToolCallDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
-  message_id: string;
-  tool_call_id: string;
-  arguments_delta: string;
-  tool_name?: string | null;
-};
-
-export type ToolResultEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_RESULT;
-  result: ToolChatMessage;
-};
-
-export type ToolArgumentPreviewDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
-  message_id: string;
-  tool_call_id: string;
-  tool_name: string;
-  arguments_delta: string;
-  preview_kind: string;
-  target_ids_by_type: Record<string, Array<string>>;
-  preview_value_delta: string;
-};
-
-type MessageStopEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
-  message_id: string;
-};
-
-export type MessageFinalizedEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
-  message: BaseChatMessageUnion;
-};
 
 type LLMStreamingResponseChunk =
   | MessageStartEvent
@@ -553,180 +367,6 @@ type LLMStreamingResponseChunk =
   | ToolArgumentPreviewDeltaEvent
   | MessageStopEvent
   | MessageFinalizedEvent;
-
-export type LLMStreamingResponse = {
-  chatId: string;
-  chunk: LLMStreamingResponseChunk;
-  sectionId?: string | null;
-  projectConfigId?: string | null;
-};
-
-export type APIKeys = Record<string, string>;
-
-const MCPServerTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
-
-type MCPServerConfig = {
-  transport: MCPServerTransport;
-  url?: string;
-  command?: string;
-  args?: Array<string>;
-  env?: Record<string, string>;
-  http_headers?: Record<string, string>;
-  cwd?: string;
-  encoding?: string;
-  encoding_error_handler?: string;
-};
-
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string;
-  base_url?: string;
-  api_key_env?: string;
-  other_params?: Record<string, unknown>;
-  mcpServerIds?: Array<string>;
-  temporary?: boolean;
-};
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
-}
-
-export type AllLLMConfigs = {
-  configs: Record<string, LLMConfig>;
-  mcpServers: Record<string, MCPServerConfig>;
-  defaultMcpServerIds: Array<string>;
-  default_config_id?: string;
-  codexMcpImportedAt?: string;
-};
-export function createAllLLMConfigs(
-  options: Partial<AllLLMConfigs> = {},
-): AllLLMConfigs {
-  return options as AllLLMConfigs;
-}
-
-export const PromptFormatEnum = {
-  Jinja: "Jinja",
-} as const;
-export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
-
-export type PromptTemplate = {
-  id: string;
-  name: string;
-  description: string;
-  template: string;
-  format: PromptFormat;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export const ExternalAgentToolTypeEnum = {
-  claude_code: "claude_code",
-  codex: "codex",
-} as const;
-type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
-
-export const ExternalAgentRunModeEnum = {
-  mcp: "mcp",
-  server: "server",
-  sdk: "sdk",
-  app_server: "app_server",
-} as const;
-type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
-
-export const ExternalAgentSettingsModeEnum = {
-  read_only: "read_only",
-  managed_local: "managed_local",
-  managed_project: "managed_project",
-  explicit_path: "explicit_path",
-} as const;
-type ExternalAgentSettingsMode = ObjectValues<
-  typeof ExternalAgentSettingsModeEnum
->;
-
-export const ExternalAgentWorkingDirStrategyEnum = {
-  project_root: "project_root",
-  temp_dir: "temp_dir",
-  custom: "custom",
-} as const;
-type ExternalAgentWorkingDirStrategy = ObjectValues<
-  typeof ExternalAgentWorkingDirStrategyEnum
->;
-
-export const ClaudeSettingsSourceEnum = {
-  user: "user",
-  project: "project",
-  local: "local",
-} as const;
-type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
-
-type ClaudeSettingsPermissions = {
-  allow: Array<string>;
-  ask: Array<string>;
-  deny: Array<string>;
-};
-
-type ClaudeSettingsManaged = {
-  permissions?: ClaudeSettingsPermissions | null;
-  defaultMode?: string | null;
-  mcp?: Record<string, unknown>;
-};
-
-type ExternalAgentSettingsManagedBlock = {
-  claude?: ClaudeSettingsManaged | null;
-  codex?: Record<string, unknown>;
-};
-
-export type ExternalAgentConfig = {
-  id: string;
-  name: string;
-  description: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
-  commandPath?: string | null;
-  baseUrl?: string | null;
-  defaultModel?: string | null;
-  sandboxPolicy?: string | null;
-  approvalPolicy?: string | null;
-  settingsMode: ExternalAgentSettingsMode;
-  settingsSources?: Array<ClaudeSettingsSource>;
-  settingsFilePath?: string | null;
-  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: ExternalAgentWorkingDirStrategy;
-  workingDir?: string | null;
-  codexSkipGitRepoCheck?: boolean | null;
-};
-
-type ExternalAgentEnvVarStatus = {
-  present: Array<string>;
-  missing: Array<string>;
-};
-
-export type ExternalAgentPreflightStatus = {
-  configId: string;
-  name: string;
-  toolType: ExternalAgentToolType;
-  runMode: ExternalAgentRunMode;
-  supported: boolean;
-  available: boolean;
-  issues: Array<string>;
-  sdkVersion: string | null;
-  cliVersion: string | null;
-  baseUrl: string | null;
-  workingDir: string | null;
-  envVars: ExternalAgentEnvVarStatus;
-};
-export function createExternalAgentPreflightStatus(
-  options: Partial<ExternalAgentPreflightStatus> = {},
-): ExternalAgentPreflightStatus {
-  return options as ExternalAgentPreflightStatus;
-}
 
 export type AgenticSummaryCacheStatus = {
   maxSummariesPerRun: number;
@@ -1551,6 +1191,283 @@ export const WebsocketMsgTypeForFrontendEnum = {
 export type WebsocketMsgTypeForFrontend = ObjectValues<
   typeof WebsocketMsgTypeForFrontendEnum
 >;
+
+export type AgentProfile = {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
+};
+
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+type EngineConfigDefaults = {
+  thinking?: boolean | null;
+};
+function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return mergeGeneratedOptions<EngineConfigDefaults>(
+    {
+      thinking: null,
+    },
+    options,
+  );
+}
+
+type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  return mergeGeneratedOptions<EngineRuntimeSupport>(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
+export type EngineConfig = {
+  id: string;
+  name: string;
+  engineType: EngineType;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+  defaults: EngineConfigDefaults;
+  runtimeSupport?: EngineRuntimeSupport | null;
+};
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  const defaults: EngineConfig = {
+    id: "",
+    name: "",
+    engineType: "setta_llm",
+    defaults: {},
+  };
+  return {
+    ...mergeGeneratedOptions<EngineConfig>(defaults, options),
+    defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
+    runtimeSupport:
+      options.runtimeSupport === undefined || options.runtimeSupport === null
+        ? null
+        : createEngineRuntimeSupport(options.runtimeSupport),
+  };
+}
+
+export const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
+
+type RunEvent = {
+  id: string;
+  timestamp: string;
+  type: string;
+  payload?: Record<string, unknown>;
+};
+
+export type AgentRun = {
+  id: string;
+  profileId?: string | null;
+  status: AgentRunStatus;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  inputs?: Record<string, unknown> | null;
+  outputs?: Record<string, unknown> | null;
+  toolCalls: Array<Record<string, unknown>>;
+  cost?: number | null;
+  events: Array<RunEvent>;
+};
+export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
+  return mergeGeneratedOptions<AgentRun>(
+    {
+      id: "",
+      profileId: null,
+      status: "queued",
+      startedAt: null,
+      finishedAt: null,
+      inputs: null,
+      outputs: null,
+      toolCalls: [],
+      cost: null,
+      events: [],
+    },
+    options,
+  );
+}
+
+const DetachedRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  exited: "exited",
+  failed: "failed",
+  canceled: "canceled",
+  lost: "lost",
+} as const;
+type DetachedRunStatus = ObjectValues<typeof DetachedRunStatusEnum>;
+
+export type DetachedRun = {
+  runId: string;
+  status: DetachedRunStatus;
+  createdAtMs: number;
+  startedAtMs: number | null;
+  exitedAtMs: number | null;
+  exitCode: number | null;
+  pid: number | null;
+  command: string;
+  snapshotPath: string;
+  projectConfigId: string;
+  entrySectionId: string | null;
+  tags: Record<string, string>;
+};
+
+type ExternalAgentEnvVarStatus = {
+  present: Array<string>;
+  missing: Array<string>;
+};
+
+export const ExternalAgentToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+} as const;
+type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
+
+export const ExternalAgentRunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
+
+const ExternalAgentClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+type ExternalAgentClaudeSettingsSource = ObjectValues<
+  typeof ExternalAgentClaudeSettingsSourceEnum
+>;
+
+type ExternalAgentClaudeSettingsPermissions = {
+  allow: Array<string>;
+  ask: Array<string>;
+  deny: Array<string>;
+};
+
+type ExternalAgentClaudeSettingsManaged = {
+  permissions?: ExternalAgentClaudeSettingsPermissions | null;
+  defaultMode?: string | null;
+  mcp?: Record<string, unknown>;
+};
+
+export const ExternalAgentWorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+type ExternalAgentWorkingDirStrategy = ObjectValues<
+  typeof ExternalAgentWorkingDirStrategyEnum
+>;
+
+export const ExternalAgentSettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+type ExternalAgentSettingsMode = ObjectValues<
+  typeof ExternalAgentSettingsModeEnum
+>;
+
+type ExternalAgentSettingsManagedBlock = {
+  claude?: ExternalAgentClaudeSettingsManaged | null;
+  codex?: Record<string, unknown>;
+};
+
+export type ExternalAgentConfig = {
+  id: string;
+  name: string;
+  description: string;
+  toolType: ExternalAgentToolType;
+  runMode: ExternalAgentRunMode;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode: ExternalAgentSettingsMode;
+  settingsSources?: Array<ExternalAgentClaudeSettingsSource>;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: ExternalAgentWorkingDirStrategy;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+
+const MCPServerTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
+
+type MCPServerConfig = {
+  transport: MCPServerTransport;
+  url?: string;
+  command?: string;
+  args?: Array<string>;
+  env?: Record<string, string>;
+  http_headers?: Record<string, string>;
+  cwd?: string;
+  encoding?: string;
+  encoding_error_handler?: string;
+};
+
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
+export type AllLLMConfigs = {
+  configs: Record<string, LLMConfig>;
+  mcpServers: Record<string, MCPServerConfig>;
+  defaultMcpServerIds: Array<string>;
+  default_config_id?: string;
+  codexMcpImportedAt?: string;
+};
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return options as AllLLMConfigs;
+}
 
 export type AppRoute = {
   path: string;
@@ -5216,6 +5133,21 @@ export function createSingleConfig(
   );
 }
 
+export const PromptFormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+
+export type PromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  format: PromptFormat;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
 export type ColorPickerChoice = {
   color: string;
   description: string;
@@ -6199,6 +6131,16 @@ export const NotificationTypeEnum = {
 } as const;
 export type NotificationType = ObjectValues<typeof NotificationTypeEnum>;
 
+export const StreamingEventTypeEnum = {
+  MESSAGE_START: "message_start",
+  DELTA: "delta",
+  TOOL_CALL_DELTA: "tool_call_delta",
+  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
+  TOOL_RESULT: "tool_result",
+  MESSAGE_STOP: "message_stop",
+  MESSAGE_FINALIZED: "message_finalized",
+} as const;
+
 export type AIFollowToolArgumentsUpdateContent = {
   projectConfigId: string;
   chatId: string;
@@ -6214,6 +6156,72 @@ export type AIFollowToolResultUpdateContent = {
   projectConfigId: string;
   chatId: string;
   idsByType: Record<string, Array<string>>;
+};
+
+type MessageTextDelta = {
+  type: "text_delta";
+  index: number;
+  text: string;
+};
+
+type MessageThinkingDelta = {
+  type: "thinking_delta";
+  index: number;
+  thinking: string;
+  summary?: string | null;
+  signature?: string | null;
+};
+
+export type MessageStartEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_START;
+  message: BaseChatMessageUnion;
+};
+
+export type MessageDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.DELTA;
+  message_id: string;
+  content?: Array<MessageContentDelta> | null;
+};
+
+export type ToolCallDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
+  message_id: string;
+  tool_call_id: string;
+  arguments_delta: string;
+  tool_name?: string | null;
+};
+
+export type ToolResultEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_RESULT;
+  result: ToolChatMessage;
+};
+
+export type ToolArgumentPreviewDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
+  message_id: string;
+  tool_call_id: string;
+  tool_name: string;
+  arguments_delta: string;
+  preview_kind: string;
+  target_ids_by_type: Record<string, Array<string>>;
+  preview_value_delta: string;
+};
+
+type MessageStopEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
+  message_id: string;
+};
+
+export type MessageFinalizedEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
+  message: BaseChatMessageUnion;
+};
+
+export type LLMStreamingResponse = {
+  chatId: string;
+  chunk: LLMStreamingResponseChunk;
+  sectionId?: string | null;
+  projectConfigId?: string | null;
 };
 
 type UISettingRevealActivationStep = {
@@ -6287,6 +6295,25 @@ export function createConnection(
     options,
   );
 }
+
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+type TranscriptionTransportMode = ObjectValues<
+  typeof TranscriptionTransportModeEnum
+>;
+
+export type TranscriptionProfile = {
+  id: string;
+  name: string;
+  transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportMode;
+  chunkMs: number;
+  supportsRealtimeTranscription: boolean;
+  language?: string | null;
+};
 
 type RenameReferenceDependencyKey = {
   type: string;
@@ -6831,7 +6858,7 @@ export type CreateExternalAgentConfigRequest = {
   sandboxPolicy: string | null;
   approvalPolicy: string | null;
   settingsMode: ExternalAgentSettingsMode | null;
-  settingsSources: Array<ClaudeSettingsSource>;
+  settingsSources: Array<ExternalAgentClaudeSettingsSource>;
   settingsFilePath: string | null;
   settingsManagedBlock: ExternalAgentSettingsManagedBlock | null;
   settingsAllowSettaEdits: boolean | null;
@@ -7192,6 +7219,12 @@ export type GetAttachmentDownloadURLsRequest = {
   projectConfigId: string | null;
 };
 
+export type AttachmentDownloadURLEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
+
 export type AuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
@@ -7244,6 +7277,29 @@ export type GetExternalAgentConfigRequest = {
 };
 
 export type ExternalAgentConfigList = Array<ExternalAgentConfig>;
+
+export type ExternalAgentPreflightStatus = {
+  configId: string;
+  name: string;
+  toolType: ExternalAgentToolType;
+  runMode: ExternalAgentRunMode;
+  supported: boolean;
+  available: boolean;
+  issues: Array<string>;
+  sdkVersion: string | null;
+  cliVersion: string | null;
+  baseUrl: string | null;
+  workingDir: string | null;
+  envVars: ExternalAgentEnvVarStatus;
+};
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
+  return options as ExternalAgentPreflightStatus;
+}
+
+export type ExternalAgentPreflightStatusList =
+  Array<ExternalAgentPreflightStatus>;
 
 export type GetFileBrowserDownloadURLsRequest = {
   paths: Array<string>;

@@ -4,8 +4,11 @@ import (
 	"reflect"
 	"testing"
 
-	"setta/internal/frontendbindings"
+	"setta/internal/detachedruns"
+	"setta/internal/externalagentconfigs"
+	"setta/internal/launcher"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/stringenumvalues"
 )
 
@@ -34,7 +37,7 @@ func TestRegistryValuesForImportedConstBackedEnum(t *testing.T) {
 	t.Helper()
 
 	values, ok, err := stringenumvalues.New().Values(
-		reflect.TypeOf(frontendbindings.PromptFormat("")),
+		reflect.TypeOf(prompttemplates.Format("")),
 	)
 	if err != nil {
 		t.Fatalf("Values() error = %v", err)
@@ -53,7 +56,7 @@ func TestRegistryValuesForImportedWrapperEnum(t *testing.T) {
 	t.Helper()
 
 	values, ok, err := stringenumvalues.New().Values(
-		reflect.TypeOf(frontendbindings.ClaudeSettingsSource("")),
+		reflect.TypeOf(externalagentconfigs.ClaudeSettingsSource("")),
 	)
 	if err != nil {
 		t.Fatalf("Values() error = %v", err)
@@ -74,7 +77,7 @@ func TestRegistryValuesForImportedWrapperEnumWithoutLocalConsts(t *testing.T) {
 	t.Helper()
 
 	values, ok, err := stringenumvalues.New().Values(
-		reflect.TypeOf(frontendbindings.DetachedRunStatus("")),
+		reflect.TypeOf(detachedruns.Status("")),
 	)
 	if err != nil {
 		t.Fatalf("Values() error = %v", err)
@@ -98,7 +101,7 @@ func TestRegistryUsesValueNameWhenItIsIdentifierAndSuffixWhenItIsNot(t *testing.
 	t.Helper()
 
 	values, ok, err := stringenumvalues.New().Values(
-		reflect.TypeOf(frontendbindings.LauncherOpenMode("")),
+		reflect.TypeOf(launcher.LauncherOpenMode("")),
 	)
 	if err != nil {
 		t.Fatalf("Values() error = %v", err)

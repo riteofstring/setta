@@ -60,6 +60,10 @@ func TestDiscoverCurrentEndpointsTracksMultiReturnHandlerResponses(t *testing.T)
 			functionName: "route_delete_section_variant_or_ask",
 			wantResponse: reflect.TypeOf(""),
 		},
+		{
+			functionName: "route_get_external_agent_health",
+			wantResponse: reflect.TypeOf(httpapi.ExternalAgentPreflightStatusList(nil)),
+		},
 	}
 
 	specsByFunction := make(map[string]EndpointSpec, len(specs))

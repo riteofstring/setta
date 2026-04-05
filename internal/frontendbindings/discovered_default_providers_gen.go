@@ -14,9 +14,6 @@ import (
 
 func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 	return map[reflect.Type]func() any{
-		reflect.TypeOf((*AgentRun)(nil)).Elem(): func() any {
-			return agentruns.FrontendDefaultRun()
-		},
 		reflect.TypeOf(projectstate.AgenticEdge{}): func() any {
 			return projectstate.FrontendDefaultAgenticEdge()
 		},
@@ -68,7 +65,7 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayerItemTransformArtifact()
 		},
-		reflect.TypeOf((*EngineConfigDefaults)(nil)).Elem(): func() any {
+		reflect.TypeOf(agentruns.EngineConfigDefaults{}): func() any {
 			return agentruns.FrontendDefaultEngineConfigDefaults()
 		},
 		reflect.TypeOf(artifacts.FileArtifact{}): func() any {
@@ -125,7 +122,10 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.ProjectConfig{}): func() any {
 			return projectview.FrontendDefaultProjectConfig()
 		},
-		reflect.TypeOf((*RunEvent)(nil)).Elem(): func() any {
+		reflect.TypeOf(agentruns.Run{}): func() any {
+			return agentruns.FrontendDefaultRun()
+		},
+		reflect.TypeOf(agentruns.RunEvent{}): func() any {
 			return agentruns.FrontendDefaultRunEvent()
 		},
 		reflect.TypeOf(projectstate.ScatterChartSettings{}): func() any {

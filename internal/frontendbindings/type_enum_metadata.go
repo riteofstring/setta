@@ -10,6 +10,7 @@ import (
 	"setta/internal/launcher"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/stringenumvalues"
 )
 
@@ -69,7 +70,7 @@ var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
 	reflect.TypeOf(plugins.PluginSourceTrustStatus("")):          frontendEnumNamingPascalValue,
 	reflect.TypeOf(plugins.PluginBlockedCapabilityReason("")):    frontendEnumNamingPascalValue,
 	reflect.TypeOf(plugins.PluginRestartCapabilityMode("")):      frontendEnumNamingPascalValue,
-	reflect.TypeOf(StreamingEventType("")):                       frontendEnumNamingUpperSnakeValue,
+	reflect.TypeOf(realtime.StreamingEventType("")):              frontendEnumNamingUpperSnakeValue,
 }
 
 var frontendBindingEnumPascalAcronyms = map[string]string{

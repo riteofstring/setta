@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
@@ -14,6 +15,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/wsapi"
 )
 
@@ -202,11 +204,11 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"dependencies": "Array<BaseDependencyKeyUnion>",
 		},
 	},
-	reflect.TypeOf(EngineRuntimeSupport{}): {
+	reflect.TypeOf(agentruns.EngineRuntimeSupport{}): {
 		DefaultValue:  agentruns.EngineRuntimeSupport{},
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(EngineConfig{}): {
+	reflect.TypeOf(agentruns.EngineConfig{}): {
 		DefaultValue:         agentruns.EngineConfig{EngineType: agentruns.EngineTypeSettaLLM},
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
@@ -217,30 +219,30 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"settaLlmConfigId":      true,
 		},
 	},
-	reflect.TypeOf(AgentProfile{}): {
+	reflect.TypeOf(agentprofiles.Profile{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"engineConfigId": true,
 			"memoryScope":    true,
 		},
 	},
-	reflect.TypeOf(TranscriptionProfile{}): {
+	reflect.TypeOf(transcriptionprofiles.Profile{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"language": true,
 		},
 	},
-	reflect.TypeOf(RunEvent{}): {},
-	reflect.TypeOf(AgentRun{}): {
+	reflect.TypeOf(agentruns.RunEvent{}): {},
+	reflect.TypeOf(agentruns.Run{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"inputs":  "Record<string, unknown> | null",
 			"outputs": "Record<string, unknown> | null",
 		},
 	},
-	reflect.TypeOf(MessageTextDelta{}): {
+	reflect.TypeOf(realtime.MessageTextDelta{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"text_delta"`,
 		},
 	},
-	reflect.TypeOf(MessageThinkingDelta{}): {
+	reflect.TypeOf(realtime.MessageThinkingDelta{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"thinking_delta"`,
 		},
@@ -249,13 +251,13 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"signature": true,
 		},
 	},
-	reflect.TypeOf(MessageStartEvent{}): {
+	reflect.TypeOf(realtime.MessageStartEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":    "typeof StreamingEventTypeEnum.MESSAGE_START",
 			"message": "BaseChatMessageUnion",
 		},
 	},
-	reflect.TypeOf(MessageDeltaEvent{}): {
+	reflect.TypeOf(realtime.MessageDeltaEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":    "typeof StreamingEventTypeEnum.DELTA",
 			"content": "Array<MessageContentDelta> | null",
@@ -264,7 +266,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"content": true,
 		},
 	},
-	reflect.TypeOf(ToolCallDeltaEvent{}): {
+	reflect.TypeOf(realtime.ToolCallDeltaEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA",
 		},
@@ -272,29 +274,29 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"tool_name": true,
 		},
 	},
-	reflect.TypeOf(ToolResultEvent{}): {
+	reflect.TypeOf(realtime.ToolResultEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":   "typeof StreamingEventTypeEnum.TOOL_RESULT",
 			"result": "ToolChatMessage",
 		},
 	},
-	reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}): {
+	reflect.TypeOf(realtime.ToolArgumentPreviewDeltaEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA",
 		},
 	},
-	reflect.TypeOf(MessageStopEvent{}): {
+	reflect.TypeOf(realtime.MessageStopEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof StreamingEventTypeEnum.MESSAGE_STOP",
 		},
 	},
-	reflect.TypeOf(MessageFinalizedEvent{}): {
+	reflect.TypeOf(realtime.MessageFinalizedEvent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":    "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED",
 			"message": "BaseChatMessageUnion",
 		},
 	},
-	reflect.TypeOf(LLMStreamingResponse{}): {
+	reflect.TypeOf(realtime.LLMStreamingResponseContent{}): {
 		DeclarationName: "LLMStreamingResponse",
 		PropertyTypeExprOverrides: map[string]string{
 			"chunk": "LLMStreamingResponseChunk",

@@ -43,7 +43,7 @@ type defaultProviderEntry struct {
 }
 
 type frontendTypeIndexes struct {
-	LocalNames  map[string]registryEntry
+	LocalNames  map[string][]registryEntry
 	TargetNames map[string]map[string]registryEntry
 }
 
@@ -98,6 +98,36 @@ func main() {
 					IncludeNonStringScalars:  true,
 				},
 				{
+					PkgPath:                  "setta/internal/agentprofiles",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/agentruns",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/detachedruns",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/externalagentconfigs",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/llmconfig",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
 					PkgPath:                  "setta/internal/projectstate",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,
@@ -111,6 +141,12 @@ func main() {
 				},
 				{
 					PkgPath:                  "setta/internal/projectview",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/prompttemplates",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,
 					IncludeNonStringScalars:  true,
@@ -135,6 +171,12 @@ func main() {
 				},
 				{
 					PkgPath:                  "setta/internal/wsapi",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/transcriptionprofiles",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,
 					IncludeNonStringScalars:  true,
@@ -258,7 +300,7 @@ func main() {
 }
 
 func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {
-	seenNames := map[string]struct{}{}
+	seenEntries := map[string]struct{}{}
 	entries := []registryEntry{}
 	for _, source := range target.Sources {
 		discovered, err := gotypediscovery.DiscoverPackageTypesWithOptions(
@@ -275,10 +317,11 @@ func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {
 			return nil, fmt.Errorf("discover %s: %w", source.PkgPath, err)
 		}
 		for _, discoveredType := range discovered {
-			if _, alreadySeen := seenNames[discoveredType.Name]; alreadySeen {
+			key := source.PkgPath + "\x00" + discoveredType.Name
+			if _, alreadySeen := seenEntries[key]; alreadySeen {
 				continue
 			}
-			seenNames[discoveredType.Name] = struct{}{}
+			seenEntries[key] = struct{}{}
 			entries = append(entries, registryEntry{
 				Type:    discoveredType,
 				PkgPath: source.PkgPath,
@@ -286,10 +329,11 @@ func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {
 		}
 	}
 	for _, extraEntry := range explicitRegistryEntries(target) {
-		if _, alreadySeen := seenNames[extraEntry.Type.Name]; alreadySeen {
+		key := extraEntry.PkgPath + "\x00" + extraEntry.Type.Name
+		if _, alreadySeen := seenEntries[key]; alreadySeen {
 			continue
 		}
-		seenNames[extraEntry.Type.Name] = struct{}{}
+		seenEntries[key] = struct{}{}
 		entries = append(entries, extraEntry)
 	}
 	return entries, nil
@@ -412,7 +456,7 @@ func discoverFrontendDefaultProviderEntries(
 		for _, function := range functions {
 			suffix := strings.TrimPrefix(function.Name, "FrontendDefault")
 			key := normalizedRegistryName(suffix)
-			target, ok := indexes.LocalNames[key]
+			target, ok := selectFrontendLocalType(indexes.LocalNames[key], pkgPath)
 			if !ok {
 				targetsByPackage := indexes.TargetNames[pkgPath]
 				target, ok = targetsByPackage[key]
@@ -458,21 +502,18 @@ func normalizedFrontendTypeIndex(
 	frontendEntries []registryEntry,
 ) (frontendTypeIndexes, error) {
 	indexes := frontendTypeIndexes{
-		LocalNames:  map[string]registryEntry{},
+		LocalNames:  map[string][]registryEntry{},
 		TargetNames: map[string]map[string]registryEntry{},
 	}
-	ambiguousTargetNames := map[string]map[string]struct{}{}
 	for _, entry := range frontendEntries {
 		key := normalizedRegistryName(entry.Type.Name)
-		if err := recordLocalFrontendType(&indexes, key, entry); err != nil {
-			return frontendTypeIndexes{}, err
-		}
+		recordLocalFrontendType(&indexes, key, entry)
 		targetPkgPath := strings.TrimSpace(entry.Type.TargetPackagePath)
 		targetTypeName := normalizedRegistryName(entry.Type.TargetTypeName)
 		if targetPkgPath == "" || targetTypeName == "" {
 			continue
 		}
-		recordTargetFrontendType(&indexes, ambiguousTargetNames, targetPkgPath, targetTypeName, entry)
+		recordTargetFrontendType(&indexes, targetPkgPath, targetTypeName, entry)
 	}
 	return indexes, nil
 }
@@ -481,27 +522,18 @@ func recordLocalFrontendType(
 	indexes *frontendTypeIndexes,
 	key string,
 	entry registryEntry,
-) error {
-	existing, ok := indexes.LocalNames[key]
-	if !ok || existing.Type.Name == entry.Type.Name {
-		indexes.LocalNames[key] = entry
-		return nil
+) {
+	existing := indexes.LocalNames[key]
+	for _, candidate := range existing {
+		if candidate.PkgPath == entry.PkgPath && candidate.Type.Name == entry.Type.Name {
+			return
+		}
 	}
-	if preferred, resolved := preferNormalizedFrontendRegistryEntry(existing, entry); resolved {
-		indexes.LocalNames[key] = preferred
-		return nil
-	}
-	return fmt.Errorf(
-		"ambiguous normalized frontend type name %q between %s and %s",
-		key,
-		existing.Type.Name,
-		entry.Type.Name,
-	)
+	indexes.LocalNames[key] = append(existing, entry)
 }
 
 func recordTargetFrontendType(
 	indexes *frontendTypeIndexes,
-	ambiguousTargetNames map[string]map[string]struct{},
 	targetPkgPath string,
 	targetTypeName string,
 	entry registryEntry,
@@ -510,14 +542,6 @@ func recordTargetFrontendType(
 	if !ok {
 		targetsByPackage = map[string]registryEntry{}
 		indexes.TargetNames[targetPkgPath] = targetsByPackage
-	}
-	ambiguousKeys, ok := ambiguousTargetNames[targetPkgPath]
-	if !ok {
-		ambiguousKeys = map[string]struct{}{}
-		ambiguousTargetNames[targetPkgPath] = ambiguousKeys
-	}
-	if _, ambiguous := ambiguousKeys[targetTypeName]; ambiguous {
-		return
 	}
 	existing, ok := targetsByPackage[targetTypeName]
 	if !ok || existing.Type.Name == entry.Type.Name {
@@ -528,8 +552,40 @@ func recordTargetFrontendType(
 		targetsByPackage[targetTypeName] = preferred
 		return
 	}
+	if existing.PkgPath == entry.PkgPath {
+		return
+	}
 	delete(targetsByPackage, targetTypeName)
-	ambiguousKeys[targetTypeName] = struct{}{}
+}
+
+func selectFrontendLocalType(
+	entries []registryEntry,
+	providerPkgPath string,
+) (registryEntry, bool) {
+	if len(entries) == 0 {
+		return registryEntry{}, false
+	}
+	if providerPkgPath != "" {
+		for _, entry := range entries {
+			if entry.PkgPath == providerPkgPath {
+				return entry, true
+			}
+		}
+	}
+	if len(entries) == 1 {
+		return entries[0], true
+	}
+	preferred := entries[0]
+	resolved := false
+	for _, candidate := range entries[1:] {
+		if next, ok := preferNormalizedFrontendRegistryEntry(preferred, candidate); ok {
+			preferred = next
+			resolved = true
+			continue
+		}
+		return registryEntry{}, false
+	}
+	return preferred, resolved
 }
 
 func frontendDefaultProviderSourcePackages(frontendEntries []registryEntry) []string {
