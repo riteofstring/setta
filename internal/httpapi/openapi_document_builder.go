@@ -1,8 +1,6 @@
 package httpapi
 
 import (
-	"net/http"
-
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/artifacts"
@@ -23,7 +21,6 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectshell"
 	"setta/internal/projectstate"
-	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
 	"setta/internal/runs"
 	"setta/internal/settingsstate"
@@ -31,41 +28,6 @@ import (
 	"setta/internal/terminals"
 	"setta/internal/workspacelaunch"
 )
-
-func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
-	registerOpenAPIGet[ServerModeResponse](
-		router,
-		"getServerMode",
-		RouteGetServerMode,
-		func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, ServerModeResponse{
-				Mode: openAPIServerMode(config.Mode(info.ServerMode(r.Context()))),
-			})
-		},
-		withOpenAPITags("Runtime"),
-		withOpenAPISummary("Get the current backend server mode."),
-	)
-	registerOpenAPIGet[RuntimeInfo](
-		router,
-		"getRuntimeInfo",
-		"/runtimeInfo",
-		func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, info.RuntimeInfo(r.Context()))
-		},
-		withOpenAPITags("Runtime"),
-		withOpenAPISummary("Get runtime path and auth metadata for the current backend."),
-	)
-	registerOpenAPIGet[pythonsdkcontracts.RunningBackendVersionHandshake](
-		router,
-		"sdkRuntimeHandshake",
-		RouteSDKRuntimeHandshake,
-		func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, info.SDKRuntimeHandshake(r.Context()))
-		},
-		withOpenAPITags("Runtime"),
-		withOpenAPISummary("Get the running backend version handshake for the local SDK."),
-	)
-}
 
 func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	settaHome, settaFilesRoot := "/setta-home", "/setta-files"

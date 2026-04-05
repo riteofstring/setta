@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/config"
 	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 	"setta/internal/pythonsdkcontracts"
@@ -86,6 +87,41 @@ type validationErrorResponse struct {
 	StatusCode int    `json:"status_code"`
 	Message    string `json:"message"`
 	Data       any    `json:"data"`
+}
+
+func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
+	registerOpenAPIGet[ServerModeResponse](
+		router,
+		"getServerMode",
+		RouteGetServerMode,
+		func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, ServerModeResponse{
+				Mode: openAPIServerMode(config.Mode(info.ServerMode(r.Context()))),
+			})
+		},
+		withOpenAPITags("Runtime"),
+		withOpenAPISummary("Get the current backend server mode."),
+	)
+	registerOpenAPIGet[RuntimeInfo](
+		router,
+		"getRuntimeInfo",
+		"/runtimeInfo",
+		func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, info.RuntimeInfo(r.Context()))
+		},
+		withOpenAPITags("Runtime"),
+		withOpenAPISummary("Get runtime path and auth metadata for the current backend."),
+	)
+	registerOpenAPIGet[pythonsdkcontracts.RunningBackendVersionHandshake](
+		router,
+		"sdkRuntimeHandshake",
+		RouteSDKRuntimeHandshake,
+		func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, info.SDKRuntimeHandshake(r.Context()))
+		},
+		withOpenAPITags("Runtime"),
+		withOpenAPISummary("Get the running backend version handshake for the local SDK."),
+	)
 }
 
 func NewHandler(deps Dependencies) (http.Handler, error) {
