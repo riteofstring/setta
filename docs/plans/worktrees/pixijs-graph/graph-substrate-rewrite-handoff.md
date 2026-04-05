@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 15:59 EDT
+Last updated: 2026-04-07 16:27 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -73,31 +73,34 @@ This section overrides older "next frontier" notes below when choosing the next 
 - New baseline evidence from item `278` on normalized `All Settings`:
   - auto-fit snapshot: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `0.1`
   - targeted fit-view snapshot on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+- New motion evidence from item `279` on the same canonical target:
+  - focused fit-view baseline stayed at `1` mounted body on `rotaryParamCodeObjDefault`
+  - normalized blank-pane pan on `rotaryParamCodeObjDefault` raised the focused lane only to `2` mounted bodies at the same `1.1900826446280992` zoom, with the target body still populated
+  - one toolbar zoom-in after that pan kept the target body populated at `2` mounted bodies while the focused lane zoom increased to `1.428099173553719`
 - Working hypothesis:
   - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
   - the normalized baseline no longer points at seed-fallback churn on the visible canary path
   - the new viewport-visible mount gate proves the canary can narrow DOM body ownership without blanking the focused section body
-  - the next real product slice should test this gate under motion or reduce the remaining `42` auto-fit bodies before reopening more measured-authority cleanup by default
+  - the normalized motion lane on `rotaryParamCodeObjDefault` is now clean enough to treat as regression coverage rather than as an open blocker
+  - the next real product slice should reduce the remaining `42` auto-fit bodies before reopening more measured-authority cleanup or more motion-only proof by default
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- keep the new body-mount gate honest under motion, or narrow the remaining wide-view body count further without regressing canary health
+- narrow the remaining wide-view body count further without regressing canary health on the now-validated `rotaryParamCodeObjDefault` motion lane
 
 Recommended product target:
 
 - keep Pixi shells/chrome visible across the whole `All Settings` canary
 - use the new viewport-visible mount gate as the current baseline, not as an experiment to rerun from scratch
-- either:
-  - verify pan/zoom on `rotaryParamCodeObjDefault` does not produce blank-body pop-in with the gate, or
-  - tighten the wide auto-fit lane so the remaining `42` mounted bodies fall further without breaking the focused section body path
+- tighten the wide auto-fit lane so the remaining `42` mounted bodies fall further without breaking the focused `rotaryParamCodeObjDefault` body path or the now-validated motion lane
 
 Recommended deliverables for the next iteration:
 
-- one production or deterministic verification slice that directly exercises the landed mount gate
-- focused automated coverage for the chosen motion/wide-view path
-- one targeted Playwright probe that reuses the canary instrumentation on the same canonical target
+- one production slice that reduces wide-view DOM body ownership on `All Settings`
+- focused automated coverage for the chosen wide-view path
+- keep the targeted Playwright motion probe on the same canonical target as regression coverage instead of opening a brand-new oracle lane
 - one bounded CDP visual check on the live worktree after the lane action
 
 Recommended canonical target:
@@ -109,11 +112,46 @@ Do not use the next iteration for:
 
 - more `tldraw` investigation
 - another instrumentation-only pass unless a concrete motion question blocks the gate follow-up
+- another motion-only verification pass on `rotaryParamCodeObjDefault` unless a live regression now contradicts item `279`
 - another shell-only visual contract slice
 - another standalone lifecycle recovery pass unless the runtime is actually unhealthy
 - another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
 
 ## Current status
+
+- Ralph item `279` extended the existing normalized `All Settings` instrumentation probe so the canonical `rotaryParamCodeObjDefault` lane now proves the new viewport-visible body-mount gate stays attached and populated through one blank-pane pan plus one toolbar zoom-in.
+
+  - Why this pass completed:
+    - item `278` explicitly left two bounded follow-ups: validate the new gate under motion or reduce the remaining `42` wide-view bodies
+    - this pass chose the recommended deterministic motion-verification slice on the same canonical target instead of reopening instrumentation or another seam-lift lane
+    - the motion assertions were added onto the already-trusted normalized instrumentation probe so the check reused the same preflight, fit-view, and instrumentation lane that already passed in seeded workspaces
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass did not open a new section-specific parity lane; it deepened the existing normalized probe on the same target
+  - Product/test change:
+    - updated [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts) so the existing `settings graph substrate canary exposes live instrumentation on normalized All Settings` probe now also performs one normalized blank-pane pan plus one toolbar zoom-in and asserts that `rotaryParamCodeObjDefault` keeps a populated body/title while the focused body-mount count stays below the full scene-section count
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"`
+      - result: passed (`1 passed`, `39.6s`)
+      - captured snapshots:
+        - auto-fit: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+        - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+        - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `2`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+        - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `2`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - the provided bootstrap token was rejected during the bounded check, so the sub-agent verified `http://127.0.0.1:3075/settings` directly
+      - observed active `All Settings`, visible `rotaryParamCodeObjDefault`, and populated body text on the rotary card (`Rotary Param`, `minHeight 32.0`, `minWidth 200.0`, `Size Mode Height`, `Size Mode Width`) before and after one `zoom in` click
+      - final classification: pass for bounded live canary health on the canonical motion lane
+  - Lane status:
+    - the normalized motion-verification slice requested by item `278` is now complete and should not be reopened by default
+    - the canonical focused lane stayed populated through pan and zoom while widening only from `1` to `2` mounted bodies, so the mount gate is no longer blocked on obvious blank-body pop-in
+    - the next iteration should return to product work on the wide auto-fit lane and try to push the remaining `42` mounted bodies lower without breaking the focused `rotaryParamCodeObjDefault` path
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `278` landed the first production DOM body narrowing slice for the canary by mounting section bodies only when they are viewport-visible, active, dragging, or still missing authoritative size.
 

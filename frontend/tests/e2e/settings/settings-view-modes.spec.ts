@@ -166,6 +166,20 @@ test("settings graph substrate canary exposes live instrumentation on normalized
   const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
   const targetSectionName = "rotaryParamCodeObjDefault";
   const targetSectionId = findSectionIdByName(initialState, targetSectionName);
+  const panDelta = { x: 120, y: 80 };
+
+  const readTargetMotionState = async () => {
+    const [bodyAnchorOffset, metrics, snapshot] = await Promise.all([
+      getCanarySectionBodyAnchorOffset(page, targetSectionId),
+      captureSettingsGraphSectionMetrics(page, targetSectionId),
+      readSettingsGraphCanaryInstrumentationSnapshot(page),
+    ]);
+    return {
+      bodyAnchorOffset,
+      metrics,
+      snapshot,
+    };
+  };
 
   try {
     await normalizeSettingsGraphComparePaneState(page);
@@ -267,12 +281,90 @@ test("settings graph substrate canary exposes live instrumentation on normalized
       })
       .toBeGreaterThan(0);
 
+    // Keep the focused mount-gate lane honest under viewport motion on the
+    // same canonical target instead of treating the fit-only snapshot as enough.
+    const baselineMotionState = await readTargetMotionState();
+    expect(baselineMotionState.bodyAnchorOffset).not.toBeNull();
+    expect(baselineMotionState.metrics.transform).not.toBeNull();
+    expect(baselineMotionState.metrics.titleRect?.width ?? 0).toBeGreaterThan(
+      0,
+    );
+
+    const panStart = await findSettingsGraphPanePoint(page, {
+      panDelta,
+      sectionId: targetSectionId,
+    });
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panStart.x + panDelta.x, panStart.y + panDelta.y, {
+      steps: 10,
+    });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const motionState = await readTargetMotionState();
+        const beforeTransform = baselineMotionState.metrics.transform;
+        const afterTransform = motionState.metrics.transform;
+        if (!beforeTransform || !afterTransform) {
+          return 0;
+        }
+        return Math.hypot(
+          afterTransform.x - beforeTransform.x,
+          afterTransform.y - beforeTransform.y,
+        );
+      })
+      .toBeGreaterThan(80);
+
+    const afterPanState = await readTargetMotionState();
+    expect(afterPanState.bodyAnchorOffset).not.toBeNull();
+    expect(afterPanState.metrics.transform).not.toBeNull();
+    expect(afterPanState.metrics.titleRect?.width ?? 0).toBeGreaterThan(0);
+    expect(
+      afterPanState.snapshot?.mountedSectionBodyCount ?? 0,
+    ).toBeGreaterThan(0);
+    expect(
+      afterPanState.snapshot?.mountedSectionBodyCount ??
+        Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      afterPanState.snapshot?.mountedSceneSectionCount ??
+        Number.POSITIVE_INFINITY,
+    );
+
+    await page.getByRole("button", { name: "zoom in" }).click();
+
+    await expect
+      .poll(async () => {
+        const motionState = await readTargetMotionState();
+        return motionState.metrics.transform?.zoom ?? 0;
+      })
+      .toBeGreaterThan((afterPanState.metrics.transform?.zoom ?? 0) * 1.08);
+
+    const afterZoomState = await readTargetMotionState();
+    expect(afterZoomState.bodyAnchorOffset).not.toBeNull();
+    expect(afterZoomState.metrics.transform).not.toBeNull();
+    expect(afterZoomState.metrics.titleRect?.width ?? 0).toBeGreaterThan(0);
+    expect(
+      afterZoomState.snapshot?.mountedSectionBodyCount ?? 0,
+    ).toBeGreaterThan(0);
+    expect(
+      afterZoomState.snapshot?.mountedSectionBodyCount ??
+        Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      afterZoomState.snapshot?.mountedSceneSectionCount ??
+        Number.POSITIVE_INFINITY,
+    );
+
     console.info(
       "settings-graph-canary-body-visibility",
       JSON.stringify(
         {
+          afterPanSnapshot: afterPanState.snapshot,
+          afterZoomSnapshot: afterZoomState.snapshot,
           autoFitSnapshot,
+          baselineMotionSnapshot: baselineMotionState.snapshot,
           focusedSnapshot,
+          panDelta,
           targetSectionId,
           targetSectionName,
         },

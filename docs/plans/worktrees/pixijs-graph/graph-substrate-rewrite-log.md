@@ -10650,3 +10650,30 @@ LOOP_TERMINAL_MARKER: none
     - validate the new gate during pan/zoom motion on `rotaryParamCodeObjDefault` so the next lane proves the focused body does not blank/pop during movement
     - if that motion lane is already clean, use the same instrumentation to narrow the remaining `42` wide-view bodies further without reopening support-only work
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 16:27 EDT, Ralph item `279`
+  - Summary: extended the normalized `All Settings` instrumentation probe so the canonical `rotaryParamCodeObjDefault` lane now proves the viewport-visible body-mount gate stays attached and populated through one blank-pane pan plus one toolbar zoom-in.
+  - Files:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass deepened the existing normalized instrumentation probe on that target; it did not open a new section-specific parity lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"` -> passed (`1 passed`, `39.6s`)
+    - Playwright snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `42`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline: mounted scene sections `46`, mounted section bodies `1`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted scene sections `46`, mounted section bodies `2`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+      - after one toolbar zoom-in: mounted scene sections `46`, mounted section bodies `2`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.428099173553719`
+    - fresh-context CDP sub-agent -> pass; read `docs/guides/browser-mcp-quickstart.md`, verified `http://127.0.0.1:3075/settings` directly after the provided bootstrap token was rejected, and confirmed active `All Settings` plus populated `rotaryParamCodeObjDefault` body text (`Rotary Param`, `minHeight 32.0`, `minWidth 200.0`, `Size Mode Height`, `Size Mode Width`) before and after one `zoom in` click
+  - Result:
+    - the focused normalized motion lane is now covered by the same trusted instrumentation probe that already reports mount counts and fit-view state
+    - the canonical target stayed visually populated through pan and zoom while widening only from `1` to `2` mounted bodies, so the viewport-visible mount gate is no longer blocked on obvious blank-body pop-in
+    - the remaining likely hotspot is back on the wide auto-fit lane, which still mounts `42` bodies
+  - Next:
+    - land one production slice that reduces the wide auto-fit mounted-body count below `42` without breaking the focused `rotaryParamCodeObjDefault` path or the now-validated motion lane
+    - keep the new pan/zoom assertions as regression coverage instead of reopening another motion-only verification pass by default
+  - LOOP_TERMINAL_MARKER: none
