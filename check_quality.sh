@@ -126,7 +126,7 @@ collect_files() {
 is_python_candidate() {
   local path="$1"
   case "${path}" in
-    tests/*|*/tests/*|backend/setta/types/generated/*)
+    tests/*|*/tests/*|backend/setta/types/generated/*|backend/setta/sdk_contracts/generated.py|backend/setta/api/listener_endpoint_client.py)
       return 1
       ;;
     *.py)
@@ -168,7 +168,7 @@ is_go_candidate() {
   esac
 
   case "${path}" in
-    *_test.go)
+    *_test.go|*_gen.go)
       return 1
       ;;
     *.go)

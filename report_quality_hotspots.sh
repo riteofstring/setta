@@ -91,7 +91,9 @@ collect_python_files() {
     -g '*.py' \
     -g '!tests/**' \
     -g '!**/tests/**' \
-    -g '!backend/setta/types/generated/**'
+    -g '!backend/setta/types/generated/**' \
+    -g '!backend/setta/sdk_contracts/generated.py' \
+    -g '!backend/setta/api/listener_endpoint_client.py'
 }
 
 collect_frontend_files() {
@@ -104,15 +106,17 @@ collect_frontend_files() {
     -g '!**/*.spec.*' \
     -g '!**/*.stories.*' \
     -g '!**/*.d.ts' \
-    -g '!utils/generatedEndpoints.ts' \
-    -g '!utils/generatedRoutes.ts' \
-    -g '!utils/generatedTypes.ts'
+    -g '!frontend/src/openapi/*/generated/**' \
+    -g '!frontend/src/utils/generatedEndpoints.ts' \
+    -g '!frontend/src/utils/generatedRoutes.ts' \
+    -g '!frontend/src/utils/generatedTypes.ts'
 }
 
 collect_go_files() {
   rg --files cmd internal \
     -g '*.go' \
-    -g '!**/*_test.go'
+    -g '!**/*_test.go' \
+    -g '!**/*_gen.go'
 }
 
 run_ruff_complexity_report() {
