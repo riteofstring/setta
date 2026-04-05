@@ -4,6 +4,7 @@ import {
   createChildSections,
   getLatestProjectState,
   toggleMinimized,
+  type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import React from "react";
@@ -20,14 +21,13 @@ import {
 import { useProjectState } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  type CreateChildSectionsResult,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
+  type CreateChildSectionsResult,
 } from "utils/generatedTypes";
 type CreateChildSectionsRouteResponse =
   ResponseDataAndStatus<CreateChildSectionsResult>;
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
+  ResponseDataAndStatus<GetLatestProjectStateResponse>;
 export function AttachedTerminalControls({
   sectionId,
   isUserView,

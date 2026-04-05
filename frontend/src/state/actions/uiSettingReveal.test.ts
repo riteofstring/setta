@@ -539,7 +539,7 @@ describe("receiveUISettingReveal", () => {
         }),
     );
     setActiveSectionIds(["section-initial"], { syncMode: "immediate" });
-    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].body?.frontendOpId;
     if (typeof staleOpId !== "string") {
       throw new Error("Expected a frontend op id for the durable selection.");
     }

@@ -201,52 +201,55 @@ type ProjectStateSingleConfigWithCompletedOpIDs struct {
 	PendingOpIDs   []string                 `json:"pendingOpIds"`
 }
 
-type ProjectConfigMutationResponse struct {
-	ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
-}
+// setta-go-type-discovery: skip
+type (
+	ProjectConfigMutationResponse struct {
+		ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
+	}
 
-type WindowSpaceMutationResponse struct {
-	ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
-	WindowSpaceID *string                   `json:"windowSpaceId,omitempty"`
-}
+	WindowSpaceMutationResponse struct {
+		ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
+		WindowSpaceID *string                   `json:"windowSpaceId,omitempty"`
+	}
 
-type SetProjectConfigCodegenTargetsRequest struct {
-	FrontendOpID   *string           `json:"frontendOpId,omitempty"`
-	ProjectID      string            `json:"projectConfigId"`
-	CodegenTargets []json.RawMessage `json:"codegenTargets"`
-}
+	SetProjectConfigCodegenTargetsRequest struct {
+		FrontendOpID   *string           `json:"frontendOpId,omitempty"`
+		ProjectID      string            `json:"projectConfigId"`
+		CodegenTargets []json.RawMessage `json:"codegenTargets"`
+	}
 
-type SetGenCodePrefixRequest struct {
-	FrontendOpID  *string `json:"frontendOpId,omitempty"`
-	ProjectID     string  `json:"projectConfigId"`
-	GenCodePrefix string  `json:"genCodePrefix"`
-}
+	SetGenCodePrefixRequest struct {
+		FrontendOpID  *string `json:"frontendOpId,omitempty"`
+		ProjectID     string  `json:"projectConfigId"`
+		GenCodePrefix string  `json:"genCodePrefix"`
+	}
 
-type SetGenCodeSuffixRequest struct {
-	FrontendOpID  *string `json:"frontendOpId,omitempty"`
-	ProjectID     string  `json:"projectConfigId"`
-	GenCodeSuffix string  `json:"genCodeSuffix"`
-}
+	SetGenCodeSuffixRequest struct {
+		FrontendOpID  *string `json:"frontendOpId,omitempty"`
+		ProjectID     string  `json:"projectConfigId"`
+		GenCodeSuffix string  `json:"genCodeSuffix"`
+	}
 
-type CodeFileBindingUpdate struct {
-	CanonicalPath string                          `json:"canonical_path"`
-	AccessMode    projectstate.CodeFileAccessMode `json:"access_mode"`
-}
+	CodeFileBindingUpdate struct {
+		CanonicalPath string                          `json:"canonical_path"`
+		AccessMode    projectstate.CodeFileAccessMode `json:"access_mode"`
+	}
 
-type GetLatestProjectStateRequest struct {
-	FrontendOpID *string `json:"frontendOpId,omitempty"`
-	ProjectID    string  `json:"projectConfigId"`
-}
+	GetLatestProjectStateRequest struct {
+		FrontendOpID *string `json:"frontendOpId,omitempty"`
+		ProjectID    string  `json:"projectConfigId"`
+	}
 
-type UndoRequest struct {
-	ProjectID string `json:"projectConfigId"`
-	Steps     int    `json:"steps"`
-}
+	UndoRequest struct {
+		ProjectID string `json:"projectConfigId"`
+		Steps     int    `json:"steps"`
+	}
 
-type RedoRequest struct {
-	ProjectID string `json:"projectConfigId"`
-	Steps     int    `json:"steps"`
-}
+	RedoRequest struct {
+		ProjectID string `json:"projectConfigId"`
+		Steps     int    `json:"steps"`
+	}
+)
 
 type GetPasswordParamValueRequest struct {
 	ProjectID   string `json:"projectConfigId"`
@@ -732,44 +735,47 @@ func (s sectionSizeRequest) ProjectStateValue() projectstate.SectionSize {
 	}
 }
 
-type SetSectionSizesRequest struct {
-	FrontendOpID *string                       `json:"frontendOpId,omitempty"`
-	ProjectID    string                        `json:"projectConfigId"`
-	SectionSizes map[string]sectionSizeRequest `json:"sectionSizes"`
-}
+// setta-go-type-discovery: skip
+type (
+	SetSectionSizesRequest struct {
+		FrontendOpID *string                       `json:"frontendOpId,omitempty"`
+		ProjectID    string                        `json:"projectConfigId"`
+		SectionSizes map[string]sectionSizeRequest `json:"sectionSizes"`
+	}
 
-type SetCallableRequest struct {
-	FrontendOpID  *string `json:"frontendOpId,omitempty"`
-	ProjectID     string  `json:"projectConfigId"`
-	SectionID     string  `json:"sectionId"`
-	CallableName  string  `json:"callableName"`
-	RefetchParams bool    `json:"refetchParams"`
-}
+	SetCallableRequest struct {
+		FrontendOpID  *string `json:"frontendOpId,omitempty"`
+		ProjectID     string  `json:"projectConfigId"`
+		SectionID     string  `json:"sectionId"`
+		CallableName  string  `json:"callableName"`
+		RefetchParams bool    `json:"refetchParams"`
+	}
 
-type SetActiveIDsRequest struct {
-	FrontendOpID *string  `json:"frontendOpId,omitempty"`
-	ProjectID    string   `json:"projectConfigId"`
-	ActiveIDs    []string `json:"activeIds"`
-}
+	SetActiveIDsRequest struct {
+		FrontendOpID *string  `json:"frontendOpId,omitempty"`
+		ProjectID    string   `json:"projectConfigId"`
+		ActiveIDs    []string `json:"activeIds"`
+	}
 
-type SetViewportRequest struct {
-	FrontendOpID *string                `json:"frontendOpId,omitempty"`
-	ProjectID    string                 `json:"projectConfigId"`
-	Viewport     *projectstate.Viewport `json:"viewport"`
-}
+	SetViewportRequest struct {
+		FrontendOpID *string                `json:"frontendOpId,omitempty"`
+		ProjectID    string                 `json:"projectConfigId"`
+		Viewport     *projectstate.Viewport `json:"viewport"`
+	}
 
-type SetCodeRequest struct {
-	FrontendOpID *string `json:"frontendOpId,omitempty"`
-	ProjectID    string  `json:"projectConfigId"`
-	SectionID    string  `json:"sectionId"`
-	Code         string  `json:"code"`
-}
+	SetCodeRequest struct {
+		FrontendOpID *string `json:"frontendOpId,omitempty"`
+		ProjectID    string  `json:"projectConfigId"`
+		SectionID    string  `json:"sectionId"`
+		Code         string  `json:"code"`
+	}
 
-type FormatCodeRequest struct {
-	FrontendOpID *string `json:"frontendOpId,omitempty"`
-	ProjectID    string  `json:"projectConfigId"`
-	SectionID    string  `json:"sectionId"`
-}
+	FormatCodeRequest struct {
+		FrontendOpID *string `json:"frontendOpId,omitempty"`
+		ProjectID    string  `json:"projectConfigId"`
+		SectionID    string  `json:"sectionId"`
+	}
+)
 
 type SetSectionTagColorRequest struct {
 	FrontendOpID *string `json:"frontendOpId,omitempty"`
@@ -1219,6 +1225,7 @@ type SetPromptFormatRequest struct {
 	Format       prompttemplates.Format `json:"format"`
 }
 
+// setta-go-type-discovery: skip
 type SetChatSectionSettingsRequest struct {
 	FrontendOpID           *string                         `json:"frontendOpId,omitempty"`
 	ProjectID              string                          `json:"projectConfigId"`
@@ -1336,18 +1343,21 @@ type SetProjectChatWindowChatIDRequest struct {
 	ChatID       *string `json:"chatId"`
 }
 
-type SetWatchCodeEnabledRequest struct {
-	FrontendOpID *string `json:"frontendOpId,omitempty"`
-	ProjectID    string  `json:"projectConfigId"`
-	Enabled      bool    `json:"enabled"`
-}
+// setta-go-type-discovery: skip
+type (
+	SetWatchCodeEnabledRequest struct {
+		FrontendOpID *string `json:"frontendOpId,omitempty"`
+		ProjectID    string  `json:"projectConfigId"`
+		Enabled      bool    `json:"enabled"`
+	}
 
-type SetWatchCodeInputsRequest struct {
-	FrontendOpID     *string                        `json:"frontendOpId,omitempty"`
-	ProjectID        string                         `json:"projectConfigId"`
-	WatchCodeFolders []projectstate.WatchCodeFolder `json:"watchCodeFolders"`
-	WatchCodeFiles   []string                       `json:"watchCodeFiles"`
-}
+	SetWatchCodeInputsRequest struct {
+		FrontendOpID     *string                        `json:"frontendOpId,omitempty"`
+		ProjectID        string                         `json:"projectConfigId"`
+		WatchCodeFolders []projectstate.WatchCodeFolder `json:"watchCodeFolders"`
+		WatchCodeFiles   []string                       `json:"watchCodeFiles"`
+	}
+)
 
 type ChangeParamImplRequest struct {
 	FrontendOpID *string `json:"frontendOpId,omitempty"`

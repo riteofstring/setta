@@ -5,6 +5,7 @@ import {
   getLatestProjectState,
   uploadBinary,
   type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
+  type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
@@ -64,7 +65,6 @@ import {
   WebsocketMessageTypeEnum,
   type ContentRef,
   type LSPDiagnosticsPayload,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
   type WebsocketMessageType,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -151,7 +151,7 @@ type AuthRefreshStatusRouteResponse =
   ResponseDataAndStatus<AuthRefreshStatusResponse>;
 type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
+  ResponseDataAndStatus<GetLatestProjectStateResponse>;
 type LatestLSPDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
 type FrontendWebsocketEnvelope = {

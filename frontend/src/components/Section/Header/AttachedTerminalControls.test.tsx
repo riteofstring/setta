@@ -146,14 +146,18 @@ describe("AttachedTerminalControls", () => {
         button.click();
       });
       expect(mockedRouteCreateChildSections).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        parentId: sectionId,
-        implType: SectionTypeEnum.Terminal,
-        numChildren: 1,
-        startIdx: 0,
+        body: {
+          projectConfigId: "project-1",
+          parentId: sectionId,
+          implType: SectionTypeEnum.Terminal,
+          numChildren: 1,
+          startIdx: 0,
+        },
       });
       expect(mockedRouteGetLatestProjectState).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
+        body: {
+          projectConfigId: "project-1",
+        },
       });
       expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
         latestProjectState,

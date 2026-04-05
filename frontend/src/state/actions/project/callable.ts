@@ -1,10 +1,10 @@
-import { setCallable } from "openapi/http";
+import { setCallable, type SetCallableData } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type {
-  SetCallableRequest,
-  SetCallableResponse,
-} from "utils/generatedTypes";
+import type { SetCallableResponse } from "utils/generatedTypes";
+
+type SetCallableRequest = SetCallableData["body"];
+
 type SetCallableRouteResponse = ResponseDataAndStatus<SetCallableResponse>;
 export async function setCallableAndRefreshProjectState(
   payload: SetCallableRequest,

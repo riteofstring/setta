@@ -1,8 +1,8 @@
+import type { GetLatestProjectStateResponse } from "openapi/http";
 import { useAppConfigs } from "state/definitions";
-import type { ProjectStateSingleConfigWithCompletedOpIDs } from "utils/generatedTypes";
 
 export function processAppProjectStateUpdateFromBackend(
-  payload: ProjectStateSingleConfigWithCompletedOpIDs,
+  payload: GetLatestProjectStateResponse,
 ) {
   const nextState = payload.projectState;
   useAppConfigs.setState((state) => {

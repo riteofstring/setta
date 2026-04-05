@@ -11,6 +11,7 @@ import {
   toggleParamSelected as toggleParamSelectedRequest,
   ungroupGroups,
   unselectAllParams as unselectAllParamsRequest,
+  type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
@@ -53,7 +54,6 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
-  ProjectStateSingleConfigWithCompletedOpIDs,
   SectionType,
   SectionTypeEnum,
   SingleConfig,
@@ -1131,7 +1131,7 @@ function pruneProjectChatWindowingForExistingSections(
   };
 }
 export function processProjectStateUpdateFromBackend(
-  x: ProjectStateSingleConfigWithCompletedOpIDs,
+  x: GetLatestProjectStateResponse,
 ) {
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {

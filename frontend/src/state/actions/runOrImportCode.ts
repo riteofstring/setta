@@ -2,6 +2,7 @@ import {
   getLatestProjectState,
   interruptTerminalProcesses,
   runCode,
+  type GetLatestProjectStateResponse,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
@@ -13,11 +14,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  ContentRef,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { ContentRef, SectionTypeEnum } from "utils/generatedTypes";
 import { resolveRunRequest } from "utils/runCapabilities";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
@@ -29,7 +26,7 @@ import {
   processProjectStateUpdateFromBackend,
 } from "./sectionInfos";
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
+  ResponseDataAndStatus<GetLatestProjectStateResponse>;
 type RunCodeRouteResponse = ResponseDataAndStatus<null>;
 export async function runCodeBlock(sectionId: string | null) {
   const state = useProjectState.getState();

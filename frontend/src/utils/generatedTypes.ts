@@ -42,37 +42,6 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-export type CreateAgentProfileRequest = {
-  name: string | null;
-  description: string | null;
-  systemPrompt: string | null;
-  enableBackgroundSummaryFill: boolean | null;
-  enableLlmChatTitles: boolean | null;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-type AgentProfilePayload = {
-  id: string | null;
-  name: string | null;
-  description: string | null;
-  systemPrompt: string | null;
-  enableBackgroundSummaryFill: boolean | null;
-  enableLlmChatTitles: boolean | null;
-  engineConfigId: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope: string | null;
-};
-
-export type UpdateAgentProfileRequest = {
-  profile: AgentProfilePayload | null;
-};
-
-export type DeleteAgentProfileRequest = {
-  profileId: string;
-};
-
 export type LLMConfig = {
   id: string;
   model: string;
@@ -91,31 +60,6 @@ export type AppRoute = {
   path: string;
   name?: string;
   rootKey?: string;
-};
-
-const SaveConflictStrategyEnum = {
-  skip: "skip",
-  backup: "backup",
-  overwrite: "overwrite",
-} as const;
-type SaveConflictStrategy = ObjectValues<typeof SaveConflictStrategyEnum>;
-
-const UploadScopeEnum = {
-  chat: "chat",
-  generic: "generic",
-} as const;
-type UploadScope = ObjectValues<typeof UploadScopeEnum>;
-
-export type UpdateArtifactsRequest = {
-  artifacts: Array<
-    | ImageArtifact
-    | BrushStrokeArtifact
-    | DrawAreaLayerItemTransformArtifact
-    | ChartDataArtifact
-    | FileArtifact
-  >;
-  conflictStrategy?: SaveConflictStrategy | null;
-  uploadScope: UploadScope;
 };
 
 type BootstrapHandoffProtocol = {
@@ -1032,27 +976,6 @@ export const WorkingDirStrategyEnum = {
 } as const;
 type WorkingDirStrategy = ObjectValues<typeof WorkingDirStrategyEnum>;
 
-export type CreateExternalAgentConfigRequest = {
-  name: string | null;
-  description: string | null;
-  toolType: ToolType | null;
-  runMode: RunMode | null;
-  commandPath: string | null;
-  baseUrl: string | null;
-  defaultModel: string | null;
-  sandboxPolicy: string | null;
-  approvalPolicy: string | null;
-  settingsMode: SettingsMode | null;
-  settingsSources: Array<ClaudeSettingsSource>;
-  settingsFilePath: string | null;
-  settingsManagedBlock: SettingsManagedBlock | null;
-  settingsAllowSettaEdits: boolean | null;
-  envVarWhitelist: Array<string>;
-  workingDirStrategy: WorkingDirStrategy | null;
-  workingDir: string | null;
-  codexSkipGitRepoCheck: boolean | null;
-};
-
 export type ExternalAgentConfig = {
   id: string;
   name: string;
@@ -1073,14 +996,6 @@ export type ExternalAgentConfig = {
   workingDirStrategy: WorkingDirStrategy;
   workingDir?: string | null;
   codexSkipGitRepoCheck?: boolean | null;
-};
-
-export type UpdateExternalAgentConfigRequest = {
-  config: ExternalAgentConfig | null;
-};
-
-export type DeleteExternalAgentConfigRequest = {
-  configId: string;
 };
 
 type EnvVarStatus = {
@@ -1372,13 +1287,6 @@ export function createProjectStateSingleConfigWithCompletedOpIDs(
   };
 }
 
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
 export type DeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -1430,13 +1338,12 @@ export type CreateTopLevelSectionRequest = {
   viewportBounds: ViewportBounds | null;
 };
 
-export type SetCallableRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  callableName: string;
-  refetchParams: boolean;
-};
+export const CodeFileAccessModeEnum = {
+  read_write: "read_write",
+  read_only: "read_only",
+  write_only: "write_only",
+} as const;
+export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
 
 type EdgePort = {
   id: string;
@@ -1582,34 +1489,6 @@ export const FormatEnum = {
 } as const;
 export type Format = ObjectValues<typeof FormatEnum>;
 
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
-const ChatDictationModeEnum = {
-  auto: "auto",
-  browser: "browser",
-  provider: "provider",
-} as const;
-type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
-
-export type SetChatSectionSettingsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-};
-
 export const StateMachineGateTypeEnum = {
   AND: "AND",
   OR: "OR",
@@ -1651,19 +1530,6 @@ export function createWindowSpaceState(
   );
 }
 
-export type SetWatchCodeEnabledRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  enabled: boolean;
-};
-
-export type SetWatchCodeInputsRequest = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-};
-
 export const NotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -1690,15 +1556,6 @@ export function createNotification(
 
 export type NotificationList = Array<Notification>;
 
-export type CreatePromptTemplateRequest = {
-  name: string | null;
-  description: string | null;
-  template: string | null;
-  format: Format | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
 export type Template = {
   id: string;
   name: string;
@@ -1707,24 +1564,6 @@ export type Template = {
   format: Format;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
-};
-
-type PromptTemplatePayload = {
-  id: string | null;
-  name: string | null;
-  description: string | null;
-  template: string | null;
-  format: Format | null;
-  inputSchema: Record<string, unknown>;
-  metadata: Record<string, unknown>;
-};
-
-export type UpdatePromptTemplateRequest = {
-  template: PromptTemplatePayload | null;
-};
-
-export type DeletePromptTemplateRequest = {
-  templateId: string;
 };
 
 export type ContentRef = {
@@ -1745,32 +1584,6 @@ const TransportModeEnum = {
   realtime: "realtime",
 } as const;
 type TransportMode = ObjectValues<typeof TransportModeEnum>;
-
-export type CreateTranscriptionProfileRequest = {
-  name: string | null;
-  transcriptionLlmConfigId: string | null;
-  transportMode: TransportMode | null;
-  chunkMs: number | null;
-  language: string | null;
-};
-
-type TranscriptionProfilePayload = {
-  id: string | null;
-  name: string | null;
-  transcriptionLlmConfigId: string | null;
-  transportMode: TransportMode | null;
-  chunkMs: number | null;
-  supportsRealtimeTranscription: boolean | null;
-  language: string | null;
-};
-
-export type UpdateTranscriptionProfileRequest = {
-  profile: TranscriptionProfilePayload | null;
-};
-
-export type DeleteTranscriptionProfileRequest = {
-  profileId: string | null;
-};
 
 const PluginSourceTrustStatusEnum = {
   unverified: "unverified",
@@ -2188,6 +2001,20 @@ function createScatterChartSettings(
 }
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
+const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export type CreateChildSectionsResult = {
   sectionIds: Array<string>;

@@ -17,6 +17,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runCodeBlock, stopCode } from "./runOrImportCode";
 const {
+  callOpenAPIMock,
   routeGetLatestProjectStateMock,
   routeInterruptTerminalProcessesMock,
   routeRunCodeMock,
@@ -24,6 +25,7 @@ const {
   getCurrProjectConfigIdMock,
   processProjectStateUpdateFromBackendMock,
 } = vi.hoisted(() => ({
+  callOpenAPIMock: vi.fn((promise: Promise<unknown>) => promise),
   routeGetLatestProjectStateMock: vi.fn(),
   routeInterruptTerminalProcessesMock: vi.fn(),
   routeRunCodeMock: vi.fn(),
@@ -32,12 +34,14 @@ const {
   processProjectStateUpdateFromBackendMock: vi.fn(),
 }));
 vi.mock("openapi/http", () => ({
-  getLatestProjectState: routeGetLatestProjectStateMock,
-}));
-vi.mock("openapi/http", () => ({
+  getLatestProjectState: (...args: unknown[]) =>
+    routeGetLatestProjectStateMock(...args),
   runCode: (...args: unknown[]) => routeRunCodeMock(...args),
   interruptTerminalProcesses: (...args: unknown[]) =>
     routeInterruptTerminalProcessesMock(...args),
+}));
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 vi.mock("./notifications", () => ({
   addTemporaryNotification: addTemporaryNotificationMock,
@@ -161,6 +165,7 @@ describe("runCodeBlock", () => {
     resetProjectStores();
     vi.clearAllMocks();
     routeRunCodeMock.mockResolvedValue({
+      status: 200,
       data: null,
       error: undefined,
       response: new Response(null, { status: 200 }),
@@ -195,7 +200,9 @@ describe("runCodeBlock", () => {
       }),
     );
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
+      body: {
+        projectConfigId: "project-1",
+      },
     });
     expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
       latestProjectState,
@@ -249,7 +256,9 @@ describe("runCodeBlock", () => {
       }),
     );
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
+      body: {
+        projectConfigId: "project-1",
+      },
     });
     expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
       latestProjectState,

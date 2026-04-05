@@ -30,10 +30,15 @@ import {
 } from "./ChatAreaSettings";
 let mockCanEditLayout = true;
 const routeGetAgenticSummaryCacheStatusMock = vi.fn();
-vi.mock("openapi/http", () => ({
-  getAgenticSummaryCacheStatus: (...args: unknown[]) =>
-    routeGetAgenticSummaryCacheStatusMock(...args),
-}));
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getAgenticSummaryCacheStatus: (...args: unknown[]) =>
+      routeGetAgenticSummaryCacheStatusMock(...args),
+  };
+});
 vi.mock(
   "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState",
   () => ({
@@ -61,12 +66,6 @@ vi.mock("state/hooks/share", () => ({
     canEditStructure: true,
   }),
 }));
-vi.mock("openapi/http", async () => {
-  const actual = await import("openapi/http");
-  return {
-    ...actual,
-  };
-});
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
   getInitialState?: () => Record<string, unknown>;

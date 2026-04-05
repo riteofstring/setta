@@ -1,13 +1,15 @@
 import {
   setWatchCodeEnabled as setWatchCodeEnabledRequest,
   setWatchCodeInputs as setWatchCodeInputsRequest,
+  type SetWatchCodeEnabledData,
+  type SetWatchCodeInputsData,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import type {
-  SetWatchCodeEnabledRequest,
-  SetWatchCodeInputsRequest,
-} from "utils/generatedTypes";
+
+type SetWatchCodeEnabledRequest = SetWatchCodeEnabledData["body"];
+type SetWatchCodeInputsRequest = SetWatchCodeInputsData["body"];
+
 type WatchCodeMutationRouteResponse = ResponseDataAndStatus<null>;
 export async function setWatchCodeEnabled(
   payload: SetWatchCodeEnabledRequest,

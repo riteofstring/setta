@@ -18,6 +18,7 @@ import {
   setChatSectionChatId,
   setChatSectionSettings,
   type AgenticsummarycacheAgenticSummaryCacheStatus as AgenticSummaryCacheStatus,
+  type SetChatSectionSettingsData,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -55,13 +56,12 @@ import {
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
-  type SetChatSectionSettingsRequest,
 } from "utils/generatedTypes";
 type ChatAreaSettingsProps = {
   sectionId: string;
 };
 type ChatSectionSettingsPayload = Pick<
-  SetChatSectionSettingsRequest,
+  SetChatSectionSettingsData["body"],
   | "managed"
   | "engineConfigId"
   | "transcriptionProfileId"
