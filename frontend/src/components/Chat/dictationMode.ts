@@ -1,11 +1,9 @@
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import type {
+  APIKeys,
   AllLLMConfigs,
-  LLMAPIKeysSnapshot,
   TranscriptionProfile,
 } from "utils/generatedTypes";
-
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
 
 export const DICTATION_MODE_ITEMS: AllItemsType<string> = [
   {
