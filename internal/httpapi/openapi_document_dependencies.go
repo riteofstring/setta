@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"setta/internal/codegen"
@@ -11,8 +10,6 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 )
-
-var errOpenAPIDocumentRouteDependencyUnavailable = errors.New("openapi document route dependency is unavailable for runtime requests")
 
 func newOpenAPIProjectRouteDependencies(
 	modePolicy modes.Policy,
@@ -61,21 +58,15 @@ type openAPIProjectRuntimeAdapter struct {
 }
 
 func (a openAPIProjectRuntimeAdapter) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
-	if a.runtime == nil {
-		return projectstate.ErrRuntimeClosed
-	}
 	_, err := a.runtime.SetCode(ctx, projectID, sectionID, code)
 	return err
 }
 
 func (a openAPIProjectRuntimeAdapter) FormatCode(context.Context, string, string) error {
-	return projectstate.NewFormatCodeError(errOpenAPIDocumentRouteDependencyUnavailable.Error())
+	return projectstate.NewFormatCodeError("openapi document route dependency is unavailable for runtime requests")
 }
 
 func (a openAPIProjectRuntimeAdapter) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
-	if a.runtime == nil {
-		return projectstate.ErrRuntimeClosed
-	}
 	_, err := a.runtime.SetSectionName(ctx, projectID, sectionID, name)
 	return err
 }
