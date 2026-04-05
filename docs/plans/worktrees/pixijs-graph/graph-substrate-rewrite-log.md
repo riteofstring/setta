@@ -10886,3 +10886,38 @@ LOOP_TERMINAL_MARKER: none
     - return to one measured product/perf slice on the canonical `rotaryParamCodeObjDefault` lane and keep the deferred CDP gate explicit in the handoff
     - do not spend the next default iteration on another CDP-only recovery pass unless a concrete product slice depends on a new DevTools capability
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 18:56 EDT, Ralph item `286`
+  - Summary: refreshed the normalized `rotaryParamCodeObjDefault` motion baseline on the live `3076/8076` worktree and read-only `3087/8087` reference runtimes, confirmed the canary counters are still stable, and showed that the next product hotspot is motion-time whole-scene work rather than DOM body ownership.
+  - Files:
+    - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-normalized-motion-perf-refresh.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the existing normalized instrumentation lane plus the cross-worktree motion-perf probe and did not open a new section-specific lane
+  - Verification:
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings" --reporter=line --max-failures=1 --timeout=120000` -> passed on session `937dff` (`1 passed`, `20.9s`)
+    - instrumentation snapshots from the passing probe:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `2`, unresolved fallback `0`, viewport `720 x 828` at zoom `0.1`
+      - focused fit-view baseline on `rotaryParamCodeObjDefault`: mounted section bodies `1` at zoom `1.1900826446280992`
+      - after normalized blank-pane pan: mounted section bodies `1`
+      - after one toolbar zoom-in: mounted section bodies `1` at zoom `1.428099173553719`
+    - refreshed runtime info minted fresh bootstrap URLs for both loop-managed runtimes before the cross-worktree compare:
+      - worktree `937dff`: `http://127.0.0.1:3076/` / `http://127.0.0.1:8076`
+      - reference `b984cc`: `http://127.0.0.1:3087/` / `http://127.0.0.1:8087`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `35.0s`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.05ms`, max `50.0ms`, `44` samples, `1` long task (`61ms`), root DOM `7628`, target section DOM `132`, editable controls `99`
+      - worktree canary: average `17.83ms`, max `47.9ms`, `43` samples, `1` long task (`53ms`), root DOM `180`, target section DOM `132`, editable controls `2`
+    - CDP follow-up:
+      - not run
+      - reason: this iteration intentionally used the already-trusted deterministic Playwright probes to choose the next product hotspot, and the deferred CDP tooling debt from item `285` is unchanged
+  - Result:
+    - the canonical canary lane is still healthy on the live loop-managed runtime
+    - DOM body ownership is no longer the measured bottleneck on this lane: the graph-root DOM dropped to `180` nodes while the worktree stays close to legacy frame cost
+    - the next product slice should target motion-time whole-scene shell/scene work instead of reopening body-gating or CDP-only recovery
+  - Next:
+    - land one bounded production invalidation-reduction slice on pure pan/zoom motion, keeping `rotaryParamCodeObjDefault` as the same normalized target
+    - continue carrying the CDP visual/tooling issue as deferred debt unless the next product slice specifically needs a new DevTools capability
+  - LOOP_TERMINAL_MARKER: none
