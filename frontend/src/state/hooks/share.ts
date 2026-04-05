@@ -1,5 +1,3 @@
-import { getShareDeploymentProjectConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
@@ -9,10 +7,11 @@ import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
-import type { ProjectConfigMetadata, SingleConfig } from "utils/generatedTypes";
+import { route_load_share_project_config } from "utils/generatedEndpoints";
+import type { ProjectConfig } from "utils/generatedTypes";
 
 function resolveProjectConfigId(
-  projectMetadata: ProjectConfigMetadata[],
+  projectMetadata: ProjectConfig[],
   requestedConfigName: string | undefined,
   defaultProjectConfigId: string | null,
 ): string | null {
@@ -61,7 +60,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
       }
       if (loadProject) {
         const resolvedConfigId = resolveProjectConfigId(
-          session.projectMetadata ?? [],
+          session.projectMetadata,
           projectConfigName,
           session.defaultProjectConfigId,
         );
@@ -75,16 +74,10 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
           }
           return;
         }
-        const stateRes = await callOpenAPI(
-          getShareDeploymentProjectConfig({
-            path: {
-              deploymentName: session.deploymentName,
-              version: session.deploymentVersion,
-            },
-            body: {
-              projectConfigId: resolvedConfigId,
-            },
-          }),
+        const stateRes = await route_load_share_project_config(
+          session.deploymentName,
+          session.deploymentVersion,
+          { projectConfigId: resolvedConfigId },
         );
         if (!res200(stateRes)) {
           useProjectLoading.setState({
@@ -96,9 +89,7 @@ export function useLoadShareDeployment(loadProject: boolean = true) {
           }
           return;
         }
-        await loadProjectState(
-          (stateRes.data as { projectState: SingleConfig }).projectState,
-        );
+        await loadProjectState(stateRes.data.projectState);
         await fetchListenerCoverageSnapshot(resolvedConfigId);
         if (session.sharePolicy.allowLLM) {
           await requestAIFollowSnapshot(resolvedConfigId);

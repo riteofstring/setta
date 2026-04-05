@@ -1,14 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getCurrentProjectConfigId,
   openOverviewMoreDestination,
+  postBackend,
   seedLocalStorage,
 } from "../../helpers";
 
 const OVERFLOW_TOLERANCE_PX = 6;
 const MIN_CONTENT_INSET_PX = 4;
+
+type CreateTopLevelSectionResponse = {
+  sectionId?: string;
+};
 
 async function assertPaneHasNoRightBleed(
   page: Page,
@@ -49,10 +53,14 @@ async function assertPaneHasNoRightBleed(
 
 async function createCallableSectionAndFocus(page: Page): Promise<void> {
   const projectConfigId = await getCurrentProjectConfigId(page);
-  const created = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType: "Callable",
-  });
+  const created = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+    },
+  );
   const sectionId = created?.sectionId;
   if (!sectionId) {
     throw new Error("Failed to create callable section for overflow test.");
@@ -135,10 +143,7 @@ async function assertPaneTitleClearsFullscreenButton(
       const heading = Array.from(document.querySelectorAll("h2")).find(
         (node) => node.textContent?.trim() === targetHeadingText,
       );
-      if (
-        !(button instanceof HTMLElement) ||
-        !(heading instanceof HTMLElement)
-      ) {
+      if (!(button instanceof HTMLElement) || !(heading instanceof HTMLElement)) {
         return null;
       }
       const buttonRect = button.getBoundingClientRect();
