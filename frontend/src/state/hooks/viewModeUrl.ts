@@ -1,3 +1,5 @@
+import { setActiveViewMode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useRef } from "react";
 import {
   useLocation,
@@ -8,12 +10,9 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { VIEW_MODE_ROUTER_PATH } from "utils/constants";
-import { route_set_active_view_mode } from "utils/generatedEndpoints";
-
 type ViewModeUrlSyncOptions = {
   enabled: boolean;
 };
-
 export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
   const { projectConfigName } = useParams();
   const viewMatch = useMatch(VIEW_MODE_ROUTER_PATH);
@@ -35,7 +34,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     }),
   );
   const isViewRoute = Boolean(viewMatch);
-
   const requestedViewModeId = useMemo(() => {
     if (!requestedViewModeName) {
       return null;
@@ -47,7 +45,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     }
     return null;
   }, [requestedViewModeName, viewModes]);
-
   useEffect(() => {
     if (!enabled || !isViewRoute) {
       isUrlDrivenRef.current = false;
@@ -66,7 +63,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     isUrlDrivenRef.current = true;
     pendingUrlSyncRef.current = null;
   }, [enabled, isViewRoute, location.pathname]);
-
   useEffect(() => {
     if (!enabled || !requestedViewModeName || !requestedViewModeId) {
       return;
@@ -86,10 +82,14 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       id: requestedViewModeId,
       activeAtRequest: activeViewModeId ?? null,
     };
-    void route_set_active_view_mode({
-      projectConfigId,
-      activeViewModeId: requestedViewModeId,
-    });
+    void callOpenAPI(
+      setActiveViewMode({
+        body: {
+          projectConfigId,
+          activeViewModeId: requestedViewModeId,
+        },
+      } as Parameters<typeof setActiveViewMode>[0]),
+    );
   }, [
     activeViewModeId,
     canEditVariants,
@@ -99,7 +99,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     requestedViewModeName,
     isViewRoute,
   ]);
-
   useEffect(() => {
     if (!enabled || !isViewRoute) {
       return;
@@ -117,7 +116,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       pendingUrlSyncRef.current = null;
     }
   }, [activeViewModeId, enabled, isViewRoute]);
-
   useEffect(() => {
     if (!enabled || !viewMatch || !projectConfigName || !activeViewModeId) {
       return;
@@ -136,9 +134,7 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       return;
     }
     const encodedProjectConfigName = encodeURIComponent(projectConfigName);
-    const nextPath = `/${encodedProjectConfigName}/view/${encodeURIComponent(
-      activeViewModeName,
-    )}`;
+    const nextPath = `/${encodedProjectConfigName}/view/${encodeURIComponent(activeViewModeName)}`;
     if (location.pathname === nextPath) {
       return;
     }
