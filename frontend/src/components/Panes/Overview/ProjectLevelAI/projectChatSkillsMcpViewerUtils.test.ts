@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAgentRun,
-  createAllLLMConfigs,
+  createAllConfigs,
   createEngineConfig,
   createExternalAgentPreflightStatus,
   createLLMConfig,
@@ -20,7 +20,6 @@ import {
   resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
-  SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -298,63 +297,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
-  it("keeps cross-ecosystem duplicates active only for the applicable opencode root", () => {
-    const statuses = buildSkillStatusBySkillId({
-      skills: [
-        {
-          skillId: "workspace_opencode_skills::triage",
-          name: "triage",
-          rootLabel: "Workspace .opencode/skills",
-          rootPath: "/workspace/.opencode/skills",
-          relativePath: "triage",
-          isEditable: false,
-          editabilityReason: null,
-          description: "OpenCode triage instructions.",
-        },
-        {
-          skillId: "workspace_claude_skills::triage",
-          name: "triage",
-          rootLabel: "Workspace .claude/skills",
-          rootPath: "/workspace/.claude/skills",
-          relativePath: "triage",
-          isEditable: false,
-          editabilityReason: null,
-          description: "Claude triage instructions.",
-        },
-      ],
-      engineType: "external_agent",
-      externalAgentToolType: "opencode",
-      messages: [
-        {
-          id: "assistant-1",
-          role: "assistant",
-          content: [],
-          attachments: [],
-          tool_calls: [
-            {
-              id: "tool-call-1",
-              type: "function",
-              function: {
-                name: "skill/triage",
-                arguments: {},
-              },
-            },
-          ],
-        },
-      ],
-    });
-
-    expect(statuses["workspace_opencode_skills::triage"]?.activityState).toBe(
-      "active",
-    );
-    expect(statuses["workspace_opencode_skills::triage"]?.activitySource).toBe(
-      "opencode_skill_tool",
-    );
-    expect(statuses["workspace_claude_skills::triage"]?.activityState).toBe(
-      "inactive",
-    );
-  });
-
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
@@ -398,10 +340,9 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
       mcpConfigPath: "/tmp/workspace/setta_files_dev/llm_config.json",
       settaFilesLocation: "custom",
-      externalRuntimeServers: [
+      runtimeServers: [
         {
           serverId: "codex-remote",
-          source: "external_agent",
           transport: "sse",
           endpoint: "http://127.0.0.1:9999/mcp",
         },
@@ -414,13 +355,42 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[1]?.servers[0]?.serverId).toBe("codex-remote");
   });
 
+  it("prefers live external runtime transport for configured servers", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        setta: {
+          transport: "sse",
+          url: "http://127.0.0.1:8019/mcp",
+        },
+      },
+      mcpConfigPath: "/tmp/workspace/setta_files/llm_config.json",
+      settaFilesLocation: "local",
+      runtimeServers: [
+        {
+          serverId: "setta",
+          transport: "streamable_http",
+          endpoint: "http://127.0.0.1:8019/mcp",
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.configLabel).toBe("Active local setta_files");
+    expect(groups[0]?.servers).toEqual([
+      {
+        serverId: "setta",
+        transport: "streamable_http",
+        endpoint: "http://127.0.0.1:8019/mcp",
+      },
+    ]);
+  });
+
   it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
-      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "setta_mcp:figma-desktop": {
+        "figma-desktop": {
           state: "connected",
           quickInfo: "Available: connected with 8 tools.",
           registeredToolCount: 8,
@@ -439,10 +409,9 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime error servers as unavailable", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
-      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: {
-        "setta_mcp:pencil": {
+        pencil: {
           state: "error",
           quickInfo: "Unavailable: command not found",
           registeredToolCount: 0,
@@ -461,10 +430,9 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime connecting servers as yellow", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
-      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
-        "setta_mcp:figma-desktop": {
+        "figma-desktop": {
           state: "connecting",
           quickInfo: "Connecting...",
           registeredToolCount: 0,
@@ -483,7 +451,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks runtime lookup failures as unknown status", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
-      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: null,
       runtimeStatusLoading: false,
@@ -497,7 +464,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("marks per-server runtime mapping gaps as unknown", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
-      source: SETTA_MCP_RUNTIME_SOURCE,
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {},
       runtimeStatusLoading: false,
@@ -512,16 +478,17 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "figma-desktop",
-        source: "setta_mcp",
         state: "connected",
+        quickInfo: "Connected: 8 tools",
         lastError: null,
         missingEnvVar: null,
         toolCount: 8,
       },
       {
         serverId: "broken-server",
-        source: "setta_mcp",
         state: "error",
+        quickInfo:
+          "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
         lastError: "command not found",
         missingEnvVar: "OPENAI_API_KEY",
         toolCount: 0,
@@ -529,14 +496,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ]);
 
     expect(runtimeStatuses).toEqual({
-      "setta_mcp:figma-desktop": {
+      "figma-desktop": {
         state: "connected",
         quickInfo: "Connected: 8 tools",
         registeredToolCount: 8,
         issue: null,
         missingEnvVar: null,
       },
-      "setta_mcp:broken-server": {
+      "broken-server": {
         state: "error",
         quickInfo:
           "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
@@ -551,7 +518,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "legacy-state-server",
-        source: "setta_mcp",
         state: "available",
         lastError: null,
         missingEnvVar: null,
@@ -559,58 +525,61 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
     ]);
 
-    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.state).toBe(
-      "unknown",
-    );
-    expect(runtimeStatuses["setta_mcp:legacy-state-server"]?.quickInfo).toBe(
+    expect(runtimeStatuses["legacy-state-server"]?.state).toBe("unknown");
+    expect(runtimeStatuses["legacy-state-server"]?.quickInfo).toBe(
       "Unknown: 3 tools",
     );
   });
 
-  it("keeps statuses distinct when server ids collide across sources", () => {
+  it("uses backend-resolved rows directly for shared server ids", () => {
     const runtimeStatuses = toRuntimeStatusByServerId([
       {
         serverId: "shared",
-        source: "setta_mcp",
         state: "connected",
+        quickInfo: "Connected: 79 tools",
         lastError: null,
         missingEnvVar: null,
-        toolCount: 4,
-      },
-      {
-        serverId: "shared",
-        source: "external_runtime",
-        state: "error",
-        lastError: "auth failed",
-        missingEnvVar: null,
-        toolCount: 0,
+        toolCount: 79,
       },
     ]);
-    expect(Object.keys(runtimeStatuses).sort()).toEqual([
-      "external_runtime:shared",
-      "setta_mcp:shared",
-    ]);
+    expect(Object.keys(runtimeStatuses)).toEqual(["shared"]);
 
-    const settaSourceStatus = resolveMcpServerStatus({
+    const status = resolveMcpServerStatus({
       serverId: "shared",
-      source: "setta_mcp",
       endpoint: "http://127.0.0.1:8000/mcp",
       runtimeStatusByServerId: runtimeStatuses,
       runtimeStatusLoading: false,
       runtimeStatusError: null,
     });
-    const externalSourceStatus = resolveMcpServerStatus({
-      serverId: "shared",
-      source: "external_runtime",
-      endpoint: "https://api.example.dev/mcp",
-      runtimeStatusByServerId: runtimeStatuses,
-      runtimeStatusLoading: false,
-      runtimeStatusError: null,
+
+    expect(status.color).toBe("green");
+    expect(status.quickInfo).toBe("Connected: 79 tools");
+  });
+
+  it("uses backend-resolved transport and endpoint for configured rows", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        setta: {
+          transport: "sse",
+          url: "http://127.0.0.1:8019/mcp",
+        },
+      },
+      mcpConfigPath: "/tmp/setta_files/llm_config.json",
+      settaFilesLocation: "custom",
+      runtimeServers: [
+        {
+          serverId: "setta",
+          transport: "streamable_http",
+          endpoint: "http://127.0.0.1:8019/mcp",
+        },
+      ],
     });
 
-    expect(settaSourceStatus.color).toBe("green");
-    expect(externalSourceStatus.color).toBe("red");
-    expect(externalSourceStatus.quickInfo).toContain("auth failed");
+    expect(groups[0]?.servers[0]).toEqual({
+      serverId: "setta",
+      transport: "streamable_http",
+      endpoint: "http://127.0.0.1:8019/mcp",
+    });
   });
 
   it("builds slash commands by engine using setta/external availability", () => {
@@ -628,7 +597,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         externalAgentConfigId: "external-codex",
       }),
     ];
-    const allLLMConfigs = createAllLLMConfigs({
+    const allLLMConfigs = createAllConfigs({
       configs: {
         "cfg-openai": createLLMConfig({
           id: "cfg-openai",
@@ -692,13 +661,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         engineType: "setta_llm",
       }),
       createEngineConfig({
-        id: "engine-opencode",
-        name: "OpenCode",
+        id: "engine-codex",
+        name: "Codex",
         engineType: "external_agent",
-        externalAgentConfigId: "external-opencode",
+        externalAgentConfigId: "external-codex",
       }),
     ];
-    const allLLMConfigs = createAllLLMConfigs({
+    const allLLMConfigs = createAllConfigs({
       configs: {
         "cfg-anthropic": createLLMConfig({
           id: "cfg-anthropic",
@@ -710,9 +679,9 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
     const externalAgentHealth = [
       createExternalAgentPreflightStatus({
-        configId: "external-opencode",
-        name: "OpenCode Agent",
-        toolType: "opencode",
+        configId: "external-codex",
+        name: "Codex Agent",
+        toolType: "codex",
         runMode: "app_server",
         available: false,
         supported: true,

@@ -1,4 +1,5 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
+import * as openAPI from "openapi/http";
 import {
   computePluginSectionFallbackReason,
   getPluginSectionFallbackReason,
@@ -23,11 +24,10 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
+import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
-import * as websocketReceive from "state/actions/websocketReceive";
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";
 import {
   createCore,
@@ -36,8 +36,8 @@ import {
   createPluginStatusEntry,
   createProjectChatWindowingState,
   createProjectConfig,
+  createProjectStateSingleConfigWithCompletedOpIDs,
   createSingletonSections,
-  createUserDefaultDictSectionImpl,
   createVariant,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -49,6 +49,7 @@ import {
   type PluginRuntimeResponse,
   type PluginStatusEntry,
   type PluginStatusResponse,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
@@ -63,6 +64,8 @@ function buildPluginStatusEntry(
     state: PluginRuntimeStateEnum.active,
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     sourcePath: "/tmp/acme.plugin",
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
@@ -70,6 +73,9 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
+    components: [],
+    registeredCodegenTargets: [],
+    enablementSource: null,
     runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
@@ -86,6 +92,8 @@ function buildPluginListEntry(
     version: "1.0.0",
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
     frontend: {
@@ -99,9 +107,14 @@ function buildPluginListEntry(
     },
     config: {
       hasSchema: false,
-      schemaJson: null,
+      schemaJson: {},
+      schemaJsonDigestSha256: null,
+      currentConfig: {},
+      currentConfigDigestSha256: null,
     },
+    components: [],
     effectiveCapabilities: [],
+    enablementSource: null,
     restartRequired: false,
     ...overrides,
   });
@@ -175,12 +188,19 @@ function buildPluginRuntimeResponse(
 function buildRuntimeEndpointResponse(
   list: PluginListResponse,
   status: PluginStatusResponse,
-): Awaited<ReturnType<typeof generatedEndpoints.route_plugins_runtime>> {
+): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
   return {
     data: buildPluginRuntimeResponse(list, status),
-    status: 200,
-    hasResponse: true,
+    response: new Response(null, { status: 200 }),
   };
+}
+
+function buildRuntimeRequestFailure(
+  status: number,
+): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
+  return {
+    response: new Response(null, { status }),
+  } as Awaited<ReturnType<typeof openAPI.getPluginsRuntime>>;
 }
 
 type CapturedPluginHost = {
@@ -281,13 +301,10 @@ function seedRuntimeSectionState(sectionId: string): void {
       [sectionId]: variantId,
     };
     state.sections[sectionId] = createCore({ id: sectionId });
-    state.sectionImpls[implId] = createDictSectionImpl(
-      createUserDefaultDictSectionImpl(),
-      {
-        id: implId,
-        name: "Runtime Dict Section",
-      },
-    );
+    state.sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      name: "Runtime Dict Section",
+    });
     state.sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,
@@ -339,9 +356,61 @@ function seedRuntimePluginSectionState(sectionId: string): void {
   });
 }
 
-function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
+class RuntimeTestWebSocket extends EventTarget {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+
+  static instances: RuntimeTestWebSocket[] = [];
+
+  readonly url: string;
+  readyState = RuntimeTestWebSocket.CONNECTING;
+  sentMessages: string[] = [];
+
+  constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+    RuntimeTestWebSocket.instances.push(this);
+  }
+
+  send(data: string): void {
+    this.sentMessages.push(data);
+  }
+
+  close(code?: number, reason?: string): void {
+    this.readyState = RuntimeTestWebSocket.CLOSED;
+    this.dispatchEvent(
+      new CloseEvent("close", {
+        code: code ?? 1000,
+        reason: reason ?? "",
+      }),
+    );
+  }
+
+  open(): void {
+    this.readyState = RuntimeTestWebSocket.OPEN;
+    this.dispatchEvent(new Event("open"));
+  }
+
+  receiveJson(payload: unknown): void {
+    this.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify(payload),
+      }),
+    );
+  }
+
+  static reset(): void {
+    RuntimeTestWebSocket.instances = [];
+  }
+}
+
+function buildPluginRuntimeProjectStateUpdate(
+  activeIds: string[],
+): ProjectStateSingleConfigWithCompletedOpIDs {
   const state = useProjectState.getState();
-  return {
+  return createProjectStateSingleConfigWithCompletedOpIDs({
     projectState: {
       projectConfig: {
         ...state.projectConfig,
@@ -377,12 +446,17 @@ function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
       shownParamIds: {
         ...state.shownParamIds,
       },
+      projectChatWindowing: createProjectChatWindowingState({
+        ...state.projectChatWindowing,
+        instancesById: {
+          ...state.projectChatWindowing.instancesById,
+        },
+        order: [...state.projectChatWindowing.order],
+      }),
       requiredDecodedImages: [...state.requiredDecodedImages],
       genCodeBinding: state.genCodeBinding,
     },
-    completedOpIds: [],
-    pendingOpIds: [],
-  };
+  });
 }
 
 function buildPluginRuntimeProjectState(
@@ -404,13 +478,10 @@ function buildPluginRuntimeProjectState(
     const variantId = `variant-${sectionId}`;
     sectionVariantMap[sectionId] = variantId;
     sections[sectionId] = createCore({ id: sectionId });
-    sectionImpls[implId] = createDictSectionImpl(
-      createUserDefaultDictSectionImpl(),
-      {
-        id: implId,
-        name: `Section ${sectionId}`,
-      },
-    );
+    sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      name: `Section ${sectionId}`,
+    });
     sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,
@@ -444,11 +515,9 @@ describe("plugin runtime helpers", () => {
   beforeEach(() => {
     resetPluginRuntimeStoreForTests();
     vi.restoreAllMocks();
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
-      data: undefined,
-      status: undefined,
-      hasResponse: false,
-    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockRejectedValue(
+      new Error("network error"),
+    );
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-before-each";
       state.projectConfig.activeIds = [];
@@ -467,6 +536,7 @@ describe("plugin runtime helpers", () => {
       isDeploymentMode: false,
       shareSessionId: null,
     });
+    RuntimeTestWebSocket.reset();
   });
 
   afterEach(() => {
@@ -499,6 +569,7 @@ describe("plugin runtime helpers", () => {
       isDeploymentMode: false,
       shareSessionId: null,
     });
+    RuntimeTestWebSocket.reset();
   });
 
   it("builds deterministic section-kind keys", () => {
@@ -1002,11 +1073,9 @@ describe("plugin runtime helpers", () => {
         ],
       },
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
-      data: undefined,
-      status: 500,
-      hasResponse: true,
-    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
+      buildRuntimeRequestFailure(500),
+    );
 
     await refreshPluginRuntime();
 
@@ -1022,11 +1091,9 @@ describe("plugin runtime helpers", () => {
   });
 
   it("reports runtime error when plugins runtime request fails without response", async () => {
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
-      data: undefined,
-      status: undefined,
-      hasResponse: false,
-    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockRejectedValue(
+      new Error("network error"),
+    );
 
     await refreshPluginRuntime();
 
@@ -1084,11 +1151,9 @@ describe("plugin runtime helpers", () => {
     expect(loadResult?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
 
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
-      data: undefined,
-      status: 500,
-      hasResponse: true,
-    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
+      buildRuntimeRequestFailure(500),
+    );
 
     await refreshPluginRuntime();
 
@@ -1097,7 +1162,7 @@ describe("plugin runtime helpers", () => {
 
   it("prefers non-shadowed status entries as the primary plugin status", async () => {
     const plugin = buildPluginListEntry({});
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
         buildPluginListResponse([plugin]),
         buildPluginStatusResponse([
@@ -1150,12 +1215,8 @@ describe("plugin runtime helpers", () => {
 
     let listPayload = buildPluginListResponse([plugin]);
     let statusPayload = buildPluginStatusResponse([status]);
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(listPayload, statusPayload),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(listPayload, statusPayload),
     );
 
     await refreshPluginRuntime();
@@ -1189,22 +1250,18 @@ describe("plugin runtime helpers", () => {
       effectiveCapabilities: ["registerPane", "registerCommand"],
     });
     let effectiveCapabilities = ["registerPane", "registerCommand"];
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(
-          buildPluginListResponse([plugin]),
-          buildPluginStatusResponse([
-            buildPluginStatusEntry({
-              pluginId: plugin.pluginId,
-              requestedCapabilities: [...effectiveCapabilities],
-              effectiveCapabilities: [...effectiveCapabilities],
-              blockedCapabilities: [],
-            }),
-          ]),
-        ),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: plugin.pluginId,
+            requestedCapabilities: [...effectiveCapabilities],
+            effectiveCapabilities: [...effectiveCapabilities],
+            blockedCapabilities: [],
+          }),
+        ]),
+      ),
     );
 
     await refreshPluginRuntime();
@@ -1247,26 +1304,16 @@ describe("plugin runtime helpers", () => {
     });
     let runtimeCalls = 0;
 
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCalls += 1;
-        if (runtimeCalls === 2) {
-          return {
-            data: undefined,
-            status: 500,
-            hasResponse: true,
-          };
-        }
-        return {
-          data: buildPluginRuntimeResponse(
-            buildPluginListResponse([plugin]),
-            buildPluginStatusResponse([status]),
-          ),
-          status: 200,
-          hasResponse: true,
-        };
-      },
-    );
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCalls += 1;
+      if (runtimeCalls === 2) {
+        return buildRuntimeRequestFailure(500);
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([status]),
+      );
+    });
 
     await refreshPluginRuntime();
     expect(globalScope.__settaRecoveryRegisterCalls).toBe(1);
@@ -1319,15 +1366,11 @@ describe("plugin runtime helpers", () => {
       effectiveCapabilities: runtimeCapabilities,
       blockedCapabilities: [],
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(
-          buildPluginListResponse([plugin]),
-          buildPluginStatusResponse([status]),
-        ),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([status]),
+      ),
     );
 
     await refreshPluginRuntime();
@@ -1362,28 +1405,20 @@ describe("plugin runtime helpers", () => {
       requestedCapabilities: ["registerPane"],
       effectiveCapabilities: ["registerPane"],
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(
-          buildPluginListResponse([plugin]),
-          buildPluginStatusResponse([
-            {
-              ...status,
-              requestedCapabilities: [...status.requestedCapabilities],
-              effectiveCapabilities: [...status.effectiveCapabilities],
-              blockedCapabilities: [...status.blockedCapabilities],
-              registeredLanguageServers: [...status.registeredLanguageServers],
-              registeredExternalAgentAdapters: [
-                ...status.registeredExternalAgentAdapters,
-              ],
-              registeredCodegenTargets: [...status.registeredCodegenTargets],
-              errors: [...status.errors],
-            },
-          ]),
-        ),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([
+          {
+            ...status,
+            requestedCapabilities: [...status.requestedCapabilities],
+            effectiveCapabilities: [...status.effectiveCapabilities],
+            blockedCapabilities: [...status.blockedCapabilities],
+            registeredCodegenTargets: [...status.registeredCodegenTargets],
+            errors: [...status.errors],
+          },
+        ]),
+      ),
     );
 
     await refreshPluginRuntime();
@@ -1425,21 +1460,19 @@ describe("plugin runtime helpers", () => {
       "digest-b",
     );
     let runtimeCallCount = 0;
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCallCount += 1;
-        if (runtimeCallCount === 1) {
-          return buildRuntimeEndpointResponse(
-            buildPluginListResponse([plugin]),
-            buildPluginStatusResponse([firstStatus]),
-          );
-        }
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCallCount += 1;
+      if (runtimeCallCount === 1) {
         return buildRuntimeEndpointResponse(
           buildPluginListResponse([plugin]),
-          buildPluginStatusResponse([secondStatus]),
+          buildPluginStatusResponse([firstStatus]),
         );
-      },
-    );
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([secondStatus]),
+      );
+    });
 
     await refreshPluginRuntime();
     const firstState = usePluginRuntimeStore.getState();
@@ -1452,7 +1485,7 @@ describe("plugin runtime helpers", () => {
   });
 
   it("reuses empty status entries across no-op runtime refreshes", async () => {
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
         buildPluginListResponse([]),
         buildPluginStatusResponse([]),
@@ -1494,20 +1527,16 @@ describe("plugin runtime helpers", () => {
     });
     let digest = "digest-a";
 
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(
-          buildPluginListResponse([
-            buildPluginListEntry({
-              ...plugin,
-              sourceDigestSha256: digest,
-            }),
-          ]),
-          buildPluginStatusResponse([status]),
-        ),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            ...plugin,
+            sourceDigestSha256: digest,
+          }),
+        ]),
+        buildPluginStatusResponse([status]),
+      ),
     );
 
     await refreshPluginRuntime();
@@ -1524,20 +1553,14 @@ describe("plugin runtime helpers", () => {
     });
     let runtimeCalls = 0;
 
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCalls += 1;
-        await gate;
-        return {
-          data: buildPluginRuntimeResponse(
-            buildPluginListResponse([]),
-            buildPluginStatusResponse([]),
-          ),
-          status: 200,
-          hasResponse: true,
-        };
-      },
-    );
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCalls += 1;
+      await gate;
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([]),
+        buildPluginStatusResponse([]),
+      );
+    });
 
     const first = refreshPluginRuntime();
     const second = refreshPluginRuntime();
@@ -1551,82 +1574,6 @@ describe("plugin runtime helpers", () => {
     await Promise.all([first, second, third]);
     expect(runtimeCalls).toBe(2);
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
-  });
-
-  it("apiFetch normalizes plugin paths and attaches deployment share headers", async () => {
-    useShareSession.setState({
-      isDeploymentMode: true,
-      shareSessionId: "share-session-123",
-    });
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  void host.apiFetch('health');\n" +
-          "  void host.apiFetch('/status', { headers: { 'X-Custom': 'yes' } });\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-    });
-
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "share",
-    );
-
-    expect(result?.error).toBeNull();
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/health`,
-    );
-    expect(fetchSpy.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/status`,
-    );
-    const firstHeaders = new Headers(
-      (fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.headers,
-    );
-    const secondHeaders = new Headers(
-      (fetchSpy.mock.calls[1]?.[1] as RequestInit | undefined)?.headers,
-    );
-    expect(firstHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
-    expect(secondHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
-    expect(secondHeaders.get("X-Custom")).toBe("yes");
-  });
-
-  it("normalizePluginPath rejects traversal segments for apiFetch", () => {
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/../../api/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() => pluginRuntimeTestApi.normalizePluginPath("/a/../b")).toThrow(
-      "apiFetch path cannot include relative traversal segments",
-    );
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e%2fapi/projects"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(() =>
-      pluginRuntimeTestApi.normalizePluginPath("/safe/%2E%2E%2Ffoo"),
-    ).toThrow("apiFetch path cannot include relative traversal segments");
-    expect(pluginRuntimeTestApi.normalizePluginPath("health")).toBe("/health");
-    expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe(
-      "/status",
-    );
-    expect(pluginRuntimeTestApi.normalizePluginPath("/status?ok=1")).toBe(
-      "/status?ok=1",
-    );
   });
 
   it("manages plugin style links across repeated and null-style loads", async () => {
@@ -2434,7 +2381,7 @@ describe("plugin runtime helpers", () => {
 
   it("emits realtime dependency events through websocket action helpers", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
@@ -2526,7 +2473,7 @@ describe("plugin runtime helpers", () => {
 
   it("rejects non-object payloads for emitSectionRealtimeValue", async () => {
     const realtimeSpy = vi
-      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .spyOn(realtimeDependencySend, "sendRealtimeDependencyEvent")
       .mockImplementation(() => undefined);
     const moduleUrl =
       "data:text/javascript," +
@@ -2599,12 +2546,8 @@ describe("plugin runtime helpers", () => {
     });
     let listPayload = buildPluginListResponse([plugin]);
     let statusPayload = buildPluginStatusResponse([pluginStatus]);
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(listPayload, statusPayload),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(listPayload, statusPayload),
     );
 
     await refreshPluginRuntime();
@@ -2632,9 +2575,7 @@ describe("plugin runtime helpers", () => {
       buildPluginListResponse([plugin]),
       buildPluginStatusResponse([pluginStatus]),
     );
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
-      runtimePayload,
-    );
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(runtimePayload);
 
     await refreshPluginRuntime();
     const firstEntry =
@@ -2701,21 +2642,19 @@ describe("plugin runtime helpers", () => {
       blockedCapabilities: [],
     });
     let runtimeCallCount = 0;
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCallCount += 1;
-        if (runtimeCallCount === 1) {
-          return buildRuntimeEndpointResponse(
-            buildPluginListResponse([firstPlugin]),
-            buildPluginStatusResponse([pluginStatus]),
-          );
-        }
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCallCount += 1;
+      if (runtimeCallCount === 1) {
         return buildRuntimeEndpointResponse(
-          buildPluginListResponse([secondPlugin]),
+          buildPluginListResponse([firstPlugin]),
           buildPluginStatusResponse([pluginStatus]),
         );
-      },
-    );
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([secondPlugin]),
+        buildPluginStatusResponse([pluginStatus]),
+      );
+    });
 
     await refreshPluginRuntime();
     const firstEntry =
@@ -2772,21 +2711,19 @@ describe("plugin runtime helpers", () => {
       blockedCapabilities: [],
     });
     let runtimeCallCount = 0;
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCallCount += 1;
-        if (runtimeCallCount === 1) {
-          return buildRuntimeEndpointResponse(
-            buildPluginListResponse([firstPlugin]),
-            buildPluginStatusResponse([pluginStatus]),
-          );
-        }
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCallCount += 1;
+      if (runtimeCallCount === 1) {
         return buildRuntimeEndpointResponse(
-          buildPluginListResponse([secondPlugin]),
+          buildPluginListResponse([firstPlugin]),
           buildPluginStatusResponse([pluginStatus]),
         );
-      },
-    );
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([secondPlugin]),
+        buildPluginStatusResponse([pluginStatus]),
+      );
+    });
 
     await refreshPluginRuntime();
     const firstEntry =
@@ -2834,21 +2771,19 @@ describe("plugin runtime helpers", () => {
       blockedCapabilities: [],
     });
     let runtimeCallCount = 0;
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCallCount += 1;
-        if (runtimeCallCount === 1) {
-          return buildRuntimeEndpointResponse(
-            buildPluginListResponse([firstPlugin]),
-            buildPluginStatusResponse([pluginStatus]),
-          );
-        }
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCallCount += 1;
+      if (runtimeCallCount === 1) {
         return buildRuntimeEndpointResponse(
-          buildPluginListResponse([secondPlugin]),
+          buildPluginListResponse([firstPlugin]),
           buildPluginStatusResponse([pluginStatus]),
         );
-      },
-    );
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([secondPlugin]),
+        buildPluginStatusResponse([pluginStatus]),
+      );
+    });
 
     await refreshPluginRuntime();
     const firstEntry =
@@ -2880,21 +2815,19 @@ describe("plugin runtime helpers", () => {
       blockedCapabilities: [],
     });
     let runtimeCallCount = 0;
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => {
-        runtimeCallCount += 1;
-        if (runtimeCallCount === 1) {
-          return buildRuntimeEndpointResponse(
-            buildPluginListResponse([firstPlugin]),
-            buildPluginStatusResponse([pluginStatus]),
-          );
-        }
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () => {
+      runtimeCallCount += 1;
+      if (runtimeCallCount === 1) {
         return buildRuntimeEndpointResponse(
-          buildPluginListResponse([secondPlugin]),
+          buildPluginListResponse([firstPlugin]),
           buildPluginStatusResponse([pluginStatus]),
         );
-      },
-    );
+      }
+      return buildRuntimeEndpointResponse(
+        buildPluginListResponse([secondPlugin]),
+        buildPluginStatusResponse([pluginStatus]),
+      );
+    });
 
     await refreshPluginRuntime();
     const firstEntry =
@@ -2921,7 +2854,7 @@ describe("plugin runtime helpers", () => {
     const alphaStatus = buildPluginStatusEntry({
       pluginId: "alpha.plugin",
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
         buildPluginListResponse([beta, alpha]),
         buildPluginStatusResponse([betaStatus, alphaStatus]),
@@ -2983,7 +2916,7 @@ describe("plugin runtime helpers", () => {
       effectiveCapabilities: ["registerSectionKinds"],
       blockedCapabilities: [],
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
         buildPluginListResponse([alpha, beta]),
         buildPluginStatusResponse([alphaStatus, betaStatus]),
@@ -3483,12 +3416,8 @@ describe("plugin runtime helpers", () => {
 
     let listPayload = buildPluginListResponse([pluginWithStyle]);
     let statusPayload = buildPluginStatusResponse([pluginStatus]);
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
-      async () => ({
-        data: buildPluginRuntimeResponse(listPayload, statusPayload),
-        status: 200,
-        hasResponse: true,
-      }),
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponse(listPayload, statusPayload),
     );
 
     await refreshPluginRuntime();
@@ -3529,7 +3458,7 @@ describe("plugin runtime helpers", () => {
       pluginId: "disabled.plugin",
       state: PluginRuntimeStateEnum.disabled,
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+    vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeEndpointResponse(
         buildPluginListResponse([plugin]),
         buildPluginStatusResponse([status]),
