@@ -1023,40 +1023,51 @@ func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	}
 }
 
-func TestFrontendUserDefaultSectionDefaultsExposeGoOwnedCodeSectionDefaults(t *testing.T) {
+func TestFrontendSectionImplDefaultValueExposeGoOwnedCodeSectionDefaults(t *testing.T) {
 	t.Parallel()
 
-	defaults, err := FrontendUserDefaultSectionDefaults("Code")
+	defaultValue, err := FrontendSectionImplDefaultValue("Code")
 	if err != nil {
-		t.Fatalf("FrontendUserDefaultSectionDefaults(Code) error = %v", err)
+		t.Fatalf("FrontendSectionImplDefaultValue(Code) error = %v", err)
 	}
-	if got := defaults["code"]; got != "" {
+	defaults, ok := defaultValue.(FrontendCodeSectionImpl)
+	if !ok {
+		t.Fatalf("expected FrontendCodeSectionImpl, got %T", defaultValue)
+	}
+	if got := defaults.Type; got != FrontendSectionTypeCode {
+		t.Fatalf("expected section type %q, got %#v", FrontendSectionTypeCode, got)
+	}
+	if got := defaults.Code; got != "" {
 		t.Fatalf("expected empty code default, got %#v", got)
 	}
-	if got, ok := defaults["codeFileBinding"]; !ok || got != nil {
-		t.Fatalf("expected nil codeFileBinding default, got present=%t value=%#v", ok, got)
+	if defaults.CodeFileBinding != nil {
+		t.Fatalf("expected nil codeFileBinding default, got %#v", defaults.CodeFileBinding)
 	}
-	if got := defaults["codeLanguage"]; got != "python" {
+	if got := defaults.CodeLanguage; got != "python" {
 		t.Fatalf("expected python code language default, got %#v", got)
 	}
 
-	_, err = FrontendUserDefaultSectionDefaults("UnsupportedSection")
+	_, err = FrontendSectionImplDefaultValue("UnsupportedSection")
 	if !errors.Is(err, ErrTopLevelSectionImplTypeUnsupported) {
 		t.Fatalf("expected unsupported impl type error, got %v", err)
 	}
 }
 
-func TestFrontendUserDefaultSectionDefaultsProjectChartUnionDefaults(t *testing.T) {
+func TestFrontendSectionImplDefaultValueProjectChartUnionDefaults(t *testing.T) {
 	t.Parallel()
 
-	defaults, err := FrontendUserDefaultSectionDefaults("Chart")
+	defaultValue, err := FrontendSectionImplDefaultValue("Chart")
 	if err != nil {
-		t.Fatalf("FrontendUserDefaultSectionDefaults(Chart) error = %v", err)
+		t.Fatalf("FrontendSectionImplDefaultValue(Chart) error = %v", err)
 	}
-	chartSettings, ok := defaults["chartSettings"].(map[string]any)
+	defaults, ok := defaultValue.(FrontendChartSectionImpl)
 	if !ok {
-		t.Fatalf("expected chartSettings object, got %#v", defaults["chartSettings"])
+		t.Fatalf("expected FrontendChartSectionImpl, got %T", defaultValue)
 	}
+	if got := defaults.Type; got != FrontendSectionTypeChart {
+		t.Fatalf("expected section type %q, got %#v", FrontendSectionTypeChart, got)
+	}
+	chartSettings := chartSettingsPayloadObject(defaults.ChartSettings)
 	if got := chartSettings["type"]; got != string(ChartTypeLine) {
 		t.Fatalf("expected chart type %q, got %#v", ChartTypeLine, got)
 	}

@@ -2,9 +2,45 @@ package projectstate
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"testing"
 )
+
+func TestSectionSizeJSONUsesFrontendPayloadShape(t *testing.T) {
+	t.Parallel()
+
+	value := SectionSize{
+		Width:  FixedSectionSizeValue(250),
+		Height: AutoSectionSizeValue(),
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal section size: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatalf("decode marshaled section size: %v", err)
+	}
+	if got := payload["width"]; got != 250.0 {
+		t.Fatalf("expected width payload 250, got %#v", got)
+	}
+	if got := payload["height"]; got != string(SectionSizeModeAuto) {
+		t.Fatalf("expected height payload %q, got %#v", SectionSizeModeAuto, got)
+	}
+
+	var decoded SectionSize
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("unmarshal section size: %v", err)
+	}
+	if decoded.Width.Auto || decoded.Width.Value != 250 {
+		t.Fatalf("expected fixed width 250, got %#v", decoded.Width)
+	}
+	if !decoded.Height.Auto || decoded.Height.Value != 0 {
+		t.Fatalf("expected auto height, got %#v", decoded.Height)
+	}
+}
 
 func TestRuntimeSetSectionSizesNormalizesPolicyBounds(t *testing.T) {
 	t.Parallel()

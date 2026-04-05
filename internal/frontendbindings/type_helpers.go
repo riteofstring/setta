@@ -587,7 +587,7 @@ func generatedUserDefaultSectionNames() []string {
 		if _, ok := generatedSectionImplTypeForSectionName(sectionName); !ok {
 			continue
 		}
-		if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
+		if _, err := projectstate.FrontendSectionImplDefaultValue(sectionName); err != nil {
 			continue
 		}
 		names = append(names, sectionName)
@@ -599,10 +599,14 @@ func generatedUserDefaultSectionProperties(
 	converter *typeConverter,
 	sectionName string,
 ) ([]TypeProperty, error) {
-	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName)
+	defaultValue, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
 	if err != nil {
 		return nil, err
 	}
+	defaults := mustTSLiteralObjectFromGoValue(
+		"frontend user default section properties "+sectionName,
+		defaultValue,
+	)
 	registry, propertyOrder, ignored, err := generatedUserDefaultSectionPropertyRegistry(converter, sectionName)
 	if err != nil {
 		return nil, err

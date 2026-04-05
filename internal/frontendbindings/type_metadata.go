@@ -188,6 +188,7 @@ func generatedCodeObjImplTypeNamesMatching(predicate func(reflect.Type) bool) []
 }
 
 var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
+	"id":                      {},
 	"name":                    {},
 	"isInOtherProjectConfigs": {},
 	"aspectRatioExtraHeight":  {},
@@ -195,6 +196,7 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"isPreset":                {},
 	"children":                {},
 	"promptTemplateId":        {},
+	"type":                    {},
 }
 
 var generatedBaseSectionOptionalPropertySeeds = []reflect.Type{

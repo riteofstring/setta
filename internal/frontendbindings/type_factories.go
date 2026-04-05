@@ -432,7 +432,7 @@ func objectDeclarationWithGoBackedCreateExpr(
 }
 
 func buildGoBackedSectionDefaultsCreateExprTS(implType string, properties []TypeProperty) string {
-	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(implType)
+	defaults, err := projectstate.FrontendSectionImplDefaultValue(implType)
 	if err != nil {
 		panic("load frontend user default section defaults: " + err.Error())
 	}
@@ -576,7 +576,7 @@ func generatedSectionImplName(t reflect.Type) (string, bool) {
 		return "", false
 	}
 	sectionName := strings.TrimSuffix(name, "SectionImpl")
-	if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
+	if _, err := projectstate.FrontendSectionImplDefaultValue(sectionName); err != nil {
 		return "", false
 	}
 	return sectionName, true
@@ -682,9 +682,6 @@ func generatedOrdinaryFactoryPropertyExpr(
 	if value, ok := defaults[property.Name]; ok {
 		return renderTSLiteralExpr(value)
 	}
-	if fallback, ok := generatedOrdinaryFactoryFallbackExpr(property); ok {
-		return fallback
-	}
 	panic(
 		fmt.Sprintf(
 			"missing generated factory default for %s (%s)",
@@ -692,25 +689,6 @@ func generatedOrdinaryFactoryPropertyExpr(
 			property.TypeExpr,
 		),
 	)
-}
-
-func generatedOrdinaryFactoryFallbackExpr(property TypeProperty) (string, bool) {
-	switch {
-	case property.TypeExpr == "string":
-		return `""`, true
-	case property.TypeExpr == "boolean":
-		return "false", true
-	case property.TypeExpr == "number":
-		return "0", true
-	case strings.Contains(property.TypeExpr, " | null"):
-		return "null", true
-	case strings.HasPrefix(property.TypeExpr, "Array<"):
-		return "[]", true
-	case strings.HasPrefix(property.TypeExpr, "Record<"):
-		return "{}", true
-	default:
-		return "", false
-	}
 }
 
 func mustGeneratedSectionImplFactoryProperties(
@@ -725,11 +703,14 @@ func mustGeneratedSectionImplFactoryProperties(
 }
 
 func generatedSectionImplFactoryDefaultValues(sectionName string) map[string]any {
-	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName)
+	defaults, err := projectstate.FrontendSectionImplDefaultValue(sectionName)
 	if err != nil {
 		panic("load generated section factory defaults: " + err.Error())
 	}
-	return defaults
+	return mustTSLiteralObjectFromGoValue(
+		"frontend section impl factory defaults "+sectionName,
+		defaults,
+	)
 }
 
 func generatedSectionImplFactoryUserDefaultPropertyNames(

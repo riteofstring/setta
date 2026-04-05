@@ -1,5 +1,12 @@
 package projectstate
 
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strings"
+)
+
 func FrontendDefaultViewport() Viewport {
 	return Viewport{
 		X:    0,
@@ -205,6 +212,157 @@ func FrontendDefaultSectionSize() SectionSize {
 		Width:  AutoSectionSizeValue(),
 		Height: AutoSectionSizeValue(),
 	}
+}
+
+func FrontendSectionImplDefaultValue(implType string) (any, error) {
+	switch strings.TrimSpace(implType) {
+	case "Browser":
+		return frontendSectionImplDefaultValue[FrontendBrowserSectionImpl](
+			FrontendSectionTypeBrowser,
+			createdBrowserSectionDefaults(),
+		)
+	case "Callable":
+		return frontendSectionImplDefaultValue[FrontendCallableSectionImpl](
+			FrontendSectionTypeCallable,
+			createdCallableSectionDefaults(),
+		)
+	case "Chart":
+		return frontendSectionImplDefaultValue[FrontendChartSectionImpl](
+			FrontendSectionTypeChart,
+			createdFrontendChartSectionDefaults(),
+		)
+	case "Chat":
+		return frontendSectionImplDefaultValue[FrontendChatSectionImpl](
+			FrontendSectionTypeChat,
+			createdChatSectionDefaults(),
+		)
+	case "Code":
+		return frontendSectionImplDefaultValue[FrontendCodeSectionImpl](
+			FrontendSectionTypeCode,
+			createdCodeSectionDefaults(),
+		)
+	case "Dict":
+		return frontendSectionImplDefaultValue[FrontendDictSectionImpl](
+			FrontendSectionTypeDict,
+			createdDictSectionDefaults(),
+		)
+	case "Group":
+		return frontendSectionImplDefaultValue[FrontendGroupSectionImpl](
+			FrontendSectionTypeGroup,
+			createdGroupSectionDefaults(),
+		)
+	case "ListRoot":
+		return frontendSectionImplDefaultValue[FrontendListRootSectionImpl](
+			FrontendSectionTypeListRoot,
+			createdListRootSectionDefaults(),
+		)
+	case "Prompt":
+		return frontendSectionImplDefaultValue[FrontendPromptSectionImpl](
+			FrontendSectionTypePrompt,
+			createdPromptSectionDefaults(),
+		)
+	case "Spreadsheet":
+		return frontendSectionImplDefaultValue[FrontendSpreadsheetSectionImpl](
+			FrontendSectionTypeSpreadsheet,
+			createdSpreadsheetSectionDefaults(),
+		)
+	case "StateMachineEnd":
+		return frontendSectionImplDefaultValue[FrontendStateMachineEndSectionImpl](
+			FrontendSectionTypeStateMachineEnd,
+			createdStateMachineEndSectionDefaults(""),
+		)
+	case "StateMachineGate":
+		return frontendSectionImplDefaultValue[FrontendStateMachineGateSectionImpl](
+			FrontendSectionTypeStateMachineGate,
+			createdStateMachineGateSectionDefaults(""),
+		)
+	case "StateMachineStart":
+		return frontendSectionImplDefaultValue[FrontendStateMachineStartSectionImpl](
+			FrontendSectionTypeStateMachineStart,
+			createdStateMachineStartSectionDefaults(""),
+		)
+	case "TaskBoard":
+		return frontendSectionImplDefaultValue[FrontendTaskBoardSectionImpl](
+			FrontendSectionTypeTaskBoard,
+			createdTaskBoardSectionDefaults(),
+		)
+	case "Terminal":
+		return frontendSectionImplDefaultValue[FrontendTerminalSectionImpl](
+			FrontendSectionTypeTerminal,
+			createdTerminalSectionDefaults(),
+		)
+	case "TextBlock":
+		return frontendSectionImplDefaultValue[FrontendTextBlockSectionImpl](
+			FrontendSectionTypeTextBlock,
+			createdTextBlockSectionDefaults(),
+		)
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, implType)
+	}
+}
+
+func frontendSectionImplDefaultValue[T any](
+	sectionType FrontendSectionType,
+	defaults map[string]any,
+) (T, error) {
+	var value T
+	payload, err := json.Marshal(defaults)
+	if err != nil {
+		return value, fmt.Errorf("marshal frontend section defaults %s: %w", sectionType, err)
+	}
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return value, fmt.Errorf("decode frontend section defaults %s: %w", sectionType, err)
+	}
+	if err := applyFrontendSectionImplBaseDefaults(sectionType, &value); err != nil {
+		return value, err
+	}
+	return value, nil
+}
+
+var frontendBaseSectionImplType = reflect.TypeOf(FrontendBaseSectionImpl{})
+
+func applyFrontendSectionImplBaseDefaults(
+	sectionType FrontendSectionType,
+	target any,
+) error {
+	value := reflect.ValueOf(target)
+	if !value.IsValid() || value.Kind() != reflect.Pointer || value.IsNil() {
+		return fmt.Errorf("frontend section defaults %s require a non-nil pointer target", sectionType)
+	}
+	base, ok := frontendBaseSectionImplField(value.Elem())
+	if !ok {
+		return fmt.Errorf("frontend section defaults %s are missing FrontendBaseSectionImpl", sectionType)
+	}
+	base.FieldByName("Type").Set(reflect.ValueOf(sectionType))
+	base.FieldByName("ID").SetString("")
+	return nil
+}
+
+func frontendBaseSectionImplField(value reflect.Value) (reflect.Value, bool) {
+	for value.IsValid() && value.Kind() == reflect.Pointer {
+		if value.IsNil() {
+			return reflect.Value{}, false
+		}
+		value = value.Elem()
+	}
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+	valueType := value.Type()
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		fieldType := valueType.Field(fieldIndex)
+		fieldValue := value.Field(fieldIndex)
+		if fieldType.Type == frontendBaseSectionImplType {
+			return fieldValue, true
+		}
+		if !fieldType.Anonymous {
+			continue
+		}
+		if embedded, ok := frontendBaseSectionImplField(fieldValue); ok {
+			return embedded, true
+		}
+	}
+	return reflect.Value{}, false
 }
 
 func FrontendDefaultStateMachineGateUIState() StateMachineGateUIState {

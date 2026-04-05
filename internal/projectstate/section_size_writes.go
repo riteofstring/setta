@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -15,6 +16,67 @@ type SectionSizeValue struct {
 type SectionSize struct {
 	Width  SectionSizeValue
 	Height SectionSizeValue
+}
+
+func (v SectionSizeValue) MarshalJSON() ([]byte, error) {
+	if v.Auto {
+		return json.Marshal(string(SectionSizeModeAuto))
+	}
+	return json.Marshal(v.Value)
+}
+
+func (v *SectionSizeValue) UnmarshalJSON(data []byte) error {
+	if v == nil {
+		return fmt.Errorf("section size value target is nil")
+	}
+	var mode string
+	if err := json.Unmarshal(data, &mode); err == nil {
+		switch strings.TrimSpace(mode) {
+		case string(SectionSizeModeAuto):
+			*v = AutoSectionSizeValue()
+			return nil
+		case "":
+			return fmt.Errorf("section size value must not be empty")
+		default:
+			return fmt.Errorf("unsupported section size mode %q", mode)
+		}
+	}
+	var fixed float64
+	if err := json.Unmarshal(data, &fixed); err == nil {
+		*v = FixedSectionSizeValue(fixed)
+		return nil
+	}
+	return fmt.Errorf("section size value must be a number or %q", SectionSizeModeAuto)
+}
+
+func (s SectionSize) MarshalJSON() ([]byte, error) {
+	type sectionSizeJSON struct {
+		Width  SectionSizeValue `json:"width"`
+		Height SectionSizeValue `json:"height"`
+	}
+	return json.Marshal(sectionSizeJSON{
+		Width:  s.Width,
+		Height: s.Height,
+	})
+}
+
+func (s *SectionSize) UnmarshalJSON(data []byte) error {
+	if s == nil {
+		return fmt.Errorf("section size target is nil")
+	}
+	type sectionSizeJSON struct {
+		Width  SectionSizeValue `json:"width"`
+		Height SectionSizeValue `json:"height"`
+	}
+	var decoded sectionSizeJSON
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*s = SectionSize{
+		Width:  decoded.Width,
+		Height: decoded.Height,
+	}
+	return nil
 }
 
 type sectionSizeMutationState struct {
