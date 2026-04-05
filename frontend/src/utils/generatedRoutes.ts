@@ -2,12 +2,12 @@
 export const GoRoutePrefixes = {
   api: "/api",
 } as const;
-const GoRootRoutes = {
+export const GoRootRoutes = {
   bootstrapConsume: "/__setta__/bootstrap/consume",
   bootstrapPage: "/__setta__/bootstrap",
   toolsCall: "/__setta__/tools/call",
 } as const;
-const GoPluginRootRoutes = {
+export const GoPluginRootRoutes = {
   pluginAssetWildcard: "/plugins/{pluginId}/*",
 } as const;
 export const GoHTTPRoutes = {
@@ -16,8 +16,7 @@ export const GoHTTPRoutes = {
   addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
   appDeploymentCurrentSession: "/app/deployments/current/session",
   appDeploymentLatest: "/app/deployments/{deploymentName}/latest",
-  appDeploymentProjectConfig:
-    "/app/deployments/{deploymentName}/{version}/project_config",
+  appDeploymentProjectConfig: "/app/deployments/{deploymentName}/{version}/project_config",
   appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
   appDeploymentVersions: "/app/deployments/{deploymentName}/versions",
   appDeployments: "/app/deployments",
@@ -205,8 +204,7 @@ export const GoHTTPRoutes = {
   setCodeObjDisplayName: "/setCodeObjDisplayName",
   setCodeObjName: "/setCodeObjName",
   setCodeSectionAttachedTerminal: "/setCodeSectionAttachedTerminal",
-  setCodeSectionDiagnosticCodeSuppression:
-    "/setCodeSectionDiagnosticCodeSuppression",
+  setCodeSectionDiagnosticCodeSuppression: "/setCodeSectionDiagnosticCodeSuppression",
   setCodeSectionDiagnosticsMute: "/setCodeSectionDiagnosticsMute",
   setDefaultSectionVariant: "/setDefaultSectionVariant",
   setEdges: "/setEdges",
@@ -265,8 +263,7 @@ export const GoHTTPRoutes = {
   setupLauncher: "/setupLauncher",
   shareDeploymentCurrentSession: "/share/deployments/current/session",
   shareDeploymentLatest: "/share/deployments/{deploymentName}/latest",
-  shareDeploymentProjectConfig:
-    "/share/deployments/{deploymentName}/{version}/project_config",
+  shareDeploymentProjectConfig: "/share/deployments/{deploymentName}/{version}/project_config",
   shareDeploymentState: "/share/deployments/{deploymentName}/{version}/state",
   shareDeploymentVersions: "/share/deployments/{deploymentName}/versions",
   shareDeployments: "/share/deployments",
@@ -312,7 +309,7 @@ export const GoHTTPRoutes = {
   validateAppDefinition: "/validateAppDefinition",
   writeFileBrowserFileContent: "/writeFileBrowserFileContent",
 } as const;
-const GoWebsocketRoutes = {
+export const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
   listenerById: "/ws/listeners/{listenerID}",
   terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
@@ -358,26 +355,16 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.appDeploymentCurrentSession;
   },
   appDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, {
-      deploymentName,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, { deploymentName });
   },
   appDeploymentProjectConfig(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(
-      GoHTTPRoutes.appDeploymentProjectConfig,
-      { deploymentName, version },
-    );
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentProjectConfig, { deploymentName, version });
   },
   appDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, {
-      deploymentName,
-      version,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, { deploymentName, version });
   },
   appDeploymentVersions(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, {
-      deploymentName,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, { deploymentName });
   },
   appDeployments(): string {
     return GoHTTPRoutes.appDeployments;
@@ -389,17 +376,13 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.appendTranscriptionAudio;
   },
   attachmentDownload(token: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.attachmentDownload, {
-      token,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.attachmentDownload, { token });
   },
   autoLayoutTopLevelSections(): string {
     return GoHTTPRoutes.autoLayoutTopLevelSections;
   },
   binaryDownload(contentId: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, {
-      contentId,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, { contentId });
   },
   binaryUpload(): string {
     return GoHTTPRoutes.binaryUpload;
@@ -543,9 +526,7 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.docstringToMarkdown;
   },
   fileBrowserDownload(token: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, {
-      token,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, { token });
   },
   forceRefreshListener(): string {
     return GoHTTPRoutes.forceRefreshListener;
@@ -1115,30 +1096,16 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.shareDeploymentCurrentSession;
   },
   shareDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, {
-      deploymentName,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, { deploymentName });
   },
-  shareDeploymentProjectConfig(
-    deploymentName: string,
-    version: string,
-  ): string {
-    return replaceGeneratedRoutePathParams(
-      GoHTTPRoutes.shareDeploymentProjectConfig,
-      { deploymentName, version },
-    );
+  shareDeploymentProjectConfig(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentProjectConfig, { deploymentName, version });
   },
   shareDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, {
-      deploymentName,
-      version,
-    });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, { deploymentName, version });
   },
   shareDeploymentVersions(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(
-      GoHTTPRoutes.shareDeploymentVersions,
-      { deploymentName },
-    );
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentVersions, { deploymentName });
   },
   shareDeployments(): string {
     return GoHTTPRoutes.shareDeployments;
@@ -1272,15 +1239,10 @@ export const GoWebsocketRouteHelpers = {
     return GoWebsocketRoutes.frontend;
   },
   listenerById(listenerID: string): string {
-    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, {
-      listenerID,
-    });
+    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, { listenerID });
   },
   terminalBySection(projectID: string, sectionID: string): string {
-    return replaceGeneratedRoutePathParams(
-      GoWebsocketRoutes.terminalBySection,
-      { projectID, sectionID },
-    );
+    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.terminalBySection, { projectID, sectionID });
   },
 } as const;
 export const RouteEnum = {
@@ -1294,8 +1256,7 @@ export const RouteEnum = {
   ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
   APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
   APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
-  APP_DEPLOYMENT_PROJECT_CONFIG:
-    "/app/deployments/{deploymentName}/{version}/project_config",
+  APP_DEPLOYMENT_PROJECT_CONFIG: "/app/deployments/{deploymentName}/{version}/project_config",
   APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
   APP_DEPLOYMENT_VERSIONS: "/app/deployments/{deploymentName}/versions",
   APP_DEPLOYMENTS: "/app/deployments",
@@ -1483,8 +1444,7 @@ export const RouteEnum = {
   SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   SET_CODE_SECTION_ATTACHED_TERMINAL: "/setCodeSectionAttachedTerminal",
-  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
-    "/setCodeSectionDiagnosticCodeSuppression",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION: "/setCodeSectionDiagnosticCodeSuppression",
   SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
   SET_EDGES: "/setEdges",
@@ -1543,8 +1503,7 @@ export const RouteEnum = {
   SETUP_LAUNCHER: "/setupLauncher",
   SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
-  SHARE_DEPLOYMENT_PROJECT_CONFIG:
-    "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG: "/share/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
   SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
   SHARE_DEPLOYMENTS: "/share/deployments",

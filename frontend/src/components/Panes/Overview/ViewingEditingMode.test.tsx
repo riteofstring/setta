@@ -52,10 +52,7 @@ vi.mock("utils/generatedEndpoints", () => ({
 
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createProjectConfig,
-  createViewModeConfig,
-} from "utils/generatedTypes";
+import { createProjectConfig, createViewMode } from "utils/generatedTypes";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 describe("ViewingEditingMode", () => {
@@ -73,7 +70,7 @@ describe("ViewingEditingMode", () => {
         activeViewModeId: "view-mode-a",
         isEditingViewMode: true,
         viewModes: {
-          "view-mode-a": createViewModeConfig({
+          "view-mode-a": createViewMode({
             id: "view-mode-a",
             name: "Focus",
             sortIndex: 0,
@@ -82,7 +79,7 @@ describe("ViewingEditingMode", () => {
             visibilityBySectionId: {},
             topLevelSections: {},
           }),
-          "view-mode-b": createViewModeConfig({
+          "view-mode-b": createViewMode({
             id: "view-mode-b",
             name: "Details",
             sortIndex: 1,

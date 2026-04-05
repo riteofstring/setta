@@ -4,57 +4,19 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/lspcompletion"
-	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
-	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 )
-
-type ClipboardDataType = projectstate.ClipboardDataType
-
-type ClipboardProjectStateCore = projectstate.ClipboardProjectStateCore
-
-type Core = projectview.Core
-
-type Variant = projectview.Variant
-
-type SingletonSections = projectview.SingletonSections
 
 type ShownParamIdDetails projectview.ShownParamIDDetails
 
 type ShownParamIds projectview.ShownParamIDs
 
-type ChatWindowPlacement = projectstate.ChatWindowPlacement
-
-type ChatWindowMode = projectstate.ChatWindowMode
-
-type ChatWindowBounds = projectstate.ChatWindowBounds
-
-type ChatWindowDockMetrics = projectstate.ChatWindowDockMetrics
-
-type ProjectChatWindowInstance = projectstate.ProjectChatWindowInstance
-
-type ProjectChatWindowingState = projectstate.ProjectChatWindowingState
-
-type WindowSpaceSurfaceKind = projectstate.WindowSpaceSurfaceKind
-
-type NormalizedFloatingWindowBounds = projectstate.NormalizedFloatingWindowBounds
-
-type WindowSpaceWindow = projectstate.WindowSpaceWindow
-
-type WindowSpaceState = projectstate.WindowSpaceState
-
-type WindowSpaceConfig = projectstate.WindowSpaceConfig
-
-type SectionsClipboardData = projectstate.SectionsClipboardData
-
 type BaseClipboardDataUnionWithDiscriminator struct{}
 
 type ProjectMetadataEntry projectstate.ProjectConfigMetadata
-
-type AllProjectMetadata projectshell.AllProjectMetadata
 
 type DeploymentType deployments.Type
 
@@ -135,15 +97,9 @@ type AgenticSummaryCacheStatus struct {
 	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
 }
 
-type AIFollowToolArgumentsUpdateContent realtime.AIFollowToolArgumentsUpdateContent
+type AIFollowSnapshotResponse []realtime.AIFollowToolArgumentsUpdateContent
 
-type AIFollowToolResultUpdateContent realtime.AIFollowToolResultUpdateContent
-
-type AIFollowSnapshotResponse []AIFollowToolArgumentsUpdateContent
-
-type CodeMirrorCompletion lspcompletion.CodeMirrorCompletion
-
-type CodeMirrorCompletionResponse []CodeMirrorCompletion
+type CodeMirrorCompletionResponse []lspcompletion.CodeMirrorCompletion
 
 type CreateNewSectionVariantRequestInput httpapi.CreateNewSectionVariantRequest
 
@@ -166,20 +122,20 @@ type SetSectionVariantNameRequestInput httpapi.SetSectionVariantNameRequest
 type DeleteSectionVariantOrAskResponse string
 
 type CreateChildSectionsRequestInput struct {
-	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
-	ProjectConfigID string      `json:"projectConfigId"`
-	ParentID        string      `json:"parentId"`
-	ImplType        SectionType `json:"implType"`
-	NumChildren     int         `json:"numChildren"`
-	StartIdx        *int        `json:"startIdx,omitempty"`
+	FrontendOpID    *string                          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                           `json:"projectConfigId"`
+	ParentID        string                           `json:"parentId"`
+	ImplType        projectstate.FrontendSectionType `json:"implType"`
+	NumChildren     int                              `json:"numChildren"`
+	StartIdx        *int                             `json:"startIdx,omitempty"`
 }
 
 type CreateChildSectionsViaIncrementerRequestInput struct {
-	FrontendOpID    *string     `json:"frontendOpId,omitempty"`
-	ProjectConfigID string      `json:"projectConfigId"`
-	CalledBy        string      `json:"calledBy"`
-	ImplType        SectionType `json:"implType"`
-	NumChildren     int         `json:"numChildren"`
+	FrontendOpID    *string                          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                           `json:"projectConfigId"`
+	CalledBy        string                           `json:"calledBy"`
+	ImplType        projectstate.FrontendSectionType `json:"implType"`
+	NumChildren     int                              `json:"numChildren"`
 }
 
 type CreateChildSectionsResponse projectstate.CreateChildSectionsResult
@@ -225,21 +181,21 @@ type ReconnectEdgeRequestInput httpapi.ReconnectEdgeRequest
 type SetEdgesRequestInput httpapi.SetEdgesRequest
 
 type CreateStateMachineEdgeRequestInput struct {
-	FrontendOpID                   *string                                     `json:"frontendOpId,omitempty"`
-	ProjectConfigID                string                                      `json:"projectConfigId"`
-	ID                             *string                                     `json:"id,omitempty"`
-	MachineGroupID                 string                                      `json:"machineGroupId"`
-	SourceSectionID                string                                      `json:"sourceSectionId"`
-	SourcePortID                   string                                      `json:"sourcePortId"`
-	TargetSectionID                string                                      `json:"targetSectionId"`
-	TargetPortID                   string                                      `json:"targetPortId"`
-	SourceFilter                   *StateMachineSourceFilter                   `json:"sourceFilter,omitempty"`
-	SourceActivationCountCondition *StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition,omitempty"`
-	TargetAction                   *StateMachineTargetAction                   `json:"targetAction,omitempty"`
-	Style                          map[string]any                              `json:"style,omitempty"`
-	Hidden                         *bool                                       `json:"hidden,omitempty"`
-	ZIndex                         *int                                        `json:"zIndex,omitempty"`
-	Selected                       *bool                                       `json:"selected,omitempty"`
+	FrontendOpID                   *string                                                  `json:"frontendOpId,omitempty"`
+	ProjectConfigID                string                                                   `json:"projectConfigId"`
+	ID                             *string                                                  `json:"id,omitempty"`
+	MachineGroupID                 string                                                   `json:"machineGroupId"`
+	SourceSectionID                string                                                   `json:"sourceSectionId"`
+	SourcePortID                   string                                                   `json:"sourcePortId"`
+	TargetSectionID                string                                                   `json:"targetSectionId"`
+	TargetPortID                   string                                                   `json:"targetPortId"`
+	SourceFilter                   *projectstate.StateMachineSourceFilter                   `json:"sourceFilter,omitempty"`
+	SourceActivationCountCondition *projectstate.StateMachineSourceActivationCountCondition `json:"sourceActivationCountCondition,omitempty"`
+	TargetAction                   *projectstate.StateMachineTargetAction                   `json:"targetAction,omitempty"`
+	Style                          map[string]any                                           `json:"style,omitempty"`
+	Hidden                         *bool                                                    `json:"hidden,omitempty"`
+	ZIndex                         *int                                                     `json:"zIndex,omitempty"`
+	Selected                       *bool                                                    `json:"selected,omitempty"`
 }
 
 type UpdateStateMachineEdgeRequestInput httpapi.UpdateStateMachineEdgeRequest
@@ -297,12 +253,6 @@ type SetCodeObjNameRequestInput httpapi.SetCodeObjNameRequest
 
 type SetCodeObjDisplayNameRequestInput httpapi.SetCodeObjDisplayNameRequest
 
-type Position projectstate.Position
-
-type RunSnapshotMode deployments.RunSnapshotMode
-
-type RenameRefactorMode projectstate.RenameRefactorMode
-
 type BackgroundVariant string
 
 type SelectionMode string
@@ -313,65 +263,11 @@ type MetaControlSizeMode string
 
 type SectionSizeMode string
 
-type ProjectCodegenLanguage = projectview.ProjectCodegenLanguage
-
-type SectionCodegenMode = projectview.SectionCodegenMode
-
-type SectionRepresentationMode = projectview.SectionRepresentationMode
-
-type CodeObjValueRepresentationMode = projectview.CodeObjValueRepresentationMode
-
-type SectionSizeValue projectstate.SectionSizeValue
-
-type SectionSize projectstate.SectionSize
-
-type SectionSizingPolicyTypeEntry projectstate.FrontendSectionSizingPolicyTypeEntry
-
-type SectionSizingPolicyCallableTypeEntry projectstate.FrontendSectionSizingPolicyCallableTypeEntry
-
-type MetaControlSizingPolicyTypeEntry projectstate.FrontendMetaControlSizingPolicyTypeEntry
-
-type MetaControlSizingPolicyByType projectstate.FrontendMetaControlSizingPolicyByType
-
-type SectionSizingPolicyGlobals projectstate.FrontendSectionSizingPolicyGlobals
-
-type SectionSizingPolicyByType projectstate.FrontendSectionSizingPolicyByType
-
-type SectionSizingPolicy projectstate.FrontendSectionSizingPolicy
-
 type SharePolicy deployments.Policy
 
-type SettingsShortcuts settingsstate.FrontendSettingsShortcuts
-
-type SettingsGUI settingsstate.FrontendSettingsGUI
-
-type SettingsBackend settingsstate.FrontendSettingsBackend
-
-type SettingsState settingsstate.FrontendSettingsState
-
 type SaveSettingsRequestInput struct {
-	Settings SettingsState `json:"settings"`
+	Settings settingsstate.FrontendSettingsState `json:"settings"`
 }
-
-type SectionTypeCodegenPolicy = projectview.SectionTypeCodegenPolicy
-
-type SectionCodegenOverride = projectview.SectionCodegenOverride
-
-type SectionCodegenPolicy = projectview.SectionCodegenPolicy
-
-type CodeObjTypeValuePolicy = projectview.CodeObjTypeValuePolicy
-
-type CodeObjValueOverride = projectview.CodeObjValueOverride
-
-type CodeObjValuePolicy = projectview.CodeObjValuePolicy
-
-type ProjectCodegenPythonTarget = projectview.ProjectCodegenPythonTarget
-
-type ProjectCodegenPluginTarget = projectview.ProjectCodegenPluginTarget
-
-type ProjectCodegenTarget = projectview.ProjectCodegenTarget
-
-type ClipboardProjectStateCoreWithSectionVariantMap = projectstate.ClipboardProjectStateCoreWithSectionVariantMap
 
 type CreateTopLevelSectionRequestInput httpapi.CreateTopLevelSectionRequest
 
@@ -421,12 +317,6 @@ type UndoRequestInput httpapi.UndoRequest
 
 type RedoRequestInput httpapi.RedoRequest
 
-type SetCallableChildCodeObj projectstate.SetCallableChildCodeObj
-
-type SignatureHelpStatus projectstate.SignatureHelpStatus
-
-type SetCallableResponse projectstate.SetCallableResponse
-
 type SetCallableRequestInput httpapi.SetCallableRequest
 
 type SetCodeRequestInput httpapi.SetCodeRequest
@@ -440,9 +330,9 @@ type SetSectionHideUnpinnedParamsRequestInput httpapi.SetSectionHideUnpinnedPara
 type SetSectionPinnedParamsRequestInput httpapi.SetSectionPinnedParamsRequest
 
 type SetProjectConfigCodegenTargetsRequestInput struct {
-	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
-	ProjectConfigID string                 `json:"projectConfigId"`
-	CodegenTargets  []ProjectCodegenTarget `json:"codegenTargets"`
+	FrontendOpID    *string                            `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                             `json:"projectConfigId"`
+	CodegenTargets  []projectview.ProjectCodegenTarget `json:"codegenTargets"`
 }
 
 type SetChatSectionSettingsRequestInput httpapi.SetChatSectionSettingsRequest
@@ -458,260 +348,70 @@ type GroupSectionsRequestInput httpapi.GroupSectionsRequest
 type UngroupGroupsRequestInput httpapi.UngroupGroupsRequest
 
 type SetSectionSizesRequestInput struct {
-	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
-	ProjectConfigID string                 `json:"projectConfigId"`
-	SectionSizes    map[string]SectionSize `json:"sectionSizes"`
+	FrontendOpID    *string                             `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                              `json:"projectConfigId"`
+	SectionSizes    map[string]projectstate.SectionSize `json:"sectionSizes"`
 }
 
 type ToggleParamSelectedRequestInput httpapi.ToggleParamSelectedRequest
 
 type UnselectAllParamsRequestInput httpapi.UnselectAllParamsRequest
 
-type SectionType projectstate.FrontendSectionType
-
-type CodeObjType projectstate.FrontendCodeObjType
-
-type CodeLanguage projectstate.CodeLanguage
-
 type BuiltinCodeLanguage struct{}
 
-type ConfigLanguage projectstate.FrontendConfigLanguage
-
-type ParameterPassingStyle projectstate.FrontendParameterPassingStyle
-
-type ParamNameType projectstate.FrontendParamNameType
-
-type ButtonActionMode projectstate.FrontendButtonActionMode
-
-type HttpRequestMethod projectstate.FrontendHTTPRequestMethod
-
-type DropzoneMode projectstate.FrontendDropzoneMode
-
-type TextParamInputUIType projectstate.FrontendTextParamInputUIType
-
-type TimeDisplayFormat projectstate.FrontendTimeDisplayFormat
-
-type TimeControlMode projectstate.FrontendTimeControlMode
-
-type TimeDisplayFont projectstate.FrontendTimeDisplayFont
-
-type DateDisplayFormat projectstate.FrontendDateDisplayFormat
-
-type DateControlMode projectstate.FrontendDateControlMode
-
-type DateSelectionMode projectstate.FrontendDateSelectionMode
-
-type DateCalendarWeekStart projectstate.FrontendDateCalendarWeekStart
-
-type ListRootViewMode projectstate.ListRootViewMode
-
-type BrowserAreaViewMode projectstate.BrowserAreaViewMode
-
-type BrowserSearchScope projectstate.BrowserSearchScope
-
-type SpreadsheetGridDensity projectstate.SpreadsheetGridDensity
-
-type ChartType = projectstate.ChartType
-
-type LineChartSettings = projectstate.LineChartSettings
-
-type ScatterChartSettings = projectstate.ScatterChartSettings
-
 type BaseChartSettingsUnion struct{}
-
-type TextBlockDisplayMode projectstate.TextBlockDisplayMode
-
-type TextBlockFormat projectstate.TextBlockFormat
-
-type CodeFileAccessMode projectstate.CodeFileAccessMode
-
-type TaskBoardViewMode projectstate.TaskBoardViewMode
-
-type TaskBoardTaskRecurrence projectstate.FrontendTaskBoardTaskRecurrence
-
-type TaskBoardRecurringWeekday projectstate.FrontendTaskBoardRecurringWeekday
-
-type TaskBoardRecurringMonth projectstate.FrontendTaskBoardRecurringMonth
-
-type StateMachineGateType = projectstate.StateMachineGateType
-
-type StateMachineTargetActionType = projectstate.StateMachineTargetActionType
-
-type StateMachineThreadStrategy = projectstate.StateMachineThreadStrategy
-
-type StateMachineSourceFilterType = projectstate.StateMachineSourceFilterType
-
-type StateMachineCountOperator = projectstate.StateMachineCountOperator
 
 type AgenticEdgeKind string
 
 type AgenticEdgeContextMode string
 
-type StateMachineGateUIState projectstate.StateMachineGateUIState
-
-type StateMachineSourceFilter = projectstate.StateMachineSourceFilter
-
-type StateMachineSourceActivationCountCondition = projectstate.StateMachineSourceActivationCountCondition
-
-type StateMachineTargetAction = projectstate.StateMachineTargetAction
-
-type EdgePort = projectstate.EdgePort
-
-type TypeErrorIgnoreState projectstate.TypeErrorIgnoreState
-
 type ChartData struct{}
 
 type ChartDataType struct{}
 
-type BrowserSavedSearchTypeFilters projectstate.BrowserSavedSearchTypeFilters
-
-type BrowserSavedSearch projectstate.BrowserSavedSearch
-
 type CodeFileBindingUpdate httpapi.CodeFileBindingUpdate
-
-type TaskBoardColumn projectstate.TaskBoardColumn
-
-type TaskBoardTask projectstate.TaskBoardTask
-
-type Edge = projectstate.Edge
-
-type StateMachineEdge = projectstate.StateMachineEdge
-
-type AgenticEdge = projectstate.AgenticEdge
-
-type Viewport = projectstate.Viewport
-
-type TopLevelSectionLayout = projectstate.TopLevelSectionLayout
-
-type ViewMode = projectstate.ViewMode
 
 type ViewModeConfig projectstate.ViewMode
 
-type WatchCodeFolder = projectstate.WatchCodeFolder
-
-type WatchCodeRegistryEntry = projectstate.WatchCodeRegistryEntry
-
-type CodeFileBinding projectstate.FrontendCodeFileBinding
-
-type ChatRole = scriptablechat.ChatRole
-
-type ChatSendAction = scriptablechat.ChatSendAction
-
-type ChatStopAction = scriptablechat.ChatStopAction
-
-type ChatSendEvent = scriptablechat.ChatSendEvent
-
-type ChatStopEvent = scriptablechat.ChatStopEvent
-
-type ChatPermissionMode = projectstate.ChatPermissionMode
-
-type ChatDictationMode = projectstate.ChatDictationMode
-
 type JSONValue struct{}
-
-type ChatFileAttachment = scriptablechat.ChatFileAttachment
-
-type MessageTextContent = scriptablechat.MessageTextContent
-
-type MessageImageURL = scriptablechat.MessageImageURL
-
-type MessageImageURLContent = scriptablechat.MessageImageURLContent
-
-type MessageThinkingContent = scriptablechat.MessageThinkingContent
 
 type MessageContent struct{}
 
-type ToolReferenceContent = scriptablechat.ToolReferenceContent
-
-type ToolCallFunction = scriptablechat.ToolCallFunction
-
-type ToolCall = scriptablechat.ToolCall
-
-type SystemChatMessage = scriptablechat.SystemChatMessage
-
-type AssistantChatMessage = scriptablechat.AssistantChatMessage
-
-type UserChatMessage = scriptablechat.UserChatMessage
-
-type ToolChatMessage = scriptablechat.ToolChatMessage
-
 type BaseChatMessageUnion struct{}
-
-type ChatSectionBranch projectstate.ChatSectionBranch
-
-type ChatSectionState projectstate.ChatSectionState
 
 type UserDefaultChatSectionImpl struct{}
 
-type ChatSectionImpl projectstate.FrontendChatSectionImpl
-
 type UserDefaultBrowserSectionImpl struct{}
-
-type BrowserSectionImpl projectstate.FrontendBrowserSectionImpl
-
-type BaseSectionImpl projectstate.FrontendBaseSectionImpl
 
 type UserDefaultListRootSectionImpl struct{}
 
-type ListRootSectionImpl projectstate.FrontendListRootSectionImpl
-
 type UserDefaultGroupSectionImpl struct{}
-
-type GroupSectionImpl projectstate.FrontendGroupSectionImpl
 
 type UserDefaultStateMachineStartSectionImpl struct{}
 
-type StateMachineStartSectionImpl projectstate.FrontendStateMachineStartSectionImpl
-
 type UserDefaultStateMachineGateSectionImpl struct{}
-
-type StateMachineGateSectionImpl projectstate.FrontendStateMachineGateSectionImpl
 
 type UserDefaultStateMachineEndSectionImpl struct{}
 
-type StateMachineEndSectionImpl projectstate.FrontendStateMachineEndSectionImpl
-
 type UserDefaultTextBlockSectionImpl struct{}
-
-type TextBlockSectionImpl projectstate.FrontendTextBlockSectionImpl
 
 type UserDefaultPromptSectionImpl struct{}
 
-type PromptSectionImpl projectstate.FrontendPromptSectionImpl
-
-type CodeSectionDiagnosticsIgnoreState projectstate.CodeSectionDiagnosticsIgnoreState
-
 type UserDefaultCodeSectionImpl struct{}
-
-type CodeSectionImpl projectstate.FrontendCodeSectionImpl
 
 type UserDefaultTerminalSectionImpl struct{}
 
-type TerminalSectionImpl projectstate.FrontendTerminalSectionImpl
-
 type BaseSectionImplUnion struct{}
-
-type CallableSectionImpl projectstate.FrontendCallableSectionImpl
 
 type BaseParentSectionImplUnion struct{}
 
 type BaseSectionWithParamsImplUnion struct{}
-
-type DictSectionImpl projectstate.FrontendDictSectionImpl
 
 type UserDefaultCallableSectionImpl struct{}
 
 type UserDefaultDictSectionImpl struct{}
 
 type BaseDictSectionImplUnion struct{}
-
-type BaseCodeObjImpl projectstate.FrontendBaseCodeObjImpl
-
-type CodeParamCodeObjImpl projectstate.FrontendCodeParamCodeObjImpl
-
-type CodeCallableCodeObjImpl projectstate.FrontendCodeCallableCodeObjImpl
-
-type NestedParamCodeObjImpl projectstate.FrontendNestedParamCodeObjImpl
 
 type BaseCodeObjImplUnion struct{}
 
@@ -723,43 +423,11 @@ type BaseParentCodeObjImplUnion struct{}
 
 type UserDefaultCodeParamCodeObjImpl struct{}
 
-type ColorPickerChoice settingsstate.FrontendColorPickerChoice
-
-type TextParamCodeObjImpl projectstate.FrontendTextParamCodeObjImpl
-
-type DateParamCodeObjImpl projectstate.FrontendDateParamCodeObjImpl
-
-type TimeParamCodeObjImpl projectstate.FrontendTimeParamCodeObjImpl
-
-type ButtonParamCodeObjImpl projectstate.FrontendButtonParamCodeObjImpl
-
-type SliderParamCodeObjImpl projectstate.FrontendSliderParamCodeObjImpl
-
-type RotaryParamCodeObjImpl projectstate.FrontendRotaryParamCodeObjImpl
-
-type SwitchParamCodeObjImpl projectstate.FrontendSwitchParamCodeObjImpl
-
-type ColorPickerParamCodeObjImpl projectstate.FrontendColorPickerParamCodeObjImpl
-
-type DropdownParamCodeObjImpl projectstate.FrontendDropdownParamCodeObjImpl
-
-type PasswordParamCodeObjImpl projectstate.FrontendPasswordParamCodeObjImpl
-
-type TextAreaParamCodeObjImpl projectstate.FrontendTextAreaParamCodeObjImpl
-
-type DropzoneParamCodeObjImpl projectstate.FrontendDropzoneParamCodeObjImpl
-
 type UserDefaultTaskBoardSectionImpl struct{}
-
-type TaskBoardSectionImpl projectstate.FrontendTaskBoardSectionImpl
 
 type UserDefaultChartSectionImpl struct{}
 
-type ChartSectionImpl projectstate.FrontendChartSectionImpl
-
 type UserDefaultSpreadsheetSectionImpl struct{}
-
-type SpreadsheetSectionImpl projectstate.FrontendSpreadsheetSectionImpl
 
 type SetSectionParamFilterRequestInput httpapi.SetSectionParamFilterRequest
 
@@ -772,10 +440,10 @@ type SetSectionEdgeInputsRequestInput httpapi.SetSectionEdgeInputsRequest
 type SetSectionEdgeOutputsRequestInput httpapi.SetSectionEdgeOutputsRequest
 
 type SetParentDefaultChildSectionTypeRequestInput struct {
-	FrontendOpID            *string     `json:"frontendOpId,omitempty"`
-	ProjectConfigID         string      `json:"projectConfigId"`
-	SectionID               string      `json:"sectionId"`
-	DefaultChildSectionType SectionType `json:"defaultChildSectionType"`
+	FrontendOpID            *string                          `json:"frontendOpId,omitempty"`
+	ProjectConfigID         string                           `json:"projectConfigId"`
+	SectionID               string                           `json:"sectionId"`
+	DefaultChildSectionType projectstate.FrontendSectionType `json:"defaultChildSectionType"`
 }
 
 type SetListRootViewModeRequestInput httpapi.SetListRootViewModeRequest

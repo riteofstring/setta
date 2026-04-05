@@ -83,6 +83,7 @@ const (
 	CodeFileAccessModeWriteOnly CodeFileAccessMode = "write_only"
 )
 
+// setta-go-type-discovery: skip
 type Section struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
@@ -94,11 +95,13 @@ type Section struct {
 	UnsharedKeys     []string `json:"unsharedKeys,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type ProjectCodegenTarget struct {
 	Language string  `json:"language"`
 	Payload  RawJSON `json:"payload,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type SectionVariant struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name,omitempty"`
@@ -108,6 +111,7 @@ type SectionVariant struct {
 	IsFrozen         bool     `json:"isFrozen,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type SectionImpl struct {
 	ID        string                `json:"id"`
 	Kind      SectionKind           `json:"kind"`
@@ -118,6 +122,7 @@ type SectionImpl struct {
 	Generated *GeneratedSectionImpl `json:"generated,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type CodeSectionImpl struct {
 	Language                  CodeLanguage     `json:"language"`
 	Binding                   *CodeFileBinding `json:"binding,omitempty"`
@@ -125,6 +130,7 @@ type CodeSectionImpl struct {
 	Children                  []string         `json:"children,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type CodeFileBinding struct {
 	Path        string             `json:"path"`
 	AccessMode  CodeFileAccessMode `json:"accessMode,omitempty"`
@@ -138,10 +144,12 @@ const (
 	TerminalSessionModeManagedConsole TerminalSessionMode = "managed_console"
 )
 
+// setta-go-type-discovery: skip
 type TerminalSectionImpl struct {
 	SessionMode TerminalSessionMode `json:"sessionMode,omitempty"`
 }
 
+// setta-go-type-discovery: skip
 type DrawSectionImpl struct {
 	RenderedImagePath string `json:"renderedImagePath,omitempty"`
 }
@@ -154,6 +162,7 @@ const (
 	GeneratedSectionKindPlugin         GeneratedSectionKind = "plugin"
 )
 
+// setta-go-type-discovery: skip
 type GeneratedSectionImpl struct {
 	Kind GeneratedSectionKind `json:"kind"`
 }

@@ -61,7 +61,7 @@ import {
   type ProjectCodegenTarget,
   type SectionType,
   type SettingsState,
-  type ViewModeConfig,
+  type ViewMode,
 } from "utils/generatedTypes";
 import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
 import {
@@ -1692,7 +1692,7 @@ function getRunnableCodeBlockListingHelper(
   sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  viewMode: ViewModeConfig,
+  viewMode: ViewMode,
   isEditingViewMode: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {

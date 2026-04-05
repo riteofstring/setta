@@ -4,14 +4,14 @@ import {
   route_set_watch_code_inputs,
 } from "utils/generatedEndpoints";
 import type {
-  SetWatchCodeEnabledRequestInput,
-  SetWatchCodeInputsRequestInput,
+  SetWatchCodeEnabledRequest,
+  SetWatchCodeInputsRequest,
 } from "utils/generatedTypes";
 
 type WatchCodeMutationRouteResponse = ResponseDataAndStatus<null>;
 
 export async function setWatchCodeEnabled(
-  payload: SetWatchCodeEnabledRequestInput,
+  payload: SetWatchCodeEnabledRequest,
 ): Promise<boolean> {
   const response: WatchCodeMutationRouteResponse =
     await route_set_watch_code_enabled(payload);
@@ -19,7 +19,7 @@ export async function setWatchCodeEnabled(
 }
 
 export async function setWatchCodeInputs(
-  payload: SetWatchCodeInputsRequestInput,
+  payload: SetWatchCodeInputsRequest,
 ): Promise<boolean> {
   const response: WatchCodeMutationRouteResponse =
     await route_set_watch_code_inputs(payload);

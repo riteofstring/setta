@@ -453,17 +453,15 @@ func pythonTypeExprWithImports(
 	if fieldType == rawJSONType {
 		return pythonTypeSpec{TypeExpr: "Any"}, nil
 	}
-	if wrapperType, ok := pythonWrapperTypeOverrides[fieldType]; ok {
-		return pythonTypeSpec{TypeExpr: wrapperType.Name()}, nil
-	}
+	publicTypeName := pythonSharedContractNameForType(fieldType)
 	if modulePath, ok := pythonExternalTypeModules[fieldType.PkgPath()]; ok &&
 		fieldType.Name() != "" {
-		if _, sameModule := knownContractNames[fieldType.Name()]; sameModule {
-			return pythonTypeSpec{TypeExpr: fieldType.Name()}, nil
+		if _, sameModule := knownContractNames[publicTypeName]; sameModule {
+			return pythonTypeSpec{TypeExpr: publicTypeName}, nil
 		}
-		importLine := fmt.Sprintf("from %s import %s", modulePath, fieldType.Name())
+		importLine := fmt.Sprintf("from %s import %s", modulePath, publicTypeName)
 		return pythonTypeSpec{
-			TypeExpr: fieldType.Name(),
+			TypeExpr: publicTypeName,
 			Imports: map[string]struct{}{
 				importLine: {},
 			},
@@ -565,7 +563,7 @@ func pythonTypeExprWithImports(
 	case reflect.Interface:
 		return pythonTypeSpec{TypeExpr: "Any"}, nil
 	case reflect.Struct:
-		return pythonTypeSpec{TypeExpr: fieldType.Name()}, nil
+		return pythonTypeSpec{TypeExpr: publicTypeName}, nil
 	default:
 		return pythonTypeSpec{}, fmt.Errorf("unsupported type %s", fieldType)
 	}

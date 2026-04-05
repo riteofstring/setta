@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/realtime"
 )
 
@@ -28,11 +30,11 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 		"LLMStreamingResponseChunk",
 		"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
 	),
-	reflect.TypeOf(SectionSizeValue{}): aliasDeclaration(
+	reflect.TypeOf(projectstate.SectionSizeValue{}): aliasDeclaration(
 		"SectionSizeValue",
 		"number | SectionSizeMode",
 	),
-	reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
+	reflect.TypeOf(projectview.ProjectCodegenTarget{}): aliasDeclaration(
 		"ProjectCodegenTarget",
 		"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 	),
@@ -150,7 +152,10 @@ func generatedBaseSectionWithParamsImplUnionDeclaration() TypeDeclaration {
 func generatedBaseDictSectionImplUnionDeclaration() TypeDeclaration {
 	properties := append(
 		[]TypeProperty(nil),
-		generatedSectionImplAliasProperties(reflect.TypeOf(DictSectionImpl{}), "Dict")...,
+		generatedSectionImplAliasProperties(
+			reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
+			"Dict",
+		)...,
 	)
 	for index := range properties {
 		if properties[index].Name == "type" {
@@ -172,9 +177,11 @@ func generatedBaseSectionImplUnionDeclaration() TypeDeclaration {
 
 func generatedSectionImplTypeNames() []string {
 	names := []string{}
-	for _, sectionName := range mustGeneratedEnumValues(reflect.TypeOf(SectionType(""))) {
+	for _, sectionName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendSectionType("")),
+	) {
 		if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
-			names = append(names, t.Name())
+			names = append(names, frontendBindingTypeName(t))
 		}
 	}
 	return names
@@ -204,9 +211,11 @@ func generatedCodeObjUnionDeclaration(
 
 func generatedCodeObjImplTypeNames() []string {
 	names := []string{}
-	for _, codeObjName := range mustGeneratedEnumValues(reflect.TypeOf(CodeObjType(""))) {
+	for _, codeObjName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
+	) {
 		if t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName); ok {
-			names = append(names, t.Name())
+			names = append(names, frontendBindingTypeName(t))
 		}
 	}
 	return names
@@ -245,16 +254,16 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 }
 
 var generatedBaseSectionOptionalPropertySeeds = []reflect.Type{
-	reflect.TypeOf(ListRootSectionImpl{}),
-	reflect.TypeOf(CallableSectionImpl{}),
-	reflect.TypeOf(DictSectionImpl{}),
-	reflect.TypeOf(ChatSectionState{}),
-	reflect.TypeOf(CodeSectionImpl{}),
-	reflect.TypeOf(BrowserSectionImpl{}),
-	reflect.TypeOf(GroupSectionImpl{}),
-	reflect.TypeOf(SpreadsheetSectionImpl{}),
-	reflect.TypeOf(TextBlockSectionImpl{}),
-	reflect.TypeOf(ChartSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendListRootSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendCallableSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendDictSectionImpl{}),
+	reflect.TypeOf(projectstate.ChatSectionState{}),
+	reflect.TypeOf(projectstate.FrontendCodeSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendBrowserSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendGroupSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendSpreadsheetSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendTextBlockSectionImpl{}),
+	reflect.TypeOf(projectstate.FrontendChartSectionImpl{}),
 }
 
 var generatedBaseSectionOptionalIgnoredProperties = map[string]struct{}{
@@ -277,12 +286,12 @@ var generatedBaseSectionOptionalPropertyTypeOverrides = map[string]string{
 }
 
 var generatedBaseCodeObjOptionalPropertySeeds = []reflect.Type{
-	reflect.TypeOf(CodeCallableCodeObjImpl{}),
-	reflect.TypeOf(CodeParamCodeObjImpl{}),
+	reflect.TypeOf(projectstate.FrontendCodeCallableCodeObjImpl{}),
+	reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
 }
 
 func generatedConcreteSectionMetadataDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	if t == reflect.TypeOf(BaseSectionImpl{}) {
+	if t == reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}) {
 		return generatedBaseSectionImplDeclaration(), true
 	}
 	sectionName, ok := generatedSectionImplName(t)
@@ -293,7 +302,7 @@ func generatedConcreteSectionMetadataDeclaration(t reflect.Type) (TypeDeclaratio
 }
 
 func generatedConcreteCodeObjMetadataDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	if t == reflect.TypeOf(BaseCodeObjImpl{}) {
+	if t == reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}) {
 		return generatedBaseCodeObjImplDeclaration(), true
 	}
 	implName, ok := generatedCodeObjImplName(t)
@@ -327,7 +336,7 @@ func generatedSectionImplAliasDeclaration(
 	sectionName string,
 ) TypeDeclaration {
 	return aliasIntersectionDeclarationFromProperties(
-		t.Name(),
+		frontendBindingTypeName(t),
 		generatedSectionImplAliasBaseExpr(sectionName),
 		generatedSectionImplAliasProperties(t, sectionName),
 	)
@@ -338,7 +347,7 @@ func generatedCodeObjImplAliasDeclaration(
 	codeObjName string,
 ) TypeDeclaration {
 	return aliasIntersectionDeclarationFromProperties(
-		t.Name(),
+		frontendBindingTypeName(t),
 		"BaseCodeObjImpl",
 		generatedCodeObjImplAliasProperties(t, codeObjName),
 	)
@@ -364,7 +373,7 @@ func generatedSectionImplAliasProperties(
 	excludedNames := map[string]struct{}{}
 	if sectionName == "Chat" {
 		excludedNames = generatedPropertyNameSet(
-			mustGeneratedReflectedProperties(reflect.TypeOf(ChatSectionState{})),
+			mustGeneratedReflectedProperties(reflect.TypeOf(projectstate.ChatSectionState{})),
 		)
 	}
 
@@ -424,7 +433,7 @@ func generatedBaseCodeObjOptionalProperties(coreProperties []TypeProperty) []Typ
 func mustGeneratedSectionBaseCoreProperties() []TypeProperty {
 	converter := newTypeConverter()
 	properties, err := converter.structProperties(
-		reflect.TypeOf(BaseSectionImpl{}),
+		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
 		map[string]string{
 			"type":        "SectionType",
 			"aspectRatio": "boolean | number",
@@ -441,7 +450,7 @@ func mustGeneratedSectionBaseCoreProperties() []TypeProperty {
 func mustGeneratedCodeObjBaseCoreProperties() []TypeProperty {
 	converter := newTypeConverter()
 	properties, err := converter.structProperties(
-		reflect.TypeOf(BaseCodeObjImpl{}),
+		reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
 		map[string]string{
 			"type": "CodeObjType",
 		},

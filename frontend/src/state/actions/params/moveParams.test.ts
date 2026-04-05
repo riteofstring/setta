@@ -20,7 +20,7 @@ import {
   ParameterPassingStyleEnum,
   ParamNameTypeEnum,
   type BaseCodeObjImplUnion,
-  type ShownParamIds,
+  type ShownParamIDs,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -74,7 +74,7 @@ function createNestedParamImpl(
 function createShownParamIds(
   rootChildren: Array<string>,
   requiredParamIdsToPaths: Record<string, Array<string>>,
-): ShownParamIds {
+): ShownParamIDs {
   return {
     pinned: {
       requiredParamIdsToPaths: {},

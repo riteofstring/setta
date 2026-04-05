@@ -21,6 +21,7 @@ var (
 	)
 )
 
+// setta-go-type-discovery: skip
 type Document struct {
 	SchemaVersion    int                `json:"schemaVersion"`
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
@@ -31,6 +32,7 @@ type Document struct {
 	watchCodeIgnoredRoots []string
 }
 
+// setta-go-type-discovery: skip
 type Project struct {
 	ID                       string                            `json:"id"`
 	Name                     string                            `json:"name"`

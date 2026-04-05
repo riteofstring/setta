@@ -62,6 +62,120 @@ class DrawAreaLayerItemType(str, Enum):
     BrushStroke = "BrushStroke"
 
 
+class SectionType(str, Enum):
+    Callable = "Callable"
+    Dict = "Dict"
+    ListRoot = "ListRoot"
+    Group = "Group"
+    StateMachineStart = "StateMachineStart"
+    StateMachineGate = "StateMachineGate"
+    StateMachineEnd = "StateMachineEnd"
+    Image = "Image"
+    Chart = "Chart"
+    Draw = "Draw"
+    Prompt = "Prompt"
+    TextBlock = "TextBlock"
+    MetaControl = "MetaControl"
+    Social = "Social"
+    GlobalVariables = "GlobalVariables"
+    Code = "Code"
+    GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
+    Terminal = "Terminal"
+    IFrame = "IFrame"
+    Chat = "Chat"
+    Browser = "Browser"
+    Plugin = "Plugin"
+    TaskBoard = "TaskBoard"
+    Spreadsheet = "Spreadsheet"
+
+
+class CodeObjType(str, Enum):
+    CodeCallable = "CodeCallable"
+    CodeParam = "CodeParam"
+    TextParam = "TextParam"
+    DateParam = "DateParam"
+    TimeParam = "TimeParam"
+    ButtonParam = "ButtonParam"
+    SliderParam = "SliderParam"
+    RotaryParam = "RotaryParam"
+    SwitchParam = "SwitchParam"
+    ColorPickerParam = "ColorPickerParam"
+    DropdownParam = "DropdownParam"
+    PasswordParam = "PasswordParam"
+    TextAreaParam = "TextAreaParam"
+    DropzoneParam = "DropzoneParam"
+    NestedParam = "NestedParam"
+
+
+class ParameterPassingStyle(str, Enum):
+    DEFAULT = "DEFAULT"
+    ARGS = "ARGS"
+    KWARGS = "KWARGS"
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
+
+
+class ParamNameType(str, Enum):
+    CODE = "CODE"
+    TEXT = "TEXT"
+
+
+class ButtonActionMode(str, Enum):
+    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
+    HTTP_REQUEST = "HTTP_REQUEST"
+    SETTA_API = "SETTA_API"
+
+
+class DropzoneMode(str, Enum):
+    STATEFUL = "STATEFUL"
+    STATELESS = "STATELESS"
+
+
+class TextParamInputUIType(str, Enum):
+    plain = "plain"
+    time = "time"
+    date = "date"
+
+
+class TimeDisplayFormat(str, Enum):
+    twenty_four_hour = "twenty_four_hour"
+    twelve_hour = "twelve_hour"
+
+
+class TimeControlMode(str, Enum):
+    input = "input"
+    display = "display"
+
+
+class TimeDisplayFont(str, Enum):
+    clock = "clock"
+    monospace = "monospace"
+    system = "system"
+
+
+class DateDisplayFormat(str, Enum):
+    iso = "iso"
+    us = "us"
+    eu = "eu"
+    long = "long"
+
+
+class DateControlMode(str, Enum):
+    input = "input"
+    calendar = "calendar"
+
+
+class DateSelectionMode(str, Enum):
+    single = "single"
+    multiple = "multiple"
+
+
+class DateCalendarWeekStart(str, Enum):
+    sunday = "sunday"
+    monday = "monday"
+
+
 class ChatWindowMode(str, Enum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
@@ -241,136 +355,6 @@ class CodeObjValueRepresentationMode(str, Enum):
 
 class PromptFormat(str, Enum):
     Jinja = "Jinja"
-
-
-class RunSnapshotMode(str, Enum):
-    ephemeral = "ephemeral"
-    always = "always"
-    never = "never"
-
-
-class SectionType(str, Enum):
-    Callable = "Callable"
-    Dict = "Dict"
-    ListRoot = "ListRoot"
-    Group = "Group"
-    StateMachineStart = "StateMachineStart"
-    StateMachineGate = "StateMachineGate"
-    StateMachineEnd = "StateMachineEnd"
-    Image = "Image"
-    Chart = "Chart"
-    Draw = "Draw"
-    Prompt = "Prompt"
-    TextBlock = "TextBlock"
-    MetaControl = "MetaControl"
-    Social = "Social"
-    GlobalVariables = "GlobalVariables"
-    Code = "Code"
-    GenPythonCode = "GenPythonCode"
-    GenPythonMetadata = "GenPythonMetadata"
-    Terminal = "Terminal"
-    IFrame = "IFrame"
-    Chat = "Chat"
-    Browser = "Browser"
-    Plugin = "Plugin"
-    TaskBoard = "TaskBoard"
-    Spreadsheet = "Spreadsheet"
-
-
-class CodeObjType(str, Enum):
-    CodeCallable = "CodeCallable"
-    CodeParam = "CodeParam"
-    TextParam = "TextParam"
-    DateParam = "DateParam"
-    TimeParam = "TimeParam"
-    ButtonParam = "ButtonParam"
-    SliderParam = "SliderParam"
-    RotaryParam = "RotaryParam"
-    SwitchParam = "SwitchParam"
-    ColorPickerParam = "ColorPickerParam"
-    DropdownParam = "DropdownParam"
-    PasswordParam = "PasswordParam"
-    TextAreaParam = "TextAreaParam"
-    DropzoneParam = "DropzoneParam"
-    NestedParam = "NestedParam"
-
-
-class ParameterPassingStyle(str, Enum):
-    DEFAULT = "DEFAULT"
-    ARGS = "ARGS"
-    KWARGS = "KWARGS"
-    POSITIONAL_ONLY = "POSITIONAL_ONLY"
-    KEYWORD_ONLY = "KEYWORD_ONLY"
-
-
-class ParamNameType(str, Enum):
-    CODE = "CODE"
-    TEXT = "TEXT"
-
-
-class ButtonActionMode(str, Enum):
-    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
-    HTTP_REQUEST = "HTTP_REQUEST"
-    SETTA_API = "SETTA_API"
-
-
-class HttpRequestMethod(str, Enum):
-    GET = "GET"
-    POST = "POST"
-    PUT = "PUT"
-    PATCH = "PATCH"
-    DELETE = "DELETE"
-    HEAD = "HEAD"
-    OPTIONS = "OPTIONS"
-
-
-class DropzoneMode(str, Enum):
-    STATEFUL = "STATEFUL"
-    STATELESS = "STATELESS"
-
-
-class TextParamInputUIType(str, Enum):
-    plain = "plain"
-    time = "time"
-    date = "date"
-
-
-class TimeDisplayFormat(str, Enum):
-    twenty_four_hour = "twenty_four_hour"
-    twelve_hour = "twelve_hour"
-
-
-class TimeControlMode(str, Enum):
-    input = "input"
-    display = "display"
-
-
-class TimeDisplayFont(str, Enum):
-    clock = "clock"
-    monospace = "monospace"
-    system = "system"
-
-
-class DateDisplayFormat(str, Enum):
-    iso = "iso"
-    us = "us"
-    eu = "eu"
-    long = "long"
-
-
-class DateControlMode(str, Enum):
-    input = "input"
-    calendar = "calendar"
-
-
-class DateSelectionMode(str, Enum):
-    single = "single"
-    multiple = "multiple"
-
-
-class DateCalendarWeekStart(str, Enum):
-    sunday = "sunday"
-    monday = "monday"
 
 
 class ContentRef(SettaSharedTypeModel):

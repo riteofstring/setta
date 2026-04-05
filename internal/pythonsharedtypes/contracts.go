@@ -44,8 +44,6 @@ var pythonSharedEnumFallbackPackages = []string{
 	"setta/internal/runs",
 }
 
-var pythonWrapperTypeOverrides = frontendbindings.DiscoveredWrapperTypeOverrides()
-
 type pythonSharedDefaultFieldKey struct {
 	OwnerType reflect.Type
 	FieldName string
@@ -58,16 +56,8 @@ var pythonSharedDefaultSourcesByType = map[reflect.Type]func() any{
 	reflect.TypeOf(projectstate.TypeErrorIgnoreState{}): func() any {
 		return projectstate.FrontendDefaultTypeErrorIgnoreState()
 	},
-	reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}): func() any {
-		return frontendbindings.TypeErrorIgnoreState(projectstate.FrontendDefaultTypeErrorIgnoreState())
-	},
 	reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}): func() any {
 		return projectstate.FrontendDefaultBrowserSavedSearchTypeFilters()
-	},
-	reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}): func() any {
-		return frontendbindings.BrowserSavedSearchTypeFilters(
-			projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
-		)
 	},
 	reflect.TypeOf(projectview.ProjectConfig{}): func() any {
 		return projectview.PythonSharedDefaultProjectConfig()
@@ -120,7 +110,11 @@ func appendDiscoveredContractSpecs(
 	discoveredTypes []reflect.Type,
 ) ([]contractSpec, error) {
 	for _, discoveredType := range discoveredTypes {
-		if _, alreadySeen := seenNames[discoveredType.Name()]; alreadySeen {
+		contractName := pythonSharedContractNameForType(discoveredType)
+		if contractName == "" {
+			continue
+		}
+		if _, alreadySeen := seenNames[contractName]; alreadySeen {
 			continue
 		}
 		switch discoveredType.Kind() {
@@ -146,14 +140,6 @@ func appendDiscoveredContractSpecs(
 	return specs, nil
 }
 
-func stringEnumContractSpec(t reflect.Type) contractSpec {
-	return contractSpec{
-		Name: t.Name(),
-		Kind: contractKindEnum,
-		Type: t,
-	}
-}
-
 func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 	values, ok, err := stringenumvalues.Default().Values(t)
 	if err != nil {
@@ -168,7 +154,7 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 			})
 		}
 		return contractSpec{
-			Name:       t.Name(),
+			Name:       pythonSharedContractNameForType(t),
 			Kind:       contractKindEnum,
 			Type:       t,
 			EnumValues: discoveredEnumValues,
@@ -187,7 +173,7 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 			})
 		}
 		return contractSpec{
-			Name:       t.Name(),
+			Name:       pythonSharedContractNameForType(t),
 			Kind:       contractKindEnum,
 			EnumValues: fallbackValues,
 		}, true, nil
@@ -210,7 +196,7 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 		})
 	}
 	return contractSpec{
-		Name:       t.Name(),
+		Name:       pythonSharedContractNameForType(t),
 		Kind:       contractKindEnum,
 		EnumValues: discoveredEnumValues,
 	}, true, nil
@@ -218,7 +204,7 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 
 func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 	spec := contractSpec{
-		Name: t.Name(),
+		Name: pythonSharedContractNameForType(t),
 		Kind: contractKindModel,
 		Type: t,
 	}

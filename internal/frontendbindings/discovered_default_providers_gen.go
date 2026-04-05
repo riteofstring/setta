@@ -17,16 +17,16 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf((*AgentRun)(nil)).Elem(): func() any {
 			return agentruns.FrontendDefaultRun()
 		},
-		reflect.TypeOf((*AgenticEdge)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.AgenticEdge{}): func() any {
 			return projectstate.FrontendDefaultAgenticEdge()
 		},
-		reflect.TypeOf((*AssistantChatMessage)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.AssistantChatMessage{}): func() any {
 			return scriptablechat.FrontendDefaultAssistantChatMessage()
 		},
-		reflect.TypeOf((*BrowserSavedSearch)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.BrowserSavedSearch{}): func() any {
 			return projectstate.FrontendDefaultBrowserSavedSearch()
 		},
-		reflect.TypeOf((*BrowserSavedSearchTypeFilters)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}): func() any {
 			return projectstate.FrontendDefaultBrowserSavedSearchTypeFilters()
 		},
 		reflect.TypeOf((*BrushStroke)(nil)).Elem(): func() any {
@@ -38,22 +38,22 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf((*ChartDataArtifact)(nil)).Elem(): func() any {
 			return artifacts.FrontendDefaultChartDataArtifact()
 		},
-		reflect.TypeOf((*ChatWindowDockMetrics)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ChatWindowDockMetrics{}): func() any {
 			return projectstate.FrontendDefaultChatWindowDockMetrics()
 		},
-		reflect.TypeOf((*ClipboardProjectStateCore)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ClipboardProjectStateCore{}): func() any {
 			return projectstate.FrontendDefaultClipboardProjectStateCore()
 		},
-		reflect.TypeOf((*ClipboardProjectStateCoreWithSectionVariantMap)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ClipboardProjectStateCoreWithSectionVariantMap{}): func() any {
 			return projectstate.FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap()
 		},
-		reflect.TypeOf((*CodeObjTypeValuePolicy)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.CodeObjTypeValuePolicy{}): func() any {
 			return projectview.FrontendDefaultCodeObjTypeValuePolicy()
 		},
-		reflect.TypeOf((*CodeObjValueOverride)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.CodeObjValueOverride{}): func() any {
 			return projectview.FrontendDefaultCodeObjValueOverride()
 		},
-		reflect.TypeOf((*Core)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.Core{}): func() any {
 			return projectview.FrontendDefaultCore()
 		},
 		reflect.TypeOf((*DrawAreaLayer)(nil)).Elem(): func() any {
@@ -74,68 +74,71 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf((*FileArtifact)(nil)).Elem(): func() any {
 			return artifacts.FrontendDefaultFileArtifact()
 		},
+		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}): func() any {
+			return projectstate.FrontendDefaultCodeParamCodeObjImpl()
+		},
+		reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}): func() any {
+			return projectstate.FrontendDefaultMetaControlSizingPolicyByType()
+		},
+		reflect.TypeOf(projectstate.FrontendSectionSizingPolicy{}): func() any {
+			return projectstate.FrontendDefaultSectionSizingPolicy()
+		},
+		reflect.TypeOf(projectstate.FrontendSectionSizingPolicyByType{}): func() any {
+			return projectstate.FrontendDefaultSectionSizingPolicyByType()
+		},
+		reflect.TypeOf(projectstate.FrontendSectionSizingPolicyGlobals{}): func() any {
+			return projectstate.FrontendDefaultSectionSizingPolicyGlobals()
+		},
+		reflect.TypeOf(settingsstate.FrontendSettingsBackend{}): func() any {
+			return settingsstate.FrontendDefaultSettingsBackend()
+		},
+		reflect.TypeOf(settingsstate.FrontendSettingsGUI{}): func() any {
+			return settingsstate.FrontendDefaultSettingsGUI()
+		},
+		reflect.TypeOf(settingsstate.FrontendSettingsShortcuts{}): func() any {
+			return settingsstate.FrontendDefaultSettingsShortcuts()
+		},
+		reflect.TypeOf(settingsstate.FrontendSettingsState{}): func() any {
+			return settingsstate.FrontendDefaultSettingsState()
+		},
 		reflect.TypeOf((*ImageArtifact)(nil)).Elem(): func() any {
 			return artifacts.FrontendDefaultImageArtifact()
 		},
-		reflect.TypeOf((*LineChartSettings)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.LineChartSettings{}): func() any {
 			return projectstate.FrontendDefaultLineChartSettings()
 		},
-		reflect.TypeOf((*MessageTextContent)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.MessageTextContent{}): func() any {
 			return scriptablechat.FrontendDefaultMessageTextContent()
 		},
-		reflect.TypeOf((*MessageThinkingContent)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.MessageThinkingContent{}): func() any {
 			return scriptablechat.FrontendDefaultMessageThinkingContent()
 		},
-		reflect.TypeOf((*MetaControlSizingPolicyByType)(nil)).Elem(): func() any {
-			return projectstate.FrontendDefaultMetaControlSizingPolicyByType()
-		},
-		reflect.TypeOf((*ProjectChatWindowInstance)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ProjectChatWindowInstance{}): func() any {
 			return projectstate.FrontendDefaultProjectChatWindowInstance()
 		},
-		reflect.TypeOf((*ProjectCodegenPluginTarget)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}): func() any {
 			return projectview.FrontendDefaultProjectCodegenPluginTarget()
 		},
-		reflect.TypeOf((*ProjectCodegenPythonTarget)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}): func() any {
 			return projectview.FrontendDefaultProjectCodegenPythonTarget()
+		},
+		reflect.TypeOf(projectview.ProjectConfig{}): func() any {
+			return projectview.FrontendDefaultProjectConfig()
 		},
 		reflect.TypeOf((*RunEvent)(nil)).Elem(): func() any {
 			return agentruns.FrontendDefaultRunEvent()
 		},
-		reflect.TypeOf((*ScatterChartSettings)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ScatterChartSettings{}): func() any {
 			return projectstate.FrontendDefaultScatterChartSettings()
 		},
-		reflect.TypeOf((*SectionCodegenOverride)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.SectionCodegenOverride{}): func() any {
 			return projectview.FrontendDefaultSectionCodegenOverride()
 		},
-		reflect.TypeOf((*SectionSize)(nil)).Elem(): func() any {
-			return projectstate.FrontendDefaultSectionSize()
-		},
-		reflect.TypeOf((*SectionSizingPolicy)(nil)).Elem(): func() any {
-			return projectstate.FrontendDefaultSectionSizingPolicy()
-		},
-		reflect.TypeOf((*SectionSizingPolicyByType)(nil)).Elem(): func() any {
-			return projectstate.FrontendDefaultSectionSizingPolicyByType()
-		},
-		reflect.TypeOf((*SectionSizingPolicyGlobals)(nil)).Elem(): func() any {
-			return projectstate.FrontendDefaultSectionSizingPolicyGlobals()
-		},
-		reflect.TypeOf((*SectionTypeCodegenPolicy)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.SectionTypeCodegenPolicy{}): func() any {
 			return projectview.FrontendDefaultSectionTypeCodegenPolicy()
 		},
-		reflect.TypeOf((*SectionsClipboardData)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.SectionsClipboardData{}): func() any {
 			return projectstate.FrontendDefaultSectionsClipboardData()
-		},
-		reflect.TypeOf((*SettingsBackend)(nil)).Elem(): func() any {
-			return settingsstate.FrontendDefaultSettingsBackend()
-		},
-		reflect.TypeOf((*SettingsGUI)(nil)).Elem(): func() any {
-			return settingsstate.FrontendDefaultSettingsGUI()
-		},
-		reflect.TypeOf((*SettingsShortcuts)(nil)).Elem(): func() any {
-			return settingsstate.FrontendDefaultSettingsShortcuts()
-		},
-		reflect.TypeOf((*SettingsState)(nil)).Elem(): func() any {
-			return settingsstate.FrontendDefaultSettingsState()
 		},
 		reflect.TypeOf((*ShownParamIdDetails)(nil)).Elem(): func() any {
 			return projectview.FrontendDefaultShownParamIDDetails()
@@ -143,67 +146,70 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf((*ShownParamIds)(nil)).Elem(): func() any {
 			return projectview.FrontendDefaultShownParamIDs()
 		},
-		reflect.TypeOf((*SingletonSections)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.SingleConfig{}): func() any {
+			return projectview.FrontendDefaultSingleConfig()
+		},
+		reflect.TypeOf(projectview.SingletonSections{}): func() any {
 			return projectview.FrontendDefaultSingletonSections()
 		},
-		reflect.TypeOf((*StateMachineEdge)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.StateMachineEdge{}): func() any {
 			return projectstate.FrontendDefaultStateMachineEdge()
 		},
-		reflect.TypeOf((*StateMachineGateUIState)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.StateMachineGateUIState{}): func() any {
 			return projectstate.FrontendDefaultStateMachineGateUIState()
 		},
-		reflect.TypeOf((*StateMachineSourceActivationCountCondition)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.StateMachineSourceActivationCountCondition{}): func() any {
 			return projectstate.FrontendDefaultStateMachineSourceActivationCountCondition()
 		},
-		reflect.TypeOf((*StateMachineSourceFilter)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.StateMachineSourceFilter{}): func() any {
 			return projectstate.FrontendDefaultStateMachineSourceFilter()
 		},
-		reflect.TypeOf((*StateMachineTargetAction)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.StateMachineTargetAction{}): func() any {
 			return projectstate.FrontendDefaultStateMachineTargetAction()
 		},
-		reflect.TypeOf((*SystemChatMessage)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.SystemChatMessage{}): func() any {
 			return scriptablechat.FrontendDefaultSystemChatMessage()
 		},
-		reflect.TypeOf((*TaskBoardColumn)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.TaskBoardColumn{}): func() any {
 			return projectstate.FrontendDefaultTaskBoardColumn()
 		},
-		reflect.TypeOf((*TaskBoardTask)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.TaskBoardTask{}): func() any {
 			return projectstate.FrontendDefaultTaskBoardTask()
 		},
-		reflect.TypeOf((*ToolCall)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.ToolCall{}): func() any {
 			return scriptablechat.FrontendDefaultToolCall()
 		},
-		reflect.TypeOf((*ToolCallFunction)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.ToolCallFunction{}): func() any {
 			return scriptablechat.FrontendDefaultToolCallFunction()
 		},
-		reflect.TypeOf((*ToolChatMessage)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.ToolChatMessage{}): func() any {
 			return scriptablechat.FrontendDefaultToolChatMessage()
 		},
-		reflect.TypeOf((*TopLevelSectionLayout)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.TopLevelSectionLayout{}): func() any {
 			return projectstate.FrontendDefaultTopLevelSectionLayout()
 		},
-		reflect.TypeOf((*TypeErrorIgnoreState)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.TypeErrorIgnoreState{}): func() any {
 			return projectstate.FrontendDefaultTypeErrorIgnoreState()
 		},
-		reflect.TypeOf((*UserChatMessage)(nil)).Elem(): func() any {
+		reflect.TypeOf(scriptablechat.UserChatMessage{}): func() any {
 			return scriptablechat.FrontendDefaultUserChatMessage()
 		},
-		reflect.TypeOf((*Variant)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.Variant{}): func() any {
 			return projectview.FrontendDefaultVariant()
 		},
-		reflect.TypeOf((*ViewMode)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.ViewMode{}): func() any {
 			return projectstate.FrontendDefaultViewMode()
 		},
-		reflect.TypeOf((*Viewport)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.Viewport{}): func() any {
 			return projectstate.FrontendDefaultViewport()
 		},
-		reflect.TypeOf((*WindowSpaceConfig)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.WindowSpaceConfig{}): func() any {
 			return projectstate.FrontendDefaultWindowSpaceConfig()
 		},
-		reflect.TypeOf((*WindowSpaceState)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.WindowSpaceState{}): func() any {
 			return projectstate.FrontendDefaultWindowSpaceState()
 		},
-		reflect.TypeOf((*WindowSpaceWindow)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.WindowSpaceWindow{}): func() any {
 			return projectstate.FrontendDefaultWindowSpaceWindow()
 		},
 	}

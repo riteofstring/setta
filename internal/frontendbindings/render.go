@@ -144,10 +144,15 @@ func buildBindings(
 			return GeneratedBindings{}, err
 		}
 
+		responseTypeRef, err := renderEndpointTypeExpr(converter, spec.ResponseType)
+		if err != nil {
+			return GeneratedBindings{}, fmt.Errorf("endpoint %s: response type: %w", spec.FunctionName, err)
+		}
+
 		renderEndpoints = append(renderEndpoints, endpointRenderData{
 			FunctionName:    spec.FunctionName,
 			FunctionParams:  functionParams,
-			ResponseTypeRef: tsTypeReference(spec.ResponseType),
+			ResponseTypeRef: responseTypeRef,
 			CallExpression: renderEndpointCallExpression(
 				spec,
 				routeCollections[spec.RouteCollection][spec.RouteName],
@@ -220,9 +225,13 @@ func renderEndpointFunctionParams(
 	}
 
 	if spec.RequestType != nil {
+		typeExpr, err := renderEndpointTypeExpr(converter, spec.RequestType)
+		if err != nil {
+			return nil, nil, fmt.Errorf("endpoint request: %w", err)
+		}
 		params = append(params, endpointPathParamRenderData{
 			Name:     "x",
-			TypeExpr: tsTypeReference(spec.RequestType),
+			TypeExpr: typeExpr,
 		})
 	}
 
@@ -237,6 +246,13 @@ func renderEndpointParamTypeExpr(converter *typeConverter, t reflect.Type) (stri
 		return tsTypeReference(t), nil
 	}
 	return converter.renderTypeExpr(t)
+}
+
+func renderEndpointTypeExpr(converter *typeConverter, t reflect.Type) (string, error) {
+	if t == nil {
+		return "null", nil
+	}
+	return converter.renderTypeExprWithQualifier(t, "gt.")
 }
 
 func renderEndpointCallExpression(
@@ -433,12 +449,6 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 			)
 		}
 
-		if spec.RequestType != nil && frontendTypeName(spec.RequestType) == "" {
-			return fmt.Errorf("endpoint %s: request type must be a named Go type, got %s", spec.FunctionName, spec.RequestType.String())
-		}
-		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
-			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
-		}
 		if err := validateEndpointPathParams(spec, routePath); err != nil {
 			return err
 		}
@@ -1049,6 +1059,7 @@ func tsTypeReference(t reflect.Type) string {
 		nullable = true
 		t = t.Elem()
 	}
+	t = canonicalFrontendBindingType(t)
 	if t == nil {
 		return "null"
 	}

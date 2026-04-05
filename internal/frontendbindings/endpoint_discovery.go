@@ -18,6 +18,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -135,6 +136,7 @@ var endpointResponseTypeOverrides = map[string]reflect.Type{
 	"POST RouteAppDeployments":                 reflect.TypeOf(DeploymentMetadata{}),
 	"POST RouteGetLLMResponse":                 reflect.TypeOf(httpapi.LLMChatIDResponse("")),
 	"POST RouteGetChatSectionChatID":           reflect.TypeOf(httpapi.ChatSectionChatIDResponse("")),
+	"POST RouteLoadSettings":                   reflect.TypeOf(settingsstate.FrontendSettingsState{}),
 }
 
 func CurrentEndpoints() []EndpointSpec {
@@ -652,9 +654,9 @@ func newNamedTypeRegistry() namedTypeRegistry {
 	for _, t := range DiscoveredEndpointContractTypes() {
 		registerRecursive(t)
 	}
-	for owner, wrapper := range discoveredWrapperTypeOverrides {
-		registerRecursive(owner)
-		registerRecursive(wrapper)
+	for sourceType, targetType := range discoveredTypeOverrides {
+		registerRecursive(sourceType)
+		registerRecursive(targetType)
 	}
 
 	return namedTypeRegistry{

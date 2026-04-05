@@ -16,7 +16,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   CodeFileAccessModeEnum,
-  CreateTopLevelSectionRequestInput,
+  CreateTopLevelSectionRequest,
   Position,
   SectionType,
   SectionTypeEnum,
@@ -40,9 +40,9 @@ import {
 import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionArgs = {
-  implType: CreateTopLevelSectionRequestInput["implType"];
-  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"];
-  controlCodeObjType?: CreateTopLevelSectionRequestInput["controlCodeObjType"];
+  implType: CreateTopLevelSectionRequest["implType"];
+  implOverrides: CreateTopLevelSectionRequest["implOverrides"];
+  controlCodeObjType?: CreateTopLevelSectionRequest["controlCodeObjType"];
   position?: Position | null;
   name?: string | null;
 };
@@ -529,9 +529,9 @@ export async function openFileAsSectionForDrop({
 }
 
 function resolveTextBlockImplOverrides(
-  implType: CreateTopLevelSectionRequestInput["implType"],
-  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
-): CreateTopLevelSectionRequestInput["implOverrides"] {
+  implType: CreateTopLevelSectionRequest["implType"],
+  implOverrides: CreateTopLevelSectionRequest["implOverrides"],
+): CreateTopLevelSectionRequest["implOverrides"] {
   if (implType !== SectionTypeEnum.TextBlock) {
     return implOverrides;
   }

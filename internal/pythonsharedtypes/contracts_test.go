@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"setta/internal/frontendbindings"
+	"setta/internal/projectstate"
 	"setta/internal/projectview"
 )
 
-func TestEnumContractSpecIfConvertibleFallsBackToFrontendBindingEnumValues(t *testing.T) {
-	spec, ok, err := enumContractSpecIfConvertible(reflect.TypeOf(frontendbindings.SectionType("")))
+func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T) {
+	spec, ok, err := enumContractSpecIfConvertible(reflect.TypeOf(projectstate.FrontendSectionType("")))
 	if err != nil {
 		t.Fatalf("enumContractSpecIfConvertible() error = %v", err)
 	}
 	if !ok {
-		t.Fatalf("expected frontendbinding-backed enum to be convertible")
+		t.Fatalf("expected owner frontend enum to be convertible")
 	}
 	if spec.Name != "SectionType" {
 		t.Fatalf("spec.Name = %q, want %q", spec.Name, "SectionType")
@@ -25,6 +26,16 @@ func TestEnumContractSpecIfConvertibleFallsBackToFrontendBindingEnumValues(t *te
 	}
 	if spec.EnumValues[0].Value != "Callable" {
 		t.Fatalf("first enum value = %q, want %q", spec.EnumValues[0].Value, "Callable")
+	}
+}
+
+func TestPythonValueExprFromGoValueNormalizesOwnerFrontendNames(t *testing.T) {
+	expr, err := pythonValueExprFromGoValue(projectstate.FrontendSectionTypeChat)
+	if err != nil {
+		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
+	}
+	if expr != "SectionType.Chat" {
+		t.Fatalf("expr = %q, want %q", expr, "SectionType.Chat")
 	}
 }
 
@@ -112,11 +123,11 @@ func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 	}
 }
 
-func TestBuildModelSpecUsesGoValueDefaultsForFrontendBindingWrappers(t *testing.T) {
+func TestBuildModelSpecUsesGoValueDefaultsForOwnerTypes(t *testing.T) {
 	typeErrorModel, err := buildModelSpec(contractSpec{
-		Name: reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}).Name(),
+		Name: pythonSharedContractNameForType(reflect.TypeOf(projectstate.TypeErrorIgnoreState{})),
 		Kind: contractKindModel,
-		Type: reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}),
+		Type: reflect.TypeOf(projectstate.TypeErrorIgnoreState{}),
 	}, map[string]struct{}{"TypeErrorIgnoreState": {}})
 	if err != nil {
 		t.Fatalf("buildModelSpec(TypeErrorIgnoreState) error = %v", err)
@@ -129,9 +140,9 @@ func TestBuildModelSpecUsesGoValueDefaultsForFrontendBindingWrappers(t *testing.
 	}
 
 	searchFiltersModel, err := buildModelSpec(contractSpec{
-		Name: reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}).Name(),
+		Name: pythonSharedContractNameForType(reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{})),
 		Kind: contractKindModel,
-		Type: reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}),
+		Type: reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
 	}, map[string]struct{}{"BrowserSavedSearchTypeFilters": {}})
 	if err != nil {
 		t.Fatalf("buildModelSpec(BrowserSavedSearchTypeFilters) error = %v", err)

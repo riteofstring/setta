@@ -50,8 +50,8 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
   type ProjectStateSingleConfigWithCompletedOpIDs,
-  type ShownParamIds,
-  type ViewModeConfig,
+  type ShownParamIDs,
+  type ViewMode,
 } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 
@@ -102,7 +102,7 @@ describe("getCurrShownParamIds", () => {
   it("returns pinned and unpinned entries for the active variant", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";
-    const shown: ShownParamIds = {
+    const shown: ShownParamIDs = {
       pinned: {
         requiredParamIdsToPaths: {},
         topLevelParamIds: ["param-a"],
@@ -1310,7 +1310,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const sectionId = "section-1";
     const viewModeId = "view-1";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const viewMode: ViewModeConfig = {
+    const viewMode: ViewMode = {
       id: viewModeId,
       name: "View A",
       sortIndex: 0,
@@ -1396,7 +1396,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const sectionHidden = "section-hidden";
     const viewModeId = "view-1";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const viewMode: ViewModeConfig = {
+    const viewMode: ViewMode = {
       id: viewModeId,
       name: "Visible View",
       sortIndex: 0,
@@ -1489,7 +1489,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeAId = "view-a";
     const viewModeBId = "view-b";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const viewModeA: ViewModeConfig = {
+    const viewModeA: ViewMode = {
       id: viewModeAId,
       name: "View A",
       sortIndex: 0,
@@ -1506,7 +1506,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         [sectionHidden]: { ...layout },
       },
     };
-    const viewModeB: ViewModeConfig = {
+    const viewModeB: ViewMode = {
       id: viewModeBId,
       name: "View B",
       sortIndex: 1,
@@ -1601,7 +1601,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const sectionVisibleB = "section-visible-b";
     const viewModeId = "view-1";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const currentViewMode: ViewModeConfig = {
+    const currentViewMode: ViewMode = {
       id: viewModeId,
       name: "Visible View",
       sortIndex: 0,
@@ -1651,7 +1651,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       fitViewOnInitOptions: undefined,
     });
 
-    const nextViewMode: ViewModeConfig = {
+    const nextViewMode: ViewMode = {
       ...currentViewMode,
       visibilityBySectionId: {
         [sectionVisibleA]: true,
@@ -1704,7 +1704,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     const viewModeAId = "view-a";
     const viewModeBId = "view-b";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const viewModeA: ViewModeConfig = {
+    const viewModeA: ViewMode = {
       id: viewModeAId,
       name: "View A",
       sortIndex: 0,
@@ -1721,7 +1721,7 @@ describe("processProjectStateUpdateFromBackend", () => {
         [sectionHidden]: { ...layout },
       },
     };
-    const viewModeB: ViewModeConfig = {
+    const viewModeB: ViewMode = {
       id: viewModeBId,
       name: "View B",
       sortIndex: 1,

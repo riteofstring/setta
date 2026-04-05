@@ -23,7 +23,7 @@ import {
   type BaseSectionImplUnion,
   type ColorPickerChoice,
   type Core,
-  type ViewModeConfig,
+  type ViewMode,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
@@ -313,7 +313,7 @@ function getDepthListingHelper(
   sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  viewMode: ViewModeConfig,
+  viewMode: ViewMode,
   isEditingViewMode: boolean,
   outputList: Array<OverviewListingType>,
 ) {

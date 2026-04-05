@@ -4,8 +4,8 @@ import {
   route_delete_section_variant_or_ask,
 } from "utils/generatedEndpoints";
 import type {
-  DeleteJSONSourceFileAndVariantRequestInput,
-  DeleteSectionVariantOrAskRequestInput,
+  DeleteJSONSourceFileAndVariantRequest,
+  DeleteSectionVariantOrAskRequest,
   DeleteSectionVariantOrAskResponse,
 } from "utils/generatedTypes";
 
@@ -14,7 +14,7 @@ type DeleteSectionVariantRouteResponse =
 type DeleteJSONSourceFileAndVariantRouteResponse = ResponseDataAndStatus<null>;
 
 export async function deleteSectionVariantOrAsk(
-  payload: DeleteSectionVariantOrAskRequestInput,
+  payload: DeleteSectionVariantOrAskRequest,
 ): Promise<string | null> {
   const response: DeleteSectionVariantRouteResponse =
     await route_delete_section_variant_or_ask(payload);
@@ -28,7 +28,7 @@ export async function deleteSectionVariantOrAsk(
 }
 
 export async function deleteJSONSourceFileAndVariant(
-  payload: DeleteJSONSourceFileAndVariantRequestInput,
+  payload: DeleteJSONSourceFileAndVariantRequest,
 ): Promise<boolean> {
   const response: DeleteJSONSourceFileAndVariantRouteResponse =
     await route_delete_json_source_file_and_variant(payload);

@@ -501,7 +501,10 @@ func generatedSectionImplName(t reflect.Type) (string, bool) {
 	if t == nil || t.Kind() != reflect.Struct {
 		return "", false
 	}
-	name := t.Name()
+	if !generatedFrontendSectionContractType(t) {
+		return "", false
+	}
+	name := normalizedFrontendBindingTypeName(t.Name())
 	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
 		return "", false
 	}
@@ -519,7 +522,10 @@ func generatedCodeObjImplName(t reflect.Type) (string, bool) {
 	if t == nil || t.Kind() != reflect.Struct {
 		return "", false
 	}
-	name := t.Name()
+	if !generatedFrontendCodeObjContractType(t) {
+		return "", false
+	}
+	name := normalizedFrontendBindingTypeName(t.Name())
 	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
 		return "", false
 	}
@@ -527,6 +533,50 @@ func generatedCodeObjImplName(t reflect.Type) (string, bool) {
 		return "", false
 	}
 	return name, true
+}
+
+func generatedFrontendSectionContractType(t reflect.Type) bool {
+	if t.PkgPath() == "setta/internal/frontendbindings" {
+		return true
+	}
+	return generatedContractTypeEmbedsAnonymousField(
+		t,
+		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
+	)
+}
+
+func generatedFrontendCodeObjContractType(t reflect.Type) bool {
+	if t.PkgPath() == "setta/internal/frontendbindings" {
+		return true
+	}
+	return generatedContractTypeEmbedsAnonymousField(
+		t,
+		reflect.TypeOf(projectstate.FrontendBaseCodeObjImpl{}),
+	)
+}
+
+func generatedContractTypeEmbedsAnonymousField(t reflect.Type, target reflect.Type) bool {
+	if t == nil || target == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for index := 0; index < t.NumField(); index++ {
+		field := t.Field(index)
+		if !field.Anonymous {
+			continue
+		}
+		fieldType := field.Type
+		if fieldType == target {
+			return true
+		}
+		if fieldType.Kind() == reflect.Pointer {
+			fieldType = fieldType.Elem()
+		}
+		if fieldType.Kind() == reflect.Struct &&
+			generatedContractTypeEmbedsAnonymousField(fieldType, target) {
+			return true
+		}
+	}
+	return false
 }
 
 func generatedSectionImplTypeExpr(sectionName string) string {
@@ -677,7 +727,7 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 	if !ok {
 		return TypeDeclaration{}, false
 	}
-	implType := t.Name()
+	implType := frontendBindingTypeName(t)
 	defaultType := generatedSectionImplDefaultTypeName(sectionName)
 	name := "create" + implType
 	useDirectDefaults, defaultsExpr, overridesExpr, prelude := generatedSectionImplFactoryOptions(sectionName)
@@ -717,7 +767,9 @@ func generatedCodeParamCodeObjFactoryEntries(defaultsExpr string) []string {
 	if err != nil {
 		panic("load generated user default code param properties: " + err.Error())
 	}
-	properties, err := generatedUserDefaultReflectedProperties(reflect.TypeOf(CodeParamCodeObjImpl{}))
+	properties, err := generatedUserDefaultReflectedProperties(
+		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
+	)
 	if err != nil {
 		panic("load generated code param impl properties: " + err.Error())
 	}
@@ -752,7 +804,7 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 
 func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 	switch t {
-	case reflect.TypeOf(CodeParamCodeObjImpl{}):
+	case reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}):
 		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
 	case reflect.TypeOf(BaseChartSettingsUnion{}):
 		return []TypeDeclaration{

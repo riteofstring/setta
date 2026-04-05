@@ -11,6 +11,8 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/scriptablechat"
+	"setta/internal/settingsstate"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -319,7 +321,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"effectiveEntrySectionId": true,
 		},
 	},
-	reflect.TypeOf(SettingsGUI{}): {
+	reflect.TypeOf(settingsstate.FrontendSettingsGUI{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"snapGrid":               "[number, number]",
 			"gridPattern":            "BackgroundVariant",
@@ -328,30 +330,30 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"sectionTagColorChoices": "Array<ColorPickerChoice>",
 		},
 	},
-	reflect.TypeOf(SettingsBackend{}): {
+	reflect.TypeOf(settingsstate.FrontendSettingsBackend{}): {
 		CreateExprOverrides: map[string]string{
 			"defaultTerminalShell": "null",
 		},
 	},
-	reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}): {
+	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyTypeEntry{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"sizeModeHeight": "MetaControlSizeMode",
 			"sizeModeWidth":  "MetaControlSizeMode",
 		},
 	},
-	reflect.TypeOf(MetaControlSizingPolicyByType{}): {
+	reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}): {
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 	},
-	reflect.TypeOf(SectionSizingPolicyByType{}): {
+	reflect.TypeOf(projectstate.FrontendSectionSizingPolicyByType{}): {
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 	},
-	reflect.TypeOf(SectionSizingPolicy{}): {
+	reflect.TypeOf(projectstate.FrontendSectionSizingPolicy{}): {
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 	},
-	reflect.TypeOf(SettingsState{}): {
+	reflect.TypeOf(settingsstate.FrontendSettingsState{}): {
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 	},
@@ -391,53 +393,53 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		DefaultValue:  deployments.DefaultPolicy(),
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(StateMachineGateUIState{}): {
+	reflect.TypeOf(projectstate.StateMachineGateUIState{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"showDetails": true,
 		},
 	},
-	reflect.TypeOf(StateMachineSourceFilter{}): {
+	reflect.TypeOf(projectstate.StateMachineSourceFilter{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"type": true,
 		},
 	},
-	reflect.TypeOf(StateMachineSourceActivationCountCondition{}): {
+	reflect.TypeOf(projectstate.StateMachineSourceActivationCountCondition{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"operator": true,
 		},
 	},
-	reflect.TypeOf(StateMachineTargetAction{}): {
+	reflect.TypeOf(projectstate.StateMachineTargetAction{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"type":           true,
 			"threadStrategy": true,
 		},
 	},
-	reflect.TypeOf(StateMachineEdge{}): {
+	reflect.TypeOf(projectstate.StateMachineEdge{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"style": "Record<string, unknown> | null",
 		},
 	},
-	reflect.TypeOf(AgenticEdge{}): {
+	reflect.TypeOf(projectstate.AgenticEdge{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"kind":        "AgenticEdgeKind",
 			"contextMode": "AgenticEdgeContextMode | null",
 			"style":       "Record<string, unknown>",
 		},
 	},
-	reflect.TypeOf(SectionSize{}): {
+	reflect.TypeOf(projectstate.SectionSize{}): {
 		CreateExprOverrides: map[string]string{
 			"width":  "SectionSizeModeEnum.auto",
 			"height": "SectionSizeModeEnum.auto",
 		},
 	},
-	reflect.TypeOf(TopLevelSectionLayout{}): {
+	reflect.TypeOf(projectstate.TopLevelSectionLayout{}): {
 		CreateExprOverrides: map[string]string{
 			"zIndex": "0",
 			"w":      "null",
 			"h":      "null",
 		},
 	},
-	reflect.TypeOf(ViewMode{}): {
+	reflect.TypeOf(projectstate.ViewMode{}): {
 		CreateExprOverrides: map[string]string{
 			"sortIndex":             "0",
 			"isUserFacing":          "false",
@@ -451,27 +453,27 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"sortIndex": true,
 		},
 	},
-	reflect.TypeOf(Core{}): {
+	reflect.TypeOf(projectview.Core{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"sharedModifier": "Record<string, unknown>",
 		},
 	},
-	reflect.TypeOf(Variant{}): {
+	reflect.TypeOf(projectview.Variant{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"modifier": "Record<string, unknown>",
 		},
 	},
-	reflect.TypeOf(ChatWindowBounds{}): {
+	reflect.TypeOf(projectstate.ChatWindowBounds{}): {
 		DefaultValue:  projectstate.DefaultChatWindowBounds(),
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(ChatWindowDockMetrics{}): {
+	reflect.TypeOf(projectstate.ChatWindowDockMetrics{}): {
 		CreateExprOverrides: map[string]string{
 			"widthFraction":    "null",
 			"preferredWidthPx": "null",
 		},
 	},
-	reflect.TypeOf(ProjectChatWindowInstance{}): {
+	reflect.TypeOf(projectstate.ProjectChatWindowInstance{}): {
 		CreateExprOverrides: map[string]string{
 			"isMinimized":                 "false",
 			"isClosed":                    "false",
@@ -485,15 +487,15 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"chatId":                      "null",
 		},
 	},
-	reflect.TypeOf(ProjectChatWindowingState{}): {
+	reflect.TypeOf(projectstate.ProjectChatWindowingState{}): {
 		DefaultValue:  projectstate.DefaultProjectChatWindowingState(),
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(NormalizedFloatingWindowBounds{}): {
+	reflect.TypeOf(projectstate.NormalizedFloatingWindowBounds{}): {
 		DefaultValue:  projectstate.DefaultNormalizedFloatingWindowBounds(),
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(WindowSpaceWindow{}): {
+	reflect.TypeOf(projectstate.WindowSpaceWindow{}): {
 		CreateExprOverrides: map[string]string{
 			"sectionIdOrNull":        "null",
 			"title":                  "null",
@@ -503,7 +505,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"normalizedBounds":       "createNormalizedFloatingWindowBounds()",
 		},
 	},
-	reflect.TypeOf(WindowSpaceConfig{}): {
+	reflect.TypeOf(projectstate.WindowSpaceConfig{}): {
 		CreateExprOverrides: map[string]string{
 			"id":        `""`,
 			"name":      `""`,
@@ -514,13 +516,13 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"name": false,
 		},
 	},
-	reflect.TypeOf(Edge{}): {
+	reflect.TypeOf(projectstate.Edge{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"style": "Record<string, unknown>",
 			"data":  "Record<string, unknown>",
 		},
 	},
-	reflect.TypeOf(ClipboardProjectStateCore{}): {
+	reflect.TypeOf(projectstate.ClipboardProjectStateCore{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"sections":        "Record<string, Core>",
 			"sectionImpls":    "Record<string, BaseSectionImplUnion>",
@@ -538,7 +540,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"codeObjVariants": false,
 		},
 	},
-	reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}): {
+	reflect.TypeOf(projectstate.ClipboardProjectStateCoreWithSectionVariantMap{}): {
 		CreateExprOverrides: map[string]string{
 			"core": "createClipboardProjectStateCore()",
 		},
@@ -546,7 +548,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"sectionVariantMap": false,
 		},
 	},
-	reflect.TypeOf(SectionsClipboardData{}): {
+	reflect.TypeOf(projectstate.SectionsClipboardData{}): {
 		CreateExprOverrides: map[string]string{
 			"type": "ClipboardDataTypeEnum.Sections",
 			"data": "createClipboardProjectStateCoreWithSectionVariantMap()",
@@ -555,7 +557,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"type": "typeof ClipboardDataTypeEnum.Sections",
 		},
 	},
-	reflect.TypeOf(SectionCodegenPolicy{}): {
+	reflect.TypeOf(projectview.SectionCodegenPolicy{}): {
 		DefaultValue:         projectview.FrontendDefaultPythonSectionCodegenPolicy(),
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
@@ -570,7 +572,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"metaControlAllowlist": true,
 		},
 	},
-	reflect.TypeOf(CodeObjValuePolicy{}): {
+	reflect.TypeOf(projectview.CodeObjValuePolicy{}): {
 		DefaultValue:         projectview.FrontendDefaultPythonCodeObjValuePolicy(),
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
@@ -579,7 +581,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"codeObjOverrides": "Record<string, CodeObjValueOverride>",
 		},
 	},
-	reflect.TypeOf(ProjectCodegenPythonTarget{}): {
+	reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}): {
 		HasCreateExpr:        true,
 		UseGenericCreateBody: true,
 		PropertyTypeExprOverrides: map[string]string{
@@ -588,7 +590,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"codeObjValuePolicy": "CodeObjValuePolicy",
 		},
 	},
-	reflect.TypeOf(BrowserSavedSearch{}): {
+	reflect.TypeOf(projectstate.BrowserSavedSearch{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"typeFilters": "BrowserSavedSearchTypeFilters",
 		},
@@ -599,17 +601,17 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(plugins.PluginStatusEntry{}): {
 		IgnoredProperties: reflectedIgnoredProperties("components"),
 	},
-	reflect.TypeOf(WatchCodeRegistryEntry{}): {
+	reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"kind": "string",
 		},
 	},
-	reflect.TypeOf(CodeFileBinding{}): {
+	reflect.TypeOf(projectstate.FrontendCodeFileBinding{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"access_mode": "CodeFileAccessMode",
 		},
 	},
-	reflect.TypeOf(TaskBoardTask{}): {
+	reflect.TypeOf(projectstate.TaskBoardTask{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"recurrence":       "TaskBoardTaskRecurrence",
 			"recurrenceDays":   "Array<TaskBoardRecurringWeekday>",
@@ -619,49 +621,49 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"columnId": true,
 		},
 	},
-	reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}): {
+	reflect.TypeOf(projectstate.CodeSectionDiagnosticsIgnoreState{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"suppressedCodes": "Array<string | number>",
 		},
 	},
-	reflect.TypeOf(MessageTextContent{}): {
+	reflect.TypeOf(scriptablechat.MessageTextContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"text"`,
 		},
 	},
-	reflect.TypeOf(MessageImageURL{}): {
+	reflect.TypeOf(scriptablechat.MessageImageURL{}): {
 		DeclarationName: "MessageImageUrl",
 		PropertyTypeExprOverrides: map[string]string{
 			"detail": `"auto" | "low" | "high" | null`,
 		},
 	},
-	reflect.TypeOf(MessageImageURLContent{}): {
+	reflect.TypeOf(scriptablechat.MessageImageURLContent{}): {
 		DeclarationName: "MessageImageUrlContent",
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"image_url"`,
 		},
 	},
-	reflect.TypeOf(MessageThinkingContent{}): {
+	reflect.TypeOf(scriptablechat.MessageThinkingContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"thinking"`,
 		},
 	},
-	reflect.TypeOf(ToolReferenceContent{}): {
+	reflect.TypeOf(scriptablechat.ToolReferenceContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"tool_reference"`,
 		},
 	},
-	reflect.TypeOf(ToolCallFunction{}): {
+	reflect.TypeOf(scriptablechat.ToolCallFunction{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"arguments": "{ [key: string]: JSONValue | undefined }",
 		},
 	},
-	reflect.TypeOf(ToolCall{}): {
+	reflect.TypeOf(scriptablechat.ToolCall{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": `"function"`,
 		},
 	},
-	reflect.TypeOf(SystemChatMessage{}): {
+	reflect.TypeOf(scriptablechat.SystemChatMessage{}): {
 		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
 		ExtraProperties: []TypeProperty{
 			{Name: "role", TypeExpr: "typeof ChatRoleEnum.system"},
@@ -670,7 +672,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"content": "Array<MessageContent>",
 		},
 	},
-	reflect.TypeOf(AssistantChatMessage{}): {
+	reflect.TypeOf(scriptablechat.AssistantChatMessage{}): {
 		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt", "tool_calls"),
 		ExtraProperties: []TypeProperty{
 			{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant"},
@@ -680,7 +682,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"content": "Array<MessageContent>",
 		},
 	},
-	reflect.TypeOf(UserChatMessage{}): {
+	reflect.TypeOf(scriptablechat.UserChatMessage{}): {
 		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
 		ExtraProperties: []TypeProperty{
 			{Name: "role", TypeExpr: "typeof ChatRoleEnum.user"},
@@ -689,7 +691,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"content": "Array<MessageContent>",
 		},
 	},
-	reflect.TypeOf(ToolChatMessage{}): {
+	reflect.TypeOf(scriptablechat.ToolChatMessage{}): {
 		IgnoredProperties: reflectedIgnoredProperties("createdAt"),
 		PropertyTypeExprOverrides: map[string]string{
 			"role":       "typeof ChatRoleEnum.tool",
@@ -699,7 +701,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"started_at": "string",
 		},
 	},
-	reflect.TypeOf(ChatSectionBranch{}): {
+	reflect.TypeOf(projectstate.ChatSectionBranch{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"messages": "Array<BaseChatMessageUnion>",
 		},
@@ -708,7 +710,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"branchFromMessageId": true,
 		},
 	},
-	reflect.TypeOf(ChatSectionState{}): {
+	reflect.TypeOf(projectstate.ChatSectionState{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"messages": "Array<BaseChatMessageUnion>",
 		},
@@ -808,12 +810,12 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"errorMessage": true,
 		},
 	},
-	reflect.TypeOf(LineChartSettings{}): {
+	reflect.TypeOf(projectstate.LineChartSettings{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ChartTypeEnum.line",
 		},
 	},
-	reflect.TypeOf(ScatterChartSettings{}): {
+	reflect.TypeOf(projectstate.ScatterChartSettings{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ChartTypeEnum.scatter",
 		},
@@ -862,7 +864,7 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 func generatedOwnerBackedReflectedObjectDeclarationSpec(
 	t reflect.Type,
 ) (reflectedObjectDeclarationSpec, bool) {
-	if t == reflect.TypeOf(BaseSectionImpl{}) {
+	if t == reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}) {
 		return reflectedObjectDeclarationSpec{
 			PropertyTypeExprOverrides: map[string]string{
 				"type":        "SectionType",

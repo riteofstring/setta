@@ -107,6 +107,7 @@ func pythonValueExpr(value reflect.Value) (string, error) {
 		if valueType.Name() == "" {
 			return "", fmt.Errorf("unsupported anonymous struct value %s", valueType)
 		}
+		publicTypeName := pythonSharedContractNameForType(valueType)
 		parts := make([]string, 0, value.NumField())
 		for _, field := range visibleFields(valueType) {
 			jsonName, err := fieldJSONName(field)
@@ -115,11 +116,11 @@ func pythonValueExpr(value reflect.Value) (string, error) {
 			}
 			fieldExpr, err := pythonValueExpr(value.FieldByIndex(field.Index))
 			if err != nil {
-				return "", fmt.Errorf("%s.%s: %w", valueType.Name(), field.Name, err)
+				return "", fmt.Errorf("%s.%s: %w", publicTypeName, field.Name, err)
 			}
 			parts = append(parts, jsonName+"="+fieldExpr)
 		}
-		return valueType.Name() + "(" + strings.Join(parts, ", ") + ")", nil
+		return publicTypeName + "(" + strings.Join(parts, ", ") + ")", nil
 	default:
 		return "", fmt.Errorf("unsupported value %s for python literal rendering", valueType)
 	}
@@ -146,7 +147,11 @@ func pythonEnumValueExpr(enumType reflect.Type, rawValue string) (string, bool, 
 		}
 		return spec.Name + "." + pythonEnumMemberName(enumValue.Name), true, nil
 	}
-	return "", false, fmt.Errorf("python shared types: enum %s missing value %q", enumType.Name(), rawValue)
+	return "", false, fmt.Errorf(
+		"python shared types: enum %s missing value %q",
+		pythonSharedContractNameForType(enumType),
+		rawValue,
+	)
 }
 
 func pythonFloatLiteral(value float64, bitSize int) string {

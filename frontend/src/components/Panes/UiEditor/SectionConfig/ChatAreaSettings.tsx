@@ -54,7 +54,7 @@ import {
   ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
-  type SetChatSectionSettingsRequestInput,
+  type SetChatSectionSettingsRequest,
 } from "utils/generatedTypes";
 
 type ChatAreaSettingsProps = {
@@ -62,7 +62,7 @@ type ChatAreaSettingsProps = {
 };
 
 type ChatSectionSettingsPayload = Pick<
-  SetChatSectionSettingsRequestInput,
+  SetChatSectionSettingsRequest,
   | "managed"
   | "engineConfigId"
   | "transcriptionProfileId"

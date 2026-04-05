@@ -3,7 +3,7 @@ import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
   createSingleConfig,
-  createViewModeConfig,
+  createViewMode,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +34,7 @@ function createStateWithViewModes() {
     viewport: { x: 1, y: 2, zoom: 3 },
     viewportInitialized: true,
     viewModes: {
-      [alphaId]: createViewModeConfig({
+      [alphaId]: createViewMode({
         id: alphaId,
         name: "Alpha",
         sortIndex: 0,
@@ -47,7 +47,7 @@ function createStateWithViewModes() {
           "section-1": { position: { x: 10, y: 20 } },
         },
       }),
-      [betaId]: createViewModeConfig({
+      [betaId]: createViewMode({
         id: betaId,
         name: "Beta",
         sortIndex: 1,
@@ -58,7 +58,7 @@ function createStateWithViewModes() {
         viewportInitialized: false,
         topLevelSections: {},
       }),
-      [gammaId]: createViewModeConfig({
+      [gammaId]: createViewMode({
         id: gammaId,
         name: "Gamma",
         sortIndex: 2,
@@ -99,15 +99,15 @@ describe("view mode canonical mutations", () => {
         projectConfig: createProjectConfig({
           ...createStateWithViewModes(),
           viewModes: {
-            "alpha-id": createViewModeConfig({
+            "alpha-id": createViewMode({
               ...createStateWithViewModes().viewModes["alpha-id"],
               sortIndex: 1,
             }),
-            "beta-id": createViewModeConfig({
+            "beta-id": createViewMode({
               ...createStateWithViewModes().viewModes["beta-id"],
               sortIndex: 2,
             }),
-            "gamma-id": createViewModeConfig({
+            "gamma-id": createViewMode({
               ...createStateWithViewModes().viewModes["gamma-id"],
               sortIndex: 0,
             }),
@@ -155,14 +155,14 @@ describe("view mode canonical mutations", () => {
           viewport: { x: 4, y: 5, zoom: 6 },
           viewportInitialized: false,
           viewModes: {
-            "beta-id": createViewModeConfig({
+            "beta-id": createViewMode({
               ...createStateWithViewModes().viewModes["beta-id"],
               topLevelSections: {
                 "section-1": { position: { x: 10, y: 20 } },
               },
               sortIndex: 0,
             }),
-            "gamma-id": createViewModeConfig({
+            "gamma-id": createViewMode({
               ...createStateWithViewModes().viewModes["gamma-id"],
               sortIndex: 1,
             }),
@@ -200,15 +200,15 @@ describe("view mode canonical mutations", () => {
         projectConfig: createProjectConfig({
           ...createStateWithViewModes(),
           viewModes: {
-            "alpha-id": createViewModeConfig({
+            "alpha-id": createViewMode({
               ...createStateWithViewModes().viewModes["alpha-id"],
               sortIndex: 1,
             }),
-            "beta-id": createViewModeConfig({
+            "beta-id": createViewMode({
               ...createStateWithViewModes().viewModes["beta-id"],
               sortIndex: 2,
             }),
-            "gamma-id": createViewModeConfig({
+            "gamma-id": createViewMode({
               ...createStateWithViewModes().viewModes["gamma-id"],
               sortIndex: 0,
             }),

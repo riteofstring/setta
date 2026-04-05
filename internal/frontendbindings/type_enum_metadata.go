@@ -9,6 +9,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/stringenumvalues"
 )
 
@@ -21,7 +22,7 @@ const (
 )
 
 var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
-	reflect.TypeOf(CodeLanguage("")): frontendBindingFixedEnumValues(
+	reflect.TypeOf(projectstate.CodeLanguage("")): frontendBindingFixedEnumValues(
 		"python",
 		"bash",
 		"javascript",
@@ -99,14 +100,6 @@ func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
 		return nil, false, err
 	}
 	if !ok {
-		if ownerType, ownerOK := discoveredOwnerTypeByWrapper[t]; ownerOK {
-			discovered, ok, err = stringenumvalues.Default().Values(ownerType)
-		}
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	if !ok {
 		return nil, false, nil
 	}
 
@@ -122,7 +115,7 @@ func frontendBindingAdjustedDiscoveredEnumValues(
 		frontendBindingEnumNamingModes[t],
 	)
 	switch t {
-	case reflect.TypeOf(SectionType("")):
+	case reflect.TypeOf(projectstate.FrontendSectionType("")):
 		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
 	default:
 		return values

@@ -10,9 +10,25 @@ var frontendBindingOwnerPackagePrefixes = map[string]string{
 	"setta/internal/gitread": "Git",
 }
 
+var frontendSDKMirrorOwnerTypesByName = newFrontendSDKMirrorOwnerTypesByName()
+
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
+}
+
+func newFrontendSDKMirrorOwnerTypesByName() map[string]reflect.Type {
+	owners := map[string]reflect.Type{}
+	for _, t := range DiscoveredConvertibleTypes() {
+		if t.PkgPath() != "setta/internal/realtime" {
+			continue
+		}
+		if strings.TrimSpace(t.Name()) == "" {
+			continue
+		}
+		owners[t.Name()] = t
+	}
+	return owners
 }
 
 func newTypeConverter() *typeConverter {
@@ -43,6 +59,13 @@ func (c *typeConverter) appendAdditionalDeclarationsForType(t reflect.Type) erro
 }
 
 func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
+	return c.renderTypeExprWithQualifier(t, "")
+}
+
+func (c *typeConverter) renderTypeExprWithQualifier(
+	t reflect.Type,
+	qualifier string,
+) (string, error) {
 	t = canonicalFrontendBindingType(t)
 	if t == nil {
 		return "null", nil
@@ -51,18 +74,18 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		return "string", nil
 	}
 	if t == rawJSONType {
-		return "JSONValue", nil
+		return qualifier + "JSONValue", nil
 	}
 	if t.Name() != "" && t.PkgPath() != "" {
 		if err := c.ensureDeclaration(t); err != nil {
 			return "", err
 		}
-		return frontendBindingTypeName(t), nil
+		return qualifier + frontendBindingTypeName(t), nil
 	}
 
 	switch t.Kind() {
 	case reflect.Pointer:
-		inner, err := c.renderTypeExpr(t.Elem())
+		inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
 		if err != nil {
 			return "", err
 		}
@@ -76,7 +99,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		reflect.Float32, reflect.Float64:
 		return "number", nil
 	case reflect.Slice, reflect.Array:
-		inner, err := c.renderTypeExpr(t.Elem())
+		inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
 		if err != nil {
 			return "", err
 		}
@@ -86,7 +109,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		valueExpr, err := c.renderTypeExpr(t.Elem())
+		valueExpr, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
 		if err != nil {
 			return "", err
 		}
@@ -104,7 +127,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 			if err := c.ensureDeclaration(t); err != nil {
 				return "", err
 			}
-			return frontendBindingTypeName(t), nil
+			return qualifier + frontendBindingTypeName(t), nil
 		}
 		return "", fmt.Errorf("unsupported Go type for TS conversion: %s", t.String())
 	}
@@ -217,8 +240,28 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	if t == nil {
 		return nil
 	}
-	if override, ok := discoveredWrapperTypeOverrides[t]; ok {
+	if override, ok := discoveredTypeOverrides[t]; ok {
 		return override
+	}
+	if t.PkgPath() == sourcePackageFrontendBindings {
+		switch t.Kind() {
+		case reflect.Slice:
+			elem := canonicalFrontendBindingType(t.Elem())
+			if elem != nil && elem != t.Elem() {
+				return reflect.SliceOf(elem)
+			}
+		case reflect.Map:
+			key := canonicalFrontendBindingType(t.Key())
+			value := canonicalFrontendBindingType(t.Elem())
+			if key != nil && value != nil && (key != t.Key() || value != t.Elem()) {
+				return reflect.MapOf(key, value)
+			}
+		}
+	}
+	if t.PkgPath() == "setta/internal/pythonsdkcontracts" {
+		if ownerType, ok := frontendSDKMirrorOwnerTypesByName[t.Name()]; ok {
+			return ownerType
+		}
 	}
 	return t
 }
@@ -228,17 +271,20 @@ func frontendBindingTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
+	if name, ok := frontendBindingTypeNameOverrides[t]; ok && strings.TrimSpace(name) != "" {
+		return name
+	}
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok && spec.DeclarationName != "" {
 		return spec.DeclarationName
 	}
+	baseName := normalizedFrontendBindingTypeName(t.Name())
 	if prefix := strings.TrimSpace(frontendBindingOwnerPackagePrefixes[t.PkgPath()]); prefix != "" {
-		name := t.Name()
-		if strings.HasPrefix(name, prefix) {
-			return name
+		if strings.HasPrefix(baseName, prefix) {
+			return baseName
 		}
-		return prefix + name
+		return prefix + baseName
 	}
-	return t.Name()
+	return baseName
 }
 
 func (c *typeConverter) reflectedObjectDeclaration(

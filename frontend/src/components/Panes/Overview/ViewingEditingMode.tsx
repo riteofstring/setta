@@ -35,7 +35,7 @@ import {
   route_toggle_view_mode_tab,
   route_toggle_view_mode_user_facing,
 } from "utils/generatedEndpoints";
-import { ViewModeConfig } from "utils/generatedTypes";
+import { ViewMode } from "utils/generatedTypes";
 import { validateViewModeNameInput } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
 import { ProjectConfigs } from "./ProjectConfigs";
@@ -431,7 +431,7 @@ export function ViewingEditingMode() {
 }
 
 type ViewModeRowProps = {
-  mode: ViewModeConfig;
+  mode: ViewMode;
   isActive: boolean;
   onSelect: (modeId: string) => void;
   disabled: boolean;
@@ -526,7 +526,7 @@ function ViewModeRowContent({
 }
 
 type ViewModeEditingRowProps = {
-  mode: ViewModeConfig;
+  mode: ViewMode;
   isActive: boolean;
   isDeletable: boolean;
   projectConfigId: string;

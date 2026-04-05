@@ -18,11 +18,10 @@ import (
 
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
-var discoveredWrapperTypeOverrides = mergedWrapperTypeOverrides()
-var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discoveredWrapperTypeOverrides)
+var discoveredTypeOverrides = mergedTypeOverrides()
 
-func mergedWrapperTypeOverrides() map[reflect.Type]reflect.Type {
-	overrides := DiscoveredWrapperTypeOverrides()
+func mergedTypeOverrides() map[reflect.Type]reflect.Type {
+	overrides := DiscoveredTypeOverrides()
 	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*httpapi.TranscriptionSessionDeltaResponse)(nil)).Elem()
 	return overrides
 }
@@ -293,22 +292,6 @@ func appendGoJSONFieldOrder(valueType reflect.Type, order *[]string) {
 	}
 }
 
-func reverseDiscoveredWrapperTypeOverrides(
-	overrides map[reflect.Type]reflect.Type,
-) map[reflect.Type]reflect.Type {
-	reversed := make(map[reflect.Type]reflect.Type, len(overrides))
-	for ownerType, wrapperType := range overrides {
-		if ownerType == nil || wrapperType == nil {
-			continue
-		}
-		if _, exists := reversed[wrapperType]; exists {
-			continue
-		}
-		reversed[wrapperType] = ownerType
-	}
-	return reversed
-}
-
 func writeTSObjectLiteral(
 	builder *strings.Builder,
 	indent string,
@@ -551,22 +534,10 @@ func generatedUserDefaultSectionProperties(sectionName string) ([]TypeProperty, 
 	if err != nil {
 		return nil, err
 	}
-	remaining := make(map[string]struct{}, len(defaults))
-	for name := range defaults {
-		if _, ignored := generatedUserDefaultSectionIgnoredDefaultProperties[name]; ignored {
-			continue
-		}
-		if _, ignored := ignored[name]; ignored {
-			continue
-		}
-		remaining[name] = struct{}{}
-	}
+	remaining := generatedUserDefaultSectionRemainingDefaults(defaults, ignored)
 	properties := make([]TypeProperty, 0, len(propertyOrder))
 	for _, name := range propertyOrder {
-		if _, skip := generatedUserDefaultSectionIgnoredDefaultProperties[name]; skip {
-			continue
-		}
-		if _, skip := ignored[name]; skip {
+		if generatedUserDefaultSectionPropertySkipped(name, ignored) {
 			continue
 		}
 		value, ok := defaults[name]
@@ -595,6 +566,31 @@ func generatedUserDefaultSectionProperties(sectionName string) ([]TypeProperty, 
 	return properties, nil
 }
 
+func generatedUserDefaultSectionRemainingDefaults(
+	defaults map[string]any,
+	ignored map[string]struct{},
+) map[string]struct{} {
+	remaining := make(map[string]struct{}, len(defaults))
+	for name := range defaults {
+		if generatedUserDefaultSectionPropertySkipped(name, ignored) {
+			continue
+		}
+		remaining[name] = struct{}{}
+	}
+	return remaining
+}
+
+func generatedUserDefaultSectionPropertySkipped(
+	name string,
+	ignored map[string]struct{},
+) bool {
+	if _, skip := generatedUserDefaultSectionIgnoredDefaultProperties[name]; skip {
+		return true
+	}
+	_, skip := ignored[name]
+	return skip
+}
+
 func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 	map[string]TypeProperty,
 	[]string,
@@ -605,6 +601,12 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("unsupported generated user default section: %s", sectionName)
 	}
+	baseProperties, err := generatedUserDefaultReflectedProperties(
+		reflect.TypeOf(projectstate.FrontendBaseSectionImpl{}),
+	)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	properties, err := generatedUserDefaultReflectedProperties(implType)
 	if err != nil {
 		return nil, nil, nil, err
@@ -612,6 +614,7 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 	registry := make(map[string]TypeProperty, len(properties))
 	propertyOrder := []string{}
 	options := generatedUserDefaultSectionMetadata(sectionName)
+	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, baseProperties)
 	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
 	return registry, propertyOrder, options.IgnoredProperties, nil
 }
@@ -642,6 +645,10 @@ func appendUniqueGeneratedUserDefaultSectionProperties(
 func generatedUserDefaultReflectedProperties(t reflect.Type) ([]TypeProperty, error) {
 	converter := newTypeConverter()
 	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
+		spec.DefaultValue = nil
+		spec.HasCreateExpr = false
+		spec.UseGenericCreateBody = false
+		spec.CreateExprOverrides = nil
 		declaration, err := converter.reflectedObjectDeclaration(t, spec)
 		if err != nil {
 			return nil, err
@@ -750,7 +757,9 @@ func generatedSectionImplTypeForSectionName(sectionName string) (reflect.Type, b
 }
 
 func generatedUserDefaultCodeParamCodeObjPropertyRegistry() (map[string]TypeProperty, []string, error) {
-	properties, err := generatedUserDefaultReflectedProperties(reflect.TypeOf(CodeParamCodeObjImpl{}))
+	properties, err := generatedUserDefaultReflectedProperties(
+		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}),
+	)
 	if err != nil {
 		return nil, nil, err
 	}

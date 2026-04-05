@@ -23,12 +23,12 @@ type registrySource struct {
 }
 
 type registryTarget struct {
-	OutputPath          string
-	Package             string
-	FuncName            string
-	WrapperOverrideFunc string
-	Sources             []registrySource
-	Comment             string
+	OutputPath       string
+	Package          string
+	FuncName         string
+	TypeOverrideFunc string
+	Sources          []registrySource
+	Comment          string
 }
 
 type registryEntry struct {
@@ -47,6 +47,28 @@ type frontendTypeIndexes struct {
 	TargetNames map[string]map[string]registryEntry
 }
 
+func preferNormalizedFrontendRegistryEntry(
+	existing registryEntry,
+	candidate registryEntry,
+) (registryEntry, bool) {
+	existingFrontend := strings.HasPrefix(strings.TrimSpace(existing.Type.Name), "Frontend")
+	candidateFrontend := strings.HasPrefix(strings.TrimSpace(candidate.Type.Name), "Frontend")
+	switch {
+	case existingFrontend && !candidateFrontend:
+		return existing, true
+	case !existingFrontend && candidateFrontend:
+		return candidate, true
+	case existing.PkgPath == "setta/internal/frontendbindings" &&
+		candidate.PkgPath != "setta/internal/frontendbindings":
+		return existing, true
+	case existing.PkgPath != "setta/internal/frontendbindings" &&
+		candidate.PkgPath == "setta/internal/frontendbindings":
+		return candidate, true
+	default:
+		return registryEntry{}, false
+	}
+}
+
 var skippedFrontendDefaultProviderTypes = map[string]struct{}{
 	"CodeParamCodeObjImpl": {},
 }
@@ -57,10 +79,10 @@ func main() {
 
 	targets := []registryTarget{
 		{
-			OutputPath:          "internal/frontendbindings/discovered_type_roots_gen.go",
-			Package:             "frontendbindings",
-			FuncName:            "DiscoveredConvertibleTypes",
-			WrapperOverrideFunc: "DiscoveredWrapperTypeOverrides",
+			OutputPath:       "internal/frontendbindings/discovered_type_roots_gen.go",
+			Package:          "frontendbindings",
+			FuncName:         "DiscoveredConvertibleTypes",
+			TypeOverrideFunc: "DiscoveredTypeOverrides",
 			Sources: []registrySource{
 				{
 					PkgPath:                  "setta/internal/plugins",
@@ -72,6 +94,48 @@ func main() {
 					PkgPath:                  "setta/internal/frontendbindings",
 					IncludeZeroFieldStructs:  true,
 					IncludeInterfaces:        true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/projectstate",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/projectview",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/settingsstate",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/scriptablechat",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/realtime",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/lspcompletion",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
+					PkgPath:                  "setta/internal/projectshell",
+					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,
 					IncludeNonStringScalars:  true,
 				},
@@ -209,7 +273,36 @@ func discoverRegistryEntries(target registryTarget) ([]registryEntry, error) {
 			})
 		}
 	}
+	for _, extraEntry := range explicitRegistryEntries(target) {
+		if _, alreadySeen := seenNames[extraEntry.Type.Name]; alreadySeen {
+			continue
+		}
+		seenNames[extraEntry.Type.Name] = struct{}{}
+		entries = append(entries, extraEntry)
+	}
 	return entries, nil
+}
+
+func explicitRegistryEntries(target registryTarget) []registryEntry {
+	if target.Package != "frontendbindings" || target.FuncName != "DiscoveredConvertibleTypes" {
+		return nil
+	}
+	return []registryEntry{
+		{
+			PkgPath: "setta/internal/projectstate",
+			Type: gotypediscovery.DiscoveredType{
+				Name: "FrontendTerminalSectionImpl",
+				Kind: gotypediscovery.TypeKindStruct,
+			},
+		},
+		{
+			PkgPath: "setta/internal/projectstate",
+			Type: gotypediscovery.DiscoveredType{
+				Name: "FrontendCodeParamCodeObjImpl",
+				Kind: gotypediscovery.TypeKindStruct,
+			},
+		},
+	}
 }
 
 func renderRegistry(target registryTarget, entries []registryEntry) string {
@@ -248,18 +341,18 @@ func renderRegistry(target registryTarget, entries []registryEntry) string {
 	}
 	builder.WriteString("\t}\n")
 	builder.WriteString("}\n")
-	if target.WrapperOverrideFunc != "" {
-		wrapperEntries := buildWrapperOverrideEntries(entries)
+	if target.TypeOverrideFunc != "" {
+		overrideEntries := buildTypeOverrideEntries(target, entries)
 		builder.WriteString("\n")
 		builder.WriteString("func ")
-		builder.WriteString(target.WrapperOverrideFunc)
+		builder.WriteString(target.TypeOverrideFunc)
 		builder.WriteString("() map[reflect.Type]reflect.Type {\n")
 		builder.WriteString("\treturn map[reflect.Type]reflect.Type{\n")
-		for _, entry := range wrapperEntries {
+		for _, entry := range overrideEntries {
 			builder.WriteString("\t\t")
-			builder.WriteString(renderTargetReflectExpr(entry, importAliases))
-			builder.WriteString(": ")
 			builder.WriteString(renderReflectExpr(entry, importAliases))
+			builder.WriteString(": ")
+			builder.WriteString(renderTargetReflectExpr(entry, importAliases))
 			builder.WriteString(",\n")
 		}
 		builder.WriteString("\t}\n")
@@ -359,42 +452,72 @@ func normalizedFrontendTypeIndex(
 	ambiguousTargetNames := map[string]map[string]struct{}{}
 	for _, entry := range frontendEntries {
 		key := normalizedRegistryName(entry.Type.Name)
-		if existing, ok := indexes.LocalNames[key]; ok && existing.Type.Name != entry.Type.Name {
-			return frontendTypeIndexes{}, fmt.Errorf(
-				"ambiguous normalized frontend type name %q between %s and %s",
-				key,
-				existing.Type.Name,
-				entry.Type.Name,
-			)
+		if err := recordLocalFrontendType(&indexes, key, entry); err != nil {
+			return frontendTypeIndexes{}, err
 		}
-		indexes.LocalNames[key] = entry
-
 		targetPkgPath := strings.TrimSpace(entry.Type.TargetPackagePath)
 		targetTypeName := normalizedRegistryName(entry.Type.TargetTypeName)
 		if targetPkgPath == "" || targetTypeName == "" {
 			continue
 		}
-		targetsByPackage, ok := indexes.TargetNames[targetPkgPath]
-		if !ok {
-			targetsByPackage = map[string]registryEntry{}
-			indexes.TargetNames[targetPkgPath] = targetsByPackage
-		}
-		ambiguousKeys, ok := ambiguousTargetNames[targetPkgPath]
-		if !ok {
-			ambiguousKeys = map[string]struct{}{}
-			ambiguousTargetNames[targetPkgPath] = ambiguousKeys
-		}
-		if _, ambiguous := ambiguousKeys[targetTypeName]; ambiguous {
-			continue
-		}
-		if existing, ok := targetsByPackage[targetTypeName]; ok && existing.Type.Name != entry.Type.Name {
-			delete(targetsByPackage, targetTypeName)
-			ambiguousKeys[targetTypeName] = struct{}{}
-			continue
-		}
-		targetsByPackage[targetTypeName] = entry
+		recordTargetFrontendType(&indexes, ambiguousTargetNames, targetPkgPath, targetTypeName, entry)
 	}
 	return indexes, nil
+}
+
+func recordLocalFrontendType(
+	indexes *frontendTypeIndexes,
+	key string,
+	entry registryEntry,
+) error {
+	existing, ok := indexes.LocalNames[key]
+	if !ok || existing.Type.Name == entry.Type.Name {
+		indexes.LocalNames[key] = entry
+		return nil
+	}
+	if preferred, resolved := preferNormalizedFrontendRegistryEntry(existing, entry); resolved {
+		indexes.LocalNames[key] = preferred
+		return nil
+	}
+	return fmt.Errorf(
+		"ambiguous normalized frontend type name %q between %s and %s",
+		key,
+		existing.Type.Name,
+		entry.Type.Name,
+	)
+}
+
+func recordTargetFrontendType(
+	indexes *frontendTypeIndexes,
+	ambiguousTargetNames map[string]map[string]struct{},
+	targetPkgPath string,
+	targetTypeName string,
+	entry registryEntry,
+) {
+	targetsByPackage, ok := indexes.TargetNames[targetPkgPath]
+	if !ok {
+		targetsByPackage = map[string]registryEntry{}
+		indexes.TargetNames[targetPkgPath] = targetsByPackage
+	}
+	ambiguousKeys, ok := ambiguousTargetNames[targetPkgPath]
+	if !ok {
+		ambiguousKeys = map[string]struct{}{}
+		ambiguousTargetNames[targetPkgPath] = ambiguousKeys
+	}
+	if _, ambiguous := ambiguousKeys[targetTypeName]; ambiguous {
+		return
+	}
+	existing, ok := targetsByPackage[targetTypeName]
+	if !ok || existing.Type.Name == entry.Type.Name {
+		targetsByPackage[targetTypeName] = entry
+		return
+	}
+	if preferred, resolved := preferNormalizedFrontendRegistryEntry(existing, entry); resolved {
+		targetsByPackage[targetTypeName] = preferred
+		return
+	}
+	delete(targetsByPackage, targetTypeName)
+	ambiguousKeys[targetTypeName] = struct{}{}
 }
 
 func frontendDefaultProviderSourcePackages(frontendEntries []registryEntry) []string {
@@ -403,22 +526,28 @@ func frontendDefaultProviderSourcePackages(frontendEntries []registryEntry) []st
 		"setta/internal/frontendbindings": {},
 	}
 	for _, entry := range frontendEntries {
-		targetPkg := strings.TrimSpace(entry.Type.TargetPackagePath)
-		if targetPkg == "" {
-			continue
+		for _, pkgPath := range []string{entry.PkgPath, entry.Type.TargetPackagePath} {
+			pkgPath = strings.TrimSpace(pkgPath)
+			if pkgPath == "" || !strings.HasPrefix(pkgPath, "setta/internal/") {
+				continue
+			}
+			if _, ok := seen[pkgPath]; ok {
+				continue
+			}
+			seen[pkgPath] = struct{}{}
+			packages = append(packages, pkgPath)
 		}
-		if _, ok := seen[targetPkg]; ok {
-			continue
-		}
-		seen[targetPkg] = struct{}{}
-		packages = append(packages, targetPkg)
 	}
 	sort.Strings(packages)
 	return packages
 }
 
 func normalizedRegistryName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+	name = strings.TrimSpace(name)
+	if strings.HasPrefix(name, "Frontend") && len(name) > len("Frontend") {
+		name = strings.TrimPrefix(name, "Frontend")
+	}
+	return strings.ToLower(name)
 }
 
 func renderFrontendDefaultProviderRegistry(entries []defaultProviderEntry) string {
@@ -448,7 +577,7 @@ func renderFrontendDefaultProviderRegistry(entries []defaultProviderEntry) strin
 	importAliases := buildImportAliasesForPaths("frontendbindings", importPaths)
 	for _, entry := range entries {
 		builder.WriteString("\t\t")
-		builder.WriteString(renderReflectExpr(entry.Target, nil))
+		builder.WriteString(renderReflectExpr(entry.Target, importAliases))
 		builder.WriteString(": func() any {\n")
 		builder.WriteString("\t\t\treturn ")
 		builder.WriteString(renderDefaultProviderCall(entry, importAliases))
@@ -464,14 +593,16 @@ func frontendDefaultProviderImportPaths(entries []defaultProviderEntry) []string
 	imports := []string{}
 	seen := map[string]struct{}{}
 	for _, entry := range entries {
-		if entry.ProviderPackagePath == "setta/internal/frontendbindings" {
-			continue
+		for _, importPath := range []string{entry.ProviderPackagePath, entry.Target.PkgPath} {
+			if importPath == "setta/internal/frontendbindings" || strings.TrimSpace(importPath) == "" {
+				continue
+			}
+			if _, ok := seen[importPath]; ok {
+				continue
+			}
+			seen[importPath] = struct{}{}
+			imports = append(imports, importPath)
 		}
-		if _, ok := seen[entry.ProviderPackagePath]; ok {
-			continue
-		}
-		seen[entry.ProviderPackagePath] = struct{}{}
-		imports = append(imports, entry.ProviderPackagePath)
 	}
 	sort.Strings(imports)
 	return imports
@@ -514,38 +645,53 @@ func renderDefaultProviderCall(
 	return qualifiedName + "()"
 }
 
+var reflectExprBuilders = map[gotypediscovery.TypeKind]func(string) string{
+	gotypediscovery.TypeKindArray: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s{})", name)
+	},
+	gotypediscovery.TypeKindBool: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(false))", name)
+	},
+	gotypediscovery.TypeKindFloat: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(0))", name)
+	},
+	gotypediscovery.TypeKindStruct: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s{})", name)
+	},
+	gotypediscovery.TypeKindInterface: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", name)
+	},
+	gotypediscovery.TypeKindInt: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(0))", name)
+	},
+	gotypediscovery.TypeKindMap: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(nil))", name)
+	},
+	gotypediscovery.TypeKindNamed: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", name)
+	},
+	gotypediscovery.TypeKindSlice: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(nil))", name)
+	},
+	gotypediscovery.TypeKindString: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(\"\"))", name)
+	},
+	gotypediscovery.TypeKindUint: func(name string) string {
+		return fmt.Sprintf("reflect.TypeOf(%s(0))", name)
+	},
+}
+
 func renderReflectExpr(entry registryEntry, importAliases map[string]string) string {
 	qualifiedName := entry.Type.Name
 	if qualifier := importAliases[entry.PkgPath]; qualifier != "" {
 		qualifiedName = qualifier + "." + entry.Type.Name
 	}
-	switch entry.Type.Kind {
-	case gotypediscovery.TypeKindArray:
-		return fmt.Sprintf("reflect.TypeOf(%s{})", qualifiedName)
-	case gotypediscovery.TypeKindBool:
-		return fmt.Sprintf("reflect.TypeOf(%s(false))", qualifiedName)
-	case gotypediscovery.TypeKindFloat:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	case gotypediscovery.TypeKindStruct:
-		return fmt.Sprintf("reflect.TypeOf(%s{})", qualifiedName)
-	case gotypediscovery.TypeKindInterface:
-		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
-	case gotypediscovery.TypeKindInt:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	case gotypediscovery.TypeKindMap:
-		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
-	case gotypediscovery.TypeKindNamed:
-		return fmt.Sprintf("reflect.TypeOf((*%s)(nil)).Elem()", qualifiedName)
-	case gotypediscovery.TypeKindSlice:
-		return fmt.Sprintf("reflect.TypeOf(%s(nil))", qualifiedName)
-	case gotypediscovery.TypeKindString:
-		return fmt.Sprintf("reflect.TypeOf(%s(\"\"))", qualifiedName)
-	case gotypediscovery.TypeKindUint:
-		return fmt.Sprintf("reflect.TypeOf(%s(0))", qualifiedName)
-	default:
-		fail("unsupported discovered type kind %q for %s", entry.Type.Kind, entry.Type.Name)
-		return ""
+	builder, ok := reflectExprBuilders[entry.Type.Kind]
+	if ok {
+		return builder(qualifiedName)
 	}
+	fail("unsupported discovered type kind %q for %s", entry.Type.Kind, entry.Type.Name)
+	return ""
 }
 
 func renderTargetReflectExpr(entry registryEntry, importAliases map[string]string) string {
@@ -599,8 +745,8 @@ func externalImportPaths(target registryTarget, entries []registryEntry) []strin
 		seen[entry.PkgPath] = struct{}{}
 		imports = append(imports, entry.PkgPath)
 	}
-	if target.WrapperOverrideFunc != "" {
-		for _, entry := range buildWrapperOverrideEntries(entries) {
+	if target.TypeOverrideFunc != "" {
+		for _, entry := range buildTypeOverrideEntries(target, entries) {
 			if entry.Type.TargetPackagePath == targetPkgPath {
 				continue
 			}
@@ -627,33 +773,18 @@ func targetKey(discoveredType gotypediscovery.DiscoveredType) string {
 	return discoveredType.TargetPackagePath + "::" + discoveredType.TargetTypeName
 }
 
-func buildWrapperOverrideEntries(entries []registryEntry) []registryEntry {
-	aliasTargets := map[string]struct{}{}
+func buildTypeOverrideEntries(target registryTarget, entries []registryEntry) []registryEntry {
+	targetPkgPath := packagePathForPackageName(target.Package)
+	overrideEntries := make([]registryEntry, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.Type.IsAlias {
-			continue
-		}
-		key := targetKey(entry.Type)
-		if key == "" {
-			continue
-		}
-		aliasTargets[key] = struct{}{}
-	}
-
-	wrapperEntries := make([]registryEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.Type.Kind != gotypediscovery.TypeKindNamed ||
-			entry.Type.IsAlias ||
+		if entry.PkgPath != targetPkgPath ||
 			strings.TrimSpace(entry.Type.TargetPackagePath) == "" ||
 			strings.TrimSpace(entry.Type.TargetTypeName) == "" {
 			continue
 		}
-		if _, ok := aliasTargets[targetKey(entry.Type)]; ok {
-			continue
-		}
-		wrapperEntries = append(wrapperEntries, entry)
+		overrideEntries = append(overrideEntries, entry)
 	}
-	return wrapperEntries
+	return overrideEntries
 }
 
 func packagePathForPackageName(packageName string) string {

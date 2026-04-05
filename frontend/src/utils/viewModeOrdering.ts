@@ -1,6 +1,6 @@
-import { ViewModeConfig } from "utils/generatedTypes";
+import { ViewMode } from "utils/generatedTypes";
 
-export function sortViewModes(viewModes: Array<ViewModeConfig>) {
+export function sortViewModes(viewModes: Array<ViewMode>) {
   return [...viewModes].sort((a, b) => {
     const aSortIndex = a.sortIndex ?? 0;
     const bSortIndex = b.sortIndex ?? 0;
