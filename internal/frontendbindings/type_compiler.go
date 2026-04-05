@@ -262,21 +262,6 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	if override, ok := discoveredTypeOverrides[t]; ok {
 		return override
 	}
-	if t.PkgPath() == sourcePackageFrontendBindings {
-		switch t.Kind() {
-		case reflect.Slice:
-			elem := canonicalFrontendBindingType(t.Elem())
-			if elem != nil && elem != t.Elem() {
-				return reflect.SliceOf(elem)
-			}
-		case reflect.Map:
-			key := canonicalFrontendBindingType(t.Key())
-			value := canonicalFrontendBindingType(t.Elem())
-			if key != nil && value != nil && (key != t.Key() || value != t.Elem()) {
-				return reflect.MapOf(key, value)
-			}
-		}
-	}
 	if t.PkgPath() == "setta/internal/pythonsdkcontracts" {
 		if ownerType, ok := frontendSDKMirrorOwnerTypesByName[t.Name()]; ok {
 			return ownerType

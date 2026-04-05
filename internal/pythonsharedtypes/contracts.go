@@ -38,7 +38,6 @@ type pythonRouteBinding struct {
 }
 
 var pythonSharedEnumFallbackPackages = []string{
-	"setta/internal/frontendbindings",
 	"setta/internal/projectstate",
 	"setta/internal/artifacts",
 	"setta/internal/runs",

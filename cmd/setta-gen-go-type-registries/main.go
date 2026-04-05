@@ -47,7 +47,7 @@ type frontendTypeIndexes struct {
 	TargetNames map[string]map[string]registryEntry
 }
 
-func preferNormalizedFrontendRegistryEntry(
+func preferNormalizedRegistryEntry(
 	existing registryEntry,
 	candidate registryEntry,
 ) (registryEntry, bool) {
@@ -57,12 +57,6 @@ func preferNormalizedFrontendRegistryEntry(
 	case existingFrontend && !candidateFrontend:
 		return existing, true
 	case !existingFrontend && candidateFrontend:
-		return candidate, true
-	case existing.PkgPath == "setta/internal/frontendbindings" &&
-		candidate.PkgPath != "setta/internal/frontendbindings":
-		return existing, true
-	case existing.PkgPath != "setta/internal/frontendbindings" &&
-		candidate.PkgPath == "setta/internal/frontendbindings":
 		return candidate, true
 	default:
 		return registryEntry{}, false
@@ -87,13 +81,6 @@ func main() {
 				{
 					PkgPath:                  "setta/internal/plugins",
 					RequireJSONTaggedStructs: true,
-					IncludeCollectionAliases: true,
-					IncludeNonStringScalars:  true,
-				},
-				{
-					PkgPath:                  "setta/internal/frontendbindings",
-					IncludeZeroFieldStructs:  true,
-					IncludeInterfaces:        true,
 					IncludeCollectionAliases: true,
 					IncludeNonStringScalars:  true,
 				},
@@ -562,7 +549,7 @@ func recordTargetFrontendType(
 		targetsByPackage[targetTypeName] = entry
 		return
 	}
-	if preferred, resolved := preferNormalizedFrontendRegistryEntry(existing, entry); resolved {
+	if preferred, resolved := preferNormalizedRegistryEntry(existing, entry); resolved {
 		targetsByPackage[targetTypeName] = preferred
 		return
 	}
@@ -592,7 +579,7 @@ func selectFrontendLocalType(
 	preferred := entries[0]
 	resolved := false
 	for _, candidate := range entries[1:] {
-		if next, ok := preferNormalizedFrontendRegistryEntry(preferred, candidate); ok {
+		if next, ok := preferNormalizedRegistryEntry(preferred, candidate); ok {
 			preferred = next
 			resolved = true
 			continue
@@ -603,10 +590,8 @@ func selectFrontendLocalType(
 }
 
 func frontendDefaultProviderSourcePackages(frontendEntries []registryEntry) []string {
-	packages := []string{"setta/internal/frontendbindings"}
-	seen := map[string]struct{}{
-		"setta/internal/frontendbindings": {},
-	}
+	packages := []string{}
+	seen := map[string]struct{}{}
 	for _, entry := range frontendEntries {
 		for _, pkgPath := range []string{entry.PkgPath, entry.Type.TargetPackagePath} {
 			pkgPath = strings.TrimSpace(pkgPath)

@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	sourcePackageFrontendBindings = "setta/internal/frontendbindings"
-	sourcePackageHTTPAPI          = "setta/internal/httpapi"
+	sourcePackageHTTPAPI = "setta/internal/httpapi"
 )
 
 type sourceTypeRef struct {
@@ -747,11 +746,6 @@ func (r namedTypeRegistry) byNameExact(name string) (reflect.Type, bool) {
 	candidates, ok := r.byName[strings.TrimSpace(name)]
 	if !ok || len(candidates) == 0 {
 		return nil, false
-	}
-	for _, candidate := range candidates {
-		if candidate.PkgPath() == sourcePackageFrontendBindings {
-			return candidate, true
-		}
 	}
 	return candidates[0], true
 }
