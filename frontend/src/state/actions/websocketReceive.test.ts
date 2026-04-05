@@ -52,9 +52,15 @@ vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-vi.mock("state/actions/uiSettingReveal", () => ({
-  receiveUISettingReveal: vi.fn(),
-}));
+vi.mock("state/actions/uiSettingReveal", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/uiSettingReveal")
+  >("state/actions/uiSettingReveal");
+  return {
+    ...actual,
+    receiveUISettingReveal: vi.fn(),
+  };
+});
 
 vi.mock("state/actions/websocketConnectionList", () => ({
   addWebsocketConnection: vi.fn(),

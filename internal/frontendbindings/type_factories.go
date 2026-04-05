@@ -699,9 +699,6 @@ func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDecl
 	if declaration, ok := generatedImplFactoryDeclaration(t); ok {
 		declarations = append(declarations, declaration)
 	}
-	if schemaDeclarations, ok := safeParseSchemaDeclarationsForType(t); ok {
-		declarations = append(declarations, schemaDeclarations...)
-	}
 	if len(declarations) == 0 {
 		return nil, false
 	}

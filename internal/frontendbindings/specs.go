@@ -41,7 +41,6 @@ func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations = append(declarations, mustGeneratedUserDefaultDeclarations(converter)...)
 	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)
-	declarations = append(declarations, safeParseSupportDeclarations()...)
 	return declarations
 }
 

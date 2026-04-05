@@ -45,6 +45,7 @@ type PluginRevealInvokeArgs = Parameters<
   typeof invokePluginSettingRevealHandler
 >[0];
 let receiveUISettingReveal: typeof import("./uiSettingReveal").receiveUISettingReveal;
+let parseUISettingRevealContent: typeof import("./uiSettingReveal").parseUISettingRevealContent;
 
 function createRevealTarget(
   overrides: Partial<UISettingRevealTarget>,
@@ -228,7 +229,9 @@ function buildBackendProjectStateUpdate({
 
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
-    ({ receiveUISettingReveal } = await import("./uiSettingReveal"));
+    ({ receiveUISettingReveal, parseUISettingRevealContent } = await import(
+      "./uiSettingReveal"
+    ));
     vi.useFakeTimers();
     resetProjectStores();
     useProjectState.setState((state) => {
@@ -272,6 +275,64 @@ describe("receiveUISettingReveal", () => {
     usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
     vi.clearAllMocks();
     vi.useRealTimers();
+  });
+
+  it("parses omitted reveal activation steps and duration with frontend defaults", () => {
+    expect(
+      parseUISettingRevealContent({
+        projectConfigId: "project-1",
+        chatId: null,
+        reveals: [
+          {
+            settingId: "core.watch_code.enabled",
+            side: "left",
+            overviewTabKey: "WatchCode",
+            strategy: "dom_anchor",
+          },
+        ],
+        requestId: "request-1",
+      }),
+    ).toEqual({
+      projectConfigId: "project-1",
+      chatId: null,
+      activeSectionId: null,
+      reveals: [
+        {
+          settingId: "core.watch_code.enabled",
+          side: "left",
+          overviewTabKey: "WatchCode",
+          uiEditorTabName: null,
+          pluginId: null,
+          paneId: null,
+          strategy: "dom_anchor",
+          anchorId: null,
+          pluginRevealKey: null,
+          revealActivationSteps: [],
+        },
+      ],
+      durationMs: 3000,
+      requestId: "request-1",
+    });
+  });
+
+  it("rejects malformed reveal activation steps during frontend parsing", () => {
+    expect(
+      parseUISettingRevealContent({
+        projectConfigId: "project-1",
+        chatId: null,
+        reveals: [
+          {
+            settingId: "core.watch_code.enabled",
+            side: "left",
+            overviewTabKey: "WatchCode",
+            strategy: "dom_anchor",
+            revealActivationSteps: {},
+          },
+        ],
+        durationMs: 3000,
+        requestId: "request-1",
+      }),
+    ).toBeNull();
   });
 
   it("opens overview tab and highlights anchor", async () => {

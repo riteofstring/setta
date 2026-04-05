@@ -266,36 +266,3 @@ export function resolveGeneratedEndpointOriginForMode<
   }
   return options.backendValue;
 }
-
-export function websocketSupportIsRecord(
-  value: unknown,
-): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-export function websocketSupportReadRequiredString(
-  value: unknown,
-  fieldName: string,
-  issues: Array<string>,
-): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  issues.push(fieldName + " must be a string.");
-  return "";
-}
-
-function websocketSupportReadOptionalString(
-  value: unknown,
-  fieldName: string,
-  issues: Array<string>,
-): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  issues.push(fieldName + " must be a string or null.");
-  return null;
-}

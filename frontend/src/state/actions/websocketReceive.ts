@@ -57,7 +57,6 @@ import {
   SectionDependencyKey,
   SectionParamDependencyKey,
   UISettingRevealContent,
-  UISettingRevealContentSchema,
   UISettingRevealResultMessage,
   UISettingRevealResultStatus,
   WebsocketMessageTypeEnum,
@@ -108,6 +107,7 @@ import {
   resetShareSessionState,
 } from "./share";
 import {
+  parseUISettingRevealContent,
   receiveUISettingReveal,
   type UISettingRevealExecutionContext,
 } from "./uiSettingReveal";
@@ -612,8 +612,8 @@ async function handleUISettingRevealMessage(
   );
   const requestId = resolveRevealRequestId(content);
   let statuses: UISettingRevealResultStatusPayload[] = [];
-  const parsedRevealContent = UISettingRevealContentSchema.safeParse(content);
-  if (!parsedRevealContent.success) {
+  const revealContent = parseUISettingRevealContent(content);
+  if (revealContent === null) {
     statuses = buildMalformedRevealStatuses(
       content,
       "Invalid UISettingReveal payload.",
@@ -626,7 +626,6 @@ async function handleUISettingRevealMessage(
     });
     return;
   }
-  const revealContent: UISettingRevealContent = parsedRevealContent.data;
   const revealExecutionContext: UISettingRevealExecutionContext = {
     requestId: revealContent.requestId,
     requestedProjectConfigId: revealContent.projectConfigId.trim(),

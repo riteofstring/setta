@@ -15,7 +15,6 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 
 	expectations := []tagExpectation{
 		{typ: reflect.TypeOf(UISettingRevealTarget{}), field: "RevealActivationSteps", tagName: "ts_optional", tagValue: "false"},
-		{typ: reflect.TypeOf(UISettingRevealContent{}), field: "DurationMS", tagName: "ts_parse_fallback", tagValue: "3000"},
 		{typ: reflect.TypeOf(UISettingRevealResultStatus{}), field: "Status", tagName: "ts_type", tagValue: "\"revealed\" | \"failed\""},
 		{typ: reflect.TypeOf(UISettingRevealResultStatus{}), field: "ErrorCode", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(UISettingRevealResultStatus{}), field: "ErrorMessage", tagName: "ts_optional", tagValue: "true"},
