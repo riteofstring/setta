@@ -1,3 +1,4 @@
+import json
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import pytest
@@ -7,8 +8,9 @@ from setta.api.chat_toolkit import (
     ChatSession,
     ChatStreamEmitterClient,
     ChatToolRunnerClient,
+    on_chat_action_event,
 )
-from setta.api.listener import ListenerCallbackContext, SettaListener
+from setta.api.listener import DependencyEvent, ListenerCallbackContext, SettaListener
 from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.llm.chat_toolkit.section_sync import (
     apply_stream_delta,
@@ -20,15 +22,18 @@ from setta.types.generated.go_shared_types import (
     ChatSectionState,
     AssistantChatMessage,
     ChatFileAttachment,
+    ChatStopEvent,
     ChatSendEvent,
     ChatRole,
     LLMConfig,
+    LiteralDependencyValue,
     MessageFinalizedEvent,
     MessageTextContent,
     SystemChatMessage,
     UserChatMessage,
 )
 from setta.types.id import ID
+from setta.types.protocol import create_dep_key
 
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
@@ -85,6 +90,110 @@ def _append_chat_messages(chat: Chat, messages: list[object]) -> Chat:
     existing_ids = {message.id for message in chat.messages}
     new_messages = [message for message in messages if message.id not in existing_ids]
     return chat.model_copy(update={"messages": [*chat.messages, *new_messages]})
+
+
+def _build_chat_action_dependency_event(
+    *,
+    section_id: ID,
+    payload: dict[str, object] | None,
+    code_obj_id: ID | None = None,
+    timestamp_ms: int = 123,
+) -> DependencyEvent:
+    encoded_payload = None
+    if payload is not None:
+        encoded_payload = LiteralDependencyValue(
+            type="Literal",
+            payload=json.dumps(payload),
+        )
+    return DependencyEvent(
+        dependencyKey=create_dep_key(sectionId=section_id, codeObjId=code_obj_id),
+        payload=encoded_payload,
+        timestampMs=timestamp_ms,
+    )
+
+
+class TestChatActionEvents:
+    def test_on_chat_action_event_returns_send_for_matching_section(self) -> None:
+        project_config_id = ID("proj-chat-send")
+
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        target_section_id = ID("section-1")
+        ctx = _build_listener_context(project_config_id, router_caller)
+        ctx.events = [
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                code_obj_id=ID("param-1"),
+                payload={
+                    "action": "send",
+                    "sectionId": target_section_id,
+                    "messageId": "ignored",
+                    "text": "ignored",
+                    "attachments": [],
+                    "role": ChatRole.user,
+                    "timestampMs": 100,
+                    "managed": True,
+                },
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload={
+                    "action": "send",
+                    "sectionId": target_section_id,
+                    "messageId": "msg-1",
+                    "text": "Hello",
+                    "attachments": [],
+                    "role": ChatRole.user,
+                    "timestampMs": 101,
+                    "managed": True,
+                },
+            ),
+        ]
+
+        event = on_chat_action_event(ctx, section_id=target_section_id)
+
+        assert isinstance(event, ChatSendEvent)
+        assert event.messageId == "msg-1"
+        assert event.text == "Hello"
+
+    def test_on_chat_action_event_returns_stop_for_matching_section(self) -> None:
+        project_config_id = ID("proj-chat-stop")
+
+        async def router_caller(endpoint_name: str, _payload: object) -> object:
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        target_section_id = ID("section-1")
+        ctx = _build_listener_context(project_config_id, router_caller)
+        ctx.events = [
+            _build_chat_action_dependency_event(
+                section_id=ID("section-2"),
+                payload={
+                    "action": "stop",
+                    "sectionId": "section-2",
+                    "timestampMs": 100,
+                    "managed": True,
+                },
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload=None,
+            ),
+            _build_chat_action_dependency_event(
+                section_id=target_section_id,
+                payload={
+                    "action": "stop",
+                    "sectionId": target_section_id,
+                    "timestampMs": 101,
+                    "managed": True,
+                },
+            ),
+        ]
+
+        event = on_chat_action_event(ctx, section_id=target_section_id)
+
+        assert isinstance(event, ChatStopEvent)
+        assert event.sectionId == target_section_id
 
 
 class TestChatSessionErrors:

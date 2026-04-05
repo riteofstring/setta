@@ -28,6 +28,7 @@ from setta.types.generated.go_shared_types import (
     ChatSectionState,
     ChatSendEvent,
     ChatStopEvent,
+    LiteralDependencyValue,
     LLMStreamingResponseChunk,
     MessageDeltaEvent,
     MessageFinalizedEvent,
@@ -49,7 +50,7 @@ from setta.types.id import ID
 from setta.types.protocol import SectionDependencyKey
 
 if TYPE_CHECKING:
-    from setta.api.listener import ListenerCallbackContext
+    from setta.api.listener import DependencyEvent, ListenerCallbackContext
 
 ChatActionEvent = ChatSendEvent | ChatStopEvent
 
@@ -436,33 +437,7 @@ class ChatSession:
             frontend_affinity_token=ctx.frontend_affinity_token,
         )
         sync = ChatSectionSyncClient(ctx.project_manager, history)
-
-        content = [MessageTextContent(type="text", text=resolved_event.text)]
-        attachments = resolved_event.attachments
-        if resolved_event.role == ChatRole.user:
-            first_message = UserChatMessage(
-                id=resolved_event.messageId,
-                content=content,
-                attachments=attachments,
-            )
-        elif resolved_event.role == ChatRole.system:
-            first_message = SystemChatMessage(
-                id=resolved_event.messageId,
-                content=content,
-                attachments=attachments,
-            )
-        elif resolved_event.role == ChatRole.assistant:
-            first_message = AssistantChatMessage(
-                id=resolved_event.messageId,
-                content=content,
-                attachments=attachments,
-            )
-        elif resolved_event.role == ChatRole.tool:
-            raise ValueError(
-                "ChatSendEvent role 'tool' requires tool metadata, which is not supported"
-            )
-        else:
-            raise ValueError(f"Unsupported chat role: {resolved_event.role!r}")
+        first_message = _build_first_chat_message(resolved_event)
         chat_id, created = await history.ensure_section_chat_id(
             section_id=section_id,
             engine_config_id=engine_config_id,
@@ -672,19 +647,64 @@ def on_chat_action_event(
     section_id: ID,
 ) -> ChatActionEvent | None:
     for event in ctx.events:
-        dep_key = event.dependencyKey
-        if not isinstance(dep_key, SectionDependencyKey):
-            continue
-        if dep_key.sectionId != section_id:
-            continue
-        if not event.payload:
-            continue
-        payload = json.loads(event.payload)
-        action = payload.get("action")
-        if action == "send":
-            return ChatSendEvent.model_validate(payload)
-        if action == "stop":
-            return ChatStopEvent.model_validate(payload)
+        action_event = _parse_chat_action_event(event, section_id=section_id)
+        if action_event is not None:
+            return action_event
+    return None
+
+
+def _build_first_chat_message(event: ChatSendEvent) -> BaseChatMessageUnion:
+    message_type = _message_type_for_chat_role(event.role)
+    return message_type(
+        id=event.messageId,
+        content=[MessageTextContent(type="text", text=event.text)],
+        attachments=event.attachments,
+    )
+
+
+def _message_type_for_chat_role(
+    role: ChatRole,
+) -> type[UserChatMessage] | type[SystemChatMessage] | type[AssistantChatMessage]:
+    if role == ChatRole.user:
+        return UserChatMessage
+    if role == ChatRole.system:
+        return SystemChatMessage
+    if role == ChatRole.assistant:
+        return AssistantChatMessage
+    if role == ChatRole.tool:
+        raise ValueError(
+            "ChatSendEvent role 'tool' requires tool metadata, which is not supported"
+        )
+    raise ValueError(f"Unsupported chat role: {role!r}")
+
+
+def _parse_chat_action_event(
+    event: "DependencyEvent",
+    *,
+    section_id: ID,
+) -> ChatActionEvent | None:
+    dep_key = event.dependencyKey
+    if not isinstance(dep_key, SectionDependencyKey):
+        return None
+    if dep_key.sectionId != section_id:
+        return None
+    payload = event.payload
+    if not isinstance(payload, LiteralDependencyValue):
+        return None
+    if payload.payload == "":
+        return None
+    return _parse_chat_action_payload(payload.payload)
+
+
+def _parse_chat_action_payload(payload: str) -> ChatActionEvent | None:
+    parsed = json.loads(payload)
+    if not isinstance(parsed, dict):
+        raise TypeError("Chat action payload must decode to an object")
+    action = parsed.get("action")
+    if action == "send":
+        return ChatSendEvent.model_validate(parsed)
+    if action == "stop":
+        return ChatStopEvent.model_validate(parsed)
     return None
 
 
