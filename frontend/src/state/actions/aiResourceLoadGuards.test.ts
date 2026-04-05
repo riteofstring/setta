@@ -21,7 +21,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_get_agent_runs: vi.fn(),
-    route_get_llmapi_keys: vi.fn(),
+    route_get_llm_api_keys: vi.fn(),
     route_get_llm_config: vi.fn(),
   };
 });
@@ -120,9 +120,9 @@ describe("AI resource load guards", () => {
     const requestGate = new Promise((resolve) => {
       resolveRequest = resolve;
     });
-    const route_get_llmapi_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llmapi_keys as unknown as vi.Mock;
-    route_get_llmapi_keys.mockImplementation(async () => {
+    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
+      .route_get_llm_api_keys as unknown as vi.Mock;
+    route_get_llm_api_keys.mockImplementation(async () => {
       await requestGate;
       return {
         status: 200,
@@ -138,7 +138,7 @@ describe("AI resource load guards", () => {
 
     const firstLoad = loadLLMApiKeys();
     const secondLoad = loadLLMApiKeys();
-    expect(route_get_llmapi_keys).toHaveBeenCalledTimes(1);
+    expect(route_get_llm_api_keys).toHaveBeenCalledTimes(1);
 
     resolveRequest?.(undefined);
     await Promise.all([firstLoad, secondLoad]);
@@ -156,9 +156,9 @@ describe("AI resource load guards", () => {
       apiKeysRevision: 7,
       apiKeysAuthoritative: true,
     });
-    const route_get_llmapi_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llmapi_keys as unknown as vi.Mock;
-    route_get_llmapi_keys.mockResolvedValue({
+    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
+      .route_get_llm_api_keys as unknown as vi.Mock;
+    route_get_llm_api_keys.mockResolvedValue({
       status: 503,
       hasResponse: true,
       data: {

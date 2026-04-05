@@ -31,11 +31,7 @@ import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   getFileBrowserDragPayload,
   setFileBrowserDragPayload,
@@ -66,15 +62,7 @@ import {
   route_get_folder_contents,
   route_transfer_file_browser_entry,
 } from "utils/generatedEndpoints";
-import {
-  CheckWorkspaceInitializedResponse,
-  FileBrowserDownloadURLEntry,
-  FileBrowserRootResponse,
-  GetFileBrowserDownloadURLsResponse,
-  GetFolderContentsResponse,
-  NotificationTypeEnum,
-  TransferFileBrowserEntryResponse,
-} from "utils/generatedTypes";
+import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
@@ -104,17 +92,10 @@ type FileBrowserClipboardEntry = {
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
 
-type FileUrlEntry = Pick<FileBrowserDownloadURLEntry, "url" | "expiresAt">;
-type CheckWorkspaceInitializedRouteResponse =
-  ResponseDataAndStatus<CheckWorkspaceInitializedResponse>;
-type FileBrowserRootRouteResponse =
-  ResponseDataAndStatus<FileBrowserRootResponse>;
-type FolderContentsRouteResponse =
-  ResponseDataAndStatus<GetFolderContentsResponse>;
-type FileBrowserDownloadURLsRouteResponse =
-  ResponseDataAndStatus<GetFileBrowserDownloadURLsResponse>;
-type TransferFileBrowserEntryRouteResponse =
-  ResponseDataAndStatus<TransferFileBrowserEntryResponse>;
+type FileUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
 
 export type FileNode = {
   name: string;
@@ -123,12 +104,6 @@ export type FileNode = {
   parentPath: string | null;
   mtime?: number | null;
   isSettaInitialized?: boolean;
-};
-
-type FileBrowserRootStateSnapshot = {
-  rootPath: string | null;
-  selectedPath: string | null;
-  expandedPaths: Record<string, boolean>;
 };
 
 type FlattenedNode = FileNode & {
@@ -205,32 +180,6 @@ export function shouldLoadRootWorkspaceInitializationMetadata({
     includeSettaInitializedFolders &&
     shouldCheckRootWorkspaceInitialization({ folderPath, rootPath })
   );
-}
-
-export function getResolvedFileBrowserRootState({
-  state,
-  requestedRootPath,
-  resolvedRootPath,
-}: {
-  state: FileBrowserRootStateSnapshot;
-  requestedRootPath: string;
-  resolvedRootPath: string;
-}): FileBrowserRootStateSnapshot {
-  if (requestedRootPath === resolvedRootPath) {
-    return state;
-  }
-  const nextExpandedPaths = { ...state.expandedPaths };
-  const requestedExpanded = nextExpandedPaths[requestedRootPath];
-  delete nextExpandedPaths[requestedRootPath];
-  nextExpandedPaths[resolvedRootPath] = requestedExpanded ?? true;
-  return {
-    rootPath: resolvedRootPath,
-    selectedPath:
-      state.selectedPath === requestedRootPath
-        ? resolvedRootPath
-        : state.selectedPath,
-    expandedPaths: nextExpandedPaths,
-  };
 }
 
 export function buildFileBrowserLoadingPathOwner({
@@ -752,16 +701,15 @@ export function FileBrowserPane({
         });
       };
       try {
-        const res: FolderContentsRouteResponse =
-          await route_get_folder_contents({
-            folderPath,
-            ignorePatterns: activeIgnorePatterns,
-            maxEntries: MAX_ENTRIES,
-            includeMtime: true,
-            includeSettaInitialized: includeSettaInitializedRef.current,
-            allowOutsideWorkspaceRoot,
-            missingFolderBehavior: "empty",
-          });
+        const res = await route_get_folder_contents({
+          folderPath,
+          ignorePatterns: activeIgnorePatterns,
+          maxEntries: MAX_ENTRIES,
+          includeMtime: true,
+          includeSettaInitialized: includeSettaInitializedRef.current,
+          allowOutsideWorkspaceRoot,
+          missingFolderBehavior: "empty",
+        });
         if (rootRequestIdRef.current !== activeRootRequestId) {
           return null;
         }
@@ -770,13 +718,12 @@ export function FileBrowserPane({
         }
         let loadedNodes: FileNode[] | null = null;
         if (res200(res)) {
-          const resolvedFolderPath = res.data.folderPath;
-          const items = res.data.items;
+          const items = res.data;
           loadedNodes = items.map((item) => ({
             name: item.name,
             fullPath: item.fullPath,
             type: item.type,
-            parentPath: resolvedFolderPath,
+            parentPath: folderPath,
             mtime: item.mtime ?? null,
             isSettaInitialized: item.isSettaInitialized ?? false,
           }));
@@ -790,65 +737,32 @@ export function FileBrowserPane({
           });
           setChildrenByPath((prev) => ({
             ...prev,
-            [resolvedFolderPath]: childPaths,
+            [folderPath]: childPaths,
           }));
           setErrorByPath((prev) => {
-            if (!(resolvedFolderPath in prev) && !(folderPath in prev)) {
+            if (!(folderPath in prev)) {
               return prev;
             }
             const next = { ...prev };
-            delete next[resolvedFolderPath];
             delete next[folderPath];
             return next;
           });
           const activeRootPath = fileBrowserState.getState().rootPath;
-          let effectiveRootPath = activeRootPath;
-          if (
-            activeRootPath === folderPath &&
-            resolvedFolderPath !== folderPath
-          ) {
-            appliedRootRef.current = resolvedFolderPath;
-            fileBrowserState.setState((state) =>
-              getResolvedFileBrowserRootState({
-                state,
-                requestedRootPath: folderPath,
-                resolvedRootPath,
-              }),
-            );
-            setNodesByPath((prev) => {
-              const rootNode = prev[folderPath];
-              if (!rootNode || rootNode.type !== "folder") {
-                return prev;
-              }
-              const next = { ...prev };
-              delete next[folderPath];
-              next[resolvedFolderPath] = {
-                ...rootNode,
-                fullPath: resolvedFolderPath,
-              };
-              return next;
-            });
-            effectiveRootPath = resolvedFolderPath;
-          }
-          if (
-            effectiveRootPath === resolvedFolderPath ||
-            effectiveRootPath === folderPath
-          ) {
+          if (activeRootPath === folderPath) {
             setRootError(null);
           }
           if (
             shouldLoadRootWorkspaceInitializationMetadata({
               includeSettaInitializedFolders:
                 includeSettaInitializedRef.current,
-              folderPath: resolvedFolderPath,
-              rootPath: effectiveRootPath,
+              folderPath,
+              rootPath: activeRootPath,
             })
           ) {
-            const initializationRes: CheckWorkspaceInitializedRouteResponse =
-              await route_check_workspace_initialized({
-                folderPath: resolvedFolderPath,
-                allowOutsideWorkspaceRoot,
-              });
+            const initializationRes = await route_check_workspace_initialized({
+              folderPath,
+              allowOutsideWorkspaceRoot,
+            });
             if (rootRequestIdRef.current !== activeRootRequestId) {
               return null;
             }
@@ -858,7 +772,7 @@ export function FileBrowserPane({
             if (res200(initializationRes)) {
               const isSettaInitialized = initializationRes.data === true;
               setNodesByPath((prev) => {
-                const folderNode = prev[resolvedFolderPath];
+                const folderNode = prev[folderPath];
                 if (!folderNode || folderNode.type !== "folder") {
                   return prev;
                 }
@@ -867,7 +781,7 @@ export function FileBrowserPane({
                 }
                 return {
                   ...prev,
-                  [resolvedFolderPath]: {
+                  [folderPath]: {
                     ...folderNode,
                     isSettaInitialized,
                   },
@@ -1074,8 +988,7 @@ export function FileBrowserPane({
     }
     didLoadRootRef.current = true;
     const loadRoot = async () => {
-      const res: FileBrowserRootRouteResponse =
-        await route_get_file_browser_root();
+      const res = await route_get_file_browser_root();
       if (!res200(res)) {
         let errorMessage = "Failed to load file browser root.";
         if (res.hasResponse && res.status !== undefined) {
@@ -1201,8 +1114,7 @@ export function FileBrowserPane({
     for (const path of pending) {
       fileUrlRequests.current.add(path);
     }
-    const res: FileBrowserDownloadURLsRouteResponse =
-      await route_get_file_browser_download_urls({ paths: pending });
+    const res = await route_get_file_browser_download_urls({ paths: pending });
     for (const path of pending) {
       fileUrlRequests.current.delete(path);
     }
@@ -1360,22 +1272,21 @@ export function FileBrowserPane({
       ) {
         addTemporaryNotification(
           "Cannot move or copy a folder into itself.",
-          NotificationTypeEnum.warning,
+          SettaNotificationTypeEnum.warning,
         );
         return null;
       }
-      const response: TransferFileBrowserEntryRouteResponse =
-        await route_transfer_file_browser_entry({
-          sourcePath: normalizedSourcePath,
-          destinationFolderPath: normalizedDestinationFolderPath,
-          operation,
-        });
+      const response = await route_transfer_file_browser_entry({
+        sourcePath: normalizedSourcePath,
+        destinationFolderPath: normalizedDestinationFolderPath,
+        operation,
+      });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         addTemporaryNotification(
           detail ??
             `Failed to ${operation === "move" ? "move" : "copy"} file browser entry.`,
-          NotificationTypeEnum.error,
+          SettaNotificationTypeEnum.error,
         );
         return null;
       }
