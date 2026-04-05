@@ -5,7 +5,7 @@ from fastapi import Body, Depends, Header, HTTPException, Request, Response, sta
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from setta.auth.cookies import clear_stale_auth_cookies, set_auth_cookie
+from setta.auth.cookies import set_auth_cookie
 from setta.auth.headers import extract_bearer_token_value
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
@@ -637,11 +637,6 @@ async def route_bootstrap_consume(
                 detail="Trusted frontend origin store unavailable",
             ) from exc
         response_payload["launcherOrigin"] = trusted_launcher_origin
-    clear_stale_auth_cookies(
-        response,
-        request,
-        session_id=session_metadata.id,
-    )
     set_auth_cookie(
         response, auth_cookie, session_id=session_metadata.id, request=request
     )

@@ -123,30 +123,6 @@ resolve_path() {
   printf '%s/%s\n' "${base_dir}" "${target_path}"
 }
 
-resolve_ralph_runtime_state_dir() {
-  local configured_dir="${RALPH_RUNTIME_STATE_DIR:-}"
-  local git_dir=""
-
-  if [[ -n "${configured_dir}" ]]; then
-    mkdir -p "${configured_dir}"
-    (
-      cd "${configured_dir}"
-      pwd -P
-    )
-    return 0
-  fi
-
-  if git_dir="$(git -C "${ROOT_DIR}" rev-parse --absolute-git-dir 2>/dev/null)" \
-    && [[ -n "${git_dir}" ]]; then
-    mkdir -p "${git_dir}/ralph-runtime"
-    printf '%s\n' "${git_dir}/ralph-runtime"
-    return 0
-  fi
-
-  mkdir -p "${ROOT_DIR}/.ralph-runtime"
-  printf '%s\n' "${ROOT_DIR}/.ralph-runtime"
-}
-
 file_mtime_seconds() {
   local file_path="$1"
 
@@ -237,50 +213,6 @@ status_value() {
   awk -F= -v target="${key}" '$1 == target { print substr($0, index($0, "=") + 1); exit }' "${file_path}"
 }
 
-write_active_supervisor_run_file() {
-  local status="$1"
-  local note="${2:-}"
-
-  if [[ -z "${supervisor_active_run_file:-}" ]]; then
-    return 0
-  fi
-
-  cat > "${supervisor_active_run_file}" <<EOF
-mode=supervisor
-pid=$$
-root_dir=${ROOT_DIR}
-workdir=${workdir:-}
-output_dir=${output_dir:-}
-supervisor_dir=${supervisor_dir:-}
-current_loop_dir=${current_loop_dir:-}
-current_loop_pid=${current_loop_pid:-}
-stop_request_file=${stop_request_file:-}
-status=${status}
-note=${note}
-EOF
-}
-
-clear_active_supervisor_run_file_if_owned() {
-  local owner_pid=""
-  local owner_root=""
-
-  if [[ -z "${supervisor_active_run_file:-}" ]]; then
-    return 0
-  fi
-
-  if [[ -f "${supervisor_active_run_file}" ]]; then
-    owner_pid="$(status_value "${supervisor_active_run_file}" "pid")"
-    owner_root="$(status_value "${supervisor_active_run_file}" "root_dir")"
-    if [[ "${owner_pid}" == "$$" ]] && [[ "${owner_root}" == "${ROOT_DIR}" ]]; then
-      rm -f "${supervisor_active_run_file}" >/dev/null 2>&1 || true
-    fi
-  fi
-
-  if [[ -n "${stop_request_file:-}" ]]; then
-    rm -f "${stop_request_file}" >/dev/null 2>&1 || true
-  fi
-}
-
 latest_run_dir() {
   local loop_dir="$1"
   local candidates=()
@@ -361,7 +293,6 @@ incident_count=${incident_count}
 last_failure_key=${last_failure_key:-}
 note=${note}
 EOF
-  write_active_supervisor_run_file "${status}" "${note}"
 }
 
 start_loop() {
@@ -375,14 +306,13 @@ start_loop() {
   local cmd=("${loop_script}")
   cmd+=("${loop_args[@]}")
   cmd+=("--output-dir" "${current_loop_dir}")
-  cmd+=("--stop-after-iteration-file" "${stop_request_file}")
 
   printf '%s\n' "[supervisor] starting loop launch ${loop_launch_count} in ${current_loop_dir}" | tee -a "${supervisor_log_file}"
   rm -f "${current_loop_pipe}"
   mkfifo "${current_loop_pipe}"
   tee -a "${current_loop_log}" < "${current_loop_pipe}" &
   current_loop_relay_pid="$!"
-  RALPH_SUPERVISED_LOOP=1 "${cmd[@]}" > "${current_loop_pipe}" 2>&1 &
+  "${cmd[@]}" > "${current_loop_pipe}" 2>&1 &
   current_loop_pid="$!"
   current_loop_started_epoch="$(date +%s)"
   current_loop_exit_code=""
@@ -632,7 +562,6 @@ cleanup() {
   fi
   cleanup_ran="1"
   stop_loop || true
-  clear_active_supervisor_run_file_if_owned || true
   rm -rf "${lock_dir}" >/dev/null 2>&1 || true
 }
 
@@ -775,13 +704,6 @@ while [[ ${#loop_args[@]} -gt 0 ]]; do
       fi
       loop_args=("${loop_args[@]:1}")
       ;;
-    --stop-after-iteration-file)
-      if [[ ${#loop_args[@]} -eq 0 ]]; then
-        echo "Missing value for --stop-after-iteration-file in forwarded loop args" >&2
-        exit 1
-      fi
-      loop_args=("${loop_args[@]:1}")
-      ;;
     --workdir)
       if [[ ${#loop_args[@]} -eq 0 ]]; then
         echo "Missing value for --workdir in forwarded loop args" >&2
@@ -896,10 +818,6 @@ mkdir -p "${output_dir}"
 
 supervisor_dir="${output_dir}/supervisor"
 mkdir -p "${supervisor_dir}"
-runtime_state_dir="$(resolve_ralph_runtime_state_dir)"
-supervisor_active_run_file="${runtime_state_dir}/supervisor-active-run.env"
-stop_request_file="${runtime_state_dir}/supervisor-stop-after-iteration.request"
-rm -f "${stop_request_file}" >/dev/null 2>&1 || true
 supervisor_log_file="${supervisor_dir}/supervisor.log"
 supervisor_status_file="${supervisor_dir}/status.txt"
 lock_dir="${supervisor_dir}/lock"

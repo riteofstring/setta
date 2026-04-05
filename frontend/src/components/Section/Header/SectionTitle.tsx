@@ -15,10 +15,6 @@ import {
 } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  NO_DRAG_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
-} from "utils/constants";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import {
@@ -197,9 +193,7 @@ function EditableTitle({
   };
 
   return (
-    <div
-      className={`relative flex min-w-0 flex-1 flex-col ${NO_DRAG_CLASS_NAME} ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER}`}
-    >
+    <div className="relative flex min-w-0 flex-1 flex-col">
       <Editable
         value={inputValue}
         onChange={onChange}

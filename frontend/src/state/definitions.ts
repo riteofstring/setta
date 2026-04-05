@@ -731,17 +731,6 @@ export const useSectionRefs = withProjectState(
   ),
 );
 
-export type SectionElementSize = {
-  width: number;
-  height: number;
-};
-
-export const useSectionElementSizeRegistry = withProjectState(
-  createWithEqualityFn(
-    withResetFn<Record<string, SectionElementSize>>(() => ({})),
-  ),
-);
-
 export type EdgeHandleRecord = {
   sectionId: string;
   portId: string;

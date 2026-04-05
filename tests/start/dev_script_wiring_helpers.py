@@ -55,8 +55,6 @@ def build_aireset_sandbox(tmp_path: Path) -> Path:
     reset_capture_args = sandbox_root / "reset_args.txt"
     ai_capture_env = sandbox_root / "ai_env.txt"
     ai_capture_args = sandbox_root / "ai_args.txt"
-    kill_capture_env = sandbox_root / "kill_env.txt"
-    kill_capture_args = sandbox_root / "kill_args.txt"
 
     write_stub_executable(
         scripts_dir / "reset-setta-state.sh",
@@ -72,14 +70,6 @@ echo "$*" > "{reset_capture_args}"
 set -euo pipefail
 env | sort > "{ai_capture_env}"
 echo "$*" > "{ai_capture_args}"
-""",
-    )
-    write_stub_executable(
-        scripts_dir / "kill-setta.sh",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-env | sort > "{kill_capture_env}"
-echo "$*" > "{kill_capture_args}"
 """,
     )
 
