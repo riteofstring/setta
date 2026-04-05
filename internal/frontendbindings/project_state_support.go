@@ -16,16 +16,6 @@ type AgenticSummaryCacheStatus struct {
 	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
 }
 
-type DeploymentMetadata httpapi.DeploymentMetadataResponse
-
-type DeploymentMetadataList []DeploymentMetadata
-
-type ShareDeploymentSessionResponse httpapi.ShareDeploymentSessionResponse
-
-type AppDeploymentSessionResponse httpapi.AppDeploymentSessionResponse
-
-type AppDeploymentStateResponse httpapi.AppDeploymentStateResponse
-
 type BackgroundVariant string
 
 type SelectionMode string

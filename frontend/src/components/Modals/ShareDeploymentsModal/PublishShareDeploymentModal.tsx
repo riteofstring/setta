@@ -15,7 +15,7 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   CheckIfFileExistsResponse,
-  DeploymentMetadata,
+  DeploymentMetadataResponse,
   PublishShareDeploymentRequest,
   RunSnapshotMode,
 } from "utils/generatedTypes";
@@ -62,9 +62,9 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<DeploymentMetadata | null>(null);
+    useState<DeploymentMetadataResponse | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<DeploymentMetadata>
+    Array<DeploymentMetadataResponse>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -555,7 +555,7 @@ function RecentDeploymentList({
   onCopy,
   onOpen,
 }: {
-  deployments: Array<DeploymentMetadata>;
+  deployments: Array<DeploymentMetadataResponse>;
   isLoading: boolean;
   onCopy: (value: string) => void;
   onOpen: (value: string) => void;
@@ -638,7 +638,7 @@ function buildShareUrl(): string {
 
 function extractErrorMessage(
   status: number | undefined,
-  data: DeploymentMetadata | undefined,
+  data: DeploymentMetadataResponse | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {

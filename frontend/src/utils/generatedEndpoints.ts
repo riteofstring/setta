@@ -454,7 +454,7 @@ export async function route_get_app_definition(
 
 export async function route_get_app_deployment_latest(
   deploymentName: string,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
   return await get(GoHTTPRouteHelpers.appDeploymentLatest(deploymentName));
 }
 
@@ -723,7 +723,7 @@ export async function route_get_setta_home_info(): Promise<
 
 export async function route_get_share_deployment_latest(
   deploymentName: string,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
   return await get(GoHTTPRouteHelpers.shareDeploymentLatest(deploymentName));
 }
 
@@ -788,12 +788,12 @@ export async function route_launch(
 
 export async function route_list_app_deployment_versions(
   deploymentName: string,
-): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadata>>> {
+): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
   return await get(GoHTTPRouteHelpers.appDeploymentVersions(deploymentName));
 }
 
 export async function route_list_app_deployments(): Promise<
-  ResponseDataAndStatus<Array<gt.DeploymentMetadata>>
+  ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>
 > {
   return await get(GoHTTPRouteHelpers.appDeployments());
 }
@@ -806,12 +806,12 @@ export async function route_list_launcher_directory(
 
 export async function route_list_share_deployment_versions(
   deploymentName: string,
-): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadata>>> {
+): Promise<ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>> {
   return await get(GoHTTPRouteHelpers.shareDeploymentVersions(deploymentName));
 }
 
 export async function route_list_share_deployments(): Promise<
-  ResponseDataAndStatus<Array<gt.DeploymentMetadata>>
+  ResponseDataAndStatus<Array<gt.DeploymentMetadataResponse>>
 > {
   return await get(GoHTTPRouteHelpers.shareDeployments());
 }
@@ -1013,13 +1013,13 @@ export async function route_prepare_sections_for_copy(
 
 export async function route_publish_app_deployment(
   x: gt.PublishAppDeploymentRequest,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
   return await post(GoHTTPRouteHelpers.appDeployments(), x);
 }
 
 export async function route_publish_share_deployment(
   x: gt.PublishShareDeploymentRequest,
-): Promise<ResponseDataAndStatus<gt.DeploymentMetadata>> {
+): Promise<ResponseDataAndStatus<gt.DeploymentMetadataResponse>> {
   return await post(GoHTTPRouteHelpers.shareDeployments(), x);
 }
 

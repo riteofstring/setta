@@ -9,7 +9,6 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/detachedruns"
 	"setta/internal/externalagentconfigs"
-	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
@@ -33,7 +32,6 @@ var frontendBindingTypeNameOverrides = map[reflect.Type]string{
 	reflect.TypeOf(externalagentconfigs.SettingsManagedBlock{}): "ExternalAgentSettingsManagedBlock",
 	reflect.TypeOf(externalagentconfigs.Config{}):               "ExternalAgentConfig",
 	reflect.TypeOf(externalagentconfigs.EnvVarStatus{}):         "ExternalAgentEnvVarStatus",
-	reflect.TypeOf(httpapi.DeploymentMetadataResponse{}):        "DeploymentMetadata",
 	reflect.TypeOf(llmconfig.Transport("")):                     "MCPServerTransport",
 	reflect.TypeOf(llmconfig.ServerConfig{}):                    "MCPServerConfig",
 	reflect.TypeOf(llmconfig.Config{}):                          "LLMConfig",
