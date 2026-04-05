@@ -1,16 +1,23 @@
 import { C } from "./c";
 import {
   ObjectValues,
-  UIEditorTabNameEnum,
-  type UIEditorTabName,
+  RequiredUIEditorTabs,
+  type SectionType,
 } from "./generatedTypes";
 
-export {
-  REQUIRED_UI_EDITOR_TABS,
-  UIEditorTabNameEnum,
-  type UIEditorTabLocalStorage,
-  type UIEditorTabName,
-} from "./generatedTypes";
+export const UIEditorTabNameEnum = {
+  SectionConfig: "SectionConfig",
+  QuickInfoConfig: "QuickInfoConfig",
+  UIConfig: "UIConfig",
+  InfoConfig: "InfoConfig",
+  SectionVariantsConfig: "SectionVariantsConfig",
+} as const;
+
+export type UIEditorTabName = ObjectValues<typeof UIEditorTabNameEnum>;
+export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
+export const REQUIRED_UI_EDITOR_TABS = RequiredUIEditorTabs as Readonly<
+  Record<SectionType, readonly UIEditorTabName[]>
+>;
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 

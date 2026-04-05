@@ -8979,6 +8979,34 @@ export function createWriteFileContentResponse(
   return options as WriteFileContentResponse;
 }
 
+type Constants = {
+  AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;
+  CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: Array<string>;
+  CHAT_ATTACHMENTS_MAX_FILES: number;
+  CHAT_ATTACHMENTS_MAX_FILE_BYTES: number;
+  CHAT_ATTACHMENTS_MAX_FILE_LABEL: string;
+  DEFAULT_HOST: string;
+  DEFAULT_PORT: number;
+  DROPZONE_ALLOWED_MIME_PREFIXES: Array<string>;
+  DROPZONE_STATEFUL_MAX_FILE_BYTES: number;
+  DROPZONE_STATEFUL_MAX_FILE_LABEL: string;
+  DROPZONE_STATELESS_MAX_FILE_BYTES: number;
+  DROPZONE_STATELESS_MAX_FILE_LABEL: string;
+  DROPZONE_STATELESS_MAX_TOTAL_BYTES: number;
+  DROPZONE_STATELESS_MAX_TOTAL_LABEL: string;
+  EDGE_OUTPUT_BASE_LABEL: string;
+  GEN_CODE_SEPARATOR_NEWLINES: number;
+  LLM_TEXT: string;
+  LLM_THINKING: string;
+  NOTIFICATION_IS_FOR_ALL_PROJECTS: string;
+  REALTIME_BINARY_MAX_BYTES: number;
+  SETTA_TERMINAL_READY: string;
+  SETTINGS_PROJECT_NAME: string;
+  WS_TERMINAL_RESIZE: string;
+};
+
+type RequiredUIEditorTabMap = Record<string, Array<string>>;
+
 type JSONValue =
   | null
   | boolean
@@ -9805,6 +9833,32 @@ export const BootstrapProtocol = {
   maxValueLength: 8192,
 } satisfies BootstrapHandoffProtocol;
 
+export const C = {
+  AUTH_COOKIE_REFRESH_WINDOW_SECONDS: 3600,
+  CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: [],
+  CHAT_ATTACHMENTS_MAX_FILES: 10,
+  CHAT_ATTACHMENTS_MAX_FILE_BYTES: 26214400,
+  CHAT_ATTACHMENTS_MAX_FILE_LABEL: "25 MB",
+  DEFAULT_HOST: "127.0.0.1",
+  DEFAULT_PORT: 8000,
+  DROPZONE_ALLOWED_MIME_PREFIXES: [],
+  DROPZONE_STATEFUL_MAX_FILE_BYTES: 26214400,
+  DROPZONE_STATEFUL_MAX_FILE_LABEL: "25 MB",
+  DROPZONE_STATELESS_MAX_FILE_BYTES: 5242880,
+  DROPZONE_STATELESS_MAX_FILE_LABEL: "5 MB",
+  DROPZONE_STATELESS_MAX_TOTAL_BYTES: 16777216,
+  DROPZONE_STATELESS_MAX_TOTAL_LABEL: "16 MB",
+  EDGE_OUTPUT_BASE_LABEL: "value",
+  GEN_CODE_SEPARATOR_NEWLINES: 2,
+  LLM_TEXT: "text",
+  LLM_THINKING: "thinking",
+  NOTIFICATION_IS_FOR_ALL_PROJECTS: "NOTIFICATION_IS_FOR_ALL_PROJECTS",
+  REALTIME_BINARY_MAX_BYTES: 10485760,
+  SETTA_TERMINAL_READY: "SETTA_TERMINAL_READY",
+  SETTINGS_PROJECT_NAME: "settings",
+  WS_TERMINAL_RESIZE: "terminalResize",
+} satisfies Constants;
+
 export const DefaultAppPolicy = {
   allowParamChanges: true,
   allowVariantChanges: false,
@@ -10068,6 +10122,49 @@ export const NameValidationRules = {
   slugReplacementChars: ["[", "]", '"', "'", " "],
 } satisfies NameValidationContract;
 
+export const RequiredUIEditorTabs = {
+  Browser: ["SectionConfig"],
+  Callable: [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig",
+  ],
+  Chart: ["SectionConfig"],
+  Chat: ["SectionConfig"],
+  Code: ["SectionConfig", "SectionVariantsConfig"],
+  Dict: [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig",
+  ],
+  Draw: ["SectionConfig"],
+  GenPythonCode: ["SectionConfig"],
+  GenPythonMetadata: ["SectionConfig"],
+  GlobalVariables: [
+    "SectionConfig",
+    "UIConfig",
+    "QuickInfoConfig",
+    "SectionVariantsConfig",
+  ],
+  Group: ["SectionConfig"],
+  IFrame: [],
+  Image: ["SectionConfig"],
+  ListRoot: ["SectionConfig", "SectionVariantsConfig"],
+  MetaControl: ["SectionConfig"],
+  Plugin: ["SectionConfig"],
+  Prompt: ["SectionConfig"],
+  Social: ["SectionConfig"],
+  Spreadsheet: ["SectionConfig"],
+  StateMachineEnd: ["SectionConfig"],
+  StateMachineGate: ["SectionConfig"],
+  StateMachineStart: ["SectionConfig"],
+  TaskBoard: ["SectionConfig"],
+  Terminal: ["SectionConfig"],
+  TextBlock: ["SectionConfig", "InfoConfig", "SectionVariantsConfig"],
+} satisfies RequiredUIEditorTabMap;
+
 export const ServerModeBoundaryPolicyByMode = {
   app: {
     capabilities: {
@@ -10121,119 +10218,3 @@ function generatedSafeParseFieldPath(
 ): string {
   return fieldName === "" ? propertyName : fieldName + "." + propertyName;
 }
-
-type FrontendConstants = {
-  AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;
-  CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: Array<string>;
-  CHAT_ATTACHMENTS_MAX_FILES: number;
-  CHAT_ATTACHMENTS_MAX_FILE_BYTES: number;
-  CHAT_ATTACHMENTS_MAX_FILE_LABEL: string;
-  DEFAULT_HOST: string;
-  DEFAULT_PORT: number;
-  DROPZONE_ALLOWED_MIME_PREFIXES: Array<string>;
-  DROPZONE_STATEFUL_MAX_FILE_BYTES: number;
-  DROPZONE_STATEFUL_MAX_FILE_LABEL: string;
-  DROPZONE_STATELESS_MAX_FILE_BYTES: number;
-  DROPZONE_STATELESS_MAX_FILE_LABEL: string;
-  DROPZONE_STATELESS_MAX_TOTAL_BYTES: number;
-  DROPZONE_STATELESS_MAX_TOTAL_LABEL: string;
-  EDGE_OUTPUT_BASE_LABEL: string;
-  GEN_CODE_SEPARATOR_NEWLINES: number;
-  LLM_TEXT: string;
-  LLM_THINKING: string;
-  NOTIFICATION_IS_FOR_ALL_PROJECTS: string;
-  REALTIME_BINARY_MAX_BYTES: number;
-  SETTA_TERMINAL_READY: string;
-  SETTINGS_PROJECT_NAME: string;
-  WS_TERMINAL_RESIZE: string;
-};
-
-export const C = {
-  AUTH_COOKIE_REFRESH_WINDOW_SECONDS: 3600,
-  CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES: [],
-  CHAT_ATTACHMENTS_MAX_FILES: 10,
-  CHAT_ATTACHMENTS_MAX_FILE_BYTES: 26214400,
-  CHAT_ATTACHMENTS_MAX_FILE_LABEL: "25 MB",
-  DEFAULT_HOST: "127.0.0.1",
-  DEFAULT_PORT: 8000,
-  DROPZONE_ALLOWED_MIME_PREFIXES: [],
-  DROPZONE_STATEFUL_MAX_FILE_BYTES: 26214400,
-  DROPZONE_STATEFUL_MAX_FILE_LABEL: "25 MB",
-  DROPZONE_STATELESS_MAX_FILE_BYTES: 5242880,
-  DROPZONE_STATELESS_MAX_FILE_LABEL: "5 MB",
-  DROPZONE_STATELESS_MAX_TOTAL_BYTES: 16777216,
-  DROPZONE_STATELESS_MAX_TOTAL_LABEL: "16 MB",
-  EDGE_OUTPUT_BASE_LABEL: "value",
-  GEN_CODE_SEPARATOR_NEWLINES: 2,
-  LLM_TEXT: "text",
-  LLM_THINKING: "thinking",
-  NOTIFICATION_IS_FOR_ALL_PROJECTS: "NOTIFICATION_IS_FOR_ALL_PROJECTS",
-  REALTIME_BINARY_MAX_BYTES: 10485760,
-  SETTA_TERMINAL_READY: "SETTA_TERMINAL_READY",
-  SETTINGS_PROJECT_NAME: "settings",
-  WS_TERMINAL_RESIZE: "terminalResize",
-} as FrontendConstants;
-
-export const UIEditorTabNameEnum = {
-  SectionConfig: "SectionConfig",
-  QuickInfoConfig: "QuickInfoConfig",
-  UIConfig: "UIConfig",
-  InfoConfig: "InfoConfig",
-  SectionVariantsConfig: "SectionVariantsConfig",
-} as const;
-export type UIEditorTabName = ObjectValues<typeof UIEditorTabNameEnum>;
-
-export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
-
-export const REQUIRED_UI_EDITOR_TABS = {
-  [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Callable]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Code]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Dict]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Draw]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.GenPythonMetadata]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.GlobalVariables]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.UIConfig,
-    UIEditorTabNameEnum.QuickInfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.IFrame]: [],
-  [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.ListRoot]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-  [SectionTypeEnum.MetaControl]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Plugin]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Prompt]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Spreadsheet]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.StateMachineEnd]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.StateMachineGate]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.StateMachineStart]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.TaskBoard]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.TextBlock]: [
-    UIEditorTabNameEnum.SectionConfig,
-    UIEditorTabNameEnum.InfoConfig,
-    UIEditorTabNameEnum.SectionVariantsConfig,
-  ],
-} as Record<SectionType, readonly UIEditorTabName[]>;

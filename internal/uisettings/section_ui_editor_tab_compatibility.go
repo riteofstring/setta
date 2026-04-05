@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"setta/internal/projectstate"
 )
 
 //go:embed section_ui_editor_tab_compatibility.json
@@ -56,7 +58,18 @@ func buildRequiredUIEditorTabsBySectionTypeLookup(ordered map[string][]string) m
 func RequiredUIEditorTabsBySectionType() map[string][]string {
 	compatibility := make(map[string][]string, len(requiredUIEditorTabsBySectionTypeOrdered))
 	for sectionType, orderedTabNames := range requiredUIEditorTabsBySectionTypeOrdered {
-		compatibility[sectionType] = append([]string(nil), orderedTabNames...)
+		compatibility[sectionType] = append([]string{}, orderedTabNames...)
+	}
+	return compatibility
+}
+
+type FrontendRequiredUIEditorTabMap map[projectstate.FrontendSectionType][]string
+
+func FrontendValueRequiredUIEditorTabs() FrontendRequiredUIEditorTabMap {
+	ordered := RequiredUIEditorTabsBySectionType()
+	compatibility := make(FrontendRequiredUIEditorTabMap, len(ordered))
+	for sectionType, tabNames := range ordered {
+		compatibility[projectstate.FrontendSectionType(sectionType)] = append([]string{}, tabNames...)
 	}
 	return compatibility
 }

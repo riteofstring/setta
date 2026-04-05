@@ -7,6 +7,7 @@ import (
 	deployments "setta/internal/deployments"
 	httpapi "setta/internal/httpapi"
 	projectstate "setta/internal/projectstate"
+	uisettings "setta/internal/uisettings"
 )
 
 func DiscoveredFrontendValueExports() []frontendValueExport {
@@ -16,6 +17,13 @@ func DiscoveredFrontendValueExports() []frontendValueExport {
 			Type: reflect.TypeOf(httpapi.FrontendValueBootstrapProtocol()),
 			Value: func() any {
 				return httpapi.FrontendValueBootstrapProtocol()
+			},
+		},
+		{
+			Name: "C",
+			Type: reflect.TypeOf(httpapi.FrontendValueC()),
+			Value: func() any {
+				return httpapi.FrontendValueC()
 			},
 		},
 		{
@@ -44,6 +52,13 @@ func DiscoveredFrontendValueExports() []frontendValueExport {
 			Type: reflect.TypeOf(projectstate.FrontendValueNameValidationRules()),
 			Value: func() any {
 				return projectstate.FrontendValueNameValidationRules()
+			},
+		},
+		{
+			Name: "RequiredUIEditorTabs",
+			Type: reflect.TypeOf(uisettings.FrontendValueRequiredUIEditorTabs()),
+			Value: func() any {
+				return uisettings.FrontendValueRequiredUIEditorTabs()
 			},
 		},
 		{

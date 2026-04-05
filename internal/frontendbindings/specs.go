@@ -42,8 +42,6 @@ func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)
 	declarations = append(declarations, safeParseSupportDeclarations()...)
-	declarations = append(declarations, frontendConstantsSupportDeclarations()...)
-	declarations = append(declarations, uiEditorTabSupportDeclarations()...)
 	return declarations
 }
 
