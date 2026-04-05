@@ -1,3 +1,5 @@
+import type { LaunchRequestInput } from "utils/generatedTypes";
+
 type SerializableValue =
   | null
   | boolean
@@ -53,10 +55,10 @@ function stableStringify(value: SerializableValue): string {
 }
 
 export function buildLaunchRequestDedupeKey(
-  request: Readonly<Record<string, unknown>>,
+  request: LaunchRequestInput,
 ): string {
   const canonicalRequest: Record<string, SerializableValue> = {};
-  const requestEntries = Object.entries(request)
+  const requestEntries = Object.entries(request as Record<string, unknown>)
     .filter(([, value]) => value !== null && value !== undefined)
     .sort(([left], [right]) => {
       if (left < right) {

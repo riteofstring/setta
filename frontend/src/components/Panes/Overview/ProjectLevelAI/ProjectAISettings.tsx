@@ -2,8 +2,6 @@ import { buildLLMConfigGroups } from "components/Chat/llmConfigUtils";
 import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import { saveSettings } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -36,18 +34,19 @@ import {
   useShareSession,
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_save_settings } from "utils/generatedEndpoints";
 import {
   AgentProfile,
   ClaudeSettingsSourceEnum,
   ExternalAgentConfig,
-  FormatEnum,
-  RunModeEnum,
-  SettingsModeEnum,
-  Template,
-  ToolTypeEnum,
+  ExternalAgentRunModeEnum,
+  ExternalAgentSettingsModeEnum,
+  ExternalAgentToolTypeEnum,
+  ExternalAgentWorkingDirStrategyEnum,
+  PromptFormatEnum,
+  PromptTemplate,
   TranscriptionProfile,
   TranscriptionTransportModeEnum,
-  WorkingDirStrategyEnum,
   createSettingsState,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
@@ -57,12 +56,14 @@ import {
   normalizeProjectAISettingsAccordionOpenValues,
 } from "./projectAISettingsAccordionState";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
+
 type FieldProps = {
   label: string;
   hint?: string;
   error?: string | null;
   children: ReactNode;
 };
+
 type ProjectAISettingsAccordionItem = {
   value: ProjectAISettingsAccordionItemValue;
   title: string;
@@ -70,6 +71,7 @@ type ProjectAISettingsAccordionItem = {
   triggerTestId: string;
   content: ReactNode;
 };
+
 type AgentProfileDraft = {
   name: string;
   description: string;
@@ -80,10 +82,12 @@ type AgentProfileDraft = {
   toolAllowlistText: string;
   memoryScope: string;
 };
+
 type AgentProfileDraftTextKey = Exclude<
   keyof AgentProfileDraft,
   "enableBackgroundSummaryFill" | "enableLlmChatTitles"
 >;
+
 type PromptTemplateDraft = {
   name: string;
   description: string;
@@ -92,6 +96,7 @@ type PromptTemplateDraft = {
   inputSchemaText: string;
   metadataText: string;
 };
+
 type TranscriptionProfileDraft = {
   name: string;
   transcriptionLlmConfigId: string;
@@ -99,6 +104,7 @@ type TranscriptionProfileDraft = {
   chunkMs: string;
   language: string;
 };
+
 type ExternalAgentConfigDraft = {
   name: string;
   description: string;
@@ -119,19 +125,25 @@ type ExternalAgentConfigDraft = {
   claudeAllowText: string;
   claudeAskText: string;
   claudeDenyText: string;
+  opencodePermissionText: string;
+  opencodeMcpText: string;
 };
-type PromptFormatValue = (typeof FormatEnum)[keyof typeof FormatEnum];
+
+type PromptFormatValue =
+  (typeof PromptFormatEnum)[keyof typeof PromptFormatEnum];
 type ExternalAgentToolTypeValue =
-  (typeof ToolTypeEnum)[keyof typeof ToolTypeEnum];
-type ExternalAgentRunModeValue = (typeof RunModeEnum)[keyof typeof RunModeEnum];
+  (typeof ExternalAgentToolTypeEnum)[keyof typeof ExternalAgentToolTypeEnum];
+type ExternalAgentRunModeValue =
+  (typeof ExternalAgentRunModeEnum)[keyof typeof ExternalAgentRunModeEnum];
 type ExternalAgentSettingsModeValue =
-  (typeof SettingsModeEnum)[keyof typeof SettingsModeEnum];
+  (typeof ExternalAgentSettingsModeEnum)[keyof typeof ExternalAgentSettingsModeEnum];
 type ExternalAgentWorkingDirStrategyValue =
-  (typeof WorkingDirStrategyEnum)[keyof typeof WorkingDirStrategyEnum];
+  (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
 type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 type TranscriptionTransportModeValue =
   (typeof TranscriptionTransportModeEnum)[keyof typeof TranscriptionTransportModeEnum];
+
 const INPUT_CLASS_NAME =
   "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 const TEXTAREA_CLASS_NAME =
@@ -146,6 +158,7 @@ const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180";
 const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
   "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500";
+
 const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(rm:*)",
   "Bash(sudo:*)",
@@ -160,14 +173,8 @@ const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(shutdown:*)",
   "Bash(reboot:*)",
 ];
-const CLAUDE_APPROVAL_POLICY_OPTIONS = [
-  { value: "", label: "Use settings file / chat override" },
-  { value: "default", label: "Default" },
-  { value: "acceptEdits", label: "Accept edits" },
-  { value: "plan", label: "Plan" },
-  { value: "bypassPermissions", label: "YOLO (bypassPermissions)" },
-] as const;
 const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
+
 export function resolveTranscriptionChunkMsForSave({
   transportMode,
   chunkMsInput,
@@ -182,12 +189,13 @@ export function resolveTranscriptionChunkMsForSave({
   if (
     !Number.isInteger(parsedChunkMs) ||
     parsedChunkMs < 200 ||
-    parsedChunkMs > 10000
+    parsedChunkMs > 10_000
   ) {
     return null;
   }
   return parsedChunkMs;
 }
+
 export function ProjectAISettings() {
   useHydrateAgenticState();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -276,7 +284,7 @@ export function ProjectAISettings() {
       {
         value: "project-ai-settings-external-agents",
         title: "External Agents",
-        description: "Configure Claude Code and Codex adapters.",
+        description: "Configure Claude Code, Codex, or OpenCode adapters.",
         triggerTestId: "project-ai-settings-accordion-external-agents",
         content: (
           <div data-setting-anchor="core.project_ai_settings.external_agents">
@@ -287,6 +295,7 @@ export function ProjectAISettings() {
     ],
     [canEdit, isDeploymentMode],
   );
+
   return (
     <div
       data-testid="project-ai-settings-scroll-region"
@@ -303,6 +312,7 @@ export function ProjectAISettings() {
     </div>
   );
 }
+
 function ProjectAISettingsAccordion({
   items,
   openValues,
@@ -331,6 +341,7 @@ function ProjectAISettingsAccordion({
     />
   );
 }
+
 function Field({ label, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
@@ -347,6 +358,7 @@ function Field({ label, hint, error, children }: FieldProps) {
     </div>
   );
 }
+
 function ShareModeNotice() {
   return (
     <div className="rounded-md border border-setta-200/70 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-300">
@@ -354,12 +366,14 @@ function ShareModeNotice() {
     </div>
   );
 }
+
 function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
   const completionGuardEnabled = useSettings(
     (settings) => settings.backend.completionGuardEnabled,
   );
   const [isSavingCompletionGuard, setIsSavingCompletionGuard] = useState(false);
   const completionGuardSaveRequestIdRef = useRef(0);
+
   const handleCompletionGuardEnabledChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       if (!canEdit || isSavingCompletionGuard) {
@@ -378,11 +392,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
       completionGuardSaveRequestIdRef.current = requestId;
       setIsSavingCompletionGuard(true);
       void (async () => {
-        const response = await callOpenAPI(
-          saveSettings({ body: { settings: nextSettings } } as Parameters<
-            typeof saveSettings
-          >[0]),
-        );
+        const response = await route_save_settings({ settings: nextSettings });
         if (requestId !== completionGuardSaveRequestIdRef.current) {
           return;
         }
@@ -400,6 +410,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
     },
     [canEdit, isSavingCompletionGuard],
   );
+
   return (
     <div className="flex flex-col gap-2 rounded-md border border-setta-200/70 bg-setta-50/70 p-3 text-xs text-setta-600 dark:border-setta-800/70 dark:bg-setta-900/40 dark:text-setta-300">
       <label className="flex items-center gap-2">
@@ -427,6 +438,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
 function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
   const { agentProfiles } = useAIStore(
     (state) => ({ agentProfiles: state.agentProfiles }),
@@ -435,6 +447,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<AgentProfileDraft | null>(null);
+
   useEffect(() => {
     if (isCreating) {
       return;
@@ -450,12 +463,14 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(agentProfiles.length > 0 ? agentProfiles[0].id : null);
     }
   }, [activeId, agentProfiles, isCreating]);
+
   const activeProfile = useMemo(() => {
     if (!activeId) {
       return null;
     }
     return agentProfiles.find((profile) => profile.id === activeId) ?? null;
   }, [activeId, agentProfiles]);
+
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -476,8 +491,11 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     setDraft(buildAgentProfileDraft(activeProfile));
   }, [activeProfile, isCreating]);
+
   const listClassName = MANAGER_LIST_CLASS_NAME;
+
   const formClassName = MANAGER_FORM_CLASS_NAME;
+
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -485,6 +503,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
+
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -527,6 +546,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
+
   const handleDelete = async () => {
     if (!activeProfile) {
       return;
@@ -536,6 +556,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
+
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -545,6 +566,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setDraft(buildAgentProfileDraft(activeProfile));
     }
   };
+
   const handleFieldChange = (key: AgentProfileDraftTextKey, value: string) => {
     setDraft((prev) => {
       if (!prev) {
@@ -553,6 +575,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value };
     });
   };
+
   const handleToggleChange = (
     key: "enableBackgroundSummaryFill" | "enableLlmChatTitles",
     value: boolean,
@@ -564,9 +587,11 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value };
     });
   };
+
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -776,6 +801,7 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
 function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
   const { apiKeys, allLLMConfigs, transcriptionProfiles } = useAIStore(
     (state) => ({
@@ -807,6 +833,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     return "";
   }, [configGroups]);
+
   useEffect(() => {
     if (isCreating) {
       return;
@@ -826,6 +853,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       );
     }
   }, [activeId, isCreating, transcriptionProfiles]);
+
   const activeProfile = useMemo(() => {
     if (!activeId) {
       return null;
@@ -834,6 +862,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       transcriptionProfiles.find((profile) => profile.id === activeId) ?? null
     );
   }, [activeId, transcriptionProfiles]);
+
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -851,6 +880,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     setDraft(buildTranscriptionProfileDraft(activeProfile));
   }, [activeProfile, firstConfigId, isCreating]);
+
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -858,6 +888,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
+
   const handleSave = async () => {
     if (!draft || !draft.transcriptionLlmConfigId) {
       return;
@@ -902,6 +933,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
+
   const handleDelete = async () => {
     if (!activeProfile) {
       return;
@@ -913,6 +945,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
+
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -922,6 +955,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setDraft(buildTranscriptionProfileDraft(activeProfile));
     }
   };
+
   const resolvedChunkMs = draft
     ? resolveTranscriptionChunkMsForSave({
         transportMode: draft.transportMode,
@@ -935,6 +969,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     resolvedChunkMs === null;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -1137,6 +1172,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
 function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const { promptTemplates } = useAIStore(
     (state) => ({ promptTemplates: state.promptTemplates }),
@@ -1147,7 +1183,9 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const [draft, setDraft] = useState<PromptTemplateDraft | null>(null);
   const [inputSchemaError, setInputSchemaError] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
-  const formatOptions = useMemo(() => Object.values(FormatEnum), []);
+
+  const formatOptions = useMemo(() => Object.values(PromptFormatEnum), []);
+
   useEffect(() => {
     if (isCreating) {
       return;
@@ -1163,19 +1201,21 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(promptTemplates.length > 0 ? promptTemplates[0].id : null);
     }
   }, [activeId, isCreating, promptTemplates]);
+
   const activeTemplate = useMemo(() => {
     if (!activeId) {
       return null;
     }
     return promptTemplates.find((template) => template.id === activeId) ?? null;
   }, [activeId, promptTemplates]);
+
   useEffect(() => {
     if (isCreating) {
       setDraft({
         name: "",
         description: "",
         template: "",
-        format: FormatEnum.Jinja,
+        format: PromptFormatEnum.Jinja,
         inputSchemaText: "{}",
         metadataText: "{}",
       });
@@ -1191,8 +1231,11 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     setInputSchemaError(null);
     setMetadataError(null);
   }, [activeTemplate, isCreating]);
+
   const listClassName = MANAGER_LIST_CLASS_NAME;
+
   const formClassName = MANAGER_FORM_CLASS_NAME;
+
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -1200,6 +1243,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
+
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -1216,6 +1260,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     }
     setInputSchemaError(null);
     setMetadataError(null);
+
     if (isCreating) {
       const created = await createPromptTemplate({
         name: draft.name.trim(),
@@ -1249,6 +1294,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
+
   const handleDelete = async () => {
     if (!activeTemplate) {
       return;
@@ -1260,6 +1306,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
+
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -1271,6 +1318,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setMetadataError(null);
     }
   };
+
   const handleFieldChange = (
     key: keyof PromptTemplateDraft,
     value: string | PromptFormatValue,
@@ -1282,9 +1330,11 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value } as PromptTemplateDraft;
     });
   };
+
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeTemplate || isCreating;
   const isCancelDisabled = !draft;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -1459,6 +1509,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
 function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const { externalAgentConfigs } = useAIStore(
     (state) => ({ externalAgentConfigs: state.externalAgentConfigs }),
@@ -1467,23 +1518,36 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<ExternalAgentConfigDraft | null>(null);
-  const toolTypeOptions = useMemo(() => Object.values(ToolTypeEnum), []);
-  const runModeOptions = useMemo(() => Object.values(RunModeEnum), []);
+  const [opencodePermissionError, setOpencodePermissionError] = useState<
+    string | null
+  >(null);
+  const [opencodeMcpError, setOpencodeMcpError] = useState<string | null>(null);
+
+  const toolTypeOptions = useMemo(
+    () => Object.values(ExternalAgentToolTypeEnum),
+    [],
+  );
+  const runModeOptions = useMemo(
+    () => Object.values(ExternalAgentRunModeEnum),
+    [],
+  );
   const workingDirOptions = useMemo(
-    () => Object.values(WorkingDirStrategyEnum),
+    () => Object.values(ExternalAgentWorkingDirStrategyEnum),
     [],
   );
   const settingsModeOptions = useMemo(
-    () => Object.values(SettingsModeEnum),
+    () => Object.values(ExternalAgentSettingsModeEnum),
     [],
   );
   const settingsSourceOptions = useMemo(
     () => Object.values(ClaudeSettingsSourceEnum),
     [],
   );
+
   const defaultToolType = toolTypeOptions.length
     ? toolTypeOptions[0]
-    : ToolTypeEnum.codex;
+    : ExternalAgentToolTypeEnum.codex;
+
   useEffect(() => {
     if (isCreating) {
       return;
@@ -1503,6 +1567,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       );
     }
   }, [activeId, externalAgentConfigs, isCreating]);
+
   const activeConfig = useMemo(() => {
     if (!activeId) {
       return null;
@@ -1511,19 +1576,20 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       externalAgentConfigs.find((config) => config.id === activeId) ?? null
     );
   }, [activeId, externalAgentConfigs]);
+
   useEffect(() => {
     if (isCreating) {
       setDraft({
         name: "",
         description: "",
         toolType: defaultToolType,
-        runMode: RunModeEnum.sdk,
+        runMode: ExternalAgentRunModeEnum.sdk,
         commandPath: "",
         baseUrl: "",
         defaultModel: "",
         sandboxPolicy: "",
         approvalPolicy: "",
-        settingsMode: SettingsModeEnum.managed_local,
+        settingsMode: ExternalAgentSettingsModeEnum.managed_local,
         settingsSources: [
           ClaudeSettingsSourceEnum.project,
           ClaudeSettingsSourceEnum.local,
@@ -1531,22 +1597,33 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         settingsFilePath: "",
         settingsAllowSettaEdits: true,
         envVarWhitelistText: "",
-        workingDirStrategy: WorkingDirStrategyEnum.project_root,
+        workingDirStrategy: ExternalAgentWorkingDirStrategyEnum.project_root,
         workingDir: "",
         claudeAllowText: "",
         claudeAskText: DEFAULT_CLAUDE_ASK_RULES.join("\n"),
         claudeDenyText: "",
+        opencodePermissionText: "",
+        opencodeMcpText: "",
       });
+      setOpencodePermissionError(null);
+      setOpencodeMcpError(null);
       return;
     }
     if (!activeConfig) {
       setDraft(null);
+      setOpencodePermissionError(null);
+      setOpencodeMcpError(null);
       return;
     }
     setDraft(buildExternalAgentConfigDraft(activeConfig));
+    setOpencodePermissionError(null);
+    setOpencodeMcpError(null);
   }, [activeConfig, defaultToolType, isCreating]);
+
   const listClassName = MANAGER_LIST_CLASS_NAME;
+
   const formClassName = MANAGER_FORM_CLASS_NAME;
+
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -1554,6 +1631,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
+
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -1561,12 +1639,37 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     const envVarWhitelist = parseListInput(draft.envVarWhitelistText);
     let settingsSources: Array<ClaudeSettingsSourceValue> | null = null;
     if (
-      draft.toolType === ToolTypeEnum.claude_code &&
+      draft.toolType === ExternalAgentToolTypeEnum.claude_code &&
       draft.settingsSources.length > 0
     ) {
       settingsSources = draft.settingsSources;
     }
-    const settingsManagedBlock = buildSettingsManagedBlock(draft, activeConfig);
+    let opencodePermission: OpenCodePermission | null = null;
+    let opencodeMcp: Record<string, unknown> | null = null;
+    if (draft.toolType === ExternalAgentToolTypeEnum.opencode) {
+      const permissionResult = parseOpenCodePermission(
+        draft.opencodePermissionText,
+      );
+      const mcpResult = parseOptionalJsonObject(draft.opencodeMcpText);
+      setOpencodePermissionError(permissionResult.error);
+      setOpencodeMcpError(mcpResult.error);
+      if (permissionResult.error || mcpResult.error) {
+        return;
+      }
+      opencodePermission = permissionResult.value;
+      opencodeMcp = mcpResult.value;
+    } else {
+      setOpencodePermissionError(null);
+      setOpencodeMcpError(null);
+    }
+    const settingsManagedBlock = buildSettingsManagedBlock(
+      draft,
+      activeConfig,
+      {
+        opencodePermission,
+        opencodeMcp,
+      },
+    );
     const payloadBase = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -1607,6 +1710,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
+
   const handleDelete = async () => {
     if (!activeConfig) {
       return;
@@ -1618,6 +1722,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
+
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -1625,8 +1730,11 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     }
     if (activeConfig) {
       setDraft(buildExternalAgentConfigDraft(activeConfig));
+      setOpencodePermissionError(null);
+      setOpencodeMcpError(null);
     }
   };
+
   const handleFieldChange = <K extends keyof ExternalAgentConfigDraft>(
     key: K,
     value: ExternalAgentConfigDraft[K],
@@ -1639,34 +1747,38 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         const toolType = value as ExternalAgentToolTypeValue;
         let nextRunMode = prev.runMode;
         if (
-          toolType === ToolTypeEnum.codex &&
-          prev.runMode === RunModeEnum.sdk
+          toolType === ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.sdk
         ) {
-          nextRunMode = RunModeEnum.app_server;
+          nextRunMode = ExternalAgentRunModeEnum.app_server;
         }
         if (
-          toolType !== ToolTypeEnum.codex &&
-          prev.runMode === RunModeEnum.app_server
+          toolType !== ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.app_server
         ) {
-          nextRunMode = RunModeEnum.sdk;
+          nextRunMode = ExternalAgentRunModeEnum.sdk;
         }
         return { ...prev, toolType, runMode: nextRunMode };
       }
       return { ...prev, [key]: value };
     });
   };
+
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
-  const isClaudeTool = draft?.toolType === ToolTypeEnum.claude_code;
-  const needsBaseUrl = draft?.runMode === RunModeEnum.server;
+  const isClaudeTool =
+    draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
+  const isOpenCodeTool = draft?.toolType === ExternalAgentToolTypeEnum.opencode;
+  const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
   const commandPathPlaceholder =
-    draft?.toolType === ToolTypeEnum.codex &&
-    draft?.runMode === RunModeEnum.app_server
+    draft?.toolType === ExternalAgentToolTypeEnum.codex &&
+    draft?.runMode === ExternalAgentRunModeEnum.app_server
       ? "codex"
       : "node";
   const isExplicitSettingsPath =
-    draft?.settingsMode === SettingsModeEnum.explicit_path;
+    draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -1841,42 +1953,15 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                     disabled={!canEdit}
                   />
                 </Field>
-                <Field
-                  label="Approval Policy"
-                  hint={
-                    draft.toolType === ToolTypeEnum.claude_code
-                      ? "Claude Code permission mode. Choose YOLO to bypass approval prompts when chat permissions stay at config_toml_custom; /permissions yolo still overrides per run."
-                      : undefined
-                  }
-                >
-                  {draft.toolType === ToolTypeEnum.claude_code ? (
-                    <select
-                      value={draft.approvalPolicy}
-                      onChange={(event) =>
-                        handleFieldChange("approvalPolicy", event.target.value)
-                      }
-                      className={SELECT_CLASS_NAME}
-                      disabled={!canEdit}
-                    >
-                      {CLAUDE_APPROVAL_POLICY_OPTIONS.map((option) => (
-                        <option
-                          key={option.value || "default-source"}
-                          value={option.value}
-                        >
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      value={draft.approvalPolicy}
-                      onChange={(event) =>
-                        handleFieldChange("approvalPolicy", event.target.value)
-                      }
-                      className={INPUT_CLASS_NAME}
-                      disabled={!canEdit}
-                    />
-                  )}
+                <Field label="Approval Policy">
+                  <input
+                    value={draft.approvalPolicy}
+                    onChange={(event) =>
+                      handleFieldChange("approvalPolicy", event.target.value)
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit}
+                  />
                 </Field>
               </div>
               <div className="grid gap-3 @[40rem]:grid-cols-2">
@@ -2017,6 +2102,52 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   </div>
                 </>
               ) : null}
+              {isOpenCodeTool ? (
+                <>
+                  <Field
+                    label="OpenCode Permission (JSON)"
+                    hint="Leave blank to use defaults."
+                    error={opencodePermissionError}
+                  >
+                    <textarea
+                      value={draft.opencodePermissionText}
+                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                        handleFieldChange(
+                          "opencodePermissionText",
+                          event.target.value,
+                        );
+                        const result = parseOpenCodePermission(
+                          event.target.value,
+                        );
+                        setOpencodePermissionError(result.error);
+                      }}
+                      className={TEXTAREA_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  </Field>
+                  <Field
+                    label="OpenCode MCP Overrides (JSON)"
+                    hint="Optional. Merged into opencode.json."
+                    error={opencodeMcpError}
+                  >
+                    <textarea
+                      value={draft.opencodeMcpText}
+                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                        handleFieldChange(
+                          "opencodeMcpText",
+                          event.target.value,
+                        );
+                        const result = parseOptionalJsonObject(
+                          event.target.value,
+                        );
+                        setOpencodeMcpError(result.error);
+                      }}
+                      className={TEXTAREA_CLASS_NAME}
+                      disabled={!canEdit}
+                    />
+                  </Field>
+                </>
+              ) : null}
               <Field label="Env Var Whitelist" hint="Names only, one per line.">
                 <textarea
                   value={draft.envVarWhitelistText}
@@ -2093,6 +2224,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
+
 function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
   return {
     name: profile.name ?? "",
@@ -2105,6 +2237,7 @@ function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
     memoryScope: profile.memoryScope ?? "",
   };
 }
+
 function buildTranscriptionProfileDraft(
   profile: TranscriptionProfile,
 ): TranscriptionProfileDraft {
@@ -2116,7 +2249,10 @@ function buildTranscriptionProfileDraft(
     language: profile.language ?? "",
   };
 }
-function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
+
+function buildPromptTemplateDraft(
+  template: PromptTemplate,
+): PromptTemplateDraft {
   return {
     name: template.name ?? "",
     description: template.description ?? "",
@@ -2126,6 +2262,7 @@ function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
     metadataText: JSON.stringify(template.metadata ?? {}, null, 2),
   };
 }
+
 function buildExternalAgentConfigDraft(
   config: ExternalAgentConfig,
 ): ExternalAgentConfigDraft {
@@ -2139,10 +2276,11 @@ function buildExternalAgentConfigDraft(
     defaultModel: config.defaultModel ?? "",
     sandboxPolicy: config.sandboxPolicy ?? "",
     approvalPolicy: config.approvalPolicy ?? "",
-    settingsMode: config.settingsMode ?? SettingsModeEnum.managed_local,
+    settingsMode:
+      config.settingsMode ?? ExternalAgentSettingsModeEnum.managed_local,
     settingsSources:
       config.settingsSources ??
-      (config.toolType === ToolTypeEnum.claude_code
+      (config.toolType === ExternalAgentToolTypeEnum.claude_code
         ? [ClaudeSettingsSourceEnum.project, ClaudeSettingsSourceEnum.local]
         : []),
     settingsFilePath: config.settingsFilePath ?? "",
@@ -2156,18 +2294,27 @@ function buildExternalAgentConfigDraft(
       config.settingsManagedBlock?.claude?.permissions?.ask?.join("\n") ?? "",
     claudeDenyText:
       config.settingsManagedBlock?.claude?.permissions?.deny?.join("\n") ?? "",
+    opencodePermissionText: serializeJson(
+      config.settingsManagedBlock?.opencode?.permission,
+    ),
+    opencodeMcpText: serializeJson(config.settingsManagedBlock?.opencode?.mcp),
   };
 }
+
 function buildSettingsManagedBlock(
   draft: ExternalAgentConfigDraft,
   existing: ExternalAgentConfig | null,
+  opencodeOverrides?: {
+    opencodePermission: OpenCodePermission | null;
+    opencodeMcp: Record<string, unknown> | null;
+  },
 ): ExternalAgentConfig["settingsManagedBlock"] | null {
   const existingBlock = existing?.settingsManagedBlock ?? null;
   const baseBlock: NonNullable<ExternalAgentConfig["settingsManagedBlock"]> =
     existingBlock && typeof existingBlock === "object"
       ? { ...existingBlock }
       : {};
-  if (draft.toolType === ToolTypeEnum.claude_code) {
+  if (draft.toolType === ExternalAgentToolTypeEnum.claude_code) {
     const claudePermissions = {
       allow: parseListInput(draft.claudeAllowText),
       ask: parseListInput(draft.claudeAskText),
@@ -2176,14 +2323,34 @@ function buildSettingsManagedBlock(
     baseBlock.claude = { permissions: claudePermissions };
     return baseBlock;
   }
+  if (draft.toolType === ExternalAgentToolTypeEnum.opencode) {
+    const permission = opencodeOverrides?.opencodePermission ?? null;
+    const mcp = opencodeOverrides?.opencodeMcp ?? null;
+    if (permission === null && mcp === null) {
+      return existingBlock;
+    }
+    const existingOpencode =
+      existingBlock && typeof existingBlock === "object"
+        ? existingBlock.opencode ?? null
+        : null;
+    const opencodeBlock = {
+      permission: permission ?? existingOpencode?.permission ?? null,
+      mcp: mcp ?? existingOpencode?.mcp ?? null,
+      model: existingOpencode?.model ?? null,
+    };
+    baseBlock.opencode = opencodeBlock;
+    return baseBlock;
+  }
   return existingBlock;
 }
+
 function parseListInput(value: string): Array<string> {
   return value
     .split(/[\n,]/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 }
+
 function normalizeOptionalText(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -2191,10 +2358,30 @@ function normalizeOptionalText(value: string): string | null {
   }
   return trimmed;
 }
+
 type JsonParseResult = {
   value: Record<string, unknown>;
   error: string | null;
 };
+
+type OptionalJsonParseResult = {
+  value: Record<string, unknown> | null;
+  error: string | null;
+};
+
+type OpenCodePermission = Record<string, string | Record<string, string>>;
+
+function serializeJson(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "";
+  }
+}
+
 function parseJsonObject(value: string): JsonParseResult {
   if (!value.trim()) {
     return { value: {}, error: null };
@@ -2208,4 +2395,49 @@ function parseJsonObject(value: string): JsonParseResult {
   } catch {
     return { value: {}, error: "Invalid JSON." };
   }
+}
+
+function parseOptionalJsonObject(value: string): OptionalJsonParseResult {
+  if (!value.trim()) {
+    return { value: null, error: null };
+  }
+  const result = parseJsonObject(value);
+  if (result.error) {
+    return { value: null, error: result.error };
+  }
+  return { value: result.value, error: null };
+}
+
+function parseOpenCodePermission(value: string): {
+  value: OpenCodePermission | null;
+  error: string | null;
+} {
+  if (!value.trim()) {
+    return { value: null, error: null };
+  }
+  const result = parseJsonObject(value);
+  if (result.error) {
+    return { value: null, error: result.error };
+  }
+  const entries = Object.entries(result.value);
+  for (const [, entry] of entries) {
+    if (typeof entry === "string") {
+      continue;
+    }
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return {
+        value: null,
+        error: "Permission values must be strings or JSON objects.",
+      };
+    }
+    for (const nested of Object.values(entry)) {
+      if (typeof nested !== "string") {
+        return {
+          value: null,
+          error: "Permission objects must map to string values.",
+        };
+      }
+    }
+  }
+  return { value: result.value as OpenCodePermission, error: null };
 }
