@@ -39,6 +39,12 @@ type LogRequest struct {
 	PageSize int    `json:"pageSize"`
 }
 
+type normalizedLogRequest struct {
+	offset   int
+	pageSize int
+	rev      string
+}
+
 type LogResponse struct {
 	RepoRoot   string   `json:"repoRoot"`
 	HeadBranch *string  `json:"headBranch"`
@@ -122,94 +128,30 @@ func (s *Service) Log(ctx context.Context, request LogRequest) (LogResponse, err
 		return LogResponse{}, &Error{Kind: ErrorNotGitRepo, Message: "Current workspace is not a git repository."}
 	}
 
-	offset := request.Offset
-	if offset < 0 {
-		offset = 0
-	}
-	pageSize := request.PageSize
-	if pageSize < 1 {
-		pageSize = 1
-	}
-	if pageSize > maxLogPageSize {
-		pageSize = maxLogPageSize
+	normalized, err := s.normalizeLogRequest(ctx, repoRoot, request)
+	if err != nil {
+		return LogResponse{}, err
 	}
 
-	rev := strings.TrimSpace(request.Rev)
-	if !request.AllRefs {
-		if rev == "" {
-			return LogResponse{}, &Error{Kind: ErrorInvalidRevision, Message: "Missing revision."}
-		}
-		if strings.HasPrefix(rev, "-") || strings.ContainsRune(rev, '\x00') {
-			return LogResponse{}, &Error{Kind: ErrorInvalidRevision, Message: "Invalid revision."}
-		}
-		if rev != "HEAD" {
-			if err := s.verifyRevision(ctx, repoRoot, rev); err != nil {
-				return LogResponse{}, err
-			}
-		}
+	headBranch := s.logHeadBranch(ctx, repoRoot, normalized.offset)
+	if normalized.offset >= maxLogCount {
+		return s.emptyLogResponse(ctx, repoRoot, request.AllRefs, normalized, headBranch), nil
 	}
 
-	var headBranch *string
-	if offset == 0 {
-		branch, _ := s.headRefInfo(ctx, repoRoot)
-		headBranch = optionalString(branch)
+	if response, err := s.logResponseWhenHeadMissing(ctx, repoRoot, request.AllRefs, normalized, headBranch); err != nil {
+		return LogResponse{}, err
+	} else if response != nil {
+		return *response, nil
 	}
 
-	if offset >= maxLogCount {
-		return LogResponse{
-			RepoRoot:   repoRoot,
-			HeadBranch: headBranch,
-			Commits:    []Commit{},
-			Offset:     offset,
-			PageSize:   pageSize,
-			NextOffset: nil,
-			HasMore:    false,
-			IsCapped:   s.probeHistoryBeyondCap(ctx, repoRoot, request.AllRefs, rev),
-		}, nil
-	}
-
-	remainingBudget := maxLogCount - offset
-	fetchCount := pageSize + 1
-	if fetchCount > remainingBudget {
-		fetchCount = remainingBudget
-	}
-
-	if !request.AllRefs && offset == 0 && rev == "HEAD" {
-		headExists, err := s.verifyHeadExists(ctx, repoRoot)
-		if err != nil {
-			return LogResponse{}, err
-		}
-		if !headExists {
-			return LogResponse{
-				RepoRoot:   repoRoot,
-				HeadBranch: headBranch,
-				Commits:    []Commit{},
-				Offset:     offset,
-				PageSize:   pageSize,
-				NextOffset: nil,
-				HasMore:    false,
-				IsCapped:   false,
-			}, nil
-		}
-	}
-
-	format := "%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(decorate:prefix=,suffix=,separator=%x1d)%x00"
-	args := []string{
-		"log",
-		"--topo-order",
-		fmt.Sprintf("--skip=%d", offset),
-		fmt.Sprintf("--max-count=%d", fetchCount),
-		"--no-color",
-		"-z",
-		fmt.Sprintf("--pretty=format:%s", format),
-	}
-	if request.AllRefs {
-		args = append(args, "--all")
-	} else {
-		args = append(args, rev)
-	}
-
-	result, err := s.runGit(ctx, repoRoot, args, logTimeout, maxLogBytes, maxCommandErrBytes)
+	result, err := s.runGit(
+		ctx,
+		repoRoot,
+		buildGitLogArgs(request.AllRefs, normalized.rev, normalized.offset, logFetchCount(normalized.offset, normalized.pageSize)),
+		logTimeout,
+		maxLogBytes,
+		maxCommandErrBytes,
+	)
 	if err != nil {
 		return LogResponse{}, err
 	}
@@ -223,57 +165,196 @@ func (s *Service) Log(ctx context.Context, request LogRequest) (LogResponse, err
 		}
 	}
 
-	commits := parseGitLogOutput(result.stdout)
-	hasMore := len(commits) > pageSize || result.stdoutTruncated
+	commits, hasMore := parseLogPage(result.stdout, normalized.pageSize, result.stdoutTruncated)
+	commits = s.decorateLogCommits(ctx, repoRoot, commits, headBranch)
+	isCapped := s.logPageIsCapped(ctx, repoRoot, request.AllRefs, normalized.rev, normalized.offset, commits, &hasMore)
+	return LogResponse{
+		RepoRoot:   repoRoot,
+		HeadBranch: headBranch,
+		Commits:    commits,
+		Offset:     normalized.offset,
+		PageSize:   normalized.pageSize,
+		NextOffset: nextLogOffset(normalized.offset, commits, hasMore),
+		HasMore:    hasMore,
+		IsCapped:   isCapped,
+	}, nil
+}
+
+func (s *Service) normalizeLogRequest(ctx context.Context, repoRoot string, request LogRequest) (normalizedLogRequest, error) {
+	normalized := normalizedLogRequest{
+		offset:   request.Offset,
+		pageSize: request.PageSize,
+		rev:      strings.TrimSpace(request.Rev),
+	}
+	if normalized.offset < 0 {
+		normalized.offset = 0
+	}
+	if normalized.pageSize < 1 {
+		normalized.pageSize = 1
+	}
+	if normalized.pageSize > maxLogPageSize {
+		normalized.pageSize = maxLogPageSize
+	}
+	if request.AllRefs {
+		return normalized, nil
+	}
+	if normalized.rev == "" {
+		return normalizedLogRequest{}, &Error{Kind: ErrorInvalidRevision, Message: "Missing revision."}
+	}
+	if strings.HasPrefix(normalized.rev, "-") || strings.ContainsRune(normalized.rev, '\x00') {
+		return normalizedLogRequest{}, &Error{Kind: ErrorInvalidRevision, Message: "Invalid revision."}
+	}
+	if normalized.rev == "HEAD" {
+		return normalized, nil
+	}
+	if err := s.verifyRevision(ctx, repoRoot, normalized.rev); err != nil {
+		return normalizedLogRequest{}, err
+	}
+	return normalized, nil
+}
+
+func (s *Service) logHeadBranch(ctx context.Context, repoRoot string, offset int) *string {
+	if offset != 0 {
+		return nil
+	}
+	branch, _ := s.headRefInfo(ctx, repoRoot)
+	return optionalString(branch)
+}
+
+func (s *Service) emptyLogResponse(
+	ctx context.Context,
+	repoRoot string,
+	allRefs bool,
+	request normalizedLogRequest,
+	headBranch *string,
+) LogResponse {
+	return LogResponse{
+		RepoRoot:   repoRoot,
+		HeadBranch: headBranch,
+		Commits:    []Commit{},
+		Offset:     request.offset,
+		PageSize:   request.pageSize,
+		NextOffset: nil,
+		HasMore:    false,
+		IsCapped:   s.probeHistoryBeyondCap(ctx, repoRoot, allRefs, request.rev),
+	}
+}
+
+func (s *Service) logResponseWhenHeadMissing(
+	ctx context.Context,
+	repoRoot string,
+	allRefs bool,
+	request normalizedLogRequest,
+	headBranch *string,
+) (*LogResponse, error) {
+	if allRefs || request.offset != 0 || request.rev != "HEAD" {
+		return nil, nil
+	}
+	headExists, err := s.verifyHeadExists(ctx, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	if headExists {
+		return nil, nil
+	}
+	response := LogResponse{
+		RepoRoot:   repoRoot,
+		HeadBranch: headBranch,
+		Commits:    []Commit{},
+		Offset:     request.offset,
+		PageSize:   request.pageSize,
+		NextOffset: nil,
+		HasMore:    false,
+		IsCapped:   false,
+	}
+	return &response, nil
+}
+
+func logFetchCount(offset int, pageSize int) int {
+	remainingBudget := maxLogCount - offset
+	fetchCount := pageSize + 1
+	if fetchCount > remainingBudget {
+		return remainingBudget
+	}
+	return fetchCount
+}
+
+func buildGitLogArgs(allRefs bool, rev string, offset int, fetchCount int) []string {
+	format := "%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(decorate:prefix=,suffix=,separator=%x1d)%x00"
+	args := []string{
+		"log",
+		"--topo-order",
+		fmt.Sprintf("--skip=%d", offset),
+		fmt.Sprintf("--max-count=%d", fetchCount),
+		"--no-color",
+		"-z",
+		fmt.Sprintf("--pretty=format:%s", format),
+	}
+	if allRefs {
+		return append(args, "--all")
+	}
+	return append(args, rev)
+}
+
+func parseLogPage(stdout string, pageSize int, stdoutTruncated bool) ([]Commit, bool) {
+	commits := parseGitLogOutput(stdout)
+	hasMore := len(commits) > pageSize || stdoutTruncated
 	if len(commits) > pageSize {
 		commits = commits[:pageSize]
 	}
 	if hasMore && len(commits) == 0 {
 		hasMore = false
 	}
+	return commits, hasMore
+}
 
-	if hasUnexpandedDecorateAtoms(commits) {
-		sanitized := sanitizeCommitDecorations(commits)
-		commitHashes := make(map[string]struct{}, len(commits))
-		for _, commit := range commits {
-			commitHashes[commit.Hash] = struct{}{}
-		}
-		fallback := s.loadCommitDecorationsFromRefs(ctx, repoRoot, commitHashes, headBranch)
-		for index := range commits {
-			if fallback != nil {
-				if decorations, ok := fallback[commits[index].Hash]; ok {
-					commits[index].Decorations = decorations
-					continue
-				}
+func (s *Service) decorateLogCommits(ctx context.Context, repoRoot string, commits []Commit, headBranch *string) []Commit {
+	if !hasUnexpandedDecorateAtoms(commits) {
+		return commits
+	}
+	sanitized := sanitizeCommitDecorations(commits)
+	commitHashes := make(map[string]struct{}, len(commits))
+	for _, commit := range commits {
+		commitHashes[commit.Hash] = struct{}{}
+	}
+	fallback := s.loadCommitDecorationsFromRefs(ctx, repoRoot, commitHashes, headBranch)
+	for index := range commits {
+		if fallback != nil {
+			if decorations, ok := fallback[commits[index].Hash]; ok {
+				commits[index].Decorations = decorations
+				continue
 			}
-			commits[index].Decorations = sanitized[commits[index].Hash]
 		}
+		commits[index].Decorations = sanitized[commits[index].Hash]
 	}
+	return commits
+}
 
-	isCapped := false
-	if offset+len(commits) >= maxLogCount {
-		isCapped = s.probeHistoryBeyondCap(ctx, repoRoot, request.AllRefs, rev)
-		if isCapped {
-			hasMore = false
-		}
+func (s *Service) logPageIsCapped(
+	ctx context.Context,
+	repoRoot string,
+	allRefs bool,
+	rev string,
+	offset int,
+	commits []Commit,
+	hasMore *bool,
+) bool {
+	if offset+len(commits) < maxLogCount {
+		return false
 	}
-
-	var nextOffset *int
-	if hasMore {
-		next := offset + len(commits)
-		nextOffset = &next
+	isCapped := s.probeHistoryBeyondCap(ctx, repoRoot, allRefs, rev)
+	if isCapped {
+		*hasMore = false
 	}
+	return isCapped
+}
 
-	return LogResponse{
-		RepoRoot:   repoRoot,
-		HeadBranch: headBranch,
-		Commits:    commits,
-		Offset:     offset,
-		PageSize:   pageSize,
-		NextOffset: nextOffset,
-		HasMore:    hasMore,
-		IsCapped:   isCapped,
-	}, nil
+func nextLogOffset(offset int, commits []Commit, hasMore bool) *int {
+	if !hasMore {
+		return nil
+	}
+	next := offset + len(commits)
+	return &next
 }
 
 func (s *Service) CommitDetails(ctx context.Context, request CommitDetailsRequest) (CommitDetailsResponse, error) {
