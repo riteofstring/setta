@@ -160,7 +160,7 @@ export async function route_clear_text_field_completion(
 
 export async function route_code_area_completion(
   x: gt.CodeAreaCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.codeAreaCompletion(), x);
 }
 
@@ -418,13 +418,13 @@ export async function route_format_code(
 
 export async function route_gen_code_prefix_completion(
   x: gt.GenCodePrefixCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.genCodePrefixCompletion(), x);
 }
 
 export async function route_gen_code_suffix_completion(
   x: gt.GenCodeSuffixCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.genCodeSuffixCompletion(), x);
 }
 
@@ -516,7 +516,7 @@ export async function route_get_backend_init_status(): Promise<
 
 export async function route_get_chat_section_chat_id(
   x: gt.GetChatSectionChatIDRequest,
-): Promise<ResponseDataAndStatus<gt.ChatSectionChatIDResponse>> {
+): Promise<ResponseDataAndStatus<string>> {
   return await post(GoHTTPRouteHelpers.getChatSectionChatId(), x);
 }
 
@@ -616,10 +616,10 @@ export async function route_get_git_status(): Promise<
   return await post(GoHTTPRouteHelpers.getGitStatus(), null);
 }
 
-export async function route_get_latest_lsp_diagnostics(): Promise<
-  ResponseDataAndStatus<gt.LSPDiagnosticsPayload>
-> {
-  return await post(GoHTTPRouteHelpers.getLatestLspDiagnostics(), null);
+export async function route_get_latest_lsp_diagnostics(
+  x: gt.GetLatestLSPDiagnosticsRequest,
+): Promise<ResponseDataAndStatus<gt.LSPDiagnosticsPayload>> {
+  return await post(GoHTTPRouteHelpers.getLatestLspDiagnostics(), x);
 }
 
 export async function route_get_latest_project_state(
@@ -869,7 +869,7 @@ export async function route_open_launcher_workspace(
 
 export async function route_output_accessor_completion(
   x: gt.OutputAccessorCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.outputAccessorCompletion(), x);
 }
 
@@ -1672,7 +1672,7 @@ export async function route_stop_transcription_session(
 
 export async function route_text_field_completion(
   x: gt.TextFieldCompletionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post(GoHTTPRouteHelpers.textFieldCompletion(), x);
 }
 

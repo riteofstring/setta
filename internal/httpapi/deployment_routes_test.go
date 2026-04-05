@@ -389,7 +389,7 @@ func TestRegisterDeploymentRoutesLoadsShareDeploymentStateFromOverlaySession(t *
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload deploymentProjectStateResponse
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode share state response: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestRegisterDeploymentRoutesLoadsShareDeploymentProjectConfig(t *testing.T)
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload deploymentProjectStateResponse
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode share project config response: %v", err)
 	}

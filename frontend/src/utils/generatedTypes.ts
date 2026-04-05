@@ -5995,6 +5995,11 @@ export type RealtimeDependencyEventMessage = {
   content: RealtimeDependencyEventContent;
 };
 
+export type CodeMirrorCompletion = {
+  label: string;
+  type: string;
+};
+
 export type AllProjectMetadata = {
   defaultProjectConfigId: string | null;
   projectMetadata: Array<ProjectMetadataEntry>;
@@ -6782,8 +6787,6 @@ export type GetChatSectionChatIDRequest = {
   sectionId: string;
 };
 
-export type ChatSectionChatIDResponse = string;
-
 export type GetEngineConfigRequest = {
   configId: string;
 };
@@ -6937,6 +6940,10 @@ export function createFolderContentItem(
 export type ListFolderResponse = {
   folderPath: string;
   items: Array<FolderContentItem>;
+};
+
+export type GetLatestLSPDiagnosticsRequest = {
+  projectConfigId: string;
 };
 
 export type GetLatestProjectStateRequest = {

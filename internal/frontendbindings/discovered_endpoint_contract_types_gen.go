@@ -4,6 +4,7 @@ package frontendbindings
 
 import (
 	"reflect"
+	appgenskills "setta/internal/appgenskills"
 	httpapi "setta/internal/httpapi"
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
 )
@@ -381,6 +382,14 @@ func DiscoveredEndpointContractTypes() []reflect.Type {
 		reflect.TypeOf(httpapi.CreateWorkspaceLaunchIntentResponse{}),
 		reflect.TypeOf(httpapi.LaunchResponse{}),
 		reflect.TypeOf(httpapi.LaunchSessionInfo{}),
+		reflect.TypeOf(appgenskills.NotFoundError{}),
+		reflect.TypeOf(appgenskills.InvalidError{}),
+		reflect.TypeOf(appgenskills.SkillEntry{}),
+		reflect.TypeOf(appgenskills.GetSkillsResponse{}),
+		reflect.TypeOf(appgenskills.SkillContent{}),
+		reflect.TypeOf(appgenskills.UpsertCustomSkillResponse{}),
+		reflect.TypeOf(appgenskills.ServiceOptions{}),
+		reflect.TypeOf(appgenskills.Service{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryVariant{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummaryParam{}),
 		reflect.TypeOf(pythonsdkcontracts.RunnerSummarySection{}),

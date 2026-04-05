@@ -52,12 +52,6 @@ type LoadDeploymentProjectConfigRequest struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
 
-type deploymentProjectStateResponse struct {
-	ProjectState   projectview.SingleConfig `json:"projectState"`
-	CompletedOpIDs []string                 `json:"completedOpIds"`
-	PendingOpIDs   []string                 `json:"pendingOpIds"`
-}
-
 type AppDeploymentStateResponse struct {
 	ProjectState  projectview.SingleConfig    `json:"projectState"`
 	AppDefinition *projectstate.AppDefinition `json:"appDefinition"`
@@ -190,11 +184,7 @@ func shareDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc 
 			return
 		}
 
-		writeJSON(w, http.StatusOK, deploymentProjectStateResponse{
-			ProjectState:   projectState,
-			CompletedOpIDs: []string{},
-			PendingOpIDs:   []string{},
-		})
+		writeJSON(w, http.StatusOK, deploymentProjectStateEnvelope(projectState))
 	}
 }
 
@@ -222,11 +212,7 @@ func shareDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.Hand
 			return
 		}
 
-		writeJSON(w, http.StatusOK, deploymentProjectStateResponse{
-			ProjectState:   projectState,
-			CompletedOpIDs: []string{},
-			PendingOpIDs:   []string{},
-		})
+		writeJSON(w, http.StatusOK, deploymentProjectStateEnvelope(projectState))
 	}
 }
 
@@ -349,6 +335,14 @@ func explicitDeploymentProjectState(runtime *deployments.Runtime, request *http.
 		return projectview.SingleConfig{}, err
 	}
 	return projectview.SingleConfigByProjectID(snapshot.Document, projectConfigID)
+}
+
+func deploymentProjectStateEnvelope(projectState projectview.SingleConfig) ProjectStateSingleConfigWithCompletedOpIDs {
+	return ProjectStateSingleConfigWithCompletedOpIDs{
+		ProjectState:   projectState,
+		CompletedOpIDs: []string{},
+		PendingOpIDs:   []string{},
+	}
 }
 
 func currentDeploymentSnapshot(runtime *deployments.Runtime, request *http.Request) (projectstate.Snapshot, error) {

@@ -54,7 +54,12 @@ func loadSettingsHandler(deps SettingsRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		writeJSON(w, http.StatusOK, deps.SettingsState.Snapshot().Document)
+		response, err := settingsstate.FrontendSettingsStateFromDocument(deps.SettingsState.Snapshot().Document)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
 }
 

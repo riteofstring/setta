@@ -221,6 +221,13 @@ func main() {
 					IncludeNonStringScalars:  true,
 				},
 				{
+					PkgPath:                  "setta/internal/appgenskills",
+					IncludeZeroFieldStructs:  true,
+					IncludeInterfaces:        true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
 					PkgPath:                  "setta/internal/pythonsdkcontracts",
 					IncludeZeroFieldStructs:  true,
 					IncludeInterfaces:        true,

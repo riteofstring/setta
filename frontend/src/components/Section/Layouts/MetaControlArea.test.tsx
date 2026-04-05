@@ -47,9 +47,8 @@ vi.mock("state/definitions", () => {
 });
 
 vi.mock("state/actions/sectionInfos", async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import("state/actions/sectionInfos")
-  >();
+  const actual =
+    await importOriginal<typeof import("state/actions/sectionInfos")>();
   return {
     ...actual,
     dispatchOptimisticProjectStateUpdate: vi.fn(),

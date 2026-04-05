@@ -12,13 +12,7 @@ import (
 	"slices"
 	"strings"
 
-	"setta/internal/appgenskills"
-	binarypayload "setta/internal/binary"
 	"setta/internal/httpapi"
-	"setta/internal/projectstate"
-	"setta/internal/projectview"
-	"setta/internal/realtime"
-	"setta/internal/settingsstate"
 )
 
 const (
@@ -84,45 +78,12 @@ type namedTypeRegistry struct {
 }
 
 var endpointRequestTypeOverrides = map[string]reflect.Type{
-	"POST RouteBinaryUpload":                 reflect.TypeOf(httpapi.BinaryUploadRequest{}),
-	"GET RouteBinaryDownload":                reflect.TypeOf(httpapi.BinaryDownloadRequest{}),
-	"POST RouteShareDeployments":             reflect.TypeOf(httpapi.PublishShareDeploymentRequest{}),
-	"POST RouteAppDeployments":               reflect.TypeOf(httpapi.PublishAppDeploymentRequest{}),
-	"POST RouteShareDeploymentProjectConfig": reflect.TypeOf(httpapi.LoadDeploymentProjectConfigRequest{}),
-	"POST RouteAppDeploymentProjectConfig":   reflect.TypeOf(httpapi.LoadDeploymentProjectConfigRequest{}),
+	"POST RouteBinaryUpload":  reflect.TypeOf(httpapi.BinaryUploadRequest{}),
+	"GET RouteBinaryDownload": reflect.TypeOf(httpapi.BinaryDownloadRequest{}),
 }
 
 var endpointResponseTypeOverrides = map[string]reflect.Type{
-	"GET RouteBinaryDownload":                  reflect.TypeOf(httpapi.BinaryDownloadResponse{}),
-	"POST RouteBinaryUpload":                   reflect.TypeOf(binarypayload.ContentRef{}),
-	"POST RouteGetAppDefinition":               reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
-	"POST RouteValidateAppDefinition":          reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
-	"POST RouteSetAppDefinition":               reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
-	"GET RouteGetAppGenSkills":                 reflect.TypeOf(appgenskills.GetSkillsResponse{}),
-	"POST RouteGetAppGenSkillContent":          reflect.TypeOf(appgenskills.SkillContent{}),
-	"POST RouteUpsertAppGenCustomSkill":        reflect.TypeOf(appgenskills.UpsertCustomSkillResponse{}),
-	"POST RouteGetListenerCoverage":            reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
-	"GET RouteGetServerMode":                   reflect.TypeOf(httpapi.ServerModeResponse{}),
-	"POST RouteGetLatestLSPDiagnostics":        reflect.TypeOf(projectstate.LSPDiagnosticsPayload{}),
-	"POST RouteLoadProjectConfig":              reflect.TypeOf(projectview.SingleConfig{}),
-	"POST RouteSetProjectConfigCodegenTargets": reflect.TypeOf(projectview.SingleConfig{}),
-	"POST RouteShareDeploymentCurrentSession":  reflect.TypeOf(httpapi.ShareDeploymentSessionResponse{}),
-	"POST RouteAppDeploymentCurrentSession":    reflect.TypeOf(httpapi.AppDeploymentSessionResponse{}),
-	"GET RouteShareDeploymentState":            reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}),
-	"POST RouteShareDeploymentProjectConfig":   reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}),
-	"GET RouteAppDeploymentState":              reflect.TypeOf(httpapi.AppDeploymentStateResponse{}),
-	"POST RouteAppDeploymentProjectConfig":     reflect.TypeOf(httpapi.AppDeploymentStateResponse{}),
-	"GET RouteShareDeployments":                reflect.TypeOf([]httpapi.DeploymentMetadataResponse(nil)),
-	"GET RouteShareDeploymentVersions":         reflect.TypeOf([]httpapi.DeploymentMetadataResponse(nil)),
-	"GET RouteShareDeploymentLatest":           reflect.TypeOf(httpapi.DeploymentMetadataResponse{}),
-	"POST RouteShareDeployments":               reflect.TypeOf(httpapi.DeploymentMetadataResponse{}),
-	"GET RouteAppDeployments":                  reflect.TypeOf([]httpapi.DeploymentMetadataResponse(nil)),
-	"GET RouteAppDeploymentVersions":           reflect.TypeOf([]httpapi.DeploymentMetadataResponse(nil)),
-	"GET RouteAppDeploymentLatest":             reflect.TypeOf(httpapi.DeploymentMetadataResponse{}),
-	"POST RouteAppDeployments":                 reflect.TypeOf(httpapi.DeploymentMetadataResponse{}),
-	"POST RouteGetLLMResponse":                 reflect.TypeOf(httpapi.LLMChatIDResponse("")),
-	"POST RouteGetChatSectionChatID":           reflect.TypeOf(httpapi.ChatSectionChatIDResponse("")),
-	"POST RouteLoadSettings":                   reflect.TypeOf(settingsstate.FrontendSettingsState{}),
+	"GET RouteBinaryDownload": reflect.TypeOf(httpapi.BinaryDownloadResponse{}),
 }
 
 func CurrentEndpoints() []EndpointSpec {
@@ -1011,6 +972,9 @@ func (r *sourceResolver) discoverHandlerSpec(
 		env := r.funcParamEnv(ctx, enclosing)
 		return r.analyzeFuncBody(ctx, typed.Body, env)
 	case *ast.CallExpr:
+		if spec, ok := r.discoverWrappedHandlerSpec(ctx, enclosing, typed); ok {
+			return spec, nil
+		}
 		return r.discoverHandlerSpec(ctx, enclosing, typed.Fun)
 	case *ast.Ident:
 		decl := ctx.pkg.funcs[typed.Name]
@@ -1026,6 +990,23 @@ func (r *sourceResolver) discoverHandlerSpec(
 	default:
 		return discoveredHandlerSpec{}, fmt.Errorf("unsupported handler expression %T", handlerExpr)
 	}
+}
+
+func (r *sourceResolver) discoverWrappedHandlerSpec(
+	ctx sourceFileContext,
+	enclosing *ast.FuncDecl,
+	call *ast.CallExpr,
+) (discoveredHandlerSpec, bool) {
+	if call == nil {
+		return discoveredHandlerSpec{}, false
+	}
+	for index := len(call.Args) - 1; index >= 0; index-- {
+		spec, err := r.discoverHandlerSpec(ctx, enclosing, call.Args[index])
+		if err == nil {
+			return spec, true
+		}
+	}
+	return discoveredHandlerSpec{}, false
 }
 
 func returnedFuncBody(fn *ast.FuncDecl) *ast.BlockStmt {
@@ -1144,7 +1125,7 @@ func (r *sourceResolver) decodeRequestTypeFromExpr(
 		if !ok {
 			return sourceTypeRef{}, false
 		}
-		if ident.Name != "decodeJSONBody" && ident.Name != "decodeStrictJSONBody" {
+		if !strings.HasPrefix(ident.Name, "decode") {
 			return sourceTypeRef{}, false
 		}
 		return r.resolveTypeExpr(ctx, fun.Index)
@@ -1153,7 +1134,7 @@ func (r *sourceResolver) decodeRequestTypeFromExpr(
 		if !ok || len(fun.Indices) != 1 {
 			return sourceTypeRef{}, false
 		}
-		if ident.Name != "decodeJSONBody" && ident.Name != "decodeStrictJSONBody" {
+		if !strings.HasPrefix(ident.Name, "decode") {
 			return sourceTypeRef{}, false
 		}
 		return r.resolveTypeExpr(ctx, fun.Indices[0])

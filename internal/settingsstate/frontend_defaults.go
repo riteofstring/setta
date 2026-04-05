@@ -2,6 +2,7 @@ package settingsstate
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
@@ -165,14 +166,32 @@ func frontendDefaultSettingsSection[T any](key string) T {
 	)
 }
 
+func FrontendSettingsStateFromDocument(document Document) (FrontendSettingsState, error) {
+	normalized, err := document.Normalized()
+	if err != nil {
+		return FrontendSettingsState{}, err
+	}
+	return frontendSettingsValue[FrontendSettingsState](normalized)
+}
+
 func frontendDefaultSettingsValue[T any](context string, value any) T {
+	decoded, err := frontendSettingsValue[T](value)
+	if err != nil {
+		panic(context + ": " + err.Error())
+	}
+	return decoded
+}
+
+func frontendSettingsValue[T any](value any) (T, error) {
 	payload, err := json.Marshal(value)
 	if err != nil {
-		panic(context + ": marshal defaults: " + err.Error())
+		var zero T
+		return zero, fmt.Errorf("marshal frontend settings value: %w", err)
 	}
 	var decoded T
 	if err := json.Unmarshal(payload, &decoded); err != nil {
-		panic(context + ": decode defaults: " + err.Error())
+		var zero T
+		return zero, fmt.Errorf("decode frontend settings value: %w", err)
 	}
-	return decoded
+	return decoded, nil
 }
