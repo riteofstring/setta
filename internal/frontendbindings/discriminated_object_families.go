@@ -11,9 +11,9 @@ import (
 )
 
 type discriminatedObjectFamilyMember struct {
-	Type      reflect.Type
-	Value     string
-	ValueExpr string
+	Type     reflect.Type
+	Value    string
+	TypeExpr string
 }
 
 var frontendBindingDiscriminatedFamiliesOnce sync.Once
@@ -80,15 +80,19 @@ func discriminatedObjectFamilyTypeDeclaration(
 		return TypeDeclaration{}, false, nil
 	}
 	t = canonicalFrontendBindingType(t)
+	members, err := discriminatedObjectFamilyMembers(family)
+	if err != nil {
+		return TypeDeclaration{}, false, err
+	}
 	if t == family.BaseType {
-		declaration, err := discriminatedObjectFamilyBaseDeclaration(converter, family)
+		declaration, err := discriminatedObjectFamilyBaseDeclaration(converter, family, members)
 		return declaration, err == nil, err
 	}
-	value, ok := family.DiscriminatorValue(t)
+	member, ok := discriminatedObjectFamilyMemberForType(members, t)
 	if !ok {
 		return TypeDeclaration{}, false, nil
 	}
-	declaration, err := discriminatedObjectFamilyConcreteDeclaration(converter, family, t, value)
+	declaration, err := discriminatedObjectFamilyConcreteDeclaration(converter, family, member, members)
 	return declaration, err == nil, err
 }
 
@@ -140,8 +144,9 @@ func discriminatedObjectFamilyAdditionalDeclarations(
 func discriminatedObjectFamilyBaseDeclaration(
 	converter *typeConverter,
 	family frontendbindingmeta.DiscriminatedObjectFamily,
+	members []discriminatedObjectFamilyMember,
 ) (TypeDeclaration, error) {
-	baseProperties, err := discriminatedObjectFamilyBaseProperties(converter, family)
+	baseProperties, err := discriminatedObjectFamilyBaseProperties(converter, family, members)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -155,19 +160,19 @@ func discriminatedObjectFamilyBaseDeclaration(
 func discriminatedObjectFamilyConcreteDeclaration(
 	converter *typeConverter,
 	family frontendbindingmeta.DiscriminatedObjectFamily,
-	t reflect.Type,
-	value string,
+	member discriminatedObjectFamilyMember,
+	members []discriminatedObjectFamilyMember,
 ) (TypeDeclaration, error) {
-	baseProperties, err := discriminatedObjectFamilyBaseProperties(converter, family)
+	baseProperties, err := discriminatedObjectFamilyBaseProperties(converter, family, members)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
-	properties, err := discriminatedObjectFamilyConcreteProperties(converter, family, t, value)
+	properties, err := discriminatedObjectFamilyConcreteProperties(converter, family, member)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
 	return aliasIntersectionDeclarationFromProperties(
-		frontendBindingTypeName(t),
+		frontendBindingTypeName(member.Type),
 		frontendBindingTypeName(family.BaseType),
 		discriminatedObjectFamilyAliasProperties(baseProperties, properties),
 	), nil
@@ -176,25 +181,17 @@ func discriminatedObjectFamilyConcreteDeclaration(
 func discriminatedObjectFamilyBaseProperties(
 	converter *typeConverter,
 	family frontendbindingmeta.DiscriminatedObjectFamily,
+	members []discriminatedObjectFamilyMember,
 ) ([]TypeProperty, error) {
 	coreProperties, err := converter.structProperties(family.BaseType, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	memberTypes, err := discriminatedObjectFamilyMembers(family)
-	if err != nil {
-		return nil, err
-	}
 	extraProperties := discriminatedObjectFamilyMergedOptionalProperties(
 		coreProperties,
-		memberTypes,
+		members,
 		func(member discriminatedObjectFamilyMember) ([]TypeProperty, error) {
-			return discriminatedObjectFamilyConcreteProperties(
-				converter,
-				family,
-				member.Type,
-				member.Value,
-			)
+			return discriminatedObjectFamilyConcreteProperties(converter, family, member)
 		},
 	)
 	return append(coreProperties, extraProperties...), nil
@@ -203,17 +200,12 @@ func discriminatedObjectFamilyBaseProperties(
 func discriminatedObjectFamilyConcreteProperties(
 	converter *typeConverter,
 	family frontendbindingmeta.DiscriminatedObjectFamily,
-	t reflect.Type,
-	value string,
+	member discriminatedObjectFamilyMember,
 ) ([]TypeProperty, error) {
-	discriminatorTypeExpr, err := discriminatedObjectFamilyDiscriminatorTypeExpr(family, value)
-	if err != nil {
-		return nil, err
-	}
 	return converter.structProperties(
-		t,
+		member.Type,
 		map[string]string{
-			family.DiscriminatorField: discriminatorTypeExpr,
+			family.DiscriminatorField: member.TypeExpr,
 		},
 		nil,
 		nil,
@@ -330,33 +322,24 @@ func discriminatedObjectFamilyMembers(
 			continue
 		}
 		members = append(members, discriminatedObjectFamilyMember{
-			Type:      memberType,
-			Value:     value,
-			ValueExpr: enumExprsByValue[value],
+			Type:     memberType,
+			Value:    value,
+			TypeExpr: "typeof " + enumExprsByValue[value],
 		})
 	}
 	return members, nil
 }
 
-func discriminatedObjectFamilyDiscriminatorTypeExpr(
-	family frontendbindingmeta.DiscriminatedObjectFamily,
-	value string,
-) (string, error) {
-	enumValues, ok, err := discoveredFrontendEnumValues(family.EnumType)
-	if err != nil {
-		return "", err
-	}
-	if !ok {
-		return "", fmt.Errorf("%s does not expose frontend enum values", family.EnumType.String())
-	}
-	enumTypeName := frontendBindingTypeName(family.EnumType)
-	for _, enumValue := range enumValues {
-		if enumValue.Value != value {
-			continue
+func discriminatedObjectFamilyMemberForType(
+	members []discriminatedObjectFamilyMember,
+	t reflect.Type,
+) (discriminatedObjectFamilyMember, bool) {
+	for _, member := range members {
+		if member.Type == t {
+			return member, true
 		}
-		return "typeof " + enumTypeName + "Enum." + enumValue.Name, nil
 	}
-	return "", fmt.Errorf("%s does not expose discriminator value %q", family.EnumType.String(), value)
+	return discriminatedObjectFamilyMember{}, false
 }
 
 func discriminatedObjectFamilyMemberTypeNames(
@@ -382,7 +365,7 @@ func discriminatedObjectFamilyMemberEnumExprs(
 		if predicate != nil && !predicate(member.Type) {
 			continue
 		}
-		values = append(values, member.ValueExpr)
+		values = append(values, strings.TrimPrefix(member.TypeExpr, "typeof "))
 	}
 	return values
 }
