@@ -1,6 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { clearTextFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -13,9 +15,10 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
+import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -35,11 +38,6 @@ import {
   getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import {
-  route_clear_text_field_completion,
-  route_set_callable,
-} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
@@ -221,11 +219,20 @@ function SectionSearchCore({
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
+      true,
     );
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, callable);
+      const impl = getCurrEffectiveCodeObjImplIfPresent(
+        x,
+        sectionId,
+        callable,
+        true,
+      );
+      if (!impl) {
+        return { name: "", description: "", configLanguage };
+      }
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }
@@ -283,11 +290,15 @@ function SectionSearchCore({
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       if (lspEnabled) {
-        route_clear_text_field_completion({
-          projectConfigId,
-          sectionId,
-          paramInfoId: null,
-        });
+        void callOpenAPI(
+          clearTextFieldCompletion({
+            body: {
+              projectConfigId,
+              sectionId,
+              paramInfoId: null,
+            },
+          }),
+        );
       }
       shouldResetValueOnBlur.current = false;
       return;
@@ -434,9 +445,8 @@ async function setCallable(
     callableName,
     refetchParams,
   };
-  const res = await route_set_callable(payload);
-  if (res200(res)) {
-    // state update occurs by websocket
+  const updated = await setCallableAndRefreshProjectState(payload);
+  if (updated) {
     setToNotWaiting();
   }
 }

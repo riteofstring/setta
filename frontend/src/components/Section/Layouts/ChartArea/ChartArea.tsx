@@ -8,7 +8,7 @@ import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
   BaseChartSettingsUnion,
-  ChartData,
+  ChartDataArtifact,
   ChartType,
   ChartTypeEnum,
   SectionTypeEnum,
@@ -124,7 +124,7 @@ function getChartConfig(type: ChartType, setDatasetHidden) {
 
 function updateChartWithNewData(
   chart: Chart,
-  data: ChartData,
+  data: ChartDataArtifact["value"],
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: BaseChartSettingsUnion,

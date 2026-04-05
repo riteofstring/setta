@@ -1,4 +1,10 @@
 import {
+  getAppDeploymentCurrentSession,
+  getAppDeploymentProjectConfig,
+  getAppDeploymentState,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   useAllProjectMetadata,
   useAppConfigs,
   useAppDefinition,
@@ -7,15 +13,15 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { res200 } from "utils/endpointUtils";
 import {
-  route_create_app_session_current,
-  route_get_app_deployment_state,
-  route_load_app_project_config,
-} from "utils/generatedEndpoints";
+  getErrorCode,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import type {
   AppDeploymentSessionResponse,
-  ProjectStateSingleConfig,
+  AppDeploymentStateResponse,
+  SingleConfig,
 } from "utils/generatedTypes";
 
 const APP_SESSION_STORAGE_KEY = "settaAppSession";
@@ -23,6 +29,32 @@ const APP_SESSION_STORAGE_KEY = "settaAppSession";
 type AppSessionOptions = {
   forceNewSession?: boolean;
 };
+
+type AppDeploymentSessionRouteResponse =
+  ResponseDataAndStatus<AppDeploymentSessionResponse>;
+type AppDeploymentStateRouteResponse =
+  ResponseDataAndStatus<AppDeploymentStateResponse>;
+
+function normalizeAppSessionResponse(
+  session: AppDeploymentSessionResponse,
+): AppDeploymentSessionResponse {
+  return {
+    ...session,
+    manifest: session.manifest ?? null,
+    projectMetadata: session.projectMetadata ?? [],
+  };
+}
+
+function normalizeAppDeploymentStateResponse(
+  response: AppDeploymentStateResponse,
+): AppDeploymentStateResponse {
+  return {
+    ...response,
+    appDefinition: response.appDefinition ?? null,
+    appSpec: response.appSpec ?? null,
+    projectState: response.projectState as SingleConfig,
+  };
+}
 
 function clearAppSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
@@ -163,7 +195,7 @@ function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
-    projectMetadata: session.projectMetadata,
+    projectMetadata: session.projectMetadata ?? [],
   });
 }
 
@@ -199,11 +231,13 @@ export async function ensureAppSessionFromCurrentDeployment(
       }
     }
   }
-  const sessionRes = await route_create_app_session_current();
+  const sessionRes = (await callOpenAPI(
+    getAppDeploymentCurrentSession(),
+  )) as AppDeploymentSessionRouteResponse;
   if (!res200(sessionRes)) {
     return null;
   }
-  const session = sessionRes.data;
+  const session = normalizeAppSessionResponse(sessionRes.data);
   setAppSessionFromResponse(session);
   return session;
 }
@@ -238,8 +272,10 @@ export async function initializeAppSessionFromCurrentDeployment(
 
 export async function loadAppDeploymentState({
   projectConfigId,
+  allowRetry = true,
 }: {
   projectConfigId?: string;
+  allowRetry?: boolean;
 } = {}): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
@@ -251,26 +287,58 @@ export async function loadAppDeploymentState({
     return false;
   }
 
-  const res = projectConfigId
-    ? await route_load_app_project_config(
-        shareSession.shareDeploymentName,
-        shareSession.shareDeploymentVersion,
-        { projectConfigId },
-      )
-    : await route_get_app_deployment_state(
-        shareSession.shareDeploymentName,
-        shareSession.shareDeploymentVersion,
-      );
+  const res = (
+    projectConfigId
+      ? await callOpenAPI(
+          getAppDeploymentProjectConfig({
+            path: {
+              deploymentName: shareSession.shareDeploymentName,
+              version: shareSession.shareDeploymentVersion,
+            },
+            body: {
+              projectConfigId,
+            },
+          }),
+        )
+      : await callOpenAPI(
+          getAppDeploymentState({
+            path: {
+              deploymentName: shareSession.shareDeploymentName,
+              version: shareSession.shareDeploymentVersion,
+            },
+          }),
+        )
+  ) as AppDeploymentStateRouteResponse;
   if (!res200(res)) {
+    const errorCode = getErrorCode(res.data);
+    if (
+      allowRetry &&
+      (errorCode === "missing_share_session" ||
+        errorCode === "unknown_share_session")
+    ) {
+      const session = await ensureAppSessionFromCurrentDeployment({
+        forceNewSession: true,
+      });
+      if (session) {
+        if (projectConfigId) {
+          return await loadAppDeploymentState({
+            projectConfigId,
+            allowRetry: false,
+          });
+        }
+        return await loadAppDeploymentState({ allowRetry: false });
+      }
+    }
     return false;
   }
-  if (res.data.appDefinition || res.data.appSpec) {
+  const normalizedResponse = normalizeAppDeploymentStateResponse(res.data);
+  if (normalizedResponse.appDefinition || normalizedResponse.appSpec) {
     useAppDefinition.setState({
-      appDefinition: res.data.appDefinition ?? null,
-      appSpec: res.data.appSpec ?? null,
+      appDefinition: normalizedResponse.appDefinition ?? null,
+      appSpec: normalizedResponse.appSpec ?? null,
     });
   }
-  storeAppConfigState(res.data.projectState);
+  storeAppConfigState(normalizedResponse.projectState);
   return true;
 }
 
@@ -307,7 +375,7 @@ export async function ensureAppProjectConfigLoaded(
   return await loadAppDeploymentState({ projectConfigId });
 }
 
-function storeAppConfigState(projectState: ProjectStateSingleConfig) {
+function storeAppConfigState(projectState: SingleConfig) {
   useAppConfigs.setState((state) => ({
     configs: {
       ...state.configs,

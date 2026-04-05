@@ -1,4 +1,10 @@
+import {
+  getLlmApiKeys,
+  getLlmConfig,
+  type HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
 import { resetProjectStores } from "state/utils";
+import { route_get_agent_runs } from "utils/generatedEndpoints";
 import { createAgentRun } from "utils/generatedTypes";
 import {
   afterAll,
@@ -10,6 +16,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { createJSONStorage } from "zustand/middleware";
 
 const LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
@@ -21,16 +28,90 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_get_agent_runs: vi.fn(),
-    route_get_llm_api_keys: vi.fn(),
-    route_get_llm_config: vi.fn(),
   };
 });
+
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+  return {
+    ...actual,
+    getLlmApiKeys: vi.fn(),
+    getLlmConfig: vi.fn(),
+  };
+});
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: async function <TData, TError>(
+    promise: Promise<{
+      data?: TData;
+      error?: TError;
+      response: Response;
+    }>,
+  ) {
+    const result = await promise;
+    return {
+      data: (result.data ?? result.error) as TData | undefined,
+      status: result.response.status,
+      hasResponse: true,
+    };
+  },
+}));
+
+const mockedGetLlmApiKeys = vi.mocked(getLlmApiKeys);
+const mockedGetLlmConfig = vi.mocked(getLlmConfig);
+const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
 let loadLLMApiKeys: typeof import("state/actions/ai").loadLLMApiKeys;
 let loadLLMConfig: typeof import("state/actions/ai").loadLLMConfig;
 let memoryStorage: Storage;
+
+function createAPIKeysSnapshot(
+  overrides: Partial<HttpapiLlmapiKeysSnapshot> = {},
+): HttpapiLlmapiKeysSnapshot {
+  return {
+    apiKeys: {},
+    corrupt: false,
+    errorCode: null,
+    message: null,
+    revision: 0,
+    ...overrides,
+  };
+}
+
+function mockOpenAPISuccess<T>(
+  url: string,
+  data: T,
+  status: number = 200,
+): { data: T; error: undefined; request: Request; response: Response } {
+  return {
+    data,
+    error: undefined,
+    request: new Request(url),
+    response: new Response(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  };
+}
+
+function mockOpenAPIError(
+  url: string,
+  error: unknown,
+  status: number,
+): { data: undefined; error: unknown; request: Request; response: Response } {
+  return {
+    data: undefined,
+    error,
+    request: new Request(url),
+    response: new Response(JSON.stringify(error), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }),
+  };
+}
 
 describe("AI resource load guards", () => {
   beforeAll(async () => {
@@ -64,11 +145,7 @@ describe("AI resource load guards", () => {
   beforeEach(() => {
     resetProjectStores();
     useAIStore.persist.setOptions({
-      storage: {
-        getItem: memoryStorage.getItem.bind(memoryStorage),
-        setItem: memoryStorage.setItem.bind(memoryStorage),
-        removeItem: memoryStorage.removeItem.bind(memoryStorage),
-      },
+      storage: createJSONStorage(() => memoryStorage),
     });
     vi.clearAllMocks();
   });
@@ -83,31 +160,24 @@ describe("AI resource load guards", () => {
   });
 
   it("deduplicates in-flight llm config loads", async () => {
-    let resolveRequest: ((value: unknown) => void) | null = null;
-    const requestGate = new Promise((resolve) => {
+    let resolveRequest: (() => void) | null = null;
+    const requestGate = new Promise<void>((resolve) => {
       resolveRequest = resolve;
     });
-    const route_get_llm_config = (await import("utils/generatedEndpoints"))
-      .route_get_llm_config as unknown as vi.Mock;
-    route_get_llm_config.mockImplementation(async () => {
+    mockedGetLlmConfig.mockImplementation(async () => {
       await requestGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: {
-          configs: {},
-          mcpServers: {},
-          defaultMcpServerIds: [],
-          default_config_id: null,
-        },
-      };
+      return mockOpenAPISuccess("http://localhost/llm/config", {
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+      }) as Awaited<ReturnType<typeof getLlmConfig>>;
     });
 
     const firstLoad = loadLLMConfig();
     const secondLoad = loadLLMConfig();
-    expect(route_get_llm_config).toHaveBeenCalledTimes(1);
+    expect(mockedGetLlmConfig).toHaveBeenCalledTimes(1);
 
-    resolveRequest?.(undefined);
+    resolveRequest?.();
     await Promise.all([firstLoad, secondLoad]);
 
     const state = useAIStore.getState();
@@ -116,31 +186,28 @@ describe("AI resource load guards", () => {
   });
 
   it("deduplicates in-flight llm api key loads", async () => {
-    let resolveRequest: ((value: unknown) => void) | null = null;
-    const requestGate = new Promise((resolve) => {
+    let resolveRequest: (() => void) | null = null;
+    const requestGate = new Promise<void>((resolve) => {
       resolveRequest = resolve;
     });
-    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llm_api_keys as unknown as vi.Mock;
-    route_get_llm_api_keys.mockImplementation(async () => {
+    mockedGetLlmApiKeys.mockImplementation(async () => {
       await requestGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: {
+      return mockOpenAPISuccess(
+        "http://localhost/llm/apiKeys",
+        createAPIKeysSnapshot({
           apiKeys: {
             OPENAI_API_KEY: "pw-key",
           },
           revision: 2,
-        },
-      };
+        }),
+      ) as Awaited<ReturnType<typeof getLlmApiKeys>>;
     });
 
     const firstLoad = loadLLMApiKeys();
     const secondLoad = loadLLMApiKeys();
-    expect(route_get_llm_api_keys).toHaveBeenCalledTimes(1);
+    expect(mockedGetLlmApiKeys).toHaveBeenCalledTimes(1);
 
-    resolveRequest?.(undefined);
+    resolveRequest?.();
     await Promise.all([firstLoad, secondLoad]);
 
     const state = useAIStore.getState();
@@ -156,19 +223,19 @@ describe("AI resource load guards", () => {
       apiKeysRevision: 7,
       apiKeysAuthoritative: true,
     });
-    const route_get_llm_api_keys = (await import("utils/generatedEndpoints"))
-      .route_get_llm_api_keys as unknown as vi.Mock;
-    route_get_llm_api_keys.mockResolvedValue({
-      status: 503,
-      hasResponse: true,
-      data: {
-        detail: {
-          errorCode: "managed_api_keys_store_unavailable",
-          message: "Managed API key store is unavailable.",
-          revision: 7,
+    mockedGetLlmApiKeys.mockResolvedValue(
+      mockOpenAPIError(
+        "http://localhost/llm/apiKeys",
+        {
+          detail: {
+            errorCode: "managed_api_keys_store_unavailable",
+            message: "Managed API key store is unavailable.",
+            revision: 7,
+          },
         },
-      },
-    });
+        503,
+      ) as Awaited<ReturnType<typeof getLlmApiKeys>>,
+    );
 
     await loadLLMApiKeys();
 
@@ -181,14 +248,12 @@ describe("AI resource load guards", () => {
   });
 
   it("deduplicates in-flight agent run loads", async () => {
-    let resolveRequest: ((value: unknown) => void) | null = null;
-    const requestGate = new Promise((resolve) => {
+    let resolveRequest: (() => void) | null = null;
+    const requestGate = new Promise<void>((resolve) => {
       resolveRequest = resolve;
     });
-    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-      .route_get_agent_runs as unknown as vi.Mock;
-    route_get_agent_runs.mockReset();
-    route_get_agent_runs.mockImplementation(async () => {
+    mockedRouteGetAgentRuns.mockReset();
+    mockedRouteGetAgentRuns.mockImplementation(async () => {
       await requestGate;
       return {
         status: 200,
@@ -199,9 +264,9 @@ describe("AI resource load guards", () => {
 
     const firstLoad = loadAgentRuns();
     const secondLoad = loadAgentRuns();
-    expect(route_get_agent_runs).toHaveBeenCalledTimes(1);
+    expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
 
-    resolveRequest?.(undefined);
+    resolveRequest?.();
     await Promise.all([firstLoad, secondLoad]);
 
     const state = useAIStore.getState();
@@ -211,10 +276,8 @@ describe("AI resource load guards", () => {
   });
 
   it("does not persist native slash metadata from authoritative agent-run loads", async () => {
-    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-      .route_get_agent_runs as unknown as vi.Mock;
-    route_get_agent_runs.mockReset();
-    route_get_agent_runs.mockResolvedValue({
+    mockedRouteGetAgentRuns.mockReset();
+    mockedRouteGetAgentRuns.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: [
@@ -241,10 +304,8 @@ describe("AI resource load guards", () => {
   });
 
   it("keeps the legacy native slash storage key absent when agent-run payloads are empty", async () => {
-    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-      .route_get_agent_runs as unknown as vi.Mock;
-    route_get_agent_runs.mockReset();
-    route_get_agent_runs.mockResolvedValue({
+    mockedRouteGetAgentRuns.mockReset();
+    mockedRouteGetAgentRuns.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: [],
@@ -260,11 +321,9 @@ describe("AI resource load guards", () => {
   it("retries transient agent-runs load failures and recovers to ready", async () => {
     vi.useFakeTimers();
     try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
+      mockedRouteGetAgentRuns.mockReset();
       let callCount = 0;
-      route_get_agent_runs.mockImplementation(async () => {
+      mockedRouteGetAgentRuns.mockImplementation(async () => {
         callCount += 1;
         if (callCount === 1) {
           return {
@@ -307,11 +366,9 @@ describe("AI resource load guards", () => {
   it("downgrades ready authority after transient agent-runs refresh failures", async () => {
     vi.useFakeTimers();
     try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
+      mockedRouteGetAgentRuns.mockReset();
       let callCount = 0;
-      route_get_agent_runs.mockImplementation(async () => {
+      mockedRouteGetAgentRuns.mockImplementation(async () => {
         callCount += 1;
         if (callCount === 1) {
           return {
@@ -356,10 +413,8 @@ describe("AI resource load guards", () => {
   it("marks agent-runs authority as terminal after bounded retry exhaustion", async () => {
     vi.useFakeTimers();
     try {
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
-      route_get_agent_runs.mockResolvedValue({
+      mockedRouteGetAgentRuns.mockReset();
+      mockedRouteGetAgentRuns.mockResolvedValue({
         status: 500,
         hasResponse: true,
         data: { detail: "persistent failure" },
@@ -371,14 +426,14 @@ describe("AI resource load guards", () => {
         agentRunsLoadError: null,
       });
       await loadAgentRuns();
-      expect(route_get_agent_runs).toHaveBeenCalledTimes(1);
+      expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
       await vi.advanceTimersByTimeAsync(4000);
 
       const state = useAIStore.getState();
       expect(state.agentRunsAuthorityState).toBe("terminal_error");
       expect(state.agentRunsInitialLoadComplete).toBe(true);
       expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
-      expect(route_get_agent_runs).toHaveBeenCalledTimes(4);
+      expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(4);
     } finally {
       vi.useRealTimers();
     }
@@ -399,10 +454,8 @@ describe("AI resource load guards", () => {
           },
         }),
       );
-      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-        .route_get_agent_runs as unknown as vi.Mock;
-      route_get_agent_runs.mockReset();
-      route_get_agent_runs.mockResolvedValue({
+      mockedRouteGetAgentRuns.mockReset();
+      mockedRouteGetAgentRuns.mockResolvedValue({
         status: 500,
         hasResponse: true,
         data: { detail: "persistent failure" },

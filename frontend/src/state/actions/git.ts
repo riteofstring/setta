@@ -1,7 +1,11 @@
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_get_git_commit_details,
   route_get_git_commit_file_diff,
@@ -9,7 +13,15 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import { type GitDiffMode, type GitStatusEntry } from "utils/generatedTypes";
+import {
+  type CommitDetailsResponse,
+  type CommitFileDiffResponse,
+  type DiffMode,
+  type DiffResponse,
+  type LogResponse,
+  type StatusEntry,
+  type StatusResponse,
+} from "utils/generatedTypes";
 import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,
@@ -23,6 +35,14 @@ let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
+
+type GitStatusRouteResponse = ResponseDataAndStatus<StatusResponse>;
+type GitDiffRouteResponse = ResponseDataAndStatus<DiffResponse>;
+type GitLogRouteResponse = ResponseDataAndStatus<LogResponse>;
+type GitCommitDetailsRouteResponse =
+  ResponseDataAndStatus<CommitDetailsResponse>;
+type GitCommitFileDiffRouteResponse =
+  ResponseDataAndStatus<CommitFileDiffResponse>;
 
 function getCurrentGitGraphProjectConfigId(): string | null {
   const projectConfigId = useProjectState.getState().projectConfig.id;
@@ -46,7 +66,7 @@ function createClearedGitGraphSelectionState() {
 }
 
 export function buildGitDiffAvailabilityByPath(
-  entries: readonly GitStatusEntry[],
+  entries: readonly StatusEntry[],
 ): Map<string, { hasStaged: boolean; hasUnstaged: boolean }> {
   const availabilityByPath = new Map<
     string,
@@ -116,7 +136,7 @@ export async function refreshGitStatus(): Promise<void> {
     ...state,
     status: { ...state.status, isLoading: true, error: null },
   }));
-  const res = await route_get_git_status();
+  const res: GitStatusRouteResponse = await route_get_git_status();
   if (requestId !== statusRequestId) {
     return;
   }
@@ -165,7 +185,7 @@ async function refreshGitDiff({
 }: {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
   skipPreloadState?: boolean;
 }): Promise<void> {
   const requestId = (diffRequestId += 1);
@@ -192,7 +212,11 @@ async function refreshGitDiff({
     });
   }
 
-  const res = await route_get_git_diff({ path, oldPath, mode });
+  const res: GitDiffRouteResponse = await route_get_git_diff({
+    path,
+    oldPath,
+    mode,
+  });
   if (requestId !== diffRequestId) {
     return;
   }
@@ -242,7 +266,7 @@ export async function openGitDiffOverlay({
 }: {
   path: string;
   oldPath: string | null;
-  mode: GitDiffMode;
+  mode: DiffMode;
 }): Promise<void> {
   const { hasStaged, hasUnstaged } = computeDiffAvailability(path);
   useGitStore.setState((state) => ({
@@ -264,7 +288,7 @@ export async function openGitDiffOverlay({
   await refreshGitDiff({ path, oldPath, mode, skipPreloadState: true });
 }
 
-export async function setGitDiffMode(mode: GitDiffMode): Promise<void> {
+export async function setGitDiffMode(mode: DiffMode): Promise<void> {
   const overlay = useGitStore.getState().overlay;
   if (overlay.kind !== "diff") {
     return;
@@ -337,7 +361,7 @@ async function refreshGitGraph({
     });
   }
 
-  const res = await route_get_git_log({
+  const res: GitLogRouteResponse = await route_get_git_log({
     rev: "HEAD",
     allRefs,
     offset: 0,
@@ -458,7 +482,7 @@ export async function loadMoreGitGraphCommits({
     };
   });
 
-  const res = await route_get_git_log({
+  const res: GitLogRouteResponse = await route_get_git_log({
     rev: "HEAD",
     allRefs,
     offset: nextOffset,
@@ -652,7 +676,9 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     };
   });
 
-  const res = await route_get_git_commit_details({ commitHash });
+  const res: GitCommitDetailsRouteResponse = await route_get_git_commit_details(
+    { commitHash },
+  );
   if (requestId !== commitDetailsRequestId) {
     return;
   }
@@ -741,11 +767,12 @@ export async function selectGitCommitFile({
     };
   });
 
-  const res = await route_get_git_commit_file_diff({
-    commitHash,
-    path,
-    oldPath,
-  });
+  const res: GitCommitFileDiffRouteResponse =
+    await route_get_git_commit_file_diff({
+      commitHash,
+      path,
+      oldPath,
+    });
   if (requestId !== commitFileDiffRequestId) {
     return;
   }
