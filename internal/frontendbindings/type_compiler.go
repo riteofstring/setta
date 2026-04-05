@@ -35,10 +35,11 @@ type typeConverter struct {
 }
 
 type reflectedStructProperty struct {
-	Property  TypeProperty
-	FieldName string
-	FieldType reflect.Type
-	Metadata  tsFieldMetadataSpec
+	Property                     TypeProperty
+	Metadata                     tsFieldMetadataSpec
+	Nullable                     bool
+	CreateTargetTypeName         string
+	MapValueCreateTargetTypeName string
 }
 
 type reflectedObjectDeclarationSpec struct {
@@ -447,18 +448,59 @@ func (c *typeConverter) structPropertySpecs(
 		if tsMetadata.Optional != nil {
 			optional = *tsMetadata.Optional
 		}
+		fieldType, nullable := unwrapNullableFieldType(field.Type)
+		createTargetTypeName, _ := frontendBindingCreateTargetTypeName(fieldType)
+		mapValueCreateTargetTypeName := ""
+		if tsMetadata.CreateMapValues {
+			if fieldType == nil || fieldType.Kind() != reflect.Map {
+				return nil, fmt.Errorf("%s.%s: ts_create_map_values requires a map field", t.Name(), field.Name)
+			}
+			var ok bool
+			mapValueCreateTargetTypeName, ok = frontendBindingCreateTargetTypeName(fieldType.Elem())
+			if !ok {
+				return nil, fmt.Errorf(
+					"%s.%s: ts_create_map_values requires map values with generated create support",
+					t.Name(),
+					field.Name,
+				)
+			}
+		}
 		properties = append(properties, reflectedStructProperty{
 			Property: TypeProperty{
 				Name:     name,
 				TypeExpr: typeExpr,
 				Optional: optional,
 			},
-			FieldName: field.Name,
-			FieldType: field.Type,
-			Metadata:  tsMetadata,
+			Metadata:                     tsMetadata,
+			Nullable:                     nullable,
+			CreateTargetTypeName:         createTargetTypeName,
+			MapValueCreateTargetTypeName: mapValueCreateTargetTypeName,
 		})
 	}
 	return properties, nil
+}
+
+func frontendBindingCreateTargetTypeName(fieldType reflect.Type) (string, bool) {
+	fieldType = canonicalFrontendBindingType(fieldType)
+	if fieldType == timeType {
+		return "", false
+	}
+	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
+		return "", false
+	}
+	if fieldType.Kind() != reflect.Struct {
+		return "", false
+	}
+	return frontendBindingTypeName(fieldType), true
+}
+
+func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
+	nullable := false
+	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
+	return fieldType, nullable
 }
 
 func (c *typeConverter) renderMapKeyExpr(t reflect.Type) (string, error) {

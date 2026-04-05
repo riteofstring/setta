@@ -2,7 +2,6 @@ package frontendbindings
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -21,7 +20,6 @@ func buildGoBackedCreateBodyTS(
 	var fieldBuilder strings.Builder
 	for _, propertySpec := range properties {
 		property := propertySpec.Property
-		tsMetadata := propertySpec.Metadata
 		value, hasDefault := defaultValuesByName[property.Name]
 		if !hasDefault {
 			if !property.Optional {
@@ -31,18 +29,12 @@ func buildGoBackedCreateBodyTS(
 			defaultsObject[property.Name] = value
 			orderedKeys = append(orderedKeys, property.Name)
 		}
-		expr, ok, err := buildGenericCreateFieldExprTS(
-			declarationName+"."+propertySpec.FieldName,
-			propertySpec.FieldType,
-			tsMetadata,
-			property,
+		expr, ok := buildGenericCreateFieldExprTS(
+			propertySpec,
 			tsPropertyAccessExpr("defaults", property.Name),
 			tsPropertyAccessExpr("options", property.Name),
 			hasDefault,
 		)
-		if err != nil {
-			return "", err
-		}
 		if !ok {
 			continue
 		}
@@ -68,27 +60,23 @@ func buildGoBackedCreateBodyTS(
 }
 
 func buildGenericCreateFieldExprTS(
-	fieldContext string,
-	fieldType reflect.Type,
-	tsMetadata tsFieldMetadataSpec,
-	property TypeProperty,
+	propertySpec reflectedStructProperty,
 	defaultExpr string,
 	optionsExpr string,
 	hasDefault bool,
-) (string, bool, error) {
+) (string, bool) {
 	defaultExpr = strings.TrimSpace(defaultExpr)
 	optionsExpr = strings.TrimSpace(optionsExpr)
-	explicitDefaultExpr := strings.TrimSpace(tsMetadata.CreateExpr)
+	explicitDefaultExpr := strings.TrimSpace(propertySpec.Metadata.CreateExpr)
 	if explicitDefaultExpr != "" {
-		_, nullable := unwrapNullableFieldType(fieldType)
-		if nullable {
-			return fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, explicitDefaultExpr), true, nil
+		if propertySpec.Nullable {
+			return fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, explicitDefaultExpr), true
 		}
-		return fmt.Sprintf("%s ?? %s", optionsExpr, explicitDefaultExpr), true, nil
+		return fmt.Sprintf("%s ?? %s", optionsExpr, explicitDefaultExpr), true
 	}
-	if targetTypeName, nullable, ok := frontendObjectCreateTarget(fieldType); ok {
+	if targetTypeName := propertySpec.CreateTargetTypeName; targetTypeName != "" {
 		targetFuncName := "create" + targetTypeName
-		if nullable {
+		if propertySpec.Nullable {
 			if hasDefault {
 				mergedExpr := fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
 				return fmt.Sprintf(
@@ -97,7 +85,7 @@ func buildGenericCreateFieldExprTS(
 					targetFuncName,
 					mergedExpr,
 					targetTypeName,
-				), true, nil
+				), true
 			}
 			return fmt.Sprintf(
 				"%s === undefined || %s === null ? null : %s(%s)",
@@ -105,29 +93,22 @@ func buildGenericCreateFieldExprTS(
 				optionsExpr,
 				targetFuncName,
 				optionsExpr,
-			), true, nil
+			), true
 		}
 		if hasDefault {
-			return fmt.Sprintf("%s(%s ?? %s)", targetFuncName, optionsExpr, defaultExpr), true, nil
+			return fmt.Sprintf("%s(%s ?? %s)", targetFuncName, optionsExpr, defaultExpr), true
 		}
-		return fmt.Sprintf("%s(%s ?? {})", targetFuncName, optionsExpr), true, nil
+		return fmt.Sprintf("%s(%s ?? {})", targetFuncName, optionsExpr), true
 	}
-	if tsMetadata.CreateMapValues {
-		fieldType, nullable := unwrapNullableFieldType(fieldType)
-		if fieldType == nil || fieldType.Kind() != reflect.Map {
-			return "", false, fmt.Errorf("%s ts_create_map_values requires a map field", fieldContext)
-		}
-		targetTypeName, _, ok := frontendObjectCreateTarget(fieldType.Elem())
-		if !ok {
-			return "", false, fmt.Errorf("%s ts_create_map_values requires map values with generated create support", fieldContext)
-		}
+	if propertySpec.Metadata.CreateMapValues {
+		targetTypeName := propertySpec.MapValueCreateTargetTypeName
 		targetFuncName := "create" + targetTypeName
 		defaultSource := "{}"
 		if hasDefault {
 			defaultSource = defaultExpr + " ?? {}"
 		}
 		var builder strings.Builder
-		if nullable {
+		if propertySpec.Nullable {
 			builder.WriteString(optionsExpr)
 			builder.WriteString(" === null\n")
 			builder.WriteString("      ? null\n")
@@ -150,34 +131,10 @@ func buildGenericCreateFieldExprTS(
 		builder.WriteString(">),\n")
 		builder.WriteString("      ]),\n")
 		builder.WriteString("    ) as ")
-		builder.WriteString(property.TypeExpr)
-		return builder.String(), true, nil
+		builder.WriteString(propertySpec.Property.TypeExpr)
+		return builder.String(), true
 	}
-	return "", false, nil
-}
-
-func frontendObjectCreateTarget(fieldType reflect.Type) (string, bool, bool) {
-	fieldType, nullable := unwrapNullableFieldType(fieldType)
-	fieldType = canonicalFrontendBindingType(fieldType)
-	if fieldType == timeType {
-		return "", false, false
-	}
-	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
-		return "", false, false
-	}
-	if fieldType.Kind() != reflect.Struct {
-		return "", false, false
-	}
-	return frontendBindingTypeName(fieldType), nullable, true
-}
-
-func unwrapNullableFieldType(fieldType reflect.Type) (reflect.Type, bool) {
-	nullable := false
-	for fieldType != nil && fieldType.Kind() == reflect.Pointer {
-		nullable = true
-		fieldType = fieldType.Elem()
-	}
-	return fieldType, nullable
+	return "", false
 }
 
 func tsPropertyAccessExpr(baseExpr string, propertyName string) string {
