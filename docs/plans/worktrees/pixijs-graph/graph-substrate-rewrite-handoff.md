@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 15:35 EDT
+Last updated: 2026-04-05 15:43 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `191` fixed the `aireset.sh` restart path so the loop's one allowed self-recovery no longer layers a fresh launch on top of the existing worktree browser/runtime.
+  - Why this slice was needed:
+    - items `189` and `190` showed the same recovery failure twice: after `./aireset.sh`, the latest backend/bootstrap session moved to `8077`, but CDP/runtime discovery still resolved the older worktree browser transport
+    - the live recovery artifacts confirmed the restart path was not actually clean:
+      - `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json` still advertised `debugPort: 9299` with dead pid `69044`
+      - the only live listener for the worktree profile was still Chrome on `127.0.0.1:9297` (`lsof` pid `16225`)
+    - another geometry-authority product slice would have been churn while the required CDP gate was still blocked behind this lifecycle fault
+  - What this slice established:
+    - `aireset.sh` now calls `scripts/kill-setta.sh` before reset and relaunch, so the recovery path becomes a true stop-reset-start sequence for the current worktree
+    - the aireset wiring sandbox now stubs `kill-setta.sh`, and focused coverage proves the stop step happens before reset and before the `ai.sh` relaunch
+    - no production renderer code changed in this iteration; this was a lifecycle/CDP recovery fix so the blocked normalized `rotaryParamCodeObjDefault` visual gate can be retried on the next fresh outer pass
+  - Verification:
+    - focused pytest:
+      - `source activate.sh && pytest tests/start/test_dev_script_wiring_aireset.py`
+      - result: passed (`10 passed`)
+    - static verification:
+      - `git diff --check`
+      - result: passed
+  - Lane status:
+    - the repeated blocker was narrowed from "mixed transport state after aireset" to the next fresh retry on the corrected restart path
+    - the geometry-authority lane is still paused behind the required CDP compare, but the known recovery-script defect is now fixed
+  - Next frontier:
+    - begin the next iteration with a fresh outer lifecycle bootstrap and retry the same normalized `rotaryParamCodeObjDefault` CDP compare on the corrected `aireset.sh` restart path before taking another geometry-authority slice
+    - if fresh-context `chrome-devtools` still times out after a clean restart, keep the blocker explicit as CDP/tooling access rather than reopening more recovery-semantics work
 
 - Ralph item `190` intentionally did not take another product slice because the handoff required one fresh-iteration retry of the blocked CDP visual gate before more geometry-authority work.
   - Why this slice was needed:

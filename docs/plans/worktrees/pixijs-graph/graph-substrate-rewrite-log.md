@@ -7294,6 +7294,32 @@ LOOP_TERMINAL_MARKER: none
   - if fresh-context `chrome-devtools` is still inaccessible on that fresh pass, keep the blocker explicit instead of inventing a non-CDP visual fallback
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-05 191
+
+- Item: Make `aireset.sh` perform a real worktree restart before reset and relaunch so the blocked CDP recovery path stops reusing the old browser/session pair.
+- Status: `subtask_done`
+- Details:
+  - This iteration stayed on the repeated blocker instead of taking another geometry-authority seam move, because items `189` and `190` had already shown the same stale post-recovery transport pattern twice.
+  - Live recovery evidence showed the restart path itself was not clean:
+    - `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-runtime.json` still advertised `debugPort: 9299` with dead pid `69044`
+    - `lsof -iTCP:9297 -sTCP:LISTEN -n -P` showed the only live worktree-profile listener was still Chrome pid `16225` on `9297`
+  - The fix was to make `aireset.sh` call `scripts/kill-setta.sh` before it resets state and relaunches `ai.sh`, so the loop's one allowed self-recovery becomes stop -> reset -> start instead of layering a new launch on top of the old profile/session.
+  - Added focused wiring coverage so this restart contract is explicit:
+    - `tests/start/dev_script_wiring_helpers.py` now creates a `kill-setta.sh` sandbox stub for `aireset` tests
+    - `tests/start/test_dev_script_wiring_aireset.py` now proves the stop step runs before reset and before the `ai.sh` relaunch
+  - No production renderer code changed in this slice; the goal was to remove a known lifecycle fault before the next fresh normalized `rotaryParamCodeObjDefault` CDP retry.
+- Verification:
+  - focused pytest:
+    - `source activate.sh && pytest tests/start/test_dev_script_wiring_aireset.py`
+    - result: passed (`10 passed in 7.64s`)
+  - static verification:
+    - `git diff --check`
+    - result: passed
+- Next action:
+  - start the next iteration from a fresh outer lifecycle bootstrap and rerun the normalized `rotaryParamCodeObjDefault` CDP compare on the corrected restart path before another geometry-authority code slice
+  - if `chrome-devtools` still times out after that clean restart, keep the blocker classified as CDP/tooling access instead of reopening restart semantics
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 190
 
 - Item: Retry the blocked normalized `rotaryParamCodeObjDefault` CDP compare on a fresh outer iteration, then do the one allowed in-iteration worktree recovery if the tool is still inaccessible.

@@ -10,6 +10,51 @@ from tests.start.dev_script_wiring_helpers import (
 )
 
 
+def test_aireset_stops_existing_runtime_before_resetting_state(tmp_path: Path) -> None:
+    sandbox_root = build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    kill_marker = tmp_path / "kill_ran.txt"
+    reset_marker = tmp_path / "reset_ran.txt"
+    ai_marker = tmp_path / "ai_ran.txt"
+
+    write_stub_executable(
+        sandbox_root / "scripts" / "kill-setta.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf 'killed\\n' > "{kill_marker}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "scripts" / "reset-setta-state.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+test -f "{kill_marker}"
+printf 'reset\\n' > "{reset_marker}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "ai.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+test -f "{kill_marker}"
+test -f "{reset_marker}"
+printf 'ai\\n' > "{ai_marker}"
+""",
+    )
+
+    result = run_script(
+        ["bash", str(sandbox_root / "aireset.sh")],
+        cwd=sandbox_root,
+        env=script_env(tmp_path / "unused-bin", home_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert kill_marker.read_text(encoding="utf-8").strip() == "killed"
+    assert reset_marker.read_text(encoding="utf-8").strip() == "reset"
+    assert ai_marker.read_text(encoding="utf-8").strip() == "ai"
+
+
 def test_aireset_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     sandbox_root = build_aireset_sandbox(tmp_path)
     home_dir = tmp_path / "home"
