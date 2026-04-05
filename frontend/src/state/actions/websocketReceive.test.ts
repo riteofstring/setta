@@ -23,7 +23,6 @@ import {
   createProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 const {
   routeGetAuthRefreshStatusMock,
   getAgentRunsMock,
@@ -37,7 +36,6 @@ const {
   getLatestLspDiagnosticsMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
-
 vi.mock("openapi/http", () => ({
   getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
   getAgentRuns: getAgentRunsMock,
@@ -45,32 +43,26 @@ vi.mock("openapi/http", () => ({
   getListenerCoverage: getListenerCoverageMock,
   uploadBinary: uploadBinaryMock,
 }));
-
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_latest_project_state: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getLatestProjectState: vi.fn(),
 }));
-
 vi.mock("state/actions/lspDiagnostics", () => ({
   processLspDiagnostics: vi.fn(),
 }));
-
 vi.mock("state/actions/aiFollow", () => ({
   requestAIFollowSnapshot: vi.fn(),
   receiveAIFollowToolArgumentsUpdate: vi.fn(),
   receiveAIFollowToolResultUpdate: vi.fn(),
 }));
-
 vi.mock("state/actions/notifications", () => ({
   addNotificationFromWebsocketMsg: vi.fn(),
   addTemporaryNotification: vi.fn(),
 }));
-
 vi.mock("state/actions/uiSettingReveal", async () => {
   const actual = await vi.importActual<
     typeof import("state/actions/uiSettingReveal")
@@ -80,13 +72,11 @@ vi.mock("state/actions/uiSettingReveal", async () => {
     receiveUISettingReveal: vi.fn(),
   };
 });
-
 vi.mock("state/actions/websocketConnectionList", () => ({
   addWebsocketConnection: vi.fn(),
   clearAllWebsocketConnections: vi.fn(),
   setWebsocketConnections: vi.fn(),
 }));
-
 vi.mock("state/actions/sectionInfos", async () => {
   const actual = await vi.importActual<
     typeof import("state/actions/sectionInfos")
@@ -96,7 +86,6 @@ vi.mock("state/actions/sectionInfos", async () => {
     processProjectStateUpdateFromBackend: vi.fn(),
   };
 });
-
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
   static CONNECTING = 0;
@@ -131,7 +120,6 @@ class MockWebSocket {
     }
   }
 }
-
 function buildUISettingRevealMessage({
   id,
   requestId,
@@ -141,7 +129,10 @@ function buildUISettingRevealMessage({
   id: string;
   requestId: string;
   settingId: string;
-  revealActivationSteps?: Array<{ type: string; itemValue: string }>;
+  revealActivationSteps?: Array<{
+    type: string;
+    itemValue: string;
+  }>;
 }) {
   return {
     id,
@@ -168,11 +159,15 @@ function buildUISettingRevealMessage({
     },
   };
 }
-
 function findRevealResultPayload(
   socket: MockWebSocket,
   requestId: string,
-): { requestId?: string; statuses?: unknown } | undefined {
+):
+  | {
+      requestId?: string;
+      statuses?: unknown;
+    }
+  | undefined {
   const parsedPayloads = socket.send.mock.calls
     .map((call) => call[0])
     .filter((payload): payload is string => typeof payload === "string")
@@ -180,7 +175,10 @@ function findRevealResultPayload(
       try {
         return JSON.parse(payload) as {
           messageType?: string;
-          content?: { requestId?: string; statuses?: unknown };
+          content?: {
+            requestId?: string;
+            statuses?: unknown;
+          };
         };
       } catch {
         return null;
@@ -191,7 +189,10 @@ function findRevealResultPayload(
         payload,
       ): payload is {
         messageType?: string;
-        content?: { requestId?: string; statuses?: unknown };
+        content?: {
+          requestId?: string;
+          statuses?: unknown;
+        };
       } => payload !== null,
     );
   const matchingPayload = parsedPayloads.find(
@@ -201,16 +202,17 @@ function findRevealResultPayload(
   );
   return matchingPayload?.content;
 }
-
 describe("openWebSocket", () => {
   const expectedFrontendWebsocketPath = GoWebsocketRouteHelpers.frontend();
-
   beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
     vi.useFakeTimers();
-    (globalThis as unknown as { window?: typeof globalThis }).window =
-      globalThis;
+    (
+      globalThis as unknown as {
+        window?: typeof globalThis;
+      }
+    ).window = globalThis;
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     const { getAgentRuns, getAuthRefreshStatus, getListenerCoverage } =
       await import("openapi/http");
@@ -230,7 +232,6 @@ describe("openWebSocket", () => {
       hasResponse: true,
     });
   });
-
   afterEach(async () => {
     for (const socket of MockWebSocket.instances) {
       await socket.emit("close", { code: 1000 });
@@ -241,7 +242,6 @@ describe("openWebSocket", () => {
     vi.clearAllMocks();
     resetProjectStores();
   });
-
   it("hydrates LSP diagnostics after loading project state", async () => {
     const projectConfig = createProjectConfig({
       id: "project-1",
@@ -256,17 +256,13 @@ describe("openWebSocket", () => {
       state.sectionImpls = {};
       state.previewSectionVariantMap = {};
     });
-
     const { getLatestLspDiagnostics } = await import("openapi/http");
-    const { route_get_latest_project_state } = await import(
-      "utils/generatedEndpoints"
-    );
+    const { getLatestProjectState } = await import("openapi/http");
     const { processLspDiagnostics } = await import(
       "state/actions/lspDiagnostics"
     );
     const { requestAIFollowSnapshot } = await import("state/actions/aiFollow");
     const { openWebSocket } = await import("state/actions/websocketReceive");
-
     const diagnosticsPayload = createLSPDiagnosticsPayload({
       projectConfigId: "project-1",
       genCode: createProjectConfigDiagnostics({
@@ -277,8 +273,7 @@ describe("openWebSocket", () => {
       codeSections: {},
       unmappedGenCode: [],
     });
-
-    vi.mocked(route_get_latest_project_state).mockResolvedValue({
+    vi.mocked(getLatestProjectState).mockResolvedValue({
       status: 200,
       data: {
         projectState: projectConfig,
@@ -292,14 +287,11 @@ describe("openWebSocket", () => {
       data: diagnosticsPayload,
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
-
-    expect(route_get_latest_project_state).toHaveBeenCalledWith({
+    expect(getLatestProjectState).toHaveBeenCalledWith({
       projectConfigId: "project-1",
     });
     expect(requestAIFollowSnapshot).toHaveBeenCalledWith("project-1");
@@ -310,26 +302,20 @@ describe("openWebSocket", () => {
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
   });
-
   it("connects IDE mode through the Go frontend websocket route", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     expect(new URL(socket?.url ?? "http://invalid").pathname).toBe(
       expectedFrontendWebsocketPath,
     );
     expect(socket?.url).not.toContain("/share/frontend");
   });
-
   it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-
     openWebSocket("/project", "share-session-route");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     const socketUrl = new URL(socket?.url ?? "http://invalid");
     expect(socketUrl.pathname).toBe(expectedFrontendWebsocketPath);
@@ -338,7 +324,6 @@ describe("openWebSocket", () => {
     );
     expect(socket?.url).not.toContain("/share/frontend");
   });
-
   it("merges workflow run websocket updates into the agent run store", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     useAIStore.setState({
@@ -354,10 +339,8 @@ describe("openWebSocket", () => {
         }),
       ],
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -383,19 +366,15 @@ describe("openWebSocket", () => {
         }),
       }),
     });
-
     expect(
       useAIStore.getState().agentRuns.find((run) => run.id === "workflow-run-1")
         ?.status,
     ).toBe("completed");
   });
-
   it("applies listener coverage snapshots from websocket messages", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -414,7 +393,6 @@ describe("openWebSocket", () => {
         }),
       }),
     });
-
     expect(useListenerCoverage.getState().byProjectId["project-1"]).toEqual({
       hasRealtimeWildcard: false,
       dependenciesByKey: {
@@ -426,34 +404,28 @@ describe("openWebSocket", () => {
       },
     });
   });
-
   it("does not send realtime ui changes when listener coverage is unknown", async () => {
     const { openWebSocket, sendRealtimeSectionLiteral } = await import(
       "state/actions/websocketReceive"
     );
     openWebSocket("/project", "share-session-ui-coverage-unknown");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     const sendCallCountBefore = socket.send.mock.calls.length;
-
     sendRealtimeSectionLiteral(
       "section-unknown-coverage",
       "hello",
       "project-ui-coverage-unknown",
     );
-
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
-
   it("sends realtime ui changes when listener coverage includes the dependency", async () => {
     const { openWebSocket, sendRealtimeSectionLiteral } = await import(
       "state/actions/websocketReceive"
     );
     openWebSocket("/project", "share-session-ui-coverage-known");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     useListenerCoverage.setState((state) => {
@@ -468,13 +440,11 @@ describe("openWebSocket", () => {
       };
     });
     const sendCallCountBefore = socket.send.mock.calls.length;
-
     sendRealtimeSectionLiteral(
       "section-covered",
       "hello",
       "project-ui-covered",
     );
-
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore + 1);
     const laterMessages = socket.send.mock.calls
       .slice(sendCallCountBefore)
@@ -486,12 +456,13 @@ describe("openWebSocket", () => {
     ) as
       | {
           content?: {
-            dependencyKey?: { sectionId?: string };
+            dependencyKey?: {
+              sectionId?: string;
+            };
             projectConfigId?: string;
           };
         }
       | undefined;
-
     expect(realtimeMessage?.content?.projectConfigId).toBe(
       "project-ui-covered",
     );
@@ -499,14 +470,12 @@ describe("openWebSocket", () => {
       "section-covered",
     );
   });
-
   it("does not send realtime ui changes excluded by known coverage", async () => {
     const { openWebSocket, sendRealtimeSectionLiteral } = await import(
       "state/actions/websocketReceive"
     );
     openWebSocket("/project", "share-session-ui-coverage-excluded");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     useListenerCoverage.setState((state) => {
@@ -521,27 +490,22 @@ describe("openWebSocket", () => {
       };
     });
     const sendCallCountBefore = socket.send.mock.calls.length;
-
     sendRealtimeSectionLiteral(
       "section-not-covered",
       "hello",
       "project-ui-excluded",
     );
-
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
-
   it("sends realtime dependency events when listener coverage is unknown", async () => {
     const { openWebSocket, sendRealtimeDependencyEvent } = await import(
       "state/actions/websocketReceive"
     );
     openWebSocket("/project", "share-session-coverage-unknown");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     const sendCallCountBefore = socket.send.mock.calls.length;
-
     sendRealtimeDependencyEvent(
       {
         dependencyKey: {
@@ -555,17 +519,14 @@ describe("openWebSocket", () => {
       },
       "project-unknown-coverage",
     );
-
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore + 1);
   });
-
   it("does not send realtime dependency events excluded by known coverage", async () => {
     const { openWebSocket, sendRealtimeDependencyEvent } = await import(
       "state/actions/websocketReceive"
     );
     openWebSocket("/project", "share-session-coverage-known");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     useListenerCoverage.setState((state) => {
@@ -580,7 +541,6 @@ describe("openWebSocket", () => {
       };
     });
     const sendCallCountBefore = socket.send.mock.calls.length;
-
     sendRealtimeDependencyEvent(
       {
         dependencyKey: {
@@ -594,10 +554,8 @@ describe("openWebSocket", () => {
       },
       "project-covered",
     );
-
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
-
   it("uploads oversized realtime section binaries and sends the uploaded ref", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-1";
@@ -627,14 +585,11 @@ describe("openWebSocket", () => {
       status: 200,
       hasResponse: true,
     });
-
     openWebSocket("/project", "share-session-realtime-binary-upload");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     const sendCountBefore = socket.send.mock.calls.length;
-
     // Oversized section snapshots should fail over from websocket binary frames
     // to the Go binary upload route, then emit a JSON realtime update that
     // references the uploaded binary payload.
@@ -645,7 +600,6 @@ describe("openWebSocket", () => {
     );
     await Promise.resolve();
     await Promise.resolve();
-
     expect(uploadBinary).toHaveBeenCalledTimes(1);
     const laterMessages = socket.send.mock.calls
       .slice(sendCountBefore)
@@ -657,12 +611,18 @@ describe("openWebSocket", () => {
     ) as
       | {
           content?: {
-            dependencyKey?: { sectionId?: string };
-            value?: { type?: string; payload?: { contentId?: string } };
+            dependencyKey?: {
+              sectionId?: string;
+            };
+            value?: {
+              type?: string;
+              payload?: {
+                contentId?: string;
+              };
+            };
           };
         }
       | undefined;
-
     expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
       "section-binary",
     );
@@ -673,12 +633,10 @@ describe("openWebSocket", () => {
       "uploaded-realtime-ref",
     );
   });
-
   it("applies revisioned llm api-key websocket snapshots", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     openWebSocket("/project", "share-session-api-keys");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     useAIStore.setState({
@@ -687,7 +645,6 @@ describe("openWebSocket", () => {
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: "stale error",
     });
-
     await socket.emit("message", {
       data: JSON.stringify({
         id: null,
@@ -704,7 +661,6 @@ describe("openWebSocket", () => {
         },
       }),
     });
-
     const state = useAIStore.getState();
     expect(state.apiKeys).toEqual({
       OPENAI_API_KEY: "new-secret",
@@ -714,7 +670,6 @@ describe("openWebSocket", () => {
     expect(state.apiKeysLoadError).toBeNull();
     expect(state.apiKeysAuthoritative).toBe(true);
   });
-
   it("does not set frontend websocket affinity from AllConnections payloads", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -725,10 +680,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -744,10 +697,8 @@ describe("openWebSocket", () => {
         ],
       }),
     });
-
     expect(getFrontendAffinityToken()).toBeNull();
   });
-
   it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -759,10 +710,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -773,7 +722,6 @@ describe("openWebSocket", () => {
       }),
     });
     expect(getFrontendAffinityToken()).toBe("frontend-handshake");
-
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity-stale-snapshot",
@@ -783,7 +731,6 @@ describe("openWebSocket", () => {
     });
     expect(getFrontendAffinityToken()).toBe("frontend-handshake");
   });
-
   it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -795,10 +742,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
     await firstSocket.emit("message", {
@@ -809,14 +754,11 @@ describe("openWebSocket", () => {
       }),
     });
     expect(getFrontendAffinityToken()).toBe("frontend-first");
-
     openWebSocket("/project", "share-session-replacement");
     vi.advanceTimersByTime(1000);
-
     const secondSocket = MockWebSocket.instances[1];
     expect(secondSocket).toBeDefined();
     expect(getFrontendAffinityToken()).toBeNull();
-
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-stale-identity",
@@ -825,11 +767,9 @@ describe("openWebSocket", () => {
       }),
     });
     expect(getFrontendAffinityToken()).toBeNull();
-
     await secondSocket.emit("open");
     expect(getFrontendAffinityToken()).toBeNull();
   });
-
   it("repopulates affinity from active-socket FrontendIdentity after replacement clear", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -841,10 +781,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
     await firstSocket.emit("message", {
@@ -855,13 +793,10 @@ describe("openWebSocket", () => {
       }),
     });
     expect(getFrontendAffinityToken()).toBe("frontend-first");
-
     openWebSocket("/project", "share-session-replacement");
     vi.advanceTimersByTime(1000);
-
     const secondSocket = MockWebSocket.instances[1];
     await secondSocket.emit("open");
-
     await secondSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-second-identity",
@@ -871,7 +806,6 @@ describe("openWebSocket", () => {
     });
     expect(getFrontendAffinityToken()).toBe("frontend-second-token");
   });
-
   it("reconnects once after an active-socket transport error followed by close", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -881,26 +815,21 @@ describe("openWebSocket", () => {
       hasResponse: true,
     });
     const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-
     openWebSocket("/project");
     vi.runAllTimers();
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
-
     await socket.emit("error");
     expect(socket.close).toHaveBeenCalledTimes(1);
-
     await socket.emit("close", { code: 1006 });
     const reconnectTimeoutCalls = setTimeoutSpy.mock.calls.filter(
       (call) => call[1] === 3000,
     );
     expect(reconnectTimeoutCalls).toHaveLength(1);
-
     vi.advanceTimersByTime(3000);
     expect(MockWebSocket.instances).toHaveLength(2);
     vi.advanceTimersByTime(1000);
   });
-
   it("ignores stale-socket transport errors after socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -909,25 +838,19 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
-
     openWebSocket("/project", "share-session-replacement-error");
     vi.advanceTimersByTime(1000);
     const secondSocket = MockWebSocket.instances[1];
-
     expect(firstSocket.close).toHaveBeenCalledTimes(1);
     expect(secondSocket.close).toHaveBeenCalledTimes(0);
-
     await firstSocket.emit("error");
-
     expect(firstSocket.close).toHaveBeenCalledTimes(1);
     expect(secondSocket.close).toHaveBeenCalledTimes(0);
   });
-
   it("does not schedule reconnect from stale close events during socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -937,22 +860,18 @@ describe("openWebSocket", () => {
       hasResponse: true,
     });
     const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
-
     openWebSocket("/project");
     vi.runAllTimers();
     const firstSocket = MockWebSocket.instances[0];
     await firstSocket.emit("open");
-
     openWebSocket("/project", "share-session-replacement-close");
     vi.advanceTimersByTime(1000);
-
     await firstSocket.emit("close", { code: 1006 });
     const reconnectTimeoutCalls = setTimeoutSpy.mock.calls.filter(
       (call) => call[1] === 3000,
     );
     expect(reconnectTimeoutCalls).toHaveLength(0);
   });
-
   it("sends current address updates when pathname changes on an open socket", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -964,20 +883,15 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project");
     vi.runAllTimers();
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
-
     const sendCountAfterOpen = socket.send.mock.calls.length;
-
     openWebSocket("/project-updated");
     vi.advanceTimersByTime(1000);
-
     expect(MockWebSocket.instances).toHaveLength(1);
     expect(socket.send.mock.calls.length).toBeGreaterThan(sendCountAfterOpen);
-
     const currentAddressPayloads = socket.send.mock.calls
       .map((call) => call[0])
       .filter((payload): payload is string => typeof payload === "string")
@@ -992,18 +906,20 @@ describe("openWebSocket", () => {
         }
       })
       .filter(
-        (payload): payload is { messageType?: string; content?: unknown } =>
-          payload !== null,
+        (
+          payload,
+        ): payload is {
+          messageType?: string;
+          content?: unknown;
+        } => payload !== null,
       )
       .filter((payload) => payload.messageType === "CurrentAddressUpdate");
-
     const latestCurrentAddressPayload =
       currentAddressPayloads[currentAddressPayloads.length - 1];
     expect(latestCurrentAddressPayload?.content).toBe(
       buildFrontendAffinityCurrentAddress("/project-updated"),
     );
   });
-
   it("routes UISettingReveal websocket messages to the reveal action", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-1";
@@ -1026,10 +942,8 @@ describe("openWebSocket", () => {
         errorMessage: null,
       },
     ]);
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -1064,7 +978,6 @@ describe("openWebSocket", () => {
       }),
     });
     await Promise.resolve();
-
     expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
     expect(receiveUISettingReveal).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1093,7 +1006,10 @@ describe("openWebSocket", () => {
         try {
           return JSON.parse(payload) as {
             messageType?: string;
-            content?: { requestId?: string; statuses?: unknown };
+            content?: {
+              requestId?: string;
+              statuses?: unknown;
+            };
           };
         } catch {
           return null;
@@ -1114,7 +1030,6 @@ describe("openWebSocket", () => {
       },
     ]);
   });
-
   it("processes UISettingReveal messages concurrently within one websocket generation", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-1";
@@ -1159,10 +1074,8 @@ describe("openWebSocket", () => {
           errorMessage: null,
         },
       ]);
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -1185,9 +1098,7 @@ describe("openWebSocket", () => {
     });
     await Promise.resolve();
     await Promise.resolve();
-
     expect(receiveUISettingReveal).toHaveBeenCalledTimes(2);
-
     if (resolveFirstReveal === null) {
       throw new Error("Missing first reveal resolver.");
     }
@@ -1202,7 +1113,6 @@ describe("openWebSocket", () => {
     for (let i = 0; i < 5; i += 1) {
       await Promise.resolve();
     }
-
     const firstAck = findRevealResultPayload(socket, "request-queue-1");
     const secondAck = findRevealResultPayload(socket, "request-queue-2");
     expect(firstAck?.statuses).toEqual([
@@ -1222,7 +1132,6 @@ describe("openWebSocket", () => {
       },
     ]);
   });
-
   it("does not send UISettingReveal ACKs after websocket generation rollover", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
@@ -1255,7 +1164,6 @@ describe("openWebSocket", () => {
       resolveReveal = resolve;
     });
     vi.mocked(receiveUISettingReveal).mockImplementation(() => revealPromise);
-
     openWebSocket("/project");
     vi.runAllTimers();
     const originalSocket = MockWebSocket.instances[0];
@@ -1270,12 +1178,10 @@ describe("openWebSocket", () => {
       ),
     });
     await Promise.resolve();
-
     openWebSocket("/project", "share-session-replacement");
     vi.advanceTimersByTime(1000);
     const replacementSocket = MockWebSocket.instances[1];
     await replacementSocket.emit("open");
-
     if (resolveReveal === null) {
       throw new Error("Missing reveal resolver.");
     }
@@ -1289,7 +1195,6 @@ describe("openWebSocket", () => {
     ]);
     await Promise.resolve();
     await Promise.resolve();
-
     expect(
       findRevealResultPayload(originalSocket, "request-rollover-1"),
     ).toBeUndefined();
@@ -1297,7 +1202,6 @@ describe("openWebSocket", () => {
       findRevealResultPayload(replacementSocket, "request-rollover-1"),
     ).toBeUndefined();
   });
-
   it("sends structured reveal failure statuses when reveal handling throws", async () => {
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-1";
@@ -1315,10 +1219,8 @@ describe("openWebSocket", () => {
     vi.mocked(receiveUISettingReveal).mockRejectedValue(
       new Error("reveal crashed"),
     );
-
     openWebSocket("/project", "share-session-reveal-error");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -1348,7 +1250,6 @@ describe("openWebSocket", () => {
       }),
     });
     await Promise.resolve();
-
     const revealResultPayload = socket.send.mock.calls
       .map((call) => call[0])
       .filter((payload): payload is string => typeof payload === "string")
@@ -1356,7 +1257,10 @@ describe("openWebSocket", () => {
         try {
           return JSON.parse(payload) as {
             messageType?: string;
-            content?: { requestId?: string; statuses?: unknown };
+            content?: {
+              requestId?: string;
+              statuses?: unknown;
+            };
           };
         } catch {
           return null;
@@ -1376,7 +1280,6 @@ describe("openWebSocket", () => {
       },
     ]);
   });
-
   it("acks malformed UISettingReveal payloads without throwing", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
@@ -1388,10 +1291,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project", "share-session-reveal-malformed");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -1408,7 +1309,6 @@ describe("openWebSocket", () => {
       }),
     });
     await Promise.resolve();
-
     expect(receiveUISettingReveal).not.toHaveBeenCalled();
     const revealResultPayload = socket.send.mock.calls
       .map((call) => call[0])
@@ -1417,7 +1317,10 @@ describe("openWebSocket", () => {
         try {
           return JSON.parse(payload) as {
             messageType?: string;
-            content?: { requestId?: string; statuses?: unknown };
+            content?: {
+              requestId?: string;
+              statuses?: unknown;
+            };
           };
         } catch {
           return null;
@@ -1431,7 +1334,6 @@ describe("openWebSocket", () => {
     expect(revealResultPayload).not.toBeUndefined();
     expect(revealResultPayload?.content?.statuses).toEqual([]);
   });
-
   it("returns structured failure statuses for malformed reveal targets when ids are available", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { getAuthRefreshStatus } = await import("openapi/http");
@@ -1440,10 +1342,8 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
-
     openWebSocket("/project", "share-session-reveal-malformed-target");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     await socket.emit("message", {
@@ -1473,7 +1373,6 @@ describe("openWebSocket", () => {
       }),
     });
     await Promise.resolve();
-
     const revealResultPayload = socket.send.mock.calls
       .map((call) => call[0])
       .filter((payload): payload is string => typeof payload === "string")
@@ -1481,7 +1380,10 @@ describe("openWebSocket", () => {
         try {
           return JSON.parse(payload) as {
             messageType?: string;
-            content?: { requestId?: string; statuses?: unknown };
+            content?: {
+              requestId?: string;
+              statuses?: unknown;
+            };
           };
         } catch {
           return null;
@@ -1501,22 +1403,17 @@ describe("openWebSocket", () => {
       },
     ]);
   });
-
   it("uses the Go bootstrap root route in auth recovery notifications", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { addTemporaryNotification } = await import(
       "state/actions/notifications"
     );
-
     openWebSocket("/project");
     vi.runAllTimers();
-
     const socket = MockWebSocket.instances[0];
     await socket.emit("open");
     vi.mocked(addTemporaryNotification).mockClear();
-
     await socket.emit("close", { code: 4401 });
-
     expect(addTemporaryNotification).toHaveBeenCalledWith(
       `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()} to continue.`,
     );

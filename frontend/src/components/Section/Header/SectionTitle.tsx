@@ -1,5 +1,7 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { setSectionName } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import {
@@ -12,21 +14,17 @@ import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
-
 type SectionTitleClassNames = {
   editing?: string;
   notEditing?: string;
   fixed?: string;
 };
-
 type SectionTitleProps = {
   sectionId: string;
   titleProps: SectionTitleClassNames;
 };
-
 export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
   const backendErrors = useNameValidationErrors(
@@ -62,7 +60,6 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
         { title: sectionName },
       ]
     : [{ title: sectionName }];
-
   if (titleIsEditable) {
     return (
       <EditableTitle
@@ -81,14 +78,12 @@ export function SectionTitle({ sectionId, titleProps }: SectionTitleProps) {
     />
   );
 }
-
 type FixedTitleProps = {
   sectionName: string;
   className?: string;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 };
-
 function FixedTitle({
   sectionName,
   className,
@@ -105,7 +100,6 @@ function FixedTitle({
     </h2>
   );
 }
-
 type EditableTitleProps = {
   sectionId: string;
   sectionName: string;
@@ -113,7 +107,6 @@ type EditableTitleProps = {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
 };
-
 function EditableTitle({
   sectionId,
   sectionName,
@@ -123,7 +116,6 @@ function EditableTitle({
 }: EditableTitleProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const normalizeName = (value: string) => value.trim();
-
   async function condition(value: string) {
     const normalized = normalizeName(value);
     const validationError = validateSectionNameInput(normalized);
@@ -141,7 +133,6 @@ function EditableTitle({
     );
     return false;
   }
-
   const editable = useEditableOnSubmit(
     sectionName,
     () => {},
@@ -169,7 +160,6 @@ function EditableTitle({
       ? `${titleProps.notEditing} ${localErrorClassName}`
       : titleProps.notEditing,
   };
-
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
       <Editable
@@ -192,7 +182,6 @@ function EditableTitle({
     </div>
   );
 }
-
 async function renameSection(sectionId: string, normalizedName: string) {
   const previousName =
     useProjectState.getState().sections[sectionId]?.name ?? "";
@@ -215,29 +204,29 @@ async function renameSection(sectionId: string, normalizedName: string) {
       section.name = previousName;
     },
     send: (frontendOpId) =>
-      route_set_section_name({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        name: normalizedName,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setSectionName({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            name: normalizedName,
+            frontendOpId,
+          },
+        } as Parameters<typeof setSectionName>[0]),
+      ),
   });
   return await result;
 }
-
 function useTitleIsEditable(sectionId: string) {
   const { canEditStructure } = useShareCapabilities();
   return useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-
     const uneditableTypes: Array<SectionType> = [
       SectionTypeEnum.GlobalVariables,
       SectionTypeEnum.GenPythonCode,
       SectionTypeEnum.GenPythonMetadata,
     ];
-
     const s = getSectionCore(x, sectionId);
-
     return {
       sectionName: s.name,
       titleIsEditable: canEditStructure && !uneditableTypes.includes(impl.type),

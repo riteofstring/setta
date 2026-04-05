@@ -1,5 +1,4 @@
 /* @vitest-environment jsdom */
-
 import {
   useAIStore,
   usePendingOperations,
@@ -14,7 +13,12 @@ import {
   createSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
+import {
+  focusProjectChatWindow,
+  setProjectChatWindowChatId,
+  setProjectChatWindowTitle,
+} from "./projectChatWindowing";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 const routeSetProjectChatWindowingStateMock = vi.fn();
 const routeSetProjectChatWindowChatIdMock = vi.fn();
 vi.mock("forks/xyflow/core/store", () => ({
@@ -27,25 +31,15 @@ vi.mock("forks/xyflow/core/store", () => ({
     }),
   },
 }));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_project_chat_windowing_state: (...args: unknown[]) =>
+vi.mock("openapi/http", () => ({
+  setProjectChatWindowingState: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
-  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+  setProjectChatWindowChatId: (...args: unknown[]) =>
     routeSetProjectChatWindowChatIdMock(...args),
 }));
-
 vi.mock("./sections/createSections", () => ({
   createTopLevelSectionWithResult: vi.fn(),
 }));
-
-import {
-  focusProjectChatWindow,
-  setProjectChatWindowChatId,
-  setProjectChatWindowTitle,
-} from "./projectChatWindowing";
-import { processProjectStateUpdateFromBackend } from "./sectionInfos";
-
 async function flushOptimisticMutation(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve();
@@ -54,7 +48,6 @@ async function flushOptimisticMutation(): Promise<void> {
     setTimeout(resolve, 0);
   });
 }
-
 describe("project chat windowing rollback", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -123,7 +116,6 @@ describe("project chat windowing rollback", () => {
       });
     });
   });
-
   it("rolls back focus and active chat selection when the windowing write has no response", async () => {
     useAIStore.setState({ activeChatId: "chat-peer" });
     routeSetProjectChatWindowingStateMock.mockResolvedValue({
@@ -131,10 +123,8 @@ describe("project chat windowing rollback", () => {
       status: 0,
       hasResponse: false,
     });
-
     focusProjectChatWindow("project-chat-window-1", 1234);
     await flushOptimisticMutation();
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -143,7 +133,6 @@ describe("project chat windowing rollback", () => {
     expect(useAIStore.getState().activeChatId).toBe("chat-peer");
     expect(usePendingOperations.getState().pending).toEqual([]);
   });
-
   it("rolls back chat assignment and active chat selection on a handled rejection", async () => {
     useAIStore.setState({ activeChatId: "chat-before" });
     routeSetProjectChatWindowChatIdMock.mockResolvedValue({
@@ -151,10 +140,8 @@ describe("project chat windowing rollback", () => {
       status: 403,
       hasResponse: true,
     });
-
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushOptimisticMutation();
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -164,12 +151,13 @@ describe("project chat windowing rollback", () => {
     expect(usePendingOperations.getState().pending).toEqual([]);
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
-
   it("replays a later accepted chat-id update after an earlier focus write fails out of order", async () => {
     let resolveFocusWrite:
       | ((value: {
           data:
-            | { detail: string }
+            | {
+                detail: string;
+              }
             | ReturnType<typeof createProjectChatWindowingState>;
           status: number;
           hasResponse: boolean;
@@ -217,21 +205,17 @@ describe("project chat windowing rollback", () => {
       }),
     );
     useAIStore.setState({ activeChatId: "chat-peer" });
-
     focusProjectChatWindow("project-chat-window-1", 1234);
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushOptimisticMutation();
-
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
     expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
-
     resolveFocusWrite?.({
       data: { detail: "Forbidden" },
       status: 403,
       hasResponse: true,
     });
     await flushOptimisticMutation();
-
     const windowing = useProjectState.getState().projectChatWindowing;
     expect(windowing.instancesById["project-chat-window-1"]?.chatId).toBe(
       "chat-after",
@@ -242,7 +226,6 @@ describe("project chat windowing rollback", () => {
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
     expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledTimes(1);
   });
-
   it("does not roll back focus into a different project after navigation", async () => {
     const projectBWindowing = createProjectChatWindowingState({
       instancesById: {
@@ -263,16 +246,13 @@ describe("project chat windowing rollback", () => {
       hasResponse: true,
     });
     useAIStore.setState({ activeChatId: "chat-peer" });
-
     focusProjectChatWindow("project-chat-window-1", 1234);
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-b" });
       state.projectChatWindowing = projectBWindowing;
     });
     useAIStore.setState({ activeChatId: "chat-project-b" });
-
     await flushOptimisticMutation();
-
     expect(useProjectState.getState().projectConfig.id).toBe("project-b");
     expect(useProjectState.getState().projectChatWindowing).toEqual(
       projectBWindowing,
@@ -280,12 +260,13 @@ describe("project chat windowing rollback", () => {
     expect(useAIStore.getState().activeChatId).toBe("chat-project-b");
     expect(usePendingOperations.getState().pending).toEqual([]);
   });
-
   it("sends the later windowing write from post-rollback state instead of a stale whole-state snapshot", async () => {
     let resolveFocusWrite:
       | ((value: {
           data:
-            | { detail: string }
+            | {
+                detail: string;
+              }
             | ReturnType<typeof createProjectChatWindowingState>;
           status: number;
           hasResponse: boolean;
@@ -306,20 +287,16 @@ describe("project chat windowing rollback", () => {
           hasResponse: true,
         }),
       );
-
     focusProjectChatWindow("project-chat-window-1", 1234);
     setProjectChatWindowTitle("project-chat-window-1", "Renamed");
     await flushOptimisticMutation();
-
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
-
     resolveFocusWrite?.({
       data: { detail: "Forbidden" },
       status: 403,
       hasResponse: true,
     });
     await flushOptimisticMutation();
-
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(2);
     const secondRequest =
       routeSetProjectChatWindowingStateMock.mock.calls[1]?.[0];
@@ -329,7 +306,6 @@ describe("project chat windowing rollback", () => {
     expect(
       secondRequest?.state.instancesById["project-chat-window-1"]?.zIndex,
     ).toBe(1);
-
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
         projectConfig: createProjectConfig({
@@ -340,7 +316,6 @@ describe("project chat windowing rollback", () => {
       completedOpIds: [secondRequest.frontendOpId],
       pendingOpIds: [],
     });
-
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"

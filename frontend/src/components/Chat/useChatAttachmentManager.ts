@@ -38,15 +38,12 @@ import {
   FileArtifact,
   NotificationTypeEnum,
 } from "utils/generatedTypes";
-
 type UseChatAttachmentManagerArgs = {
   disabled?: boolean;
   initialAttachments?: ChatFileAttachment[];
   preserveInitialArtifacts?: boolean;
 };
-
 const EMPTY_ATTACHMENTS: ChatFileAttachment[] = [];
-
 export function useChatAttachmentManager({
   disabled = false,
   initialAttachments = EMPTY_ATTACHMENTS,
@@ -102,14 +99,12 @@ export function useChatAttachmentManager({
     attachmentsDisabled,
     showSharePolicyMessage,
   ]);
-
   useEffect(() => {
     initialAttachmentIds.current = new Set(
       initialAttachments.map((attachment) => attachment.id),
     );
     setAttachments(initialAttachments);
   }, [initialAttachments]);
-
   const notifyAttachmentWarning = useCallback((message: string) => {
     addTemporaryNotification(message, NotificationTypeEnum.warning);
     setAttachmentWarning(message);
@@ -121,7 +116,6 @@ export function useChatAttachmentManager({
       warningTimeoutRef.current = null;
     }, DEFAULT_TEMP_TIMEOUT);
   }, []);
-
   const uploadFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) {
@@ -137,7 +131,7 @@ export function useChatAttachmentManager({
                   durable: false,
                   file,
                 },
-              }),
+              } as Parameters<typeof uploadBinary>[0]),
             );
             if (!res200(res) || !res.data) {
               throw new Error("Upload failed");
@@ -184,7 +178,7 @@ export function useChatAttachmentManager({
               artifacts,
               uploadScope: "chat",
             },
-          }),
+          } as Parameters<typeof updateArtifacts>[0]),
         );
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
@@ -207,7 +201,6 @@ export function useChatAttachmentManager({
     },
     [isDeploymentMode, notifyAttachmentWarning],
   );
-
   const handleLocalFiles = useCallback(
     async (files: File[]) => {
       if (disabled || isUploading) {
@@ -287,7 +280,6 @@ export function useChatAttachmentManager({
       uploadFiles,
     ],
   );
-
   const handleFileInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files ? Array.from(event.target.files) : [];
@@ -296,7 +288,6 @@ export function useChatAttachmentManager({
     },
     [handleLocalFiles],
   );
-
   const handleRemoveAttachment = useCallback(
     async (attachment: ChatFileAttachment) => {
       if (attachmentActionsDisabled) {
@@ -316,7 +307,7 @@ export function useChatAttachmentManager({
           body: {
             artifacts: [{ id: attachment.id, type: ArtifactTypeEnum.File }],
           },
-        }),
+        } as Parameters<typeof deleteArtifacts>[0]),
       );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
@@ -330,7 +321,6 @@ export function useChatAttachmentManager({
       preserveInitialArtifacts,
     ],
   );
-
   const handleClearAttachments = useCallback(async () => {
     if (attachmentActionsDisabled) {
       return;
@@ -355,7 +345,7 @@ export function useChatAttachmentManager({
             type: ArtifactTypeEnum.File,
           })),
         },
-      }),
+      } as Parameters<typeof deleteArtifacts>[0]),
     );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
@@ -368,7 +358,6 @@ export function useChatAttachmentManager({
     notifyAttachmentWarning,
     preserveInitialArtifacts,
   ]);
-
   const handlePickFromProject = useCallback(() => {
     if (disabled || isUploading) {
       return;
@@ -393,7 +382,7 @@ export function useChatAttachmentManager({
               paths,
               uploadScope: "chat",
             },
-          }),
+          } as Parameters<typeof importFilesToArtifacts>[0]),
         );
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
@@ -428,7 +417,7 @@ export function useChatAttachmentManager({
                   type: ArtifactTypeEnum.File,
                 })),
               },
-            }),
+            } as Parameters<typeof deleteArtifacts>[0]),
           );
           if (!res200(deleteRes)) {
             const detail = getErrorDetail(deleteRes.data);
@@ -450,7 +439,6 @@ export function useChatAttachmentManager({
     notifyAttachmentWarning,
     remainingSlots,
   ]);
-
   const handleDragEnter = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -462,7 +450,6 @@ export function useChatAttachmentManager({
     },
     [attachmentInputDisabled],
   );
-
   const handleDragLeave = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -477,7 +464,6 @@ export function useChatAttachmentManager({
     },
     [attachmentInputDisabled],
   );
-
   const handleDragOver = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -488,7 +474,6 @@ export function useChatAttachmentManager({
     },
     [attachmentInputDisabled],
   );
-
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -502,18 +487,15 @@ export function useChatAttachmentManager({
     },
     [attachmentInputDisabled, handleLocalFiles],
   );
-
   const clearAttachments = useCallback(() => {
     setAttachments([]);
   }, []);
-
   const replaceAttachments = useCallback(
     (nextAttachments: ChatFileAttachment[]) => {
       setAttachments(nextAttachments);
     },
     [],
   );
-
   useEffect(() => {
     return () => {
       if (warningTimeoutRef.current !== null) {
@@ -521,7 +503,6 @@ export function useChatAttachmentManager({
       }
     };
   }, []);
-
   return {
     attachments,
     attachmentActionsDisabled,

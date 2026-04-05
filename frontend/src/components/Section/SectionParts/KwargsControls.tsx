@@ -1,5 +1,14 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import {
+  addKwarg,
+  deleteKwarg,
+  deleteSelectedParams,
+  setSectionEdgeInputs,
+  setSectionParamFilter,
+  setSectionPinnedParams,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -23,14 +32,6 @@ import {
   getSectionStylePreviewColorKey,
 } from "utils/constants";
 import {
-  route_add_kwarg,
-  route_delete_kwarg,
-  route_delete_selected_params,
-  route_set_section_edge_inputs,
-  route_set_section_param_filter,
-  route_set_section_pinned_params,
-} from "utils/generatedEndpoints";
-import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
@@ -39,11 +40,9 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
-
 type KwargsControlsProps = {
   sectionId: string;
 };
-
 function getDeletableSelectedParamIds(
   state: ZustandProjectState,
   sectionId: string,
@@ -61,12 +60,10 @@ function getDeletableSelectedParamIds(
     return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
   });
 }
-
 export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
-
   useLayoutEffect(() => {
     const node = controlsRef.current;
     if (!node) {
@@ -100,7 +97,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
       useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
   }, [heightKey]);
-
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
@@ -146,7 +142,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
-
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -182,14 +177,12 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     sectionVariants,
     selectedParams,
   ]);
-
   const selectedAreAllEdgeInputs =
     selectedParams.length > 0 &&
     selectedParams.every((paramId) => edgeInputParams.includes(paramId));
   const selectedHasAnyEdgeInputs = selectedParams.some((paramId) =>
     edgeInputParams.includes(paramId),
   );
-
   const canPinParams =
     selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
   const pinParamsDisabled = !canPinParams;
@@ -199,7 +192,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const pinButtonLabel = shouldUnpinSelected
     ? "Unpin selected args"
     : "Pin selected args";
-
   function onClickPinParam() {
     if (!canPinParams) {
       return;
@@ -207,7 +199,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     const nextPinnedParams = shouldUnpinSelected
       ? pinnedParams.filter((paramId) => !selectedParams.includes(paramId))
       : Array.from(new Set([...pinnedParams, ...selectedParams]));
-
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -226,11 +217,14 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           pinnedParams: nextPinnedParams,
           frontendOpId,
         };
-        const res = route_set_section_pinned_params(payload);
+        const res = callOpenAPI(
+          setSectionPinnedParams({ body: payload } as Parameters<
+            typeof setSectionPinnedParams
+          >[0]),
+        );
         return res;
       },
     });
-
     // If any selected args are currently edge connectors, pin/unpin also converts them
     // back into normal params by removing them from `edgeInputParams`.
     if (!canEditStructure || !selectedHasAnyEdgeInputs) {
@@ -251,15 +245,18 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         );
       },
       send: (frontendOpId) =>
-        route_set_section_edge_inputs({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          edgeInputParams: nextEdgeInputs,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSectionEdgeInputs({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              edgeInputParams: nextEdgeInputs,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSectionEdgeInputs>[0]),
+        ),
     });
   }
-
   const canConvertToEdge =
     selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
   const convertToEdgeDisabled = !canConvertToEdge;
@@ -276,13 +273,11 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
       convertToEdgeTooltip = "Move selected edge args back to unpinned";
     }
   }
-
   const canDeleteSelected =
     deletableSelectedParamIds.length > 0 &&
     !variantIsFrozen &&
     canEditStructure;
   const deleteSelectedDisabled = !canDeleteSelected;
-
   function onClickDeleteSelectedKwargs() {
     if (!canDeleteSelected) {
       return;
@@ -292,9 +287,12 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
       sectionId,
       paramInfoIds: deletableSelectedParamIds,
     };
-    void route_delete_selected_params(payload);
+    void callOpenAPI(
+      deleteSelectedParams({ body: payload } as Parameters<
+        typeof deleteSelectedParams
+      >[0]),
+    );
   }
-
   function onClickConvertToEdgeInputs() {
     if (!canConvertToEdge) {
       return;
@@ -320,11 +318,14 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
             edgeInputParams: nextInputs,
             frontendOpId,
           };
-          const res = route_set_section_edge_inputs(payload);
+          const res = callOpenAPI(
+            setSectionEdgeInputs({ body: payload } as Parameters<
+              typeof setSectionEdgeInputs
+            >[0]),
+          );
           return res;
         },
       });
-
       // Requested UX: unlinking an edge arg should move it back into the unpinned
       // params list (when allowed).
       if (!canEditLayout) {
@@ -358,13 +359,16 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
             pinnedParams: nextPinnedParams,
             frontendOpId,
           };
-          const res = route_set_section_pinned_params(payload);
+          const res = callOpenAPI(
+            setSectionPinnedParams({ body: payload } as Parameters<
+              typeof setSectionPinnedParams
+            >[0]),
+          );
           return res;
         },
       });
       return;
     }
-
     const nextInputs = Array.from(
       new Set([...edgeInputParams, ...selectedParams]),
     );
@@ -385,19 +389,20 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
           edgeInputParams: nextInputs,
           frontendOpId,
         };
-        const res = route_set_section_edge_inputs(payload);
+        const res = callOpenAPI(
+          setSectionEdgeInputs({ body: payload } as Parameters<
+            typeof setSectionEdgeInputs
+          >[0]),
+        );
         return res;
       },
     });
   }
-
   return (
     <>
       <section className={controlsContainerClassName} ref={controlsRef}>
         <article
-          className={`flex flex-wrap items-center ${
-            isCallableSection ? "py-1" : ""
-          }`}
+          className={`flex flex-wrap items-center ${isCallableSection ? "py-1" : ""}`}
         >
           <section className="ml-1 flex items-center gap-1">
             <h3
@@ -412,7 +417,11 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void route_delete_kwarg(payload);
+                void callOpenAPI(
+                  deleteKwarg({ body: payload } as Parameters<
+                    typeof deleteKwarg
+                  >[0]),
+                );
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -430,7 +439,9 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                void route_add_kwarg(payload);
+                void callOpenAPI(
+                  addKwarg({ body: payload } as Parameters<typeof addKwarg>[0]),
+                );
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -492,7 +503,6 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
     </>
   );
 }
-
 function ParamFilter({
   sectionId,
   includeCallablePadding,
@@ -511,7 +521,6 @@ function ParamFilter({
   );
   const paramFilterValue = paramsImpl.paramFilter;
   const sectionIsActive = useIsSolelySectionUIActive(sectionId);
-
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),
   );
@@ -521,7 +530,6 @@ function ParamFilter({
   const inputColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
     : "text-setta-700 placeholder-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
-
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -534,12 +542,9 @@ function ParamFilter({
     });
     debouncedSetSectionParamFilter(sectionId, e.target.value);
   }
-
   return (
     <search
-      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${
-        includeCallablePadding ? "py-1" : ""
-      }`}
+      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${includeCallablePadding ? "py-1" : ""}`}
     >
       <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
       <input
@@ -559,7 +564,6 @@ function ParamFilter({
     </search>
   );
 }
-
 const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
@@ -572,11 +576,15 @@ const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
       );
     },
     send: (frontendOpId) =>
-      route_set_section_param_filter({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        value,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setSectionParamFilter({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            value,
+            frontendOpId,
+          },
+        } as Parameters<typeof setSectionParamFilter>[0]),
+      ),
   });
 }, 200);

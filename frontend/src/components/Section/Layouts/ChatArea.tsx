@@ -36,6 +36,8 @@ import {
   BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
+import { setChatSectionChatId, setChatSectionState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
@@ -75,10 +77,6 @@ import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_set_chat_section_chat_id,
-  route_set_chat_section_state,
-} from "utils/generatedEndpoints";
-import {
   AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -106,15 +104,12 @@ import {
   toSortedHistoryEntries,
   type ChatSectionHistoryEntry,
 } from "./chatAreaUtils";
-
 type ChatActionPayload = ChatSendEvent | ChatStopEvent;
-
 type ChatSectionChatId = string | null;
 type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
-
 type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
@@ -124,13 +119,11 @@ type EmitChatSendActionArgs = {
   managed: boolean;
   timestampMs: number;
 };
-
 type EmitChatStopActionArgs = {
   sectionId: string;
   managed: boolean;
   timestampMs: number;
 };
-
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
@@ -145,7 +138,6 @@ function emitChatAction(payload: ChatActionPayload) {
     timestampMs: payload.timestampMs,
   });
 }
-
 function emitChatSendAction({
   sectionId,
   messageId,
@@ -166,7 +158,6 @@ function emitChatSendAction({
     managed,
   });
 }
-
 function emitChatStopAction({
   sectionId,
   managed,
@@ -179,7 +170,6 @@ function emitChatStopAction({
     timestampMs,
   });
 }
-
 export function ChatArea({
   sectionId,
   surfaceId,
@@ -231,7 +221,6 @@ export function ChatArea({
       isFrozen: impl.isFrozen,
     };
   }, shallow);
-
   if (managed) {
     return (
       <ManagedChatArea
@@ -249,7 +238,6 @@ export function ChatArea({
       />
     );
   }
-
   return (
     <ScriptableChatArea
       sectionId={sectionId}
@@ -265,7 +253,6 @@ export function ChatArea({
     />
   );
 }
-
 type ScriptableChatAreaProps = {
   sectionId: string;
   transcriptionProfileId: string | null;
@@ -278,7 +265,6 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   dictationMode: "auto" | "browser" | "provider";
 };
-
 function ScriptableChatArea({
   sectionId,
   transcriptionProfileId,
@@ -296,7 +282,6 @@ function ScriptableChatArea({
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
   const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
     resolveAuthoritativeContextTelemetry(null);
-
   const handleInputChange = useCallback(
     (value: string) => {
       if (waitingForResponse) {
@@ -319,7 +304,6 @@ function ScriptableChatArea({
     },
     [sectionId, waitingForResponse],
   );
-
   useEffect(() => {
     if (waitingForResponse) {
       return;
@@ -342,7 +326,6 @@ function ScriptableChatArea({
     });
     setDraftInputText(null);
   }, [draftInputText, sectionId, waitingForResponse]);
-
   const applyChatStateWithAck = useCallback(
     (nextState: ChatSectionState) => {
       let sendPromise: Promise<ChatSectionStateRouteResponse> | null = null;
@@ -358,12 +341,16 @@ function ScriptableChatArea({
           });
         },
         send: (frontendOpId) => {
-          const result = route_set_chat_section_state({
-            projectConfigId,
-            sectionId,
-            state: nextState,
-            frontendOpId,
-          });
+          const result = callOpenAPI(
+            setChatSectionState({
+              body: {
+                projectConfigId,
+                sectionId,
+                state: nextState,
+                frontendOpId,
+              },
+            } as Parameters<typeof setChatSectionState>[0]),
+          );
           sendPromise = result;
           return result;
         },
@@ -372,7 +359,6 @@ function ScriptableChatArea({
     },
     [projectConfigId, sectionId],
   );
-
   const applyChatStateWithoutAck = useCallback(
     (nextState: ChatSectionState) => {
       useProjectState.setState((state) => {
@@ -385,16 +371,19 @@ function ScriptableChatArea({
           branches: nextState.branches,
         });
       });
-      return route_set_chat_section_state({
-        projectConfigId,
-        sectionId,
-        state: nextState,
-        frontendOpId: null,
-      });
+      return callOpenAPI(
+        setChatSectionState({
+          body: {
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId: null,
+          },
+        } as Parameters<typeof setChatSectionState>[0]),
+      );
     },
     [projectConfigId, sectionId],
   );
-
   const branchState = useMemo(
     () =>
       ensureChatBranchState({
@@ -418,7 +407,6 @@ function ScriptableChatArea({
   const effectiveMessages = effectiveState.messages ?? [];
   const effectiveBranches = effectiveState.branches ?? {};
   const effectiveBranchId = effectiveState.activeBranchId ?? null;
-
   useEffect(() => {
     if (!branchState.didInitialize) {
       return;
@@ -453,7 +441,6 @@ function ScriptableChatArea({
     effectiveState,
     sectionId,
   ]);
-
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -521,7 +508,6 @@ function ScriptableChatArea({
       toolCallArguments,
     ],
   );
-
   const handleStop = useCallback(async () => {
     const nextState = {
       ...effectiveState,
@@ -546,7 +532,6 @@ function ScriptableChatArea({
     sectionId,
     toolCallArguments,
   ]);
-
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -556,7 +541,6 @@ function ScriptableChatArea({
       }),
     [],
   );
-
   const resetScriptableConversation = useCallback(async () => {
     const nextState: ChatSectionState = {
       messages: [],
@@ -571,7 +555,6 @@ function ScriptableChatArea({
       await sendPromise;
     }
   }, [applyChatStateWithAck]);
-
   const resumeLatestScriptableBranch =
     useCallback(async (): Promise<boolean> => {
       const latestBranch = Object.entries(effectiveBranches)
@@ -600,7 +583,6 @@ function ScriptableChatArea({
       }
       return true;
     }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
-
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
       if (command.action === "new") {
@@ -625,7 +607,6 @@ function ScriptableChatArea({
     },
     [resetScriptableConversation, resumeLatestScriptableBranch, slashCommands],
   );
-
   const branchIndex = useMemo(
     () => buildBranchIndexFromBranches(effectiveBranches),
     [effectiveBranches],
@@ -651,7 +632,6 @@ function ScriptableChatArea({
       }),
     [isFrozen],
   );
-
   const handleBranchSwitch = useCallback(
     async (nextBranchId: string) => {
       if (!nextBranchId || nextBranchId === effectiveBranchId) {
@@ -678,7 +658,6 @@ function ScriptableChatArea({
       effectiveState,
     ],
   );
-
   const handleEditMessage = useCallback(
     async (
       messageId: string,
@@ -740,7 +719,6 @@ function ScriptableChatArea({
       waitingForResponse,
     ],
   );
-
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const effectiveInputText =
@@ -763,7 +741,6 @@ function ScriptableChatArea({
     },
     [transcriptionProfileId],
   );
-
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -812,7 +789,6 @@ function ScriptableChatArea({
     </div>
   );
 }
-
 function ChatSectionHistoryList({
   entries,
   activeChatId,
@@ -831,7 +807,6 @@ function ChatSectionHistoryList({
       getHistoryPlaceholderText(initialLoadComplete, loadError, entries.length),
     [entries.length, initialLoadComplete, loadError],
   );
-
   if (entries.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center px-4">
@@ -839,7 +814,6 @@ function ChatSectionHistoryList({
       </div>
     );
   }
-
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
       <div className="flex flex-col gap-2">
@@ -889,7 +863,6 @@ function ChatSectionHistoryList({
     </div>
   );
 }
-
 function ManagedChatHistoryPanel({
   projectConfigId,
   sectionId,
@@ -927,7 +900,6 @@ function ManagedChatHistoryPanel({
       void loadAgentRuns();
     }
   }, [agentRunsInitialLoadComplete]);
-
   return (
     <ChatSectionHistoryList
       entries={sectionHistoryEntries}
@@ -938,7 +910,6 @@ function ManagedChatHistoryPanel({
     />
   );
 }
-
 type ManagedChatAreaProps = {
   sectionId: string;
   surfaceId?: string;
@@ -952,7 +923,6 @@ type ManagedChatAreaProps = {
   searchEnabled: boolean;
   dictationMode: "auto" | "browser" | "provider";
 };
-
 function ManagedChatArea({
   sectionId,
   surfaceId,
@@ -1100,7 +1070,6 @@ function ManagedChatArea({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
-
   const {
     apiKeys,
     apiKeysAuthoritative,
@@ -1126,7 +1095,6 @@ function ManagedChatArea({
     }),
     _.isEqual,
   );
-
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
@@ -1252,7 +1220,6 @@ function ManagedChatArea({
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode,
   });
-
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig,
@@ -1263,7 +1230,6 @@ function ManagedChatArea({
     () => getExternalEngineIssueMessage(externalEngineStatus),
     [externalEngineStatus],
   );
-
   useEffect(() => {
     if (!externalEngineIssueMessage) {
       notifiedExternalEngineIssueRef.current = null;
@@ -1278,7 +1244,6 @@ function ManagedChatArea({
       NotificationTypeEnum.warning,
     );
   }, [externalEngineIssueMessage]);
-
   useEffect(() => {
     if (typeof chatId !== "string") {
       return;
@@ -1295,7 +1260,6 @@ function ManagedChatArea({
     projectConfigId,
     sectionId,
   ]);
-
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
       if (!canUseManagedChat) {
@@ -1326,11 +1290,15 @@ function ManagedChatArea({
           });
         },
         send: () =>
-          route_set_chat_section_chat_id({
-            projectConfigId,
-            sectionId,
-            chatId: resolved,
-          }),
+          callOpenAPI(
+            setChatSectionChatId({
+              body: {
+                projectConfigId,
+                sectionId,
+                chatId: resolved,
+              },
+            } as Parameters<typeof setChatSectionChatId>[0]),
+          ),
       });
     },
     [
@@ -1341,7 +1309,6 @@ function ManagedChatArea({
       setControlledChatId,
     ],
   );
-
   const handleNewChatStart = useCallback(() => {
     if (!canUseManagedChat) {
       return;
@@ -1352,7 +1319,6 @@ function ManagedChatArea({
     setChatId(null);
     setShowHistory(false);
   }, [canUseManagedChat, setChatId, surfaceId]);
-
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
       if (surfaceId) {
@@ -1382,7 +1348,6 @@ function ManagedChatArea({
       ),
     [canUseManagedChat],
   );
-
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -1416,7 +1381,6 @@ function ManagedChatArea({
       if (isFirstMessage) {
         handleNewChatStart();
       }
-
       let submittedChatId: string | null = null;
       let succeeded = false;
       try {
@@ -1469,7 +1433,6 @@ function ManagedChatArea({
       canUseManagedChat,
     ],
   );
-
   const handleStop = useCallback(async () => {
     emitChatStopAction({
       sectionId,
@@ -1484,7 +1447,6 @@ function ManagedChatArea({
       surfaceId,
     );
   }, [chatId, isExternalEngine, projectConfigId, sectionId, surfaceId]);
-
   const handleEditMessage = useCallback(
     async (
       messageId: string,
@@ -1536,7 +1498,6 @@ function ManagedChatArea({
       canUseManagedChat,
     ],
   );
-
   const handleBranchSwitch = useCallback(
     (nextChatId: string) => {
       if (!nextChatId || nextChatId === chatId) {
@@ -1547,7 +1508,6 @@ function ManagedChatArea({
     },
     [chatId, setChatId],
   );
-
   const handleSelectHistoryChat = useCallback(
     (nextChatId: string) => {
       if (!nextChatId) {
@@ -1558,7 +1518,6 @@ function ManagedChatArea({
     },
     [setChatId],
   );
-
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     if (!canUseManagedChat) {
       return false;
@@ -1584,7 +1543,6 @@ function ManagedChatArea({
     setChatId,
     canUseManagedChat,
   ]);
-
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
       if (
@@ -1623,7 +1581,6 @@ function ManagedChatArea({
       slashCommands,
     ],
   );
-
   const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const isDisabled =
@@ -1663,7 +1620,6 @@ function ManagedChatArea({
     },
     [isExternalEngine, transcriptionProfileId],
   );
-
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}

@@ -1,7 +1,12 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
-import { outputAccessorCompletion } from "openapi/http";
+import {
+  outputAccessorCompletion,
+  setSectionEdgeInputs,
+  setSectionEdgeOutputs,
+  setVariantJsonSourceKeys,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import {
   useEffect,
@@ -32,31 +37,22 @@ import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_set_section_edge_inputs,
-  route_set_section_edge_outputs,
-  route_set_variant_json_source_keys,
-} from "utils/generatedEndpoints";
-import {
   BaseDictSectionImplUnion,
   isBaseDictSectionImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
-
 type EdgePortsSettingsProps = {
   sectionId: string;
 };
-
 type EdgeOutputPort = {
   id: string;
   accessor: string;
 };
-
 function formatJsonSourcePath(keys: string[]) {
   return keys.join(".");
 }
-
 function parseJsonSourcePath(value: string) {
   const trimmed = value.trim();
   if (trimmed === "") {
@@ -67,7 +63,6 @@ function parseJsonSourcePath(value: string) {
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
 }
-
 function shouldRollbackJsonSourceKeys(
   sectionId: string,
   variantId: string,
@@ -91,7 +86,6 @@ function shouldRollbackJsonSourceKeys(
   }
   return _.isEqual(impl.jsonSourceKeys, expectedKeys);
 }
-
 function buildParamLabels(
   state: ZustandProjectState,
   sectionId: string,
@@ -110,7 +104,6 @@ function buildParamLabels(
     return { id: paramId, label };
   });
 }
-
 export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   const { canEditStructure, canEditVariants } = useShareCapabilities();
   const { edgeInputParams, edgeOutputPorts, jsonSourceKeys, isJsonSource } =
@@ -186,26 +179,21 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     showParamDisplayNames,
     unpinnedRequiredParamIdsToPaths,
   ]);
-
   const canEditJsonSourceKeys = canEditVariants && allowJsonSourceKeyEdits;
   const [jsonSourcePath, setJsonSourcePath] = useState("");
   const [jsonSourceError, setJsonSourceError] = useState<string | null>(null);
   const [draftOutputPorts, setDraftOutputPorts] = useState<EdgeOutputPort[]>(
     [],
   );
-
   useEffect(() => {
     setDraftOutputPorts(toDraftOutputPorts(edgeOutputPorts));
   }, [edgeOutputPorts]);
-
   useEffect(() => {
     setJsonSourcePath(formatJsonSourcePath(jsonSourceKeys));
   }, [jsonSourceKeys, variantId]);
-
   useEffect(() => {
     setJsonSourceError(null);
   }, [variantId]);
-
   function onToggleInput(paramId: string) {
     if (!canEditStructure) {
       return;
@@ -222,15 +210,18 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         );
       },
       send: (frontendOpId) =>
-        route_set_section_edge_inputs({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          edgeInputParams: nextInputs,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSectionEdgeInputs({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              edgeInputParams: nextInputs,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSectionEdgeInputs>[0]),
+        ),
     });
   }
-
   function onOutputChange(portId: string, value: string) {
     setDraftOutputPorts((prev) =>
       prev.map((port) =>
@@ -238,20 +229,17 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       ),
     );
   }
-
   function removeOutputPort(portId: string) {
     const nextDraft = draftOutputPorts.filter((port) => port.id !== portId);
     setDraftOutputPorts(nextDraft);
     persistOutputPorts(nextDraft);
   }
-
   function onOutputBlur() {
     if (!canEditStructure) {
       return;
     }
     persistOutputPorts(draftOutputPorts);
   }
-
   function persistOutputPorts(ports: EdgeOutputPort[]) {
     const nextPorts = normalizeOutputPorts(ports);
     if (_.isEqual(nextPorts, edgeOutputPorts)) {
@@ -266,16 +254,19 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         );
       },
       send: (frontendOpId) =>
-        route_set_section_edge_outputs({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          edgeOutputPorts: nextPorts,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSectionEdgeOutputs({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              edgeOutputPorts: nextPorts,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSectionEdgeOutputs>[0]),
+        ),
     });
     setDraftOutputPorts(toDraftOutputPorts(nextPorts));
   }
-
   function addOutputPort() {
     const nextDraft = [
       ...draftOutputPorts,
@@ -286,7 +277,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     ];
     setDraftOutputPorts(nextDraft);
   }
-
   function onJsonSourcePathBlur() {
     if (!canEditJsonSourceKeys) {
       return;
@@ -311,13 +301,17 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
         );
       },
       send: async (frontendOpId) => {
-        const res = await route_set_variant_json_source_keys({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          variantId: targetVariantId,
-          jsonSourceKeys: nextKeys,
-          frontendOpId,
-        });
+        const res = await callOpenAPI(
+          setVariantJsonSourceKeys({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              variantId: targetVariantId,
+              jsonSourceKeys: nextKeys,
+              frontendOpId,
+            },
+          } as Parameters<typeof setVariantJsonSourceKeys>[0]),
+        );
         if (!res200(res)) {
           usePendingOperations.setState((state) => ({
             pending: state.pending.filter((op) => op.opId !== frontendOpId),
@@ -370,9 +364,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     });
     return opId;
   }
-
   const [draggedPortId, setDraggedPortId] = useState<string | null>(null);
-
   function onDragStart(event: DragEvent<HTMLSpanElement>, portId: string) {
     if (!canEditStructure) {
       return;
@@ -381,7 +373,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     event.dataTransfer.setData("text/plain", portId);
     setDraggedPortId(portId);
   }
-
   function onDragOver(event: DragEvent<HTMLDivElement>) {
     if (!canEditStructure) {
       return;
@@ -389,7 +380,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }
-
   function onDrop(event: DragEvent<HTMLDivElement>, portId: string) {
     if (!canEditStructure) {
       return;
@@ -404,11 +394,9 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setDraggedPortId(null);
     persistOutputPorts(nextDraft);
   }
-
   function onDragEnd() {
     setDraggedPortId(null);
   }
-
   const completionsFn = useMemo(
     () =>
       wrappedCompletionsFn(async (fullText: string, position: number) => {
@@ -420,7 +408,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
               fullText,
               position,
             },
-          }),
+          } as Parameters<typeof outputAccessorCompletion>[0]),
         );
         if (res200(res)) {
           return res.data;
@@ -434,7 +422,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     () => new Set(edgeInputParams),
     [edgeInputParams],
   );
-
   return (
     <section className="flex flex-col gap-4">
       {isJsonSource && (
@@ -503,9 +490,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           {draftOutputPorts.map((port) => (
             <div
               key={port.id}
-              className={`flex items-center gap-2 ${
-                draggedPortId === port.id ? "opacity-60" : ""
-              }`}
+              className={`flex items-center gap-2 ${draggedPortId === port.id ? "opacity-60" : ""}`}
               onDragOver={onDragOver}
               onDrop={(event) => onDrop(event, port.id)}
             >
@@ -559,7 +544,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     </section>
   );
 }
-
 function toDraftOutputPorts(ports: EdgeOutputPort[]) {
   return ports.map((port) => ({
     id: port.id,
@@ -567,7 +551,6 @@ function toDraftOutputPorts(ports: EdgeOutputPort[]) {
       port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
   }));
 }
-
 function normalizeAccessor(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -578,7 +561,6 @@ function normalizeAccessor(value: string) {
   }
   return trimmed;
 }
-
 function normalizeOutputPorts(ports: EdgeOutputPort[]) {
   const normalized: EdgeOutputPort[] = [];
   for (const port of ports) {
@@ -593,7 +575,6 @@ function normalizeOutputPorts(ports: EdgeOutputPort[]) {
   }
   return normalized;
 }
-
 function reorderOutputPorts(
   ports: EdgeOutputPort[],
   sourceId: string,

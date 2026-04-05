@@ -3,6 +3,16 @@ import {
   useSortableListItem,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
+import {
+  createNewSectionVariant,
+  setDefaultSectionVariant,
+  setSectionVariant,
+  setSectionVariantName,
+  setSectionVariantSortOrder,
+  toggleVariantFrozen,
+  toggleVariantJsonSource,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText, FiPlus } from "react-icons/fi";
@@ -22,19 +32,9 @@ import { useProjectState, useShareSession } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  route_create_new_section_variant,
-  route_set_default_section_variant,
-  route_set_section_variant,
-  route_set_section_variant_name,
-  route_set_section_variant_sort_order,
-  route_toggle_variant_frozen,
-  route_toggle_variant_json_source,
-} from "utils/generatedEndpoints";
-import {
   ConfigLanguageEnum,
   isBaseDictSectionImpl,
 } from "utils/generatedTypes";
-
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
   const { canEditVariants } = useShareCapabilities();
@@ -46,24 +46,25 @@ export function VariantList({ sectionId }) {
       ? "cursor-pointer text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
       : "cursor-not-allowed text-setta-300 opacity-60 dark:text-setta-700"
   }`;
-
   function onClickEditButton() {
     if (!canEditVariants) {
       return;
     }
     setIsEditing(!isEditing);
   }
-
   function onClickAddVariantButton() {
     if (!canEditVariants) {
       return;
     }
-    route_create_new_section_variant({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-    });
+    callOpenAPI(
+      createNewSectionVariant({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+        },
+      } as Parameters<typeof createNewSectionVariant>[0]),
+    );
   }
-
   return (
     <section className="section-grid-cols section-grid-rows section-grid-areas -mx-3 -my-4 grid flex-1 self-stretch">
       <header className="absolute right-16 top-[15px] flex items-center gap-2">
@@ -105,7 +106,6 @@ export function VariantList({ sectionId }) {
     </section>
   );
 }
-
 function VariantListCore({
   sectionId,
   isEditing,
@@ -131,7 +131,6 @@ function VariantListCore({
     _.isEqual,
   );
   const sortableEnabled = canEditVariants && variantIds.length > 1;
-
   function onReorderVariants(nextOrderedIds: Array<string>) {
     if (!canEditVariants) {
       return;
@@ -148,15 +147,18 @@ function VariantListCore({
         section.variants = [...nextOrderedIds];
       },
       send: (frontendOpId) =>
-        route_set_section_variant_sort_order({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          orderedVariantIds: nextOrderedIds,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSectionVariantSortOrder({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              orderedVariantIds: nextOrderedIds,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSectionVariantSortOrder>[0]),
+        ),
     });
   }
-
   return (
     <SortableListProvider
       id={`variant-list-sortable-${sectionId}`}
@@ -191,7 +193,6 @@ function VariantListCore({
     </SortableListProvider>
   );
 }
-
 function OneVariant({
   sortableEnabled,
   ...props
@@ -208,7 +209,6 @@ function OneVariant({
   }
   return <OneVariantSortable {...props} sortableEnabled />;
 }
-
 function OneVariantSortable({
   sectionId,
   id,
@@ -235,9 +235,7 @@ function OneVariantSortable({
     />
   );
 }
-
 type VariantSortableItem = ReturnType<typeof useSortableListItem>;
-
 function OneVariantContent({
   sectionId,
   id,
@@ -271,10 +269,7 @@ function OneVariantContent({
     },
     _.isEqual,
   );
-
-  const rowClasses = `section-key-value group/versionitem flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors ${
-    canEditVariants ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-  } ${
+  const rowClasses = `section-key-value group/versionitem flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors ${canEditVariants ? "cursor-pointer" : "cursor-not-allowed opacity-60"} ${
     isCurr
       ? "bg-white text-blue-600 shadow-sm dark:bg-setta-800"
       : "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50"
@@ -290,7 +285,6 @@ function OneVariantContent({
   const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     event.stopPropagation();
   };
-
   return (
     <li
       ref={sortable?.setNodeRef}
@@ -310,12 +304,16 @@ function OneVariantContent({
                   state.projectConfig.sectionVariantMap[sectionId] = id;
                 },
                 send: (frontendOpId) =>
-                  route_set_section_variant({
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionId,
-                    variantId: id,
-                    frontendOpId,
-                  }),
+                  callOpenAPI(
+                    setSectionVariant({
+                      body: {
+                        projectConfigId: getCurrProjectConfigId(),
+                        sectionId,
+                        variantId: id,
+                        frontendOpId,
+                      },
+                    } as Parameters<typeof setSectionVariant>[0]),
+                  ),
               })
           : undefined
       }
@@ -350,12 +348,16 @@ function OneVariantContent({
                 getSectionCore(state, sectionId).defaultVariant = id;
               },
               send: (frontendOpId) =>
-                route_set_default_section_variant({
-                  projectConfigId: getCurrProjectConfigId(),
-                  sectionId,
-                  variantId: id,
-                  frontendOpId,
-                }),
+                callOpenAPI(
+                  setDefaultSectionVariant({
+                    body: {
+                      projectConfigId: getCurrProjectConfigId(),
+                      sectionId,
+                      variantId: id,
+                      frontendOpId,
+                    },
+                  } as Parameters<typeof setDefaultSectionVariant>[0]),
+                ),
             });
           }}
           onPointerDown={stopDragPointerDown}
@@ -380,11 +382,15 @@ function OneVariantContent({
                 variant.isFrozen = !variant.isFrozen;
               },
               send: (frontendOpId) =>
-                route_toggle_variant_frozen({
-                  projectConfigId: getCurrProjectConfigId(),
-                  variantId: id,
-                  frontendOpId,
-                }),
+                callOpenAPI(
+                  toggleVariantFrozen({
+                    body: {
+                      projectConfigId: getCurrProjectConfigId(),
+                      variantId: id,
+                      frontendOpId,
+                    },
+                  } as Parameters<typeof toggleVariantFrozen>[0]),
+                ),
             });
           }}
           onPointerDown={stopDragPointerDown}
@@ -428,12 +434,16 @@ function OneVariantContent({
                   );
                 },
                 send: (frontendOpId) =>
-                  route_toggle_variant_json_source({
-                    projectConfigId: getCurrProjectConfigId(),
-                    sectionId,
-                    variantId: id,
-                    frontendOpId,
-                  }),
+                  callOpenAPI(
+                    toggleVariantJsonSource({
+                      body: {
+                        projectConfigId: getCurrProjectConfigId(),
+                        sectionId,
+                        variantId: id,
+                        frontendOpId,
+                      },
+                    } as Parameters<typeof toggleVariantJsonSource>[0]),
+                  ),
               });
             }}
             onPointerDown={stopDragPointerDown}
@@ -446,7 +456,6 @@ function OneVariantContent({
     </li>
   );
 }
-
 function OneVariantEditing({
   sortableEnabled,
   ...props
@@ -463,7 +472,6 @@ function OneVariantEditing({
   }
   return <OneVariantEditingSortable {...props} sortableEnabled />;
 }
-
 function OneVariantEditingSortable({
   sectionId,
   id,
@@ -490,7 +498,6 @@ function OneVariantEditingSortable({
     />
   );
 }
-
 function OneVariantEditingContent({
   sectionId,
   id,
@@ -507,22 +514,24 @@ function OneVariantEditingContent({
   sortable: VariantSortableItem | null;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
-
   function onSetName(v: string) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         getSectionVariant(state, id).name = v;
       },
       send: (frontendOpId) =>
-        route_set_section_variant_name({
-          projectConfigId: getCurrProjectConfigId(),
-          variantId: id,
-          name: v,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setSectionVariantName({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              variantId: id,
+              name: v,
+              frontendOpId,
+            },
+          } as Parameters<typeof setSectionVariantName>[0]),
+        ),
     });
   }
-
   function conditionToSetName(v: string) {
     const state = useProjectState.getState();
     const section = getSectionCore(state, sectionId);
@@ -533,7 +542,6 @@ function OneVariantEditingContent({
     }
     return true;
   }
-
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     name,
     onSetName,
@@ -542,7 +550,6 @@ function OneVariantEditingContent({
   const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     event.stopPropagation();
   };
-
   async function onClickDelete(e) {
     e.stopPropagation();
     if (!allowVariantDeletion) {
@@ -561,7 +568,6 @@ function OneVariantEditingContent({
       });
     }
   }
-
   return (
     <li
       ref={sortable?.setNodeRef}

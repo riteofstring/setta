@@ -2,24 +2,20 @@ import { getWorkspacePythonSignal } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { res200 } from "utils/endpointUtils";
-
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
   cachedAtMs: number;
 };
-
 export type WorkspacePythonSignalCache = Map<
   string,
   WorkspacePythonSignalCacheEntry
 >;
-
 const WORKSPACE_PYTHON_SIGNAL_CACHE_TTL_MS = 15000;
 const WORKSPACE_PYTHON_SIGNAL_CACHE_MAX_ENTRIES = 128;
 const inFlightWorkspacePythonSignalLoads = new Map<
   string,
   Promise<boolean | null>
 >();
-
 export function getCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
@@ -43,7 +39,6 @@ export function getCachedWorkspacePythonSignal(
   }
   return cached.hasPython;
 }
-
 export function setCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
   rootPath: string,
@@ -66,7 +61,6 @@ export function setCachedWorkspacePythonSignal(
     cache.delete(oldestKey);
   }
 }
-
 export function loadWorkspacePythonSignal({
   cache,
   rootPath,
@@ -95,7 +89,7 @@ export function loadWorkspacePythonSignal({
           body: {
             folderPath: nextRootPath,
           },
-        }),
+        } as Parameters<typeof getWorkspacePythonSignal>[0]),
       );
       if (!res200(response) || !response.data) {
         return null;

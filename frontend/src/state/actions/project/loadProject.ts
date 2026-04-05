@@ -44,7 +44,6 @@ import {
 } from "../projectChatWindowingEphemeral";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
-
 type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 type LatestLspDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
@@ -52,27 +51,25 @@ type LoadAllProjectMetadataRouteResponse =
   ResponseDataAndStatus<AllProjectMetadata>;
 type CreateProjectConfigRouteResponse = ResponseDataAndStatus<string>;
 type LoadProjectStateInput = SingleConfig | Partial<SingleConfig>;
-
 export async function loadProjectConfig({ projectConfigName }) {
   const res = (await callOpenAPI(
     loadProjectConfigRequest({
       body: {
         projectConfigName,
       },
-    }),
+    } as Parameters<typeof loadProjectConfigRequest>[0]),
   )) as LoadProjectConfigRouteResponse;
   if (res200(res)) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes: LatestLspDiagnosticsRouteResponse =
-        await callOpenAPI(
-          getLatestLspDiagnostics({
-            body: {
-              projectConfigId: loadedProjectState.projectConfig.id,
-            },
-          }),
-        );
+      const diagnosticsRes = (await callOpenAPI(
+        getLatestLspDiagnostics({
+          body: {
+            projectConfigId: loadedProjectState.projectConfig.id,
+          },
+        } as Parameters<typeof getLatestLspDiagnostics>[0]),
+      )) as LatestLspDiagnosticsRouteResponse;
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
@@ -84,7 +81,6 @@ export async function loadProjectConfig({ projectConfigName }) {
     return false;
   }
 }
-
 function validateLoadedProjectState(
   projectState: LoadProjectStateInput,
 ): SingleConfig {
@@ -102,7 +98,6 @@ function validateLoadedProjectState(
   }
   return projectState as SingleConfig;
 }
-
 export async function loadProjectState(projectState: LoadProjectStateInput) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
@@ -159,7 +154,6 @@ export async function loadProjectState(projectState: LoadProjectStateInput) {
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
   return true;
 }
-
 export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
@@ -172,7 +166,7 @@ export function useCreateAndGoToProjectConfig() {
         body: {
           previewImgColor,
         },
-      }),
+      } as Parameters<typeof createProjectConfigRequest>[0]),
     )) as CreateProjectConfigRouteResponse;
     if (res200(res)) {
       useLocalStorage.setState({
@@ -182,14 +176,12 @@ export function useCreateAndGoToProjectConfig() {
     }
   };
 }
-
 function getRandomProjectConfigPreviewImgColor() {
   const randomIndex = Math.floor(
     Math.random() * PROJECT_CONFIG_PREVIEW_IMG_COLORS.length,
   );
   return PROJECT_CONFIG_PREVIEW_IMG_COLORS[randomIndex];
 }
-
 export function useNavigateToAnotherConfig() {
   const navigate = useNavigate();
   return (projectConfigName: string) => {
@@ -198,7 +190,6 @@ export function useNavigateToAnotherConfig() {
     });
   };
 }
-
 export async function loadAllProjectMetadata(): Promise<boolean> {
   const mode = await initializeServerMode();
   if (mode !== "ide") {

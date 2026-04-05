@@ -1,5 +1,7 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -11,13 +13,11 @@ import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   type ColorPickerParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
-
 export function ColorPickerInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -31,7 +31,6 @@ export function ColorPickerInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.ColorPickerParam,
   );
-
   function onChange(newConfig: ColorPickerConfigForFrontend) {
     if (!canEditStructure) {
       return;
@@ -47,16 +46,19 @@ export function ColorPickerInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: configClone,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: configClone,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   return (
     <ColorPickerInputConfig
       config={config}
@@ -65,7 +67,6 @@ export function ColorPickerInputConfigForParam({
     />
   );
 }
-
 function ColorPickerInputConfig({
   onChange,
   config,
@@ -83,7 +84,6 @@ function ColorPickerInputConfig({
       ],
     });
   };
-
   const removeColor = (removeIdx: number) => {
     onChange({
       colorChoices: config.colorChoices.filter(
@@ -91,7 +91,6 @@ function ColorPickerInputConfig({
       ),
     });
   };
-
   const updateColor = (updateIdx: number, newColor: string) => {
     onChange({
       colorChoices: config.colorChoices.map((choice, idx) =>
@@ -104,7 +103,6 @@ function ColorPickerInputConfig({
       ),
     });
   };
-
   const updateDescription = (updateIdx: number, description: string) => {
     onChange({
       colorChoices: config.colorChoices.map((choice, idx) =>
@@ -112,7 +110,6 @@ function ColorPickerInputConfig({
       ),
     });
   };
-
   return (
     <AvailableColors
       colorChoices={config.colorChoices}
@@ -124,7 +121,6 @@ function ColorPickerInputConfig({
     />
   );
 }
-
 export const AvailableColors = ({
   colorChoices,
   addColor,
@@ -186,7 +182,6 @@ export const AvailableColors = ({
     </>
   );
 };
-
 export function ColorPickerInput({
   colorChoices,
   value,
@@ -224,7 +219,6 @@ export function ColorPickerInput({
     </div>
   );
 }
-
 type ColorPickerInputTheme = {
   inputBorderClassName?: string;
   triggerBorderClassName?: string;
@@ -232,7 +226,6 @@ type ColorPickerInputTheme = {
   menuItemClassName?: string;
   menuItemTextClassName?: string;
 };
-
 type ColorPickerProps = {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   value: string;
@@ -243,7 +236,6 @@ type ColorPickerProps = {
   isDisabled: boolean;
   theme?: ColorPickerInputTheme;
 };
-
 function ColorPicker({
   colorChoices,
   value,
@@ -255,7 +247,6 @@ function ColorPicker({
   theme,
 }: ColorPickerProps) {
   const nativeInputRef = useRef<HTMLInputElement | null>(null);
-
   useEffect(() => {
     if (!onCommit) {
       return;
@@ -276,7 +267,6 @@ function ColorPicker({
       input.removeEventListener("change", handleNativeChange);
     };
   }, [onCommit]);
-
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
     "--bg": value,
@@ -301,9 +291,9 @@ function ColorPicker({
         style={style}
       />
       {/*
-        Keep layout/interaction classes stable and make only the styling pieces overridable.
-        App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
-      */}
+            Keep layout/interaction classes stable and make only the styling pieces overridable.
+            App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
+          */}
       {(() => {
         const inputBorderClassName =
           theme?.inputBorderClassName ??
@@ -337,7 +327,6 @@ function ColorPicker({
     </>
   );
 }
-
 type ColorPickerFromColorChoicesProps = {
   color: string;
   setColor: (newColor: string) => void;
@@ -348,7 +337,6 @@ type ColorPickerFromColorChoicesProps = {
   onEscape?: () => void;
   theme?: ColorPickerInputTheme;
 };
-
 function ColorPickerFromColorChoices({
   color,
   setColor,
@@ -363,13 +351,11 @@ function ColorPickerFromColorChoices({
   if (!selectedItem) {
     selectedItem = colorChoices[0];
   }
-
   const style = {
     "--bg": selectedItem.color,
     background: "var(--bg)",
     color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
   };
-
   const triggerBorderClassName =
     theme?.triggerBorderClassName ??
     "!border-setta-500/20 dark:!border-setta-500/40";
@@ -383,7 +369,6 @@ function ColorPickerFromColorChoices({
     theme?.menuItemTextClassName ??
     "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
   const [isOpen, setIsOpen] = useState(false);
-
   return (
     <StandardPopover
       open={isOpen}

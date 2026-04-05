@@ -1,12 +1,12 @@
+import {
+  indentParams,
+  moveParamGroups,
+  moveParams,
+  unindentParams,
+} from "openapi/http";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_indent_params,
-  route_move_param_groups,
-  route_move_params,
-  route_unindent_params,
-} from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   createCodeParamCodeObjImpl,
@@ -27,30 +27,25 @@ import {
   moveSelectedParamsDown,
   unindentSelectedParams,
 } from "./moveParams";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_move_params: vi.fn(),
-    route_move_param_groups: vi.fn(),
-    route_indent_params: vi.fn(),
-    route_unindent_params: vi.fn(),
+    moveParams: vi.fn(),
+    moveParamGroups: vi.fn(),
+    indentParams: vi.fn(),
+    unindentParams: vi.fn(),
   };
 });
-
-const mockedRouteMoveParams = vi.mocked(route_move_params);
-const mockedRouteMoveParamGroups = vi.mocked(route_move_param_groups);
-const mockedRouteIndentParams = vi.mocked(route_indent_params);
-const mockedRouteUnindentParams = vi.mocked(route_unindent_params);
-
+const mockedRouteMoveParams = vi.mocked(moveParams);
+const mockedRouteMoveParamGroups = vi.mocked(moveParamGroups);
+const mockedRouteIndentParams = vi.mocked(indentParams);
+const mockedRouteUnindentParams = vi.mocked(unindentParams);
 const sectionId = "dict-section";
 const sectionVariantId = "dict-variant";
 const sectionImplId = "dict-impl";
 const rootParamId = "root-param";
-
 function createNestedParamImpl(
   id: string,
   children: Array<string>,
@@ -68,7 +63,6 @@ function createNestedParamImpl(
     typeAnnotation: "",
   };
 }
-
 function createShownParamIds(
   rootChildren: Array<string>,
   requiredParamIdsToPaths: Record<string, Array<string>>,
@@ -84,7 +78,6 @@ function createShownParamIds(
     },
   };
 }
-
 function seedDictParamState({
   rootChildren,
   selectedParams,
@@ -101,7 +94,6 @@ function seedDictParamState({
       allIds.add(childId);
     }
   }
-
   const codeObjs: Record<string, ReturnType<typeof createCore>> = {};
   const codeObjVariants: Record<string, ReturnType<typeof createVariant>> = {};
   const codeObjImpls: Record<string, BaseCodeObjImplUnion> = {
@@ -110,7 +102,6 @@ function seedDictParamState({
   const codeObjVariantMap: Record<string, string> = {
     [rootParamId]: "root-param-variant",
   };
-
   codeObjs[rootParamId] = createCore({
     id: rootParamId,
     name: "root",
@@ -122,7 +113,6 @@ function seedDictParamState({
     impl: "root-param-impl",
     nonPresetImpls: ["root-param-impl"],
   });
-
   for (const id of allIds) {
     if (id === rootParamId) {
       continue;
@@ -141,7 +131,6 @@ function seedDictParamState({
       nonPresetImpls: [implId],
     });
     codeObjVariantMap[id] = variantId;
-
     const nestedChildren = nestedChildrenByParent[id];
     codeObjImpls[implId] = nestedChildren
       ? createNestedParamImpl(implId, nestedChildren)
@@ -150,7 +139,6 @@ function seedDictParamState({
           value: id,
         });
   }
-
   const requiredParamIdsToPaths: Record<string, Array<string>> = {};
   for (const id of allIds) {
     if (id === rootParamId) {
@@ -164,7 +152,6 @@ function seedDictParamState({
     }
     requiredParamIdsToPaths[id] = path;
   }
-
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: "project-1",
@@ -212,7 +199,6 @@ function seedDictParamState({
     state.requiredDecodedImages = [];
   });
 }
-
 describe("moveParams", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -238,24 +224,20 @@ describe("moveParams", () => {
       hasResponse: true,
     });
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("posts moveParams with the canonical payload and applies the optimistic reorder", () => {
     seedDictParamState({
       rootChildren: ["param-a", "param-b"],
       selectedParams: [],
     });
-
     moveParamsWithBackend({
       sectionId,
       paramIds: ["param-b"],
       newParentId: rootParamId,
       newIndex: 0,
     });
-
     expect(mockedRouteMoveParams).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
@@ -264,7 +246,6 @@ describe("moveParams", () => {
       newIndex: 0,
       frontendOpId: expect.any(String),
     });
-
     const rootImpl = getCurrEffectiveCodeObjImpl(
       useProjectState.getState(),
       sectionId,
@@ -275,22 +256,18 @@ describe("moveParams", () => {
     }
     expect(rootImpl.children).toEqual(["param-b", "param-a"]);
   });
-
   it("posts indentParams with the selected root param ids", () => {
     seedDictParamState({
       rootChildren: ["param-a", "param-b", "param-c"],
       selectedParams: ["param-b", "param-c"],
     });
-
     expect(indentSelectedParams()).toBe(true);
-
     expect(mockedRouteIndentParams).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
       paramIds: ["param-b", "param-c"],
     });
   });
-
   it("posts unindentParams for the selected nested param ids", () => {
     seedDictParamState({
       rootChildren: ["parent-param", "other-param"],
@@ -299,24 +276,19 @@ describe("moveParams", () => {
         "parent-param": ["nested-child"],
       },
     });
-
     expect(unindentSelectedParams()).toBe(true);
-
     expect(mockedRouteUnindentParams).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
       paramIds: ["nested-child"],
     });
   });
-
   it("posts moveParamGroups for visible keyboard moves and reapplies the optimistic order", () => {
     seedDictParamState({
       rootChildren: ["param-a", "param-b", "param-c"],
       selectedParams: ["param-a"],
     });
-
     expect(moveSelectedParamsDown()).toBe(true);
-
     expect(mockedRouteMoveParamGroups).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
@@ -329,7 +301,6 @@ describe("moveParams", () => {
       ],
       frontendOpId: expect.any(String),
     });
-
     const rootImpl = getCurrEffectiveCodeObjImpl(
       useProjectState.getState(),
       sectionId,

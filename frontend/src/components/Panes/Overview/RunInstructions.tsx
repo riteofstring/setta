@@ -2,6 +2,8 @@ import * as Switch from "@radix-ui/react-switch";
 import { getStateMachineNodePresentation } from "components/Section/Layouts/stateMachineNodePresentation";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
+import { setProjectConfigCodegenTargets } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import { RiLoopRightFill, RiPlayMiniFill } from "react-icons/ri";
 import {
@@ -43,7 +45,6 @@ import {
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { res200 } from "utils/endpointUtils";
-import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   CodeObjValueRepresentationModeEnum,
@@ -74,13 +75,20 @@ import {
   collectRunInstructionsStateMachineControls,
   type RunInstructionsStateMachineControl,
 } from "./runInstructionsStateMachineControls";
-
-type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
+type RunnableCodeBlock = {
+  sectionId: string;
+  name: string;
+  depth: number;
+};
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
 type RunSnapshotModeChoice = RunSnapshotMode | "default";
 type SectionCodegenMode = "inherit" | "include" | "exclude";
 type SectionRepresentationMode = "expression" | "file_path" | "file_read";
-type SectionOption = { id: string; name: string; type: SectionType };
+type SectionOption = {
+  id: string;
+  name: string;
+  type: SectionType;
+};
 type CodeObjOption = {
   id: string;
   name: string;
@@ -88,7 +96,6 @@ type CodeObjOption = {
   sectionName: string;
   label: string;
 };
-
 const TOGGLE_ROOT_CLASSES =
   "items-center p-[0.2rem] w-7 min-w-7 h-2.5 bg-setta-400 dark:bg-setta-600 rounded-full relative inline-flex cursor-pointer [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black data-[state='checked']:bg-blue-500 dark:data-[state='checked']:bg-blue-700 focus-visible:ring-2 disabled:pointer-events-none";
 const TOGGLE_THUMB_CLASSES =
@@ -185,7 +192,6 @@ const SECTION_CODEGEN_MODE_OPTIONS: Array<{
   { value: "include", label: "include" },
   { value: "exclude", label: "exclude" },
 ];
-
 const RUN_SNAPSHOT_MODE_OPTIONS: Array<{
   value: RunSnapshotMode;
   label: string;
@@ -219,7 +225,6 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   },
   ...RUN_SNAPSHOT_MODE_OPTIONS,
 ];
-
 export function RunInstructions() {
   const { canRun } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -293,7 +298,6 @@ export function RunInstructions() {
     }
     return entries;
   }, [codeObjOptions]);
-
   React.useEffect(() => {
     if (!sectionPolicy.allowlist) {
       return;
@@ -302,19 +306,21 @@ export function RunInstructions() {
       _.isEqual(prev, sectionPolicy.allowlist) ? prev : sectionPolicy.allowlist,
     );
   }, [sectionPolicy.allowlist]);
-
   const applyCodegenTargets = (nextTargets: ProjectCodegenTarget[]): void => {
-    void route_set_project_config_codegen_targets({
-      projectConfigId,
-      codegenTargets: nextTargets,
-    }).then((response) => {
+    void callOpenAPI(
+      setProjectConfigCodegenTargets({
+        body: {
+          projectConfigId,
+          codegenTargets: nextTargets,
+        },
+      } as Parameters<typeof setProjectConfigCodegenTargets>[0]),
+    ).then((response) => {
       if (!res200(response) || !response.data) {
         return;
       }
       applyProjectCodegenTargetsResponse(response.data);
     });
   };
-
   const handleCodegenTargetToggle = (checked: boolean): void => {
     if (isDeploymentMode) {
       return;
@@ -324,7 +330,6 @@ export function RunInstructions() {
       : [];
     applyCodegenTargets(nextTargets);
   };
-
   const updatePythonTarget = (
     updater: (target: ProjectCodegenPythonTarget) => ProjectCodegenPythonTarget,
   ): void => {
@@ -334,7 +339,6 @@ export function RunInstructions() {
     const nextTarget = updater(pythonTarget);
     applyCodegenTargets([nextTarget]);
   };
-
   const updateSectionPolicy = (
     nextPolicy: ProjectCodegenPythonTarget["sectionPolicy"],
   ): void => {
@@ -343,7 +347,6 @@ export function RunInstructions() {
       sectionPolicy: nextPolicy,
     }));
   };
-
   const updateCodeObjValuePolicy = (
     nextPolicy: ProjectCodegenPythonTarget["codeObjValuePolicy"],
   ): void => {
@@ -358,14 +361,12 @@ export function RunInstructions() {
     }
     ensureDefaultCustomRuns(projectConfigId);
   }, [projectConfigId, canRun]);
-
   React.useEffect(() => {
     if (isDeploymentMode || workflowControls.length === 0) {
       return;
     }
     loadStateMachineRuns();
   }, [isDeploymentMode, workflowControls.length]);
-
   const runSnapshotModeMeta =
     RUN_SNAPSHOT_MODE_OPTIONS.find(
       (option) => option.value === runSnapshotMode,
@@ -374,7 +375,6 @@ export function RunInstructions() {
   if (runSnapshotModeOverride) {
     runSnapshotModePrefix = "Override for this project.";
   }
-
   const handleRunSnapshotModeChange = (
     event: React.ChangeEvent<HTMLSelectElement>,
   ): void => {
@@ -399,7 +399,6 @@ export function RunInstructions() {
       },
     }));
   };
-
   const allowlistEnabled = sectionPolicy.allowlist !== null;
   const allowlist = sectionPolicy.allowlist ?? cachedAllowlist;
   const metaControlAllowlist =
@@ -434,7 +433,6 @@ export function RunInstructions() {
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
-
   React.useEffect(() => {
     if (!pendingOverrideId) {
       return;
@@ -446,7 +444,6 @@ export function RunInstructions() {
       setPendingOverrideId("");
     }
   }, [availableOverrideSections, pendingOverrideId]);
-
   React.useEffect(() => {
     if (!pendingCodeObjOverrideId) {
       return;
@@ -458,7 +455,6 @@ export function RunInstructions() {
       setPendingCodeObjOverrideId("");
     }
   }, [availableCodeObjOverrides, pendingCodeObjOverrideId]);
-
   const resolvedAccordionOpenValues = React.useMemo(
     () =>
       normalizeRunInstructionsAccordionOpenValues(
@@ -479,7 +475,6 @@ export function RunInstructions() {
     },
     [projectConfigId],
   );
-
   if (!canRun) {
     return (
       <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
@@ -489,7 +484,6 @@ export function RunInstructions() {
       </div>
     );
   }
-
   const codegenPolicyContent = !pythonCodegenEnabled ? (
     <div
       className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300"
@@ -586,7 +580,6 @@ export function RunInstructions() {
                   </label>
                 );
               }
-
               return (
                 <div key={sectionType} className="flex flex-col gap-1">
                   <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
@@ -1121,7 +1114,6 @@ export function RunInstructions() {
       </div>
     </div>
   );
-
   const accordionItems: Array<{
     value: RunInstructionsAccordionItemValue;
     title: string;
@@ -1237,7 +1229,6 @@ export function RunInstructions() {
                 runMode === "continuous" &&
                 continuousRunStarted &&
                 continuousRunCustomRunId === run.id;
-
               return (
                 <CustomRunRow
                   key={run.id}
@@ -1275,7 +1266,6 @@ export function RunInstructions() {
   const visibleAccordionOpenValues = resolvedAccordionOpenValues.filter(
     (value) => accordionItemValueSet.has(value),
   );
-
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
       <p
@@ -1297,7 +1287,6 @@ export function RunInstructions() {
     </div>
   );
 }
-
 function WorkflowControlRow({
   workflow,
   projectConfigId,
@@ -1325,7 +1314,6 @@ function WorkflowControlRow({
     machineRun.activityItems[0]?.label ??
     null;
   const controlsDisabled = pendingAction !== null || isDeploymentMode;
-
   async function handleStartClick(): Promise<void> {
     setPendingAction("start");
     try {
@@ -1334,7 +1322,6 @@ function WorkflowControlRow({
       setPendingAction(null);
     }
   }
-
   async function handleStopClick(): Promise<void> {
     setPendingAction("stop");
     try {
@@ -1343,7 +1330,6 @@ function WorkflowControlRow({
       setPendingAction(null);
     }
   }
-
   async function handleResetClick(): Promise<void> {
     setPendingAction("reset");
     try {
@@ -1352,7 +1338,6 @@ function WorkflowControlRow({
       setPendingAction(null);
     }
   }
-
   return (
     <section
       className={WORKFLOW_CONTROL_ROW_CLASSES}
@@ -1423,7 +1408,6 @@ function WorkflowControlRow({
     </section>
   );
 }
-
 function CustomRunRow({
   run,
   projectConfigId,
@@ -1435,14 +1419,12 @@ function CustomRunRow({
 }) {
   const isContinuous = run.runMode === "continuous";
   const runIcon = isContinuous ? <RiLoopRightFill /> : <RiPlayMiniFill />;
-
   let runTooltip = "Run once";
   if (isContinuous) {
     runTooltip = isActiveContinuousRun
       ? "Stop continuous run"
       : "Start continuous run";
   }
-
   return (
     <div className={CUSTOM_RUN_ROW_CLASSES}>
       <input
@@ -1495,7 +1477,6 @@ function CustomRunRow({
     </div>
   );
 }
-
 function AddCodeBlockRow({
   projectConfigId,
   item,
@@ -1528,7 +1509,6 @@ function AddCodeBlockRow({
     </div>
   );
 }
-
 function useRunnableCodeBlockListing() {
   return useProjectState((x) => {
     const outputList: Array<RunnableCodeBlock> = [];
@@ -1550,7 +1530,6 @@ function useRunnableCodeBlockListing() {
     return outputList;
   }, _.isEqual);
 }
-
 function useSectionOptions(): SectionOption[] {
   return useProjectState((x) => {
     const outputList: Array<SectionOption> = [];
@@ -1566,7 +1545,6 @@ function useSectionOptions(): SectionOption[] {
     return outputList;
   }, _.isEqual);
 }
-
 function useCodeObjOptions(): CodeObjOption[] {
   return useProjectState((x) => {
     const outputList: Array<CodeObjOption> = [];
@@ -1618,7 +1596,6 @@ function useCodeObjOptions(): CodeObjOption[] {
     return outputList;
   }, _.isEqual);
 }
-
 function getRepresentationOptions(
   sectionType: SectionType | null,
 ): SectionRepresentationMode[] {
@@ -1636,7 +1613,6 @@ function getRepresentationOptions(
   }
   return ["expression"];
 }
-
 function getCodeObjRepresentationOptions(
   codeObjType: CodeObjType | null,
 ): CodeObjValueRepresentationMode[] {
@@ -1686,7 +1662,6 @@ function getCodeObjRepresentationOptions(
   }
   return [CodeObjValueRepresentationModeEnum.expression];
 }
-
 function getRunnableCodeBlockListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
@@ -1699,7 +1674,6 @@ function getRunnableCodeBlockListingHelper(
   const isRunnable = isRunnableSectionForCustomRun(
     x.sectionCapabilities[section.id],
   );
-
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
     throw new Error(
@@ -1709,7 +1683,6 @@ function getRunnableCodeBlockListingHelper(
   if (isRunnable && getSectionShouldRender(visibility, isEditingViewMode)) {
     outputList.push({ sectionId: section.id, name: section.name, depth });
   }
-
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of getSectionImplChildren(sectionImpl)) {
       const childSection = x.sections[childId];

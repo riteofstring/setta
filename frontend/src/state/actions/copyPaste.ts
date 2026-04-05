@@ -3,13 +3,11 @@ import {
   getSectionRect,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
+import { pasteSections, prepareSectionsForCopy } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useShareSession } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_paste_sections,
-  route_prepare_sections_for_copy,
-} from "utils/generatedEndpoints";
 import {
   ClipboardDataTypeEnum,
   NotificationTypeEnum,
@@ -17,20 +15,21 @@ import {
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
-
 type PrepareSectionsForCopyRouteResponse =
   ResponseDataAndStatus<SectionsClipboardData>;
 type PasteSectionsRouteResponse = ResponseDataAndStatus<null>;
-
 export async function copy() {
   const activeSectionIds = getActiveSectionUIIds();
   if (activeSectionIds.length > 0 && window.getSelection()?.toString() === "") {
     addTemporaryNotification("Copying...");
-    const res: PrepareSectionsForCopyRouteResponse =
-      await route_prepare_sections_for_copy({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionIds: activeSectionIds,
-      });
+    const res = (await callOpenAPI(
+      prepareSectionsForCopy({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionIds: activeSectionIds,
+        },
+      } as Parameters<typeof prepareSectionsForCopy>[0]),
+    )) as PrepareSectionsForCopyRouteResponse;
     if (res200(res)) {
       await navigator.clipboard.writeText(JSON.stringify(res.data));
       addTemporaryNotification("Copied to clipboard");
@@ -39,7 +38,6 @@ export async function copy() {
     }
   }
 }
-
 export async function paste({ asRef = false }) {
   if (useShareSession.getState().isDeploymentMode) {
     return;
@@ -52,19 +50,22 @@ export async function paste({ asRef = false }) {
   }
   switch (x.type) {
     case ClipboardDataTypeEnum.Sections: {
-      const response: PasteSectionsRouteResponse = await route_paste_sections({
-        projectConfigId: getCurrProjectConfigId(),
-        data: x.data,
-        position: getPasteLocation(),
-        asRef,
-      });
+      const response = (await callOpenAPI(
+        pasteSections({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            data: x.data,
+            position: getPasteLocation(),
+            asRef,
+          },
+        } as Parameters<typeof pasteSections>[0]),
+      )) as PasteSectionsRouteResponse;
       return response;
     }
     default:
       return x.type satisfies never;
   }
 }
-
 function getPasteLocation() {
   if (getActiveSectionUIIds().length === 0) {
     return useMisc.getState().lastPaneClickLocation;
@@ -73,7 +74,6 @@ function getPasteLocation() {
   const { x, y, width } = getActiveSectionsBounds();
   return { x: x + width, y };
 }
-
 function getRelativePositions(sections) {
   const positions = {};
   for (const k of Object.keys(sections)) {
@@ -82,7 +82,6 @@ function getRelativePositions(sections) {
       positions[k] = { x: rect.x, y: rect.y, zIndex: 0 };
     }
   }
-
   let minX = Infinity;
   let minY = Infinity;
   for (const p of Object.values(positions)) {
@@ -93,7 +92,6 @@ function getRelativePositions(sections) {
       minY = p.y;
     }
   }
-
   return _.mapValues(positions, (v) => ({
     x: v.x - minX,
     y: v.y - minY,

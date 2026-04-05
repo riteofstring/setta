@@ -1,20 +1,18 @@
+import {
+  deleteViewMode as deleteViewModeRequest,
+  setViewModeSortOrder,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_delete_view_mode,
-  route_set_view_mode_sort_order,
-} from "utils/generatedEndpoints";
 import { createProjectConfig } from "utils/generatedTypes";
-
 type ProjectConfigMutationPayload = {
   projectConfig: ZustandProjectState["projectConfig"];
 };
-
 type ProjectConfigMutationRouteResponse =
   ResponseDataAndStatus<ProjectConfigMutationPayload>;
-
 function applyAcknowledgedViewModeProjectConfig(
   state: ZustandProjectState,
   acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
@@ -27,7 +25,6 @@ function applyAcknowledgedViewModeProjectConfig(
   state.projectConfig.viewport = snapshot.viewport;
   state.projectConfig.viewportInitialized = snapshot.viewportInitialized;
 }
-
 function dispatchOptimisticViewModeMutation({
   apply,
   projectConfigId,
@@ -81,7 +78,6 @@ function dispatchOptimisticViewModeMutation({
     },
   });
 }
-
 export function persistViewModeSortOrder(
   projectConfigId: string,
   orderedViewModeIds: Array<string>,
@@ -90,14 +86,17 @@ export function persistViewModeSortOrder(
     apply: () => {},
     projectConfigId,
     send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
-      route_set_view_mode_sort_order({
-        projectConfigId: nextProjectConfigId,
-        orderedViewModeIds,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setViewModeSortOrder({
+          body: {
+            projectConfigId: nextProjectConfigId,
+            orderedViewModeIds,
+            frontendOpId,
+          },
+        } as Parameters<typeof setViewModeSortOrder>[0]),
+      ),
   });
 }
-
 export function deleteViewMode(
   projectConfigId: string,
   viewModeId: string,
@@ -106,10 +105,14 @@ export function deleteViewMode(
     apply: () => {},
     projectConfigId,
     send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
-      route_delete_view_mode({
-        projectConfigId: nextProjectConfigId,
-        viewModeId,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        deleteViewModeRequest({
+          body: {
+            projectConfigId: nextProjectConfigId,
+            viewModeId,
+            frontendOpId,
+          },
+        } as Parameters<typeof deleteViewModeRequest>[0]),
+      ),
   });
 }

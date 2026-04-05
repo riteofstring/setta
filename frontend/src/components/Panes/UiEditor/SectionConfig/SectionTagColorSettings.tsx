@@ -4,7 +4,7 @@ import {
 } from "components/Params/ParamUIs/ColorPickerInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
-import { saveSettings } from "openapi/http";
+import { saveSettings, setSectionTagColor } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -19,20 +19,16 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_section_tag_color } from "utils/generatedEndpoints";
 import {
   createSettingsState,
   type ColorPickerChoice,
 } from "utils/generatedTypes";
-
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
   createSettingsState().gui.sectionTagColorChoices;
-
 export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
   const projectConfigId = getCurrProjectConfigId();
   const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-
   const { tagColor, isFrozen } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
@@ -40,19 +36,14 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
-
   const sectionTagColorChoices =
     useSettings((x) => x.gui.sectionTagColorChoices, _.isEqual) ||
     DEFAULT_SECTION_TAG_COLOR_CHOICES;
-
   const [localTagColor, setLocalTagColor] = useState<string | null>(tagColor);
-
   useEffect(() => {
     setLocalTagColor(tagColor);
   }, [tagColor]);
-
   const canEditTagColor = (!isDeploymentMode || canEditLayout) && !isFrozen;
-
   const setTagColor = useCallback(
     (nextTagColor: string | null) => {
       if (!canEditTagColor) {
@@ -66,17 +57,20 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
           });
         },
         send: (frontendOpId) =>
-          route_set_section_tag_color({
-            projectConfigId,
-            sectionId,
-            tagColor: nextTagColor,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            setSectionTagColor({
+              body: {
+                projectConfigId,
+                sectionId,
+                tagColor: nextTagColor,
+                frontendOpId,
+              },
+            } as Parameters<typeof setSectionTagColor>[0]),
+          ),
       });
     },
     [canEditTagColor, projectConfigId, sectionId],
   );
-
   const saveSettingsDebounced = useMemo(
     () =>
       _.debounce(() => {
@@ -86,18 +80,16 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
         void callOpenAPI(
           saveSettings({
             body: { settings: useSettings.getState() },
-          }),
+          } as Parameters<typeof saveSettings>[0]),
         );
       }, 400),
     [canEditStructure],
   );
-
   useEffect(() => {
     return () => {
       saveSettingsDebounced.cancel();
     };
   }, [saveSettingsDebounced]);
-
   const setSectionTagColorChoices = useCallback(
     (nextChoices: ColorPickerChoice[]) => {
       if (!canEditStructure) {
@@ -114,10 +106,8 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
     },
     [canEditStructure, saveSettingsDebounced],
   );
-
   const canEditCategories = canEditStructure;
   const isResetDisabled = !canEditTagColor || localTagColor === null;
-
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-setta-100/70 px-3 py-2 dark:bg-setta-900/60">
       <div className="flex items-center justify-between">

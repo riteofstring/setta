@@ -1,21 +1,23 @@
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_delete_json_source_file_and_variant,
-  route_delete_section_variant_or_ask,
-} from "utils/generatedEndpoints";
+  deleteJsonSourceFileAndVariant,
+  deleteSectionVariantOrAsk as deleteSectionVariantOrAskRequest,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   DeleteJSONSourceFileAndVariantRequest,
   DeleteSectionVariantOrAskRequest,
 } from "utils/generatedTypes";
-
 type DeleteSectionVariantRouteResponse = ResponseDataAndStatus<string | null>;
 type DeleteJSONSourceFileAndVariantRouteResponse = ResponseDataAndStatus<null>;
-
 export async function deleteSectionVariantOrAsk(
   payload: DeleteSectionVariantOrAskRequest,
 ): Promise<string | null> {
-  const response: DeleteSectionVariantRouteResponse =
-    await route_delete_section_variant_or_ask(payload);
+  const response = (await callOpenAPI(
+    deleteSectionVariantOrAskRequest({ body: payload } as Parameters<
+      typeof deleteSectionVariantOrAskRequest
+    >[0]),
+  )) as DeleteSectionVariantRouteResponse;
   if (!res200(response)) {
     return null;
   }
@@ -24,11 +26,13 @@ export async function deleteSectionVariantOrAsk(
   }
   return null;
 }
-
 export async function deleteJSONSourceFileAndVariant(
   payload: DeleteJSONSourceFileAndVariantRequest,
 ): Promise<boolean> {
-  const response: DeleteJSONSourceFileAndVariantRouteResponse =
-    await route_delete_json_source_file_and_variant(payload);
+  const response = (await callOpenAPI(
+    deleteJsonSourceFileAndVariant({ body: payload } as Parameters<
+      typeof deleteJsonSourceFileAndVariant
+    >[0]),
+  )) as DeleteJSONSourceFileAndVariantRouteResponse;
   return res200(response);
 }

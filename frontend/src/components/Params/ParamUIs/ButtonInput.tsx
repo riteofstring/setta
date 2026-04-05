@@ -1,3 +1,5 @@
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { ChangeEvent, useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -7,7 +9,6 @@ import {
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import type {
   ButtonActionMode,
   ButtonParamCodeObjImpl,
@@ -19,19 +20,16 @@ import {
   HTTPRequestMethodEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
-
 const ACTION_MODE_LABELS: Record<ButtonActionMode, string> = {
   [ButtonActionModeEnum.WEBSOCKET_LISTENER]: "Websocket listener",
   [ButtonActionModeEnum.HTTP_REQUEST]: "HTTP request",
   [ButtonActionModeEnum.SETTA_API]: "Setta API",
 };
-
 const ACTION_MODE_OPTIONS: Array<ButtonActionMode> = [
   ButtonActionModeEnum.WEBSOCKET_LISTENER,
   ButtonActionModeEnum.HTTP_REQUEST,
   ButtonActionModeEnum.SETTA_API,
 ];
-
 const REQUEST_METHOD_OPTIONS: Array<HTTPRequestMethod> = [
   HTTPRequestMethodEnum.GET,
   HTTPRequestMethodEnum.POST,
@@ -41,7 +39,6 @@ const REQUEST_METHOD_OPTIONS: Array<HTTPRequestMethod> = [
   HTTPRequestMethodEnum.HEAD,
   HTTPRequestMethodEnum.OPTIONS,
 ];
-
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
@@ -52,7 +49,6 @@ const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
 const TEXTAREA_CLASS_NAME =
   "nodrag min-h-24 w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-2 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600";
-
 type ButtonConfigUpdate = Partial<
   Pick<
     ButtonParamCodeObjImpl,
@@ -65,7 +61,6 @@ type ButtonConfigUpdate = Partial<
     | "requestBody"
   >
 >;
-
 export function ButtonInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -79,7 +74,6 @@ export function ButtonInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.ButtonParam,
   );
-
   function updateButtonConfig(nextConfig: ButtonConfigUpdate) {
     if (!canEditStructure) {
       return;
@@ -94,20 +88,22 @@ export function ButtonInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: nextConfig,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: nextConfig,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   function onSetLabel(nextLabel: string) {
     updateButtonConfig({ label: nextLabel });
   }
-
   const labelField = useEditableOnSubmit(
     config.label,
     onSetLabel,
@@ -119,7 +115,6 @@ export function ButtonInputConfigForParam({
     () => true,
     true,
   );
-
   const actionMode =
     config.actionMode ?? ButtonActionModeEnum.WEBSOCKET_LISTENER;
   const requestMethod = config.requestMethod ?? HTTPRequestMethodEnum.POST;
@@ -134,7 +129,6 @@ export function ButtonInputConfigForParam({
   )
     ? settaRouteValue
     : "custom";
-
   function onActionModeChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextMode = event.target.value as ButtonActionMode;
     if (nextMode === ButtonActionModeEnum.SETTA_API) {
@@ -156,7 +150,6 @@ export function ButtonInputConfigForParam({
     }
     updateButtonConfig({ actionMode: nextMode });
   }
-
   function onSettaPresetChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextRoute = event.target.value;
     if (nextRoute === "custom") {
@@ -169,7 +162,6 @@ export function ButtonInputConfigForParam({
       requestBody: nextBody,
     });
   }
-
   function onSettaAutofill() {
     const nextBody = formatSettaApiBody(settaRouteValue);
     if (nextBody === "") {
@@ -178,12 +170,10 @@ export function ButtonInputConfigForParam({
     setRequestBody(nextBody);
     updateButtonConfig({ requestBody: nextBody });
   }
-
   function onRequestMethodChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextMethod = event.target.value as HTTPRequestMethod;
     updateButtonConfig({ requestMethod: nextMethod });
   }
-
   const headerKeyField = useEditableOnSubmit(
     config.requestHeaderKey,
     (nextKey: string) =>
@@ -191,7 +181,6 @@ export function ButtonInputConfigForParam({
     () => true,
     true,
   );
-
   const headerValueField = useEditableOnSubmit(
     config.requestHeaderValue,
     (nextValue: string) =>
@@ -199,28 +188,22 @@ export function ButtonInputConfigForParam({
     () => true,
     true,
   );
-
   const [requestBody, setRequestBody] = useState(config.requestBody);
-
   useEffect(() => {
     setRequestBody(config.requestBody);
   }, [config.requestBody]);
-
   function onRequestBodyChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setRequestBody(event.target.value);
   }
-
   function onRequestBodyBlur() {
     if (requestBody === config.requestBody) {
       return;
     }
     updateButtonConfig({ requestBody });
   }
-
   const requestBodyPlaceholder = showSettaFields
     ? '{ "projectConfigId": "...", "implType": "TextBlock" }'
     : '{"projectConfigId":"...","implType":"TextBlock","implOverrides":null,"controlCodeObjType":null,"position":null,"topLevelSections":{},"viewportBounds":null}';
-
   return (
     <div className="mt-1 flex flex-col gap-2">
       <div className={ROW_CLASS_NAME}>
@@ -357,7 +340,6 @@ export function ButtonInputConfigForParam({
     </div>
   );
 }
-
 export function ButtonInput({
   label,
   onClick,

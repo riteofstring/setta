@@ -16,9 +16,7 @@ import {
   type AppDefinition,
   type SingleConfig,
 } from "utils/generatedTypes";
-
 type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
-
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
@@ -34,7 +32,6 @@ export function AppPreview() {
   const resolvedConfigId =
     previewConfigId ??
     (activeConfigId !== NULL_PROJECT_CONFIG_ID ? activeConfigId : null);
-
   let previewSpec = appSpec;
   if (previewSpecOverride !== undefined) {
     previewSpec = previewSpecOverride;
@@ -42,7 +39,6 @@ export function AppPreview() {
   if (aiPreviewSpecOverride !== undefined) {
     previewSpec = aiPreviewSpecOverride;
   }
-
   const previewDefinition = useMemo(() => {
     const hasOverrides =
       previewThemeOverride !== undefined || previewAssetsOverride !== undefined;
@@ -62,7 +58,6 @@ export function AppPreview() {
           : base.assets,
     } as AppDefinition;
   }, [appDefinition, previewAssetsOverride, previewThemeOverride]);
-
   useEffect(() => {
     if (!activeConfigId || activeConfigId === NULL_PROJECT_CONFIG_ID) {
       return;
@@ -77,7 +72,6 @@ export function AppPreview() {
       },
     }));
   }, [activeConfigId, projectState]);
-
   useEffect(() => {
     if (
       !resolvedConfigId ||
@@ -103,7 +97,7 @@ export function AppPreview() {
           body: {
             projectConfigName: resolvedConfigName,
           },
-        }),
+        } as Parameters<typeof loadProjectConfigRequest>[0]),
       )) as LoadProjectConfigRouteResponse;
       if (!res200(res) || cancelled) {
         return;
@@ -124,7 +118,6 @@ export function AppPreview() {
       cancelled = true;
     };
   }, [activeConfigId, appConfigs, projectMetadata, resolvedConfigId]);
-
   return (
     <div className="flex h-full w-full flex-col overflow-auto bg-setta-50/70 dark:bg-setta-950/60">
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-6 py-6">

@@ -1,49 +1,61 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setWatchCodeEnabled, setWatchCodeInputs } from "./watchCode";
+import {
+  setWatchCodeEnabled as setWatchCodeEnabledAction,
+  setWatchCodeInputs as setWatchCodeInputsAction,
+} from "./watchCode";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_watch_code_enabled: vi.fn(),
-  route_set_watch_code_inputs: vi.fn(),
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
+
+vi.mock("openapi/http", () => ({
+  setWatchCodeEnabled: vi.fn(),
+  setWatchCodeInputs: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 
 describe("watchCode mutation actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    callOpenAPIMock.mockClear();
   });
 
   it("returns success for setWatchCodeEnabled and leaves project-state sync to websocket updates", async () => {
-    const { route_set_watch_code_enabled } = await import(
-      "utils/generatedEndpoints"
+    const { setWatchCodeEnabled: setWatchCodeEnabledRequest } = await import(
+      "openapi/http"
     );
-    vi.mocked(route_set_watch_code_enabled).mockResolvedValue({
+    vi.mocked(setWatchCodeEnabledRequest).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
 
-    const updated = await setWatchCodeEnabled({
+    const updated = await setWatchCodeEnabledAction({
       projectConfigId: "project-alpha",
       enabled: true,
     });
 
     expect(updated).toBe(true);
-    expect(route_set_watch_code_enabled).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      enabled: true,
+    expect(setWatchCodeEnabledRequest).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-alpha",
+        enabled: true,
+      },
     });
   });
 
   it("returns failure for setWatchCodeEnabled when the route fails", async () => {
-    const { route_set_watch_code_enabled } = await import(
-      "utils/generatedEndpoints"
+    const { setWatchCodeEnabled: setWatchCodeEnabledRequest } = await import(
+      "openapi/http"
     );
-    vi.mocked(route_set_watch_code_enabled).mockResolvedValue({
+    vi.mocked(setWatchCodeEnabledRequest).mockResolvedValue({
       status: 500,
       data: null,
       hasResponse: true,
     });
 
-    const updated = await setWatchCodeEnabled({
+    const updated = await setWatchCodeEnabledAction({
       projectConfigId: "project-alpha",
       enabled: false,
     });
@@ -52,40 +64,42 @@ describe("watchCode mutation actions", () => {
   });
 
   it("returns success for setWatchCodeInputs and leaves project-state sync to websocket updates", async () => {
-    const { route_set_watch_code_inputs } = await import(
-      "utils/generatedEndpoints"
+    const { setWatchCodeInputs: setWatchCodeInputsRequest } = await import(
+      "openapi/http"
     );
-    vi.mocked(route_set_watch_code_inputs).mockResolvedValue({
+    vi.mocked(setWatchCodeInputsRequest).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
 
-    const updated = await setWatchCodeInputs({
+    const updated = await setWatchCodeInputsAction({
       projectConfigId: "project-alpha",
       watchCodeFolders: [],
       watchCodeFiles: ["pkg/watch_me.py"],
     });
 
     expect(updated).toBe(true);
-    expect(route_set_watch_code_inputs).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      watchCodeFolders: [],
-      watchCodeFiles: ["pkg/watch_me.py"],
+    expect(setWatchCodeInputsRequest).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-alpha",
+        watchCodeFolders: [],
+        watchCodeFiles: ["pkg/watch_me.py"],
+      },
     });
   });
 
   it("returns failure for setWatchCodeInputs when the route fails", async () => {
-    const { route_set_watch_code_inputs } = await import(
-      "utils/generatedEndpoints"
+    const { setWatchCodeInputs: setWatchCodeInputsRequest } = await import(
+      "openapi/http"
     );
-    vi.mocked(route_set_watch_code_inputs).mockResolvedValue({
+    vi.mocked(setWatchCodeInputsRequest).mockResolvedValue({
       status: 500,
       data: null,
       hasResponse: true,
     });
 
-    const updated = await setWatchCodeInputs({
+    const updated = await setWatchCodeInputsAction({
       projectConfigId: "project-alpha",
       watchCodeFolders: [],
       watchCodeFiles: ["pkg/watch_me.py"],

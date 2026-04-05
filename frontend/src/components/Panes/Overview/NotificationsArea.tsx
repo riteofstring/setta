@@ -33,9 +33,7 @@ import {
   NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-
 type NotificationsRouteResponse = ResponseDataAndStatus<NotificationList>;
-
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
   const notifications = useNotifications(
@@ -46,9 +44,7 @@ export function NotificationsArea() {
     (state) => state.overviewNotificationsPaneTab,
   );
   const activePaneTab = persistedPaneTab;
-
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-
   const setActivePaneTab = useCallback(
     (nextTab: OverviewNotificationsPaneTab) => {
       if (persistedPaneTab === nextTab) {
@@ -60,7 +56,6 @@ export function NotificationsArea() {
     },
     [persistedPaneTab],
   );
-
   // Fetch notifications when component mounts
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -70,7 +65,7 @@ export function NotificationsArea() {
             body: {
               projectConfigId,
             },
-          }),
+          } as Parameters<typeof getNotifications>[0]),
         )) as NotificationsRouteResponse;
         if (res200(response)) {
           // Set the notifications in the store
@@ -85,12 +80,10 @@ export function NotificationsArea() {
         console.error("Failed to fetch notifications:", error);
       }
     };
-
     if (projectConfigId) {
       fetchNotifications();
     }
   }, [projectConfigId]);
-
   let paneBody = <NotificationsList notifications={notifications} />;
   if (activePaneTab === OverviewNotificationsPaneTabEnum.BackendLogs) {
     paneBody = (
@@ -102,7 +95,6 @@ export function NotificationsArea() {
       </div>
     );
   }
-
   return (
     <div
       data-testid="notifications-pane-shell"
@@ -156,7 +148,6 @@ export function NotificationsArea() {
     </div>
   );
 }
-
 function NotificationsList({
   notifications,
 }: {
@@ -180,7 +171,6 @@ function NotificationsList({
     </div>
   );
 }
-
 function NotificationItem({ notification }: { notification: Notification }) {
   const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
@@ -191,13 +181,11 @@ function NotificationItem({ notification }: { notification: Notification }) {
     typeof notification.metadata.details === "string"
       ? notification.metadata.details
       : "";
-
   // Format timestamp for display - convert UTC to local time
   const formattedTime = new Date(timestamp).toLocaleString(undefined, {
     dateStyle: "short",
     timeStyle: "short",
   });
-
   // Handle removing a notification
   const handleRemove = async () => {
     if (temporary) {
@@ -212,43 +200,35 @@ function NotificationItem({ notification }: { notification: Notification }) {
           body: {
             notificationId: id,
           },
-        }),
+        } as Parameters<typeof deleteNotification>[0]),
       );
     }
   };
-
   // Handle marking a notification as read when interacted with
   const handleMarkAsRead = () => {
     if (!read_status) {
       markAsRead(id);
     }
   };
-
   // Timer effect for temporary notifications
   useEffect(() => {
     if (!temporary) return;
-
     const timeout = DEFAULT_TEMP_TIMEOUT * 0.95;
     // Update time remaining every 100ms
     const interval = setInterval(() => {
       const elapsed = Date.now() - new Date(timestamp).getTime();
       const remaining = Math.max(0, 100 - (elapsed / timeout) * 100);
       setTimeRemaining(remaining);
-
       if (remaining <= 0) {
         clearInterval(interval);
         setIsExiting(true);
       }
     }, 100);
-
     return () => clearInterval(interval);
   }, [id, temporary]);
-
   return (
     <section
-      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${
-        !read_status ? "bg-white shadow-md dark:bg-setta-700/30" : ""
-      }  ${isExiting ? "opacity-0" : "opacity-100"}`}
+      className={`group/notifications overflow-clip rounded-md px-3 py-2 transition-all duration-300 hover:bg-white hover:shadow-md hover:dark:bg-setta-800 hover:dark:shadow-lg ${!read_status ? "bg-white shadow-md dark:bg-setta-700/30" : ""}  ${isExiting ? "opacity-0" : "opacity-100"}`}
       onClick={handleMarkAsRead}
     >
       <header className="mb-2 flex items-center gap-2">
@@ -287,7 +267,6 @@ function NotificationItem({ notification }: { notification: Notification }) {
     </section>
   );
 }
-
 export function getNotificationIcon(type: NotificationType, className = "") {
   switch (type) {
     case NotificationTypeEnum.error:

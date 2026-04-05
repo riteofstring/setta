@@ -7,7 +7,6 @@ import { useProjectState } from "state/definitions";
 import { NotificationTypeEnum } from "utils/generatedTypes";
 import { flushQueuedArtifacts } from "../artifacts";
 import { addTemporaryNotification } from "../notifications";
-
 export async function saveProject() {
   addTemporaryNotification("Saving...", NotificationTypeEnum.save);
   await flushQueuedArtifacts();
@@ -17,10 +16,9 @@ export async function saveProject() {
       body: {
         projectConfigId,
       },
-    }),
+    } as Parameters<typeof saveProjectRequest>[0]),
   );
 }
-
 export async function saveAsNewProjectConfig(
   newConfigName: string,
   withRefs: boolean,
@@ -35,6 +33,6 @@ export async function saveAsNewProjectConfig(
         newConfigName,
         withRefs,
       },
-    }),
+    } as Parameters<typeof saveAsNewProjectConfigRequest>[0]),
   );
 }

@@ -1,16 +1,17 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
+  setChartAreaDataPath,
+  setChartSettings,
+  setChartType,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useChartData, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import {
-  route_set_chart_area_data_path,
-  route_set_chart_settings,
-  route_set_chart_type,
-} from "utils/generatedEndpoints";
 import {
   BaseChartSettingsUnion,
   ChartType,
@@ -20,7 +21,6 @@ import {
   ScatterChartSettings,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-
 export function ChartAreaSettings({ sectionId }: { sectionId: string }) {
   return (
     <div className="flex-1 overflow-x-hidden overflow-y-scroll [&>*]:mr-[2px]">
@@ -28,7 +28,6 @@ export function ChartAreaSettings({ sectionId }: { sectionId: string }) {
     </div>
   );
 }
-
 function ChartConfig({ sectionId }: { sectionId: string }) {
   const { chartSettings, dataPath } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -41,7 +40,6 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
       dataPath: impl.dataPath,
     };
   }, _.isEqual);
-
   const { valueHeaders, dataIsReady } = useChartData((x) => {
     if (x.x[dataPath]) {
       return {
@@ -51,22 +49,23 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
     }
     return { valueHeaders: [], dataIsReady: false };
   });
-
   function onSetDataPath(newDataPath: string) {
-    route_set_chart_area_data_path({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      dataPath: newDataPath,
-    });
+    callOpenAPI(
+      setChartAreaDataPath({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          dataPath: newDataPath,
+        },
+      } as Parameters<typeof setChartAreaDataPath>[0]),
+    );
   }
-
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     dataPath,
     onSetDataPath,
     () => true,
     true,
   );
-
   return (
     <div className="flex flex-col gap-1">
       <h3 className="mt-1 font-bold text-setta-400 dark:text-setta-500">
@@ -98,7 +97,6 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
     </div>
   );
 }
-
 function SpecificConfig({
   sectionId,
   chartSettings,
@@ -129,13 +127,11 @@ function SpecificConfig({
       return chartSettings satisfies never;
   }
 }
-
 // Helper type to get only boolean keys
 type BooleanKeys<T> = {
   [K in keyof T]: T[K] extends boolean ? K : never;
 }[keyof T] &
   string; // & string ensures we only get string keys
-
 function LineChartConfig({
   sectionId,
   chartSettings,
@@ -153,7 +149,6 @@ function LineChartConfig({
     { name: "y1AxisLog", title: "Y1-Axis Log Scale" },
     { name: "y2AxisLog", title: "Y2-Axis Log Scale" },
   ];
-
   return (
     <>
       <XAxisColumnSelection
@@ -172,7 +167,6 @@ function LineChartConfig({
     </>
   );
 }
-
 function ScatterChartConfig({
   sectionId,
   chartSettings,
@@ -189,7 +183,6 @@ function ScatterChartConfig({
     { name: "xAxisLog", title: "X-Axis Log Scale" },
     { name: "yAxisLog", title: "Y1-Axis Log Scale" },
   ];
-
   return (
     <>
       <XAxisColumnSelection
@@ -214,7 +207,6 @@ function ScatterChartConfig({
     </>
   );
 }
-
 function ChartTypeSelection({
   sectionId,
   selectedChartType,
@@ -228,7 +220,6 @@ function ChartTypeSelection({
       items: Object.values(ChartTypeEnum).map((x) => ({ id: x, name: x })),
     },
   ];
-
   return (
     <>
       <label
@@ -242,18 +233,21 @@ function ChartTypeSelection({
         value={selectedChartType}
         onSelectedItemChange={(v) => {
           if (v) {
-            route_set_chart_type({
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              chartType: v,
-            });
+            callOpenAPI(
+              setChartType({
+                body: {
+                  projectConfigId: getCurrProjectConfigId(),
+                  sectionId,
+                  chartType: v,
+                },
+              } as Parameters<typeof setChartType>[0]),
+            );
           }
         }}
       />
     </>
   );
 }
-
 function XAxisColumnSelection({
   sectionId,
   valueHeaders,
@@ -273,7 +267,6 @@ function XAxisColumnSelection({
       items: valueHeaders.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
-
   return (
     <>
       <label
@@ -286,22 +279,25 @@ function XAxisColumnSelection({
         allItems={xAxisColumnChoices}
         value={selectedXAxisColumn}
         onSelectedItemChange={(v) => {
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              xAxisColumn: v,
-            }),
-            changedSettings: ["xAxisColumn"],
-          });
+          callOpenAPI(
+            setChartSettings({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+                  type: chartType,
+                  xAxisColumn: v,
+                }),
+                changedSettings: ["xAxisColumn"],
+              },
+            } as Parameters<typeof setChartSettings>[0]),
+          );
         }}
         selectedItemCanBeNull={xAxisCanBeNull}
       />
     </>
   );
 }
-
 function CategoryColumnSelection({
   sectionId,
   valueHeaders,
@@ -319,7 +315,6 @@ function CategoryColumnSelection({
       items: valueHeaders.map((x) => ({ id: x, name: x })) ?? [],
     },
   ];
-
   return (
     <>
       <label
@@ -332,21 +327,24 @@ function CategoryColumnSelection({
         allItems={categoryColumnChoices}
         value={selectedCategoryColumn}
         onSelectedItemChange={(v) =>
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              categoryColumn: v,
-            }),
-            changedSettings: ["categoryColumn"],
-          })
+          callOpenAPI(
+            setChartSettings({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+                  type: chartType,
+                  categoryColumn: v,
+                }),
+                changedSettings: ["categoryColumn"],
+              },
+            } as Parameters<typeof setChartSettings>[0]),
+          )
         }
       />
     </>
   );
 }
-
 function TogglableOptions<T extends BaseChartSettingsUnion>({
   sectionId,
   optionsWithToggle,
@@ -385,7 +383,6 @@ function TogglableOptions<T extends BaseChartSettingsUnion>({
     </div>
   );
 }
-
 function ChartConfigToggle({
   sectionId,
   name,
@@ -413,15 +410,19 @@ function ChartConfigToggle({
         className="h-4 w-4 cursor-pointer rounded bg-setta-500/50  text-blue-500 outline outline-offset-2 outline-transparent checked:bg-blue-500 focus-visible:!outline-blue-500 dark:text-blue-400 dark:focus-visible:ring-blue-400"
         checked={value}
         onChange={(e) =>
-          route_set_chart_settings({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
-              type: chartType,
-              [name]: e.target.checked,
-            }),
-            changedSettings: [name],
-          })
+          callOpenAPI(
+            setChartSettings({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+                  type: chartType,
+                  [name]: e.target.checked,
+                }),
+                changedSettings: [name],
+              },
+            } as Parameters<typeof setChartSettings>[0]),
+          )
         }
       />
     </div>

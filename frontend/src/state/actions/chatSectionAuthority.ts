@@ -1,10 +1,11 @@
+import { setChatSectionState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
-import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
   ChatSectionBranch,
@@ -13,7 +14,6 @@ import {
 } from "utils/generatedTypes";
 import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { reconcileHydratedChatMessages } from "./chatMergeUtils";
-
 function mergeHydratedChatSectionState(
   currentState: ChatSectionState,
   incoming: {
@@ -53,7 +53,6 @@ function mergeHydratedChatSectionState(
     branches: nextBranches,
   };
 }
-
 function syncHydratedActiveBranchMessages({
   branches,
   activeBranchId,
@@ -80,7 +79,6 @@ function syncHydratedActiveBranchMessages({
     },
   };
 }
-
 export function applyHydratedChatDetailsToSectionState({
   sectionId,
   messages,
@@ -119,7 +117,6 @@ export function applyHydratedChatDetailsToSectionState({
   });
   return nextState;
 }
-
 export function persistChatSectionState({
   projectConfigId,
   sectionId,
@@ -145,15 +142,18 @@ export function persistChatSectionState({
       });
     },
     send: (frontendOpId) =>
-      route_set_chat_section_state({
-        projectConfigId,
-        sectionId,
-        state: nextState,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setChatSectionState({
+          body: {
+            projectConfigId,
+            sectionId,
+            state: nextState,
+            frontendOpId,
+          },
+        } as Parameters<typeof setChatSectionState>[0]),
+      ),
   });
 }
-
 export function getChatSectionStateFromStore(
   state: ZustandProjectState,
   sectionId: string,

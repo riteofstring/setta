@@ -4,6 +4,8 @@ import type {
 } from "components/Params/ParamUIs/ConfiguredParamInputs";
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
+import { setParamEnteredValue } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -24,7 +26,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import type {
   BaseChildlessCodeObjImplUnion,
   BaseCodeObjImplUnion,
@@ -51,7 +52,6 @@ import {
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
 import { sendButtonSettaRequest } from "./settaApiAction";
-
 type ButtonRequestConfig = Pick<
   ButtonParamCodeObjImpl,
   | "actionMode"
@@ -61,7 +61,6 @@ type ButtonRequestConfig = Pick<
   | "requestHeaderValue"
   | "requestBody"
 >;
-
 function _MetaControlArea({ sectionId }: { sectionId: string }) {
   const { controlParamId, showSectionTitle } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -74,11 +73,9 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
       showSectionTitle: impl.showSectionTitle ?? false,
     };
   }, _.isEqual);
-
   if (!controlParamId) {
     return null;
   }
-
   return (
     <MetaControlValueArea
       sectionId={sectionId}
@@ -87,7 +84,6 @@ function _MetaControlArea({ sectionId }: { sectionId: string }) {
     />
   );
 }
-
 function MetaControlValueArea({
   sectionId,
   controlParamId,
@@ -241,7 +237,6 @@ function MetaControlValueArea({
   const dateCalendarWeekStart =
     metaControlState?.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday;
   const dateIncludesTime = metaControlState?.dateIncludesTime ?? false;
-
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
     (pendingValue) => {
@@ -268,7 +263,6 @@ function MetaControlValueArea({
     },
     codeObjVariantId,
   );
-
   const handleValueChange: ParamValueChange = (
     nextValue,
     options?: ParamValueChangeOptions,
@@ -315,7 +309,6 @@ function MetaControlValueArea({
       }
     }
   };
-
   function handleAction() {
     if (!hasMetaControlState || !buttonConfig) {
       return;
@@ -343,7 +336,6 @@ function MetaControlValueArea({
       payload,
     });
   }
-
   function handleDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
     if (!hasMetaControlState || attachments.length === 0) {
       return;
@@ -396,11 +388,9 @@ function MetaControlValueArea({
       });
     }
   }
-
   if (!hasMetaControlState) {
     return null;
   }
-
   return (
     <div className="col-span-full row-span-full flex h-full w-full items-stretch p-0">
       {codeObjType === CodeObjTypeEnum.ButtonParam ? (
@@ -443,9 +433,7 @@ function MetaControlValueArea({
     </div>
   );
 }
-
 export const MetaControlArea = React.memo(_MetaControlArea);
-
 const debouncedSetParamEnteredValue = _.debounce(
   (
     sectionId: string,
@@ -466,19 +454,22 @@ const debouncedSetParamEnteredValue = _.debounce(
         );
       },
       send: (frontendOpId) =>
-        route_set_param_entered_value({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          sectionVariantId,
-          paramInfoId,
-          value,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setParamEnteredValue({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              sectionVariantId,
+              paramInfoId,
+              value,
+              frontendOpId,
+            },
+          } as Parameters<typeof setParamEnteredValue>[0]),
+        ),
     });
   },
   50,
 );
-
 const debouncedSetPasswordParamValue = _.debounce(
   (
     sectionId: string,
@@ -486,36 +477,36 @@ const debouncedSetPasswordParamValue = _.debounce(
     paramInfoId: string,
     value: string,
   ) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      sectionVariantId,
-      paramInfoId,
-      value,
-    });
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    );
   },
   50,
 );
-
 function isButtonParamCodeObjImpl(
   impl: BaseCodeObjImplUnion,
 ): impl is ButtonParamCodeObjImpl {
   return impl.type === CodeObjTypeEnum.ButtonParam;
 }
-
 function sendButtonHttpRequest(config: ButtonRequestConfig) {
   const requestUrl = config.requestUrl.trim();
   if (requestUrl === "") {
     return;
   }
-
   const method = config.requestMethod ?? HTTPRequestMethodEnum.POST;
   const headerKey = config.requestHeaderKey.trim();
   let headers: HeadersInit | undefined;
   if (headerKey !== "") {
     headers = { [headerKey]: config.requestHeaderValue };
   }
-
   const trimmedBody = config.requestBody.trim();
   let body: string | undefined;
   if (
@@ -525,7 +516,6 @@ function sendButtonHttpRequest(config: ButtonRequestConfig) {
   ) {
     body = config.requestBody;
   }
-
   void fetch(requestUrl, {
     method,
     headers,

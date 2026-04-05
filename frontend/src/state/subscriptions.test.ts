@@ -1,5 +1,4 @@
 /* @vitest-environment jsdom */
-
 import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
 import {
@@ -28,21 +27,16 @@ import {
   vi,
 } from "vitest";
 import { subscribe } from "./subscriptions";
-
 const routeSetViewportMock = vi.fn();
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_set_viewport: (...args: unknown[]) => routeSetViewportMock(...args),
+    setViewport: (...args: unknown[]) => routeSetViewportMock(...args),
   };
 });
-
 let subscriptionsInstalled = false;
-
 function ensureSubscriptionsInstalled() {
   if (subscriptionsInstalled) {
     return;
@@ -50,12 +44,10 @@ function ensureSubscriptionsInstalled() {
   subscribe();
   subscriptionsInstalled = true;
 }
-
 describe("subscriptions viewport persistence", () => {
   beforeAll(() => {
     ensureSubscriptionsInstalled();
   });
-
   beforeEach(() => {
     resetProjectStores();
     debouncedDispatchViewportUpdate.cancel();
@@ -93,18 +85,15 @@ describe("subscriptions viewport persistence", () => {
       fitViewOnInitDone: false,
     });
   });
-
   afterEach(() => {
     debouncedDispatchViewportUpdate.cancel();
   });
-
   it("flushes the fitted viewport immediately when auto-fit completes", async () => {
     useReactFlow.setState({
       transform: [150, 125, 0.6],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
     });
-
     await vi.waitFor(() => {
       expect(routeSetViewportMock).toHaveBeenCalledWith({
         projectConfigId: "project-1",
@@ -113,11 +102,9 @@ describe("subscriptions viewport persistence", () => {
       });
     });
   });
-
   it("keeps the local viewport when a backend update arrives before the debounced write flushes", () => {
     const localViewport = { x: 160, y: 120, zoom: 0.6 };
     const staleBackendViewport = { x: 0, y: 0, zoom: 1 };
-
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -146,19 +133,16 @@ describe("subscriptions viewport persistence", () => {
     debouncedDispatchViewportUpdate.cancel();
     routeSetViewportMock.mockClear();
     usePendingOperations.setState({ pending: [] });
-
     useReactFlow.setState({
       transform: [localViewport.x, localViewport.y, localViewport.zoom],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
     });
-
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       localViewport,
     );
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(routeSetViewportMock).not.toHaveBeenCalled();
-
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
         projectConfig: createProjectConfig({
@@ -182,7 +166,6 @@ describe("subscriptions viewport persistence", () => {
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     expect(useReactFlow.getState().transform).toEqual([
       localViewport.x,
       localViewport.y,

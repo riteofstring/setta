@@ -57,14 +57,12 @@ import {
   normalizeProjectAISettingsAccordionOpenValues,
 } from "./projectAISettingsAccordionState";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
-
 type FieldProps = {
   label: string;
   hint?: string;
   error?: string | null;
   children: ReactNode;
 };
-
 type ProjectAISettingsAccordionItem = {
   value: ProjectAISettingsAccordionItemValue;
   title: string;
@@ -72,7 +70,6 @@ type ProjectAISettingsAccordionItem = {
   triggerTestId: string;
   content: ReactNode;
 };
-
 type AgentProfileDraft = {
   name: string;
   description: string;
@@ -83,12 +80,10 @@ type AgentProfileDraft = {
   toolAllowlistText: string;
   memoryScope: string;
 };
-
 type AgentProfileDraftTextKey = Exclude<
   keyof AgentProfileDraft,
   "enableBackgroundSummaryFill" | "enableLlmChatTitles"
 >;
-
 type PromptTemplateDraft = {
   name: string;
   description: string;
@@ -97,7 +92,6 @@ type PromptTemplateDraft = {
   inputSchemaText: string;
   metadataText: string;
 };
-
 type TranscriptionProfileDraft = {
   name: string;
   transcriptionLlmConfigId: string;
@@ -105,7 +99,6 @@ type TranscriptionProfileDraft = {
   chunkMs: string;
   language: string;
 };
-
 type ExternalAgentConfigDraft = {
   name: string;
   description: string;
@@ -127,7 +120,6 @@ type ExternalAgentConfigDraft = {
   claudeAskText: string;
   claudeDenyText: string;
 };
-
 type PromptFormatValue = (typeof FormatEnum)[keyof typeof FormatEnum];
 type ExternalAgentToolTypeValue =
   (typeof ToolTypeEnum)[keyof typeof ToolTypeEnum];
@@ -140,7 +132,6 @@ type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 type TranscriptionTransportModeValue =
   (typeof TranscriptionTransportModeEnum)[keyof typeof TranscriptionTransportModeEnum];
-
 const INPUT_CLASS_NAME =
   "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 const TEXTAREA_CLASS_NAME =
@@ -155,7 +146,6 @@ const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
   "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180";
 const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
   "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500";
-
 const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(rm:*)",
   "Bash(sudo:*)",
@@ -178,7 +168,6 @@ const CLAUDE_APPROVAL_POLICY_OPTIONS = [
   { value: "bypassPermissions", label: "YOLO (bypassPermissions)" },
 ] as const;
 const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
-
 export function resolveTranscriptionChunkMsForSave({
   transportMode,
   chunkMsInput,
@@ -193,13 +182,12 @@ export function resolveTranscriptionChunkMsForSave({
   if (
     !Number.isInteger(parsedChunkMs) ||
     parsedChunkMs < 200 ||
-    parsedChunkMs > 10_000
+    parsedChunkMs > 10000
   ) {
     return null;
   }
   return parsedChunkMs;
 }
-
 export function ProjectAISettings() {
   useHydrateAgenticState();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -299,7 +287,6 @@ export function ProjectAISettings() {
     ],
     [canEdit, isDeploymentMode],
   );
-
   return (
     <div
       data-testid="project-ai-settings-scroll-region"
@@ -316,7 +303,6 @@ export function ProjectAISettings() {
     </div>
   );
 }
-
 function ProjectAISettingsAccordion({
   items,
   openValues,
@@ -345,7 +331,6 @@ function ProjectAISettingsAccordion({
     />
   );
 }
-
 function Field({ label, hint, error, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
@@ -362,7 +347,6 @@ function Field({ label, hint, error, children }: FieldProps) {
     </div>
   );
 }
-
 function ShareModeNotice() {
   return (
     <div className="rounded-md border border-setta-200/70 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-300">
@@ -370,14 +354,12 @@ function ShareModeNotice() {
     </div>
   );
 }
-
 function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
   const completionGuardEnabled = useSettings(
     (settings) => settings.backend.completionGuardEnabled,
   );
   const [isSavingCompletionGuard, setIsSavingCompletionGuard] = useState(false);
   const completionGuardSaveRequestIdRef = useRef(0);
-
   const handleCompletionGuardEnabledChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       if (!canEdit || isSavingCompletionGuard) {
@@ -397,7 +379,9 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
       setIsSavingCompletionGuard(true);
       void (async () => {
         const response = await callOpenAPI(
-          saveSettings({ body: { settings: nextSettings } }),
+          saveSettings({ body: { settings: nextSettings } } as Parameters<
+            typeof saveSettings
+          >[0]),
         );
         if (requestId !== completionGuardSaveRequestIdRef.current) {
           return;
@@ -416,7 +400,6 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
     },
     [canEdit, isSavingCompletionGuard],
   );
-
   return (
     <div className="flex flex-col gap-2 rounded-md border border-setta-200/70 bg-setta-50/70 p-3 text-xs text-setta-600 dark:border-setta-800/70 dark:bg-setta-900/40 dark:text-setta-300">
       <label className="flex items-center gap-2">
@@ -444,7 +427,6 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
-
 function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
   const { agentProfiles } = useAIStore(
     (state) => ({ agentProfiles: state.agentProfiles }),
@@ -453,7 +435,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<AgentProfileDraft | null>(null);
-
   useEffect(() => {
     if (isCreating) {
       return;
@@ -469,14 +450,12 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(agentProfiles.length > 0 ? agentProfiles[0].id : null);
     }
   }, [activeId, agentProfiles, isCreating]);
-
   const activeProfile = useMemo(() => {
     if (!activeId) {
       return null;
     }
     return agentProfiles.find((profile) => profile.id === activeId) ?? null;
   }, [activeId, agentProfiles]);
-
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -497,11 +476,8 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     setDraft(buildAgentProfileDraft(activeProfile));
   }, [activeProfile, isCreating]);
-
   const listClassName = MANAGER_LIST_CLASS_NAME;
-
   const formClassName = MANAGER_FORM_CLASS_NAME;
-
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -509,7 +485,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
-
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -552,7 +527,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
-
   const handleDelete = async () => {
     if (!activeProfile) {
       return;
@@ -562,7 +536,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
-
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -572,7 +545,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       setDraft(buildAgentProfileDraft(activeProfile));
     }
   };
-
   const handleFieldChange = (key: AgentProfileDraftTextKey, value: string) => {
     setDraft((prev) => {
       if (!prev) {
@@ -581,7 +553,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value };
     });
   };
-
   const handleToggleChange = (
     key: "enableBackgroundSummaryFill" | "enableLlmChatTitles",
     value: boolean,
@@ -593,11 +564,9 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value };
     });
   };
-
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -807,7 +776,6 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
-
 function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
   const { apiKeys, allLLMConfigs, transcriptionProfiles } = useAIStore(
     (state) => ({
@@ -839,7 +807,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     return "";
   }, [configGroups]);
-
   useEffect(() => {
     if (isCreating) {
       return;
@@ -859,7 +826,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       );
     }
   }, [activeId, isCreating, transcriptionProfiles]);
-
   const activeProfile = useMemo(() => {
     if (!activeId) {
       return null;
@@ -868,7 +834,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       transcriptionProfiles.find((profile) => profile.id === activeId) ?? null
     );
   }, [activeId, transcriptionProfiles]);
-
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -886,7 +851,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
     setDraft(buildTranscriptionProfileDraft(activeProfile));
   }, [activeProfile, firstConfigId, isCreating]);
-
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -894,7 +858,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
-
   const handleSave = async () => {
     if (!draft || !draft.transcriptionLlmConfigId) {
       return;
@@ -939,7 +902,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
-
   const handleDelete = async () => {
     if (!activeProfile) {
       return;
@@ -951,7 +913,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
-
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -961,7 +922,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setDraft(buildTranscriptionProfileDraft(activeProfile));
     }
   };
-
   const resolvedChunkMs = draft
     ? resolveTranscriptionChunkMsForSave({
         transportMode: draft.transportMode,
@@ -975,7 +935,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     resolvedChunkMs === null;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -1178,7 +1137,6 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
-
 function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const { promptTemplates } = useAIStore(
     (state) => ({ promptTemplates: state.promptTemplates }),
@@ -1189,9 +1147,7 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
   const [draft, setDraft] = useState<PromptTemplateDraft | null>(null);
   const [inputSchemaError, setInputSchemaError] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
-
   const formatOptions = useMemo(() => Object.values(FormatEnum), []);
-
   useEffect(() => {
     if (isCreating) {
       return;
@@ -1207,14 +1163,12 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(promptTemplates.length > 0 ? promptTemplates[0].id : null);
     }
   }, [activeId, isCreating, promptTemplates]);
-
   const activeTemplate = useMemo(() => {
     if (!activeId) {
       return null;
     }
     return promptTemplates.find((template) => template.id === activeId) ?? null;
   }, [activeId, promptTemplates]);
-
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -1237,11 +1191,8 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     setInputSchemaError(null);
     setMetadataError(null);
   }, [activeTemplate, isCreating]);
-
   const listClassName = MANAGER_LIST_CLASS_NAME;
-
   const formClassName = MANAGER_FORM_CLASS_NAME;
-
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -1249,7 +1200,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
-
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -1266,7 +1216,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     }
     setInputSchemaError(null);
     setMetadataError(null);
-
     if (isCreating) {
       const created = await createPromptTemplate({
         name: draft.name.trim(),
@@ -1300,7 +1249,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
-
   const handleDelete = async () => {
     if (!activeTemplate) {
       return;
@@ -1312,7 +1260,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
-
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -1324,7 +1271,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       setMetadataError(null);
     }
   };
-
   const handleFieldChange = (
     key: keyof PromptTemplateDraft,
     value: string | PromptFormatValue,
@@ -1336,11 +1282,9 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value } as PromptTemplateDraft;
     });
   };
-
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeTemplate || isCreating;
   const isCancelDisabled = !draft;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -1515,7 +1459,6 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
-
 function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const { externalAgentConfigs } = useAIStore(
     (state) => ({ externalAgentConfigs: state.externalAgentConfigs }),
@@ -1524,7 +1467,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<ExternalAgentConfigDraft | null>(null);
-
   const toolTypeOptions = useMemo(() => Object.values(ToolTypeEnum), []);
   const runModeOptions = useMemo(() => Object.values(RunModeEnum), []);
   const workingDirOptions = useMemo(
@@ -1539,11 +1481,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     () => Object.values(ClaudeSettingsSourceEnum),
     [],
   );
-
   const defaultToolType = toolTypeOptions.length
     ? toolTypeOptions[0]
     : ToolTypeEnum.codex;
-
   useEffect(() => {
     if (isCreating) {
       return;
@@ -1563,7 +1503,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       );
     }
   }, [activeId, externalAgentConfigs, isCreating]);
-
   const activeConfig = useMemo(() => {
     if (!activeId) {
       return null;
@@ -1572,7 +1511,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       externalAgentConfigs.find((config) => config.id === activeId) ?? null
     );
   }, [activeId, externalAgentConfigs]);
-
   useEffect(() => {
     if (isCreating) {
       setDraft({
@@ -1607,11 +1545,8 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     }
     setDraft(buildExternalAgentConfigDraft(activeConfig));
   }, [activeConfig, defaultToolType, isCreating]);
-
   const listClassName = MANAGER_LIST_CLASS_NAME;
-
   const formClassName = MANAGER_FORM_CLASS_NAME;
-
   const handleCreateClick = () => {
     if (!canEdit) {
       return;
@@ -1619,7 +1554,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     setIsCreating(true);
     setActiveId(null);
   };
-
   const handleSave = async () => {
     if (!draft) {
       return;
@@ -1673,7 +1607,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(updated.id);
     }
   };
-
   const handleDelete = async () => {
     if (!activeConfig) {
       return;
@@ -1685,7 +1618,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setActiveId(null);
     }
   };
-
   const handleCancel = () => {
     if (isCreating) {
       setIsCreating(false);
@@ -1695,7 +1627,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       setDraft(buildExternalAgentConfigDraft(activeConfig));
     }
   };
-
   const handleFieldChange = <K extends keyof ExternalAgentConfigDraft>(
     key: K,
     value: ExternalAgentConfigDraft[K],
@@ -1724,7 +1655,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       return { ...prev, [key]: value };
     });
   };
-
   const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
@@ -1737,7 +1667,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       : "node";
   const isExplicitSettingsPath =
     draft?.settingsMode === SettingsModeEnum.explicit_path;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -2164,7 +2093,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     </div>
   );
 }
-
 function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
   return {
     name: profile.name ?? "",
@@ -2177,7 +2105,6 @@ function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
     memoryScope: profile.memoryScope ?? "",
   };
 }
-
 function buildTranscriptionProfileDraft(
   profile: TranscriptionProfile,
 ): TranscriptionProfileDraft {
@@ -2189,7 +2116,6 @@ function buildTranscriptionProfileDraft(
     language: profile.language ?? "",
   };
 }
-
 function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
   return {
     name: template.name ?? "",
@@ -2200,7 +2126,6 @@ function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
     metadataText: JSON.stringify(template.metadata ?? {}, null, 2),
   };
 }
-
 function buildExternalAgentConfigDraft(
   config: ExternalAgentConfig,
 ): ExternalAgentConfigDraft {
@@ -2233,7 +2158,6 @@ function buildExternalAgentConfigDraft(
       config.settingsManagedBlock?.claude?.permissions?.deny?.join("\n") ?? "",
   };
 }
-
 function buildSettingsManagedBlock(
   draft: ExternalAgentConfigDraft,
   existing: ExternalAgentConfig | null,
@@ -2254,14 +2178,12 @@ function buildSettingsManagedBlock(
   }
   return existingBlock;
 }
-
 function parseListInput(value: string): Array<string> {
   return value
     .split(/[\n,]/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 }
-
 function normalizeOptionalText(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -2269,12 +2191,10 @@ function normalizeOptionalText(value: string): string | null {
   }
   return trimmed;
 }
-
 type JsonParseResult = {
   value: Record<string, unknown>;
   error: string | null;
 };
-
 function parseJsonObject(value: string): JsonParseResult {
   if (!value.trim()) {
     return { value: {}, error: null };

@@ -1,8 +1,5 @@
+import { changeParamImpl, updateParamImplConfig } from "openapi/http";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  route_change_param_impl,
-  route_update_param_impl_config,
-} from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -13,16 +10,13 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_PRESET_ID } from "./UITypeCombobox";
 import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_change_param_impl: vi.fn(),
-  route_update_param_impl_config: vi.fn(),
+vi.mock("openapi/http", () => ({
+  changeParamImpl: vi.fn(),
+  updateParamImplConfig: vi.fn(),
 }));
-
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
-
 describe("applyUiTypeComboboxSelection", () => {
   const baseArgs = {
     projectConfigId: "project-1",
@@ -35,32 +29,29 @@ describe("applyUiTypeComboboxSelection", () => {
     sectionId: "section-1",
     paramInfoId: "param-1",
   };
-
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(route_change_param_impl).mockResolvedValue({
+    vi.mocked(changeParamImpl).mockResolvedValue({
       data: null,
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+    vi.mocked(updateParamImplConfig).mockResolvedValue({
       data: null,
       status: 200,
       hasResponse: true,
     });
   });
-
   it("switches to DateParam calendar config for meta control calendar preset selection", async () => {
     await applyUiTypeComboboxSelection({
       ...baseArgs,
       selectedId: CALENDAR_PRESET_ID,
     });
-
-    expect(route_change_param_impl).toHaveBeenCalledWith({
+    expect(changeParamImpl).toHaveBeenCalledWith({
       ...endpointBaseArgs,
       selectedId: CodeObjTypeEnum.DateParam,
     });
-    expect(route_update_param_impl_config).toHaveBeenCalledWith({
+    expect(updateParamImplConfig).toHaveBeenCalledWith({
       ...endpointBaseArgs,
       newConfig: {
         dateControlMode: DateControlModeEnum.calendar,
@@ -69,57 +60,48 @@ describe("applyUiTypeComboboxSelection", () => {
       },
     });
   });
-
   it("passes through regular type/impl selection without config override", async () => {
     await applyUiTypeComboboxSelection({
       ...baseArgs,
       selectedId: CodeObjTypeEnum.SliderParam,
     });
-
-    expect(route_change_param_impl).toHaveBeenCalledWith({
+    expect(changeParamImpl).toHaveBeenCalledWith({
       ...endpointBaseArgs,
       selectedId: CodeObjTypeEnum.SliderParam,
     });
-    expect(route_update_param_impl_config).not.toHaveBeenCalled();
+    expect(updateParamImplConfig).not.toHaveBeenCalled();
   });
-
   it("shows an error notification when calendar preset config update fails", async () => {
-    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+    vi.mocked(updateParamImplConfig).mockResolvedValue({
       data: { detail: "preset failed" },
       status: 400,
       hasResponse: true,
     });
-
     await applyUiTypeComboboxSelection({
       ...baseArgs,
       selectedId: CALENDAR_PRESET_ID,
     });
-
     expect(addTemporaryNotification).toHaveBeenCalledWith(
       "preset failed",
       NotificationTypeEnum.error,
     );
   });
-
   it("shows an error notification when changing a regular type fails", async () => {
-    vi.mocked(route_change_param_impl).mockResolvedValue({
+    vi.mocked(changeParamImpl).mockResolvedValue({
       data: { detail: "change failed" },
       status: 400,
       hasResponse: true,
     });
-
     await applyUiTypeComboboxSelection({
       ...baseArgs,
       selectedId: CodeObjTypeEnum.SliderParam,
     });
-
     expect(addTemporaryNotification).toHaveBeenCalledWith(
       "change failed",
       NotificationTypeEnum.error,
     );
-    expect(route_update_param_impl_config).not.toHaveBeenCalled();
+    expect(updateParamImplConfig).not.toHaveBeenCalled();
   });
-
   it("throws when calendar preset is selected outside the control filter", async () => {
     await expect(
       applyUiTypeComboboxSelection({
@@ -130,7 +112,7 @@ describe("applyUiTypeComboboxSelection", () => {
     ).rejects.toThrow(
       "Calendar preset selection is only valid for control params.",
     );
-    expect(route_change_param_impl).not.toHaveBeenCalled();
-    expect(route_update_param_impl_config).not.toHaveBeenCalled();
+    expect(changeParamImpl).not.toHaveBeenCalled();
+    expect(updateParamImplConfig).not.toHaveBeenCalled();
   });
 });

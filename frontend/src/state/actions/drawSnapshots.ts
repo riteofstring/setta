@@ -2,22 +2,17 @@ import { uploadBinary } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { res200 } from "utils/endpointUtils";
 import { ContentRef } from "utils/generatedTypes";
-
 type DrawSnapshotProvider = () => Promise<Blob | null> | Blob | null;
-
 const drawSnapshotProviders = new Map<string, DrawSnapshotProvider>();
-
 export function registerDrawSnapshotProvider(
   sectionId: string,
   provider: DrawSnapshotProvider,
 ): void {
   drawSnapshotProviders.set(sectionId, provider);
 }
-
 export function unregisterDrawSnapshotProvider(sectionId: string): void {
   drawSnapshotProviders.delete(sectionId);
 }
-
 export async function collectDrawSnapshotPayloads(
   sectionIds: string[],
 ): Promise<Record<string, ContentRef> | null> {
@@ -36,7 +31,12 @@ export async function collectDrawSnapshotPayloads(
     }),
   );
   const blobs = entries.filter(
-    (entry): entry is { sectionId: string; blob: Blob } => entry !== null,
+    (
+      entry,
+    ): entry is {
+      sectionId: string;
+      blob: Blob;
+    } => entry !== null,
   );
   if (blobs.length === 0) {
     return null;
@@ -49,7 +49,7 @@ export async function collectDrawSnapshotPayloads(
             durable: false,
             file: blob,
           },
-        }),
+        } as Parameters<typeof uploadBinary>[0]),
       );
       if (!res200(res) || !res.data) {
         return null;

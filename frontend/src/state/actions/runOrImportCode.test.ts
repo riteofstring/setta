@@ -15,7 +15,7 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { runCodeBlock, stopCode } from "./runOrImportCode";
 const {
   routeGetLatestProjectStateMock,
   routeInterruptTerminalProcessesMock,
@@ -31,21 +31,17 @@ const {
   getCurrProjectConfigIdMock: vi.fn(() => "project-1"),
   processProjectStateUpdateFromBackendMock: vi.fn(),
 }));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_latest_project_state: routeGetLatestProjectStateMock,
+vi.mock("openapi/http", () => ({
+  getLatestProjectState: routeGetLatestProjectStateMock,
 }));
-
 vi.mock("openapi/http", () => ({
   runCode: (...args: unknown[]) => routeRunCodeMock(...args),
   interruptTerminalProcesses: (...args: unknown[]) =>
     routeInterruptTerminalProcessesMock(...args),
 }));
-
 vi.mock("./notifications", () => ({
   addTemporaryNotification: addTemporaryNotificationMock,
 }));
-
 vi.mock("./sectionInfos", async () => {
   const actual =
     await vi.importActual<typeof import("./sectionInfos")>("./sectionInfos");
@@ -56,9 +52,6 @@ vi.mock("./sectionInfos", async () => {
       processProjectStateUpdateFromBackendMock,
   };
 });
-
-import { runCodeBlock, stopCode } from "./runOrImportCode";
-
 const codeSectionId = "code-section";
 const codeVariantId = "code-variant";
 const codeImplId = "code-impl";
@@ -66,7 +59,6 @@ const genPythonSectionId = "gen-python-section";
 const terminalSectionId = "terminal-section";
 const terminalVariantId = "terminal-variant";
 const terminalImplId = "terminal-impl";
-
 function buildProjectState({
   attachedTerminalId,
   pythonCodegenEnabled = false,
@@ -101,7 +93,6 @@ function buildProjectState({
       attachedTerminalSectionId: attachedTerminalId,
     }),
   };
-
   if (attachedTerminalId) {
     sectionVariantMap[attachedTerminalId] = terminalVariantId;
     sections[attachedTerminalId] = createCore({
@@ -120,7 +111,6 @@ function buildProjectState({
       name: "Terminal",
     });
   }
-
   return createSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-1",
@@ -166,7 +156,6 @@ function buildProjectState({
     }),
   });
 }
-
 describe("runCodeBlock", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -178,11 +167,9 @@ describe("runCodeBlock", () => {
     });
     getCurrProjectConfigIdMock.mockReturnValue("project-1");
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("rehydrates project state after a successful run when the backend creates the attached terminal", async () => {
     useProjectState.setState(buildProjectState({ attachedTerminalId: null }));
     const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
@@ -197,9 +184,7 @@ describe("runCodeBlock", () => {
       data: latestProjectState,
       hasResponse: true,
     });
-
     await runCodeBlock(codeSectionId);
-
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
@@ -216,14 +201,11 @@ describe("runCodeBlock", () => {
       latestProjectState,
     );
   });
-
   it("reuses the existing attached terminal without rehydrating project state", async () => {
     useProjectState.setState(
       buildProjectState({ attachedTerminalId: terminalSectionId }),
     );
-
     await runCodeBlock(codeSectionId);
-
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
@@ -236,7 +218,6 @@ describe("runCodeBlock", () => {
     expect(routeGetLatestProjectStateMock).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackendMock).not.toHaveBeenCalled();
   });
-
   it("rehydrates project state after a generated-entry run creates a top-level terminal", async () => {
     useProjectState.setState(
       buildProjectState({
@@ -257,9 +238,7 @@ describe("runCodeBlock", () => {
       data: latestProjectState,
       hasResponse: true,
     });
-
     await runCodeBlock(null);
-
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
@@ -276,7 +255,6 @@ describe("runCodeBlock", () => {
       latestProjectState,
     );
   });
-
   it("uses the current local entry code block for main runs even when backend run capabilities are stale", async () => {
     useProjectState.setState(
       buildProjectState({
@@ -300,9 +278,7 @@ describe("runCodeBlock", () => {
       data: latestProjectState,
       hasResponse: true,
     });
-
     await runCodeBlock(null);
-
     expect(routeRunCodeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
@@ -314,7 +290,6 @@ describe("runCodeBlock", () => {
     );
   });
 });
-
 describe("stopCode", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -326,14 +301,11 @@ describe("stopCode", () => {
       response: new Response(null, { status: 200 }),
     });
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("posts the canonical interrupt-terminal request for the current project", async () => {
     await stopCode();
-
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Stopping subprocesses",
     );

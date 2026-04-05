@@ -30,7 +30,6 @@ import { appRegistry } from "./appRegistry";
 import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
 import { buildAppBinaryDownloadUrl } from "./appTransport";
-
 type RawUIElement = {
   key: string;
   type: string;
@@ -39,7 +38,6 @@ type RawUIElement = {
   parentKey?: unknown;
   visible?: unknown;
 };
-
 type AppRendererProps = {
   appSpec: unknown | null;
   appDefinition: AppDefinition | null | undefined;
@@ -47,11 +45,9 @@ type AppRendererProps = {
   defaultConfigId?: string | null;
   rootKeyOverride?: string | null;
 };
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-
 function toStringRecord(value: unknown): Record<string, string> | null {
   if (!isRecord(value)) {
     return null;
@@ -65,7 +61,6 @@ function toStringRecord(value: unknown): Record<string, string> | null {
   }
   return output;
 }
-
 function isUIElement(value: unknown): value is RawUIElement {
   if (!value || typeof value !== "object") {
     return false;
@@ -73,15 +68,15 @@ function isUIElement(value: unknown): value is RawUIElement {
   const record = value as Record<string, unknown>;
   return typeof record.key === "string" && typeof record.type === "string";
 }
-
 function normalizeElements(
   root: RawUIElement,
   elements: Record<string, RawUIElement>,
 ): Spec["elements"] {
   const output: Spec["elements"] = {};
-  const stack: Array<{ element: RawUIElement; parentKey: string | null }> = [
-    { element: root, parentKey: null },
-  ];
+  const stack: Array<{
+    element: RawUIElement;
+    parentKey: string | null;
+  }> = [{ element: root, parentKey: null }];
   const visited = new Set<string>();
   while (stack.length > 0) {
     const current = stack.pop();
@@ -122,7 +117,6 @@ function normalizeElements(
   }
   return output;
 }
-
 function normalizeAppSpec(
   spec: unknown,
   rootKeyOverride?: string | null,
@@ -183,7 +177,6 @@ function normalizeAppSpec(
   }
   return null;
 }
-
 export function AppRenderer({
   appSpec,
   appDefinition,
@@ -235,7 +228,6 @@ export function AppRenderer({
     runDisabledReason =
       loadedDefaultRunRequest.disabledReason ?? "Run is unavailable.";
   }
-
   const handleRun = useCallback(
     async (params?: Record<string, unknown>) => {
       const configId =
@@ -328,7 +320,7 @@ export function AppRenderer({
                 : {}),
               ...(hasParamOverrides ? { paramOverrides } : {}),
             },
-          }),
+          } as Parameters<typeof runCode>[0]),
         );
         if (res200(res)) {
           if (deploymentMode) {
@@ -356,14 +348,12 @@ export function AppRenderer({
       resolvedPolicy.allowVariantChanges,
     ],
   );
-
   const handleReset = useCallback(async () => {
     setLocalRunCount(0);
     if (sharePolicy) {
       await resetAppDeployment();
     }
   }, [sharePolicy]);
-
   const handleDownloadArtifact = useCallback(
     async (
       artifactId?: string | null,
@@ -389,7 +379,7 @@ export function AppRenderer({
             artifactId,
             projectConfigId: resolvedConfigId,
           },
-        }),
+        } as Parameters<typeof getAttachmentDownloadUrl>[0]),
       );
       if (res200(res) && res.data.url) {
         triggerDownload(res.data.url, filename ?? undefined);
@@ -399,7 +389,6 @@ export function AppRenderer({
     },
     [allowFileDownloads, fallbackConfigId],
   );
-
   const handleDownloadBinary = useCallback(
     (contentId?: string | null, filename?: string | null) => {
       if (!allowFileDownloads) {
@@ -415,7 +404,6 @@ export function AppRenderer({
     },
     [allowFileDownloads, shareSessionId],
   );
-
   const handleOpenExternalLink = useCallback(
     (url?: string | null) => {
       if (!allowExternalLinks) {
@@ -432,13 +420,11 @@ export function AppRenderer({
     },
     [allowExternalLinks],
   );
-
   const actionDefinitions = useMemo(
     () => normalizeActionDefinitions(appDefinition?.actions),
     [appDefinition?.actions],
   );
   const themeClassName = resolvedTheme.className ?? "";
-
   const actionHandlers = useMemo(() => {
     const handlers: Record<
       string,
@@ -570,7 +556,6 @@ export function AppRenderer({
     handleReset,
     handleRun,
   ]);
-
   if (!spec || !spec.elements[spec.root]) {
     return (
       <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center text-[color:var(--app-muted)] [font-size:var(--app-text-sm)]">
@@ -578,7 +563,6 @@ export function AppRenderer({
       </div>
     );
   }
-
   return (
     <AppRuntimeContext.Provider
       value={{
@@ -618,7 +602,6 @@ export function AppRenderer({
     </AppRuntimeContext.Provider>
   );
 }
-
 function triggerDownload(url: string, filename?: string) {
   if (typeof document === "undefined") {
     return;

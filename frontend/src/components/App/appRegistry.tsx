@@ -11,7 +11,11 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
 import _ from "lodash";
-import { loadCachedImageArtifacts } from "openapi/http";
+import {
+  getPasswordParamValue,
+  loadCachedImageArtifacts,
+  setParamEnteredValue,
+} from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import ReactMarkdown from "react-markdown";
@@ -49,10 +53,6 @@ import {
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_get_password_param_value,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
   ImageArtifact,
@@ -96,20 +96,19 @@ import {
   useAppRuntime,
 } from "./appContext";
 import { resolveResponsiveValue, useAppBreakpoint } from "./appResponsive";
-
 type RawElementProps = {
   key?: unknown;
   type?: unknown;
   props?: Record<string, unknown>;
   children?: unknown;
 };
-
 type AppComponentProps = {
-  element: RawElementProps & { props?: Record<string, unknown> };
+  element: RawElementProps & {
+    props?: Record<string, unknown>;
+  };
   children?: React.ReactNode;
   onAction?: (action: Action) => void;
 };
-
 type AppConfigState = ZustandProjectState;
 type TabChildElement = React.ReactElement<AppComponentProps>;
 type NumberishStyleKey =
@@ -123,32 +122,27 @@ type NumberishStyleKey =
 type ConfigLanguageValue =
   (typeof ConfigLanguageEnum)[keyof typeof ConfigLanguageEnum];
 type CodeObjTypeValue = (typeof CodeObjTypeEnum)[keyof typeof CodeObjTypeEnum];
-
 const ALIGN_CLASS: Record<string, string> = {
   start: "items-start",
   center: "items-center",
   end: "items-end",
   stretch: "items-stretch",
 };
-
 const JUSTIFY_CLASS: Record<string, string> = {
   start: "justify-start",
   center: "justify-center",
   end: "justify-end",
   between: "justify-between",
 };
-
 const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   background: "var(--app-background)",
   surface: "var(--app-surface)",
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-
 type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
   Array<ImageArtifact>
 >;
-
 function resolveConfigId(
   bindingConfigId: string | null,
   runtimeConfigId: string | null,
@@ -156,32 +150,26 @@ function resolveConfigId(
 ) {
   return bindingConfigId ?? scopeConfigId ?? runtimeConfigId ?? null;
 }
-
 function resolveElementProps(
   element: AppComponentProps["element"],
 ): Record<string, unknown> {
   return element.props ?? {};
 }
-
 function resolveStringProp(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
 }
-
 function resolveNullableStringProp(raw: unknown): string | null {
   return typeof raw === "string" ? raw : null;
 }
-
 function resolveNumberish(raw: unknown): number | string | null {
   return typeof raw === "number" || typeof raw === "string" ? raw : null;
 }
-
 function resolveResponsiveNumberish(
   raw: unknown,
   breakpoint: ReturnType<typeof useAppBreakpoint>,
 ): number | string | null {
   return resolveNumberish(resolveResponsiveValue(raw, breakpoint));
 }
-
 function resolveGapValue(
   raw: unknown,
   breakpoint: ReturnType<typeof useAppBreakpoint>,
@@ -193,7 +181,6 @@ function resolveGapValue(
     16
   );
 }
-
 function assignNumberishStyle(
   style: React.CSSProperties,
   key: NumberishStyleKey,
@@ -204,7 +191,6 @@ function assignNumberishStyle(
   }
   style[key] = typeof value === "number" ? `${value}px` : value;
 }
-
 function buildCardStyle(
   cardPadding: unknown,
   cardRadius: unknown,
@@ -216,7 +202,6 @@ function buildCardStyle(
   assignNumberishStyle(style, "borderRadius", resolveNumberish(cardRadius));
   return style;
 }
-
 function buildTypographyStyle(args: {
   fontFamily?: string | undefined;
   fontSize: unknown;
@@ -231,7 +216,6 @@ function buildTypographyStyle(args: {
   assignNumberishStyle(style, "lineHeight", resolveNumberish(lineHeight));
   return Object.keys(style).length > 0 ? style : undefined;
 }
-
 function resolveMotionSettings(args: {
   delayMs: unknown;
   durationMs: unknown;
@@ -258,14 +242,12 @@ function resolveMotionSettings(args: {
     staggerMs: resolveNumber(staggerMs, themeMotion?.staggerMs ?? 70),
   };
 }
-
 type ResolvedTabDefinition = {
   child: TabChildElement;
   hasContent: boolean;
   key: string;
   title: string;
 };
-
 function resolveTabKey(
   child: TabChildElement,
   index: number,
@@ -276,7 +258,6 @@ function resolveTabKey(
   }
   return typeof child.key === "string" ? child.key : `tab-${index}`;
 }
-
 function resolveTabTitle(
   index: number,
   tabElement: RawElementProps | null,
@@ -286,7 +267,6 @@ function resolveTabTitle(
   }
   return `Tab ${index + 1}`;
 }
-
 function resolveTabDefinition(
   child: TabChildElement,
   index: number,
@@ -301,7 +281,6 @@ function resolveTabDefinition(
     title: resolveTabTitle(index, tabElement),
   };
 }
-
 function CardHeader(props: {
   description: string | null;
   title: string | null;
@@ -325,7 +304,6 @@ function CardHeader(props: {
     </header>
   );
 }
-
 const HEADING_KEY_BY_LEVEL = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
 const HEADING_SIZE_CLASS_BY_LEVEL: Record<number, string> = {
   1: "[font-size:var(--app-text-2xl)]",
@@ -333,7 +311,6 @@ const HEADING_SIZE_CLASS_BY_LEVEL: Record<number, string> = {
   3: "[font-size:var(--app-text-lg)]",
   4: "[font-size:var(--app-text-base)]",
 };
-
 function resolveHeadingPresentation(level: number) {
   const clampedLevel = Math.min(Math.max(level, 1), 4);
   return {
@@ -344,7 +321,6 @@ function resolveHeadingPresentation(level: number) {
       "[font-size:var(--app-text-base)]",
   };
 }
-
 type ResolvedActionButtonState = {
   actionName: string;
   actionType: string | null;
@@ -353,7 +329,6 @@ type ResolvedActionButtonState = {
   isRunAction: boolean;
   resolvedLabel: string;
 };
-
 function resolveActionButtonState(args: {
   action: string | null;
   actionDefinition: unknown;
@@ -406,7 +381,6 @@ function resolveActionButtonState(args: {
     resolvedLabel: label ?? "Run",
   };
 }
-
 function resolveActionDisabledReason(args: {
   isDisabled: boolean;
   isDownloadAction: boolean;
@@ -432,7 +406,6 @@ function resolveActionDisabledReason(args: {
   }
   return null;
 }
-
 function buildActionParams(
   resolvedConfigId: string | null,
   sectionId: string | null,
@@ -446,14 +419,12 @@ function buildActionParams(
   }
   return params;
 }
-
 type ResolvedParamBindingState = {
   canRenderParam: boolean;
   codeObjImpl: BaseChildlessCodeObjImplUnion | null;
   displayName: string | null;
   sectionImpl: BaseSectionImplUnion | null;
 };
-
 function getParamBindingFailureState(): ResolvedParamBindingState {
   return {
     canRenderParam: false,
@@ -462,7 +433,6 @@ function getParamBindingFailureState(): ResolvedParamBindingState {
     sectionImpl: null,
   };
 }
-
 function resolveCodeObjVariantIdForParam(args: {
   paramId: string;
   sectionImpl: BaseSectionImplUnion;
@@ -480,7 +450,6 @@ function resolveCodeObjVariantIdForParam(args: {
   }
   return sectionImpl.codeObjVariantMap[paramId] ?? null;
 }
-
 function resolveParamBindingState(args: {
   configState: AppConfigState;
   paramId: string;
@@ -536,7 +505,6 @@ function resolveParamBindingState(args: {
     sectionImpl: effectiveSectionImpl,
   };
 }
-
 function hasValidParamCodeObjBinding(
   configState: AppConfigState,
   codeObjVariantId: string,
@@ -549,7 +517,6 @@ function hasValidParamCodeObjBinding(
       configState.codeObjs[paramId],
   );
 }
-
 function renderAppBindingMessage(message: string) {
   return (
     <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
@@ -557,7 +524,6 @@ function renderAppBindingMessage(message: string) {
     </div>
   );
 }
-
 function resolveActionButtonClassName(isDisabled: boolean): string {
   return `rounded-full px-4 py-2 font-semibold transition-colors [font-size:var(--app-text-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
     isDisabled
@@ -565,7 +531,6 @@ function resolveActionButtonClassName(isDisabled: boolean): string {
       : "bg-[color:var(--app-button-bg,_var(--app-accent))] text-[color:var(--app-button-text,_var(--app-accent-text))] hover:bg-[color:var(--app-button-bg-hover,_var(--app-accent-hover))]"
   }`;
 }
-
 function handleActionButtonClick(args: {
   actionName: string;
   isDisabled: boolean;
@@ -583,7 +548,6 @@ function handleActionButtonClick(args: {
     params: buildActionParams(resolvedConfigId, sectionId),
   });
 }
-
 function resolveParamInputStatusMessage(args: {
   canRenderParam: boolean;
   codeObjImpl: BaseChildlessCodeObjImplUnion | null;
@@ -619,7 +583,6 @@ function resolveParamInputStatusMessage(args: {
   }
   return null;
 }
-
 function resolveParamEditabilityMessage(args: {
   canEditParams: boolean;
   codeParamBlocked: boolean;
@@ -633,7 +596,6 @@ function resolveParamEditabilityMessage(args: {
   }
   return null;
 }
-
 function resolveParamInputRuntimeContext(
   runtime: ReturnType<typeof useAppRuntime>,
 ) {
@@ -643,11 +605,9 @@ function resolveParamInputRuntimeContext(
     defaultConfigId: runtime?.defaultConfigId ?? null,
   };
 }
-
 type ResolvedParamInputBindingResult = ResolvedParamBindingState & {
   statusMessage: string | null;
 };
-
 function resolveParamInputBindingResult(args: {
   configState: AppConfigState | null;
   paramId: string | null;
@@ -685,7 +645,6 @@ function resolveParamInputBindingResult(args: {
     }),
   };
 }
-
 function resolveParamInputLabel(
   label: string | null,
   displayName: string | null,
@@ -693,7 +652,6 @@ function resolveParamInputLabel(
 ): string {
   return label ?? displayName ?? paramId;
 }
-
 function resolveActionButtonRuntimeContext(
   runtime: ReturnType<typeof useAppRuntime>,
   actionName: string,
@@ -706,7 +664,6 @@ function resolveActionButtonRuntimeContext(
     defaultConfigId: runtime?.defaultConfigId ?? null,
   };
 }
-
 function resolveActionButtonPresentation(args: {
   disabledReason: string | null;
   isDisabled: boolean;
@@ -721,7 +678,6 @@ function resolveActionButtonPresentation(args: {
     buttonTitle: isDisabled ? disabledReason ?? undefined : undefined,
   };
 }
-
 function ParamInputBlockContent(props: {
   codeObjImpl: BaseChildlessCodeObjImplUnion;
   displayName: string | null;
@@ -783,7 +739,6 @@ function ParamInputBlockContent(props: {
     </div>
   );
 }
-
 function Stack({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -799,7 +754,6 @@ function Stack({ element, children }: AppComponentProps) {
   const className = resolveStringProp(props.className);
   const alignClass = ALIGN_CLASS[align] ?? ALIGN_CLASS.stretch;
   const justifyClass = JUSTIFY_CLASS[justify] ?? JUSTIFY_CLASS.start;
-
   return (
     <div
       className={`flex ${direction} ${alignClass} ${justifyClass} ${className}`.trim()}
@@ -809,7 +763,6 @@ function Stack({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Box({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
@@ -831,14 +784,12 @@ function Box({ element, children }: AppComponentProps) {
       : border === "card"
         ? "border border-[color:var(--app-card-border)]"
         : "";
-
   return (
     <div className={`${borderClassName} ${className}`.trim()} style={style}>
       {children}
     </div>
   );
 }
-
 function Grid({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -866,21 +817,18 @@ function Grid({ element, children }: AppComponentProps) {
     end: "end",
     stretch: "stretch",
   };
-
   const style: React.CSSProperties = {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     gap,
     alignItems: itemAlignment[align] ?? "stretch",
     justifyItems: itemJustify[justify] ?? "stretch",
   };
-
   return (
     <div className={`grid ${className}`.trim()} style={style}>
       {children}
     </div>
   );
 }
-
 function Container({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
@@ -894,7 +842,6 @@ function Container({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Spacer({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const breakpoint = useAppBreakpoint();
@@ -905,7 +852,6 @@ function Spacer({ element }: AppComponentProps) {
   assignNumberishStyle(style, axis === "x" ? "width" : "height", size);
   return <div className={className} style={style} aria-hidden="true" />;
 }
-
 function Card({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -916,7 +862,6 @@ function Card({ element, children }: AppComponentProps) {
     runtime?.theme?.spacing?.cardPadding,
     runtime?.theme?.spacing?.cardRadius,
   );
-
   return (
     <section
       className={`flex flex-col gap-3 rounded-xl border border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] p-4 text-[color:var(--app-text)] ${className}`.trim()}
@@ -927,31 +872,26 @@ function Card({ element, children }: AppComponentProps) {
     </section>
   );
 }
-
 function ConfigScope({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const configId = resolveNullableStringProp(props.configId);
   const className = resolveStringProp(props.className);
-
   React.useEffect(() => {
     if (configId) {
       void ensureAppProjectConfigLoaded(configId);
     }
   }, [configId]);
-
   const content = className ? (
     <div className={className}>{children}</div>
   ) : (
     <>{children}</>
   );
-
   return (
     <AppConfigScopeContext.Provider value={{ configId }}>
       {content}
     </AppConfigScopeContext.Provider>
   );
 }
-
 function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
   if (!element) {
     return false;
@@ -972,7 +912,6 @@ function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
   }
   return true;
 }
-
 function Tabs({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const defaultKey = resolveNullableStringProp(props.defaultKey);
@@ -988,14 +927,12 @@ function Tabs({ element, children }: AppComponentProps) {
       .map((child, index) => resolveTabDefinition(child, index))
       .filter((tab) => tab.hasContent);
   }, [tabs]);
-
   const [activeKey, setActiveKey] = React.useState(() => {
     if (defaultKey && resolvedTabs.some((tab) => tab.key === defaultKey)) {
       return defaultKey;
     }
     return resolvedTabs[0]?.key ?? null;
   });
-
   React.useEffect(() => {
     if (activeKey && resolvedTabs.some((tab) => tab.key === activeKey)) {
       return;
@@ -1005,11 +942,9 @@ function Tabs({ element, children }: AppComponentProps) {
       setActiveKey(fallbackKey);
     }
   }, [activeKey, resolvedTabs]);
-
   if (resolvedTabs.length === 0) {
     return null;
   }
-
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>
       <div className="flex flex-wrap gap-2 border-b border-[color:var(--app-border)] pb-2">
@@ -1036,13 +971,11 @@ function Tabs({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Tab({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const className = resolveStringProp(props.className);
   return <div className={className}>{children}</div>;
 }
-
 function Heading({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -1061,7 +994,6 @@ function Heading({ element }: AppComponentProps) {
     fontSize: headingSize,
     lineHeight: typography?.headingLineHeight,
   });
-
   return (
     <HeadingTag
       className={`font-semibold tracking-tight text-[color:var(--app-text)] ${sizeClass} ${className}`.trim()}
@@ -1071,11 +1003,9 @@ function Heading({ element }: AppComponentProps) {
     </HeadingTag>
   );
 }
-
 function resolveHeadingLevel(raw: unknown): number {
   return typeof raw === "number" ? raw : 2;
 }
-
 function Text({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -1086,7 +1016,6 @@ function Text({ element }: AppComponentProps) {
     fontSize: typography?.bodySize,
     lineHeight: typography?.bodyLineHeight,
   });
-
   return (
     <p
       className={`text-[color:var(--app-muted)] [font-size:var(--app-text-sm)] ${className}`.trim()}
@@ -1096,7 +1025,6 @@ function Text({ element }: AppComponentProps) {
     </p>
   );
 }
-
 function ParamInputBlock({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -1120,7 +1048,6 @@ function ParamInputBlock({ element }: AppComponentProps) {
   const serverMode = useServerMode((x) => x.mode);
   const modeResolved = useServerMode((x) => x.modeResolved);
   const { canEditParams } = runtimeContext;
-
   React.useEffect(() => {
     if (!resolvedConfigId) {
       return;
@@ -1132,7 +1059,6 @@ function ParamInputBlock({ element }: AppComponentProps) {
       void ensureAppProjectConfigLoaded(resolvedConfigId);
     }
   }, [configState, modeResolved, resolvedConfigId, serverMode]);
-
   const { codeObjImpl, displayName, sectionImpl, statusMessage } =
     resolveParamInputBindingResult({
       configState,
@@ -1152,7 +1078,6 @@ function ParamInputBlock({ element }: AppComponentProps) {
   ) {
     return renderAppBindingMessage("Missing param binding.");
   }
-
   const codeParamBlocked =
     modeResolved &&
     serverMode === "app" &&
@@ -1162,7 +1087,6 @@ function ParamInputBlock({ element }: AppComponentProps) {
     canEditParams,
     codeParamBlocked,
   });
-
   return (
     <ParamInputBlockContent
       codeObjImpl={codeObjImpl}
@@ -1178,7 +1102,6 @@ function ParamInputBlock({ element }: AppComponentProps) {
     />
   );
 }
-
 type AppParamInputProps = {
   configId: string;
   sectionId: string;
@@ -1188,7 +1111,6 @@ type AppParamInputProps = {
   sectionImpl: BaseSectionImplUnion;
   canEditParams: boolean;
 };
-
 function AppParamInput({
   configId,
   sectionId,
@@ -1208,8 +1130,12 @@ function AppParamInput({
     `${sectionVariantId}:${paramInfoId}`,
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
-
-  function onChange(nextValue, options?: { skipBackendUpdate?: boolean }) {
+  function onChange(
+    nextValue,
+    options?: {
+      skipBackendUpdate?: boolean;
+    },
+  ) {
     const nextValueStr = _.toString(nextValue);
     setPendingValue(nextValueStr);
     sendRealtimeSectionParamLiteral(
@@ -1239,17 +1165,20 @@ function AppParamInput({
       nextValueStr,
     );
   }
-
   function onRevealPassword() {
     if (!isPasswordParam || isRevealing || value !== "") {
       return;
     }
     setIsRevealing(true);
-    route_get_password_param_value({
-      projectConfigId: configId,
-      sectionId,
-      paramInfoId,
-    })
+    callOpenAPI(
+      getPasswordParamValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          paramInfoId,
+        },
+      } as Parameters<typeof getPasswordParamValue>[0]),
+    )
       .then((response) => {
         if (res200(response)) {
           setPendingValue(response.data.value);
@@ -1259,7 +1188,6 @@ function AppParamInput({
         setIsRevealing(false);
       });
   }
-
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
     if (attachments.length === 0) {
       return;
@@ -1318,7 +1246,6 @@ function AppParamInput({
       );
     }
   }
-
   return (
     <AppParamUI
       sectionId={sectionId}
@@ -1334,14 +1261,15 @@ function AppParamInput({
     />
   );
 }
-
 type AppParamUIProps = {
   sectionId: string;
   paramInfoId: string;
   value: string | number | boolean | null;
   onChange: (
     value: string | number | boolean | null,
-    options?: { skipBackendUpdate?: boolean },
+    options?: {
+      skipBackendUpdate?: boolean;
+    },
   ) => void;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
@@ -1350,13 +1278,11 @@ type AppParamUIProps = {
   sectionImpl: BaseSectionImplUnion;
   canEditParams: boolean;
 };
-
 const APP_PARAM_BORDER_CLASS =
   "section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]";
 const APP_PARAM_TEXT_INPUT_CLASS =
   "nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]";
 const APP_PARAM_TEXT_INPUT_ACTIVE_CLASS = "cursor-text select-text";
-
 type AppParamRenderContext = {
   codeObjImpl: BaseChildlessCodeObjImplUnion;
   configLanguage: ConfigLanguageValue;
@@ -1374,9 +1300,7 @@ type AppParamRenderContext = {
   stringValue: string;
   value: string | number | boolean | null;
 };
-
 function noopAppParamEscape() {}
-
 function expectDateParamImpl(
   codeObjImpl: BaseChildlessCodeObjImplUnion,
 ): DateParamCodeObjImpl {
@@ -1387,7 +1311,6 @@ function expectDateParamImpl(
   }
   return codeObjImpl as DateParamCodeObjImpl;
 }
-
 function expectTimeParamImpl(
   codeObjImpl: BaseChildlessCodeObjImplUnion,
 ): TimeParamCodeObjImpl {
@@ -1398,7 +1321,6 @@ function expectTimeParamImpl(
   }
   return codeObjImpl as TimeParamCodeObjImpl;
 }
-
 function resolveParamConfigLanguage(
   sectionImpl: BaseSectionImplUnion,
 ): ConfigLanguageValue {
@@ -1409,7 +1331,6 @@ function resolveParamConfigLanguage(
     ? ConfigLanguageEnum.json
     : ConfigLanguageEnum.python;
 }
-
 function resolveParamRenderContext(
   props: AppParamUIProps,
 ): AppParamRenderContext {
@@ -1460,7 +1381,6 @@ function resolveParamRenderContext(
     value,
   };
 }
-
 function resolveParamNumericRange(codeObjImpl: BaseChildlessCodeObjImplUnion) {
   return {
     min: "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0,
@@ -1468,7 +1388,6 @@ function resolveParamNumericRange(codeObjImpl: BaseChildlessCodeObjImplUnion) {
     step: "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1,
   };
 }
-
 function resolveDropdownParamValue(
   value: string | number | boolean | null,
   stringValue: string,
@@ -1481,7 +1400,6 @@ function resolveDropdownParamValue(
   }
   return null;
 }
-
 function resolveDropzoneSettings(codeObjImpl: BaseChildlessCodeObjImplUnion) {
   return {
     mode:
@@ -1498,7 +1416,6 @@ function resolveDropzoneSettings(codeObjImpl: BaseChildlessCodeObjImplUnion) {
         : undefined,
   };
 }
-
 function renderCodeMirrorParam(context: AppParamRenderContext) {
   const {
     configLanguage,
@@ -1536,7 +1453,6 @@ function renderCodeMirrorParam(context: AppParamRenderContext) {
     </>
   );
 }
-
 function renderTimeParam(context: AppParamRenderContext) {
   const timeParamImpl = expectTimeParamImpl(context.codeObjImpl);
   const inputClassName = `${!context.isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : ""} ${APP_PARAM_TEXT_INPUT_CLASS}`;
@@ -1563,7 +1479,6 @@ function renderTimeParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderDateParam(context: AppParamRenderContext) {
   const dateParamImpl = expectDateParamImpl(context.codeObjImpl);
   const inputClassName = `${!context.isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : ""} ${APP_PARAM_TEXT_INPUT_CLASS}`;
@@ -1590,7 +1505,6 @@ function renderDateParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderSliderParam(context: AppParamRenderContext) {
   const { max, min, step } = resolveParamNumericRange(context.codeObjImpl);
   const numericValue = _.toNumber(context.value);
@@ -1613,7 +1527,6 @@ function renderSliderParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderRotaryParam(context: AppParamRenderContext) {
   const { max, min, step } = resolveParamNumericRange(context.codeObjImpl);
   const numericValue = _.toNumber(context.value);
@@ -1631,7 +1544,6 @@ function renderRotaryParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderSwitchParam(context: AppParamRenderContext) {
   const defaultVal =
     typeof context.defaultVal === "boolean" ||
@@ -1651,7 +1563,6 @@ function renderSwitchParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderColorPickerParam(context: AppParamRenderContext) {
   const colorChoices =
     "colorChoices" in context.codeObjImpl
@@ -1679,7 +1590,6 @@ function renderColorPickerParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderDropdownParam(context: AppParamRenderContext) {
   const choices =
     "choices" in context.codeObjImpl ? context.codeObjImpl.choices : [];
@@ -1699,7 +1609,6 @@ function renderDropdownParam(context: AppParamRenderContext) {
     />
   );
 }
-
 function renderPasswordParam(context: AppParamRenderContext) {
   const revealDisabled =
     context.isDisabled ||
@@ -1736,7 +1645,6 @@ function renderPasswordParam(context: AppParamRenderContext) {
     </>
   );
 }
-
 function renderDropzoneParam(context: AppParamRenderContext) {
   const { maxAttachments, mode, placeholder } = resolveDropzoneSettings(
     context.codeObjImpl,
@@ -1773,7 +1681,6 @@ function renderDropzoneParam(context: AppParamRenderContext) {
     />
   );
 }
-
 const APP_PARAM_RENDERERS: Partial<
   Record<CodeObjTypeValue, (context: AppParamRenderContext) => React.ReactNode>
 > = {
@@ -1790,7 +1697,6 @@ const APP_PARAM_RENDERERS: Partial<
   [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
   [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
 };
-
 function AppParamUI(props: AppParamUIProps) {
   const context = resolveParamRenderContext(props);
   const renderer = APP_PARAM_RENDERERS[context.codeObjImpl.type];
@@ -1799,7 +1705,6 @@ function AppParamUI(props: AppParamUIProps) {
   }
   return renderer(context);
 }
-
 const notifyParamUpdateError = _.throttle(
   (message: string) => {
     addTemporaryNotification(message);
@@ -1807,7 +1712,6 @@ const notifyParamUpdateError = _.throttle(
   2500,
   { trailing: false },
 );
-
 const debouncedSetParamEnteredValue = _.debounce(
   (
     configId: string,
@@ -1816,13 +1720,17 @@ const debouncedSetParamEnteredValue = _.debounce(
     paramInfoId: string,
     value: string,
   ) => {
-    route_set_param_entered_value({
-      projectConfigId: configId,
-      sectionId,
-      sectionVariantId,
-      paramInfoId,
-      value,
-    }).then((response) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    ).then((response) => {
       if (res200(response)) {
         return;
       }
@@ -1835,7 +1743,6 @@ const debouncedSetParamEnteredValue = _.debounce(
   },
   50,
 );
-
 const debouncedSetPasswordParamValue = _.debounce(
   (
     configId: string,
@@ -1844,13 +1751,17 @@ const debouncedSetPasswordParamValue = _.debounce(
     paramInfoId: string,
     value: string,
   ) => {
-    route_set_param_entered_value({
-      projectConfigId: configId,
-      sectionId,
-      sectionVariantId,
-      paramInfoId,
-      value,
-    }).then((response) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: configId,
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    ).then((response) => {
       if (res200(response)) {
         return;
       }
@@ -1863,7 +1774,6 @@ const debouncedSetPasswordParamValue = _.debounce(
   },
   50,
 );
-
 function ActionButton({ element, onAction }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -1904,7 +1814,6 @@ function ActionButton({ element, onAction }: AppComponentProps) {
     isRunning,
     resolvedLabel,
   });
-
   return (
     <button
       type="button"
@@ -1925,7 +1834,6 @@ function ActionButton({ element, onAction }: AppComponentProps) {
     </button>
   );
 }
-
 function TextOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -1944,7 +1852,6 @@ function TextOutput({ element }: AppComponentProps) {
   );
   const serverMode = useServerMode((x) => x.mode);
   const modeResolved = useServerMode((x) => x.modeResolved);
-
   React.useEffect(() => {
     if (!resolvedConfigId) {
       return;
@@ -1956,7 +1863,6 @@ function TextOutput({ element }: AppComponentProps) {
       void ensureAppProjectConfigLoaded(resolvedConfigId);
     }
   }, [configState, modeResolved, resolvedConfigId, serverMode]);
-
   const textData = React.useMemo(() => {
     if (!resolvedConfigId || !sectionId || !configState) {
       return null;
@@ -1993,7 +1899,6 @@ function TextOutput({ element }: AppComponentProps) {
       masterFontSizePx: effectiveImpl.masterFontSizePx,
     };
   }, [configState, resolvedConfigId, sectionId]);
-
   if (!resolvedConfigId || !sectionId || !textData) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
@@ -2001,7 +1906,6 @@ function TextOutput({ element }: AppComponentProps) {
       </div>
     );
   }
-
   const { text, format, masterFontSizePx } = textData;
   const typography = buildTextBlockTypographyScale(masterFontSizePx);
   const markdownTypographyStyle: React.CSSProperties = {
@@ -2014,7 +1918,6 @@ function TextOutput({ element }: AppComponentProps) {
     "--setta-textblock-h5-size": `${typography.h5Px}px`,
     "--setta-textblock-h6-size": `${typography.h6Px}px`,
   };
-
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
       {label && (
@@ -2043,18 +1946,17 @@ function TextOutput({ element }: AppComponentProps) {
     </div>
   );
 }
-
 async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     loadCachedImageArtifacts({
       body: {
         paths,
       },
-    }),
-  );
+    } as Parameters<typeof loadCachedImageArtifacts>[0]),
+  )) as LoadCachedImageArtifactsRouteResponse;
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
@@ -2085,7 +1987,6 @@ async function loadCachedImagesById(paths: Array<string>) {
     });
   }
 }
-
 function useImageArtifactById(artifactId: string | null) {
   const imageArtifact = useImages((state) =>
     artifactId ? state.x[artifactId] : null,
@@ -2098,7 +1999,6 @@ function useImageArtifactById(artifactId: string | null) {
   }, [artifactId, imageArtifact]);
   return imageArtifact;
 }
-
 function ImageOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -2111,7 +2011,6 @@ function ImageOutput({ element }: AppComponentProps) {
   const decodedImage = useDecodedImages((state) =>
     imageArtifact ? state.x[imageArtifact.id] : null,
   );
-
   React.useEffect(() => {
     if (!imageArtifact) {
       return;
@@ -2121,7 +2020,6 @@ function ImageOutput({ element }: AppComponentProps) {
       void decodeExistingRawImages([imageArtifact.id]);
     }
   }, [imageArtifact, decodedImage]);
-
   if (!artifactId) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
@@ -2129,7 +2027,6 @@ function ImageOutput({ element }: AppComponentProps) {
       </div>
     );
   }
-
   return (
     <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
       {decodedImage ? (
@@ -2146,7 +2043,6 @@ function ImageOutput({ element }: AppComponentProps) {
     </figure>
   );
 }
-
 function Divider({ element }: AppComponentProps) {
   const props = resolveElementProps(element);
   const className = resolveStringProp(props.className);
@@ -2154,7 +2050,6 @@ function Divider({ element }: AppComponentProps) {
     <hr className={`border-[color:var(--app-border)] ${className}`.trim()} />
   );
 }
-
 const MOTION_PRESETS = new Set([
   "none",
   "fadeIn",
@@ -2164,28 +2059,24 @@ const MOTION_PRESETS = new Set([
   "slideRight",
   "scaleIn",
 ]);
-
 function resolveMotionPreset(raw: unknown): string {
   if (typeof raw === "string" && MOTION_PRESETS.has(raw)) {
     return raw;
   }
   return "fadeIn";
 }
-
 function resolveNumber(raw: unknown, fallback: number): number {
   if (typeof raw !== "number" || Number.isNaN(raw) || !Number.isFinite(raw)) {
     return fallback;
   }
   return raw;
 }
-
 function resolveEasing(raw: unknown, fallback: string): string {
   if (typeof raw === "string" && raw.trim()) {
     return raw;
   }
   return fallback;
 }
-
 function Motion({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -2212,7 +2103,6 @@ function Motion({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 function Stagger({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
   const runtime = useAppRuntime();
@@ -2229,7 +2119,6 @@ function Stagger({ element, children }: AppComponentProps) {
     });
   const items = React.Children.toArray(children);
   const presetClass = `setta-app-motion--${preset}`;
-
   return (
     <div className={`setta-app-stagger ${className}`.trim()}>
       {items.map((child, idx) => (
@@ -2248,7 +2137,6 @@ function Stagger({ element, children }: AppComponentProps) {
     </div>
   );
 }
-
 export const appRegistry: Record<
   string,
   React.ComponentType<AppComponentProps>

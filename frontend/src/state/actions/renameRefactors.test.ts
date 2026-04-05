@@ -1,22 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import { useRenameRefactors } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
-
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { acceptRenameRefactor, declineRenameRefactor } from "./renameRefactors";
 const { routeAcceptRenameRefactorMock, routeDeclineRenameRefactorMock } =
   vi.hoisted(() => ({
     routeAcceptRenameRefactorMock: vi.fn(),
     routeDeclineRenameRefactorMock: vi.fn(),
   }));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_accept_rename_refactor: routeAcceptRenameRefactorMock,
-  route_decline_rename_refactor: routeDeclineRenameRefactorMock,
+vi.mock("openapi/http", () => ({
+  acceptRenameRefactor: routeAcceptRenameRefactorMock,
+  declineRenameRefactor: routeDeclineRenameRefactorMock,
 }));
-
-import { acceptRenameRefactor, declineRenameRefactor } from "./renameRefactors";
-
 describe("rename refactor actions", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -45,10 +40,8 @@ describe("rename refactor actions", () => {
       },
     });
   });
-
   it("accepts rename refactors through the generated backend binding and clears the pending prompt", async () => {
     await acceptRenameRefactor("project-alpha", "frontend-op-1");
-
     expect(routeAcceptRenameRefactorMock).toHaveBeenCalledWith({
       projectConfigId: "project-alpha",
       frontendOpId: "frontend-op-1",
@@ -57,10 +50,8 @@ describe("rename refactor actions", () => {
     expect(useRenameRefactors.getState().queue).toEqual([]);
     expect(useRenameRefactors.getState().readyOpIds).toEqual({});
   });
-
   it("declines rename refactors through the generated backend binding and clears the pending prompt", async () => {
     await declineRenameRefactor("project-alpha", "frontend-op-1");
-
     expect(routeDeclineRenameRefactorMock).toHaveBeenCalledWith({
       projectConfigId: "project-alpha",
       frontendOpId: "frontend-op-1",

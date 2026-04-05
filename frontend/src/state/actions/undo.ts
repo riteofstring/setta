@@ -1,29 +1,30 @@
+import { redo, undo } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useMisc } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_redo, route_undo } from "utils/generatedEndpoints";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
 } from "./sectionInfos";
 
-async function applyProjectHistoryMutation(
-  routeFn: typeof route_undo | typeof route_redo,
-) {
-  const response = await routeFn({
-    steps: 1,
-    projectConfigId: getCurrProjectConfigId(),
-  });
+async function applyProjectHistoryMutation(routeFn: typeof undo | typeof redo) {
+  const response = await callOpenAPI(
+    routeFn({
+      body: {
+        steps: 1,
+        projectConfigId: getCurrProjectConfigId(),
+      },
+    } as Parameters<typeof routeFn>[0]),
+  );
   if (!res200(response)) {
     return;
   }
   processProjectStateUpdateFromBackend(response.data);
   useMisc.setState({ undoOrRedoWasTriggered: true });
 }
-
 export function undoProjectState() {
-  void applyProjectHistoryMutation(route_undo);
+  void applyProjectHistoryMutation(undo);
 }
-
 export function redoProjectState() {
-  void applyProjectHistoryMutation(route_redo);
+  void applyProjectHistoryMutation(redo);
 }

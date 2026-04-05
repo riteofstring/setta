@@ -26,30 +26,25 @@ import {
   NotificationTypeEnum,
   UpdateArtifactsRequest,
 } from "utils/generatedTypes";
-
 type ArtifactByType =
   | ImageArtifact
   | BrushStrokeArtifact
   | DrawAreaLayerItemTransformArtifact
   | ChartDataArtifact
   | FileArtifact;
-
 type UpdateArtifactsContent = {
   artifacts: UpdateArtifactsRequest["artifacts"];
   updateType: "update" | "delete";
 };
-
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
   changedIds: Set<string>;
   deletedIds: Set<string>;
   commit: () => void;
 };
-
 function cloneArtifact<T extends ArtifactByType>(artifact: T): T {
   return _.cloneDeep(artifact);
 }
-
 function createStoreUpdate<T extends ArtifactByType>(
   current: Record<string, T>,
   setState: (
@@ -57,7 +52,9 @@ function createStoreUpdate<T extends ArtifactByType>(
       state: RevisionedArtifacts<Record<string, T>>,
     ) => void | RevisionedArtifacts<Record<string, T>>,
   ) => void,
-  options: { mode?: "replace" | "mutate" } = {},
+  options: {
+    mode?: "replace" | "mutate";
+  } = {},
 ): StoreUpdate<T> {
   const { mode = "replace" } = options;
   const storeUpdate: StoreUpdate<T> = {
@@ -98,7 +95,6 @@ function createStoreUpdate<T extends ArtifactByType>(
   };
   return storeUpdate;
 }
-
 function applyUpdate<T extends ArtifactByType>(
   storeUpdate: StoreUpdate<T>,
   artifact: T,
@@ -111,40 +107,33 @@ function applyUpdate<T extends ArtifactByType>(
     }
     return;
   }
-
   const existing = storeUpdate.next[artifact.id];
   if (!existing || !_.isEqual(existing, artifact)) {
     storeUpdate.next[artifact.id] = cloneArtifact(artifact);
     storeUpdate.changedIds.add(artifact.id);
   }
 }
-
 export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
   if (!artifactUpdate.artifacts || artifactUpdate.artifacts.length === 0) {
     return;
   }
-
   const imagesUpdate = createStoreUpdate(
     useImages.getState().x,
     useImages.setState,
   );
-
   const brushStrokeUpdate = createStoreUpdate(
     useBrushStrokes.getState().x,
     useBrushStrokes.setState,
   );
-
   const transformUpdate = createStoreUpdate(
     useDrawAreaLayerItemTransform.getState().x,
     useDrawAreaLayerItemTransform.setState,
     { mode: "mutate" },
   );
-
   const chartDataUpdate = createStoreUpdate(
     useChartData.getState().x,
     useChartData.setState,
   );
-
   for (const artifact of artifactUpdate.artifacts) {
     switch (artifact.type) {
       case ArtifactTypeEnum.Image:
@@ -165,12 +154,10 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
         artifact satisfies never;
     }
   }
-
   imagesUpdate.commit();
   brushStrokeUpdate.commit();
   transformUpdate.commit();
   chartDataUpdate.commit();
-
   if (
     artifactUpdate.updateType === "delete" &&
     imagesUpdate.deletedIds.size > 0
@@ -203,7 +190,6 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
     });
   }
 }
-
 function getNamePathTypeKey(artifact: {
   name?: string;
   path?: string;
@@ -215,14 +201,11 @@ function getNamePathTypeKey(artifact: {
     artifact.type,
   ]);
 }
-
 const SYNCED_ARTIFACT_TYPES = [
   ArtifactTypeEnum.BrushStroke,
   ArtifactTypeEnum.DrawAreaLayerItemTransform,
 ] as const;
-
 type SyncedArtifactType = (typeof SYNCED_ARTIFACT_TYPES)[number];
-
 const pendingArtifacts: Record<
   SyncedArtifactType,
   Map<string, ArtifactByType>
@@ -230,22 +213,22 @@ const pendingArtifacts: Record<
   [ArtifactTypeEnum.BrushStroke]: new Map(),
   [ArtifactTypeEnum.DrawAreaLayerItemTransform]: new Map(),
 };
-
 const FLUSH_DEBOUNCE_MS = 1500;
-
 let flushPromise: Promise<void> | null = null;
-
 const scheduleFlush = _.debounce(() => {
   void flushPendingArtifacts();
 }, FLUSH_DEBOUNCE_MS);
-
 function storePendingArtifact<T extends SyncedArtifactType>(
   type: T,
-  artifact: Extract<ArtifactByType, { type: T }>,
+  artifact: Extract<
+    ArtifactByType,
+    {
+      type: T;
+    }
+  >,
 ) {
   pendingArtifacts[type].set(artifact.id, cloneArtifact(artifact));
 }
-
 function collectPendingArtifacts() {
   const snapshot: Array<ArtifactByType> = [];
   for (const type of SYNCED_ARTIFACT_TYPES) {
@@ -255,14 +238,12 @@ function collectPendingArtifacts() {
   }
   return snapshot;
 }
-
 function clearPendingArtifacts(artifacts: Array<ArtifactByType>) {
   for (const artifact of artifacts) {
     const type = artifact.type as SyncedArtifactType;
     pendingArtifacts[type].delete(artifact.id);
   }
 }
-
 async function flushPendingArtifacts(force = false) {
   if (flushPromise) {
     if (!force) {
@@ -270,12 +251,10 @@ async function flushPendingArtifacts(force = false) {
     }
     await flushPromise;
   }
-
   const snapshot = collectPendingArtifacts();
   if (snapshot.length === 0) {
     return;
   }
-
   flushPromise = (async () => {
     const res = await callOpenAPI(
       updateArtifactsApi({
@@ -284,7 +263,7 @@ async function flushPendingArtifacts(force = false) {
           conflictStrategy: null,
           uploadScope: "generic",
         },
-      }),
+      } as Parameters<typeof updateArtifactsApi>[0]),
     );
     if (res200(res)) {
       clearPendingArtifacts(snapshot);
@@ -302,14 +281,12 @@ async function flushPendingArtifacts(force = false) {
       scheduleFlush();
     }
   })();
-
   try {
     await flushPromise;
   } finally {
     flushPromise = null;
   }
 }
-
 function queueArtifacts(
   artifacts: Array<ArtifactByType | undefined>,
   {
@@ -328,46 +305,50 @@ function queueArtifacts(
     }
     storePendingArtifact(
       artifact.type as SyncedArtifactType,
-      artifact as Extract<ArtifactByType, { type: SyncedArtifactType }>,
+      artifact as Extract<
+        ArtifactByType,
+        {
+          type: SyncedArtifactType;
+        }
+      >,
     );
     validArtifacts.push(artifact);
   }
-
   if (validArtifacts.length === 0) {
     return;
   }
-
   if (immediate) {
     void flushPendingArtifacts(true);
   } else {
     scheduleFlush();
   }
 }
-
 export function queueBrushStrokeForSave(
   strokeId: string,
-  options: { immediate?: boolean; transformId?: string } = {},
+  options: {
+    immediate?: boolean;
+    transformId?: string;
+  } = {},
 ) {
   const stroke = useBrushStrokes.getState().x[strokeId];
   const transform = options.transformId
     ? useDrawAreaLayerItemTransform.getState().x[options.transformId]
     : undefined;
-
   queueArtifacts([stroke, transform], {
     immediate: options.immediate ?? false,
   });
 }
-
 export function queueTransformsForSave(
   transformIds: Array<string>,
-  options: { immediate?: boolean } = {},
+  options: {
+    immediate?: boolean;
+  } = {},
 ) {
   const transforms = transformIds.map(
     (id) => useDrawAreaLayerItemTransform.getState().x[id],
   );
   queueArtifacts(transforms, { immediate: options.immediate ?? false });
 }
-
 export async function flushQueuedArtifacts() {
   await flushPendingArtifacts(true);
 }

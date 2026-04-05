@@ -20,18 +20,15 @@ import type {
   ShareDeploymentSessionResponse,
   SingleConfig,
 } from "utils/generatedTypes";
-
 const SHARE_SESSION_STORAGE_KEY = "settaShareSession";
 type ShareSessionOptions = {
   forceNewSession?: boolean;
 };
-
 type ShareDeploymentSessionRouteResponse =
   ResponseDataAndStatus<ShareDeploymentSessionResponse>;
 type ShareProjectConfigRouteResponse = ResponseDataAndStatus<{
   projectState: SingleConfig;
 }>;
-
 function normalizeShareSessionResponse(
   session: ShareDeploymentSessionResponse,
 ): ShareDeploymentSessionResponse {
@@ -41,25 +38,21 @@ function normalizeShareSessionResponse(
     projectMetadata: session.projectMetadata ?? [],
   };
 }
-
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";
 }
-
 function clearShareSessionStorage() {
   if (typeof window === "undefined") {
     return;
   }
   window.sessionStorage.removeItem(SHARE_SESSION_STORAGE_KEY);
 }
-
 export function resetShareSessionState() {
   clearShareSessionCookie();
   clearShareSessionStorage();
   useShareSession.getState().reset?.();
   useAllProjectMetadata.getState().reset?.();
 }
-
 function isShareSessionResponse(
   value: unknown,
 ): value is ShareDeploymentSessionResponse {
@@ -87,7 +80,6 @@ function isShareSessionResponse(
   }
   return true;
 }
-
 function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
   if (typeof window === "undefined") {
     return null;
@@ -107,7 +99,6 @@ function readShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
     return null;
   }
 }
-
 function storeShareSession(session: ShareDeploymentSessionResponse): void {
   if (typeof window === "undefined") {
     return;
@@ -121,7 +112,6 @@ function storeShareSession(session: ShareDeploymentSessionResponse): void {
     console.warn("Failed to persist share session:", error);
   }
 }
-
 function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null {
   const stored = readShareSessionFromStorage();
   if (!stored) {
@@ -130,7 +120,6 @@ function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null
   setShareSessionFromResponse(stored);
   return stored;
 }
-
 function getCachedShareSession(): ShareDeploymentSessionResponse | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
@@ -162,7 +151,6 @@ function getCachedShareSession(): ShareDeploymentSessionResponse | null {
     manifest: null,
   };
 }
-
 function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   clearShareSessionCookie();
   storeShareSession(session);
@@ -185,7 +173,6 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
     projectMetadata: session.projectMetadata ?? [],
   });
 }
-
 export async function ensureShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
 ): Promise<ShareDeploymentSessionResponse | null> {
@@ -215,7 +202,6 @@ export async function ensureShareSessionFromCurrentDeployment(
   setShareSessionFromResponse(session);
   return session;
 }
-
 export async function initializeShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
 ): Promise<boolean> {
@@ -243,12 +229,10 @@ export async function initializeShareSessionFromCurrentDeployment(
   resetShareSessionState();
   return false;
 }
-
 type ShareProjectConfigLoadParams = {
   projectConfigId: string;
   allowRetry?: boolean;
 };
-
 export async function loadShareProjectConfig({
   projectConfigId,
   allowRetry = true,
@@ -261,7 +245,6 @@ export async function loadShareProjectConfig({
   ) {
     return false;
   }
-
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
   const stateRes = (await callOpenAPI(
     getShareDeploymentProjectConfig({
@@ -272,7 +255,7 @@ export async function loadShareProjectConfig({
       body: {
         projectConfigId,
       },
-    }),
+    } as Parameters<typeof getShareDeploymentProjectConfig>[0]),
   )) as ShareProjectConfigRouteResponse;
   if (!res200(stateRes)) {
     const errorCode = getErrorCode(stateRes.data);
@@ -294,7 +277,6 @@ export async function loadShareProjectConfig({
     useProjectLoading.setState({ projectIsLoading: false, projectIs404: true });
     return false;
   }
-
   await loadProjectState(stateRes.data.projectState);
   if (shareSession.sharePolicy?.allowLLM) {
     await requestAIFollowSnapshot(projectConfigId);

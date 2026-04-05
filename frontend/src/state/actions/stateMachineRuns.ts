@@ -24,13 +24,10 @@ import {
 import { loadAgentRuns, receiveAgentRunUpdate } from "./ai";
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { logWorkflowDebug } from "./stateMachineDebug";
-
 const STATE_MACHINE_RUN_TYPE = "state_machine";
-
 function isStateMachineRun(run: AgentRun): boolean {
   return getRunInputString(run, "runType") === STATE_MACHINE_RUN_TYPE;
 }
-
 function getCurrentWorkflowShareSessionId(): string | null {
   const shareSession = useShareSession.getState();
   if (!shareSession.isDeploymentMode) {
@@ -38,7 +35,6 @@ function getCurrentWorkflowShareSessionId(): string | null {
   }
   return shareSession.shareSessionId;
 }
-
 function runMatchesCurrentWorkflowShareSession(run: AgentRun): boolean {
   const currentShareSessionId = getCurrentWorkflowShareSessionId();
   const runShareSessionId = getRunInputString(run, "shareSessionId");
@@ -50,7 +46,6 @@ function runMatchesCurrentWorkflowShareSession(run: AgentRun): boolean {
   }
   return runShareSessionId === currentShareSessionId;
 }
-
 function filterStateMachineRunsByMachineGroup(
   runs: AgentRun[],
   projectConfigId: string,
@@ -69,7 +64,6 @@ function filterStateMachineRunsByMachineGroup(
       (left, right) => getRunLastUpdatedMs(right) - getRunLastUpdatedMs(left),
     );
 }
-
 function isStateMachineRunCleared(run: AgentRun): boolean {
   const outputs = run.outputs;
   if (
@@ -81,7 +75,6 @@ function isStateMachineRunCleared(run: AgentRun): boolean {
   }
   return outputs.machineStateCleared === true;
 }
-
 function markStateMachineRunStoppedForMachineGroup(
   projectConfigId: string,
   machineGroupId: string,
@@ -97,7 +90,6 @@ function markStateMachineRunStoppedForMachineGroup(
     if (targetRunId === null) {
       return state;
     }
-
     let didChange = false;
     const finishedAt = new Date().toISOString();
     const nextRuns = state.agentRuns.map((run) => {
@@ -119,7 +111,6 @@ function markStateMachineRunStoppedForMachineGroup(
     };
   });
 }
-
 function clearStateMachineRunForMachineGroup(
   projectConfigId: string,
   machineGroupId: string,
@@ -135,7 +126,6 @@ function clearStateMachineRunForMachineGroup(
     if (targetRunId === null) {
       return state;
     }
-
     let didChange = false;
     const nextRuns = state.agentRuns.map((run) => {
       if (run.id !== targetRunId) {
@@ -163,7 +153,6 @@ function clearStateMachineRunForMachineGroup(
     };
   });
 }
-
 export function getLatestStateMachineRun(
   runs: AgentRun[],
   projectConfigId: string,
@@ -180,11 +169,9 @@ export function getLatestStateMachineRun(
   }
   return latestRun;
 }
-
 export function loadStateMachineRuns(): void {
   void loadAgentRuns();
 }
-
 async function runStateMachineMutation<TSuccess>({
   machineGroupId,
   startSectionId,
@@ -200,7 +187,11 @@ async function runStateMachineMutation<TSuccess>({
     projectConfigId: string;
     machineGroupId: string;
     startSectionId: string | null;
-  }) => Promise<{ data: TSuccess; status: number; hasResponse: boolean }>;
+  }) => Promise<{
+    data: TSuccess;
+    status: number;
+    hasResponse: boolean;
+  }>;
   onSuccess?: (
     data: TSuccess,
     context: {
@@ -268,7 +259,6 @@ async function runStateMachineMutation<TSuccess>({
   }
   return true;
 }
-
 export async function startStateMachineRun(
   machineGroupId: string,
   startSectionId: string,
@@ -285,13 +275,12 @@ export async function startStateMachineRun(
             machineGroupId: request.machineGroupId,
             startSectionId: request.startSectionId,
           },
-        }),
+        } as Parameters<typeof apiStartStateMachineRun>[0]),
       ),
     onSuccess: receiveAgentRunUpdate,
     skipDirectRefresh: true,
   });
 }
-
 export async function stopStateMachineRun(
   machineGroupId: string,
 ): Promise<boolean> {
@@ -305,7 +294,7 @@ export async function stopStateMachineRun(
             projectConfigId: request.projectConfigId,
             machineGroupId: request.machineGroupId,
           },
-        }),
+        } as Parameters<typeof apiStopStateMachineRun>[0]),
       ),
     onSuccess: (data, context) => {
       const stoppedRunId =
@@ -324,7 +313,6 @@ export async function stopStateMachineRun(
     skipDirectRefresh: true,
   });
 }
-
 export async function resetStateMachineRun(
   machineGroupId: string,
 ): Promise<boolean> {
@@ -338,7 +326,7 @@ export async function resetStateMachineRun(
             projectConfigId: request.projectConfigId,
             machineGroupId: request.machineGroupId,
           },
-        }),
+        } as Parameters<typeof apiResetStateMachine>[0]),
       ),
     onSuccess: (data, context) => {
       const stoppedRunId =

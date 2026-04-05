@@ -22,9 +22,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
-
 export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
-
 function getFormatterDiagnostics(diagnostics: Array<LSPDiagnostic>) {
   if (diagnostics.length === 0) {
     return [];
@@ -37,7 +35,6 @@ function getFormatterDiagnostics(diagnostics: Array<LSPDiagnostic>) {
   }
   return formatter;
 }
-
 function areDiagnosticRangesEqual(
   left: LSPDiagnostic["range"],
   right: LSPDiagnostic["range"],
@@ -49,7 +46,6 @@ function areDiagnosticRangesEqual(
     left.end.character === right.end.character
   );
 }
-
 function areDiagnosticsEqual(left: LSPDiagnostic, right: LSPDiagnostic) {
   if (left === right) {
     return true;
@@ -63,7 +59,6 @@ function areDiagnosticsEqual(left: LSPDiagnostic, right: LSPDiagnostic) {
     areDiagnosticRangesEqual(left.range, right.range)
   );
 }
-
 function areDiagnosticsListEqual(
   left: Array<LSPDiagnostic>,
   right: Array<LSPDiagnostic>,
@@ -81,7 +76,6 @@ function areDiagnosticsListEqual(
   }
   return true;
 }
-
 function mergeDiagnosticsBySection(
   previous: Record<string, Array<LSPDiagnostic>>,
   incoming: Record<string, Array<LSPDiagnostic>>,
@@ -89,7 +83,6 @@ function mergeDiagnosticsBySection(
   let changed = false;
   const merged: Record<string, Array<LSPDiagnostic>> = {};
   const seen = new Set<string>();
-
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
     seen.add(sectionId);
     const prevDiagnostics = previous[sectionId];
@@ -109,7 +102,6 @@ function mergeDiagnosticsBySection(
       }
       continue;
     }
-
     if (
       prevDiagnostics &&
       areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
@@ -122,7 +114,6 @@ function mergeDiagnosticsBySection(
       changed = true;
     }
   }
-
   for (const sectionId of Object.keys(previous)) {
     if (seen.has(sectionId)) {
       continue;
@@ -132,10 +123,8 @@ function mergeDiagnosticsBySection(
       changed = true;
     }
   }
-
   return { codeSections: merged, changed };
 }
-
 function mergeUnmappedGenCode(
   previous: Array<LSPDiagnostic>,
   incoming: Array<LSPDiagnostic>,
@@ -155,7 +144,6 @@ function mergeUnmappedGenCode(
   }
   return { unmappedGenCode: mergedDiagnostics, changed: true };
 }
-
 export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
   if (useShareSession.getState().isDeploymentMode) {
     return;
@@ -164,7 +152,6 @@ export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
   if (payload.projectConfigId !== projectConfigId) {
     return;
   }
-
   processTypeErrors(payload.genCode);
   const prevState = useLspDiagnostics.getState();
   const merged = mergeDiagnosticsBySection(
@@ -175,14 +162,12 @@ export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
     prevState.unmappedGenCode,
     payload.unmappedGenCode,
   );
-
   if (merged.changed || mergedUnmapped.changed) {
     useLspDiagnostics.setState({
       codeSections: merged.codeSections,
       unmappedGenCode: mergedUnmapped.unmappedGenCode,
     });
   }
-
   const lspState = useLspDiagnostics.getState();
   postChromeReproEvent("lsp-diagnostics", {
     projectConfigId: payload.projectConfigId,
@@ -195,7 +180,6 @@ export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
     },
   });
 }
-
 export function setCodeSectionDiagnosticsMuted(
   sectionId: string,
   mute: boolean,
@@ -211,7 +195,7 @@ export function setCodeSectionDiagnosticsMuted(
         sectionId,
         mute,
       },
-    }),
+    } as Parameters<typeof setCodeSectionDiagnosticsMuteRequest>[0]),
   ).then((res) => {
     if (res200(res)) {
       updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => ({
@@ -222,7 +206,6 @@ export function setCodeSectionDiagnosticsMuted(
     return res;
   });
 }
-
 export function setCodeSectionDiagnosticCodeSuppression(
   sectionId: string,
   code: LSPDiagnostic["code"],
@@ -243,7 +226,7 @@ export function setCodeSectionDiagnosticCodeSuppression(
         code,
         suppress,
       },
-    }),
+    } as Parameters<typeof setCodeSectionDiagnosticCodeSuppressionRequest>[0]),
   ).then((res) => {
     if (res200(res)) {
       updateLocalCodeSectionDiagnosticsIgnoreState(sectionId, (curr) => {
@@ -262,7 +245,6 @@ export function setCodeSectionDiagnosticCodeSuppression(
     return res;
   });
 }
-
 function updateLocalCodeSectionDiagnosticsIgnoreState(
   sectionId: string,
   update: (curr: {
@@ -290,12 +272,10 @@ function updateLocalCodeSectionDiagnosticsIgnoreState(
     if (!impl) {
       return;
     }
-
     const effective = getCurrEffectiveSectionImpl(state, sectionId);
     if (effective.type !== SectionTypeEnum.Code) {
       return;
     }
-
     setCurrEffectiveSectionImplValue(state, sectionId, {
       diagnosticsIgnoreState: (curr) => update(curr),
     });

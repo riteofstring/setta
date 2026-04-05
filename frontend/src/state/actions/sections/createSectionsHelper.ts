@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { usePluginSectionKinds } from "plugins/runtime";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -12,7 +14,6 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
@@ -30,15 +31,12 @@ import {
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSectionWithResult } from "./createSections";
-
 type ControlParamConfig = {
   dateControlMode?: DateControlMode;
   dateSelectionMode?: DateSelectionMode;
   dateCalendarWeekStart?: DateCalendarWeekStart;
 };
-
 type UpdateParamImplConfigRouteResponse = ResponseDataAndStatus<null>;
-
 export type CreateSectionsContextMenuInfo = {
   name: string;
   commandId?: string;
@@ -47,7 +45,6 @@ export type CreateSectionsContextMenuInfo = {
   controlCodeObjType?: CodeObjTypeEnum;
   controlParamConfig?: ControlParamConfig;
 };
-
 export function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenuInfo> {
   return [
     {
@@ -91,7 +88,6 @@ export function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenu
     },
   ];
 }
-
 export function useCreateSectionsList() {
   const pluginSectionKinds = usePluginSectionKinds();
   const singletonSections = useProjectState(
@@ -115,16 +111,13 @@ export function useCreateSectionsList() {
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
     { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
   ];
-
   if (!singletonSections.GlobalVariables) {
     sectionGroupItems.push({
       name: "Global Variables",
       implSpecs: { type: SectionTypeEnum.GlobalVariables },
     });
   }
-
   const codeGroupItems = getBaseCodeSectionCreateItems();
-
   if (pythonCodegenEnabled && !singletonSections.GenPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
@@ -141,7 +134,6 @@ export function useCreateSectionsList() {
       },
     });
   }
-
   const embedGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Social",
@@ -152,7 +144,6 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.IFrame },
     },
   ];
-
   const artifactGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Drawing Area",
@@ -170,7 +161,6 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.Spreadsheet },
     },
   ];
-
   const workflowGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "State Machine Start",
@@ -185,11 +175,9 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.StateMachineEnd },
     },
   ];
-
   const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
-
   const metaControlGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Dropdown",
@@ -275,7 +263,6 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.DropzoneParam,
     },
   ];
-
   const pluginSectionItems: Array<CreateSectionsContextMenuInfo> =
     pluginSectionKinds.map((sectionKind) => ({
       name: sectionKind.title,
@@ -287,7 +274,6 @@ export function useCreateSectionsList() {
         data: sectionKind.initialData ?? {},
       },
     }));
-
   const groups: Array<{
     group: string;
     items: Array<CreateSectionsContextMenuInfo>;
@@ -329,7 +315,6 @@ export function useCreateSectionsList() {
   }
   return groups;
 }
-
 export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
   position: Position | null = null,
@@ -356,7 +341,6 @@ export function createTopLevelSectionFromImplSpecs(
     }
   });
 }
-
 async function applyMetaControlParamConfigAfterCreate(
   sectionId: string,
   controlParamId: string | null,
@@ -365,13 +349,16 @@ async function applyMetaControlParamConfigAfterCreate(
   if (!controlParamId) {
     return;
   }
-  const response: UpdateParamImplConfigRouteResponse =
-    await route_update_param_impl_config({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId: controlParamId,
-      newConfig: config,
-    });
+  const response = (await callOpenAPI(
+    updateParamImplConfig({
+      body: {
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        paramInfoId: controlParamId,
+        newConfig: config,
+      },
+    } as Parameters<typeof updateParamImplConfig>[0]),
+  )) as UpdateParamImplConfigRouteResponse;
   if (!res200(response)) {
     addTemporaryNotification(
       getErrorDetail(response.data) ??

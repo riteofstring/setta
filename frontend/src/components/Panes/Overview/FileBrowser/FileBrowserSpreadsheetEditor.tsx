@@ -49,7 +49,6 @@ import {
   parseSpreadsheetBytes,
   serializeSpreadsheetBytes,
 } from "utils/spreadsheet";
-
 export const SPREADSHEET_HEADER_HEIGHT = 24;
 export const SPREADSHEET_ROW_HEIGHT = 22;
 export const SPREADSHEET_INDEX_COLUMN_WIDTH = 36;
@@ -63,7 +62,6 @@ const SPREADSHEET_COMFORTABLE_DATA_COLUMN_WIDTH = 108;
 const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 6;
-
 type FileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserFileContentResponse>;
 type FileBrowserFileStatRouteResponse =
@@ -71,7 +69,6 @@ type FileBrowserFileStatRouteResponse =
 type WriteFileBrowserFileContentRouteResponse =
   ResponseDataAndStatus<FilebrowserWriteFileContentResponse>;
 type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
-
 type SpreadsheetDraft = {
   path: string;
   sheetName: string;
@@ -81,7 +78,6 @@ type SpreadsheetDraft = {
   mtimeNs: number;
   sourceWorkbookBytes: Uint8Array | null;
 };
-
 type SpreadsheetLoadOutcome =
   | {
       status: "error";
@@ -91,7 +87,6 @@ type SpreadsheetLoadOutcome =
       status: "success";
       draft: SpreadsheetDraft;
     };
-
 type SpreadsheetSaveOutcome =
   | {
       status: "error";
@@ -104,7 +99,6 @@ type SpreadsheetSaveOutcome =
       status: "success";
       mtimeNs: number;
     };
-
 type SpreadsheetRowData = {
   sourceRows: string[][];
   displayedRowIndexes: number[];
@@ -114,32 +108,26 @@ type SpreadsheetRowData = {
   gridTemplateColumns: string;
   onChangeCell: (rowIndex: number, columnIndex: number, value: string) => void;
 };
-
 type SpreadsheetRowProps = SpreadsheetRowData & {
   index: number;
   style: CSSProperties;
 };
-
 type SpreadsheetSelectedFile = {
   name: string;
   fullPath: string;
 };
-
 type SpreadsheetGridMode = "dom" | "glide";
 type SpreadsheetDensityMode = "compact" | "comfortable";
-
 type SpreadsheetDensityMetrics = {
   headerHeight: number;
   rowHeight: number;
   indexColumnWidth: number;
   dataColumnWidth: number;
 };
-
 type SpreadsheetSortState = {
   columnIndex: number;
   direction: "asc" | "desc";
 };
-
 export function isSpreadsheetLoadRequestStale(args: {
   activeRequestId: number;
   requestId: number;
@@ -151,7 +139,6 @@ export function isSpreadsheetLoadRequestStale(args: {
     args.currentSelectedPath !== args.requestedPath
   );
 }
-
 export function canSaveSpreadsheetDraft(args: {
   sheetPath: string;
   selectedPath: string | null;
@@ -161,39 +148,35 @@ export function canSaveSpreadsheetDraft(args: {
   }
   return args.sheetPath === args.selectedPath;
 }
-
 export function shouldIgnoreSpreadsheetSaveResult(args: {
   savingPath: string;
   currentSelectedPath: string | null;
 }): boolean {
   return args.currentSelectedPath !== args.savingPath;
 }
-
 export function shouldClearSpreadsheetDirtyAfterSave(args: {
   saveStartEditVersion: number;
   currentEditVersion: number;
 }): boolean {
   return args.saveStartEditVersion === args.currentEditVersion;
 }
-
 export function shouldAnnounceSpreadsheetAutoReload(args: {
   reloadSucceeded: boolean;
   isCancelled: boolean;
 }): boolean {
   return args.reloadSucceeded && !args.isCancelled;
 }
-
 async function loadSpreadsheetDraft(
   path: string,
 ): Promise<SpreadsheetLoadOutcome> {
-  const response: FileBrowserFileContentRouteResponse = await callOpenAPI(
+  const response = (await callOpenAPI(
     getFileBrowserFileContent({
       body: {
         path,
         maxBytes: MAX_FILE_BYTES,
       },
-    }),
-  );
+    } as Parameters<typeof getFileBrowserFileContent>[0]),
+  )) as FileBrowserFileContentRouteResponse;
   if (!res200(response)) {
     return {
       status: "error",
@@ -201,13 +184,13 @@ async function loadSpreadsheetDraft(
         getErrorDetail(response.data) ?? "Failed to load spreadsheet file.",
     };
   }
-  const binaryResponse: BinaryDownloadRouteResponse = await callOpenAPI(
+  const binaryResponse = (await callOpenAPI(
     downloadBinary({
       path: {
         contentId: response.data.contentId,
       },
-    }),
-  );
+    } as Parameters<typeof downloadBinary>[0]),
+  )) as BinaryDownloadRouteResponse;
   if (!res200(binaryResponse) || !binaryResponse.data) {
     return {
       status: "error",
@@ -233,7 +216,6 @@ async function loadSpreadsheetDraft(
     },
   };
 }
-
 function resetSpreadsheetEditorView(args: {
   editVersionRef: MutableRefObject<number>;
   setColumnWidths: (value: Record<number, number>) => void;
@@ -269,7 +251,6 @@ function resetSpreadsheetEditorView(args: {
   setStatusText(null);
   setErrorText(null);
 }
-
 function applyLoadedSpreadsheetDraft(args: {
   draft: SpreadsheetDraft;
   editVersionRef: MutableRefObject<number>;
@@ -315,11 +296,9 @@ function applyLoadedSpreadsheetDraft(args: {
   });
   listRef.current?.scrollToRow({ index: 0, align: "start" });
 }
-
 function resolveSpreadsheetSaveFileName(path: string): string {
   return path.split(/[\\/]/).pop() ?? "spreadsheet.bin";
 }
-
 async function persistSpreadsheetSave(args: {
   expectedMtimeNs: number;
   isSaveResultStale: () => boolean;
@@ -346,15 +325,15 @@ async function persistSpreadsheetSave(args: {
   if (isSaveResultStale()) {
     return { status: "stale" };
   }
-  const response: WriteFileBrowserFileContentRouteResponse = await callOpenAPI(
+  const response = (await callOpenAPI(
     writeFileBrowserFileContent({
       body: {
         path: sheet.path,
         contentId: uploadResult.contentId,
         expectedMtimeNs,
       },
-    }),
-  );
+    } as Parameters<typeof writeFileBrowserFileContent>[0]),
+  )) as WriteFileBrowserFileContentRouteResponse;
   if (isSaveResultStale()) {
     return { status: "stale" };
   }
@@ -370,7 +349,6 @@ async function persistSpreadsheetSave(args: {
     mtimeNs: response.data.mtimeNs,
   };
 }
-
 function applySuccessfulSpreadsheetSave(args: {
   mtimeNs: number;
   path: string;
@@ -411,7 +389,6 @@ function applySuccessfulSpreadsheetSave(args: {
   }
   setHasExternalDiskChange(false);
 }
-
 export function getSpreadsheetGlideTheme({
   darkMode,
   densityMultiplier,
@@ -484,7 +461,6 @@ export function getSpreadsheetGlideTheme({
     ...commonTypography,
   };
 }
-
 export function getSpreadsheetDensityMetrics(
   density: SpreadsheetDensityMode,
 ): SpreadsheetDensityMetrics {
@@ -503,7 +479,6 @@ export function getSpreadsheetDensityMetrics(
     dataColumnWidth: SPREADSHEET_DATA_COLUMN_WIDTH,
   };
 }
-
 export function getSpreadsheetGridTemplateColumns(
   columnCount: number,
   showRowNumbers = true,
@@ -515,7 +490,6 @@ export function getSpreadsheetGridTemplateColumns(
   }
   return `${metrics.indexColumnWidth}px repeat(${columnCount}, ${metrics.dataColumnWidth}px)`;
 }
-
 export function getSpreadsheetGridWidth(
   columnCount: number,
   showRowNumbers = true,
@@ -527,7 +501,6 @@ export function getSpreadsheetGridWidth(
     columnCount * metrics.dataColumnWidth
   );
 }
-
 function withColumnCount(row: string[], columnCount: number): string[] {
   if (row.length === columnCount) {
     return row;
@@ -538,13 +511,11 @@ function withColumnCount(row: string[], columnCount: number): string[] {
   }
   return next;
 }
-
 type SpreadsheetCellEdit = {
   rowIndex: number;
   columnIndex: number;
   value: string;
 };
-
 function isSpreadsheetCellEditWithinBounds(
   edit: SpreadsheetCellEdit,
   columnCount: number,
@@ -555,7 +526,6 @@ function isSpreadsheetCellEditWithinBounds(
     edit.columnIndex < columnCount
   );
 }
-
 function resolveSpreadsheetSourceRow(args: {
   columnCount: number;
   edit: SpreadsheetCellEdit;
@@ -568,7 +538,6 @@ function resolveSpreadsheetSourceRow(args: {
     withColumnCount(rows[edit.rowIndex] ?? [], columnCount)
   );
 }
-
 function ensureSpreadsheetEditableRow(args: {
   edit: SpreadsheetCellEdit;
   nextRows: string[][];
@@ -596,7 +565,6 @@ function ensureSpreadsheetEditableRow(args: {
     nextRows: resolvedNextRows,
   };
 }
-
 export function applySpreadsheetCellUpdates({
   rows,
   columnCount,
@@ -639,7 +607,6 @@ export function applySpreadsheetCellUpdates({
   }
   return didMutate ? nextRows : rows;
 }
-
 function compareSpreadsheetCellValues(a: string, b: string): number {
   if (a === b) {
     return 0;
@@ -662,7 +629,6 @@ function compareSpreadsheetCellValues(a: string, b: string): number {
     sensitivity: "base",
   });
 }
-
 export function getFilteredSortedSpreadsheetRowIndexes({
   baseIndexes,
   rows,
@@ -706,14 +672,12 @@ export function getFilteredSortedSpreadsheetRowIndexes({
   });
   return filteredIndexes;
 }
-
 function getSpreadsheetCellAddress(
   columnIndex: number,
   rowIndex: number,
 ): string {
   return `${getSpreadsheetColumnLabel(Math.max(0, columnIndex))}${Math.max(1, rowIndex + 1)}`;
 }
-
 type SpreadsheetSelectionBounds = {
   endColumn: number;
   endRow: number;
@@ -721,7 +685,6 @@ type SpreadsheetSelectionBounds = {
   startColumn: number;
   startRow: number;
 };
-
 function resolveSpreadsheetSelectionBounds(
   selection: GridSelection | undefined,
 ): SpreadsheetSelectionBounds | null {
@@ -745,7 +708,6 @@ function resolveSpreadsheetSelectionBounds(
     extraRanges: selection?.current?.rangeStack?.length ?? 0,
   };
 }
-
 function formatSpreadsheetSelectionBaseSummary(
   bounds: SpreadsheetSelectionBounds,
 ): string {
@@ -758,7 +720,6 @@ function formatSpreadsheetSelectionBaseSummary(
     ? `Selected ${startAddress}`
     : `Selected ${startAddress}:${endAddress}`;
 }
-
 function formatSpreadsheetSelectionSummary(
   selection: GridSelection | undefined,
 ): string {
@@ -772,7 +733,6 @@ function formatSpreadsheetSelectionSummary(
   }
   return `${baseSummary} (+${bounds.extraRanges} range${bounds.extraRanges === 1 ? "" : "s"})`;
 }
-
 function resolveSpreadsheetHeaderSortSuffix(
   sortState: SpreadsheetSortState | null,
   columnIndex: number,
@@ -782,13 +742,11 @@ function resolveSpreadsheetHeaderSortSuffix(
   }
   return sortState.direction === "asc" ? " ↑" : " ↓";
 }
-
 function resolveSpreadsheetSortDirectionLabel(
   sortState: SpreadsheetSortState | null,
 ): string {
   return sortState?.direction === "desc" ? "Desc" : "Asc";
 }
-
 function resolveSpreadsheetRowCountSummary(args: {
   displayedRowCount: number;
   sheet: SpreadsheetDraft;
@@ -798,7 +756,6 @@ function resolveSpreadsheetRowCountSummary(args: {
     ? `${sheet.rowCount} rows · ${sheet.columnCount} columns`
     : `${displayedRowCount} shown of ${sheet.rowCount} rows · ${sheet.columnCount} columns`;
 }
-
 function canMutateSpreadsheet(args: {
   isLoading: boolean;
   isSaving: boolean;
@@ -808,7 +765,6 @@ function canMutateSpreadsheet(args: {
   const { isLoading, isSaving, readOnly, sheet } = args;
   return !!sheet && !isLoading && !isSaving && !readOnly;
 }
-
 function canReloadSpreadsheet(args: {
   isLoading: boolean;
   isSaving: boolean;
@@ -817,7 +773,6 @@ function canReloadSpreadsheet(args: {
   const { isLoading, isSaving, sheet } = args;
   return !!sheet && !isLoading && !isSaving;
 }
-
 function canSaveSpreadsheet(args: {
   isDirty: boolean;
   isLoading: boolean;
@@ -828,12 +783,10 @@ function canSaveSpreadsheet(args: {
   const { isDirty, isLoading, isSaving, readOnly, sheet } = args;
   return !!sheet && !isLoading && !isSaving && !readOnly && isDirty;
 }
-
 type SpreadsheetStatusMessage = {
   className: string;
   text: string;
 };
-
 function resolveSpreadsheetStatusMessages(
   args: SpreadsheetStatusBannerProps,
 ): SpreadsheetStatusMessage[] {
@@ -872,7 +825,6 @@ function resolveSpreadsheetStatusMessages(
   }
   return messages;
 }
-
 export function getSpreadsheetGlideDensityMultiplier(flowZoom: number): number {
   const safeZoom = flowZoom > 0 ? flowZoom : 1;
   const desiredMultiplier =
@@ -882,7 +834,6 @@ export function getSpreadsheetGlideDensityMultiplier(flowZoom: number): number {
     Math.max(1, desiredMultiplier),
   );
 }
-
 export function SpreadsheetRow({
   index,
   style,
@@ -934,11 +885,9 @@ export function SpreadsheetRow({
     </div>
   );
 }
-
 type SpreadsheetEmptyStateProps = {
   message: string;
 };
-
 function SpreadsheetEmptyState({ message }: SpreadsheetEmptyStateProps) {
   return (
     <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
@@ -946,7 +895,6 @@ function SpreadsheetEmptyState({ message }: SpreadsheetEmptyStateProps) {
     </div>
   );
 }
-
 type SpreadsheetDesktopToolbarProps = {
   canMutate: boolean;
   canReload: boolean;
@@ -965,7 +913,6 @@ type SpreadsheetDesktopToolbarProps = {
   sheet: SpreadsheetDraft | null;
   sortState: SpreadsheetSortState | null;
 };
-
 function SpreadsheetDesktopToolbar({
   canMutate,
   canReload,
@@ -1113,12 +1060,10 @@ function SpreadsheetDesktopToolbar({
     </div>
   );
 }
-
 type SpreadsheetMobileToolbarMenuProps = Omit<
   SpreadsheetDesktopToolbarProps,
   "selectedName"
 >;
-
 function SpreadsheetMobileToolbarMenu({
   canMutate,
   canReload,
@@ -1248,7 +1193,6 @@ function SpreadsheetMobileToolbarMenu({
     </DropdownMenu.Root>
   );
 }
-
 type SpreadsheetStatusBannerProps = {
   errorText: string | null;
   hasExternalDiskChange: boolean;
@@ -1256,7 +1200,6 @@ type SpreadsheetStatusBannerProps = {
   readOnly: boolean;
   statusText: string | null;
 };
-
 function SpreadsheetStatusBanner({
   errorText,
   hasExternalDiskChange,
@@ -1287,14 +1230,16 @@ function SpreadsheetStatusBanner({
     </div>
   );
 }
-
 type SpreadsheetGlideGridViewProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
   displayedRowCount: number;
-  getGlideCellContent: (
-    item: Item,
-  ) => EditableGridCell | { kind: GridCellKind.Loading; allowOverlay: false };
+  getGlideCellContent: (item: Item) =>
+    | EditableGridCell
+    | {
+        kind: GridCellKind.Loading;
+        allowOverlay: false;
+      };
   glideRenderHeight: number;
   glideRenderWidth: number;
   glideTheme: Partial<Theme>;
@@ -1313,7 +1258,6 @@ type SpreadsheetGlideGridViewProps = {
   showRowNumbers: boolean;
   glideColumns: readonly GridColumn[];
 };
-
 function SpreadsheetGlideGridView({
   densityMetrics,
   densityMultiplier,
@@ -1395,7 +1339,6 @@ function SpreadsheetGlideGridView({
     </div>
   );
 }
-
 type SpreadsheetDomGridViewProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   displayedRowCount: number;
@@ -1411,7 +1354,6 @@ type SpreadsheetDomGridViewProps = {
   sortState: SpreadsheetSortState | null;
   viewportHeight: number;
 };
-
 function SpreadsheetDomGridView({
   densityMetrics,
   displayedRowCount,
@@ -1490,7 +1432,6 @@ function SpreadsheetDomGridView({
     </div>
   );
 }
-
 type SpreadsheetGridViewportProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
@@ -1521,7 +1462,6 @@ type SpreadsheetGridViewportProps = {
   viewportHeight: number;
   viewportRef: RefObject<HTMLDivElement | null>;
 };
-
 function SpreadsheetGridViewport({
   densityMetrics,
   densityMultiplier,
@@ -1605,7 +1545,6 @@ function SpreadsheetGridViewport({
       />
     );
   }
-
   return (
     <div
       ref={viewportRef}
@@ -1615,13 +1554,11 @@ function SpreadsheetGridViewport({
     </div>
   );
 }
-
 type SpreadsheetFooterProps = {
   displayedRowCount: number;
   selectionSummary: string;
   sheet: SpreadsheetDraft;
 };
-
 function SpreadsheetFooter({
   displayedRowCount,
   selectionSummary,
@@ -1645,7 +1582,6 @@ function SpreadsheetFooter({
     </div>
   );
 }
-
 function useSelectedPathRef(
   selectedPath: string | null,
 ): MutableRefObject<string | null> {
@@ -1655,14 +1591,15 @@ function useSelectedPathRef(
   }, [selectedPath]);
   return selectedPathRef;
 }
-
 function useSpreadsheetViewportSize(): {
   viewportRef: RefObject<HTMLDivElement | null>;
-  viewportSize: { width: number; height: number };
+  viewportSize: {
+    width: number;
+    height: number;
+  };
 } {
   const [viewportSize, setViewportSize] = useState({ width: 400, height: 300 });
   const viewportRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     const node = viewportRef.current;
     if (!node) {
@@ -1683,13 +1620,11 @@ function useSpreadsheetViewportSize(): {
       observer.disconnect();
     };
   }, []);
-
   return {
     viewportRef,
     viewportSize,
   };
 }
-
 function useSpreadsheetLoadFile(args: {
   editVersionRef: MutableRefObject<number>;
   listRef: ReturnType<typeof useListRef>;
@@ -1724,7 +1659,6 @@ function useSpreadsheetLoadFile(args: {
     setSortState,
     setStatusText,
   } = args;
-
   return useCallback(
     async (path: string): Promise<boolean> => {
       const requestId = loadRequestIdRef.current + 1;
@@ -1736,7 +1670,6 @@ function useSpreadsheetLoadFile(args: {
           currentSelectedPath: selectedPathRef.current,
           requestedPath: path,
         });
-
       setIsLoading(true);
       setErrorText(null);
       setStatusText(null);
@@ -1795,7 +1728,6 @@ function useSpreadsheetLoadFile(args: {
     ],
   );
 }
-
 function useSpreadsheetSelectedPathEffect(args: {
   editVersionRef: MutableRefObject<number>;
   loadFile: (path: string) => Promise<boolean>;
@@ -1828,7 +1760,6 @@ function useSpreadsheetSelectedPathEffect(args: {
     setSortState,
     setStatusText,
   } = args;
-
   useEffect(() => {
     if (!selectedPath || !isSpreadsheetPath(selectedPath)) {
       loadRequestIdRef.current += 1;
@@ -1865,7 +1796,6 @@ function useSpreadsheetSelectedPathEffect(args: {
     setStatusText,
   ]);
 }
-
 function useSpreadsheetAutoReloadEffect(args: {
   autoReloadOnExternalChange: boolean;
   isDirty: boolean;
@@ -1888,7 +1818,6 @@ function useSpreadsheetAutoReloadEffect(args: {
     setStatusText,
     sheet,
   } = args;
-
   useEffect(() => {
     if (
       !autoReloadOnExternalChange ||
@@ -1902,13 +1831,13 @@ function useSpreadsheetAutoReloadEffect(args: {
     const loadedMtimeNs = sheet.mtimeNs;
     let isCancelled = false;
     const pollForExternalChanges = async () => {
-      const response: FileBrowserFileStatRouteResponse = await callOpenAPI(
+      const response = (await callOpenAPI(
         getFileBrowserFileStat({
           body: {
             path: selectedPath,
           },
-        }),
-      );
+        } as Parameters<typeof getFileBrowserFileStat>[0]),
+      )) as FileBrowserFileStatRouteResponse;
       if (!res200(response) || isCancelled) {
         return;
       }
@@ -1931,7 +1860,6 @@ function useSpreadsheetAutoReloadEffect(args: {
         setStatusText("Reloaded from disk.");
       }
     };
-
     void pollForExternalChanges();
     const timer = window.setInterval(() => {
       void pollForExternalChanges();
@@ -1952,7 +1880,6 @@ function useSpreadsheetAutoReloadEffect(args: {
     sheet,
   ]);
 }
-
 function applySpreadsheetMutation(args: {
   editVersionRef: MutableRefObject<number>;
   setIsDirty: (value: boolean) => void;
@@ -1977,7 +1904,6 @@ function applySpreadsheetMutation(args: {
     setStatusText(null);
   }
 }
-
 function resolveSpreadsheetEditedCells(args: {
   columnCount: number;
   displayedRowIndexes: number[];
@@ -2012,7 +1938,6 @@ function resolveSpreadsheetEditedCells(args: {
   }
   return edits;
 }
-
 function resolveSpreadsheetDeletionEdits(args: {
   columnCount: number;
   displayedRowIndexes: number[];
@@ -2044,7 +1969,6 @@ function resolveSpreadsheetDeletionEdits(args: {
   }
   return edits;
 }
-
 function useSpreadsheetOnChangeCell(args: {
   displayedRowIndexes: number[];
   editVersionRef: MutableRefObject<number>;
@@ -2061,7 +1985,6 @@ function useSpreadsheetOnChangeCell(args: {
     setSheet,
     setStatusText,
   } = args;
-
   return useCallback(
     (rowIndex: number, columnIndex: number, value: string) => {
       if (effectiveReadOnly) {
@@ -2101,7 +2024,6 @@ function useSpreadsheetOnChangeCell(args: {
     ],
   );
 }
-
 function useSpreadsheetOnCellsEdited(args: {
   displayedRowIndexes: number[];
   editVersionRef: MutableRefObject<number>;
@@ -2123,7 +2045,6 @@ function useSpreadsheetOnCellsEdited(args: {
     setSheet,
     setStatusText,
   } = args;
-
   return useCallback(
     (newValues) => {
       if (effectiveReadOnly) {
@@ -2166,7 +2087,6 @@ function useSpreadsheetOnCellsEdited(args: {
     ],
   );
 }
-
 function useSpreadsheetOnDeleteSelection(args: {
   displayedRowIndexes: number[];
   editVersionRef: MutableRefObject<number>;
@@ -2183,7 +2103,6 @@ function useSpreadsheetOnDeleteSelection(args: {
     setSheet,
     setStatusText,
   } = args;
-
   return useCallback(
     (selection: GridSelection) => {
       if (effectiveReadOnly) {
@@ -2226,7 +2145,6 @@ function useSpreadsheetOnDeleteSelection(args: {
     ],
   );
 }
-
 function useSpreadsheetOnAddRow(args: {
   editVersionRef: MutableRefObject<number>;
   effectiveReadOnly: boolean;
@@ -2241,7 +2159,6 @@ function useSpreadsheetOnAddRow(args: {
     setSheet,
     setStatusText,
   } = args;
-
   return useCallback(() => {
     if (effectiveReadOnly) {
       return;
@@ -2262,7 +2179,6 @@ function useSpreadsheetOnAddRow(args: {
     });
   }, [editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText]);
 }
-
 function useSpreadsheetOnAddColumn(args: {
   editVersionRef: MutableRefObject<number>;
   effectiveReadOnly: boolean;
@@ -2277,7 +2193,6 @@ function useSpreadsheetOnAddColumn(args: {
     setSheet,
     setStatusText,
   } = args;
-
   return useCallback(() => {
     if (effectiveReadOnly) {
       return;
@@ -2295,7 +2210,6 @@ function useSpreadsheetOnAddColumn(args: {
     });
   }, [editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText]);
 }
-
 function useSpreadsheetOnSave(args: {
   editVersionRef: MutableRefObject<number>;
   isSaving: boolean;
@@ -2324,7 +2238,6 @@ function useSpreadsheetOnSave(args: {
     setStatusText,
     sheet,
   } = args;
-
   return useCallback(async () => {
     if (!sheet || readOnly || isSaving) {
       return;
@@ -2394,7 +2307,6 @@ function useSpreadsheetOnSave(args: {
     sheet,
   ]);
 }
-
 function useSpreadsheetOnReload(args: {
   loadFile: (path: string) => Promise<boolean>;
   selectedPath: string | null;
@@ -2407,7 +2319,6 @@ function useSpreadsheetOnReload(args: {
     void loadFile(selectedPath);
   }, [loadFile, selectedPath]);
 }
-
 function useSpreadsheetDisplayedRowIndexes(args: {
   filterQuery: string;
   sheet: SpreadsheetDraft | null;
@@ -2453,7 +2364,6 @@ function useSpreadsheetDisplayedRowIndexes(args: {
     displayedRowIndexes,
   };
 }
-
 function useSpreadsheetSortHandlers(args: {
   setFilterQuery: (value: string) => void;
   setSortState: Dispatch<SetStateAction<SpreadsheetSortState | null>>;
@@ -2514,7 +2424,6 @@ function useSpreadsheetSortHandlers(args: {
     toggleSortDirection,
   };
 }
-
 function useSpreadsheetGlideColumns(args: {
   columnWidths: Record<number, number>;
   densityMetrics: SpreadsheetDensityMetrics;
@@ -2545,7 +2454,6 @@ function useSpreadsheetGlideColumns(args: {
     sortState,
   ]);
 }
-
 function useSpreadsheetGlideCellContent(args: {
   displayedRowCount: number;
   displayedRowIndexes: number[];
@@ -2586,7 +2494,6 @@ function useSpreadsheetGlideCellContent(args: {
     [displayedRowCount, displayedRowIndexes, effectiveReadOnly, sheet],
   );
 }
-
 function useSpreadsheetSelectedFileState(
   selectedFile: SpreadsheetSelectedFile | null,
 ): {
@@ -2601,7 +2508,6 @@ function useSpreadsheetSelectedFileState(
     selectedPathRef: useSelectedPathRef(selectedPath),
   };
 }
-
 function useSpreadsheetGridLayout(args: {
   density: SpreadsheetDensityMode;
   densityMetrics: SpreadsheetDensityMetrics;
@@ -2609,7 +2515,10 @@ function useSpreadsheetGridLayout(args: {
   effectiveReadOnly: boolean;
   sheet: SpreadsheetDraft | null;
   showRowNumbers: boolean;
-  viewportSize: { width: number; height: number };
+  viewportSize: {
+    width: number;
+    height: number;
+  };
 }): {
   glideRenderHeight: number;
   glideRenderWidth: number;
@@ -2652,7 +2561,6 @@ function useSpreadsheetGridLayout(args: {
     sheetWidth,
   };
 }
-
 function resolveSpreadsheetEmptyStateMessage(
   selectedPath: string | null,
 ): string | null {
@@ -2664,7 +2572,6 @@ function resolveSpreadsheetEmptyStateMessage(
   }
   return null;
 }
-
 function SpreadsheetFooterMaybe(props: {
   displayedRowCount: number;
   selectionSummary: string;
@@ -2682,7 +2589,6 @@ function SpreadsheetFooterMaybe(props: {
     />
   );
 }
-
 export function FileBrowserSpreadsheetEditor({
   selectedFile,
   gridMode = "dom",
@@ -2734,7 +2640,6 @@ export function FileBrowserSpreadsheetEditor({
     () => getSpreadsheetGlideTheme({ darkMode, densityMultiplier }),
     [darkMode, densityMultiplier],
   );
-
   const loadFile = useSpreadsheetLoadFile({
     editVersionRef,
     listRef,
@@ -2752,7 +2657,6 @@ export function FileBrowserSpreadsheetEditor({
     setSortState,
     setStatusText,
   });
-
   useSpreadsheetSelectedPathEffect({
     editVersionRef,
     loadFile,
@@ -2769,7 +2673,6 @@ export function FileBrowserSpreadsheetEditor({
     setSortState,
     setStatusText,
   });
-
   useSpreadsheetAutoReloadEffect({
     autoReloadOnExternalChange,
     isDirty,
@@ -2781,7 +2684,6 @@ export function FileBrowserSpreadsheetEditor({
     setStatusText,
     sheet,
   });
-
   const { displayedRowCount, displayedRowIndexes } =
     useSpreadsheetDisplayedRowIndexes({
       filterQuery,
@@ -2797,7 +2699,6 @@ export function FileBrowserSpreadsheetEditor({
     setSheet,
     setStatusText,
   });
-
   const onGridSelectionChange = useCallback((selection: GridSelection) => {
     setGridSelection(selection);
     setSelectionSummary(formatSpreadsheetSelectionSummary(selection));
@@ -2918,7 +2819,6 @@ export function FileBrowserSpreadsheetEditor({
   if (emptyStateMessage) {
     return <SpreadsheetEmptyState message={emptyStateMessage} />;
   }
-
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50">
       <SpreadsheetDesktopToolbar

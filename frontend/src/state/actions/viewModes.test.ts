@@ -6,20 +6,19 @@ import {
   createViewMode,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const routeDeleteViewModeMock = vi.fn();
-const routeSetViewModeSortOrderMock = vi.fn();
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_delete_view_mode: (...args: unknown[]) =>
-    routeDeleteViewModeMock(...args),
-  route_set_view_mode_sort_order: (...args: unknown[]) =>
-    routeSetViewModeSortOrderMock(...args),
-}));
-
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 import { deleteViewMode, persistViewModeSortOrder } from "./viewModes";
-
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
+const routeDeleteViewModeMock = vi.fn();
+const routeSetViewModeSortOrderMock = vi.fn();
+vi.mock("openapi/http", () => ({
+  deleteViewMode: (...args: unknown[]) => routeDeleteViewModeMock(...args),
+  setViewModeSortOrder: (...args: unknown[]) =>
+    routeSetViewModeSortOrderMock(...args),
+}));
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+}));
 function createStateWithViewModes() {
   const alphaId = "alpha-id";
   const betaId = "beta-id";
@@ -72,7 +71,6 @@ function createStateWithViewModes() {
     },
   });
 }
-
 async function flushOptimisticMutation(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
     await Promise.resolve();
@@ -81,15 +79,14 @@ async function flushOptimisticMutation(): Promise<void> {
     setTimeout(resolve, 0);
   });
 }
-
 describe("view mode canonical mutations", () => {
   beforeEach(() => {
     resetProjectStores();
     routeDeleteViewModeMock.mockReset();
     routeSetViewModeSortOrderMock.mockReset();
+    callOpenAPIMock.mockClear();
     usePendingOperations.setState({ pending: [] });
   });
-
   it("waits for the backend project config when reordering view modes", async () => {
     useProjectState.setState({
       projectConfig: createStateWithViewModes(),
@@ -117,18 +114,21 @@ describe("view mode canonical mutations", () => {
       status: 200,
       hasResponse: true,
     });
-
     persistViewModeSortOrder("project-id", ["gamma-id", "alpha-id", "beta-id"]);
-
     expect(
       useProjectState.getState().projectConfig.viewModes["alpha-id"]?.sortIndex,
     ).toBe(0);
     expect(
       useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex,
     ).toBe(2);
-
     await flushOptimisticMutation();
-
+    expect(routeSetViewModeSortOrderMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-id",
+        orderedViewModeIds: ["gamma-id", "alpha-id", "beta-id"],
+        frontendOpId: expect.any(String),
+      },
+    });
     expect(
       useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex,
     ).toBe(0);
@@ -139,7 +139,6 @@ describe("view mode canonical mutations", () => {
       useProjectState.getState().projectConfig.viewModes["beta-id"]?.sortIndex,
     ).toBe(2);
   });
-
   it("adopts the backend-selected fallback when deleting the active view mode", async () => {
     useProjectState.setState({
       projectConfig: createStateWithViewModes(),
@@ -172,15 +171,18 @@ describe("view mode canonical mutations", () => {
       status: 200,
       hasResponse: true,
     });
-
     deleteViewMode("project-id", "alpha-id");
-
     expect(useProjectState.getState().projectConfig.activeViewModeId).toBe(
       "alpha-id",
     );
-
     await flushOptimisticMutation();
-
+    expect(routeDeleteViewModeMock).toHaveBeenCalledWith({
+      body: {
+        projectConfigId: "project-id",
+        viewModeId: "alpha-id",
+        frontendOpId: expect.any(String),
+      },
+    });
     const projectConfig = useProjectState.getState().projectConfig;
     expect(projectConfig.activeViewModeId).toBe("beta-id");
     expect(projectConfig.viewModes["alpha-id"]).toBeUndefined();
@@ -190,7 +192,6 @@ describe("view mode canonical mutations", () => {
     expect(projectConfig.viewport).toEqual({ x: 4, y: 5, zoom: 6 });
     expect(projectConfig.viewportInitialized).toBe(false);
   });
-
   it("preserves newer unrelated backend project config fields after an acknowledged reorder", async () => {
     useProjectState.setState({
       projectConfig: createStateWithViewModes(),
@@ -218,13 +219,10 @@ describe("view mode canonical mutations", () => {
       status: 200,
       hasResponse: true,
     });
-
     persistViewModeSortOrder("project-id", ["gamma-id", "alpha-id", "beta-id"]);
     await flushOptimisticMutation();
-
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
-
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
         projectConfig: createProjectConfig({
@@ -235,14 +233,12 @@ describe("view mode canonical mutations", () => {
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const projectConfig = useProjectState.getState().projectConfig;
     expect(projectConfig.watchCodeEnabled).toBe(true);
     expect(projectConfig.viewModes["gamma-id"]?.sortIndex).toBe(0);
     expect(projectConfig.viewModes["alpha-id"]?.sortIndex).toBe(1);
     expect(projectConfig.viewModes["beta-id"]?.sortIndex).toBe(2);
   });
-
   it("rolls back a rejected delete without changing the current project config", async () => {
     useProjectState.setState({
       projectConfig: createStateWithViewModes(),
@@ -252,10 +248,8 @@ describe("view mode canonical mutations", () => {
       status: 403,
       hasResponse: true,
     });
-
     deleteViewMode("project-id", "alpha-id");
     await flushOptimisticMutation();
-
     const projectConfig = useProjectState.getState().projectConfig;
     expect(projectConfig.activeViewModeId).toBe("alpha-id");
     expect(Object.keys(projectConfig.viewModes)).toEqual([

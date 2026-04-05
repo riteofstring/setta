@@ -1,7 +1,6 @@
 import { uploadBinary } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-
 type UploadBinaryPayloadResult =
   | {
       status: "ok";
@@ -11,7 +10,6 @@ type UploadBinaryPayloadResult =
       status: "failed";
       error: string;
     };
-
 export async function uploadBinaryPayload({
   bytes,
   fileName,
@@ -32,7 +30,7 @@ export async function uploadBinaryPayload({
         durable,
         file: new File([file], fileName, { type: file.type }),
       },
-    }),
+    } as Parameters<typeof uploadBinary>[0]),
   );
   if (!res200(response) || !response.data) {
     return {

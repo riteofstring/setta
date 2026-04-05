@@ -1,5 +1,4 @@
 /* @vitest-environment jsdom */
-
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -17,20 +16,16 @@ import {
 import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TextBlockSettings } from "./TextBlockSettings";
-
 const routeDocstringToMarkdownMock = vi.fn();
-
 vi.mock("openapi/http", () => ({
   docstringToMarkdown: (...args: unknown[]) =>
     routeDocstringToMarkdownMock(...args),
 }));
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_text_block_heading_as_section_name: vi.fn(),
-  route_set_text_block_master_font_size: vi.fn(),
-  route_set_text_block_meta_control_style: vi.fn(),
+vi.mock("openapi/http", () => ({
+  setTextBlockHeadingAsSectionName: vi.fn(),
+  setTextBlockMasterFontSize: vi.fn(),
+  setTextBlockMetaControlStyle: vi.fn(),
 }));
-
 vi.mock("components/Params/ParamUIs/SwitchInput", () => ({
   SwitchInput: ({
     value,
@@ -48,26 +43,21 @@ vi.mock("components/Params/ParamUIs/SwitchInput", () => ({
     />
   ),
 }));
-
 type RenderedTextBlockSettings = {
   host: HTMLDivElement;
   root: Root;
 };
-
 async function renderTextBlockSettings(
   sectionId: string,
 ): Promise<RenderedTextBlockSettings> {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-
   await act(async () => {
     root.render(<TextBlockSettings sectionId={sectionId} />);
   });
-
   return { host, root };
 }
-
 function seedTextBlockSection({
   sectionId = "text-block-section",
   variantId = "text-block-variant",
@@ -117,34 +107,28 @@ function seedTextBlockSection({
     };
     state.previewSectionVariantMap = {};
   });
-
   return { sectionId, implId, text };
 }
-
 describe("clampTextBlockMasterFontSize", () => {
   it("clamps values into the supported font-size range", () => {
     expect(clampTextBlockMasterFontSize(2)).toBe(8);
     expect(clampTextBlockMasterFontSize(19)).toBe(19);
     expect(clampTextBlockMasterFontSize(99)).toBe(48);
   });
-
   it("falls back to default font size when input is not finite", () => {
     expect(clampTextBlockMasterFontSize(Number.NaN)).toBe(14);
     expect(clampTextBlockMasterFontSize(Number.POSITIVE_INFINITY)).toBe(14);
   });
 });
-
 describe("TextBlockSettings", () => {
   beforeEach(() => {
     resetProjectStores();
     routeDocstringToMarkdownMock.mockReset();
   });
-
   afterEach(() => {
     resetProjectStores();
     document.body.innerHTML = "";
   });
-
   it("converts docstring text through the Go helper when enabling markdown", async () => {
     const convertedMarkdown = "Summary line.\n\n#### Args\n\n- `x`: value\n";
     routeDocstringToMarkdownMock.mockResolvedValue({
@@ -153,9 +137,7 @@ describe("TextBlockSettings", () => {
       response: new Response(null, { status: 200 }),
     });
     const { sectionId, text } = seedTextBlockSection({});
-
     const { host, root } = await renderTextBlockSettings(sectionId);
-
     try {
       const markdownToggle = host.querySelectorAll<HTMLButtonElement>(
         '[data-testid="mock-switch-input"]',
@@ -163,11 +145,9 @@ describe("TextBlockSettings", () => {
       if (!(markdownToggle instanceof HTMLButtonElement)) {
         throw new Error("Expected markdown toggle");
       }
-
       await act(async () => {
         markdownToggle.click();
       });
-
       // Enabling markdown should run the Go-owned conversion helper first, then
       // persist the converted text into the live section impl.
       expect(routeDocstringToMarkdownMock).toHaveBeenCalledWith({
@@ -190,7 +170,6 @@ describe("TextBlockSettings", () => {
       host.remove();
     }
   });
-
   it("preserves the original text when conversion fails but still toggles markdown format", async () => {
     const originalText = "Not a supported docstring format";
     routeDocstringToMarkdownMock.mockResolvedValue({
@@ -199,9 +178,7 @@ describe("TextBlockSettings", () => {
       response: new Response(null, { status: 400 }),
     });
     const { sectionId } = seedTextBlockSection({ text: originalText });
-
     const { host, root } = await renderTextBlockSettings(sectionId);
-
     try {
       const markdownToggle = host.querySelectorAll<HTMLButtonElement>(
         '[data-testid="mock-switch-input"]',
@@ -209,11 +186,9 @@ describe("TextBlockSettings", () => {
       if (!(markdownToggle instanceof HTMLButtonElement)) {
         throw new Error("Expected markdown toggle");
       }
-
       await act(async () => {
         markdownToggle.click();
       });
-
       // The current product behavior is fail-open: a rejected conversion keeps
       // the original text but still flips the text block into markdown mode.
       expect(routeDocstringToMarkdownMock).toHaveBeenCalledWith({

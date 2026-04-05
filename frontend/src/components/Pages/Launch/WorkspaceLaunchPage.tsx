@@ -31,21 +31,25 @@ import {
   requestOpenWorkspaceSwitcherOnNextMount,
   writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
-
 type LaunchReturnUrlTrust = "same-origin-only" | "backend-validated";
-
 type LaunchReturnTarget = {
   returnUrlTrust: LaunchReturnUrlTrust;
   returnUrl: string;
   workspaceRoot: string;
   sshTarget: string | null;
 };
-
 type LaunchPhase =
-  | { status: "idle" }
-  | ({ status: "loading"; startedAt: number } & LaunchReturnTarget)
-  | ({ status: "error"; message: string } & LaunchReturnTarget);
-
+  | {
+      status: "idle";
+    }
+  | ({
+      status: "loading";
+      startedAt: number;
+    } & LaunchReturnTarget)
+  | ({
+      status: "error";
+      message: string;
+    } & LaunchReturnTarget);
 type RouteLaunchResult = ResponseDataAndStatus<LaunchResponse>;
 type WorkspaceRootResolutionSource = {
   workspaceRoot?: string | null;
@@ -53,13 +57,11 @@ type WorkspaceRootResolutionSource = {
     workspacePathCanonical?: string | null;
   } | null;
 };
-
 const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
 const OUTDATED_PROJECT_SETTINGS_ERROR_CODE = "OutdatedProjectSettings";
 const OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE =
   "This workspace uses an older Setta settings/project format. " +
   "Please migrate the project metadata and try again.";
-
 function normalizeWorkspaceRootCandidate(
   value: string | null | undefined,
 ): string | null {
@@ -69,7 +71,6 @@ function normalizeWorkspaceRootCandidate(
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 }
-
 export function resolveLaunchedWorkspaceRoot(
   response: WorkspaceRootResolutionSource,
   pendingWorkspaceRoot: string | null | undefined,
@@ -81,7 +82,6 @@ export function resolveLaunchedWorkspaceRoot(
     ""
   );
 }
-
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
   if (seconds < 10) {
@@ -89,7 +89,6 @@ function formatElapsedMs(ms: number): string {
   }
   return `${Math.round(seconds)}s`;
 }
-
 export function resolveWorkspaceLaunchErrorMessage(
   rawError: WorkspaceLaunchErrorPayload | null | undefined,
 ): string {
@@ -102,12 +101,10 @@ export function resolveWorkspaceLaunchErrorMessage(
   }
   return rawMessage.trim();
 }
-
 export function WorkspaceLaunchPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<LaunchPhase>({ status: "idle" });
   const [elapsedMs, setElapsedMs] = useState(0);
-
   const startedAt = phase.status === "loading" ? phase.startedAt : null;
   useEffect(() => {
     if (startedAt === null) {
@@ -121,7 +118,6 @@ export function WorkspaceLaunchPage() {
       clearInterval(intervalId);
     };
   }, [startedAt]);
-
   useEffect(() => {
     const pending = readPendingWorkspaceLaunch();
     const defaultReturnUrl =
@@ -151,7 +147,6 @@ export function WorkspaceLaunchPage() {
       pending.sshTarget ?? pending.request.sshTarget ?? null;
     const pendingSettaFilesLocation =
       pending.settaFilesLocation ?? pending.request.settaFilesLocation;
-
     let isMounted = true;
     setPhase({
       status: "loading",
@@ -161,13 +156,16 @@ export function WorkspaceLaunchPage() {
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pendingSshTarget,
     });
-
     async function runLaunch() {
       const res = await dedupeInFlightJson(
         inFlightLaunchesByKey,
         pending.request,
         async (request) => {
-          return await callOpenAPI(launchWorkspace({ body: request }));
+          return await callOpenAPI(
+            launchWorkspace({ body: request } as Parameters<
+              typeof launchWorkspace
+            >[0]),
+          );
         },
         buildLaunchRequestDedupeKey,
       );
@@ -232,7 +230,6 @@ export function WorkspaceLaunchPage() {
         });
         return;
       }
-
       const resolvedWorkspaceRoot = resolveLaunchedWorkspaceRoot(
         res.data,
         pending.request.workspaceRoot,
@@ -258,13 +255,11 @@ export function WorkspaceLaunchPage() {
       } else {
         resolvedLocalPort = null;
       }
-
       const historySettaFilesLocation =
         chooseWorkspaceHistorySettaFilesLocation({
           requested: pendingSettaFilesLocation,
           resolved: res.data.settaFilesLocation,
         });
-
       const nextEntry = {
         workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pendingSshTarget,
@@ -272,12 +267,10 @@ export function WorkspaceLaunchPage() {
         settaFilesLocation: historySettaFilesLocation,
         lastUsedAt: Date.now(),
       };
-
       const nextHistory = upsertWorkspaceHistoryEntry(
         loadWorkspaceHistory(),
         nextEntry,
       );
-
       // Keep the switcher selection aligned with what actually happened, so
       // reopening the modal doesn't show a misleading explicit selection.
       writeWorkspaceSwitcherDraft({
@@ -287,7 +280,6 @@ export function WorkspaceLaunchPage() {
         localPort: resolvedLocalPort,
         settaFilesLocation: historySettaFilesLocation,
       });
-
       clearPendingWorkspaceLaunch();
       const bootstrapUrl = resolveLauncherBootstrapUrl(
         appendWorkspaceHistoryToBootstrapUrlFragment(
@@ -297,14 +289,11 @@ export function WorkspaceLaunchPage() {
       );
       window.location.href = bootstrapUrl;
     }
-
     void runLaunch();
-
     return () => {
       isMounted = false;
     };
   }, []);
-
   const details = useMemo(() => {
     if (phase.status === "idle") {
       return null;
@@ -314,7 +303,6 @@ export function WorkspaceLaunchPage() {
     }
     return "Launch failed";
   }, [elapsedMs, phase.status]);
-
   function goBack(returnUrl: string, returnUrlTrust: LaunchReturnUrlTrust) {
     clearPendingWorkspaceLaunch();
     const navigation = resolveWorkspaceLaunchBackNavigation(
@@ -329,7 +317,6 @@ export function WorkspaceLaunchPage() {
     requestOpenWorkspaceSwitcherOnNextMount();
     navigate(navigation.target, { replace: true });
   }
-
   const errorMessage = phase.status === "error" ? phase.message : null;
   const returnUrl =
     phase.status === "loading" || phase.status === "error"
@@ -349,7 +336,6 @@ export function WorkspaceLaunchPage() {
     phase.status === "loading" || phase.status === "error"
       ? phase.sshTarget
       : null;
-
   return (
     <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8">
       <section className="flex w-full max-w-[560px] flex-col items-center gap-5 rounded-2xl border border-setta-200 bg-white/70 p-8 text-center shadow-sm backdrop-blur-sm dark:border-setta-700 dark:bg-setta-900/40">

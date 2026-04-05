@@ -1,17 +1,17 @@
 import type { Connection } from "forks/xyflow/core/types";
 import {
+  createEdge,
+  deleteEdges,
+  reconnectEdge,
+  setEdges,
+  updateEdge,
+} from "openapi/http";
+import {
   useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_create_edge,
-  route_delete_edges,
-  route_reconnect_edge,
-  route_set_edges,
-  route_update_edge,
-} from "utils/generatedEndpoints";
 import {
   createCore,
   createProjectConfig,
@@ -26,27 +26,23 @@ import {
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "./edges";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_create_edge: vi.fn(),
-    route_update_edge: vi.fn(),
-    route_delete_edges: vi.fn(),
-    route_reconnect_edge: vi.fn(),
-    route_set_edges: vi.fn(),
+    createEdge: vi.fn(),
+    updateEdge: vi.fn(),
+    deleteEdges: vi.fn(),
+    reconnectEdge: vi.fn(),
+    setEdges: vi.fn(),
   };
 });
-
-const mockedRouteCreateEdge = vi.mocked(route_create_edge);
-const mockedRouteUpdateEdge = vi.mocked(route_update_edge);
-const mockedRouteDeleteEdges = vi.mocked(route_delete_edges);
-const mockedRouteReconnectEdge = vi.mocked(route_reconnect_edge);
-const mockedRouteSetEdges = vi.mocked(route_set_edges);
-
+const mockedRouteCreateEdge = vi.mocked(createEdge);
+const mockedRouteUpdateEdge = vi.mocked(updateEdge);
+const mockedRouteDeleteEdges = vi.mocked(deleteEdges);
+const mockedRouteReconnectEdge = vi.mocked(reconnectEdge);
+const mockedRouteSetEdges = vi.mocked(setEdges);
 const projectConfigId = "project-1";
 const sourceSectionId = "source-section";
 const targetSectionId = "target-section";
@@ -54,7 +50,6 @@ const sourceVariantId = "source-variant";
 const targetVariantId = "target-variant";
 const sourcePortId = "result";
 const targetPortId = "input";
-
 function seedEdgeState(edges: Array<Edge>) {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -93,7 +88,6 @@ function seedEdgeState(edges: Array<Edge>) {
     };
     state.previewSectionVariantMap = {};
   });
-
   const sourceKey = makeEdgeHandleKey(sourceSectionId, sourcePortId, "source");
   const targetKey = makeEdgeHandleKey(targetSectionId, targetPortId, "target");
   useEdgeHandleRegistry.setState({
@@ -118,7 +112,6 @@ function seedEdgeState(edges: Array<Edge>) {
     },
   });
 }
-
 function createConnection(): Connection {
   return {
     source: sourceSectionId,
@@ -127,7 +120,6 @@ function createConnection(): Connection {
     targetHandle: targetPortId,
   };
 }
-
 describe("edges actions", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -159,16 +151,12 @@ describe("edges actions", () => {
       hasResponse: true,
     });
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("posts createEdge with the canonical connection payload", () => {
     seedEdgeState([]);
-
     createEdgeFromConnection(createConnection());
-
     expect(mockedRouteCreateEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteCreateEdge).toHaveBeenCalledWith({
       projectConfigId,
@@ -181,12 +169,9 @@ describe("edges actions", () => {
       type: "default",
     });
   });
-
   it("posts reconnectEdge with the canonical connection payload", () => {
     seedEdgeState([]);
-
     reconnectEdgeFromConnection("edge-1", createConnection());
-
     expect(mockedRouteReconnectEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteReconnectEdge).toHaveBeenCalledWith({
       projectConfigId,
@@ -199,7 +184,6 @@ describe("edges actions", () => {
       targetPortId,
     });
   });
-
   it("single-selects an edge and persists the full edge list", () => {
     seedEdgeState([
       {
@@ -225,9 +209,7 @@ describe("edges actions", () => {
         selected: true,
       },
     ]);
-
     toggleEdgeSelection("edge-a", false);
-
     const edges = useProjectState.getState().projectConfig.edges;
     expect(edges).toMatchObject([
       { id: "edge-a", selected: true },
@@ -245,7 +227,6 @@ describe("edges actions", () => {
       }),
     );
   });
-
   it("multi-select toggles a single edge through updateEdge", () => {
     seedEdgeState([
       {
@@ -260,9 +241,7 @@ describe("edges actions", () => {
         selected: false,
       },
     ]);
-
     toggleEdgeSelection("edge-a", true);
-
     expect(useProjectState.getState().projectConfig.edges[0]?.selected).toBe(
       true,
     );
@@ -278,7 +257,6 @@ describe("edges actions", () => {
       }),
     );
   });
-
   it("deletes selected edges through deleteEdges", () => {
     seedEdgeState([
       {
@@ -304,9 +282,7 @@ describe("edges actions", () => {
         selected: false,
       },
     ]);
-
     const deleted = deleteSelectedEdges();
-
     expect(deleted).toBe(true);
     expect(useProjectState.getState().projectConfig.edges).toMatchObject([
       { id: "edge-b" },

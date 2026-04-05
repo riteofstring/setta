@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { setCodeFileBinding } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -14,25 +16,21 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_set_code_file_binding } from "utils/generatedEndpoints";
 import {
   CodeFileAccessMode,
   CodeFileAccessModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-
 type CodeBindingState = {
   canonicalPath: string;
   accessMode: CodeFileAccessMode;
   isFrozen: boolean;
 };
-
 const ACCESS_MODE_LABELS: Record<CodeFileAccessMode, string> = {
   [CodeFileAccessModeEnum.read_write]: "Read & Write",
   [CodeFileAccessModeEnum.read_only]: "Read Only",
   [CodeFileAccessModeEnum.write_only]: "Write Only",
 };
-
 export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   const { canonicalPath, accessMode, isFrozen } = useProjectState(
@@ -51,13 +49,10 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
     },
     _.isEqual,
   );
-
   const [localCanonicalPath, setLocalCanonicalPath] = useState(canonicalPath);
-
   useEffect(() => {
     setLocalCanonicalPath(canonicalPath);
   }, [canonicalPath]);
-
   const sendBinding = useCallback(
     (nextCanonicalPath: string, nextAccessMode: CodeFileAccessMode) => {
       if (!canEditStructure) {
@@ -71,7 +66,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
       if (trimmedPath === canonicalPath && nextAccessMode === accessMode) {
         return;
       }
-
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
@@ -83,26 +77,27 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           });
         },
         send: (frontendOpId) =>
-          route_set_code_file_binding({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            frontendOpId,
-            binding: {
-              canonical_path: trimmedPath,
-              access_mode: nextAccessMode,
-            },
-          }),
+          callOpenAPI(
+            setCodeFileBinding({
+              body: {
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                frontendOpId,
+                binding: {
+                  canonical_path: trimmedPath,
+                  access_mode: nextAccessMode,
+                },
+              },
+            } as Parameters<typeof setCodeFileBinding>[0]),
+          ),
       });
-
       setLocalCanonicalPath(trimmedPath);
     },
     [accessMode, canEditStructure, canonicalPath, sectionId],
   );
-
   const onCanonicalPathBlur = useCallback(() => {
     sendBinding(localCanonicalPath, accessMode);
   }, [accessMode, localCanonicalPath, sendBinding]);
-
   const onCanonicalPathKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key === "Enter") {
@@ -111,7 +106,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
     },
     [],
   );
-
   const onAccessModeChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
       const nextMode = event.target.value as CodeFileAccessMode;
@@ -119,7 +113,6 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
     },
     [canonicalPath, sendBinding],
   );
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">

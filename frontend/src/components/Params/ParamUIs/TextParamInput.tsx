@@ -1,3 +1,5 @@
+import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -16,7 +18,6 @@ import {
   resolveCalendarAnchorDate,
   shiftCalendarMonth,
 } from "utils/calendarGrid";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStart,
@@ -51,14 +52,12 @@ import {
 } from "utils/textParamDateTime";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 import { SwitchInput } from "./SwitchInput";
-
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
   "flex-1 font-sans text-xs font-semibold text-setta-600 dark:text-setta-400";
 const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
-
 const TIME_FORMAT_OPTIONS: Array<{
   value: TimeDisplayFormat;
   label: string;
@@ -66,7 +65,6 @@ const TIME_FORMAT_OPTIONS: Array<{
   { value: TimeDisplayFormatEnum.twenty_four_hour, label: "24-hour" },
   { value: TimeDisplayFormatEnum.twelve_hour, label: "12-hour" },
 ];
-
 const TIME_CONTROL_MODE_OPTIONS: Array<{
   value: TimeControlMode;
   label: string;
@@ -74,7 +72,6 @@ const TIME_CONTROL_MODE_OPTIONS: Array<{
   { value: TimeControlModeEnum.display, label: "Display" },
   { value: TimeControlModeEnum.input, label: "Input" },
 ];
-
 const TIME_DISPLAY_FONT_OPTIONS: Array<{
   value: TimeDisplayFont;
   label: string;
@@ -83,11 +80,9 @@ const TIME_DISPLAY_FONT_OPTIONS: Array<{
   { value: TimeDisplayFontEnum.monospace, label: "Monospace" },
   { value: TimeDisplayFontEnum.system, label: "System" },
 ];
-
 const TIME_DISPLAY_SCALE_MIN = 0.5;
 const TIME_DISPLAY_SCALE_MAX = 3.0;
 const TIME_DISPLAY_SCALE_STEP = 0.1;
-
 const DATE_FORMAT_OPTIONS: Array<{
   value: DateDisplayFormat;
   label: string;
@@ -97,7 +92,6 @@ const DATE_FORMAT_OPTIONS: Array<{
   { value: DateDisplayFormatEnum.eu, label: "EU (DD/MM/YYYY)" },
   { value: DateDisplayFormatEnum.long, label: "Long (Month D, YYYY)" },
 ];
-
 const DATE_CONTROL_MODE_OPTIONS: Array<{
   value: DateControlMode;
   label: string;
@@ -105,7 +99,6 @@ const DATE_CONTROL_MODE_OPTIONS: Array<{
   { value: DateControlModeEnum.input, label: "Date input" },
   { value: DateControlModeEnum.calendar, label: "Calendar" },
 ];
-
 const DATE_SELECTION_MODE_OPTIONS: Array<{
   value: DateSelectionMode;
   label: string;
@@ -113,7 +106,6 @@ const DATE_SELECTION_MODE_OPTIONS: Array<{
   { value: DateSelectionModeEnum.single, label: "Single date" },
   { value: DateSelectionModeEnum.multiple, label: "Multiple dates" },
 ];
-
 const DATE_WEEK_START_OPTIONS: Array<{
   value: DateCalendarWeekStart;
   label: string;
@@ -121,10 +113,8 @@ const DATE_WEEK_START_OPTIONS: Array<{
   { value: DateCalendarWeekStartEnum.sunday, label: "Sunday" },
   { value: DateCalendarWeekStartEnum.monday, label: "Monday" },
 ];
-
 const SUNDAY_WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONDAY_WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 function getWeekdayLabels(
   weekStart: DateCalendarWeekStart,
 ): ReadonlyArray<string> {
@@ -133,7 +123,6 @@ function getWeekdayLabels(
   }
   return SUNDAY_WEEKDAY_LABELS;
 }
-
 function clampTimeDisplayScale(rawScale: number): number {
   if (!Number.isFinite(rawScale)) {
     return 1;
@@ -143,7 +132,6 @@ function clampTimeDisplayScale(rawScale: number): number {
     Math.max(TIME_DISPLAY_SCALE_MIN, rawScale),
   );
 }
-
 function getTimeDisplayFontClassName(timeDisplayFont: TimeDisplayFont): string {
   if (timeDisplayFont === TimeDisplayFontEnum.system) {
     return "font-sans tabular-nums";
@@ -153,7 +141,6 @@ function getTimeDisplayFontClassName(timeDisplayFont: TimeDisplayFont): string {
   }
   return "font-mono tabular-nums";
 }
-
 export function parseCalendarSelectedDates(
   rawValue: string,
   selectionMode: DateSelectionMode,
@@ -169,12 +156,10 @@ export function parseCalendarSelectedDates(
     }
     return [normalized];
   }
-
   const trimmed = rawValue.trim();
   if (trimmed === "") {
     return [];
   }
-
   let candidates: Array<string> = [];
   try {
     const parsed = JSON.parse(trimmed);
@@ -188,7 +173,6 @@ export function parseCalendarSelectedDates(
   } catch {
     candidates = [trimmed];
   }
-
   const normalized = candidates
     .map((candidate) =>
       normalizeDateToIso(
@@ -199,12 +183,10 @@ export function parseCalendarSelectedDates(
       ),
     )
     .filter((candidate) => parseIsoDate(candidate) !== null);
-
   return Array.from(new Set(normalized)).sort((left, right) =>
     left.localeCompare(right),
   );
 }
-
 export function serializeCalendarSelectedDates(
   selectedDates: Array<string>,
   selectionMode: DateSelectionMode,
@@ -220,7 +202,6 @@ export function serializeCalendarSelectedDates(
   }
   return JSON.stringify(sorted);
 }
-
 function formatMonthTitle(year: number, monthIndex: number): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "long",
@@ -228,7 +209,6 @@ function formatMonthTitle(year: number, monthIndex: number): string {
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
-
 export function TimeParamInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -242,7 +222,6 @@ export function TimeParamInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.TimeParam,
   );
-
   function onConfigChange(nextConfig: Partial<TimeParamConfigForFrontend>) {
     if (!canEditStructure) {
       return;
@@ -261,16 +240,19 @@ export function TimeParamInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: merged,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: merged,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   return (
     <div className="mt-1 flex flex-col gap-1">
       <div className={ROW_CLASS_NAME}>
@@ -374,7 +356,6 @@ export function TimeParamInputConfigForParam({
     </div>
   );
 }
-
 export function DateParamInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -390,7 +371,6 @@ export function DateParamInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.DateParam,
   );
-
   function onConfigChange(nextConfig: Partial<DateParamConfigForFrontend>) {
     if (!canEditStructure) {
       return;
@@ -412,16 +392,19 @@ export function DateParamInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig: merged,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig: merged,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   return (
     <div className="mt-1 flex flex-col gap-1">
       <div className={ROW_CLASS_NAME}>
@@ -535,7 +518,6 @@ export function DateParamInputConfigForParam({
     </div>
   );
 }
-
 function DateCalendarInput({
   value,
   onChange,
@@ -569,11 +551,9 @@ function DateCalendarInput({
   const [anchor, setAnchor] = useState(() =>
     resolveCalendarAnchorDate(primarySelectedDate),
   );
-
   useEffect(() => {
     setAnchor(resolveCalendarAnchorDate(primarySelectedDate));
   }, [primarySelectedDate]);
-
   const monthCells = useMemo(
     () =>
       buildCalendarMonthGrid({
@@ -589,7 +569,6 @@ function DateCalendarInput({
   );
   const weekdayLabels = useMemo(() => getWeekdayLabels(weekStart), [weekStart]);
   const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
-
   let summaryText = "No date selected";
   if (selectionMode === DateSelectionModeEnum.multiple) {
     summaryText = `${selectedDates.length} selected`;
@@ -602,7 +581,6 @@ function DateCalendarInput({
   } else if (selectedDates.length > 0) {
     summaryText = selectedDates[0];
   }
-
   return (
     <>
       <div className="flex items-center justify-between">
@@ -717,7 +695,6 @@ function DateCalendarInput({
     </>
   );
 }
-
 export function TextParamDateTimeInput({
   value,
   onChange,
@@ -770,7 +747,6 @@ export function TextParamDateTimeInput({
   const effectiveBorderClassName =
     borderClassName ??
     "section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400";
-
   const showCalendarDateUi =
     uiType === TextParamInputUITypeEnum.date &&
     dateControlMode === DateControlModeEnum.calendar;
@@ -789,7 +765,6 @@ export function TextParamDateTimeInput({
   const timeDisplayFontClassName = getTimeDisplayFontClassName(
     timeDisplayFont ?? TimeDisplayFontEnum.monospace,
   );
-
   let normalizedValue = "";
   if (uiType === TextParamInputUITypeEnum.time) {
     normalizedValue = normalizeTimeTo24Hour(value);
@@ -804,7 +779,6 @@ export function TextParamDateTimeInput({
   } else {
     normalizedValue = normalizeDateToIso(value, dateDisplayFormat);
   }
-
   const [localDateInputValue, setLocalDateInputValue] = useState(() =>
     formatDateForDisplay(normalizedValue, dateDisplayFormat),
   );
@@ -816,7 +790,6 @@ export function TextParamDateTimeInput({
       formatDateForDisplay(normalizedValue, dateDisplayFormat),
     );
   }, [dateDisplayFormat, normalizedValue, showFormattedDateInput]);
-
   if (showDisplayOnlyTime) {
     const formattedTimeValue = formatTimeForDisplay(value, timeDisplayFormat);
     const displayedTimeValue =
@@ -840,7 +813,6 @@ export function TextParamDateTimeInput({
       </>
     );
   }
-
   if (showCalendarDateUi) {
     return (
       <>
@@ -864,7 +836,6 @@ export function TextParamDateTimeInput({
       </>
     );
   }
-
   let formattedValue = "";
   let inputType: "time" | "date" | "datetime-local" | "text" = "date";
   if (uiType === TextParamInputUITypeEnum.time) {
@@ -886,7 +857,6 @@ export function TextParamDateTimeInput({
       inputType = "date";
     }
   }
-
   return (
     <>
       <div className={effectiveWrapperClassName}>

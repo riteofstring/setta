@@ -7,11 +7,20 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTopLevelSection, getEmptySpacePosition } from "./createSections";
+import {
+  createTopLevelSection as createTopLevelSectionAction,
+  getEmptySpacePosition,
+} from "./createSections";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_create_top_level_section: vi.fn(),
-  route_set_section_name: vi.fn(),
+const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
+
+vi.mock("openapi/http", () => ({
+  createTopLevelSection: vi.fn(),
+  setSectionName: vi.fn(),
+}));
+
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
 }));
 
 vi.mock("../sectionInfos", async () => {
@@ -22,11 +31,11 @@ vi.mock("../sectionInfos", async () => {
     processProjectStateUpdateFromBackend: vi.fn(),
   };
 });
-
 describe("createTopLevelSection", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
+    callOpenAPIMock.mockClear();
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       callback(0);
       return 0;
@@ -46,21 +55,17 @@ describe("createTopLevelSection", () => {
       height: 800,
     });
   });
-
   afterEach(() => {
     vi.unstubAllGlobals();
     resetProjectStores();
   });
-
   it("returns the created section id after a successful top-level section creation", async () => {
-    const { route_create_top_level_section } = await import(
-      "utils/generatedEndpoints"
-    );
+    const { createTopLevelSection: createTopLevelSectionRequest } =
+      await import("openapi/http");
     const { processProjectStateUpdateFromBackend } = await import(
       "../sectionInfos"
     );
-
-    vi.mocked(route_create_top_level_section).mockResolvedValue({
+    vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 200,
       data: {
         sectionId: "section-created",
@@ -69,16 +74,14 @@ describe("createTopLevelSection", () => {
       },
       hasResponse: true,
     });
-
-    const sectionId = await createTopLevelSection({
+    const sectionId = await createTopLevelSectionAction({
       implType: SectionTypeEnum.Group,
       implOverrides: null,
       position: null,
     });
-
     expect(sectionId).toBe("section-created");
-    expect(route_create_top_level_section).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(createTopLevelSectionRequest).toHaveBeenCalledWith({
+      body: expect.objectContaining({
         projectConfigId: "project-alpha",
         implType: SectionTypeEnum.Group,
         topLevelSections: {},
@@ -89,46 +92,37 @@ describe("createTopLevelSection", () => {
           h: expect.any(Number),
         }),
       }),
-    );
+    });
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
-
   it("returns null when top-level section creation fails", async () => {
-    const { route_create_top_level_section } = await import(
-      "utils/generatedEndpoints"
-    );
+    const { createTopLevelSection: createTopLevelSectionRequest } =
+      await import("openapi/http");
     const { processProjectStateUpdateFromBackend } = await import(
       "../sectionInfos"
     );
-
-    vi.mocked(route_create_top_level_section).mockResolvedValue({
+    vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 500,
       data: null,
       hasResponse: true,
     });
-
-    const sectionId = await createTopLevelSection({
+    const sectionId = await createTopLevelSectionAction({
       implType: SectionTypeEnum.Group,
       implOverrides: null,
       position: null,
     });
-
     expect(sectionId).toBeNull();
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
-
   it("falls back to a visible explicit position when viewport bounds are unavailable for an empty project", async () => {
-    const { route_create_top_level_section } = await import(
-      "utils/generatedEndpoints"
-    );
-
+    const { createTopLevelSection: createTopLevelSectionRequest } =
+      await import("openapi/http");
     useReactFlow.setState({
       transform: [80, -40, 2],
       width: 0,
       height: 0,
     });
-
-    vi.mocked(route_create_top_level_section).mockResolvedValue({
+    vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 200,
       data: {
         sectionId: "section-created",
@@ -137,23 +131,20 @@ describe("createTopLevelSection", () => {
       },
       hasResponse: true,
     });
-
     const expectedPosition = getEmptySpacePosition();
-
-    await createTopLevelSection({
+    await createTopLevelSectionAction({
       implType: SectionTypeEnum.Group,
       implOverrides: null,
       position: null,
     });
-
-    expect(route_create_top_level_section).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(createTopLevelSectionRequest).toHaveBeenCalledWith({
+      body: expect.objectContaining({
         projectConfigId: "project-alpha",
         implType: SectionTypeEnum.Group,
         topLevelSections: {},
         viewportBounds: null,
         position: expectedPosition,
       }),
-    );
+    });
   });
 });

@@ -1,5 +1,8 @@
 /* @vitest-environment jsdom */
-
+import {
+  createChildSectionsViaIncrementer,
+  deleteChildSectionsViaDecrementer,
+} from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useProjectState, useShareSession } from "state/definitions";
@@ -14,19 +17,18 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Incrementer } from "./Incrementer";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual = await import("openapi/http");
   return {
     ...actual,
-    route_create_child_sections_via_incrementer: vi.fn(async () => ({
+    createChildSectionsViaIncrementer: vi.fn(async () => ({
       data: { sectionIds: ["child-created"] },
       response: new Response(`{"sectionIds":["child-created"]}`, {
         status: 200,
       }),
       status: 200,
     })),
-    route_delete_child_sections_via_decrementer: vi.fn(async () => ({
+    deleteChildSectionsViaDecrementer: vi.fn(async () => ({
       data: { sectionIds: ["child-created"] },
       response: new Response(`{"sectionIds":["child-created"]}`, {
         status: 200,
@@ -35,41 +37,29 @@ vi.mock("utils/generatedEndpoints", async () => {
     })),
   };
 });
-
-import {
-  route_create_child_sections_via_incrementer,
-  route_delete_child_sections_via_decrementer,
-} from "utils/generatedEndpoints";
-
 const mockedRouteCreateChildSectionsViaIncrementer = vi.mocked(
-  route_create_child_sections_via_incrementer,
+  createChildSectionsViaIncrementer,
 );
 const mockedRouteDeleteChildSectionsViaDecrementer = vi.mocked(
-  route_delete_child_sections_via_decrementer,
+  deleteChildSectionsViaDecrementer,
 );
-
 type RenderedIncrementer = {
   host: HTMLDivElement;
   root: Root;
 };
-
 async function renderIncrementer(sectionId: string) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-
   await act(async () => {
     root.render(<Incrementer isRoot sectionId={sectionId} />);
   });
-
   return { host, root } satisfies RenderedIncrementer;
 }
-
 describe("Incrementer", () => {
   const sectionId = "list-root-section";
   const variantId = "list-root-variant";
   const implId = "list-root-impl";
-
   const sectionCore: Core = {
     id: sectionId,
     name: "ListRoot",
@@ -79,7 +69,6 @@ describe("Incrementer", () => {
     sharedModifier: {},
     unsharedKeys: [],
   };
-
   const sectionVariant: Variant = {
     id: variantId,
     name: "Variant",
@@ -88,7 +77,6 @@ describe("Incrementer", () => {
     modifier: {},
     isFrozen: false,
   };
-
   beforeEach(() => {
     resetProjectStores();
     mockedRouteCreateChildSectionsViaIncrementer.mockClear();
@@ -119,17 +107,14 @@ describe("Incrementer", () => {
       state.previewSectionVariantMap = {};
     });
   });
-
   afterEach(() => {
     resetProjectStores();
     mockedRouteCreateChildSectionsViaIncrementer.mockClear();
     mockedRouteDeleteChildSectionsViaDecrementer.mockClear();
     document.body.innerHTML = "";
   });
-
   it("posts incrementer add and delete actions through the canonical endpoints", async () => {
     const { host, root } = await renderIncrementer(sectionId);
-
     try {
       const input = host.querySelector<HTMLInputElement>("input");
       if (!(input instanceof HTMLInputElement)) {
@@ -141,7 +126,6 @@ describe("Incrementer", () => {
           `Expected 2 incrementer buttons, got ${buttons.length}`,
         );
       }
-
       await act(async () => {
         const setValue = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -154,11 +138,9 @@ describe("Incrementer", () => {
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       });
-
       await act(async () => {
         buttons[1].click();
       });
-
       expect(mockedRouteCreateChildSectionsViaIncrementer).toHaveBeenCalledWith(
         {
           projectConfigId: "project-1",
@@ -167,11 +149,9 @@ describe("Incrementer", () => {
           numChildren: 2,
         },
       );
-
       await act(async () => {
         buttons[0].click();
       });
-
       expect(mockedRouteDeleteChildSectionsViaDecrementer).toHaveBeenCalledWith(
         {
           projectConfigId: "project-1",

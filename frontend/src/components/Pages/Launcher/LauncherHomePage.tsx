@@ -17,7 +17,6 @@ import { useServerMode } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
-
 type LauncherListDirectoryRequest = NonNullable<
   Parameters<typeof listLauncherDirectory>[0]
 >["body"];
@@ -30,16 +29,13 @@ type DirectoryEntry = NonNullable<
 type RecentWorkspaceEntry = NonNullable<
   GetLauncherRecentWorkspacesResponse["workspaces"]
 >[number];
-
 export function normalizeNewProjectName(rawValue: string): string {
   return rawValue.trim().replace(/[\\/]+/g, "");
 }
-
 export function isReservedProjectName(rawValue: string): boolean {
   const normalized = normalizeNewProjectName(rawValue);
   return normalized === "." || normalized === "..";
 }
-
 export function joinLauncherPath(
   parentPath: string,
   childName: string,
@@ -52,13 +48,11 @@ export function joinLauncherPath(
   if (!normalizedChild) {
     return normalizedParent;
   }
-
   const endsWithSeparator =
     normalizedParent.endsWith("/") || normalizedParent.endsWith("\\");
   if (endsWithSeparator) {
     return `${normalizedParent}${normalizedChild}`;
   }
-
   const useBackslash =
     normalizedParent.includes("\\") && !normalizedParent.includes("/");
   if (useBackslash) {
@@ -66,7 +60,6 @@ export function joinLauncherPath(
   }
   return `${normalizedParent}/${normalizedChild}`;
 }
-
 function formatRecentTimestamp(lastUsedAt: number): string {
   const millis = lastUsedAt * 1000;
   const date = new Date(millis);
@@ -75,11 +68,9 @@ function formatRecentTimestamp(lastUsedAt: number): string {
   }
   return date.toLocaleString();
 }
-
 type LauncherContext = {
   settaHome: string | null;
 };
-
 function resolveLauncherContextFromQueryParam(): LauncherContext {
   const searchParams = new URL(window.location.href).searchParams;
   const rawSettaHome = searchParams.get("setta_home");
@@ -92,16 +83,13 @@ function resolveLauncherContextFromQueryParam(): LauncherContext {
   }
   return { settaHome: normalizedSettaHome };
 }
-
 type RecentActionInFlight = "refresh" | "pin" | "remove" | "open" | null;
 type DirectoryActionInFlight = "navigate" | "load-more" | null;
 type DirectoryLoadOptions = {
   cursor?: string | null;
   append?: boolean;
 };
-
 const DIRECTORY_PAGE_SIZE = 250;
-
 type DirectoryListingState = {
   entries: Array<DirectoryEntry>;
   hasMore: boolean;
@@ -109,7 +97,6 @@ type DirectoryListingState = {
   truncated: boolean;
   error: string | null;
 };
-
 type LauncherRecentWorkspacesRouteResponse =
   ResponseDataAndStatus<LauncherRecentWorkspacesResponse>;
 type LauncherFilesystemRootsRouteResponse =
@@ -118,7 +105,6 @@ type LauncherListDirectoryRouteResponse =
   ResponseDataAndStatus<LauncherListDirectoryResponse>;
 type LauncherOpenWorkspaceRouteResponse =
   ResponseDataAndStatus<LauncherOpenWorkspacePayload>;
-
 export function applyDirectoryListingPage({
   previousEntries,
   payload,
@@ -150,7 +136,6 @@ export function applyDirectoryListingPage({
     error: null,
   };
 }
-
 export function LauncherHomePage() {
   const launcherContext = useMemo(resolveLauncherContextFromQueryParam, []);
   const serverMode = useServerMode((state) => state.mode);
@@ -158,7 +143,6 @@ export function LauncherHomePage() {
     () => resolveServerModeCapabilities(serverMode),
     [serverMode],
   );
-
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     Array<RecentWorkspaceEntry>
   >([]);
@@ -167,7 +151,6 @@ export function LauncherHomePage() {
   >(null);
   const [recentActionInFlight, setRecentActionInFlight] =
     useState<RecentActionInFlight>(null);
-
   const [filesystemRoots, setFilesystemRoots] = useState<Array<string>>([]);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [parentPath, setParentPath] = useState<string | null>(null);
@@ -182,19 +165,17 @@ export function LauncherHomePage() {
   const [directoryActionInFlight, setDirectoryActionInFlight] =
     useState<DirectoryActionInFlight>(null);
   const latestDirectoryRequestIdRef = useRef(0);
-
   const [selectedWorkspacePath, setSelectedWorkspacePath] =
     useState<string>("");
   const [newProjectName, setNewProjectName] = useState<string>("");
   const [openError, setOpenError] = useState<string | null>(null);
   const [openInFlight, setOpenInFlight] = useState(false);
-
   async function loadRecentWorkspaces() {
-    const response: LauncherRecentWorkspacesRouteResponse = await callOpenAPI(
+    const response = (await callOpenAPI(
       getLauncherRecentWorkspaces({
         query: { setta_home: launcherContext.settaHome ?? undefined },
-      }),
-    );
+      } as Parameters<typeof getLauncherRecentWorkspaces>[0]),
+    )) as LauncherRecentWorkspacesRouteResponse;
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;
@@ -208,17 +189,15 @@ export function LauncherHomePage() {
     setRecentWorkspaces(response.data.workspaces ?? []);
     setRecentWorkspacesError(null);
   }
-
   async function loadFilesystemRoots() {
-    const response: LauncherFilesystemRootsRouteResponse = await callOpenAPI(
+    const response = (await callOpenAPI(
       getLauncherFilesystemRoots(),
-    );
+    )) as LauncherFilesystemRootsRouteResponse;
     if (!res200(response) || !response.data || !response.data.ok) {
       return;
     }
     setFilesystemRoots(response.data.roots ?? []);
   }
-
   async function loadDirectory(
     path: string | null,
     options?: DirectoryLoadOptions,
@@ -232,13 +211,12 @@ export function LauncherHomePage() {
     const requestId = latestDirectoryRequestIdRef.current + 1;
     latestDirectoryRequestIdRef.current = requestId;
     setDirectoryActionInFlight(append ? "load-more" : "navigate");
-
     try {
-      const response: LauncherListDirectoryRouteResponse = await callOpenAPI(
+      const response = (await callOpenAPI(
         listLauncherDirectory({
           body: request,
-        }),
-      );
+        } as Parameters<typeof listLauncherDirectory>[0]),
+      )) as LauncherListDirectoryRouteResponse;
       if (requestId !== latestDirectoryRequestIdRef.current) {
         return;
       }
@@ -249,7 +227,6 @@ export function LauncherHomePage() {
         }));
         return;
       }
-
       const payload = response.data;
       if (!payload.ok) {
         setDirectoryListing((previousState) => ({
@@ -258,7 +235,6 @@ export function LauncherHomePage() {
         }));
         return;
       }
-
       setCurrentPath(payload.currentPath);
       setParentPath(payload.parentPath);
       setDirectoryListing((previousState) =>
@@ -274,7 +250,6 @@ export function LauncherHomePage() {
       }
     }
   }
-
   async function bootstrapLauncherHome() {
     await Promise.all([
       loadRecentWorkspaces(),
@@ -282,11 +257,9 @@ export function LauncherHomePage() {
       loadDirectory(null),
     ]);
   }
-
   useEffect(() => {
     void bootstrapLauncherHome();
   }, []);
-
   async function loadMoreDirectoryEntries() {
     if (
       directoryActionInFlight !== null ||
@@ -301,7 +274,6 @@ export function LauncherHomePage() {
       cursor: directoryListing.nextCursor,
     });
   }
-
   const sortedRecentWorkspaces = useMemo(() => {
     return [...recentWorkspaces].sort((a, b) => {
       if (a.pinned !== b.pinned) {
@@ -310,7 +282,6 @@ export function LauncherHomePage() {
       return b.lastUsedAt - a.lastUsedAt;
     });
   }, [recentWorkspaces]);
-
   async function openWorkspace(
     workspaceRoot: string,
     createIfMissing: boolean,
@@ -319,12 +290,10 @@ export function LauncherHomePage() {
       setOpenError("Select a workspace path first.");
       return;
     }
-
     setOpenInFlight(true);
     setOpenError(null);
     setRecentActionInFlight("open");
-
-    const response: LauncherOpenWorkspaceRouteResponse = await callOpenAPI(
+    const response = (await callOpenAPI(
       openLauncherWorkspace({
         body: {
           workspaceRoot,
@@ -332,89 +301,77 @@ export function LauncherHomePage() {
           settaFilesLocation: "auto",
           settaHome: launcherContext.settaHome,
         },
-      }),
-    );
-
+      } as Parameters<typeof openLauncherWorkspace>[0]),
+    )) as LauncherOpenWorkspaceRouteResponse;
     if (!res200(response) || !response.data) {
       setOpenInFlight(false);
       setRecentActionInFlight(null);
       setOpenError("Failed to open workspace.");
       return;
     }
-
     if (!response.data.ok) {
       setOpenInFlight(false);
       setRecentActionInFlight(null);
       setOpenError(response.data.error?.message ?? "Failed to open workspace.");
       return;
     }
-
     if (!response.data.bootstrapUrlFragment) {
       setOpenInFlight(false);
       setRecentActionInFlight(null);
       setOpenError("Workspace opened but no bootstrap URL was returned.");
       return;
     }
-
     window.location.assign(
       resolveLauncherBootstrapUrl(response.data.bootstrapUrlFragment),
     );
   }
-
   async function togglePinWorkspace(entry: RecentWorkspaceEntry) {
     setRecentActionInFlight("pin");
-    const response: LauncherRecentWorkspacesRouteResponse = await callOpenAPI(
+    const response = (await callOpenAPI(
       pinLauncherRecentWorkspace({
         body: {
           workspaceRoot: entry.workspaceRoot,
           pinned: !entry.pinned,
           settaHome: launcherContext.settaHome,
         },
-      }),
-    );
+      } as Parameters<typeof pinLauncherRecentWorkspace>[0]),
+    )) as LauncherRecentWorkspacesRouteResponse;
     setRecentActionInFlight(null);
-
     if (!res200(response) || !response.data || !response.data.ok) {
       setRecentWorkspacesError(
         response.data?.error?.message ?? "Failed to update pinned state.",
       );
       return;
     }
-
     setRecentWorkspaces(response.data.workspaces ?? []);
     setRecentWorkspacesError(null);
   }
-
   async function removeRecentWorkspace(entry: RecentWorkspaceEntry) {
     setRecentActionInFlight("remove");
-    const response: LauncherRecentWorkspacesRouteResponse = await callOpenAPI(
+    const response = (await callOpenAPI(
       removeLauncherRecentWorkspace({
         body: {
           workspaceRoot: entry.workspaceRoot,
           settaHome: launcherContext.settaHome,
         },
-      }),
-    );
+      } as Parameters<typeof removeLauncherRecentWorkspace>[0]),
+    )) as LauncherRecentWorkspacesRouteResponse;
     setRecentActionInFlight(null);
-
     if (!res200(response) || !response.data || !response.data.ok) {
       setRecentWorkspacesError(
         response.data?.error?.message ?? "Failed to remove recent workspace.",
       );
       return;
     }
-
     setRecentWorkspaces(response.data.workspaces ?? []);
     setRecentWorkspacesError(null);
   }
-
   async function handleCreateProject() {
     const basePath = currentPath;
     if (!basePath) {
       setOpenError("Pick a base directory before creating a project.");
       return;
     }
-
     const normalizedProjectName = normalizeNewProjectName(newProjectName);
     if (!normalizedProjectName) {
       setOpenError("Enter a new project name.");
@@ -424,16 +381,13 @@ export function LauncherHomePage() {
       setOpenError("Project name cannot be '.' or '..'.");
       return;
     }
-
     const workspaceRoot = joinLauncherPath(basePath, normalizedProjectName);
     await openWorkspace(workspaceRoot, true);
   }
-
   const launcherBusy =
     openInFlight ||
     recentActionInFlight !== null ||
     directoryActionInFlight !== null;
-
   return (
     <main
       className="flex min-h-0 flex-1 flex-col gap-4 px-3 py-4"

@@ -15,17 +15,14 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_set_top_level_section_layout: vi.fn(),
+    setTopLevelSectionLayout: vi.fn(),
   };
 });
-
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
@@ -34,7 +31,6 @@ const subSectionId = "section-2";
 const subVariantId = "variant-2";
 const subImplId = "impl-2";
 const subSectionLayout = { x: 40, y: 60, zIndex: 2, w: null, h: null };
-
 function seedProjectState() {
   const sectionCore = createCore({
     id: sectionId,
@@ -85,7 +81,6 @@ function seedProjectState() {
     ]),
   });
 }
-
 function buildSubAgentEntries() {
   const sectionCore = createCore({
     id: subSectionId,
@@ -111,7 +106,6 @@ function buildSubAgentEntries() {
   });
   return { sectionCore, sectionVariant, sectionImpl };
 }
-
 function addSubAgentEntriesToState(
   state: ReturnType<typeof useProjectState.getState>,
 ) {
@@ -135,7 +129,6 @@ function addSubAgentEntriesToState(
     [subSectionId]: subSectionLayout,
   };
 }
-
 function addSubAgentSection() {
   useProjectState.setState((state) => {
     addSubAgentEntriesToState(state);
@@ -157,27 +150,22 @@ function addSubAgentSection() {
     ]),
   }));
 }
-
 describe("top-level layout persistence", () => {
   beforeEach(async () => {
     resetProjectStores();
     seedProjectState();
     vi.useFakeTimers();
-    const route_set_top_level_section_layout = (
-      await import("utils/generatedEndpoints")
-    ).route_set_top_level_section_layout as unknown as vi.Mock;
-    route_set_top_level_section_layout.mockReturnValue(new Promise(() => {}));
+    const setTopLevelSectionLayout = (await import("openapi/http"))
+      .setTopLevelSectionLayout as unknown as vi.Mock;
+    setTopLevelSectionLayout.mockReturnValue(new Promise(() => {}));
   });
-
   afterEach(() => {
     resetProjectStores();
     vi.useRealTimers();
     vi.clearAllMocks();
   });
-
   it("reapplies pending layout positions over backend updates", () => {
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
-
     useNodeInternals.setState((state) => {
       const nextNodes = new Map(state.x);
       const node = nextNodes.get(sectionId);
@@ -190,32 +178,25 @@ describe("top-level layout persistence", () => {
       });
       return { x: nextNodes };
     });
-
     debounced_route_set_top_level_section_layout();
     vi.runAllTimers();
-
     expect(usePendingOperations.getState().pending.length).toBe(1);
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const topLevel =
       useProjectState.getState().projectConfig.topLevelSections[sectionId];
     expect(topLevel.x).toBe(120);
     expect(topLevel.y).toBe(240);
-
     const node = useNodeInternals.getState().x.get(sectionId);
     expect(node?.position.x).toBe(120);
     expect(node?.position.y).toBe(240);
   });
-
   it("keeps newly created section moves over backend updates", () => {
     addSubAgentSection();
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
-
     useNodeInternals.setState((state) => {
       const nextNodes = new Map(state.x);
       const node = nextNodes.get(subSectionId);
@@ -228,24 +209,19 @@ describe("top-level layout persistence", () => {
       });
       return { x: nextNodes };
     });
-
     debounced_route_set_top_level_section_layout();
     vi.runAllTimers();
-
     expect(usePendingOperations.getState().pending.length).toBe(1);
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const topLevel =
       useProjectState.getState().projectConfig.topLevelSections[subSectionId];
     expect(topLevel.x).toBe(260);
     expect(topLevel.y).toBe(180);
   });
-
   it("does not drop new sections when pending layout is stale", () => {
     useNodeInternals.setState((state) => {
       const nextNodes = new Map(state.x);
@@ -259,19 +235,15 @@ describe("top-level layout persistence", () => {
       });
       return { x: nextNodes };
     });
-
     debounced_route_set_top_level_section_layout();
     vi.runAllTimers();
-
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     addSubAgentEntriesToState(backendState);
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const nextLayouts =
       useProjectState.getState().projectConfig.topLevelSections;
     expect(nextLayouts[subSectionId]).toBeTruthy();

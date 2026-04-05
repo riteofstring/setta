@@ -23,25 +23,20 @@ import {
   it,
   vi,
 } from "vitest";
-
 let persistChatSectionState: typeof import("./ai").persistChatSectionState;
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_set_chat_section_state: vi.fn(),
+    setChatSectionState: vi.fn(),
   };
 });
-
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
 const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 function seedChatSection() {
   const sectionCore = createCore({
     id: sectionId,
@@ -74,32 +69,25 @@ function seedChatSection() {
     state.previewSectionVariantMap = {};
   });
 }
-
 describe("chat section state persistence during backend updates", () => {
   beforeAll(async () => {
     persistChatSectionState = (await import("./ai")).persistChatSectionState;
   });
-
   beforeEach(() => {
     resetProjectStores();
     seedChatSection();
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   afterAll(() => {
     vi.clearAllMocks();
   });
-
   it("reapplies pending chat state over backend updates (e.g., resize)", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockReturnValue(new Promise(() => {}));
-
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockReturnValue(new Promise(() => {}));
     const nextState = {
       messages: [
         {
@@ -113,28 +101,23 @@ describe("chat section state persistence during backend updates", () => {
       waitingForResponse: true,
       toolCallArguments: {},
     };
-
     persistChatSectionState({
       projectConfigId,
       sectionId,
       nextState,
       reason: "test",
     });
-
     expect(usePendingOperations.getState().pending.length).toBe(1);
-
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     backendState.sectionImpls[implId].messages = [];
     backendState.sectionImpls[implId].inputText = "";
     backendState.sectionImpls[implId].waitingForResponse = false;
     backendState.sectionImpls[implId].toolCallArguments = {};
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -150,17 +133,14 @@ describe("chat section state persistence during backend updates", () => {
       ),
     ).toBe(true);
   });
-
   it("keeps acknowledged pending ops until backend completion arrives", async () => {
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
+    const setChatSectionState = (await import("openapi/http"))
+      .setChatSectionState as unknown as vi.Mock;
+    setChatSectionState.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     const nextState = {
       messages: [
         {
@@ -174,32 +154,26 @@ describe("chat section state persistence during backend updates", () => {
       waitingForResponse: true,
       toolCallArguments: {},
     };
-
     persistChatSectionState({
       projectConfigId,
       sectionId,
       nextState,
       reason: "test",
     });
-
     await flushPromises();
-
     const pendingOps = usePendingOperations.getState().pending;
     expect(pendingOps.length).toBe(1);
     expect(pendingOps[0].acknowledged).toBe(true);
-
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     backendState.sectionImpls[implId].messages = [];
     backendState.sectionImpls[implId].inputText = "";
     backendState.sectionImpls[implId].waitingForResponse = false;
     backendState.sectionImpls[implId].toolCallArguments = {};
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     expect(usePendingOperations.getState().pending.length).toBe(1);
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),

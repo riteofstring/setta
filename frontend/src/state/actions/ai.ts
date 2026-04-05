@@ -32,6 +32,7 @@ import {
   getLlmConfig,
   getPromptTemplates,
   getTranscriptionProfiles,
+  setChatSectionChatId,
   setLlmApiKeys,
   setLlmConfig,
   type AgentprofilesProfile,
@@ -101,7 +102,6 @@ import {
 } from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
 import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_set_chat_section_chat_id } from "utils/generatedEndpoints";
 import {
   AgentProfile,
   AgentRun,
@@ -167,11 +167,8 @@ import {
   shouldIgnoreResponsePlaceholderChunk,
   updateMessageById,
 } from "./chatStreamState";
-
 type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
-
 export { persistChatSectionState };
-
 const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
@@ -189,19 +186,15 @@ const MANAGED_API_KEYS_CORRUPT_ERROR_CODE = "managed_api_keys_store_corrupt";
 const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
   "managed_api_keys_store_unavailable";
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
-
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
-
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
 };
-
 const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
-
 function requireNonNull<T>(
   value: T | null | undefined,
   message: string,
@@ -211,7 +204,6 @@ function requireNonNull<T>(
   }
   return value;
 }
-
 function normalizeLLMConfigPayload(payload: LlmconfigAllConfigs): AllConfigs {
   return {
     ...payload,
@@ -236,24 +228,20 @@ function normalizeLLMConfigPayload(payload: LlmconfigAllConfigs): AllConfigs {
     ),
   } as AllConfigs;
 }
-
 function normalizeLLMApiKeysSnapshot(
   payload: HttpapiLlmapiKeysSnapshot,
 ): LLMAPIKeysSnapshot {
   return payload;
 }
-
 function normalizeAgentProfile(profile: AgentprofilesProfile): AgentProfile {
   return {
     ...profile,
     toolAllowlist: profile.toolAllowlist ?? [],
   };
 }
-
 function normalizePromptTemplate(template: PrompttemplatesTemplate): Template {
   return template as Template;
 }
-
 function normalizeExternalAgentConfig(
   config: ExternalagentconfigsConfig,
 ): ExternalAgentConfig {
@@ -272,7 +260,6 @@ function normalizeExternalAgentConfig(
     workingDir: config.workingDir ?? null,
   } as ExternalAgentConfig;
 }
-
 function normalizeExternalAgentHealth(
   status: HttpapiExternalAgentPreflightStatus,
 ): ExternalAgentPreflightStatus {
@@ -285,7 +272,6 @@ function normalizeExternalAgentHealth(
     issues: status.issues ?? [],
   } as ExternalAgentPreflightStatus;
 }
-
 function normalizeEngineConfig(config: AgentrunsEngineConfig): EngineConfig {
   return {
     ...config,
@@ -297,7 +283,6 @@ function normalizeEngineConfig(config: AgentrunsEngineConfig): EngineConfig {
     settaLlmConfigId: config.settaLlmConfigId ?? null,
   } as EngineConfig;
 }
-
 function normalizeTranscriptionProfile(
   profile: TranscriptionprofilesProfile,
 ): TranscriptionProfile {
@@ -306,11 +291,9 @@ function normalizeTranscriptionProfile(
     language: profile.language ?? null,
   } as TranscriptionProfile;
 }
-
 function refreshAgentRunsAfterSubmit(): void {
   void loadAgentRuns();
 }
-
 function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   if (bytes.length === 0) {
@@ -324,7 +307,6 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
   }
   return btoa(binaryChunks.join(""));
 }
-
 export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
@@ -339,14 +321,13 @@ export async function startTranscriptionSession(
         transcriptionProfileId,
         language,
       },
-    }),
+    } as Parameters<typeof apiStartTranscriptionSession>[0]),
   );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
-
 export async function appendTranscriptionAudio(
   sessionId: string,
   audioPcm16: ArrayBuffer,
@@ -365,14 +346,13 @@ export async function appendTranscriptionAudio(
         sampleRateHz,
         channels,
       },
-    }),
+    } as Parameters<typeof apiAppendTranscriptionAudio>[0]),
   );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
-
 async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
@@ -383,14 +363,13 @@ async function stopTranscriptionSession(
   const res = await callOpenAPI(
     apiStopTranscriptionSession({
       body: { sessionId },
-    }),
+    } as Parameters<typeof apiStopTranscriptionSession>[0]),
   );
   if (!res200(res)) {
     return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
-
 async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   if (!sessionId) {
     return true;
@@ -398,17 +377,15 @@ async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   const res = await callOpenAPI(
     apiCancelTranscriptionSession({
       body: { sessionId },
-    }),
+    } as Parameters<typeof apiCancelTranscriptionSession>[0]),
   );
   return res200(res);
 }
-
 type DictationPcmPayload = {
   audioPcm16: Int16Array;
   sampleRateHz: number;
   channels: number;
 };
-
 type ProviderDictationTranscriptionResult =
   | {
       kind: "ok";
@@ -417,19 +394,16 @@ type ProviderDictationTranscriptionResult =
   | {
       kind: "no_speech";
     };
-
 const PCM16_BYTES_PER_SAMPLE = 2;
-const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24_000;
+const REALTIME_TRANSCRIPTION_SAMPLE_RATE_HZ = 24000;
 const TRANSCRIPTION_APPEND_MAX_BYTES =
   C.REALTIME_BINARY_MAX_BYTES > 0
     ? C.REALTIME_BINARY_MAX_BYTES
     : 10 * 1024 * 1024;
-
 type TranscriptionRequestOptions = {
   suppressNotification?: boolean;
   throwOnError?: boolean;
 };
-
 function handleTranscriptionEndpointError(
   responseData: unknown,
   responseStatus: number | undefined,
@@ -451,7 +425,6 @@ function handleTranscriptionEndpointError(
   }
   return null;
 }
-
 function float32ToInt16(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length);
   for (let index = 0; index < input.length; index += 1) {
@@ -460,7 +433,6 @@ function float32ToInt16(input: Float32Array): Int16Array {
   }
   return output;
 }
-
 export function resampleMonoPcm16ToSampleRate(
   input: Int16Array,
   sourceSampleRateHz: number,
@@ -501,7 +473,6 @@ export function resampleMonoPcm16ToSampleRate(
   }
   return output;
 }
-
 function resolveProviderTranscriptionPcmPayloadForSession(
   pcmPayload: DictationPcmPayload,
   session: HttpapiStartTranscriptionSessionResponse,
@@ -531,7 +502,6 @@ function resolveProviderTranscriptionPcmPayloadForSession(
     channels: 1,
   };
 }
-
 export function resolveProviderTranscriptionChunkSampleCount({
   session,
   sampleRateHz,
@@ -560,7 +530,6 @@ export function resolveProviderTranscriptionChunkSampleCount({
   }
   return Math.min(chunkSamplesByDuration, maxSamplesByPayload);
 }
-
 async function decodeDictationBlobToPcm16(
   audioBlob: Blob,
 ): Promise<DictationPcmPayload | null> {
@@ -604,7 +573,6 @@ async function decodeDictationBlobToPcm16(
     void audioContext.close();
   }
 }
-
 function asProviderDictationTranscriptionError(
   error: unknown,
   fallbackMessage: string,
@@ -622,7 +590,6 @@ function asProviderDictationTranscriptionError(
     status: undefined,
   });
 }
-
 export async function transcribeChatAudioWithProfile(
   transcriptionProfileId: string,
   audioBlob: Blob,
@@ -753,7 +720,6 @@ export async function transcribeChatAudioWithProfile(
   }
   return { kind: "no_speech" };
 }
-
 export async function loadLLMConfig() {
   if (llmConfigLoadPromise) {
     await llmConfigLoadPromise;
@@ -776,11 +742,12 @@ export async function loadLLMConfig() {
     llmConfigLoadPromise = null;
   }
 }
-
 export async function saveLLMConfig(
   config: AllConfigs,
 ): Promise<AllConfigs | null> {
-  const res = await callOpenAPI(setLlmConfig({ body: config }));
+  const res = await callOpenAPI(
+    setLlmConfig({ body: config } as Parameters<typeof setLlmConfig>[0]),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       allLLMConfigsInitialLoadComplete: true,
@@ -792,7 +759,6 @@ export async function saveLLMConfig(
   receiveLLMConfigUpdate(nextConfig);
   return nextConfig;
 }
-
 type ManagedAPIKeysErrorDetails = {
   detail: string | null;
   revision: number | null;
@@ -800,7 +766,6 @@ type ManagedAPIKeysErrorDetails = {
   isCorrupt: boolean;
   isUnavailable: boolean;
 };
-
 function resolveManagedApiKeysErrorDetails(
   payload: unknown,
 ): ManagedAPIKeysErrorDetails {
@@ -817,7 +782,6 @@ function resolveManagedApiKeysErrorDetails(
     isUnavailable,
   };
 }
-
 function applyManagedApiKeysReadFailure(payload: unknown): void {
   const errorDetails = resolveManagedApiKeysErrorDetails(payload);
   useAIStore.setState((state) => ({
@@ -829,7 +793,6 @@ function applyManagedApiKeysReadFailure(payload: unknown): void {
     apiKeysLoadError: errorDetails.detail ?? "Failed to load LLM API keys",
   }));
 }
-
 function applyManagedApiKeysWriteFailure({
   payload,
   fallbackMessage,
@@ -872,7 +835,6 @@ function applyManagedApiKeysWriteFailure({
   });
   return { shouldRetryCorruptWrite: false };
 }
-
 export async function loadLLMApiKeys() {
   if (llmApiKeysLoadPromise) {
     await llmApiKeysLoadPromise;
@@ -892,7 +854,6 @@ export async function loadLLMApiKeys() {
     llmApiKeysLoadPromise = null;
   }
 }
-
 export function receiveLLMConfigUpdate(payload: AllConfigs) {
   useAIStore.setState({
     allLLMConfigs: payload,
@@ -900,7 +861,6 @@ export function receiveLLMConfigUpdate(payload: AllConfigs) {
     allLLMConfigsLoadError: null,
   });
 }
-
 export function receiveLLMApiKeysSnapshotUpdate(payload: LLMAPIKeysSnapshot) {
   const isCorrupt =
     payload.corrupt === true ||
@@ -922,7 +882,6 @@ export function receiveLLMApiKeysSnapshotUpdate(payload: LLMAPIKeysSnapshot) {
     apiKeysLoadError,
   });
 }
-
 function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
   if (!isRecord(value)) {
     return null;
@@ -937,7 +896,6 @@ function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
   }
   return extractApiKeysRevisionFromErrorPayload(value.detail);
 }
-
 async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
   const res = await callOpenAPI(getLlmApiKeys());
   if (res200(res)) {
@@ -947,7 +905,6 @@ async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
   applyManagedApiKeysReadFailure(res.data);
   return false;
 }
-
 async function persistLLMApiKeysMutation(
   mutation: APIKeysMutation,
 ): Promise<boolean> {
@@ -961,7 +918,7 @@ async function persistLLMApiKeysMutation(
           apiKeys: nextApiKeys,
           expectedRevision: state.apiKeysRevision,
         },
-      }),
+      } as Parameters<typeof setLlmApiKeys>[0]),
     );
     if (res200(res)) {
       receiveLLMApiKeysSnapshotUpdate(normalizeLLMApiKeysSnapshot(res.data));
@@ -1017,7 +974,6 @@ async function persistLLMApiKeysMutation(
   });
   return false;
 }
-
 export async function mutateAndSaveLLMApiKeys(
   mutation: APIKeysMutation,
 ): Promise<boolean> {
@@ -1029,7 +985,6 @@ export async function mutateAndSaveLLMApiKeys(
   await llmApiKeysSaveQueue;
   return didPersist;
 }
-
 export async function loadAgentProfiles(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.agentProfilesLoading) {
@@ -1050,7 +1005,6 @@ export async function loadAgentProfiles(force: boolean = false) {
     });
   }
 }
-
 export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
   useAIStore.setState({
     agentProfiles: payload,
@@ -1059,7 +1013,6 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
     agentProfilesLoading: false,
   });
 }
-
 function clearScheduledAgentRunsRetry(): void {
   if (!agentRunsRetryTimer) {
     return;
@@ -1067,7 +1020,6 @@ function clearScheduledAgentRunsRetry(): void {
   clearTimeout(agentRunsRetryTimer);
   agentRunsRetryTimer = null;
 }
-
 function scheduleAgentRunsRetry(transientFailureCount: number): void {
   if (agentRunsRetryTimer) {
     return;
@@ -1082,7 +1034,6 @@ function scheduleAgentRunsRetry(transientFailureCount: number): void {
     void loadAgentRuns();
   }, delayMs);
 }
-
 export async function loadAgentRuns() {
   if (agentRunsLoadPromise) {
     await agentRunsLoadPromise;
@@ -1137,7 +1088,6 @@ export async function loadAgentRuns() {
     agentRunsLoadPromise = null;
   }
 }
-
 export function receiveAgentRunUpdate(payload: AgentRun) {
   useAIStore.setState((state) => {
     const existingIndex = state.agentRuns.findIndex(
@@ -1155,7 +1105,6 @@ export function receiveAgentRunUpdate(payload: AgentRun) {
     };
   });
 }
-
 function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
   clearScheduledAgentRunsRetry();
   agentRunsTransientFailureCount = 0;
@@ -1170,7 +1119,6 @@ function receiveAgentRunsUpdate(payload: Array<AgentRun>) {
     agentRunsLoadError: null,
   }));
 }
-
 export async function loadPromptTemplates(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.promptTemplatesLoading) {
@@ -1191,7 +1139,6 @@ export async function loadPromptTemplates(force: boolean = false) {
     });
   }
 }
-
 export function receivePromptTemplatesUpdate(payload: Array<Template>) {
   useAIStore.setState({
     promptTemplates: payload,
@@ -1200,7 +1147,6 @@ export function receivePromptTemplatesUpdate(payload: Array<Template>) {
     promptTemplatesLoading: false,
   });
 }
-
 export async function loadExternalAgentConfigs(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.externalAgentConfigsLoading) {
@@ -1223,7 +1169,6 @@ export async function loadExternalAgentConfigs(force: boolean = false) {
     });
   }
 }
-
 export async function loadExternalAgentHealth(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.externalAgentHealthLoading) {
@@ -1246,7 +1191,6 @@ export async function loadExternalAgentHealth(force: boolean = false) {
     });
   }
 }
-
 export function receiveExternalAgentConfigsUpdate(
   payload: Array<ExternalAgentConfig>,
 ) {
@@ -1258,7 +1202,6 @@ export function receiveExternalAgentConfigsUpdate(
   });
   void loadExternalAgentHealth(true);
 }
-
 function receiveExternalAgentHealthUpdate(
   payload: Array<ExternalAgentPreflightStatus>,
 ) {
@@ -1269,7 +1212,6 @@ function receiveExternalAgentHealthUpdate(
     externalAgentHealthLoading: false,
   });
 }
-
 export async function loadEngineConfigs(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.engineConfigsLoading) {
@@ -1290,7 +1232,6 @@ export async function loadEngineConfigs(force: boolean = false) {
     });
   }
 }
-
 export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
   useAIStore.setState({
     engineConfigs: payload,
@@ -1299,7 +1240,6 @@ export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
     engineConfigsLoading: false,
   });
 }
-
 export async function loadTranscriptionProfiles(force: boolean = false) {
   const state = useAIStore.getState();
   if (state.transcriptionProfilesLoading) {
@@ -1322,7 +1262,6 @@ export async function loadTranscriptionProfiles(force: boolean = false) {
     });
   }
 }
-
 export function receiveTranscriptionProfilesUpdate(
   payload: Array<TranscriptionProfile>,
 ) {
@@ -1333,9 +1272,9 @@ export function receiveTranscriptionProfilesUpdate(
     transcriptionProfilesLoading: false,
   });
 }
-
-type HasId = { id: string };
-
+type HasId = {
+  id: string;
+};
 function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
   const index = items.findIndex((item) => item.id === entry.id);
   if (index === -1) {
@@ -1345,15 +1284,17 @@ function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
   next[index] = entry;
   return next;
 }
-
 function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
   return items.filter((item) => item.id !== id);
 }
-
 export async function createAgentProfile(
   payload: CreateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
-  const res = await callOpenAPI(apiCreateAgentProfile({ body: payload }));
+  const res = await callOpenAPI(
+    apiCreateAgentProfile({ body: payload } as Parameters<
+      typeof apiCreateAgentProfile
+    >[0]),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       agentProfilesLoadError: "Failed to create agent profile",
@@ -1368,7 +1309,6 @@ export async function createAgentProfile(
   }));
   return profile;
 }
-
 export async function updateAgentProfile(
   payload: UpdateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
@@ -1380,7 +1320,7 @@ export async function updateAgentProfile(
           "updateAgentProfile requires a profile payload.",
         ),
       },
-    }),
+    } as Parameters<typeof apiUpdateAgentProfile>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1396,11 +1336,14 @@ export async function updateAgentProfile(
   }));
   return profile;
 }
-
 export async function deleteAgentProfile(
   payload: DeleteAgentProfileRequest,
 ): Promise<boolean> {
-  const res = await callOpenAPI(apiDeleteAgentProfile({ body: payload }));
+  const res = await callOpenAPI(
+    apiDeleteAgentProfile({ body: payload } as Parameters<
+      typeof apiDeleteAgentProfile
+    >[0]),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       agentProfilesLoadError: "Failed to delete agent profile",
@@ -1414,7 +1357,6 @@ export async function deleteAgentProfile(
   }));
   return true;
 }
-
 export async function updateEngineConfig(
   payload: UpdateEngineConfigRequest,
 ): Promise<EngineConfig | null> {
@@ -1432,7 +1374,7 @@ export async function updateEngineConfig(
   const res = await callOpenAPI(
     apiUpdateEngineConfig({
       body,
-    }),
+    } as Parameters<typeof apiUpdateEngineConfig>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1448,12 +1390,13 @@ export async function updateEngineConfig(
   }));
   return nextConfig;
 }
-
 export async function createTranscriptionProfile(
   payload: CreateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
   const res = await callOpenAPI(
-    apiCreateTranscriptionProfile({ body: payload }),
+    apiCreateTranscriptionProfile({ body: payload } as Parameters<
+      typeof apiCreateTranscriptionProfile
+    >[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1469,7 +1412,6 @@ export async function createTranscriptionProfile(
   }));
   return profile;
 }
-
 export async function updateTranscriptionProfile(
   payload: UpdateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
@@ -1481,7 +1423,7 @@ export async function updateTranscriptionProfile(
           "updateTranscriptionProfile requires a profile payload.",
         ),
       },
-    }),
+    } as Parameters<typeof apiUpdateTranscriptionProfile>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1497,12 +1439,13 @@ export async function updateTranscriptionProfile(
   }));
   return profile;
 }
-
 export async function deleteTranscriptionProfile(
   payload: DeleteTranscriptionProfileRequest,
 ): Promise<boolean> {
   const res = await callOpenAPI(
-    apiDeleteTranscriptionProfile({ body: payload }),
+    apiDeleteTranscriptionProfile({ body: payload } as Parameters<
+      typeof apiDeleteTranscriptionProfile
+    >[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1525,11 +1468,14 @@ export async function deleteTranscriptionProfile(
   }));
   return true;
 }
-
 export async function createPromptTemplate(
   payload: CreatePromptTemplateRequest,
 ): Promise<Template | null> {
-  const res = await callOpenAPI(apiCreatePromptTemplate({ body: payload }));
+  const res = await callOpenAPI(
+    apiCreatePromptTemplate({ body: payload } as Parameters<
+      typeof apiCreatePromptTemplate
+    >[0]),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       promptTemplatesLoadError: "Failed to create prompt template",
@@ -1544,7 +1490,6 @@ export async function createPromptTemplate(
   }));
   return template;
 }
-
 export async function updatePromptTemplate(
   payload: UpdatePromptTemplateRequest,
 ): Promise<Template | null> {
@@ -1556,7 +1501,7 @@ export async function updatePromptTemplate(
           "updatePromptTemplate requires a template payload.",
         ),
       },
-    }),
+    } as Parameters<typeof apiUpdatePromptTemplate>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1572,11 +1517,14 @@ export async function updatePromptTemplate(
   }));
   return template;
 }
-
 export async function deletePromptTemplate(
   payload: DeletePromptTemplateRequest,
 ): Promise<boolean> {
-  const res = await callOpenAPI(apiDeletePromptTemplate({ body: payload }));
+  const res = await callOpenAPI(
+    apiDeletePromptTemplate({ body: payload } as Parameters<
+      typeof apiDeletePromptTemplate
+    >[0]),
+  );
   if (!res200(res)) {
     useAIStore.setState({
       promptTemplatesLoadError: "Failed to delete prompt template",
@@ -1590,7 +1538,6 @@ export async function deletePromptTemplate(
   }));
   return true;
 }
-
 export async function createExternalAgentConfig(
   payload: CreateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
@@ -1601,7 +1548,7 @@ export async function createExternalAgentConfig(
   const res = await callOpenAPI(
     apiCreateExternalAgentConfig({
       body,
-    }),
+    } as Parameters<typeof apiCreateExternalAgentConfig>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1617,7 +1564,6 @@ export async function createExternalAgentConfig(
   }));
   return config;
 }
-
 export async function updateExternalAgentConfig(
   payload: UpdateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
@@ -1636,7 +1582,7 @@ export async function updateExternalAgentConfig(
   const res = await callOpenAPI(
     apiUpdateExternalAgentConfig({
       body,
-    }),
+    } as Parameters<typeof apiUpdateExternalAgentConfig>[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1652,12 +1598,13 @@ export async function updateExternalAgentConfig(
   }));
   return config;
 }
-
 export async function deleteExternalAgentConfig(
   payload: DeleteExternalAgentConfigRequest,
 ): Promise<boolean> {
   const res = await callOpenAPI(
-    apiDeleteExternalAgentConfig({ body: payload }),
+    apiDeleteExternalAgentConfig({ body: payload } as Parameters<
+      typeof apiDeleteExternalAgentConfig
+    >[0]),
   );
   if (!res200(res)) {
     useAIStore.setState({
@@ -1675,7 +1622,6 @@ export async function deleteExternalAgentConfig(
   }));
   return true;
 }
-
 export function getDefaultChatDetails(): ChatDetails {
   return {
     messages: [],
@@ -1685,7 +1631,6 @@ export function getDefaultChatDetails(): ChatDetails {
     contextUsage: null,
   };
 }
-
 function getPendingChatAppGenerationDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,
   surfaceId: string | null | undefined,
@@ -1696,7 +1641,6 @@ function getPendingChatAppGenerationDetailsForSurface(
     ] ?? null
   );
 }
-
 function setPendingChatAppGenerationDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,
   surfaceId: string | null | undefined,
@@ -1720,7 +1664,6 @@ function setPendingChatAppGenerationDetailsForSurface(
     pendingChatAppGenerationDetailsBySurfaceId: nextBySurfaceId,
   };
 }
-
 function getChatAppGenerationDetailsForTarget(
   state: ReturnType<typeof useAIStore.getState>,
   chatId: string | null,
@@ -1737,7 +1680,6 @@ function getChatAppGenerationDetailsForTarget(
     getDefaultChatAppGenerationDetails()
   );
 }
-
 function normalizePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string | null {
@@ -1750,7 +1692,6 @@ function normalizePendingChatSurfaceId(
   }
   return normalizedSurfaceId;
 }
-
 function requirePendingChatSurfaceId(
   surfaceId: string | null | undefined,
 ): string {
@@ -1760,7 +1701,6 @@ function requirePendingChatSurfaceId(
   }
   return normalizedSurfaceId;
 }
-
 function getPendingChatDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,
   surfaceId: string | null | undefined,
@@ -1771,7 +1711,6 @@ function getPendingChatDetailsForSurface(
     ] ?? null
   );
 }
-
 function setPendingChatDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,
   surfaceId: string | null | undefined,
@@ -1795,7 +1734,6 @@ function setPendingChatDetailsForSurface(
     pendingChatDetailsBySurfaceId: nextBySurfaceId,
   };
 }
-
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
@@ -1804,7 +1742,6 @@ type StopChatResponseSnapshot = {
   followProjectConfigId: string | null;
   followToolArgumentIdsByType: AIFollowIdsByType | null;
 };
-
 function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
   const normalizedChatId = chatId.trim();
   const normalizedMessageId = messageId.trim();
@@ -1816,7 +1753,6 @@ function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
     normalizedMessageId,
   );
 }
-
 function clearStopEligibleAssistantMessageId(chatId: string) {
   const normalizedChatId = chatId.trim();
   if (!normalizedChatId) {
@@ -1824,7 +1760,6 @@ function clearStopEligibleAssistantMessageId(chatId: string) {
   }
   stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
 }
-
 function markInterruptedAssistantMessage(chatId: string, messageId: string) {
   useAIStore.setState((state) => {
     const existingByChat =
@@ -1843,7 +1778,6 @@ function markInterruptedAssistantMessage(chatId: string, messageId: string) {
     };
   });
 }
-
 function clearInterruptedAssistantMessages(
   chatId: string,
   messageIds: Array<string | null | undefined>,
@@ -1885,7 +1819,6 @@ function clearInterruptedAssistantMessages(
     };
   });
 }
-
 function interruptedMessageMapEquals(
   left: Record<string, true>,
   right: Record<string, true>,
@@ -1902,7 +1835,6 @@ function interruptedMessageMapEquals(
   }
   return true;
 }
-
 function restoreInterruptedAssistantMessageSnapshot(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
@@ -1930,7 +1862,6 @@ function restoreInterruptedAssistantMessageSnapshot(
     };
   });
 }
-
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
   pendingSurfaceId: string | null | undefined = null,
@@ -1963,7 +1894,6 @@ function getStopChatResponseSnapshot(
         : null,
   };
 }
-
 function restoreStoppedChatResponseLocally(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
@@ -1980,7 +1910,6 @@ function restoreStoppedChatResponseLocally(
   }
   updatePendingChatDetails(restoreDetails, pendingSurfaceId);
 }
-
 function restoreStoppedChatFollowState(
   chatId: string | null | undefined,
   snapshot: StopChatResponseSnapshot,
@@ -1994,7 +1923,6 @@ function restoreStoppedChatFollowState(
     idsByType: snapshot.followToolArgumentIdsByType,
   });
 }
-
 function stopChatResponseLocally(
   chatId: string | null | undefined,
   options: {
@@ -2037,7 +1965,6 @@ function stopChatResponseLocally(
   clearAllAppSpecPatchStreams();
   return snapshot;
 }
-
 function applyConfirmedExternalStopInterruption(
   chatId: string,
   snapshot: StopChatResponseSnapshot,
@@ -2050,7 +1977,6 @@ function applyConfirmedExternalStopInterruption(
   }
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
-
 async function resolveLatestRunningExternalRunIdWithRefresh(
   chatId: string,
   projectConfigId: string | null,
@@ -2063,7 +1989,6 @@ async function resolveLatestRunningExternalRunIdWithRefresh(
   runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
   return runId;
 }
-
 async function stopExternalChatResponse({
   chatId,
   projectConfigId,
@@ -2091,7 +2016,6 @@ async function stopExternalChatResponse({
     );
     return { hydrated, waitingForResponse };
   };
-
   const runId = await resolveLatestRunningExternalRunIdWithRefresh(
     chatId,
     projectConfigId,
@@ -2113,7 +2037,7 @@ async function stopExternalChatResponse({
   const response = await callOpenAPI(
     apiStopExternalAgentRun({
       body: { runId },
-    }),
+    } as Parameters<typeof apiStopExternalAgentRun>[0]),
   );
   if (res200(response)) {
     void loadAgentRuns();
@@ -2146,7 +2070,6 @@ async function stopExternalChatResponse({
   addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
   return false;
 }
-
 function reconcileStoppedLLMChatOutcome({
   chatId,
   localSnapshot,
@@ -2180,7 +2103,6 @@ function reconcileStoppedLLMChatOutcome({
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   markInterruptedAssistantMessage(chatId, stoppedMessageId);
 }
-
 export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
@@ -2196,7 +2118,6 @@ export async function stopProjectChatResponse(
   if (typeof chatId !== "string") {
     return true;
   }
-
   if (isExternalEngine) {
     return stopExternalChatResponse({
       chatId,
@@ -2205,11 +2126,10 @@ export async function stopProjectChatResponse(
       localSnapshot,
     });
   }
-
   const response = await callOpenAPI(
     apiStopLlmChat({
       body: { chatId },
-    }),
+    } as Parameters<typeof apiStopLlmChat>[0]),
   );
   if (res200(response)) {
     reconcileStoppedLLMChatOutcome({
@@ -2238,7 +2158,6 @@ export async function stopProjectChatResponse(
   );
   return false;
 }
-
 export async function stopManagedSectionChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
@@ -2266,7 +2185,7 @@ export async function stopManagedSectionChatResponse(
   const response = await callOpenAPI(
     apiStopLlmChat({
       body: { chatId },
-    }),
+    } as Parameters<typeof apiStopLlmChat>[0]),
   );
   if (res200(response)) {
     reconcileStoppedLLMChatOutcome({
@@ -2295,7 +2214,6 @@ export async function stopManagedSectionChatResponse(
   );
   return false;
 }
-
 export function initializePendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) => ({
     ...setPendingChatDetailsForSurface(
@@ -2306,7 +2224,6 @@ export function initializePendingChatDetails(surfaceId: string) {
     ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
   }));
 }
-
 function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
   waitingForResponse: boolean = true,
@@ -2326,7 +2243,6 @@ function initializePendingChatDetailsWithMessages(
     ),
   }));
 }
-
 export function seedPendingChatDetails(
   messages: Array<BaseChatMessageUnion>,
   surfaceId: string,
@@ -2339,31 +2255,26 @@ export function seedPendingChatDetails(
     appGenerationDetails,
   );
 }
-
 export function clearPendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) => ({
     ...setPendingChatDetailsForSurface(state, surfaceId, null),
     ...setPendingChatAppGenerationDetailsForSurface(state, surfaceId, null),
   }));
 }
-
 export type ChatHydrationOutcomeType =
   | "success"
   | "transient_failure"
   | "terminal_failure";
-
 export type ChatHydrationErrorCode =
   | "llm_disallowed"
   | "chat_not_found"
   | "chat_runtime_ambiguous"
   | "terminal_hydration_failure";
-
 export type ChatHydrationOutcome = {
   outcome: ChatHydrationOutcomeType;
   status: number | undefined;
   errorCode: ChatHydrationErrorCode | null;
 };
-
 function parseChatHydrationErrorCode(
   value: string | null,
 ): ChatHydrationErrorCode | null {
@@ -2378,7 +2289,6 @@ function parseChatHydrationErrorCode(
   }
   return null;
 }
-
 function classifyChatHydrationOutcomeType(
   status: number | undefined,
 ): ChatHydrationOutcomeType {
@@ -2387,7 +2297,6 @@ function classifyChatHydrationOutcomeType(
   }
   return "transient_failure";
 }
-
 function buildChatHydrationFailureOutcome(response: {
   status: number | undefined;
   data: unknown;
@@ -2408,7 +2317,6 @@ function buildChatHydrationFailureOutcome(response: {
         : parsedErrorCode,
   };
 }
-
 type ChatHydrationProbeResult<TPayload> =
   | {
       outcome: "success";
@@ -2422,7 +2330,6 @@ type ChatHydrationProbeResult<TPayload> =
       errorCode: ChatHydrationErrorCode | null;
       payload: null;
     };
-
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
@@ -2430,7 +2337,7 @@ async function probeLLMChatHydration(
   const response = await callOpenAPI(
     apiGetLlmChat({
       body: { chatId, projectConfigId },
-    }),
+    } as Parameters<typeof apiGetLlmChat>[0]),
   );
   if (!res200(response)) {
     return {
@@ -2445,7 +2352,6 @@ async function probeLLMChatHydration(
     payload: response.data,
   };
 }
-
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
@@ -2456,7 +2362,7 @@ async function probeExternalAgentChatHydration(
         chatId,
         projectConfigId,
       },
-    }),
+    } as Parameters<typeof apiGetExternalAgentChat>[0]),
   );
   if (!res200(response)) {
     return {
@@ -2471,7 +2377,6 @@ async function probeExternalAgentChatHydration(
     payload: response.data,
   };
 }
-
 function applyLLMChatHydrationSuccess({
   chatId,
   sectionId,
@@ -2523,7 +2428,6 @@ function applyLLMChatHydrationSuccess({
     clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   }
 }
-
 function applyExternalChatHydrationSuccess({
   chatId,
   projectConfigId,
@@ -2574,7 +2478,6 @@ function applyExternalChatHydrationSuccess({
     );
   }
 }
-
 export async function getLLMChatHydrationOutcome(
   chatId: string,
   sectionId?: string,
@@ -2600,7 +2503,6 @@ export async function getLLMChatHydrationOutcome(
     errorCode: outcome.errorCode,
   };
 }
-
 export async function getLLMChat(
   chatId: string,
   sectionId?: string,
@@ -2608,7 +2510,6 @@ export async function getLLMChat(
   const outcome = await getLLMChatHydrationOutcome(chatId, sectionId);
   return outcome.outcome === "success";
 }
-
 export async function getExternalAgentChatHydrationOutcome(
   chatId: string,
   projectConfigId: string | null,
@@ -2637,7 +2538,6 @@ export async function getExternalAgentChatHydrationOutcome(
     errorCode: outcome.errorCode,
   };
 }
-
 export async function getExternalAgentChat(
   chatId: string,
   projectConfigId: string | null,
@@ -2650,7 +2550,6 @@ export async function getExternalAgentChat(
   );
   return outcome.outcome === "success";
 }
-
 export async function submitMessage(
   chatId: string | null,
   message: string,
@@ -2686,7 +2585,6 @@ export async function submitMessage(
     chatId,
     resolvedPendingSurfaceId,
   );
-
   // Add user message immediately for responsive UI
   const content = [];
   if (trimmed) {
@@ -2718,14 +2616,12 @@ export async function submitMessage(
     userMessage.id,
     appGeneration,
   );
-
   applyOptimisticUserMessage(
     chatId,
     userMessage,
     resolvedPendingSurfaceId,
     appGeneration,
   );
-
   try {
     const projectConfigId = getCurrProjectConfigId();
     const frontendAffinityToken = await waitForFrontendAffinityToken();
@@ -2750,7 +2646,7 @@ export async function submitMessage(
           permissionMode: resolvedExecutionSettings.permissionMode,
           searchEnabled: resolvedExecutionSettings.searchEnabled,
         },
-      }),
+      } as Parameters<typeof apiGetLlmResponse>[0]),
     );
     if (res200(res)) {
       const returnedChatId = res.data;
@@ -2788,7 +2684,6 @@ export async function submitMessage(
     throw err;
   }
 }
-
 export async function submitEditedMessage({
   parentChatId,
   messages,
@@ -2827,7 +2722,6 @@ export async function submitEditedMessage({
   const resolvedAppGeneration = normalizeChatAppGenerationContext(
     appGeneration ?? null,
   );
-
   const content = [];
   if (trimmed) {
     content.push(createMessageTextContent({ text: message }));
@@ -2874,7 +2768,6 @@ export async function submitEditedMessage({
     nextAppGenerationDetails,
   );
   const projectConfigId = getCurrProjectConfigId();
-
   const setSectionChatId = async (nextChatId: string | null) => {
     if (!sectionId) {
       return;
@@ -2886,18 +2779,20 @@ export async function submitEditedMessage({
         });
       },
       send: () =>
-        route_set_chat_section_chat_id({
-          projectConfigId,
-          sectionId,
-          chatId: nextChatId,
-        }),
+        callOpenAPI(
+          setChatSectionChatId({
+            body: {
+              projectConfigId,
+              sectionId,
+              chatId: nextChatId,
+            },
+          } as Parameters<typeof setChatSectionChatId>[0]),
+        ),
     });
   };
-
   if (sectionId) {
     await setSectionChatId(null);
   }
-
   try {
     const frontendAffinityToken = await waitForFrontendAffinityToken();
     const res = await callOpenAPI(
@@ -2921,7 +2816,7 @@ export async function submitEditedMessage({
           permissionMode: resolvedExecutionSettings.permissionMode,
           searchEnabled: resolvedExecutionSettings.searchEnabled,
         },
-      }),
+      } as Parameters<typeof apiGetLlmResponse>[0]),
     );
     if (!res200(res)) {
       const detail =
@@ -2971,7 +2866,6 @@ export async function submitEditedMessage({
     throw err;
   }
 }
-
 export async function respondExternalAgentApproval(
   approvalId: string,
   approved: boolean,
@@ -2982,11 +2876,10 @@ export async function respondExternalAgentApproval(
         approvalId,
         approved,
       },
-    }),
+    } as Parameters<typeof apiRespondExternalAgentApproval>[0]),
   );
   return res200(res);
 }
-
 export async function respondExternalAgentQuestion(
   toolCallId: string,
   answers: Record<string, string>,
@@ -2997,11 +2890,10 @@ export async function respondExternalAgentQuestion(
         toolCallId,
         answers,
       },
-    }),
+    } as Parameters<typeof apiRespondExternalAgentQuestion>[0]),
   );
   return res200(res);
 }
-
 async function findLatestRunningExternalRunId(
   chatId: string,
   projectConfigId: string | null,
@@ -3042,7 +2934,6 @@ async function findLatestRunningExternalRunId(
   runs.sort((a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a));
   return runs[0]?.id ?? null;
 }
-
 function applyStreamingChunkToSection(
   sectionId: string,
   chunk: LLMStreamingResponseContent["chunk"],
@@ -3095,7 +2986,6 @@ function applyStreamingChunkToSection(
     });
   }
 }
-
 export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   const { chatId, chunk } = msg;
   const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
@@ -3110,7 +3000,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
     ? isManagedChatSection(useProjectState.getState(), sectionId)
     : false;
   const shouldUpdateChatDetails = !sectionId || isManagedSection;
-
   const shouldMarkActive =
     chunk.type === StreamingEventTypeEnum.message_start ||
     chunk.type === StreamingEventTypeEnum.delta ||
@@ -3169,7 +3058,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   }
 }
 type RunPayload = Record<string, unknown>;
-
 function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
   const outputMessages = extractRunMessages(run.outputs);
   if (outputMessages) {
@@ -3178,14 +3066,12 @@ function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
       run.status === RunStatusEnum.running,
     );
   }
-
   const inputMessages = extractRunMessages(run.inputs) ?? [];
   return buildChatSectionState(
     inputMessages,
     run.status === RunStatusEnum.running,
   );
 }
-
 function buildChatSectionState(
   messages: Array<BaseChatMessageUnion>,
   waitingForResponse: boolean,
@@ -3197,7 +3083,6 @@ function buildChatSectionState(
     toolCallArguments: {},
   };
 }
-
 function extractRunMessages(
   payload: RunPayload | null,
 ): Array<BaseChatMessageUnion> | null {
@@ -3210,7 +3095,6 @@ function extractRunMessages(
   }
   return raw as Array<BaseChatMessageUnion>;
 }
-
 async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
@@ -3233,7 +3117,6 @@ async function resolveEngineConfigIdForChat(
     );
     return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
   };
-
   let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
   if (!agentRunsInitialLoadComplete) {
     await loadAgentRuns();
@@ -3261,7 +3144,6 @@ async function resolveEngineConfigIdForChat(
   );
   return matchingEngine?.id ?? null;
 }
-
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
     setStopEligibleAssistantMessageId(chatId, chunk.message.id);
@@ -3269,15 +3151,12 @@ function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   }
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
-
 function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
-
 function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   applyStreamingChunkToChatDetails(chatId, chunk);
 }
-
 function handleAgenticScopeViolation(
   toolResult: ToolResultEvent["result"],
   projectConfigId: string,
@@ -3306,17 +3185,14 @@ function handleAgenticScopeViolation(
   }, SCOPE_VIOLATION_TIMEOUT_MS);
   scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
 }
-
 const APP_DEFINITION_TOOL_NAMES = new Set([
   "setta__set_app_definition",
   "setta__update_app_definition",
   "setta__stream_app_definition",
 ]);
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-
 function extractToolStructuredContent(
   toolResult: unknown,
 ): Record<string, unknown> | null {
@@ -3332,7 +3208,6 @@ function extractToolStructuredContent(
   }
   return structured;
 }
-
 function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   const toolName =
     typeof toolMessage.tool_name === "string" ? toolMessage.tool_name : null;
@@ -3359,12 +3234,10 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   if (!hasSpec && !hasDefinition) {
     return;
   }
-
   const nextSpec = hasSpec ? (structured.appSpec as unknown) : undefined;
   const nextDefinition = hasDefinition
     ? (structured.appDefinition as unknown)
     : undefined;
-
   useAppDefinition.setState((state) => ({
     appSpec: nextSpec === undefined ? state.appSpec : nextSpec ?? null,
     appDefinition:
@@ -3383,7 +3256,6 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   }
   addTemporaryNotification("App spec updated.");
 }
-
 function handleToolResult(
   chatId: string,
   chunk: ToolResultEvent,
@@ -3397,7 +3269,6 @@ function handleToolResult(
   handleAgenticScopeViolation(chunk.result, projectConfigId);
   maybeApplyAppDefinitionToolResult(chunk.result);
 }
-
 function handleMessageStop(chatId: string, projectConfigId: string) {
   clearStopEligibleAssistantMessageId(chatId);
   applyStreamingChunkToChatDetails(chatId, {
@@ -3407,7 +3278,6 @@ function handleMessageStop(chatId: string, projectConfigId: string) {
   clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   clearAllAppSpecPatchStreams();
 }
-
 function handleMessageFinalized(
   chatId: string,
   chunk: MessageFinalizedEvent,
@@ -3437,7 +3307,6 @@ function handleMessageFinalized(
       : [];
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
 }
-
 function handleToolArgumentPreviewDelta(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
@@ -3452,11 +3321,9 @@ function handleToolArgumentPreviewDelta(
     applyToolArgumentPreviewDeltaToPreviewStore(chunk);
     return;
   }
-
   applyStreamingChunkToChatDetails(chatId, chunk);
   applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
 }
-
 function applyStreamingChunkToChatDetails(
   chatId: string,
   chunk: LLMStreamingResponseContent["chunk"],
@@ -3465,7 +3332,6 @@ function applyStreamingChunkToChatDetails(
     applyStreamDeltaToChatDetails(details, chunk),
   );
 }
-
 function ensureToolCallPlaceholder(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
@@ -3520,7 +3386,6 @@ function ensureToolCallPlaceholder(
     };
   });
 }
-
 function applyToolArgumentPreviewDeltaToPreviewStore(
   chunk: ToolArgumentPreviewDeltaEvent,
   projectConfigId?: string,
@@ -3594,7 +3459,6 @@ function applyToolArgumentPreviewDeltaToPreviewStore(
     }
   });
 }
-
 function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectState {
   return {
     previewCodeBySectionId: {},
@@ -3602,7 +3466,6 @@ function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectStat
     previewCallableNameBySectionId: {},
   };
 }
-
 function applyPreviewDelta(
   existing: ToolArgumentPreviewEntry | undefined,
   previewDelta: string,
@@ -3616,14 +3479,12 @@ function applyPreviewDelta(
   }
   return { value: existing.value + previewDelta, toolCallId };
 }
-
 function clearToolArgumentPreviewByToolCallId(
   projectConfigId: string,
   toolCallId: string,
 ) {
   clearToolArgumentPreviewByToolCallIds(projectConfigId, [toolCallId]);
 }
-
 function clearToolArgumentPreviewByToolCallIds(
   projectConfigId: string,
   toolCallIds: string[],
@@ -3673,7 +3534,6 @@ function clearToolArgumentPreviewByToolCallIds(
     }
   });
 }
-
 function updateChatDetails(
   chatId: string,
   updater: (details: ChatDetails) => ChatDetails | null,
@@ -3695,7 +3555,6 @@ function updateChatDetails(
     };
   });
 }
-
 function updatePendingChatDetails(
   updater: (details: ChatDetails) => ChatDetails | null,
   surfaceId: string | null | undefined,
@@ -3711,7 +3570,6 @@ function updatePendingChatDetails(
     return setPendingChatDetailsForSurface(state, surfaceId, nextDetails);
   });
 }
-
 function mergeChatDetails(
   existingDetails: ChatDetails,
   pendingDetails: ChatDetails,
@@ -3739,7 +3597,6 @@ function mergeChatDetails(
     waitingForResponse: nextWaitingForResponse,
   };
 }
-
 export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
   useAIStore.setState((state) => {
     const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);
@@ -3775,7 +3632,6 @@ export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
     };
   });
 }
-
 function commitPendingChatDetails(
   chatId: string,
   surfaceId: string | null | undefined,
@@ -3814,7 +3670,6 @@ function commitPendingChatDetails(
     };
   });
 }
-
 function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
@@ -3876,7 +3731,6 @@ function applyOptimisticUserMessage(
     };
   });
 }
-
 function rollbackOptimisticUserMessage(
   chatId: string | null,
   userMessageId: string,

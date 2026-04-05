@@ -73,14 +73,12 @@ import {
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
-
 type PathGroupHeaderProps = {
   title: string;
   path: string | null;
   onCopyPath: (path: string | null) => void;
   onRevealPath: (path: string | null) => void;
 };
-
 type ProjectChatSkillsMcpViewerProps = {
   projectConfigId: string;
   chatId: string | null | undefined;
@@ -89,7 +87,6 @@ type ProjectChatSkillsMcpViewerProps = {
   externalAgentToolType: string | null;
   viewMode: "skills" | "mcp" | "slash_commands";
 };
-
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
 const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
@@ -124,7 +121,6 @@ const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   prompt: "",
   appGenerationMode: null,
 };
-
 const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
   {
     id: ChatAppGenerationMessageModeEnum.plain_chat,
@@ -141,7 +137,6 @@ const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
   },
   { id: AppGenerationModeEnum.mcp_server, name: "MCP Server" },
 ] as const;
-
 function getCustomSlashCommandModeLabel(
   mode: AppGenerationMode | null,
 ): string | null {
@@ -151,7 +146,6 @@ function getCustomSlashCommandModeLabel(
       ?.name ?? null
   );
 }
-
 function areCustomSlashCommandDraftsEqual(
   left: CustomSlashCommandDraft,
   right: CustomSlashCommandDraft,
@@ -162,7 +156,6 @@ function areCustomSlashCommandDraftsEqual(
     left.appGenerationMode === right.appGenerationMode
   );
 }
-
 function isEmptyCustomSlashCommandDraft(
   draft: CustomSlashCommandDraft,
 ): boolean {
@@ -171,7 +164,6 @@ function isEmptyCustomSlashCommandDraft(
     EMPTY_CUSTOM_SLASH_COMMAND_DRAFT,
   );
 }
-
 type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
@@ -180,7 +172,6 @@ type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillId: string;
   skillContent: string;
 };
-
 type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
@@ -189,7 +180,6 @@ type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
   skillId: string;
   nextRawDraft: string;
 };
-
 type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
@@ -198,7 +188,6 @@ type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
   skillId: string;
   nextRawDraft: string;
 };
-
 type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
   customSlashDraftByProjectConfigId: Record<string, CustomSlashCommandDraft>;
   projectConfigId: string;
@@ -224,7 +213,6 @@ type SkillStatusBySkillId = ReturnType<typeof buildSkillStatusBySkillId>;
 type SkillStatusEntry = SkillStatusBySkillId[string];
 type CodeMirrorTheme = ReturnType<typeof useCodeMirrorStyle>;
 type CodeMirrorExtensions = ReturnType<typeof getExtensions>;
-
 function compareAppGenSkillEntries(
   first: SkillEntry,
   second: SkillEntry,
@@ -241,7 +229,6 @@ function compareAppGenSkillEntries(
   }
   return first.name.localeCompare(second.name);
 }
-
 export function upsertAppGenSkillEntry(
   skills: SkillEntry[],
   nextSkill: SkillEntry,
@@ -257,7 +244,6 @@ export function upsertAppGenSkillEntry(
       : [...skills, nextSkill];
   return nextSkills.sort(compareAppGenSkillEntries);
 }
-
 export function resolveSkillMarkdownRawDraftBySkillIdHydration({
   skillMarkdownDraftStateBySkillId,
   skillId,
@@ -289,7 +275,6 @@ export function resolveSkillMarkdownRawDraftBySkillIdHydration({
     },
   };
 }
-
 export function resolveSkillMarkdownRawDraftBySkillIdReplace({
   skillMarkdownDraftStateBySkillId,
   skillId,
@@ -314,7 +299,6 @@ export function resolveSkillMarkdownRawDraftBySkillIdReplace({
     },
   };
 }
-
 export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
   currentSelectedSkillId,
   requestSkillId,
@@ -338,7 +322,6 @@ export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
     selectedSkillOriginalSizeBytes: skillContent.originalSizeBytes,
   };
 }
-
 export function resolveSkillMarkdownRawDraftBySkillIdUpdate({
   skillMarkdownDraftStateBySkillId,
   skillId,
@@ -359,7 +342,6 @@ export function resolveSkillMarkdownRawDraftBySkillIdUpdate({
     },
   };
 }
-
 export function resolveCustomSlashDraftByProjectConfigIdUpdate({
   customSlashDraftByProjectConfigId,
   projectConfigId,
@@ -384,7 +366,6 @@ export function resolveCustomSlashDraftByProjectConfigIdUpdate({
   }
   return nextByProjectConfigId;
 }
-
 function resolveAgentNativeSlashCommandsMessage(
   entry: AgentNativeSlashCommandsEntry,
 ): string {
@@ -413,7 +394,6 @@ function resolveAgentNativeSlashCommandsMessage(
     "metadata while this tab is selected."
   );
 }
-
 function resolveAgentNativeSlashAuthorityDetail(
   agentRunsAuthorityState: AgentRunsAuthorityState,
 ): string | null {
@@ -428,7 +408,6 @@ function resolveAgentNativeSlashAuthorityDetail(
   }
   return null;
 }
-
 function isActionablePath(path: string | null): path is string {
   if (typeof path !== "string") {
     return false;
@@ -436,7 +415,6 @@ function isActionablePath(path: string | null): path is string {
   const normalizedPath = path.trim().toLowerCase();
   return normalizedPath !== "";
 }
-
 export function canCreateCustomSkill({
   customSkillCreateInFlight,
   customSkillCreateRootPath,
@@ -454,7 +432,6 @@ export function canCreateCustomSkill({
   }
   return newCustomSkillRelativePath.trim() !== "";
 }
-
 export function isCustomSlashNamespaceAuthorityReady({
   agentRunsAuthorityState,
   engineConfigsInitialLoadComplete,
@@ -462,7 +439,9 @@ export function isCustomSlashNamespaceAuthorityReady({
 }: {
   agentRunsAuthorityState: AgentRunsAuthorityState;
   engineConfigsInitialLoadComplete: boolean;
-  slashCommandsByEngine: Array<{ engineType: EngineConfig["engineType"] }>;
+  slashCommandsByEngine: Array<{
+    engineType: EngineConfig["engineType"];
+  }>;
 }): boolean {
   if (!engineConfigsInitialLoadComplete) {
     return false;
@@ -475,7 +454,6 @@ export function isCustomSlashNamespaceAuthorityReady({
   }
   return isAgentRunsAuthorityReady(agentRunsAuthorityState);
 }
-
 export function resolveCanAddCustomSlashCommand({
   customSlashCommandTokens,
   namespaceAuthorityReady,
@@ -506,7 +484,6 @@ export function resolveCanAddCustomSlashCommand({
   }
   return true;
 }
-
 export function shouldLoadSlashCommandAgentRuns({
   viewMode,
   hasExternalAgentEngine,
@@ -522,7 +499,6 @@ export function shouldLoadSlashCommandAgentRuns({
   }
   return true;
 }
-
 export function resolveSkillPreviewContent({
   skillContentLoading,
   skillsLoading,
@@ -547,7 +523,6 @@ export function resolveSkillPreviewContent({
   }
   return "Select a skill to preview SKILL.md.";
 }
-
 export function resolveRenderedSkillPreviewContent({
   skillPreviewContent,
   skillMarkdownRawDraft,
@@ -568,7 +543,6 @@ export function resolveRenderedSkillPreviewContent({
   }
   return skillPreviewContent;
 }
-
 function attachSkillsListResizeListeners(args: {
   target: ResizeListenerTarget;
   onMove: (event: PointerEvent) => void;
@@ -584,7 +558,6 @@ function attachSkillsListResizeListeners(args: {
     target.removeEventListener("pointercancel", onUp);
   };
 }
-
 function resolveProjectChatSkillsViewTestId(
   viewMode: ProjectChatSkillsMcpViewerProps["viewMode"],
 ): string {
@@ -596,7 +569,6 @@ function resolveProjectChatSkillsViewTestId(
   }
   return "project-chat-slash-commands-view";
 }
-
 function selectChatMessagesForChat(args: {
   chatId: string | null | undefined;
   state: ReturnType<typeof useAIStore.getState>;
@@ -611,11 +583,9 @@ function selectChatMessagesForChat(args: {
   }
   return details.messages;
 }
-
 function resolveMcpRuntimeStatusErrorMessage(detail: string | null): string {
   return detail ?? "Failed to load MCP runtime status.";
 }
-
 function resolveCustomSkillsRootDescription(args: {
   customSkillCreateRootActionable: boolean;
   customSkillCreateRootPath: string | null;
@@ -636,7 +606,6 @@ function resolveCustomSkillsRootDescription(args: {
   }
   return `Custom skills root (not created yet): ${customSkillCreateRootPath}`;
 }
-
 function resolveSelectedCustomSkillSaveError(args: {
   selectedSkillEditabilityReason: string | null;
   selectedSkillContentTruncated: boolean;
@@ -677,13 +646,11 @@ function resolveSelectedCustomSkillSaveError(args: {
   }
   return null;
 }
-
 function resolveInitialSkillMarkdownViewerOpen(
   storageAdapter: ReturnType<typeof getSafeLocalStorageAdapter>,
 ): boolean {
   return storageAdapter.getItem(SKILL_MARKDOWN_VIEWER_STORAGE_KEY) === "true";
 }
-
 function resolveInitialSkillMarkdownViewMode(
   storageAdapter: ReturnType<typeof getSafeLocalStorageAdapter>,
 ): SkillMarkdownViewMode {
@@ -692,7 +659,6 @@ function resolveInitialSkillMarkdownViewMode(
     ? SKILL_MARKDOWN_VIEW_MODE_RAW
     : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
 }
-
 function resolveSelectedSlashEngine(args: {
   selectedSlashEngineId: string | null;
   slashCommandsByEngine: SlashCommandsByEngineEntry[];
@@ -709,7 +675,6 @@ function resolveSelectedSlashEngine(args: {
     null
   );
 }
-
 function resolveSelectedAgentNativeSlashCommands(args: {
   selectedSlashEngine: SlashCommandsByEngineEntry | null;
   visibleAgentNativeSlashCommandsByEngineId: Record<
@@ -730,7 +695,6 @@ function resolveSelectedAgentNativeSlashCommands(args: {
       ?.commands ?? EMPTY_AGENT_NATIVE_COMMANDS
   );
 }
-
 function resolveSelectedAgentNativeSlashStatus(args: {
   agentRunsAuthorityState: AgentRunsAuthorityState;
   selectedSlashEngine: SlashCommandsByEngineEntry | null;
@@ -764,7 +728,6 @@ function resolveSelectedAgentNativeSlashStatus(args: {
     DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
   );
 }
-
 function resolveSelectedSkill(
   skills: SkillEntry[],
   selectedSkillId: string | null,
@@ -774,7 +737,6 @@ function resolveSelectedSkill(
   }
   return skills.find((skill) => skill.skillId === selectedSkillId) ?? null;
 }
-
 function resolveRawMarkdownModeHint(args: {
   selectedSkillContentTruncated: boolean;
   selectedSkillEditabilityReason: string | null;
@@ -812,7 +774,6 @@ function resolveRawMarkdownModeHint(args: {
   }
   return "Editing mode for custom skills.";
 }
-
 function resolveSaveSelectedSkillButtonTitle(args: {
   selectedSkillContentTruncated: boolean;
   selectedSkillEditabilityReason: string | null;
@@ -846,7 +807,6 @@ function resolveSaveSelectedSkillButtonTitle(args: {
   }
   return "Save selected custom skill";
 }
-
 function resolveSkillPreviewTruncationNotice(args: {
   selectedSkillContentTruncated: boolean;
   selectedSkillOriginalSizeBytes: number | null;
@@ -861,7 +821,6 @@ function resolveSkillPreviewTruncationNotice(args: {
   }
   return `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`;
 }
-
 function resolveCurrentCustomSlashDraft(args: {
   customSlashDraftByProjectConfigId: Record<string, CustomSlashCommandDraft>;
   projectConfigId: string;
@@ -872,7 +831,6 @@ function resolveCurrentCustomSlashDraft(args: {
     EMPTY_CUSTOM_SLASH_COMMAND_DRAFT
   );
 }
-
 function resolveSkillMarkdownRawDraft(args: {
   selectedSkillId: string | null;
   skillMarkdownDraftStateBySkillId: Record<
@@ -886,7 +844,6 @@ function resolveSkillMarkdownRawDraft(args: {
   }
   return skillMarkdownDraftStateBySkillId[selectedSkillId]?.draft ?? null;
 }
-
 function applySelectedSkillViewState(args: {
   nextSelectedSkillViewState: SelectedSkillViewState | null;
   setSelectedSkillContent: (value: string) => void;
@@ -919,7 +876,6 @@ function applySelectedSkillViewState(args: {
     nextSelectedSkillViewState.selectedSkillOriginalSizeBytes,
   );
 }
-
 function resolveProjectChatViewerLoadingState(args: {
   allLLMConfigsInitialLoadComplete: boolean;
   mcpRuntimeStatusLoading: boolean;
@@ -941,7 +897,6 @@ function resolveProjectChatViewerLoadingState(args: {
     showSkillsLoadingState: skillsLoading && skillsCount === 0,
   };
 }
-
 function resolveNextSelectedSlashEngineId(args: {
   selectedSlashEngineId: string | null;
   slashCommandsByEngine: SlashCommandsByEngineEntry[];
@@ -960,7 +915,6 @@ function resolveNextSelectedSlashEngineId(args: {
   }
   return slashCommandsByEngine[0]?.engineId ?? null;
 }
-
 function runSkillsRefreshEffect(args: {
   refreshSkillsBrowser: () => Promise<void>;
   showSkillsSection: boolean;
@@ -971,7 +925,6 @@ function runSkillsRefreshEffect(args: {
   }
   void refreshSkillsBrowser();
 }
-
 function canEditSelectedSkillMarkdown(args: {
   selectedSkillContentTruncated: boolean;
   selectedSkillId: string | null;
@@ -995,7 +948,6 @@ function canEditSelectedSkillMarkdown(args: {
   }
   return skillContentLoadStatus === "loaded";
 }
-
 function resolveCanSaveSelectedSkill(args: {
   customSkillSaveInFlight: boolean;
   isRawMarkdownView: boolean;
@@ -1021,7 +973,6 @@ function resolveCanSaveSelectedSkill(args: {
     saveSelectedCustomSkillError === null
   );
 }
-
 function PathGroupHeader({
   title,
   path,
@@ -1068,18 +1019,15 @@ function PathGroupHeader({
     </div>
   );
 }
-
 type SkillListItemProps = {
   onSelectSkill: (skillId: string) => void;
   selectedSkillId: string | null;
   skill: SkillEntry;
   status: SkillStatusEntry;
 };
-
 type SkillStatusBadgesProps = {
   status: SkillStatusEntry;
 };
-
 function SkillApplicabilityBadge({ status }: SkillStatusBadgesProps) {
   if (!status?.isApplicable) {
     return null;
@@ -1093,7 +1041,6 @@ function SkillApplicabilityBadge({ status }: SkillStatusBadgesProps) {
     </span>
   );
 }
-
 function SkillActivityBadge({ status }: SkillStatusBadgesProps) {
   if (status?.activityState === "active") {
     return (
@@ -1121,7 +1068,6 @@ function SkillActivityBadge({ status }: SkillStatusBadgesProps) {
   }
   return null;
 }
-
 function SkillStatusBadges({ status }: SkillStatusBadgesProps) {
   if (!status?.isApplicable && !status?.activityState) {
     return null;
@@ -1133,7 +1079,6 @@ function SkillStatusBadges({ status }: SkillStatusBadgesProps) {
     </span>
   );
 }
-
 function SkillListItem({
   onSelectSkill,
   selectedSkillId,
@@ -1170,7 +1115,6 @@ function SkillListItem({
     </button>
   );
 }
-
 type McpSectionProps = {
   mcpServerGroups: McpServerGroup[];
   mcpRuntimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
@@ -1180,7 +1124,6 @@ type McpSectionProps = {
   onCopyPath: (path: string | null) => void;
   onRevealPath: (path: string | null) => void;
 };
-
 function McpSection({
   mcpServerGroups,
   mcpRuntimeStatusByServerId,
@@ -1281,7 +1224,6 @@ function McpSection({
     </section>
   );
 }
-
 type SkillGroupsPanelProps = {
   groupedSkills: SkillGroup[];
   isSkillMarkdownViewerOpen: boolean;
@@ -1297,7 +1239,6 @@ type SkillGroupsPanelProps = {
   skillsSectionRef: RefObject<HTMLDivElement | null>;
   beginSkillsListResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
 };
-
 function SkillGroupsPanel({
   beginSkillsListResize,
   groupedSkills,
@@ -1383,7 +1324,6 @@ function SkillGroupsPanel({
     </div>
   );
 }
-
 type SkillMarkdownViewerPanelProps = {
   canSaveSelectedSkill: boolean;
   codeMirrorTheme: CodeMirrorTheme;
@@ -1405,7 +1345,6 @@ type SkillMarkdownViewerPanelProps = {
   skillPreviewContent: string;
   skillPreviewTruncationNotice: string | null;
 };
-
 type SkillMarkdownToolbarProps = {
   canSaveSelectedSkill: boolean;
   isRawMarkdownView: boolean;
@@ -1413,7 +1352,6 @@ type SkillMarkdownToolbarProps = {
   onSelectSkillMarkdownViewMode: (mode: SkillMarkdownViewMode) => void;
   saveSelectedSkillButtonTitle: string;
 };
-
 function SkillMarkdownToolbar({
   canSaveSelectedSkill,
   isRawMarkdownView,
@@ -1467,7 +1405,6 @@ function SkillMarkdownToolbar({
     </div>
   );
 }
-
 type SkillMarkdownBodyProps = {
   codeMirrorTheme: CodeMirrorTheme;
   editableMarkdownViewerExtensions: CodeMirrorExtensions;
@@ -1480,7 +1417,6 @@ type SkillMarkdownBodyProps = {
   skillMarkdownRawDraft: string | null;
   skillPreviewContent: string;
 };
-
 function SkillMarkdownBody({
   codeMirrorTheme,
   editableMarkdownViewerExtensions,
@@ -1534,7 +1470,6 @@ function SkillMarkdownBody({
     </>
   );
 }
-
 function SkillMarkdownViewerPanel({
   canSaveSelectedSkill,
   codeMirrorTheme,
@@ -1572,9 +1507,7 @@ function SkillMarkdownViewerPanel({
         value={isOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""}
       >
         <Accordion.Item
-          className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${
-            isOpen ? "flex h-full min-h-0 flex-col" : ""
-          }`}
+          className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${isOpen ? "flex h-full min-h-0 flex-col" : ""}`}
           value={SKILL_MARKDOWN_VIEWER_VALUE}
         >
           <Accordion.Header>
@@ -1589,9 +1522,7 @@ function SkillMarkdownViewerPanel({
             </Accordion.Trigger>
           </Accordion.Header>
           <Accordion.Content
-            className={`overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${
-              isOpen ? "min-h-0 flex-1" : ""
-            }`}
+            className={`overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${isOpen ? "min-h-0 flex-1" : ""}`}
           >
             {isOpen ? (
               <div className="flex h-full min-h-0 flex-col">
@@ -1639,7 +1570,6 @@ function SkillMarkdownViewerPanel({
     </div>
   );
 }
-
 type SkillsSectionProps = {
   beginSkillsListResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
   canCreateCustomSkillButton: boolean;
@@ -1684,7 +1614,6 @@ type SkillsSectionProps = {
   skillsLoading: boolean;
   skillsSectionRef: RefObject<HTMLDivElement | null>;
 };
-
 function SkillsSection({
   beginSkillsListResize,
   canCreateCustomSkillButton,
@@ -1852,7 +1781,6 @@ function SkillsSection({
     </section>
   );
 }
-
 type CustomSlashCommandsPanelProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
@@ -1869,7 +1797,6 @@ type CustomSlashCommandsPanelProps = {
   onSetNewCustomSlashCommand: (value: string) => void;
   onSetNewCustomSlashPrompt: (value: string) => void;
 };
-
 function CustomSlashCommandsPanel({
   addCustomProjectChatSlashCommand,
   canAddCustomSlashCommand,
@@ -2000,7 +1927,6 @@ function CustomSlashCommandsPanel({
     </div>
   );
 }
-
 type SlashEngineCommandsPanelProps = {
   engineConfigsInitialLoadComplete: boolean;
   onSelectSlashEngine: (engineId: string) => void;
@@ -2009,7 +1935,6 @@ type SlashEngineCommandsPanelProps = {
   selectedSlashEngine: SlashCommandsByEngineEntry | null;
   slashCommandsByEngine: SlashCommandsByEngineEntry[];
 };
-
 function SlashEngineCommandsPanel({
   engineConfigsInitialLoadComplete,
   onSelectSlashEngine,
@@ -2130,7 +2055,6 @@ function SlashEngineCommandsPanel({
     </>
   );
 }
-
 type SlashCommandsSectionProps = {
   addCustomProjectChatSlashCommand: () => void;
   canAddCustomSlashCommand: boolean;
@@ -2153,7 +2077,6 @@ type SlashCommandsSectionProps = {
   selectedSlashEngine: SlashCommandsByEngineEntry | null;
   slashCommandsByEngine: SlashCommandsByEngineEntry[];
 };
-
 function SlashCommandsSection({
   addCustomProjectChatSlashCommand,
   canAddCustomSlashCommand,
@@ -2210,7 +2133,6 @@ function SlashCommandsSection({
     </section>
   );
 }
-
 export function ProjectChatSkillsMcpViewer({
   projectConfigId,
   chatId,
@@ -2350,7 +2272,6 @@ export function ProjectChatSkillsMcpViewer({
   const skillContentCache = useRef(new Map<string, SkillContentCacheEntry>());
   const showSkillsSection = viewMode === "skills";
   const showMcpSection = viewMode === "mcp";
-
   const refreshSkillsBrowser = useCallback(
     async function refreshSkillsBrowserImpl() {
       if (skillsRefreshInFlight.current) {
@@ -2391,21 +2312,18 @@ export function ProjectChatSkillsMcpViewer({
     },
     [],
   );
-
   useEffect(() => {
     return () => {
       skillsResizeCleanupRef.current?.();
       skillsResizeCleanupRef.current = null;
     };
   }, []);
-
   useEffect(() => {
     runSkillsRefreshEffect({
       refreshSkillsBrowser,
       showSkillsSection,
     });
   }, [refreshSkillsBrowser, showSkillsSection]);
-
   useEffect(() => {
     async function loadSkillContent() {
       if (!showSkillsSection) {
@@ -2449,7 +2367,7 @@ export function ProjectChatSkillsMcpViewer({
           body: {
             skillId: requestedSkillId,
           },
-        }),
+        } as Parameters<typeof getAppGenSkillContent>[0]),
       );
       if (
         requestSequence !== skillContentRequestSequence.current ||
@@ -2486,7 +2404,6 @@ export function ProjectChatSkillsMcpViewer({
     showSkillsSection,
     skillsRevision,
   ]);
-
   useEffect(() => {
     let cancelled = false;
     const runtimeStatusChatId = chatId ?? null;
@@ -2503,7 +2420,7 @@ export function ProjectChatSkillsMcpViewer({
             chatId: runtimeStatusChatId,
             engineConfigId: runtimeStatusEngineConfigId,
           },
-        }),
+        } as Parameters<typeof getMcpServerRuntimeStatus>[0]),
       );
       if (cancelled) {
         return;
@@ -2558,21 +2475,18 @@ export function ProjectChatSkillsMcpViewer({
     allLLMConfigs?.mcpServers,
     showMcpSection,
   ]);
-
   useEffect(() => {
     storageAdapter.setItem(
       SKILL_MARKDOWN_VIEWER_STORAGE_KEY,
       isSkillMarkdownViewerOpen ? "true" : "false",
     );
   }, [isSkillMarkdownViewerOpen, storageAdapter]);
-
   useEffect(() => {
     storageAdapter.setItem(
       SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY,
       skillMarkdownViewMode,
     );
   }, [skillMarkdownViewMode, storageAdapter]);
-
   useEffect(() => {
     if (!selectedSkillId || skillContentLoadStatus !== "loaded") {
       return;
@@ -2586,7 +2500,6 @@ export function ProjectChatSkillsMcpViewer({
       return next ?? current;
     });
   }, [selectedSkillContent, selectedSkillId, skillContentLoadStatus]);
-
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
@@ -2601,7 +2514,6 @@ export function ProjectChatSkillsMcpViewer({
   const groupedSkills = useMemo(() => {
     return groupSkillsByRootPath(filteredSkills);
   }, [filteredSkills]);
-
   const mcpServerGroups = useMemo(() => {
     return groupMcpServersByConfigPath({
       mcpServers: allLLMConfigs?.mcpServers,
@@ -2719,7 +2631,6 @@ export function ProjectChatSkillsMcpViewer({
         reservedTokens: reservedSlashCommandTokens,
       });
     }, [customSlashCommandDefinitions, reservedSlashCommandTokens]);
-
   useEffect(() => {
     const nextSelectedSlashEngineId = resolveNextSelectedSlashEngineId({
       selectedSlashEngineId,
@@ -2727,13 +2638,11 @@ export function ProjectChatSkillsMcpViewer({
     });
     setSelectedSlashEngineId(nextSelectedSlashEngineId);
   }, [selectedSlashEngineId, slashCommandsByEngine]);
-
   useEffect(() => {
     if (shouldLoadSlashRuns && !agentRunsInitialLoadComplete) {
       void loadAgentRuns();
     }
   }, [agentRunsInitialLoadComplete, shouldLoadSlashRuns]);
-
   const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({
       language: "markdown",
@@ -2752,7 +2661,6 @@ export function ProjectChatSkillsMcpViewer({
       indentWithTab: false,
     });
   }, []);
-
   const { mcpServersLoading, showSkillsLoadingState } =
     resolveProjectChatViewerLoadingState({
       allLLMConfigsInitialLoadComplete,
@@ -2970,7 +2878,6 @@ export function ProjectChatSkillsMcpViewer({
     skillMarkdownEditable,
     skillMarkdownRawDraft,
   });
-
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
       return;
@@ -2991,7 +2898,6 @@ export function ProjectChatSkillsMcpViewer({
       }
     })();
   }, []);
-
   const revealPathInFileExplorer = useCallback(async (path: string | null) => {
     if (!isActionablePath(path)) {
       return;
@@ -2999,7 +2905,7 @@ export function ProjectChatSkillsMcpViewer({
     const res = await callOpenAPI(
       revealPathInOsFileExplorer({
         body: { path },
-      }),
+      } as Parameters<typeof revealPathInOsFileExplorer>[0]),
     );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
@@ -3042,7 +2948,6 @@ export function ProjectChatSkillsMcpViewer({
     },
     [selectedSkillId, skillMarkdownEditable],
   );
-
   const addCustomProjectChatSlashCommand = useCallback(
     function addCustomProjectChatSlashCommandImpl() {
       const normalizedCommand = normalizeSlashCommandToken(
@@ -3113,7 +3018,6 @@ export function ProjectChatSkillsMcpViewer({
       reservedSlashCommandTokens,
     ],
   );
-
   const removeCustomProjectChatSlashCommand = useCallback(
     function removeCustomProjectChatSlashCommandImpl(commandToken: string) {
       const normalizedCommand = normalizeSlashCommandToken(commandToken);
@@ -3200,7 +3104,6 @@ export function ProjectChatSkillsMcpViewer({
     },
     [skillsRevision],
   );
-
   const createCustomSkill = useCallback(
     async function createCustomSkillImpl() {
       const relativePath = newCustomSkillRelativePath.trim();
@@ -3217,7 +3120,7 @@ export function ProjectChatSkillsMcpViewer({
             relativePath,
             content: initialContent,
           },
-        }),
+        } as Parameters<typeof upsertAppGenCustomSkill>[0]),
       );
       setCustomSkillCreateInFlight(false);
       if (!res200(res)) {
@@ -3247,7 +3150,6 @@ export function ProjectChatSkillsMcpViewer({
   const handleCreateCustomSkill = useCallback(() => {
     void createCustomSkill();
   }, [createCustomSkill]);
-
   const saveSelectedCustomSkill = useCallback(
     async function saveSelectedCustomSkillImpl() {
       if (!selectedSkillId) {
@@ -3270,7 +3172,7 @@ export function ProjectChatSkillsMcpViewer({
             relativePath: null,
             content: nextContent,
           },
-        }),
+        } as Parameters<typeof upsertAppGenCustomSkill>[0]),
       );
       setCustomSkillSaveInFlight(false);
       if (!res200(res)) {
@@ -3300,7 +3202,6 @@ export function ProjectChatSkillsMcpViewer({
   const handleSaveSelectedCustomSkill = useCallback(() => {
     void saveSelectedCustomSkill();
   }, [saveSelectedCustomSkill]);
-
   const beginSkillsListResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (!isSkillMarkdownViewerOpen) {
@@ -3348,7 +3249,6 @@ export function ProjectChatSkillsMcpViewer({
     },
     [isSkillMarkdownViewerOpen],
   );
-
   const contentByViewMode: Record<
     ProjectChatSkillsMcpViewerProps["viewMode"],
     ReactNode
@@ -3439,7 +3339,6 @@ export function ProjectChatSkillsMcpViewer({
       />
     ),
   };
-
   return (
     <div
       className="-mr-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300"

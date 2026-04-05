@@ -28,15 +28,12 @@ import {
   computeGitGraphRowsWithState,
   createEmptyGitGraphRowComputationState,
 } from "utils/gitGraph";
-
 let statusRequestId = 0;
 let diffRequestId = 0;
 let logRequestId = 0;
 let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
-
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
-
 type GitStatusRouteResponse = ResponseDataAndStatus<StatusResponse>;
 type GitDiffRouteResponse = ResponseDataAndStatus<DiffResponse>;
 type GitLogRouteResponse = ResponseDataAndStatus<LogResponse>;
@@ -44,7 +41,6 @@ type GitCommitDetailsRouteResponse =
   ResponseDataAndStatus<CommitDetailsResponse>;
 type GitCommitFileDiffRouteResponse =
   ResponseDataAndStatus<CommitFileDiffResponse>;
-
 function getCurrentGitGraphProjectConfigId(): string | null {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
@@ -52,7 +48,6 @@ function getCurrentGitGraphProjectConfigId(): string | null {
   }
   return projectConfigId;
 }
-
 function createClearedGitGraphSelectionState() {
   return {
     selectedCommitHash: null,
@@ -65,13 +60,21 @@ function createClearedGitGraphSelectionState() {
     selectedCommitFileDiffError: null,
   };
 }
-
 export function buildGitDiffAvailabilityByPath(
   entries: readonly StatusEntry[],
-): Map<string, { hasStaged: boolean; hasUnstaged: boolean }> {
+): Map<
+  string,
+  {
+    hasStaged: boolean;
+    hasUnstaged: boolean;
+  }
+> {
   const availabilityByPath = new Map<
     string,
-    { hasStaged: boolean; hasUnstaged: boolean }
+    {
+      hasStaged: boolean;
+      hasUnstaged: boolean;
+    }
   >();
   for (const entry of entries) {
     const existing = availabilityByPath.get(entry.path);
@@ -97,7 +100,6 @@ export function buildGitDiffAvailabilityByPath(
   }
   return availabilityByPath;
 }
-
 function createInitialGitGraphState({
   projectConfigId,
   allRefs,
@@ -126,18 +128,16 @@ function createInitialGitGraphState({
     ...createClearedGitGraphSelectionState(),
   };
 }
-
 function getGitGraphState() {
   return useGitStore.getState().graph;
 }
-
 export async function refreshGitStatus(): Promise<void> {
   const requestId = (statusRequestId += 1);
   useGitStore.setState((state) => ({
     ...state,
     status: { ...state.status, isLoading: true, error: null },
   }));
-  const res: GitStatusRouteResponse = await callOpenAPI(getGitStatus());
+  const res = (await callOpenAPI(getGitStatus())) as GitStatusRouteResponse;
   if (requestId !== statusRequestId) {
     return;
   }
@@ -167,7 +167,6 @@ export async function refreshGitStatus(): Promise<void> {
     },
   }));
 }
-
 function computeDiffAvailability(path: string) {
   const availability = useGitStore
     .getState()
@@ -177,7 +176,6 @@ function computeDiffAvailability(path: string) {
   }
   return availability;
 }
-
 async function refreshGitDiff({
   path,
   oldPath,
@@ -212,16 +210,15 @@ async function refreshGitDiff({
       };
     });
   }
-
-  const res: GitDiffRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getGitDiff({
       body: {
         path,
         oldPath,
         mode,
       },
-    }),
-  );
+    } as Parameters<typeof getGitDiff>[0]),
+  )) as GitDiffRouteResponse;
   if (requestId !== diffRequestId) {
     return;
   }
@@ -244,7 +241,6 @@ async function refreshGitDiff({
     });
     return;
   }
-
   useGitStore.setState((state) => {
     if (state.overlay.kind !== "diff") {
       return state;
@@ -263,7 +259,6 @@ async function refreshGitDiff({
     };
   });
 }
-
 export async function openGitDiffOverlay({
   path,
   oldPath,
@@ -292,7 +287,6 @@ export async function openGitDiffOverlay({
   }));
   await refreshGitDiff({ path, oldPath, mode, skipPreloadState: true });
 }
-
 export async function setGitDiffMode(mode: DiffMode): Promise<void> {
   const overlay = useGitStore.getState().overlay;
   if (overlay.kind !== "diff") {
@@ -307,11 +301,9 @@ export async function setGitDiffMode(mode: DiffMode): Promise<void> {
     mode,
   });
 }
-
 export function closeGitOverlay(): void {
   useGitStore.setState((state) => ({ ...state, overlay: { kind: "none" } }));
 }
-
 export function setGitGraphFilterText(filterText: string): void {
   useGitStore.setState((state) => {
     if (!state.graph) {
@@ -323,7 +315,6 @@ export function setGitGraphFilterText(filterText: string): void {
     };
   });
 }
-
 export function clearGitGraphSelectedCommit(): void {
   useGitStore.setState((state) => {
     if (!state.graph) {
@@ -338,7 +329,6 @@ export function clearGitGraphSelectedCommit(): void {
     };
   });
 }
-
 async function refreshGitGraph({
   allRefs,
   skipPreloadState = false,
@@ -365,8 +355,7 @@ async function refreshGitGraph({
       };
     });
   }
-
-  const res: GitLogRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getGitLog({
       body: {
         rev: "HEAD",
@@ -374,8 +363,8 @@ async function refreshGitGraph({
         offset: 0,
         pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
       },
-    }),
-  );
+    } as Parameters<typeof getGitLog>[0]),
+  )) as GitLogRouteResponse;
   if (requestId !== logRequestId) {
     return;
   }
@@ -420,7 +409,6 @@ async function refreshGitGraph({
     });
     return;
   }
-
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -446,7 +434,6 @@ async function refreshGitGraph({
     };
   });
 }
-
 export async function loadMoreGitGraphCommits({
   force = false,
 }: {
@@ -470,13 +457,11 @@ export async function loadMoreGitGraphCommits({
   if (graph.filterText.trim()) {
     return;
   }
-
   const requestId = (logRequestId += 1);
   const nextOffset = graph.nextOffset;
   const pageSize = graph.pageSize;
   const allRefs = graph.allRefs;
   const requestProjectConfigId = graph.projectConfigId;
-
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -490,8 +475,7 @@ export async function loadMoreGitGraphCommits({
       },
     };
   });
-
-  const res: GitLogRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getGitLog({
       body: {
         rev: "HEAD",
@@ -499,15 +483,14 @@ export async function loadMoreGitGraphCommits({
         offset: nextOffset,
         pageSize,
       },
-    }),
-  );
+    } as Parameters<typeof getGitLog>[0]),
+  )) as GitLogRouteResponse;
   if (requestId !== logRequestId) {
     return;
   }
   if (requestProjectConfigId !== getCurrentGitGraphProjectConfigId()) {
     return;
   }
-
   if (res200(res)) {
     const nextPage = res.data;
     useGitStore.setState((state) => {
@@ -541,7 +524,6 @@ export async function loadMoreGitGraphCommits({
           },
         };
       }
-
       const nextSeenCommitHashes = new Set(state.graph.seenCommitHashes);
       const appendedCommits: typeof nextPage.commits = [];
       for (const commit of nextPage.commits) {
@@ -571,7 +553,6 @@ export async function loadMoreGitGraphCommits({
         hasMore: nextPage.hasMore,
         isCapped: nextPage.isCapped,
       };
-
       return {
         ...state,
         graph: {
@@ -592,7 +573,6 @@ export async function loadMoreGitGraphCommits({
     });
     return;
   }
-
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -611,7 +591,6 @@ export async function loadMoreGitGraphCommits({
     };
   });
 }
-
 export async function ensureGitGraphStateLoaded(): Promise<void> {
   const projectConfigId = getCurrentGitGraphProjectConfigId();
   const existingGraphState = getGitGraphState();
@@ -632,7 +611,6 @@ export async function ensureGitGraphStateLoaded(): Promise<void> {
   }));
   await refreshGitGraph({ allRefs, skipPreloadState: true });
 }
-
 export async function openGitGraphOverlay(): Promise<void> {
   const allRefs = false;
   ensureTrackedGitPaneGraphWindow({
@@ -650,7 +628,6 @@ export async function openGitGraphOverlay(): Promise<void> {
   }));
   await refreshGitGraph({ allRefs, skipPreloadState: true });
 }
-
 export async function refreshGitGraphOverlay(): Promise<void> {
   const graph = getGitGraphState();
   if (!graph) {
@@ -658,7 +635,6 @@ export async function refreshGitGraphOverlay(): Promise<void> {
   }
   await refreshGitGraph({ allRefs: graph.allRefs });
 }
-
 export async function toggleGitGraphAllRefs(): Promise<void> {
   const graph = getGitGraphState();
   if (!graph) {
@@ -666,7 +642,6 @@ export async function toggleGitGraphAllRefs(): Promise<void> {
   }
   await refreshGitGraph({ allRefs: !graph.allRefs });
 }
-
 export async function selectGitCommit(commitHash: string): Promise<void> {
   const graph = getGitGraphState();
   if (!graph) {
@@ -688,14 +663,13 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
       },
     };
   });
-
-  const res: GitCommitDetailsRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getGitCommitDetails({
       body: {
         commitHash,
       },
-    }),
-  );
+    } as Parameters<typeof getGitCommitDetails>[0]),
+  )) as GitCommitDetailsRouteResponse;
   if (requestId !== commitDetailsRequestId) {
     return;
   }
@@ -724,7 +698,6 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     });
     return;
   }
-
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;
@@ -747,7 +720,6 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     };
   });
 }
-
 export async function selectGitCommitFile({
   path,
   oldPath,
@@ -783,16 +755,15 @@ export async function selectGitCommitFile({
       },
     };
   });
-
-  const res: GitCommitFileDiffRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getGitCommitFileDiff({
       body: {
         commitHash,
         path,
         oldPath,
       },
-    }),
-  );
+    } as Parameters<typeof getGitCommitFileDiff>[0]),
+  )) as GitCommitFileDiffRouteResponse;
   if (requestId !== commitFileDiffRequestId) {
     return;
   }
@@ -824,7 +795,6 @@ export async function selectGitCommitFile({
     });
     return;
   }
-
   useGitStore.setState((state) => {
     if (!state.graph) {
       return state;

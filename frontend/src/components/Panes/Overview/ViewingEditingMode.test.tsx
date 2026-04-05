@@ -1,15 +1,16 @@
 /* @vitest-environment jsdom */
-
 import type { ReactNode } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useProjectState, useShareSession } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import { createProjectConfig, createViewMode } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { ViewingEditingMode } from "./ViewingEditingMode";
 vi.mock("re-resizable", () => ({
   Resizable: ({ children }: { children: ReactNode }) => children,
 }));
-
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   ViewModeSortableProvider: ({ children }: { children: ReactNode }) => children,
   useViewModeSortableItem: () => ({
@@ -21,44 +22,30 @@ vi.mock("components/Pages/Project/ViewModeDnd", () => ({
     isDragging: false,
   }),
 }));
-
 vi.mock("state/actions/activeSections", () => ({
   pruneActiveSectionIdsForViewMode: () => {},
 }));
-
 vi.mock("state/actions/project/loadProject", () => ({
   useCreateAndGoToProjectConfig: () => () => {},
 }));
-
 vi.mock("./ProjectConfigs", () => ({
   ProjectConfigs: () => <div data-testid="project-configs-placeholder" />,
 }));
-
 vi.mock("./WindowSpacesPane", () => ({
   WindowSpacesPane: () => <div data-testid="window-spaces-placeholder" />,
 }));
-
 const routeSetViewModeNameMock = vi.fn();
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_create_view_mode: () => Promise.resolve(undefined),
-  route_set_active_view_mode: () => Promise.resolve(undefined),
-  route_set_view_mode_name: (...args: unknown[]) =>
-    routeSetViewModeNameMock(...args),
-  route_toggle_is_editing_view_mode: () => Promise.resolve(undefined),
-  route_toggle_view_mode_tab: () => Promise.resolve(undefined),
-  route_toggle_view_mode_user_facing: () => Promise.resolve(undefined),
+vi.mock("openapi/http", () => ({
+  createViewMode: () => Promise.resolve(undefined),
+  setActiveViewMode: () => Promise.resolve(undefined),
+  setViewModeName: (...args: unknown[]) => routeSetViewModeNameMock(...args),
+  toggleIsEditingViewMode: () => Promise.resolve(undefined),
+  toggleViewModeTab: () => Promise.resolve(undefined),
+  toggleViewModeUserFacing: () => Promise.resolve(undefined),
 }));
-
-import { useProjectState, useShareSession } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import { createProjectConfig, createViewMode } from "utils/generatedTypes";
-import { ViewingEditingMode } from "./ViewingEditingMode";
-
 describe("ViewingEditingMode", () => {
   let host: HTMLDivElement;
   let root: Root;
-
   beforeEach(() => {
     routeSetViewModeNameMock.mockReset();
     resetProjectStores();
@@ -91,12 +78,10 @@ describe("ViewingEditingMode", () => {
         },
       });
     });
-
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
   });
-
   afterEach(async () => {
     await act(async () => {
       root.unmount();
@@ -104,7 +89,6 @@ describe("ViewingEditingMode", () => {
     host.remove();
     resetProjectStores();
   });
-
   it("submits conflicting view-mode renames to the backend and shows the backend error", async () => {
     routeSetViewModeNameMock.mockResolvedValue({
       data: {
@@ -114,16 +98,13 @@ describe("ViewingEditingMode", () => {
       hasResponse: true,
       status: 400,
     });
-
     await act(async () => {
       root.render(<ViewingEditingMode />);
     });
-
     const input = host.querySelector(
       '[data-view-mode-id="view-mode-a"] input',
     ) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -132,12 +113,10 @@ describe("ViewingEditingMode", () => {
       valueSetter?.call(input, "Details");
       input?.dispatchEvent(new Event("input", { bubbles: true }));
     });
-
     await act(async () => {
       input?.focus();
       input?.blur();
     });
-
     expect(routeSetViewModeNameMock).toHaveBeenCalledTimes(1);
     expect(routeSetViewModeNameMock).toHaveBeenCalledWith(
       expect.objectContaining({

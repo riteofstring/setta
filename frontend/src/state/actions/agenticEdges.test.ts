@@ -24,20 +24,17 @@ import {
   StateMachineGateTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_create_agentic_edge: vi.fn(),
-    route_delete_agentic_edges: vi.fn(),
-    route_set_agentic_edges: vi.fn(),
-    route_update_agentic_edge: vi.fn(),
+    createAgenticEdge: vi.fn(),
+    deleteAgenticEdges: vi.fn(),
+    setAgenticEdges: vi.fn(),
+    updateAgenticEdge: vi.fn(),
   };
 });
-
 const projectConfigId = "project-1";
 const sectionA = "section-a";
 const sectionB = "section-b";
@@ -51,7 +48,6 @@ const implA = "impl-a";
 const implB = "impl-b";
 const implCode = "impl-code";
 const implGate = "impl-gate";
-
 function seedChatSections() {
   const coreA = createCore({
     id: sectionA,
@@ -151,7 +147,6 @@ function seedChatSections() {
     label: "Gate",
     ui: { showDetails: false },
   };
-
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = {
@@ -181,7 +176,6 @@ function seedChatSections() {
     state.previewSectionVariantMap = {};
   });
 }
-
 describe("agentic edge optimistic create", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -189,35 +183,30 @@ describe("agentic edge optimistic create", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("creates and sends an optimistic agentic edge", async () => {
-    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_create_agentic_edge as unknown as vi.Mock;
-    route_create_agentic_edge.mockResolvedValue({
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     createAgenticEdgeFromSections({
       sourceSectionId: sectionA,
       targetSectionId: sectionB,
       kind: AgenticEdgeKindEnum.chat_chat,
     });
-
     const edges = useProjectState.getState().projectConfig.agenticEdges;
     expect(edges).toHaveLength(1);
     const edge = edges[0];
     expect(edge.sourceSectionId).toBe(sectionA);
     expect(edge.targetSectionId).toBe(sectionB);
     expect(edge.kind).toBe(AgenticEdgeKindEnum.chat_chat);
-
-    expect(route_create_agentic_edge).toHaveBeenCalledTimes(1);
-    expect(route_create_agentic_edge.mock.calls[0][0]).toEqual(
+    expect(createAgenticEdge).toHaveBeenCalledTimes(1);
+    expect(createAgenticEdge.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         id: edge.id,
         sourceSectionId: sectionA,
@@ -228,7 +217,6 @@ describe("agentic edge optimistic create", () => {
     );
   });
 });
-
 describe("agentic edge context mode updates", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -236,20 +224,17 @@ describe("agentic edge context mode updates", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("updates context mode and persists the edge", async () => {
-    const route_update_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_update_agentic_edge as unknown as vi.Mock;
-    route_update_agentic_edge.mockResolvedValue({
+    const updateAgenticEdge = (await import("openapi/http"))
+      .updateAgenticEdge as unknown as vi.Mock;
+    updateAgenticEdge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     const edge = createAgenticEdge({
       id: "edge-context",
       sourceSectionId: sectionA,
@@ -257,23 +242,20 @@ describe("agentic edge context mode updates", () => {
       kind: AgenticEdgeKindEnum.section_chat,
       contextMode: AgenticEdgeContextModeEnum.reference_only,
     });
-
     useProjectState.setState((state) => {
       state.projectConfig.agenticEdges = [edge];
     });
-
     updateAgenticEdgeContextMode(
       edge.id,
       AgenticEdgeContextModeEnum.inline_text,
     );
-
     const updatedEdge =
       useProjectState.getState().projectConfig.agenticEdges[0];
     expect(updatedEdge.contextMode).toBe(
       AgenticEdgeContextModeEnum.inline_text,
     );
-    expect(route_update_agentic_edge).toHaveBeenCalledTimes(1);
-    expect(route_update_agentic_edge.mock.calls[0][0]).toEqual(
+    expect(updateAgenticEdge).toHaveBeenCalledTimes(1);
+    expect(updateAgenticEdge.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         projectConfigId,
         edge: expect.objectContaining({
@@ -285,7 +267,6 @@ describe("agentic edge context mode updates", () => {
     );
   });
 });
-
 describe("agentic edge selection and deletion", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -293,20 +274,17 @@ describe("agentic edge selection and deletion", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("single-selects an agentic edge through setAgenticEdges", async () => {
-    const route_set_agentic_edges = (await import("utils/generatedEndpoints"))
-      .route_set_agentic_edges as unknown as vi.Mock;
-    route_set_agentic_edges.mockResolvedValue({
+    const setAgenticEdges = (await import("openapi/http"))
+      .setAgenticEdges as unknown as vi.Mock;
+    setAgenticEdges.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       state.projectConfig.agenticEdges = [
         createAgenticEdge({
@@ -325,17 +303,15 @@ describe("agentic edge selection and deletion", () => {
         }),
       ];
     });
-
     toggleAgenticEdgeSelection("edge-a", false);
-
     expect(useProjectState.getState().projectConfig.agenticEdges).toMatchObject(
       [
         { id: "edge-a", selected: true },
         { id: "edge-b", selected: false },
       ],
     );
-    expect(route_set_agentic_edges).toHaveBeenCalledTimes(1);
-    expect(route_set_agentic_edges.mock.calls[0][0]).toEqual(
+    expect(setAgenticEdges).toHaveBeenCalledTimes(1);
+    expect(setAgenticEdges.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         projectConfigId,
         frontendOpId: expect.any(String),
@@ -346,17 +322,14 @@ describe("agentic edge selection and deletion", () => {
       }),
     );
   });
-
   it("deletes selected agentic edges through deleteAgenticEdges", async () => {
-    const route_delete_agentic_edges = (
-      await import("utils/generatedEndpoints")
-    ).route_delete_agentic_edges as unknown as vi.Mock;
-    route_delete_agentic_edges.mockResolvedValue({
+    const deleteAgenticEdges = (await import("openapi/http"))
+      .deleteAgenticEdges as unknown as vi.Mock;
+    deleteAgenticEdges.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       state.projectConfig.agenticEdges = [
         createAgenticEdge({
@@ -375,15 +348,13 @@ describe("agentic edge selection and deletion", () => {
         }),
       ];
     });
-
     const deleted = deleteSelectedAgenticEdges();
-
     expect(deleted).toBe(true);
     expect(useProjectState.getState().projectConfig.agenticEdges).toMatchObject(
       [{ id: "edge-b" }],
     );
-    expect(route_delete_agentic_edges).toHaveBeenCalledTimes(1);
-    expect(route_delete_agentic_edges.mock.calls[0][0]).toEqual(
+    expect(deleteAgenticEdges).toHaveBeenCalledTimes(1);
+    expect(deleteAgenticEdges.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         projectConfigId,
         frontendOpId: expect.any(String),
@@ -392,7 +363,6 @@ describe("agentic edge selection and deletion", () => {
     );
   });
 });
-
 describe("agentic edge connections", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -400,31 +370,25 @@ describe("agentic edge connections", () => {
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("accepts shared chat handles when connecting code to chat", async () => {
-    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_create_agentic_edge as unknown as vi.Mock;
-    route_create_agentic_edge.mockResolvedValue({
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     const connection = {
       source: sectionCode,
       target: sectionA,
       sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
       targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
     };
-
     expect(isValidAgenticEdgeConnection(connection)).toBe(true);
-
     createAgenticEdgeFromConnection(connection);
-
     const edges = useProjectState.getState().projectConfig.agenticEdges;
     expect(edges).toHaveLength(1);
     expect(edges[0]).toEqual(
@@ -435,58 +399,48 @@ describe("agentic edge connections", () => {
       }),
     );
   });
-
   it("rejects workflow nodes as agentic endpoints", async () => {
-    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_create_agentic_edge as unknown as vi.Mock;
-    route_create_agentic_edge.mockResolvedValue({
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     const connection = {
       source: sectionA,
       target: sectionGate,
       sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
       targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
     };
-
     expect(isValidAgenticEdgeConnection(connection)).toBe(false);
-
     createAgenticEdgeFromConnection(connection);
     createAgenticEdgeFromSections({
       sourceSectionId: sectionA,
       targetSectionId: sectionGate,
       kind: AgenticEdgeKindEnum.chat_section,
     });
-
     expect(useProjectState.getState().projectConfig.agenticEdges).toHaveLength(
       0,
     );
-    expect(route_create_agentic_edge).not.toHaveBeenCalled();
+    expect(createAgenticEdge).not.toHaveBeenCalled();
   });
-
   it("normalizes reverse drags from agentic targets back to chat-to-section edges", async () => {
-    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_create_agentic_edge as unknown as vi.Mock;
-    route_create_agentic_edge.mockResolvedValue({
+    const createAgenticEdge = (await import("openapi/http"))
+      .createAgenticEdge as unknown as vi.Mock;
+    createAgenticEdge.mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: null,
     });
-
     const connection = {
       source: sectionCode,
       sourceHandle: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
       target: sectionA,
       targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
     };
-
     expect(isValidAgenticEdgeConnection(connection)).toBe(true);
-
     createAgenticEdgeFromConnection(connection);
-
     const edges = useProjectState.getState().projectConfig.agenticEdges;
     expect(edges).toHaveLength(1);
     expect(edges[0]).toEqual(

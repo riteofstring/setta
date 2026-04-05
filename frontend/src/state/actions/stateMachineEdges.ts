@@ -1,12 +1,13 @@
 import type { Connection } from "forks/xyflow/core/types";
+import {
+  createStateMachineEdge,
+  deleteStateMachineEdges,
+  setStateMachineEdges,
+  updateStateMachineEdge,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
-import {
-  route_create_state_machine_edge,
-  route_delete_state_machine_edges,
-  route_set_state_machine_edges,
-  route_update_state_machine_edge,
-} from "utils/generatedEndpoints";
 import { SectionTypeEnum, type SingleConfig } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
@@ -21,32 +22,26 @@ import {
   getConnectionDebugPayload,
   logWorkflowDebug,
 } from "./stateMachineDebug";
-
 export const STATE_MACHINE_EDGE_HANDLE_IDS = {
   source: "workflow-source",
   target: "workflow-target",
   reverseStart: "workflow-reverse-start",
 } as const;
-
 type WorkflowEdge = SingleConfig["projectConfig"]["stateMachineEdges"][number];
 type WorkflowSourceFilter = NonNullable<WorkflowEdge["sourceFilter"]>;
 type WorkflowTargetAction = NonNullable<WorkflowEdge["targetAction"]>;
-
 type WorkflowSectionInfo = {
   type: SectionTypeEnum | null;
   machineGroupId: string | null;
 };
-
 type WorkflowMachineGroupTransition = {
   machineGroupId: string | null;
   mergedMachineGroupIds: string[];
 };
-
 type WorkflowMachineGroupMergeSnapshot = {
   edgeMachineGroupById: Record<string, string>;
   sectionMachineGroupById: Record<string, string>;
 };
-
 function getWorkflowSectionInfo(
   state: SingleConfig,
   sectionId: string,
@@ -70,7 +65,6 @@ function getWorkflowSectionInfo(
     machineGroupId: null,
   };
 }
-
 function hasWorkflowHandles(connection: Connection): boolean {
   const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   return (
@@ -79,7 +73,6 @@ function hasWorkflowHandles(connection: Connection): boolean {
     normalizedConnection.targetHandle === STATE_MACHINE_EDGE_HANDLE_IDS.target
   );
 }
-
 export function isWorkflowHandleId(
   handleId: string | null | undefined,
 ): boolean {
@@ -89,7 +82,6 @@ export function isWorkflowHandleId(
     handleId === STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart
   );
 }
-
 function normalizeReverseStartedWorkflowConnection(
   connection: Connection,
 ): Connection {
@@ -103,7 +95,6 @@ function normalizeReverseStartedWorkflowConnection(
     targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.target,
   };
 }
-
 export function normalizeWorkflowConnectionHandles(
   connection: Connection,
 ): Connection {
@@ -123,7 +114,6 @@ export function normalizeWorkflowConnectionHandles(
           : normalizedReverseConnection.targetHandle,
   };
 }
-
 function usesSharedChatHandleOnNormalizedSource(
   connection: Connection,
   normalizedConnection: Connection,
@@ -135,7 +125,6 @@ function usesSharedChatHandleOnNormalizedSource(
       normalizedConnection.source === connection.target)
   );
 }
-
 function usesSharedChatHandleOnNormalizedTarget(
   connection: Connection,
   normalizedConnection: Connection,
@@ -147,7 +136,6 @@ function usesSharedChatHandleOnNormalizedTarget(
       normalizedConnection.target === connection.target)
   );
 }
-
 function getUniqueConnectedMachineGroupId(
   state: SingleConfig,
   sectionId: string,
@@ -167,7 +155,6 @@ function getUniqueConnectedMachineGroupId(
   const [machineGroupId] = machineGroupIds;
   return machineGroupId ?? null;
 }
-
 function resolveExistingMachineGroupIdForConnectionEndpoint(
   state: SingleConfig,
   sectionId: string,
@@ -178,7 +165,6 @@ function resolveExistingMachineGroupIdForConnectionEndpoint(
   }
   return getUniqueConnectedMachineGroupId(state, sectionId);
 }
-
 function resolveMachineGroupTransitionForConnection(
   connection: Connection,
   state: SingleConfig,
@@ -230,7 +216,6 @@ function resolveMachineGroupTransitionForConnection(
     ),
   };
 }
-
 function captureWorkflowMachineGroupMergeSnapshot(
   state: SingleConfig,
   mergedMachineGroupIds: string[],
@@ -259,7 +244,6 @@ function captureWorkflowMachineGroupMergeSnapshot(
     sectionMachineGroupById,
   };
 }
-
 function applyWorkflowMachineGroupMerge(
   state: SingleConfig,
   machineGroupId: string,
@@ -310,7 +294,6 @@ function applyWorkflowMachineGroupMerge(
     }
   }
 }
-
 function restoreWorkflowMachineGroupMergeSnapshot(
   state: SingleConfig,
   snapshot: WorkflowMachineGroupMergeSnapshot,
@@ -350,7 +333,6 @@ function restoreWorkflowMachineGroupMergeSnapshot(
     }
   }
 }
-
 function isAllowedStateMachineConnection(
   sourceType: SectionTypeEnum | null,
   targetType: SectionTypeEnum | null,
@@ -387,7 +369,6 @@ function isAllowedStateMachineConnection(
   }
   return true;
 }
-
 function createDefaultSourceFilter(
   sourceType: SectionTypeEnum | null,
 ): WorkflowSourceFilter | null {
@@ -401,7 +382,6 @@ function createDefaultSourceFilter(
     equals: null,
   };
 }
-
 function createDefaultTargetAction(
   targetType: SectionTypeEnum | null,
 ): WorkflowTargetAction | null {
@@ -422,7 +402,6 @@ function createDefaultTargetAction(
     searchEnabled: null,
   };
 }
-
 function buildStateMachineEdgeForConnection(
   connection: Connection,
   state: SingleConfig,
@@ -483,7 +462,6 @@ function buildStateMachineEdgeForConnection(
     selected: false,
   };
 }
-
 export function isValidStateMachineEdgeConnection(
   connection: Connection,
 ): boolean {
@@ -528,7 +506,6 @@ export function isValidStateMachineEdgeConnection(
       .machineGroupId !== null
   );
 }
-
 export function createStateMachineEdgeFromConnection(
   connection: Connection,
 ): void {
@@ -603,25 +580,29 @@ export function createStateMachineEdgeFromConnection(
       restoreWorkflowMachineGroupMergeSnapshot(draft, mergeSnapshot);
     },
     send: (frontendOpId) =>
-      route_create_state_machine_edge({
-        projectConfigId: getCurrProjectConfigId(),
-        id: nextEdge.id,
-        machineGroupId: nextEdge.machineGroupId,
-        sourceSectionId: nextEdge.sourceSectionId,
-        sourcePortId: nextEdge.sourcePortId,
-        targetSectionId: nextEdge.targetSectionId,
-        targetPortId: nextEdge.targetPortId,
-        sourceFilter: nextEdge.sourceFilter,
-        sourceActivationCountCondition: nextEdge.sourceActivationCountCondition,
-        targetAction: nextEdge.targetAction,
-        style: null,
-        hidden: false,
-        zIndex: 0,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        createStateMachineEdge({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            id: nextEdge.id,
+            machineGroupId: nextEdge.machineGroupId,
+            sourceSectionId: nextEdge.sourceSectionId,
+            sourcePortId: nextEdge.sourcePortId,
+            targetSectionId: nextEdge.targetSectionId,
+            targetPortId: nextEdge.targetPortId,
+            sourceFilter: nextEdge.sourceFilter,
+            sourceActivationCountCondition:
+              nextEdge.sourceActivationCountCondition,
+            targetAction: nextEdge.targetAction,
+            style: null,
+            hidden: false,
+            zIndex: 0,
+            frontendOpId,
+          },
+        } as Parameters<typeof createStateMachineEdge>[0]),
+      ),
   });
 }
-
 export function toggleStateMachineEdgeSelection(
   edgeId: string,
   multiSelect: boolean,
@@ -647,21 +628,28 @@ export function toggleStateMachineEdgeSelection(
         if (!edge) {
           return;
         }
-        return route_update_state_machine_edge({
-          projectConfigId: getCurrProjectConfigId(),
-          edge,
-          frontendOpId,
-        });
+        return callOpenAPI(
+          updateStateMachineEdge({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              edge,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateStateMachineEdge>[0]),
+        );
       }
-      return route_set_state_machine_edges({
-        projectConfigId: getCurrProjectConfigId(),
-        edges: useProjectState.getState().projectConfig.stateMachineEdges,
-        frontendOpId,
-      });
+      return callOpenAPI(
+        setStateMachineEdges({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edges: useProjectState.getState().projectConfig.stateMachineEdges,
+            frontendOpId,
+          },
+        } as Parameters<typeof setStateMachineEdges>[0]),
+      );
     },
   });
 }
-
 export function deleteSelectedStateMachineEdges(): boolean {
   if (useShareSession.getState().isDeploymentMode) {
     return false;
@@ -681,15 +669,18 @@ export function deleteSelectedStateMachineEdges(): boolean {
         );
     },
     send: (frontendOpId) =>
-      route_delete_state_machine_edges({
-        projectConfigId: getCurrProjectConfigId(),
-        edgeIds: selectedIds,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        deleteStateMachineEdges({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edgeIds: selectedIds,
+            frontendOpId,
+          },
+        } as Parameters<typeof deleteStateMachineEdges>[0]),
+      ),
   });
   return true;
 }
-
 export function replaceStateMachineEdge(nextEdge: WorkflowEdge): void {
   if (useShareSession.getState().isDeploymentMode) {
     return;
@@ -705,10 +696,14 @@ export function replaceStateMachineEdge(nextEdge: WorkflowEdge): void {
       state.projectConfig.stateMachineEdges[index] = nextEdge;
     },
     send: (frontendOpId) =>
-      route_update_state_machine_edge({
-        projectConfigId: getCurrProjectConfigId(),
-        edge: nextEdge,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        updateStateMachineEdge({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            edge: nextEdge,
+            frontendOpId,
+          },
+        } as Parameters<typeof updateStateMachineEdge>[0]),
+      ),
   });
 }

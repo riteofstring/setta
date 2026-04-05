@@ -7,6 +7,8 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
+import { setPromptTemplate } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -25,12 +27,9 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { route_set_prompt_template } from "utils/generatedEndpoints";
 import { FormatEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { resolvePromptSectionSource } from "utils/promptSectionSource";
-
 type PromptViewMode = "template" | "preview";
-
 export function PromptArea({ sectionId }: { sectionId: string }) {
   useHydrateAgenticState();
   const {
@@ -100,7 +99,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     : value;
   const linkedTemplateName =
     resolvedSource.linkedTemplate?.name || promptTemplateId || "";
-
   const errorText = useMemo(() => {
     if (
       resolvedSource.linkedTemplateMissing &&
@@ -134,11 +132,9 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     resolvedSource.isLinked,
     resolvedSource.linkedTemplateMissing,
   ]);
-
   useEffect(() => {
     setViewMode("template");
   }, [sectionId]);
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -151,7 +147,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     isDisabled: isReadOnly,
     onEscape: onEscapeFocusOnArticleDiv,
   });
-
   const debouncedSetTemplate = useCallback(
     _.debounce((nextTemplate: string) => {
       dispatchOptimisticProjectStateUpdate({
@@ -162,17 +157,20 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         },
         projectConfigId,
         send: (frontendOpId) =>
-          route_set_prompt_template({
-            projectConfigId,
-            sectionId,
-            template: nextTemplate,
-            frontendOpId,
-          }),
+          callOpenAPI(
+            setPromptTemplate({
+              body: {
+                projectConfigId,
+                sectionId,
+                template: nextTemplate,
+                frontendOpId,
+              },
+            } as Parameters<typeof setPromptTemplate>[0]),
+          ),
       });
     }, 50),
     [projectConfigId, sectionId],
   );
-
   function onChange(nextValue: string) {
     if (isReadOnly) {
       return;
@@ -180,12 +178,10 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     setPendingValue(nextValue);
     debouncedSetTemplate(nextValue);
   }
-
   const editorMaxHeight =
     viewMode === "template" && maxHeight
       ? `calc(${maxHeight} - 32px)`
       : maxHeight;
-
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
@@ -246,7 +242,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     </div>
   );
 }
-
 function PromptModeButton({
   sectionId,
   label,
@@ -276,7 +271,6 @@ function PromptModeButton({
     </button>
   );
 }
-
 function PromptPreview({
   sectionId,
   previewText,

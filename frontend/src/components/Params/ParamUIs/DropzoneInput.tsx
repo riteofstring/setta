@@ -1,7 +1,9 @@
 import {
   deleteArtifacts,
   importFilesToArtifacts,
+  setParamEnteredValue,
   updateArtifacts,
+  updateParamImplConfig,
   uploadBinary,
 } from "openapi/http";
 import { callOpenAPI } from "openapi/http/result";
@@ -47,10 +49,6 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import {
-  route_set_param_entered_value,
-  route_update_param_impl_config,
-} from "utils/generatedEndpoints";
-import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
   DropzoneModeEnum,
@@ -61,7 +59,6 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
-
 type DropzoneInputTheme = {
   wrapperBaseClassName?: string;
   dragActiveClassName?: string;
@@ -72,7 +69,6 @@ type DropzoneInputTheme = {
   attachmentSizeTextClassName?: string;
   deleteButtonClassName?: string;
 };
-
 type DropzoneInputProps = {
   sectionId?: string;
   paramInfoId?: string;
@@ -86,7 +82,6 @@ type DropzoneInputProps = {
   maxAttachments?: number | null;
   theme?: DropzoneInputTheme;
 };
-
 type DropzoneStatelessDisplayAttachment =
   | {
       kind: "file";
@@ -98,19 +93,16 @@ type DropzoneStatelessDisplayAttachment =
       name: string;
       text: string;
     };
-
 const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
 type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
-
 function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {
     return DROPZONE_STATELESS_POLICY;
   }
   return DROPZONE_STATEFUL_POLICY;
 }
-
 function notifyOversizedFiles(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
@@ -124,13 +116,10 @@ function notifyOversizedFiles(files: File[], limitLabel: string): void {
       files.length > names.length
         ? ` +${files.length - names.length} more`
         : "";
-    message = `Skipped ${files.length} files over ${limitLabel}: ${names.join(
-      ", ",
-    )}${suffix}.`;
+    message = `Skipped ${files.length} files over ${limitLabel}: ${names.join(", ")}${suffix}.`;
   }
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyReadFailures(files: File[]): void {
   if (files.length === 0) {
     return;
@@ -142,7 +131,6 @@ function notifyReadFailures(files: File[]): void {
   const message = `Failed to read ${files.length} ${noun}: ${names.join(", ")}${suffix}.`;
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyUploadFailures(files: File[]): void {
   if (files.length === 0) {
     return;
@@ -151,12 +139,9 @@ function notifyUploadFailures(files: File[]): void {
   const suffix =
     files.length > names.length ? ` +${files.length - names.length} more` : "";
   const noun = files.length === 1 ? "file" : "files";
-  const message = `Failed to upload ${files.length} ${noun}: ${names.join(
-    ", ",
-  )}${suffix}.`;
+  const message = `Failed to upload ${files.length} ${noun}: ${names.join(", ")}${suffix}.`;
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
@@ -169,17 +154,13 @@ function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   }
   const suffix =
     files.length > names.length ? ` +${files.length - names.length} more` : "";
-  const message = `Skipped ${files.length} files to stay under ${limitLabel} total payload: ${names.join(
-    ", ",
-  )}${suffix}.`;
+  const message = `Skipped ${files.length} files to stay under ${limitLabel} total payload: ${names.join(", ")}${suffix}.`;
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyDisallowedMime(files: File[], allowedLabel: string): void {
   if (files.length === 0) {
     return;
@@ -191,13 +172,11 @@ function notifyDisallowedMime(files: File[], allowedLabel: string): void {
   const message = `${prefix} ${allowedLabel}`.trim();
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function notifyInvalidStatefulValue(): void {
   const message =
     "Dropzone value is not valid JSON. Clear it before adding attachments.";
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
-
 function splitFilesBySize(
   files: File[],
   maxBytes: number,
@@ -216,11 +195,9 @@ function splitFilesBySize(
   }
   return { accepted, rejected };
 }
-
 function getUtf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
-
 function splitFilesByTotalBytes(
   files: File[],
   maxBytes: number,
@@ -241,7 +218,6 @@ function splitFilesByTotalBytes(
   }
   return { accepted, rejected };
 }
-
 export function DropzoneInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -255,7 +231,6 @@ export function DropzoneInputConfigForParam({
     paramInfoId,
     CodeObjTypeEnum.DropzoneParam,
   );
-
   function onChange(newConfig: DropzoneConfigForFrontend) {
     if (!canEditStructure) {
       return;
@@ -270,16 +245,19 @@ export function DropzoneInputConfigForParam({
         );
       },
       send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId,
-          newConfig,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          updateParamImplConfig({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              paramInfoId,
+              newConfig,
+              frontendOpId,
+            },
+          } as Parameters<typeof updateParamImplConfig>[0]),
+        ),
     });
   }
-
   return (
     <DropzoneInputConfig
       config={config}
@@ -288,7 +266,6 @@ export function DropzoneInputConfigForParam({
     />
   );
 }
-
 function DropzoneInputConfig({
   config,
   onChange,
@@ -301,7 +278,6 @@ function DropzoneInputConfig({
   function applyConfigUpdate(update: Partial<DropzoneConfigForFrontend>): void {
     onChange({ ...config, ...update });
   }
-
   const mode = config.mode ?? DropzoneModeEnum.STATEFUL;
   const placeholderValue = config.placeholder ?? "";
   let maxAttachments = "";
@@ -312,11 +288,9 @@ function DropzoneInputConfig({
   ) {
     maxAttachments = config.maxAttachments;
   }
-
   function handleModeChange(event: ChangeEvent<HTMLSelectElement>) {
     applyConfigUpdate({ mode: event.target.value as DropzoneModeEnum });
   }
-
   function handleMaxAttachmentsChange(event: ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value;
     if (raw.trim() === "") {
@@ -330,11 +304,9 @@ function DropzoneInputConfig({
     }
     applyConfigUpdate({ maxAttachments: parsed });
   }
-
   function handlePlaceholderChange(event: ChangeEvent<HTMLInputElement>) {
     applyConfigUpdate({ placeholder: event.target.value });
   }
-
   return (
     <div className="flex flex-col gap-3 text-xs text-setta-600 dark:text-setta-300">
       <label className="flex flex-col gap-1">
@@ -395,7 +367,6 @@ function DropzoneInputConfig({
     </div>
   );
 }
-
 export function DropzoneInput({
   sectionId,
   paramInfoId,
@@ -423,7 +394,6 @@ export function DropzoneInput({
     sectionId ? getCurrSectionVariantId(state, sectionId) : "",
   );
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
-
   const parsedStatefulValue = useMemo(() => {
     return parseDropzoneValue(value);
   }, [value]);
@@ -431,10 +401,8 @@ export function DropzoneInput({
     mode === DropzoneModeEnum.STATEFUL &&
     value.trim() !== "" &&
     parsedStatefulValue === null;
-
   const statefulAttachments: DropzoneStoredAttachment[] =
     parsedStatefulValue?.attachments ?? [];
-
   const attachmentLimit = useMemo(() => {
     if (maxAttachments === null || maxAttachments === undefined) {
       return null;
@@ -454,7 +422,6 @@ export function DropzoneInput({
     }
     return DROPZONE_STATELESS_DISPLAY_LIMIT;
   }, [attachmentLimit]);
-
   const displayAttachments = useMemo(() => {
     if (mode === DropzoneModeEnum.STATELESS) {
       return statelessAttachments.map((attachment, index) => ({
@@ -476,7 +443,6 @@ export function DropzoneInput({
       id: attachment.id,
     }));
   }, [mode, statelessAttachments, statefulAttachments]);
-
   function getRemainingSlots(currentCount: number): number | null {
     if (attachmentLimit === null) {
       return null;
@@ -486,19 +452,16 @@ export function DropzoneInput({
     }
     return attachmentLimit - currentCount;
   }
-
   function getCurrentCount(): number {
     if (mode === DropzoneModeEnum.STATELESS) {
       return 0;
     }
     return statefulAttachments.length;
   }
-
   const remainingSlots = getRemainingSlots(getCurrentCount());
   const canAttachMore = remainingSlots === null || remainingSlots > 0;
   const canUseServerPicker =
     !isDeploymentMode && mode === DropzoneModeEnum.STATEFUL;
-
   async function commitStatefulValue(
     updatedValue: string,
     previousValue: string,
@@ -512,14 +475,18 @@ export function DropzoneInput({
       return true;
     }
     onChange(updatedValue, { skipBackendUpdate: true });
-    const res = await route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      sectionVariantId,
-      paramInfoId,
-      value: updatedValue,
-      frontendOpId: null,
-    });
+    const res = await callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value: updatedValue,
+          frontendOpId: null,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    );
     if (res200(res)) {
       return true;
     }
@@ -535,7 +502,7 @@ export function DropzoneInput({
               type: ArtifactTypeEnum.File,
             })),
           },
-        }),
+        } as Parameters<typeof deleteArtifacts>[0]),
       );
       if (!res200(deleteRes)) {
         const deleteDetail = getErrorDetail(deleteRes.data);
@@ -547,7 +514,6 @@ export function DropzoneInput({
     onChange(previousValue, { skipBackendUpdate: true });
     return false;
   }
-
   async function handleLocalFiles(files: File[]) {
     if (isDisabled || isUploading) {
       return;
@@ -671,14 +637,14 @@ export function DropzoneInput({
       }
       const uploadResults = await Promise.allSettled(
         allowedFiles.map(async (file) => {
-          const res: BinaryUploadRouteResponse = await callOpenAPI(
+          const res = (await callOpenAPI(
             uploadBinary({
               body: {
                 durable: false,
                 file,
               },
-            }),
-          );
+            } as Parameters<typeof uploadBinary>[0]),
+          )) as BinaryUploadRouteResponse;
           if (!res200(res) || !res.data) {
             throw new Error("Upload failed");
           }
@@ -724,7 +690,7 @@ export function DropzoneInput({
             artifacts,
             uploadScope: "generic",
           },
-        }),
+        } as Parameters<typeof updateArtifacts>[0]),
       );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
@@ -750,7 +716,6 @@ export function DropzoneInput({
       setIsUploading(false);
     }
   }
-
   async function handleTextDrop(text: string) {
     if (isDisabled || isUploading) {
       return;
@@ -811,7 +776,6 @@ export function DropzoneInput({
     const previousValue = value;
     await commitStatefulValue(updatedValue, previousValue, []);
   }
-
   async function handleServerFilePaths(paths: string[]) {
     if (isDisabled || isUploading) {
       return;
@@ -844,7 +808,7 @@ export function DropzoneInput({
             paths: allowedPaths,
             uploadScope: "generic",
           },
-        }),
+        } as Parameters<typeof importFilesToArtifacts>[0]),
       );
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
@@ -874,7 +838,6 @@ export function DropzoneInput({
       setIsUploading(false);
     }
   }
-
   async function deleteFileAttachment(artifactId: string): Promise<boolean> {
     const res = await callOpenAPI(
       deleteArtifacts({
@@ -886,7 +849,7 @@ export function DropzoneInput({
             },
           ],
         },
-      }),
+      } as Parameters<typeof deleteArtifacts>[0]),
     );
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
@@ -896,7 +859,6 @@ export function DropzoneInput({
     }
     return true;
   }
-
   async function handleDeleteStatefulAttachment(
     attachmentId: string,
     attachmentKind: DropzoneStoredAttachment["kind"],
@@ -921,20 +883,17 @@ export function DropzoneInput({
       await deleteFileAttachment(attachmentId);
     }
   }
-
   function handleLocalFileInputChange(event: ChangeEvent<HTMLInputElement>) {
     const files = event.target.files ? Array.from(event.target.files) : [];
     event.target.value = "";
     void handleLocalFiles(files);
   }
-
   function openLocalFilePicker() {
     if (isDisabled || isUploading || !canAttachMore) {
       return;
     }
     fileInputRef.current?.click();
   }
-
   function openServerFilePicker() {
     if (!canUseServerPicker) {
       return;
@@ -950,7 +909,6 @@ export function DropzoneInput({
       },
     });
   }
-
   async function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     dragDepth.current = 0;
@@ -969,7 +927,6 @@ export function DropzoneInput({
       await handleTextDrop(fallbackText);
     }
   }
-
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (isDisabled) {
@@ -979,7 +936,6 @@ export function DropzoneInput({
       setIsDragActive(true);
     }
   }
-
   function handleDragEnter(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (isDisabled) {
@@ -988,7 +944,6 @@ export function DropzoneInput({
     dragDepth.current += 1;
     setIsDragActive(true);
   }
-
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     if (isDisabled) {
@@ -999,7 +954,6 @@ export function DropzoneInput({
       setIsDragActive(false);
     }
   }
-
   let label = placeholder;
   if (displayAttachments.length > 0) {
     const suffix = displayAttachments.length === 1 ? "" : "s";
@@ -1019,7 +973,6 @@ export function DropzoneInput({
   const dragActiveClassName = isDragActive ? wrapperDragActiveClassName : "";
   const wrapperClassName =
     `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${wrapperBaseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
-
   const controlsRowClassName =
     theme?.controlsRowClassName ??
     "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400";
@@ -1038,7 +991,6 @@ export function DropzoneInput({
   const deleteButtonClassName =
     theme?.deleteButtonClassName ??
     "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200";
-
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
       <input

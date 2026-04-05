@@ -1,35 +1,27 @@
 /* @vitest-environment jsdom */
-
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("components/Utils/FloatingBox", () => ({
-  getFloatingBoxHandlers: () => ({}),
-}));
-
-const routeSetSectionNameMock = vi.fn();
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_set_section_name: (...args: unknown[]) =>
-    routeSetSectionNameMock(...args),
-}));
-
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
   createVariant,
 } from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionTitle } from "./SectionTitle";
-
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: () => ({}),
+}));
+const routeSetSectionNameMock = vi.fn();
+vi.mock("openapi/http", () => ({
+  setSectionName: (...args: unknown[]) => routeSetSectionNameMock(...args),
+}));
 describe("SectionTitle", () => {
   let host: HTMLDivElement;
   let root: Root;
-
   beforeEach(() => {
     routeSetSectionNameMock.mockReset();
     resetProjectStores();
@@ -80,12 +72,10 @@ describe("SectionTitle", () => {
       };
       state.previewSectionVariantMap = {};
     });
-
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
   });
-
   afterEach(async () => {
     await act(async () => {
       root.unmount();
@@ -93,14 +83,12 @@ describe("SectionTitle", () => {
     host.remove();
     resetProjectStores();
   });
-
   it("submits duplicate section names to the backend and shows the backend error", async () => {
     routeSetSectionNameMock.mockResolvedValue({
       data: { detail: "Duplicate sibling name." },
       hasResponse: true,
       status: 400,
     });
-
     await act(async () => {
       root.render(
         <SectionTitle
@@ -113,10 +101,8 @@ describe("SectionTitle", () => {
         />,
       );
     });
-
     const title = host.querySelector("p");
     expect(title?.textContent).toBe("Alpha");
-
     await act(async () => {
       title?.dispatchEvent(
         new MouseEvent("click", { bubbles: true, detail: 1 }),
@@ -125,10 +111,8 @@ describe("SectionTitle", () => {
         new MouseEvent("click", { bubbles: true, detail: 2 }),
       );
     });
-
     const input = host.querySelector("input");
     expect(input).not.toBeNull();
-
     await act(async () => {
       const valueSetter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -137,12 +121,10 @@ describe("SectionTitle", () => {
       valueSetter?.call(input, "Beta");
       input?.dispatchEvent(new Event("input", { bubbles: true }));
     });
-
     await act(async () => {
       (input as HTMLInputElement).focus();
       (input as HTMLInputElement).blur();
     });
-
     expect(routeSetSectionNameMock).toHaveBeenCalledTimes(1);
     expect(routeSetSectionNameMock).toHaveBeenCalledWith(
       expect.objectContaining({

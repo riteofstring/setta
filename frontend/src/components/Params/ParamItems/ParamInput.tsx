@@ -1,4 +1,6 @@
 import _ from "lodash";
+import { getPasswordParamValue, setParamEnteredValue } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -16,10 +18,6 @@ import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import {
-  route_get_password_param_value,
-  route_set_param_entered_value,
-} from "utils/generatedEndpoints";
-import {
   BaseChildlessCodeObjImplUnion,
   BinaryDependencyValue,
   CodeObjTypeEnum,
@@ -31,7 +29,6 @@ import {
 import { shouldEmitRealtimeValue } from "utils/paramValue";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
 import { ParamUI } from "../ParamUIs/ParamUI";
-
 function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const previewParamState = useProjectState((x) => {
@@ -40,7 +37,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
-      true, // preview
+      true,
     );
     if (!impl) {
       return null;
@@ -49,7 +46,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       x,
       sectionId,
       paramInfoId,
-      true, // preview
+      true,
     );
     if (!codeObjVariant) {
       return null;
@@ -82,7 +79,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     return entry ? entry.value : null;
   });
   const globalValue = previewValue ?? baseValue;
-
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
@@ -103,7 +99,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     codeObjVariantId,
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
-
   // value and enteredValue should always be string
   function onChange(v, options?: ParamValueChangeOptions) {
     if (!hasPreviewParamState) {
@@ -145,7 +140,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       }
     }
   }
-
   function onRevealPassword() {
     if (
       !hasPreviewParamState ||
@@ -156,11 +150,15 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       return;
     }
     setIsRevealing(true);
-    route_get_password_param_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      paramInfoId,
-    })
+    callOpenAPI(
+      getPasswordParamValue({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+        },
+      } as Parameters<typeof getPasswordParamValue>[0]),
+    )
       .then((response) => {
         if (res200(response)) {
           setPendingValue(response.data.value);
@@ -170,7 +168,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
         setIsRevealing(false);
       });
   }
-
   function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
     if (!hasPreviewParamState || attachments.length === 0) {
       return;
@@ -224,11 +221,9 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       });
     }
   }
-
   if (!hasPreviewParamState) {
     return null;
   }
-
   return (
     <ParamUI
       key={codeObjVariantId}
@@ -243,7 +238,6 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     />
   );
 }
-
 const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, sectionVariantId, paramInfoId, codeObjVariantId, value) => {
     dispatchOptimisticProjectStateUpdate({
@@ -258,30 +252,36 @@ const debouncedSetParamEnteredValue = _.debounce(
         );
       },
       send: (frontendOpId) =>
-        route_set_param_entered_value({
+        callOpenAPI(
+          setParamEnteredValue({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              sectionVariantId,
+              paramInfoId,
+              value,
+              frontendOpId,
+            },
+          } as Parameters<typeof setParamEnteredValue>[0]),
+        ),
+    });
+  },
+  50,
+);
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId, sectionVariantId, paramInfoId, value) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           sectionVariantId,
           paramInfoId,
           value,
-          frontendOpId,
-        }),
-    });
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    );
   },
   50,
 );
-
-const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId, sectionVariantId, paramInfoId, value) => {
-    route_set_param_entered_value({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      sectionVariantId,
-      paramInfoId,
-      value,
-    });
-  },
-  50,
-);
-
 export const ParamInput = React.memo(_ParamInput);

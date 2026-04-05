@@ -5,23 +5,20 @@ import { BiErrorCircle } from "react-icons/bi";
 import { closeModal, useModalData } from "state/actions/modal";
 import { res200 } from "utils/endpointUtils";
 import { ModalTypeEnum } from "../types";
-
 export function DeleteProjectWarningModal() {
   const { selectedProjectsIdName } = useModalData(
     ModalTypeEnum.DELETE_PROJECT_WARNING,
   );
-
   const handleCancel = () => {
     closeModal();
   };
-
   const handleConfirm = async () => {
     const res = await callOpenAPI(
       deleteProjectConfigs({
         body: {
           ids: selectedProjectsIdName.map((x) => x.id),
         },
-      }),
+      } as Parameters<typeof deleteProjectConfigs>[0]),
     );
     if (res200(res)) {
       closeModal();
@@ -29,7 +26,6 @@ export function DeleteProjectWarningModal() {
     }
     closeModal();
   };
-
   return (
     <div className="mx-auto flex min-h-0 w-full flex-1 flex-col items-center">
       <header className="flex flex-col gap-2 self-start">

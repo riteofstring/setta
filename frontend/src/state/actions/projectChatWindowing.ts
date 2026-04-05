@@ -10,6 +10,11 @@ import { zoomIdentity } from "d3-zoom";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
+  setProjectChatWindowChatId as setProjectChatWindowChatIdRequest,
+  setProjectChatWindowingState,
+} from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useProjectState,
@@ -18,10 +23,6 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import {
-  route_set_project_chat_window_chat_id,
-  route_set_project_chat_windowing_state,
-} from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -53,9 +54,7 @@ import {
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import { createTopLevelSectionWithResult } from "./sections/createSections";
-
 export { clearTrackedGitPaneGraphWindowIfMatches };
-
 type CreateProjectChatWindowInstanceOptions = {
   instanceId?: string;
   placement?: ChatWindowPlacement;
@@ -66,35 +65,28 @@ type CreateProjectChatWindowInstanceOptions = {
   bounds?: ChatWindowBounds | null;
   nowMs?: number;
 };
-
 type SetDockFractionsOptions = {
   widthFractionsByInstanceId: Record<string, number>;
   dockContainerWidthPx?: number | null;
 };
-
 type SetBoundsOptions = Partial<ChatWindowBounds>;
 type SetBoundsByInstanceIdOptions = Record<string, SetBoundsOptions>;
-
 type MoveProjectChatWindowToCanvasSectionOptions = {
   sectionId: string;
   nowMs?: number;
   mode?: ChatWindowMode;
 };
-
 type UndockProjectChatWindowFromCanvasSectionOptions = {
   nowMs?: number;
 };
-
 type NormalizeResult = {
   state: ProjectChatWindowingState;
   changed: boolean;
 };
-
 type Point = {
   x: number;
   y: number;
 };
-
 type DefaultFloatingChatBoundsOptions = {
   viewportWidthPx: number;
   viewportHeightPx: number;
@@ -106,7 +98,6 @@ type DefaultFloatingChatBoundsOptions = {
   minWidthPx?: number;
   minHeightPx?: number;
 };
-
 type DefaultDockedChatHeightOptions = {
   viewportHeightPx: number;
   workspaceTopInsetPx: number;
@@ -114,7 +105,6 @@ type DefaultDockedChatHeightOptions = {
   heightViewportFraction?: number;
   minHeightPx?: number;
 };
-
 const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_WIDTH_PX =
   PROJECT_CHAT_FALLBACK_VIEWPORT_WIDTH_PX;
 const DEFAULT_FLOATING_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX =
@@ -138,13 +128,11 @@ const projectChatWindowingWriteBarrierByProjectId = new Map<
   string,
   Promise<void>
 >();
-
 function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
 ): ProjectChatWindowingState {
   return state.projectChatWindowing;
 }
-
 function canMutateProjectChatWindowingLayout(): boolean {
   const shareSession = useShareSession.getState();
   return (
@@ -152,7 +140,6 @@ function canMutateProjectChatWindowingLayout(): boolean {
     shareSession.sharePolicy?.allowLayoutChanges !== false
   );
 }
-
 function shouldSyncActiveProjectChatId(
   window: ProjectChatWindowInstance | null | undefined,
 ): boolean {
@@ -161,7 +148,6 @@ function shouldSyncActiveProjectChatId(
     window.sectionIdOrNull === null
   );
 }
-
 export function resolveDefaultFloatingChatBounds({
   viewportWidthPx,
   viewportHeightPx,
@@ -204,7 +190,6 @@ export function resolveDefaultFloatingChatBounds({
     Math.max(minHeightPx, desiredHeightPx),
     availableHeightPx,
   );
-
   return {
     x:
       sideRailWidthPx +
@@ -216,7 +201,6 @@ export function resolveDefaultFloatingChatBounds({
     height: resolvedHeightPx,
   };
 }
-
 export function resolveDefaultDockedChatHeightPx({
   viewportHeightPx,
   workspaceTopInsetPx,
@@ -243,15 +227,12 @@ export function resolveDefaultDockedChatHeightPx({
     availableHeightPx,
   );
 }
-
 function resolveFloatingWorkspaceTopInsetPx(): number {
   return resolveProjectChatFloatingWorkspaceTopInsetPx();
 }
-
 function resolveFloatingBottomInsetPx(): number {
   return resolveProjectChatFloatingBottomInsetPx();
 }
-
 function resolveDefaultFloatingChatBoundsFromRuntime(): ChatWindowBounds {
   const viewportWidthPx =
     typeof window !== "undefined"
@@ -268,7 +249,6 @@ function resolveDefaultFloatingChatBoundsFromRuntime(): ChatWindowBounds {
     bottomInsetPx: resolveFloatingBottomInsetPx(),
   });
 }
-
 function isFinitePoint(value: unknown): value is Point {
   if (!value || typeof value !== "object") {
     return false;
@@ -285,7 +265,6 @@ function isFinitePoint(value: unknown): value is Point {
   }
   return true;
 }
-
 function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
   return (
     point.x >= rect.left &&
@@ -294,7 +273,6 @@ function isScreenPointInsideRect(point: Point, rect: DOMRect): boolean {
     point.y <= rect.bottom
   );
 }
-
 function resolveProjectChatCanvasBootPosition(
   instanceId?: string,
 ): Position | null {
@@ -357,7 +335,6 @@ function resolveProjectChatCanvasBootPosition(
     y: canvasRect.top + canvasRect.height / 2,
   });
 }
-
 function resolveProjectChatWindowSurfaceRect(
   instanceId: string,
 ): DOMRect | null {
@@ -382,7 +359,6 @@ function resolveProjectChatWindowSurfaceRect(
   }
   return null;
 }
-
 function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
   const rect = resolveProjectChatWindowSurfaceRect(instanceId);
   if (!rect) {
@@ -395,7 +371,6 @@ function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
     height: Math.max(1, Math.round(rect.height / safeZoom)),
   });
 }
-
 function normalizeProjectChatWindowingOrder(
   state: ProjectChatWindowingState,
 ): NormalizeResult {
@@ -432,7 +407,6 @@ function normalizeProjectChatWindowingOrder(
     changed: true,
   };
 }
-
 function normalizeProjectChatWindowingLayering(
   state: ProjectChatWindowingState,
 ): NormalizeResult {
@@ -448,7 +422,6 @@ function normalizeProjectChatWindowingLayering(
   if (!hasDuplicateZIndex) {
     return { state, changed: false };
   }
-
   const orderIndexById = new Map(
     state.order.map((instanceId, index) => [instanceId, index] as const),
   );
@@ -492,14 +465,12 @@ function normalizeProjectChatWindowingLayering(
     changed: true,
   };
 }
-
 export function normalizeProjectChatWindowingState(
   state: ProjectChatWindowingState,
 ): ProjectChatWindowingState {
   const ordered = normalizeProjectChatWindowingOrder(state).state;
   return normalizeProjectChatWindowingLayering(ordered).state;
 }
-
 function normalizeWorkspaceProjectChatWindowInstance(
   instance: ProjectChatWindowInstance,
 ): ProjectChatWindowInstance {
@@ -514,7 +485,6 @@ function normalizeWorkspaceProjectChatWindowInstance(
     chatId: null,
   };
 }
-
 function getProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -529,14 +499,12 @@ function getProjectChatWindowInstanceForSectionInState(
   }
   return null;
 }
-
 export function getProjectChatWindowBindingForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
 ): ProjectChatWindowInstance | null {
   return getProjectChatWindowInstanceForSectionInState(state, sectionId);
 }
-
 export function getProjectChatWindowModeForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -550,7 +518,6 @@ export function getProjectChatWindowModeForSectionInState(
   }
   return boundInstance.mode;
 }
-
 export function ensureTrackedGitPaneGraphWindow({
   title = "Git Graph",
   nowMs = Date.now(),
@@ -569,7 +536,6 @@ export function ensureTrackedGitPaneGraphWindow({
     currentWindowing,
     projectConfigId,
   );
-
   if (trackedInstanceId) {
     dispatchProjectChatWindowingMutation((latestWindowing) => {
       let next = reopenProjectChatWindowInState(
@@ -596,7 +562,6 @@ export function ensureTrackedGitPaneGraphWindow({
     });
     return trackedInstanceId;
   }
-
   const created = addProjectChatWindowInstanceInState(currentWindowing, {
     placement: ChatWindowPlacementEnum.floating,
     mode: ChatWindowModeEnum.git_graph_mode,
@@ -623,7 +588,6 @@ export function ensureTrackedGitPaneGraphWindow({
   setTrackedGitPaneGraphWindowInstanceId(projectConfigId, created.instanceId);
   return created.instanceId;
 }
-
 export function getOpenExternalProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -636,7 +600,6 @@ export function getOpenExternalProjectChatWindowInstanceForSectionInState(
     },
   );
 }
-
 export function getExternalProjectChatWindowBindingForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -649,11 +612,14 @@ export function getExternalProjectChatWindowBindingForSectionInState(
     },
   );
 }
-
 function getExternalProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
-  { visibleOnly }: { visibleOnly: boolean },
+  {
+    visibleOnly,
+  }: {
+    visibleOnly: boolean;
+  },
 ): ProjectChatWindowInstance | null {
   const normalized = normalizeProjectChatWindowingOrder(state).state;
   for (const instanceId of normalized.order) {
@@ -671,7 +637,6 @@ function getExternalProjectChatWindowInstanceForSectionInState(
   }
   return null;
 }
-
 function getNextWindowInstanceId(state: ProjectChatWindowingState): {
   instanceId: string;
   nextInstanceNumber: number;
@@ -688,7 +653,6 @@ function getNextWindowInstanceId(state: ProjectChatWindowingState): {
     nextInstanceNumber += 1;
   }
 }
-
 function getHighestWindowZIndex(state: ProjectChatWindowingState): number {
   let maxZIndex = 0;
   for (const instance of Object.values(state.instancesById)) {
@@ -698,7 +662,6 @@ function getHighestWindowZIndex(state: ProjectChatWindowingState): number {
   }
   return maxZIndex;
 }
-
 function buildNextWindowInstances(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -717,7 +680,6 @@ function buildNextWindowInstances(
     [instanceId]: next,
   };
 }
-
 function withUpdatedWindow(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -736,7 +698,6 @@ function withUpdatedWindow(
     instancesById: nextInstancesById,
   };
 }
-
 export function addProjectChatWindowInstanceInState(
   state: ProjectChatWindowingState,
   {
@@ -808,7 +769,6 @@ export function addProjectChatWindowInstanceInState(
     },
   };
 }
-
 export function setProjectChatWindowPlacementInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -836,7 +796,6 @@ export function setProjectChatWindowPlacementInState(
     };
   });
 }
-
 function setProjectChatWindowModeInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -852,7 +811,6 @@ function setProjectChatWindowModeInState(
     };
   });
 }
-
 export function maximizeProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -873,7 +831,6 @@ export function maximizeProjectChatWindowInState(
     };
   });
 }
-
 export function unmaximizeProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -894,7 +851,6 @@ export function unmaximizeProjectChatWindowInState(
     };
   });
 }
-
 export function closeProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -910,7 +866,6 @@ export function closeProjectChatWindowInState(
     };
   });
 }
-
 export function minimizeProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -926,7 +881,6 @@ export function minimizeProjectChatWindowInState(
     };
   });
 }
-
 export function reopenProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -942,7 +896,6 @@ export function reopenProjectChatWindowInState(
     };
   });
 }
-
 export function focusProjectChatWindowInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -970,7 +923,6 @@ export function focusProjectChatWindowInState(
     };
   });
 }
-
 export function setProjectChatWindowDockFractionsInState(
   state: ProjectChatWindowingState,
   {
@@ -1015,7 +967,6 @@ export function setProjectChatWindowDockFractionsInState(
     };
     changed = true;
   }
-
   if (!changed || !nextInstancesById) {
     return state;
   }
@@ -1024,7 +975,6 @@ export function setProjectChatWindowDockFractionsInState(
     instancesById: nextInstancesById,
   };
 }
-
 export function setProjectChatWindowBoundsInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -1033,7 +983,6 @@ export function setProjectChatWindowBoundsInState(
   return withUpdatedWindow(state, instanceId, (current) => {
     let changed = false;
     const nextBounds: ChatWindowBounds = { ...current.bounds };
-
     if (
       typeof bounds.x === "number" &&
       Number.isFinite(bounds.x) &&
@@ -1068,7 +1017,6 @@ export function setProjectChatWindowBoundsInState(
       nextBounds.height = bounds.height;
       changed = true;
     }
-
     if (!changed) {
       return current;
     }
@@ -1078,7 +1026,6 @@ export function setProjectChatWindowBoundsInState(
     };
   });
 }
-
 export function setProjectChatWindowBoundsByIdInState(
   state: ProjectChatWindowingState,
   boundsByInstanceId: SetBoundsByInstanceIdOptions,
@@ -1093,7 +1040,6 @@ export function setProjectChatWindowBoundsByIdInState(
   }
   return nextState;
 }
-
 export function moveProjectChatWindowToCanvasSectionInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -1135,7 +1081,6 @@ export function moveProjectChatWindowToCanvasSectionInState(
   );
   return focusProjectChatWindowInState(withOpenWindow, instanceId, nowMs);
 }
-
 export function undockProjectChatWindowFromCanvasSectionInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -1162,7 +1107,6 @@ export function undockProjectChatWindowFromCanvasSectionInState(
   );
   return focusProjectChatWindowInState(withOpenWindow, instanceId, nowMs);
 }
-
 export function setProjectChatWindowModeForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -1190,7 +1134,6 @@ export function setProjectChatWindowModeForSectionInState(
   }
   return setProjectChatWindowModeInState(state, boundInstance.instanceId, mode);
 }
-
 export function showSectionInProjectChatWindowInState(
   state: ProjectChatWindowingState,
   sectionId: string,
@@ -1217,7 +1160,6 @@ export function showSectionInProjectChatWindowInState(
       nowMs,
     }).state;
   }
-
   let next = setProjectChatWindowPlacementInState(
     state,
     boundInstance.instanceId,
@@ -1253,7 +1195,6 @@ export function showSectionInProjectChatWindowInState(
   });
   return focusProjectChatWindowInState(next, boundInstance.instanceId, nowMs);
 }
-
 export function setProjectChatWindowTitleInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -1274,7 +1215,6 @@ export function setProjectChatWindowTitleInState(
     };
   });
 }
-
 function setProjectChatWindowChatIdInState(
   state: ProjectChatWindowingState,
   instanceId: string,
@@ -1294,7 +1234,6 @@ function setProjectChatWindowChatIdInState(
     };
   });
 }
-
 export function getVisibleProjectChatWindowInstances(
   state: ProjectChatWindowingState,
 ): ProjectChatWindowInstance[] {
@@ -1309,55 +1248,45 @@ export function getVisibleProjectChatWindowInstances(
   }
   return visible;
 }
-
 type ProjectChatWindowingStoreOptions = {
   syncActiveChatId?: string | undefined;
   nextGitPaneVisibleInstanceIds?: Array<string> | undefined;
 };
-
 type ProjectChatWindowingSend = (
   projectConfigId: string,
   frontendOpId: string,
   nextProjectChatWindowing: ProjectChatWindowingState,
 ) => Promise<ProjectChatWindowingTrackedResponse>;
-
 type ProjectChatWindowingMutationResult = {
   nextProjectChatWindowing: ProjectChatWindowingState;
   alwaysSend?: boolean;
   options?: ProjectChatWindowingStoreOptions;
   send?: ProjectChatWindowingSend;
 };
-
 type ProjectChatWindowingMutation = (
   currentWindowing: ProjectChatWindowingState,
 ) => ProjectChatWindowingMutationResult;
-
 type PendingProjectChatWindowingMutation = {
   alwaysSend: boolean;
   mutation: ProjectChatWindowingMutation;
   opId: string;
   send: ProjectChatWindowingSend;
 };
-
 type ProjectChatWindowingWriteResponse =
   ResponseDataAndStatus<ProjectChatWindowingState>;
-
 type SyntheticProjectChatWindowingWriteResponse =
   ProjectChatWindowingWriteResponse & {
     data: ProjectChatWindowingState;
     hasResponse: true;
     status: 200;
   };
-
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse
   | SyntheticProjectChatWindowingWriteResponse;
-
 type ProjectChatWindowingSnapshotForMutation = {
   authoritativeWindowing: ProjectChatWindowingState;
   nextProjectChatWindowing: ProjectChatWindowingState;
 };
-
 function getPendingProjectChatWindowingMutations(
   projectConfigId: string,
 ): Array<PendingProjectChatWindowingMutation> {
@@ -1365,7 +1294,6 @@ function getPendingProjectChatWindowingMutations(
     pendingProjectChatWindowingMutationsByProjectId.get(projectConfigId) ?? []
   );
 }
-
 function applyProjectChatWindowingEphemeralState(
   projectConfigId: string,
   nextProjectChatWindowing: ProjectChatWindowingState,
@@ -1382,7 +1310,6 @@ function applyProjectChatWindowingEphemeralState(
     projectConfigId,
   );
 }
-
 function restoreProjectChatWindowingEphemeralState(
   projectConfigId: string,
   previousProjectChatWindowing: ProjectChatWindowingState,
@@ -1397,7 +1324,6 @@ function restoreProjectChatWindowingEphemeralState(
     projectConfigId,
   );
 }
-
 function enqueueProjectChatWindowingWrite<T extends Promise<unknown>>(
   request: T,
 ): T {
@@ -1407,7 +1333,6 @@ function enqueueProjectChatWindowingWrite<T extends Promise<unknown>>(
   });
   return request;
 }
-
 function primeAuthoritativeProjectChatWindowingState(
   projectConfigId: string,
   projectChatWindowing: ProjectChatWindowingState,
@@ -1420,7 +1345,6 @@ function primeAuthoritativeProjectChatWindowingState(
     projectChatWindowing,
   );
 }
-
 function addPendingProjectChatWindowingMutation(
   projectConfigId: string,
   pendingMutation: PendingProjectChatWindowingMutation,
@@ -1430,7 +1354,6 @@ function addPendingProjectChatWindowingMutation(
     pendingMutation,
   ]);
 }
-
 function removePendingProjectChatWindowingMutation(
   projectConfigId: string,
   opId: string,
@@ -1448,7 +1371,6 @@ function removePendingProjectChatWindowingMutation(
     remainingMutations,
   );
 }
-
 function buildProjectChatWindowingSnapshotForMutation(
   projectConfigId: string,
   opId: string,
@@ -1479,7 +1401,6 @@ function buildProjectChatWindowingSnapshotForMutation(
     nextProjectChatWindowing,
   };
 }
-
 function getPendingProjectChatWindowingMutationsAfter(
   projectConfigId: string,
   opId: string,
@@ -1494,7 +1415,6 @@ function getPendingProjectChatWindowingMutationsAfter(
   }
   return pendingMutations.slice(acknowledgedMutationIndex + 1);
 }
-
 function publishAuthoritativeProjectChatWindowingState(
   projectConfigId: string,
   acknowledgedOpId: string,
@@ -1507,7 +1427,6 @@ function publishAuthoritativeProjectChatWindowingState(
   if (useProjectState.getState().projectConfig.id !== projectConfigId) {
     return;
   }
-
   const pendingMutations = getPendingProjectChatWindowingMutationsAfter(
     projectConfigId,
     acknowledgedOpId,
@@ -1531,19 +1450,21 @@ function publishAuthoritativeProjectChatWindowingState(
     }
   });
 }
-
 function sendProjectChatWindowingSnapshot(
   projectConfigId: string,
   frontendOpId: string,
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): Promise<ProjectChatWindowingWriteResponse> {
-  return route_set_project_chat_windowing_state({
-    projectConfigId,
-    state: nextProjectChatWindowing,
-    frontendOpId,
-  });
+  return callOpenAPI(
+    setProjectChatWindowingState({
+      body: {
+        projectConfigId,
+        state: nextProjectChatWindowing,
+        frontendOpId,
+      },
+    } as Parameters<typeof setProjectChatWindowingState>[0]),
+  );
 }
-
 function buildSyntheticProjectChatWindowingWriteResponse(
   projectConfigId: string,
 ): SyntheticProjectChatWindowingWriteResponse {
@@ -1555,7 +1476,6 @@ function buildSyntheticProjectChatWindowingWriteResponse(
     hasResponse: true,
   };
 }
-
 function createProjectChatWindowingWriteBarrier(
   request: Promise<unknown>,
 ): Promise<void> {
@@ -1571,7 +1491,6 @@ function createProjectChatWindowingWriteBarrier(
       () => undefined,
     );
 }
-
 function enqueueSerializedProjectChatWindowingWrite(
   projectConfigId: string,
   opId: string,
@@ -1623,7 +1542,6 @@ function enqueueSerializedProjectChatWindowingWrite(
   projectChatWindowingWriteBarrierByProjectId.set(projectConfigId, barrier);
   return enqueueProjectChatWindowingWrite(request);
 }
-
 function applyProjectChatWindowingMutation(
   currentWindowing: ProjectChatWindowingState,
   projectConfigId: string | null,
@@ -1658,7 +1576,6 @@ function applyProjectChatWindowingMutation(
     options,
   };
 }
-
 function applyProjectChatWindowingMutationToState(
   state: ZustandProjectState,
   projectConfigId: string,
@@ -1684,7 +1601,6 @@ function applyProjectChatWindowingMutationToState(
     });
   }
 }
-
 function dispatchProjectChatWindowingMutation(
   mutation: ProjectChatWindowingMutation,
 ): void {
@@ -1722,7 +1638,6 @@ function dispatchProjectChatWindowingMutation(
     projectConfigId,
     previousProjectChatWindowing,
   );
-
   dispatchOptimisticProjectStateUpdate({
     projectConfigId,
     apply: (state) =>
@@ -1763,7 +1678,6 @@ function dispatchProjectChatWindowingMutation(
       ),
   });
 }
-
 function applyProjectChatWindowingMutationLocally(
   nextProjectChatWindowing: ProjectChatWindowingState,
   options: ProjectChatWindowingStoreOptions = {},
@@ -1791,13 +1705,11 @@ function applyProjectChatWindowingMutationLocally(
     });
   }
 }
-
 export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
   while (pendingProjectChatWindowingWrites.size > 0) {
     await Promise.allSettled([...pendingProjectChatWindowingWrites]);
   }
 }
-
 export async function syncProjectChatWindowingState() {
   const projectConfigId = getCurrProjectConfigId();
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -1821,7 +1733,6 @@ export async function syncProjectChatWindowingState() {
     send: sendProjectChatWindowingSnapshot,
   });
 }
-
 export function replaceProjectChatWindowingState(
   nextProjectChatWindowing: ProjectChatWindowingState,
   options: ProjectChatWindowingStoreOptions = {},
@@ -1834,7 +1745,6 @@ export function replaceProjectChatWindowingState(
     options,
   }));
 }
-
 export function createProjectChatWindowInstance(
   options: CreateProjectChatWindowInstanceOptions = {},
 ): string {
@@ -1855,7 +1765,6 @@ export function createProjectChatWindowInstance(
   }));
   return next.instanceId;
 }
-
 export function setProjectChatWindowPlacement(
   instanceId: string,
   placement: ChatWindowPlacement,
@@ -1875,7 +1784,6 @@ export function setProjectChatWindowPlacement(
     ),
   }));
 }
-
 export function maximizeProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
@@ -1887,7 +1795,6 @@ export function maximizeProjectChatWindow(instanceId: string): void {
     ),
   }));
 }
-
 export function unmaximizeProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
@@ -1902,7 +1809,6 @@ export function unmaximizeProjectChatWindow(instanceId: string): void {
     ),
   }));
 }
-
 export function closeProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
@@ -1915,7 +1821,6 @@ export function closeProjectChatWindow(instanceId: string): void {
     ),
   }));
 }
-
 export function minimizeProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
@@ -1928,7 +1833,6 @@ export function minimizeProjectChatWindow(instanceId: string): void {
     ),
   }));
 }
-
 export function reopenProjectChatWindow(instanceId: string): void {
   const currentWindowing = getProjectChatWindowingStateFromStore(
     useProjectState.getState(),
@@ -1951,7 +1855,6 @@ export function reopenProjectChatWindow(instanceId: string): void {
     ),
   }));
 }
-
 export function focusProjectChatWindow(
   instanceId: string,
   nowMs: number = Date.now(),
@@ -1995,7 +1898,6 @@ export function focusProjectChatWindow(
     };
   });
 }
-
 export function setProjectChatWindowDockFractions(
   options: SetDockFractionsOptions,
 ): void {
@@ -2009,7 +1911,6 @@ export function setProjectChatWindowDockFractions(
     ),
   }));
 }
-
 export function setProjectChatWindowBounds(
   instanceId: string,
   bounds: SetBoundsOptions,
@@ -2026,7 +1927,6 @@ export function setProjectChatWindowBounds(
     ),
   }));
 }
-
 export function setProjectChatWindowBoundsById(
   boundsByInstanceId: SetBoundsByInstanceIdOptions,
 ): void {
@@ -2044,7 +1944,6 @@ export function setProjectChatWindowBoundsById(
     ),
   }));
 }
-
 export function setProjectChatWindowTitle(
   instanceId: string,
   title: string | null,
@@ -2060,7 +1959,6 @@ export function setProjectChatWindowTitle(
     ),
   }));
 }
-
 export function setProjectChatWindowChatId(
   instanceId: string,
   chatId: string | null | undefined,
@@ -2077,12 +1975,16 @@ export function setProjectChatWindowChatId(
     return {
       nextProjectChatWindowing,
       send: (projectConfigId, frontendOpId) =>
-        route_set_project_chat_window_chat_id({
-          projectConfigId,
-          instanceId,
-          chatId: normalizedChatId,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setProjectChatWindowChatIdRequest({
+            body: {
+              projectConfigId,
+              instanceId,
+              chatId: normalizedChatId,
+              frontendOpId,
+            },
+          } as Parameters<typeof setProjectChatWindowChatIdRequest>[0]),
+        ),
       options: shouldSyncActiveProjectChatId(updatedWindow)
         ? {
             syncActiveChatId: updatedWindow?.chatId ?? undefined,
@@ -2091,7 +1993,6 @@ export function setProjectChatWindowChatId(
     };
   });
 }
-
 export async function bootProjectChatWindowToCanvasSection(
   instanceId: string,
 ): Promise<string | null> {
@@ -2107,7 +2008,6 @@ export async function bootProjectChatWindowToCanvasSection(
   if (currentInstance.mode === ChatWindowModeEnum.git_graph_mode) {
     return null;
   }
-
   let sectionId = currentInstance.sectionIdOrNull;
   const canvasSectionSize = sectionId
     ? null
@@ -2136,7 +2036,6 @@ export async function bootProjectChatWindowToCanvasSection(
     }
     sectionId = created.sectionId;
   }
-
   const latestWindowing = getProjectChatWindowingStateFromStore(
     useProjectState.getState(),
   );
@@ -2144,7 +2043,6 @@ export async function bootProjectChatWindowToCanvasSection(
   if (!latestInstance) {
     return sectionId;
   }
-
   const next = moveProjectChatWindowToCanvasSectionInState(
     latestWindowing,
     instanceId,
@@ -2167,7 +2065,6 @@ export async function bootProjectChatWindowToCanvasSection(
   }
   return sectionId;
 }
-
 export function showSectionInProjectChatWindow(
   sectionId: string,
   placement: ChatWindowPlacement = ChatWindowPlacementEnum.floating,
@@ -2199,7 +2096,6 @@ export function showSectionInProjectChatWindow(
     ),
   }));
 }
-
 export function undockProjectChatWindowFromCanvasSection(
   instanceId: string,
 ): void {
@@ -2229,7 +2125,6 @@ export function undockProjectChatWindowFromCanvasSection(
     ),
   }));
 }
-
 export function setProjectChatWindowModeForSection(
   sectionId: string,
   mode: ChatWindowMode,

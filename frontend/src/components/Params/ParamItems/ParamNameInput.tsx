@@ -1,6 +1,8 @@
 import { useParamDuplicateIndex } from "components/Params/ParamDuplicateIndexContext";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
+import { setCodeObjDisplayName, setCodeObjName } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -25,17 +27,12 @@ import {
 } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
-  route_set_code_obj_display_name,
-  route_set_code_obj_name,
-} from "utils/generatedEndpoints";
-import {
   isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   ProjectCodegenLanguageEnum,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
-
 type ParamNameInputProps = {
   border: string;
   bg: string;
@@ -44,7 +41,6 @@ type ParamNameInputProps = {
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
 };
-
 function getParamNameDuplicateError(
   paramInfoId: string,
   value: string,
@@ -74,7 +70,6 @@ function getParamNameDuplicateError(
   }
   return `Param name "${normalized}" already exists under this parent.`;
 }
-
 export function ParamNameInput({
   border,
   bg,
@@ -124,7 +119,6 @@ export function ParamNameInput({
   const pythonCodegenEnabled = paramNameState?.pythonCodegenEnabled ?? false;
   const showParamDisplayNames = paramNameState?.showParamDisplayNames ?? false;
   const topLevelParamId = paramNameState?.topLevelParamId ?? null;
-
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
   const value = useDisplayName ? displayName : name;
@@ -182,7 +176,6 @@ export function ParamNameInput({
   useEffect(() => {
     setInputValue(value);
   }, [value]);
-
   const updateBubblePosition = useCallback(() => {
     if (!hasError) {
       return;
@@ -225,14 +218,12 @@ export function ParamNameInput({
       visible: true,
     });
   }, [dummyDivId, hasError, realDivId]);
-
   useLayoutEffect(() => {
     if (!hasError) {
       return;
     }
     updateBubblePosition();
   }, [combinedErrorMessage, hasError, updateBubblePosition]);
-
   useEffect(() => {
     if (!hasError) {
       return;
@@ -247,7 +238,6 @@ export function ParamNameInput({
       window.removeEventListener("resize", handleScrollOrResize);
     };
   }, [hasError, updateBubblePosition]);
-
   function onChange(v: string) {
     setInputValue(v);
     if (!hasParamNameState || !canEditStructure) {
@@ -271,7 +261,6 @@ export function ParamNameInput({
     }
     debouncedSetParamName(paramInfoId, v);
   }
-
   function onBlur() {
     if (!hasParamNameState) {
       setInputValue(value);
@@ -304,21 +293,17 @@ export function ParamNameInput({
       setInputValue(value);
     }
   }
-
   function onEscape(completionResult) {
     if (!completionResult) {
       focusOnSection(null, sectionId, false);
     }
   }
-
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
   const isDisabled = !hasParamNameState || !canEditStructure;
-
   if (!hasParamNameState) {
     return null;
   }
-
   return (
     <div className="contents">
       <TextInputCodeMirror
@@ -365,7 +350,6 @@ export function ParamNameInput({
     </div>
   );
 }
-
 const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
   const normalizedName = name.trim();
   const previousName =
@@ -389,15 +373,18 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
       codeObj.name = previousName;
     },
     send: (frontendOpId) =>
-      route_set_code_obj_name({
-        projectConfigId: getCurrProjectConfigId(),
-        codeObjId,
-        name: normalizedName,
-        frontendOpId,
-      }),
+      callOpenAPI(
+        setCodeObjName({
+          body: {
+            projectConfigId: getCurrProjectConfigId(),
+            codeObjId,
+            name: normalizedName,
+            frontendOpId,
+          },
+        } as Parameters<typeof setCodeObjName>[0]),
+      ),
   });
 }, 200);
-
 const debouncedSetParamDisplayName = _.debounce(
   (codeObjId: string, displayName: string) => {
     let nextDisplayName = displayName;
@@ -413,12 +400,16 @@ const debouncedSetParamDisplayName = _.debounce(
         codeObj.displayName = nextDisplayName;
       },
       send: (frontendOpId) =>
-        route_set_code_obj_display_name({
-          projectConfigId: getCurrProjectConfigId(),
-          codeObjId,
-          displayName: nextDisplayName,
-          frontendOpId,
-        }),
+        callOpenAPI(
+          setCodeObjDisplayName({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              codeObjId,
+              displayName: nextDisplayName,
+              frontendOpId,
+            },
+          } as Parameters<typeof setCodeObjDisplayName>[0]),
+        ),
     });
   },
   200,

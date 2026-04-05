@@ -1,5 +1,8 @@
 /* @vitest-environment jsdom */
-
+import {
+  setListRootViewMode,
+  setParentDefaultChildSectionType,
+} from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
@@ -16,56 +19,43 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual = await import("openapi/http");
   return {
     ...actual,
-    route_set_parent_default_child_section_type: vi.fn(async () => ({
+    setParentDefaultChildSectionType: vi.fn(async () => ({
       data: null,
       response: new Response("null", { status: 200 }),
       status: 200,
     })),
-    route_set_list_root_view_mode: vi.fn(async () => ({
+    setListRootViewMode: vi.fn(async () => ({
       data: null,
       response: new Response("null", { status: 200 }),
       status: 200,
     })),
   };
 });
-
-import {
-  route_set_list_root_view_mode,
-  route_set_parent_default_child_section_type,
-} from "utils/generatedEndpoints";
-
 const mockedRouteSetParentDefaultChildSectionType = vi.mocked(
-  route_set_parent_default_child_section_type,
+  setParentDefaultChildSectionType,
 );
-const mockedRouteSetListRootViewMode = vi.mocked(route_set_list_root_view_mode);
-
+const mockedRouteSetListRootViewMode = vi.mocked(setListRootViewMode);
 type RenderedChildDefaultsSettings = {
   host: HTMLDivElement;
   root: Root;
 };
-
 async function renderChildDefaultsSettings(sectionId: string) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-
   await act(async () => {
     root.render(<ChildDefaultsSettings sectionId={sectionId} />);
   });
-
   return { host, root } satisfies RenderedChildDefaultsSettings;
 }
-
 describe("ChildDefaultsSettings", () => {
   const sectionId = "list-root-section";
   const variantId = "list-root-variant";
   const implId = "list-root-impl";
-
   const sectionCore: Core = {
     id: sectionId,
     name: "ListRoot",
@@ -75,7 +65,6 @@ describe("ChildDefaultsSettings", () => {
     sharedModifier: {},
     unsharedKeys: [],
   };
-
   const sectionVariant: Variant = {
     id: variantId,
     name: "Variant",
@@ -84,7 +73,6 @@ describe("ChildDefaultsSettings", () => {
     modifier: {},
     isFrozen: false,
   };
-
   beforeEach(() => {
     resetProjectStores();
     mockedRouteSetParentDefaultChildSectionType.mockReset();
@@ -117,31 +105,25 @@ describe("ChildDefaultsSettings", () => {
       state.shownParamIds = {};
     });
   });
-
   afterEach(() => {
     resetProjectStores();
     mockedRouteSetParentDefaultChildSectionType.mockReset();
     mockedRouteSetListRootViewMode.mockReset();
     document.body.innerHTML = "";
   });
-
   it("posts default child-type and view-mode updates through the canonical endpoints", async () => {
     const { host, root } = await renderChildDefaultsSettings(sectionId);
-
     try {
       const selects = host.querySelectorAll<HTMLSelectElement>("select");
       if (selects.length !== 2) {
         throw new Error(`Expected 2 selects, got ${selects.length}`);
       }
-
       const childTypeSelect = selects[0];
       const viewModeSelect = selects[1];
-
       await act(async () => {
         childTypeSelect.value = SectionTypeEnum.Dict;
         childTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
       });
-
       expect(mockedRouteSetParentDefaultChildSectionType).toHaveBeenCalledWith(
         expect.objectContaining({
           projectConfigId: "project-1",
@@ -153,12 +135,10 @@ describe("ChildDefaultsSettings", () => {
         getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
           .defaultChildSectionType,
       ).toBe(SectionTypeEnum.Dict);
-
       await act(async () => {
         viewModeSelect.value = ListRootViewModeEnum.kanban;
         viewModeSelect.dispatchEvent(new Event("change", { bubbles: true }));
       });
-
       expect(mockedRouteSetListRootViewMode).toHaveBeenCalledWith(
         expect.objectContaining({
           projectConfigId: "project-1",

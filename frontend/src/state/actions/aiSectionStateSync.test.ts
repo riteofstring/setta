@@ -1,11 +1,11 @@
 import {
   getExternalAgentChat as apiGetExternalAgentChat,
   getLlmChat as apiGetLlmChat,
+  setChatSectionState,
 } from "openapi/http";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { markChatStreamActive } from "state/aiStreamingTracker";
 import { resetProjectStores } from "state/utils";
-import { route_set_chat_section_state } from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
   LLMConfig,
@@ -27,12 +27,10 @@ import {
   it,
   vi,
 } from "vitest";
-
 let getExternalAgentChat: typeof import("./ai").getExternalAgentChat;
 let getLLMChat: typeof import("./ai").getLLMChat;
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useProjectState: typeof import("state/definitions").useProjectState;
-
 vi.mock("openapi/http", async () => {
   const actual =
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
@@ -42,33 +40,27 @@ vi.mock("openapi/http", async () => {
     getExternalAgentChat: vi.fn(),
   };
 });
-
 vi.mock("openapi/http/result", () => ({
   callOpenAPI: function <T>(promise: Promise<T>) {
     return promise;
   },
 }));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_set_chat_section_state: vi.fn(),
+    setChatSectionState: vi.fn(),
   };
 });
-
 const mockedRouteGetLLMChat = vi.mocked(apiGetLlmChat);
 const mockedRouteGetExternalAgentChat = vi.mocked(apiGetExternalAgentChat);
-const mockedRouteSetChatSectionState = vi.mocked(route_set_chat_section_state);
-
+const mockedRouteSetChatSectionState = vi.mocked(setChatSectionState);
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
 const chatId = "chat-1";
-
 function seedChatSection() {
   const sectionCore = createCore({
     id: sectionId,
@@ -101,10 +93,8 @@ function seedChatSection() {
     state.previewSectionVariantMap = {};
   });
 }
-
 describe("chat history sync to section state", () => {
   let memoryStorage: Storage;
-
   beforeAll(async () => {
     const storage = new Map<string, string>();
     memoryStorage = {
@@ -123,8 +113,11 @@ describe("chat history sync to section state", () => {
         return storage.size;
       },
     };
-    (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
-
+    (
+      globalThis as {
+        localStorage?: Storage;
+      }
+    ).localStorage = memoryStorage;
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     useProjectState = definitions.useProjectState;
@@ -132,7 +125,6 @@ describe("chat history sync to section state", () => {
     getExternalAgentChat = ai.getExternalAgentChat;
     getLLMChat = ai.getLLMChat;
   });
-
   beforeEach(() => {
     resetProjectStores();
     useAIStore.persist.setOptions({
@@ -144,17 +136,18 @@ describe("chat history sync to section state", () => {
     });
     seedChatSection();
   });
-
   afterEach(() => {
     resetProjectStores();
     memoryStorage.clear();
     vi.clearAllMocks();
   });
-
   afterAll(() => {
-    delete (globalThis as { localStorage?: Storage }).localStorage;
+    delete (
+      globalThis as {
+        localStorage?: Storage;
+      }
+    ).localStorage;
   });
-
   it("syncs external agent chat history to section state", async () => {
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
@@ -179,9 +172,7 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -205,7 +196,6 @@ describe("chat history sync to section state", () => {
     );
     expect(persistedCall).toBeDefined();
   });
-
   it("syncs LLM chat history to section state", async () => {
     const llmConfig: LLMConfig = {
       id: "llm-1",
@@ -241,9 +231,7 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     await getLLMChat(chatId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -272,7 +260,6 @@ describe("chat history sync to section state", () => {
       "tool-1": `{"task":"Hello"}`,
     });
   });
-
   it("replaces local thought text with backend-authoritative hydrate during active LLM streams", async () => {
     const llmConfig: LLMConfig = {
       id: "llm-1",
@@ -314,7 +301,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -339,9 +325,7 @@ describe("chat history sync to section state", () => {
       impl.waitingForResponse = true;
     });
     markChatStreamActive(chatId, sectionId);
-
     await getLLMChat(chatId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -375,7 +359,6 @@ describe("chat history sync to section state", () => {
       }),
     ]);
   });
-
   it("replaces section messages with backend history while preserving explicit stream overlays", async () => {
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
@@ -400,7 +383,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -418,9 +400,7 @@ describe("chat history sync to section state", () => {
       impl.toolCallArguments = { local: "{}" };
     });
     markChatStreamActive(chatId, sectionId);
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -445,7 +425,6 @@ describe("chat history sync to section state", () => {
       remote: "{}",
     });
   });
-
   it("keeps local-only section tool call overlays but lets backend win for overlapping ids during active-stream hydrate", async () => {
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
@@ -473,7 +452,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -494,9 +472,7 @@ describe("chat history sync to section state", () => {
       };
     });
     markChatStreamActive(chatId, sectionId);
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -522,7 +498,6 @@ describe("chat history sync to section state", () => {
       localOnly: `{"task":"Still local only"}`,
     });
   });
-
   it("syncs the active section branch to hydrated backend messages without rewriting inactive branches", async () => {
     const authoritativeMessage = {
       id: "msg-remote-branch",
@@ -546,7 +521,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -597,9 +571,7 @@ describe("chat history sync to section state", () => {
       impl.toolCallArguments = { local: "{}" };
     });
     markChatStreamActive(chatId, sectionId);
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -643,7 +615,6 @@ describe("chat history sync to section state", () => {
       },
     ]);
   });
-
   it("drops local-only section messages after hydrate when stream is inactive", async () => {
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
@@ -668,7 +639,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -683,9 +653,7 @@ describe("chat history sync to section state", () => {
         },
       ];
     });
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -695,7 +663,6 @@ describe("chat history sync to section state", () => {
       "msg-remote-only",
     ]);
   });
-
   it("replaces tool call arguments when not streaming", async () => {
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 200,
@@ -720,7 +687,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -728,9 +694,7 @@ describe("chat history sync to section state", () => {
       }
       impl.toolCallArguments = { local: "{}" };
     });
-
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,
@@ -746,7 +710,6 @@ describe("chat history sync to section state", () => {
     }
     expect(persistedCall[0].state.toolCallArguments).toEqual({ remote: "{}" });
   });
-
   it("clears stale llm tool call arguments when hydrate is not streaming", async () => {
     const llmConfig: LLMConfig = {
       id: "llm-1",
@@ -781,7 +744,6 @@ describe("chat history sync to section state", () => {
       hasResponse: true,
       data: null,
     });
-
     useProjectState.setState((state) => {
       const impl = state.sectionImpls[implId];
       if (!impl || impl.type !== SectionTypeEnum.Chat) {
@@ -800,9 +762,7 @@ describe("chat history sync to section state", () => {
         },
       },
     });
-
     await getLLMChat(chatId, sectionId);
-
     const impl = getCurrEffectiveSectionImplOfType(
       useProjectState.getState(),
       sectionId,

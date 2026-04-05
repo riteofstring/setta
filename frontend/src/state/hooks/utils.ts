@@ -5,20 +5,16 @@ import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { res200 } from "utils/endpointUtils";
 import { asyncDebounce } from "utils/utils";
-
 export function useMatchSorterFilter<T>(
   completeList: Array<T>,
   keys: Array<string>,
 ) {
   const [filter, setFilter] = useState("");
-
   const filteredList = filter
     ? matchSorter(completeList, filter, { keys })
     : completeList;
-
   return [filteredList, setFilter] as const;
 }
-
 export function useMatchSorterFilterWithDelay<T>(
   completeList: Array<T>,
   keys: Array<string>,
@@ -31,7 +27,6 @@ export function useMatchSorterFilterWithDelay<T>(
   );
   return [filteredList, setFilterWithDelay] as const;
 }
-
 export function useWindowSize() {
   // Initialize state with undefined width/height so server and client renders match
   // Learn more here: https://joshwcomeau.com/react/the-perils-of-rehydration/
@@ -42,7 +37,6 @@ export function useWindowSize() {
     winWidth: undefined,
     winHeight: undefined,
   });
-
   useEffect(() => {
     // Handler to call on window resize
     function handleResize() {
@@ -52,23 +46,17 @@ export function useWindowSize() {
         winHeight: window.innerHeight,
       });
     }
-
     // Add event listener
     window.addEventListener("resize", handleResize);
-
     // Call handler right away so state gets updated with initial window size
     handleResize();
-
     // Remove event listener on cleanup
     return () => window.removeEventListener("resize", handleResize);
   }, []); // Empty array ensures that effect is only run on mount
-
   return windowSize;
 }
-
 function useFileExists(delay) {
   const [fileExists, setFileExists] = useState(false);
-
   const debouncedCheckIfFileExists = useCallback(
     asyncDebounce(async (f) => {
       const res = await callOpenAPI(
@@ -76,7 +64,7 @@ function useFileExists(delay) {
           body: {
             filepath: f,
           },
-        }),
+        } as Parameters<typeof checkIfFileExists>[0]),
       );
       if (res200(res)) {
         setFileExists(res.data);
@@ -84,20 +72,15 @@ function useFileExists(delay) {
     }, delay),
     [setFileExists],
   );
-
   return { fileExists, debouncedCheckIfFileExists };
 }
-
 export function useLocalValue<T>(globalValue: T) {
   const [localValue, setLocalValue] = useState<T>(globalValue);
-
   useEffect(() => {
     setLocalValue(globalValue);
   }, [globalValue]);
-
   return [localValue, setLocalValue] as const;
 }
-
 export function useLocalPendingValue<T>(
   globalValue: T,
   callbackOnGlobalUpdate?: (x: T) => void,
@@ -109,20 +92,16 @@ export function useLocalPendingValue<T>(
   } | null>(null);
   const callbackRef = useRef(callbackOnGlobalUpdate);
   const pendingStateRef = useRef(pendingState);
-
   useEffect(() => {
     callbackRef.current = callbackOnGlobalUpdate;
   }, [callbackOnGlobalUpdate]);
-
   useEffect(() => {
     pendingStateRef.current = pendingState;
   }, [pendingState]);
-
   const pendingValue =
     pendingState && Object.is(pendingState.ownerKey, ownerKey)
       ? pendingState.value
       : null;
-
   useEffect(() => {
     const currentPendingState = pendingStateRef.current;
     const currentPendingValue =
@@ -138,7 +117,6 @@ export function useLocalPendingValue<T>(
     }
     callbackRef.current?.(currentPendingValue);
   }, [globalValue, ownerKey]);
-
   useEffect(() => {
     if (pendingValue === null) {
       return;
@@ -147,7 +125,6 @@ export function useLocalPendingValue<T>(
       setPendingState(null);
     }
   }, [globalValue, pendingValue]);
-
   const setPendingValue = useCallback(
     (value: T) => {
       setPendingState({
@@ -157,6 +134,5 @@ export function useLocalPendingValue<T>(
     },
     [ownerKey],
   );
-
   return [pendingValue ?? globalValue, setPendingValue] as const;
 }

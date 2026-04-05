@@ -10,7 +10,6 @@ import {
   normalizeBrowserPath,
 } from "utils/browserPaths";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-
 type FolderPathCompletionOptions = {
   rootPath: string | null;
   pathSeparator?: string;
@@ -18,10 +17,8 @@ type FolderPathCompletionOptions = {
   maxEntries?: number;
   allowOutsideWorkspaceRoot?: boolean;
 };
-
 const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
 type GetFolderContentsRouteResponse = ResponseDataAndStatus<ListFolderResponse>;
-
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");
   const lastBackslash = text.lastIndexOf("\\");
@@ -30,7 +27,6 @@ function resolveSeparator(text: string, fallback: string): string {
   }
   return lastSlash > lastBackslash ? "/" : "\\";
 }
-
 function splitPathInput(text: string, fallbackSeparator: string) {
   const lastSlash = text.lastIndexOf("/");
   const lastBackslash = text.lastIndexOf("\\");
@@ -49,7 +45,6 @@ function splitPathInput(text: string, fallbackSeparator: string) {
     separator,
   };
 }
-
 function resolveAbsoluteCompletionFolder(absoluteCandidate: string) {
   const normalizedCandidate = normalizeBrowserPath(absoluteCandidate);
   if (WINDOWS_DRIVE_ROOT_REGEX.test(normalizedCandidate)) {
@@ -57,7 +52,6 @@ function resolveAbsoluteCompletionFolder(absoluteCandidate: string) {
   }
   return normalizedCandidate;
 }
-
 async function loadFolderEntries({
   folderPath,
   baseFolderPath,
@@ -71,7 +65,7 @@ async function loadFolderEntries({
   maxEntries: number | undefined;
   allowOutsideWorkspaceRoot: boolean | undefined;
 }): Promise<FolderContentItem[]> {
-  const res: GetFolderContentsRouteResponse = await callOpenAPI(
+  const res = (await callOpenAPI(
     getFolderContents({
       body: {
         folderPath,
@@ -81,14 +75,13 @@ async function loadFolderEntries({
         allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
         missingFolderBehavior: "empty",
       },
-    }),
-  );
+    } as Parameters<typeof getFolderContents>[0]),
+  )) as GetFolderContentsRouteResponse;
   if (!res200(res)) {
     return [];
   }
   return res.data.items;
 }
-
 export function createFolderPathCompletionSource(
   options: FolderPathCompletionOptions,
 ): CompletionSource | null {
@@ -99,7 +92,6 @@ export function createFolderPathCompletionSource(
     options.pathSeparator ?? (options.rootPath.includes("\\") ? "\\" : "/");
   const cache = new Map<string, FolderContentItem[]>();
   const inflight = new Map<string, Promise<FolderContentItem[]>>();
-
   const getEntries = (folderPath: string, baseFolderPath: string | null) => {
     const requestKey = `${baseFolderPath ?? ""}::${folderPath}`;
     const cached = cache.get(requestKey);
@@ -124,13 +116,11 @@ export function createFolderPathCompletionSource(
     inflight.set(requestKey, request);
     return request;
   };
-
   return (context) => {
     const textBefore = context.state.doc.sliceString(0, context.pos);
     if (!context.explicit && textBefore.length === 0) {
       return null;
     }
-
     const { dirPart, from, separator } = splitPathInput(
       textBefore,
       fallbackSeparator,
@@ -143,7 +133,6 @@ export function createFolderPathCompletionSource(
     if (!targetFolderPath && !baseFolderPath) {
       return null;
     }
-
     const to = context.pos;
     const makeResult = (entries: FolderContentItem[]) => {
       const optionsList: Completion[] = entries
@@ -163,7 +152,6 @@ export function createFolderPathCompletionSource(
         filter: true,
       };
     };
-
     const entries = getEntries(targetFolderPath, baseFolderPath);
     if (Array.isArray(entries)) {
       return makeResult(entries);
@@ -171,19 +159,16 @@ export function createFolderPathCompletionSource(
     return entries.then(makeResult);
   };
 }
-
 export function createDynamicFolderPathCompletionSource(
   getOptions: () => FolderPathCompletionOptions,
 ): CompletionSource {
   const cache = new Map<string, FolderContentItem[]>();
   const inflight = new Map<string, Promise<FolderContentItem[]>>();
   let lastCacheKey: string | null = null;
-
   const getCacheKey = (options: FolderPathCompletionOptions) => {
     const ignoreKey = (options.ignorePatterns ?? []).join("\n");
     return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}||${options.allowOutsideWorkspaceRoot === true}`;
   };
-
   const getEntries = (
     options: FolderPathCompletionOptions,
     folderPath: string,
@@ -212,7 +197,6 @@ export function createDynamicFolderPathCompletionSource(
     inflight.set(requestKey, request);
     return request;
   };
-
   return (context) => {
     const options = getOptions();
     if (!options.rootPath) {
@@ -224,15 +208,12 @@ export function createDynamicFolderPathCompletionSource(
       inflight.clear();
       lastCacheKey = cacheKey;
     }
-
     const fallbackSeparator =
       options.pathSeparator ?? (options.rootPath.includes("\\") ? "\\" : "/");
-
     const textBefore = context.state.doc.sliceString(0, context.pos);
     if (!context.explicit && textBefore.length === 0) {
       return null;
     }
-
     const { dirPart, from, separator } = splitPathInput(
       textBefore,
       fallbackSeparator,
@@ -245,7 +226,6 @@ export function createDynamicFolderPathCompletionSource(
     if (!targetFolderPath && !baseFolderPath) {
       return null;
     }
-
     const to = context.pos;
     const makeResult = (entries: FolderContentItem[]) => {
       const optionsList: Completion[] = entries
@@ -265,7 +245,6 @@ export function createDynamicFolderPathCompletionSource(
         filter: true,
       };
     };
-
     const entries = getEntries(options, targetFolderPath, baseFolderPath);
     if (Array.isArray(entries)) {
       return makeResult(entries);

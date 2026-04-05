@@ -1,13 +1,10 @@
+import { moveSections, setCodeSectionAttachedTerminal } from "openapi/http";
 import {
   getCurrEffectiveSectionImpl,
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_move_sections,
-  route_set_code_section_attached_terminal,
-} from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   createChatSectionImpl,
@@ -22,28 +19,23 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { moveSectionsWithBackend } from "./moveSections";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual =
+    await vi.importActual<typeof import("openapi/http")>("openapi/http");
   return {
     ...actual,
-    route_move_sections: vi.fn(),
-    route_set_code_section_attached_terminal: vi.fn(),
+    moveSections: vi.fn(),
+    setCodeSectionAttachedTerminal: vi.fn(),
   };
 });
-
-const mockedRouteMoveSections = vi.mocked(route_move_sections);
+const mockedRouteMoveSections = vi.mocked(moveSections);
 const mockedRouteSetAttachedTerminal = vi.mocked(
-  route_set_code_section_attached_terminal,
+  setCodeSectionAttachedTerminal,
 );
-
 const projectConfigId = "project-1";
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
-
 function seedProjectState() {
   const sectionCore = createCore({
     id: sectionId,
@@ -95,7 +87,6 @@ function seedProjectState() {
     ]),
   });
 }
-
 describe("move section optimistic updates", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -108,44 +99,39 @@ describe("move section optimistic updates", () => {
       return 0;
     };
     (
-      globalThis as { cancelAnimationFrame?: (id: number) => void }
+      globalThis as {
+        cancelAnimationFrame?: (id: number) => void;
+      }
     ).cancelAnimationFrame = () => {};
     seedProjectState();
     mockedRouteMoveSections.mockReturnValue(new Promise(() => {}));
   });
-
   afterEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
   });
-
   it("reapplies pending moves using a stable position snapshot", () => {
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     const positionsById = { [sectionId]: { x: 100, y: 200 } };
-
     moveSectionsWithBackend({
       sectionIds: [sectionId],
       newParentId: null,
       newIndex: null,
       positionsById,
     });
-
     positionsById[sectionId].x = 999;
     positionsById[sectionId].y = 999;
-
     processProjectStateUpdateFromBackend({
       projectState: backendState,
       completedOpIds: [],
       pendingOpIds: [],
     });
-
     const position =
       useProjectState.getState().projectConfig.topLevelSections[sectionId];
     expect(position.x).toBe(100);
     expect(position.y).toBe(200);
   });
 });
-
 describe("moveSectionsWithBackend", () => {
   const codeSectionId = "code-section";
   const terminalSectionId = "terminal-section";
@@ -154,7 +140,6 @@ describe("moveSectionsWithBackend", () => {
   const codeImplId = "code-impl";
   const terminalImplId = "terminal-impl";
   const viewModeId = "view-mode-1";
-
   beforeEach(() => {
     resetProjectStores();
     mockedRouteMoveSections.mockResolvedValue({
@@ -168,12 +153,10 @@ describe("moveSectionsWithBackend", () => {
       hasResponse: true,
     });
   });
-
   afterEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
   });
-
   it("updates active view mode top-level layouts when moving in the pane", () => {
     const sectionCore: Core = {
       id: codeSectionId,
@@ -192,7 +175,6 @@ describe("moveSectionsWithBackend", () => {
       modifier: {},
       isFrozen: false,
     };
-
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -229,7 +211,6 @@ describe("moveSectionsWithBackend", () => {
       },
     });
     useNodeInternals.setState({ x: new Map() });
-
     moveSectionsWithBackend({
       sectionIds: [codeSectionId],
       newParentId: null,
@@ -238,7 +219,6 @@ describe("moveSectionsWithBackend", () => {
         [codeSectionId]: { x: 60, y: 80 },
       },
     });
-
     const state = useProjectState.getState();
     expect(state.projectConfig.topLevelSections[codeSectionId]).toMatchObject({
       x: 60,
@@ -250,7 +230,6 @@ describe("moveSectionsWithBackend", () => {
       ],
     ).toMatchObject({ x: 60, y: 80 });
   });
-
   it("does not move attached terminals as top-level nodes", () => {
     const codeCore: Core = {
       id: codeSectionId,
@@ -289,7 +268,6 @@ describe("moveSectionsWithBackend", () => {
       modifier: {},
       isFrozen: false,
     };
-
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -325,7 +303,6 @@ describe("moveSectionsWithBackend", () => {
       },
     });
     useNodeInternals.setState({ x: new Map() });
-
     moveSectionsWithBackend({
       sectionIds: [codeSectionId],
       newParentId: null,
@@ -334,7 +311,6 @@ describe("moveSectionsWithBackend", () => {
         [codeSectionId]: { x: 60, y: 80 },
       },
     });
-
     const updated = useProjectState.getState().projectConfig.topLevelSections;
     expect(updated[codeSectionId]).toMatchObject({ x: 60, y: 80 });
     expect(mockedRouteMoveSections).toHaveBeenCalledTimes(1);
@@ -343,7 +319,6 @@ describe("moveSectionsWithBackend", () => {
     expect(call?.sectionIds).toEqual([codeSectionId]);
     expect(call?.positionsById?.[terminalSectionId]).toBeUndefined();
   });
-
   it("attaches terminals under gen python sections", () => {
     const genSectionId = "gen-section";
     const terminalId = "terminal-section";
@@ -351,7 +326,6 @@ describe("moveSectionsWithBackend", () => {
     const terminalVariantId = "terminal-variant";
     const genImplId = "gen-impl";
     const terminalImplId = "terminal-impl";
-
     const genCore: Core = {
       id: genSectionId,
       name: "Generated Code Section",
@@ -405,7 +379,6 @@ describe("moveSectionsWithBackend", () => {
       codeFileBinding: null,
       attachedTerminalSectionId: null,
     };
-
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-1",
@@ -449,14 +422,12 @@ describe("moveSectionsWithBackend", () => {
       },
     });
     useNodeInternals.setState({ x: new Map() });
-
     moveSectionsWithBackend({
       sectionIds: [terminalId],
       newParentId: genSectionId,
       newIndex: 0,
       positionsById: null,
     });
-
     const state = useProjectState.getState();
     const genEffective = getCurrEffectiveSectionImpl(state, genSectionId);
     expect(genEffective.attachedTerminalSectionId).toBe(terminalId);

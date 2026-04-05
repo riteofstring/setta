@@ -7,21 +7,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { BaseChatMessageUnion, ChatFileAttachment } from "utils/generatedTypes";
-
-const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
-
+const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30000;
 export type AttachmentUrlEntry = {
   url: HttpapiAttachmentDownloadUrlEntry["url"];
   expiresAt: HttpapiAttachmentDownloadUrlEntry["expiresAt"];
 };
-
 export function isAttachmentUrlStale(
   entry: AttachmentUrlEntry,
   now: number,
 ): boolean {
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
 }
-
 function collectChatMessageAttachments(
   messages: Array<BaseChatMessageUnion>,
 ): ChatFileAttachment[] {
@@ -39,14 +35,15 @@ function collectChatMessageAttachments(
   }
   return Array.from(attachmentsById.values());
 }
-
 export function useChatMessageAttachmentUrls(
   messages: Array<BaseChatMessageUnion>,
 ): {
   attachmentUrlMap: Record<string, AttachmentUrlEntry>;
   requestAttachmentUrls: (
     targets: ChatFileAttachment[],
-    options?: { force?: boolean },
+    options?: {
+      force?: boolean;
+    },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
 } {
   const [attachmentUrlMap, setAttachmentUrlMap] = useState<
@@ -57,11 +54,12 @@ export function useChatMessageAttachmentUrls(
     () => collectChatMessageAttachments(messages),
     [messages],
   );
-
   const requestAttachmentUrls = useCallback(
     async (
       targets: ChatFileAttachment[],
-      options: { force?: boolean } = {},
+      options: {
+        force?: boolean;
+      } = {},
     ) => {
       if (targets.length === 0) {
         return {};
@@ -95,7 +93,7 @@ export function useChatMessageAttachmentUrls(
               artifactIds: pending.map((attachment) => attachment.id),
               projectConfigId,
             },
-          }),
+          } as Parameters<typeof getAttachmentDownloadUrls>[0]),
         );
         if (!res200(res)) {
           const detail = getErrorDetail(res.data);
@@ -135,14 +133,12 @@ export function useChatMessageAttachmentUrls(
     },
     [attachmentUrlMap],
   );
-
   useEffect(() => {
     if (allAttachments.length === 0) {
       return;
     }
     void requestAttachmentUrls(allAttachments);
   }, [allAttachments, requestAttachmentUrls]);
-
   return {
     attachmentUrlMap,
     requestAttachmentUrls,

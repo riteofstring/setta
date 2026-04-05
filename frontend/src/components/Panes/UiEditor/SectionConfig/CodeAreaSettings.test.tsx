@@ -1,5 +1,5 @@
 /* @vitest-environment jsdom */
-
+import { setCodeFileBinding } from "openapi/http";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useProjectState, useShareSession } from "state/definitions";
@@ -15,45 +15,35 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CodeAreaSettings } from "./CodeAreaSettings";
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
+vi.mock("openapi/http", async () => {
+  const actual = await import("openapi/http");
   return {
     ...actual,
-    route_set_code_file_binding: vi.fn(async () => ({
+    setCodeFileBinding: vi.fn(async () => ({
       data: null,
       response: new Response("null", { status: 200 }),
       status: 200,
     })),
   };
 });
-
-import { route_set_code_file_binding } from "utils/generatedEndpoints";
-
-const mockedRouteSetCodeFileBinding = vi.mocked(route_set_code_file_binding);
-
+const mockedRouteSetCodeFileBinding = vi.mocked(setCodeFileBinding);
 type RenderedCodeAreaSettings = {
   host: HTMLDivElement;
   root: Root;
 };
-
 async function renderCodeAreaSettings(sectionId: string) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-
   await act(async () => {
     root.render(<CodeAreaSettings sectionId={sectionId} />);
   });
-
   return { host, root } satisfies RenderedCodeAreaSettings;
 }
-
 describe("CodeAreaSettings", () => {
   const sectionId = "code-section";
   const variantId = "code-variant";
   const implId = "code-impl";
-
   const sectionCore: Core = {
     id: sectionId,
     name: "Code Section",
@@ -63,7 +53,6 @@ describe("CodeAreaSettings", () => {
     sharedModifier: {},
     unsharedKeys: [],
   };
-
   const sectionVariant: Variant = {
     id: variantId,
     name: "Variant",
@@ -72,7 +61,6 @@ describe("CodeAreaSettings", () => {
     modifier: {},
     isFrozen: false,
   };
-
   const sectionImpl = {
     type: SectionTypeEnum.Code,
     id: implId,
@@ -101,7 +89,6 @@ describe("CodeAreaSettings", () => {
       suppressedCodes: [],
     },
   };
-
   beforeEach(() => {
     resetProjectStores();
     mockedRouteSetCodeFileBinding.mockReset();
@@ -117,16 +104,13 @@ describe("CodeAreaSettings", () => {
       state.previewSectionVariantMap = {};
     });
   });
-
   afterEach(() => {
     resetProjectStores();
     mockedRouteSetCodeFileBinding.mockReset();
     document.body.innerHTML = "";
   });
-
   it("posts trimmed file-path updates through the canonical endpoint", async () => {
     const { host, root } = await renderCodeAreaSettings(sectionId);
-
     try {
       const input = host.querySelector<HTMLInputElement>(
         '[data-testid="code-area-settings-file-path-input"]',
@@ -134,7 +118,6 @@ describe("CodeAreaSettings", () => {
       if (!(input instanceof HTMLInputElement)) {
         throw new Error("Expected file-path input");
       }
-
       await act(async () => {
         const setValue = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -148,7 +131,6 @@ describe("CodeAreaSettings", () => {
         input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
         input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
       });
-
       expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith(
         expect.objectContaining({
           projectConfigId: "project-1",
@@ -167,10 +149,8 @@ describe("CodeAreaSettings", () => {
       host.remove();
     }
   });
-
   it("posts access-mode changes with the current canonical path", async () => {
     const { host, root } = await renderCodeAreaSettings(sectionId);
-
     try {
       const select = host.querySelector<HTMLSelectElement>(
         '[data-testid="code-area-settings-access-mode-select"]',
@@ -178,12 +158,10 @@ describe("CodeAreaSettings", () => {
       if (!(select instanceof HTMLSelectElement)) {
         throw new Error("Expected access-mode select");
       }
-
       await act(async () => {
         select.value = CodeFileAccessModeEnum.read_only;
         select.dispatchEvent(new Event("change", { bubbles: true }));
       });
-
       expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith(
         expect.objectContaining({
           projectConfigId: "project-1",
@@ -202,10 +180,8 @@ describe("CodeAreaSettings", () => {
       host.remove();
     }
   });
-
   it("keeps the edited binding path across remounts while the backend ack is pending", async () => {
     const firstRender = await renderCodeAreaSettings(sectionId);
-
     try {
       const input = firstRender.host.querySelector<HTMLInputElement>(
         '[data-testid="code-area-settings-file-path-input"]',
@@ -213,7 +189,6 @@ describe("CodeAreaSettings", () => {
       if (!(input instanceof HTMLInputElement)) {
         throw new Error("Expected file-path input");
       }
-
       await act(async () => {
         const setValue = Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
@@ -227,12 +202,10 @@ describe("CodeAreaSettings", () => {
         input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
         input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
       });
-
       await act(async () => {
         firstRender.root.unmount();
       });
       firstRender.host.remove();
-
       const secondRender = await renderCodeAreaSettings(sectionId);
       try {
         const remountedInput =
@@ -242,7 +215,6 @@ describe("CodeAreaSettings", () => {
         if (!(remountedInput instanceof HTMLInputElement)) {
           throw new Error("Expected remounted file-path input");
         }
-
         expect(remountedInput.value).toBe("pkg/updated.py");
       } finally {
         await act(async () => {

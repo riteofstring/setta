@@ -1,11 +1,11 @@
+import {
+  getLatestProjectState,
+  setCode,
+  setGenCodePrefix,
+  setGenCodeSuffix,
+} from "openapi/http";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  route_get_latest_project_state,
-  route_set_code,
-  route_set_gen_code_prefix,
-  route_set_gen_code_suffix,
-} from "utils/generatedEndpoints";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
@@ -16,14 +16,12 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPendingCodeUpdate, queueCodeUpdate } from "./codeUpdates";
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_latest_project_state: vi.fn(),
-  route_set_code: vi.fn(),
-  route_set_gen_code_prefix: vi.fn(),
-  route_set_gen_code_suffix: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getLatestProjectState: vi.fn(),
+  setCode: vi.fn(),
+  setGenCodePrefix: vi.fn(),
+  setGenCodeSuffix: vi.fn(),
 }));
-
 vi.mock("./sectionInfos", async () => {
   const actual =
     await vi.importActual<typeof import("./sectionInfos")>("./sectionInfos");
@@ -32,11 +30,9 @@ vi.mock("./sectionInfos", async () => {
     processProjectStateUpdateFromBackend: vi.fn(),
   };
 });
-
 const sectionId = "section-1";
 const variantId = "variant-1";
 const implId = "impl-1";
-
 const sectionCore: Core = {
   id: sectionId,
   name: "Section",
@@ -46,7 +42,6 @@ const sectionCore: Core = {
   sharedModifier: {},
   unsharedKeys: [],
 };
-
 const sectionVariant: Variant = {
   id: variantId,
   name: "Variant",
@@ -55,7 +50,6 @@ const sectionVariant: Variant = {
   modifier: {},
   isFrozen: false,
 };
-
 function setupCodeSection({
   watchCodeEnabled,
   hasPythonCodegen,
@@ -105,34 +99,30 @@ function setupCodeSection({
     state.previewSectionVariantMap = {};
   });
 }
-
 describe("queueCodeUpdate", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
     vi.useFakeTimers();
-    vi.mocked(route_set_gen_code_prefix).mockResolvedValue({
+    vi.mocked(setGenCodePrefix).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
-    vi.mocked(route_set_gen_code_suffix).mockResolvedValue({
+    vi.mocked(setGenCodeSuffix).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
   });
-
   afterEach(() => {
     vi.useRealTimers();
     resetProjectStores();
   });
-
   it("leaves bound Python Watch Code project-state sync to websocket updates", async () => {
     const { processProjectStateUpdateFromBackend } = await import(
       "./sectionInfos"
     );
-
     setupCodeSection({
       watchCodeEnabled: true,
       hasPythonCodegen: true,
@@ -144,52 +134,46 @@ describe("queueCodeUpdate", () => {
         autoBinding: false,
       },
     });
-    vi.mocked(route_set_code).mockResolvedValue({
+    vi.mocked(setCode).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
-
     queueCodeUpdate(sectionId, "print('latest')");
     await flushPendingCodeUpdate(sectionId);
-
-    expect(route_set_code).toHaveBeenCalledWith({
+    expect(setCode).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
       code: "print('latest')",
       frontendOpId: expect.any(String),
     });
-    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+    expect(getLatestProjectState).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
-
   it("does not rehydrate after unrelated code edits", async () => {
     const { processProjectStateUpdateFromBackend } = await import(
       "./sectionInfos"
     );
-
     setupCodeSection({
       watchCodeEnabled: true,
       hasPythonCodegen: true,
       codeLanguage: CodeLanguageEnum.python,
       codeFileBinding: null,
     });
-    vi.mocked(route_set_code).mockResolvedValue({
+    vi.mocked(setCode).mockResolvedValue({
       status: 200,
       data: null,
       hasResponse: true,
     });
-
     queueCodeUpdate(sectionId, "print('latest')");
     await flushPendingCodeUpdate(sectionId);
-
-    expect(route_set_code).toHaveBeenCalledWith({
+    expect(setCode).toHaveBeenCalledWith({
       projectConfigId: "project-1",
       sectionId,
       code: "print('latest')",
       frontendOpId: expect.any(String),
     });
-    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+    expect(getLatestProjectState).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
 });

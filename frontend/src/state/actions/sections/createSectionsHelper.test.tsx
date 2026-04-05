@@ -1,8 +1,8 @@
+import { updateParamImplConfig } from "openapi/http";
 import { renderToStaticMarkup } from "react-dom/server";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   createProjectConfig,
@@ -18,19 +18,15 @@ import {
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "./createSectionsHelper";
-
-vi.mock("utils/generatedEndpoints", () => ({
-  route_update_param_impl_config: vi.fn(),
+vi.mock("openapi/http", () => ({
+  updateParamImplConfig: vi.fn(),
 }));
-
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
-
 vi.mock("./createSections", () => ({
   createTopLevelSectionWithResult: vi.fn(),
 }));
-
 function Probe({
   onResolve,
 }: {
@@ -40,12 +36,11 @@ function Probe({
   onResolve(items);
   return null;
 }
-
 describe("useCreateSectionsList", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
-    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+    vi.mocked(updateParamImplConfig).mockResolvedValue({
       data: null,
       status: 200,
       hasResponse: true,
@@ -54,11 +49,9 @@ describe("useCreateSectionsList", () => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
-
   afterEach(() => {
     resetProjectStores();
   });
-
   it("includes dedicated calendar meta-control preset and omits deprecated controls", () => {
     let items: ReturnType<typeof useCreateSectionsList> = [];
     renderToStaticMarkup(
@@ -68,12 +61,10 @@ describe("useCreateSectionsList", () => {
         }}
       />,
     );
-
     const metaControlGroup = items.find(
       (group) => group.group === "MetaControls",
     );
     expect(metaControlGroup).toBeDefined();
-
     const calendar = metaControlGroup?.items.find(
       (item) => item.name === "Calendar",
     );
@@ -83,7 +74,6 @@ describe("useCreateSectionsList", () => {
     const codeInput = metaControlGroup?.items.find(
       (item) => item.name === "Code Input",
     );
-
     expect(calendar).toBeDefined();
     expect(timeDisplay).toBeUndefined();
     expect(codeInput).toBeUndefined();
@@ -94,7 +84,6 @@ describe("useCreateSectionsList", () => {
       dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
     });
   });
-
   it("places task board in the Other group instead of Section", () => {
     let items: ReturnType<typeof useCreateSectionsList> = [];
     renderToStaticMarkup(
@@ -104,10 +93,8 @@ describe("useCreateSectionsList", () => {
         }}
       />,
     );
-
     const sectionGroup = items.find((group) => group.group === "Section");
     const otherGroup = items.find((group) => group.group === "Other");
-
     expect(sectionGroup).toBeDefined();
     expect(otherGroup).toBeDefined();
     expect(sectionGroup?.items.some((item) => item.name === "Task Board")).toBe(
@@ -117,7 +104,6 @@ describe("useCreateSectionsList", () => {
       true,
     );
   });
-
   it("exposes workflow control sections in a dedicated group", () => {
     let items: ReturnType<typeof useCreateSectionsList> = [];
     renderToStaticMarkup(
@@ -127,9 +113,7 @@ describe("useCreateSectionsList", () => {
         }}
       />,
     );
-
     const workflowGroup = items.find((group) => group.group === "Workflow");
-
     expect(workflowGroup).toBeDefined();
     expect(workflowGroup?.items.map((item) => item.name)).toEqual([
       "State Machine Start",
@@ -137,7 +121,6 @@ describe("useCreateSectionsList", () => {
       "State Machine End",
     ]);
   });
-
   it("applies preset config when create response includes a meta control param id", async () => {
     const sectionId = "section-1";
     const controlParamId = "param-1";
@@ -146,27 +129,23 @@ describe("useCreateSectionsList", () => {
       dateSelectionMode: DateSelectionModeEnum.multiple,
       dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
     };
-
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
         id: "project-1",
       });
     });
-
     vi.mocked(createTopLevelSectionWithResult).mockResolvedValue({
       sectionId,
       metaControlParamId: controlParamId,
     });
-
     createTopLevelSectionFromImplSpecs({
       name: "Calendar",
       implSpecs: { type: SectionTypeEnum.MetaControl },
       controlCodeObjType: CodeObjTypeEnum.DateParam,
       controlParamConfig: controlConfig,
     });
-
     await vi.waitFor(() => {
-      expect(route_update_param_impl_config).toHaveBeenCalledWith({
+      expect(updateParamImplConfig).toHaveBeenCalledWith({
         projectConfigId: "project-1",
         sectionId,
         paramInfoId: controlParamId,
@@ -174,12 +153,10 @@ describe("useCreateSectionsList", () => {
       });
     });
   });
-
   it("shows a notification when post-create preset config update fails", async () => {
     const sectionId = "section-1";
     const controlParamId = "param-1";
-
-    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+    vi.mocked(updateParamImplConfig).mockResolvedValue({
       data: { detail: "config failed" },
       status: 400,
       hasResponse: true,
@@ -188,7 +165,6 @@ describe("useCreateSectionsList", () => {
       sectionId,
       metaControlParamId: controlParamId,
     });
-
     createTopLevelSectionFromImplSpecs({
       name: "Calendar",
       implSpecs: { type: SectionTypeEnum.MetaControl },
@@ -199,7 +175,6 @@ describe("useCreateSectionsList", () => {
         dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
       },
     });
-
     await vi.waitFor(() => {
       expect(addTemporaryNotification).toHaveBeenCalledWith(
         "config failed",
