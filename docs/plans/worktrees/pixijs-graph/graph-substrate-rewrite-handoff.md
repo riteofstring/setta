@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 04:34 EDT
+Last updated: 2026-04-05 04:50 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `155` opened the trusted normalized `sectionSizingPolicy` top-level drag lane and stabilized it as the new expected-fail motion repro.
+  - Why this slice was needed:
+    - item `154` had already closed the named `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom lane, so the plan's next valid step was one trusted pan-or-drag lane on the same named section instead of more seam-lift or oracle churn
+    - the current frontier is motion parity on normalized `All Settings`, and `sectionSizingPolicy` still lacked one explicit top-level drag lane with title-edit handoff evidence
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added a canonical `sectionSizingPolicy` normalized top-level-drag-plus-title-edit parity lane
+      - reused the hardened restore-plus-preflight-plus-fit flow from the existing named drag lanes instead of introducing a new helper family
+      - marked the new lane `test.fail(true, ...)` after repeated live reruns showed stable post-drag drift
+  - What this slice established:
+    - on the original live run-015 surfaces (`3076`/`8076` worktree, `3087`/`8087` main), the new lane failed twice before the expected-fail marker was added:
+      - first on `layoutDelta.y` with a worktree-versus-reference difference of about `12.4667`
+      - then on `afterDrag.centerOffsetFromRootCenter` with a worktree-versus-reference difference of about `13.2808`
+    - because the required CDP lane check was initially inaccessible in a fresh sub-agent session, this iteration used the one allowed bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - the restarted worktree came back on `http://127.0.0.1:3077/` and `http://127.0.0.1:8077` with CDP on `9297`; the runtime log still pointed at stale `3076`, so live `setta status` plus `lsof`/`cdp-port` were used for the fresh values
+    - rerunning the lane after adding the expected-fail marker on the refreshed `3077`/`8077` worktree passed as a checked repro (`1 passed`, `42.8s`)
+    - fresh-context CDP on the refreshed `3077/settings` worktree and `3087/settings` main tabs was accessible and confirmed the lane is visually drifted rather than clean:
+      - the worktree emitted `POST /api/setTopLevelSectionLayout` during the drag and moved `sectionSizingPolicy` (`85f523f4-e62f-4deb-99b7-8a20b5117587`) to `x=701.2`, `y=667.4666666666667`, `zIndex=45`, `w=552`, `h=352`
+      - the post-drag A/B was not pixel-identical; the worktree and main surfaces did not settle into the same visible graph-surface state
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - targeted direct live-runtime Playwright reruns before the expected-fail marker:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed first on `layoutDelta.y` (`12.4667` over the `< 12` threshold), then on `afterDrag.centerOffsetFromRootCenter` (`13.2808` over the `< 8` threshold)
+    - bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - fresh connect info: `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - fresh CDP port: `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+    - targeted direct live-runtime Playwright rerun after adding the expected-fail marker:
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` to mint a fresh worktree bootstrap token
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph parity probe keeps the section sizing policy title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed as expected failure (`1 passed`, `42.8s`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - compared the normalized `sectionSizingPolicy` top-level drag lane on the refreshed worktree `3077` and read-only main `3087` sessions
+    - CDP visual check: done (fresh-context sub-agent; after the trusted top-level drag lane, `sectionSizingPolicy` remained visibly drifted on the worktree versus read-only main)
+  - Lane status:
+    - keep `sectionSizingPolicy` top-level drag plus title-edit handoff as a canonical expected-fail motion lane
+    - do not reopen the already-clean toolbar-zoom lane on this section; the remaining blocker is now specifically post-drag motion parity
+  - Next frontier:
+    - investigate why the canary's post-drag settle state leaves `sectionSizingPolicy` about `13.28px` farther from the graph root center than read-only main after the same normalized top-level drag
 
 - Ralph item `154` closed the normalized `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom lane by mirroring the legacy d3 toolbar zoom base after backend-driven viewport writes.
   - Why this slice was needed:
