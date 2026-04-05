@@ -57,6 +57,33 @@ func TestDiscoverPackageTypesInDirWithOptionsRequireJSONTags(t *testing.T) {
 	}
 }
 
+func TestDiscoverPackageTypesInDirWithOptionsRequireJSONTagsIncludesEmbeddedOnlyStructs(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageTypesInDirWithOptions(
+		filepath.Join("testdata", "embeddedjsonpkg"),
+		DiscoverOptions{
+			RequireJSONTaggedStructs: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageTypesInDirWithOptions(...) error = %v", err)
+	}
+
+	want := []DiscoveredType{
+		{Name: "TaggedFields", Kind: TypeKindStruct},
+		{Name: "EmbeddedOnlyStruct", Kind: TypeKindStruct},
+		{Name: "UntaggedEmbeddedOnlyStruct", Kind: TypeKindStruct},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf(
+			"DiscoverPackageTypesInDirWithOptions(...) = %#v, want %#v",
+			discovered,
+			want,
+		)
+	}
+}
+
 func TestDiscoverPackageTypesInDirIncludesSelectorBackedNamedTypes(t *testing.T) {
 	t.Helper()
 

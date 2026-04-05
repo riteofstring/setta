@@ -46,10 +46,22 @@ func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 		generatedBaseSectionWithParamsImplUnionDeclaration(converter),
 		generatedBaseDictSectionImplUnionDeclaration(converter),
 		generatedBaseSectionImplUnionDeclaration(),
-		generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", "", true),
-		generatedCodeObjUnionDeclaration("BaseChildlessCodeObjImplUnion", "BaseChildlessCodeObjImplTypeSet", true),
-		generatedCodeObjUnionDeclaration("BaseParamCodeObjImplUnion", "BaseParamCodeObjImplTypeSet", true),
-		generatedCodeObjUnionDeclaration("BaseParentCodeObjImplUnion", "BaseParentCodeObjImplTypeSet", false),
+		generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", true, nil),
+		generatedCodeObjUnionDeclaration(
+			"BaseChildlessCodeObjImplUnion",
+			true,
+			generatedCodeObjImplIsChildless,
+		),
+		generatedCodeObjUnionDeclaration(
+			"BaseParamCodeObjImplUnion",
+			true,
+			generatedCodeObjImplIsParam,
+		),
+		generatedCodeObjUnionDeclaration(
+			"BaseParentCodeObjImplUnion",
+			false,
+			generatedCodeObjImplHasChildren,
+		),
 	}
 }
 
@@ -143,58 +155,36 @@ func generatedSectionImplTypeNames() []string {
 
 func generatedCodeObjUnionDeclaration(
 	name string,
-	typeSetName string,
 	includeBase bool,
+	predicate func(reflect.Type) bool,
 ) TypeDeclaration {
 	members := make([]string, 0, 16)
 	if includeBase {
 		members = append(members, "BaseCodeObjImpl")
 	}
-	if typeSetName == "" {
-		members = append(members, generatedCodeObjImplTypeNames()...)
-		return aliasUnionDeclaration(name, members...)
-	}
-	allowedMembers := generatedCodeObjAliasNamesForTypeSet(typeSetName)
-	for _, candidate := range generatedCodeObjImplTypeNames() {
-		if _, ok := allowedMembers[candidate]; ok {
-			members = append(members, candidate)
-		}
-	}
+	members = append(members, generatedCodeObjImplTypeNamesMatching(predicate)...)
 	return aliasUnionDeclaration(name, members...)
 }
 
 func generatedCodeObjImplTypeNames() []string {
+	return generatedCodeObjImplTypeNamesMatching(nil)
+}
+
+func generatedCodeObjImplTypeNamesMatching(predicate func(reflect.Type) bool) []string {
 	names := []string{}
 	for _, codeObjName := range mustGeneratedEnumValues(
 		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
 	) {
-		if t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName); ok {
-			names = append(names, frontendBindingTypeName(t))
-		}
-	}
-	return names
-}
-
-func generatedCodeObjAliasNamesForTypeSet(typeSetName string) map[string]struct{} {
-	for _, spec := range projectStateTypeGuardTypeSets {
-		if spec.Name != typeSetName {
+		t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName)
+		if !ok {
 			continue
 		}
-		members := make(map[string]struct{}, len(spec.Members))
-		for _, member := range spec.Members {
-			members[generatedCodeObjAliasNameFromTypeSetMember(member)] = struct{}{}
+		if predicate != nil && !predicate(t) {
+			continue
 		}
-		return members
+		names = append(names, frontendBindingTypeName(t))
 	}
-	return map[string]struct{}{}
-}
-
-func generatedCodeObjAliasNameFromTypeSetMember(member string) string {
-	name := strings.TrimPrefix(strings.TrimSpace(member), "CodeObjTypeEnum.")
-	if name == "" {
-		return member
-	}
-	return name + "CodeObjImpl"
+	return names
 }
 
 var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{

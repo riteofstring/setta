@@ -1,196 +1,223 @@
 package frontendbindings
 
 import (
+	"reflect"
+
 	"setta/internal/deployments"
+	"setta/internal/projectstate"
 )
 
-type generatedTypeSetSpec struct {
-	Name     string
-	TypeExpr string
-	Members  []string
-	Exported bool
-}
-
-type generatedTypeGuardSpec struct {
-	Name           string
-	InputTypeExpr  string
-	ReturnTypeExpr string
-	TypeSetName    string
-}
-
-var projectStateTypeGuardTypeSets = []generatedTypeSetSpec{
-	{
-		Name:     "BaseChildlessCodeObjImplTypeSet",
-		TypeExpr: "CodeObjType",
-		Members: []string{
-			"CodeObjTypeEnum.CodeParam",
-			"CodeObjTypeEnum.ColorPickerParam",
-			"CodeObjTypeEnum.DateParam",
-			"CodeObjTypeEnum.DropdownParam",
-			"CodeObjTypeEnum.DropzoneParam",
-			"CodeObjTypeEnum.PasswordParam",
-			"CodeObjTypeEnum.RotaryParam",
-			"CodeObjTypeEnum.SliderParam",
-			"CodeObjTypeEnum.SwitchParam",
-			"CodeObjTypeEnum.TextAreaParam",
-			"CodeObjTypeEnum.TextParam",
-			"CodeObjTypeEnum.TimeParam",
-		},
-		Exported: true,
-	},
-	{
-		Name:     "BaseParamCodeObjImplTypeSet",
-		TypeExpr: "CodeObjType",
-		Members: []string{
-			"CodeObjTypeEnum.ButtonParam",
-			"CodeObjTypeEnum.CodeParam",
-			"CodeObjTypeEnum.ColorPickerParam",
-			"CodeObjTypeEnum.DateParam",
-			"CodeObjTypeEnum.DropdownParam",
-			"CodeObjTypeEnum.DropzoneParam",
-			"CodeObjTypeEnum.NestedParam",
-			"CodeObjTypeEnum.PasswordParam",
-			"CodeObjTypeEnum.RotaryParam",
-			"CodeObjTypeEnum.SliderParam",
-			"CodeObjTypeEnum.SwitchParam",
-			"CodeObjTypeEnum.TextAreaParam",
-			"CodeObjTypeEnum.TextParam",
-			"CodeObjTypeEnum.TimeParam",
-		},
-		Exported: true,
-	},
-	{
-		Name:     "BaseParentCodeObjImplTypeSet",
-		TypeExpr: "CodeObjType",
-		Members: []string{
-			"CodeObjTypeEnum.CodeCallable",
-			"CodeObjTypeEnum.NestedParam",
-		},
-	},
-	{
-		Name:     "ControlCodeObjTypeSet",
-		TypeExpr: "CodeObjType",
-		Members: []string{
-			"CodeObjTypeEnum.CodeParam",
-			"CodeObjTypeEnum.TextParam",
-			"CodeObjTypeEnum.DateParam",
-			"CodeObjTypeEnum.TimeParam",
-			"CodeObjTypeEnum.TextAreaParam",
-			"CodeObjTypeEnum.ButtonParam",
-			"CodeObjTypeEnum.SliderParam",
-			"CodeObjTypeEnum.RotaryParam",
-			"CodeObjTypeEnum.SwitchParam",
-			"CodeObjTypeEnum.ColorPickerParam",
-			"CodeObjTypeEnum.DropdownParam",
-			"CodeObjTypeEnum.PasswordParam",
-			"CodeObjTypeEnum.DropzoneParam",
-		},
-		Exported: true,
-	},
-	{
-		Name:     "SectionParamCodeObjTypeSet",
-		TypeExpr: "CodeObjType",
-		Members: []string{
-			"CodeObjTypeEnum.CodeParam",
-			"CodeObjTypeEnum.TextParam",
-			"CodeObjTypeEnum.DateParam",
-			"CodeObjTypeEnum.TimeParam",
-			"CodeObjTypeEnum.TextAreaParam",
-			"CodeObjTypeEnum.SliderParam",
-			"CodeObjTypeEnum.RotaryParam",
-			"CodeObjTypeEnum.SwitchParam",
-			"CodeObjTypeEnum.ColorPickerParam",
-			"CodeObjTypeEnum.DropdownParam",
-			"CodeObjTypeEnum.PasswordParam",
-			"CodeObjTypeEnum.DropzoneParam",
-			"CodeObjTypeEnum.NestedParam",
-		},
-		Exported: true,
-	},
-	{
-		Name:     "BaseParentSectionImplTypeSet",
-		TypeExpr: "SectionType",
-		Members: []string{
-			"SectionTypeEnum.Code",
-			"SectionTypeEnum.GenPythonCode",
-			"SectionTypeEnum.GenPythonMetadata",
-			"SectionTypeEnum.Group",
-			"SectionTypeEnum.ListRoot",
-		},
-	},
-	{
-		Name:     "BaseDictSectionImplTypeSet",
-		TypeExpr: "SectionType",
-		Members: []string{
-			"SectionTypeEnum.Dict",
-			"SectionTypeEnum.GlobalVariables",
-		},
-	},
-	{
-		Name:     "BaseSectionWithParamsImplTypeSet",
-		TypeExpr: "SectionType",
-		Members: []string{
-			"SectionTypeEnum.Callable",
-			"SectionTypeEnum.Dict",
-			"SectionTypeEnum.GlobalVariables",
-		},
-	},
-}
-
-var projectStateTypeGuards = []generatedTypeGuardSpec{
-	{
-		Name:           "isBaseChildlessCodeObjImpl",
-		InputTypeExpr:  "BaseCodeObjImplUnion",
-		ReturnTypeExpr: "BaseChildlessCodeObjImplUnion",
-		TypeSetName:    "BaseChildlessCodeObjImplTypeSet",
-	},
-	{
-		Name:           "isBaseParamCodeObjImpl",
-		InputTypeExpr:  "BaseCodeObjImplUnion",
-		ReturnTypeExpr: "BaseParamCodeObjImplUnion",
-		TypeSetName:    "BaseParamCodeObjImplTypeSet",
-	},
-	{
-		Name:           "isBaseParentCodeObjImpl",
-		InputTypeExpr:  "BaseCodeObjImplUnion",
-		ReturnTypeExpr: "BaseParentCodeObjImplUnion",
-		TypeSetName:    "BaseParentCodeObjImplTypeSet",
-	},
-	{
-		Name:           "isBaseParentSectionImpl",
-		InputTypeExpr:  "BaseSectionImplUnion",
-		ReturnTypeExpr: "BaseParentSectionImplUnion",
-		TypeSetName:    "BaseParentSectionImplTypeSet",
-	},
-	{
-		Name:           "isBaseDictSectionImpl",
-		InputTypeExpr:  "BaseSectionImplUnion",
-		ReturnTypeExpr: "BaseDictSectionImplUnion",
-		TypeSetName:    "BaseDictSectionImplTypeSet",
-	},
-	{
-		Name:           "isBaseSectionWithParamsImpl",
-		InputTypeExpr:  "BaseSectionImplUnion",
-		ReturnTypeExpr: "BaseSectionWithParamsImplUnion",
-		TypeSetName:    "BaseSectionWithParamsImplTypeSet",
-	},
-}
-
 func projectStateTypeGuardDeclarations() []TypeDeclaration {
-	declarations := make([]TypeDeclaration, 0, len(projectStateTypeGuardTypeSets)+len(projectStateTypeGuards))
-	for _, spec := range projectStateTypeGuardTypeSets {
-		declarations = append(
-			declarations,
-			setDeclaration(spec.Name, spec.TypeExpr, spec.Exported, spec.Members...),
-		)
+	return []TypeDeclaration{
+		generatedCodeObjTypeSetDeclaration(
+			"BaseChildlessCodeObjImplTypeSet",
+			true,
+			generatedCodeObjImplIsChildless,
+		),
+		generatedCodeObjTypeSetDeclaration(
+			"BaseParamCodeObjImplTypeSet",
+			true,
+			generatedCodeObjImplIsParam,
+		),
+		generatedCodeObjTypeSetDeclaration(
+			"BaseParentCodeObjImplTypeSet",
+			false,
+			generatedCodeObjImplHasChildren,
+		),
+		generatedCodeObjTypeSetDeclaration(
+			"ControlCodeObjTypeSet",
+			true,
+			generatedCodeObjImplIsControl,
+		),
+		generatedCodeObjTypeSetDeclaration(
+			"SectionParamCodeObjTypeSet",
+			true,
+			generatedCodeObjImplIsSectionParam,
+		),
+		generatedSectionTypeSetDeclaration(
+			"BaseParentSectionImplTypeSet",
+			false,
+			generatedSectionImplHasChildren,
+		),
+		generatedSectionTypeSetDeclaration(
+			"BaseDictSectionImplTypeSet",
+			false,
+			generatedSectionImplIsDictLike,
+		),
+		generatedSectionTypeSetDeclaration(
+			"BaseSectionWithParamsImplTypeSet",
+			false,
+			generatedSectionImplHasParams,
+		),
+		typeGuardDeclaration(
+			"isBaseChildlessCodeObjImpl",
+			"BaseCodeObjImplUnion",
+			"BaseChildlessCodeObjImplUnion",
+			"BaseChildlessCodeObjImplTypeSet",
+		),
+		typeGuardDeclaration(
+			"isBaseParamCodeObjImpl",
+			"BaseCodeObjImplUnion",
+			"BaseParamCodeObjImplUnion",
+			"BaseParamCodeObjImplTypeSet",
+		),
+		typeGuardDeclaration(
+			"isBaseParentCodeObjImpl",
+			"BaseCodeObjImplUnion",
+			"BaseParentCodeObjImplUnion",
+			"BaseParentCodeObjImplTypeSet",
+		),
+		typeGuardDeclaration(
+			"isBaseParentSectionImpl",
+			"BaseSectionImplUnion",
+			"BaseParentSectionImplUnion",
+			"BaseParentSectionImplTypeSet",
+		),
+		typeGuardDeclaration(
+			"isBaseDictSectionImpl",
+			"BaseSectionImplUnion",
+			"BaseDictSectionImplUnion",
+			"BaseDictSectionImplTypeSet",
+		),
+		typeGuardDeclaration(
+			"isBaseSectionWithParamsImpl",
+			"BaseSectionImplUnion",
+			"BaseSectionWithParamsImplUnion",
+			"BaseSectionWithParamsImplTypeSet",
+		),
 	}
-	for _, spec := range projectStateTypeGuards {
-		declarations = append(
-			declarations,
-			typeGuardDeclaration(spec.Name, spec.InputTypeExpr, spec.ReturnTypeExpr, spec.TypeSetName),
-		)
+}
+
+var frontendBaseValueParamCodeObjImplType = reflect.TypeOf(projectstate.FrontendBaseValueParamCodeObjImpl{})
+var frontendParamCodeObjFieldsType = reflect.TypeOf(projectstate.FrontendParamCodeObjFields{})
+
+// These section kinds intentionally reuse another concrete owner contract shape
+// without a dedicated frontend struct root.
+var generatedSectionTraitAliasTargets = map[string]string{
+	"GenPythonCode":     "Code",
+	"GenPythonMetadata": "Code",
+	"GlobalVariables":   "Dict",
+}
+
+func generatedCodeObjTypeSetDeclaration(
+	name string,
+	exported bool,
+	predicate func(reflect.Type) bool,
+) TypeDeclaration {
+	return setDeclaration(
+		name,
+		"CodeObjType",
+		exported,
+		generatedCodeObjTypeSetMembers(predicate)...,
+	)
+}
+
+func generatedSectionTypeSetDeclaration(
+	name string,
+	exported bool,
+	predicate func(reflect.Type) bool,
+) TypeDeclaration {
+	return setDeclaration(
+		name,
+		"SectionType",
+		exported,
+		generatedSectionTypeSetMembers(predicate)...,
+	)
+}
+
+func generatedCodeObjTypeSetMembers(predicate func(reflect.Type) bool) []string {
+	members := []string{}
+	for _, codeObjName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendCodeObjType("")),
+	) {
+		t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName)
+		if !ok || !predicate(t) {
+			continue
+		}
+		members = append(members, "CodeObjTypeEnum."+codeObjName)
 	}
-	return declarations
+	return members
+}
+
+func generatedSectionTypeSetMembers(predicate func(reflect.Type) bool) []string {
+	members := []string{}
+	for _, sectionName := range mustGeneratedEnumValues(
+		reflect.TypeOf(projectstate.FrontendSectionType("")),
+	) {
+		t, ok := generatedSectionImplOrAliasTypeForSectionName(sectionName)
+		if !ok || !predicate(t) {
+			continue
+		}
+		members = append(members, generatedSectionImplTypeExpr(sectionName))
+	}
+	return members
+}
+
+func generatedSectionImplOrAliasTypeForSectionName(sectionName string) (reflect.Type, bool) {
+	if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
+		return t, true
+	}
+	targetSectionName, ok := generatedSectionTraitAliasTargets[sectionName]
+	if !ok {
+		return nil, false
+	}
+	return generatedSectionImplTypeForSectionName(targetSectionName)
+}
+
+func generatedSectionImplHasChildren(t reflect.Type) bool {
+	return generatedContractTypeHasJSONField(t, "children")
+}
+
+func generatedSectionImplHasParams(t reflect.Type) bool {
+	return generatedContractTypeHasJSONField(t, "codeObjVariantMap")
+}
+
+func generatedSectionImplIsDictLike(t reflect.Type) bool {
+	return generatedContractTypeHasJSONField(t, "topLevelParamId")
+}
+
+func generatedCodeObjImplHasChildren(t reflect.Type) bool {
+	return generatedContractTypeHasJSONField(t, "children")
+}
+
+func generatedCodeObjImplIsChildless(t reflect.Type) bool {
+	return generatedContractTypeEmbedsAnonymousField(t, frontendBaseValueParamCodeObjImplType)
+}
+
+func generatedCodeObjImplIsParam(t reflect.Type) bool {
+	return generatedContractTypeEmbedsAnonymousField(t, frontendParamCodeObjFieldsType)
+}
+
+func generatedCodeObjImplIsControl(t reflect.Type) bool {
+	return generatedCodeObjImplIsParam(t) && !generatedCodeObjImplHasChildren(t)
+}
+
+func generatedCodeObjImplIsSectionParam(t reflect.Type) bool {
+	return generatedCodeObjImplIsParam(t) &&
+		(generatedCodeObjImplIsChildless(t) || generatedCodeObjImplHasChildren(t))
+}
+
+func generatedContractTypeHasJSONField(t reflect.Type, fieldName string) bool {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for index := range t.NumField() {
+		field := t.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous && generatedContractTypeHasJSONField(field.Type, fieldName) {
+			return true
+		}
+		name, _, skip := jsonFieldName(field)
+		if !skip && name == fieldName {
+			return true
+		}
+	}
+	return false
 }
 
 func buildDefaultSharePolicyCreateExprTS() string {

@@ -1607,6 +1607,41 @@ export function createCodeSectionImpl(
   );
 }
 
+type TerminalSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Terminal;
+};
+
+export function createTerminalSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTerminalSectionImpl>
+    | Partial<TerminalSectionImpl> = {},
+  overrides?: Partial<TerminalSectionImpl>,
+): TerminalSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTerminalSectionImpl,
+    TerminalSectionImpl
+  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Terminal,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+    },
+    resolved.overrides,
+  );
+}
+
 type CallableSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Callable;
   codeObjVariantMap: Record<string, string>;
@@ -1945,6 +1980,44 @@ type BaseCodeObjImpl = {
   [key: string]: unknown;
 };
 
+type CodeParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+export function createCodeParamCodeObjImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeParamCodeObjImpl>
+    | Partial<CodeParamCodeObjImpl> = {},
+  overrides?: Partial<CodeParamCodeObjImpl>,
+): CodeParamCodeObjImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeParamCodeObjImpl,
+    CodeParamCodeObjImpl
+  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: CodeObjTypeEnum.CodeParam,
+      id: "",
+      name: "",
+      description: "",
+      isPreset: false,
+      coreNameType: resolved.defaults.coreNameType,
+      coreNameEditable: resolved.defaults.coreNameEditable,
+      passingStyle: "DEFAULT",
+      typeAnnotation: resolved.defaults.typeAnnotation,
+      defaultVal: resolved.defaults.defaultVal,
+      value: resolved.defaults.value,
+    },
+    resolved.overrides,
+  );
+}
+
 type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeCallable;
   children: Array<string>;
@@ -2041,6 +2114,16 @@ export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
   step: number;
 };
 
+type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SwitchParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
 export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.ColorPickerParam;
   coreNameType: ParamNameType;
@@ -2072,6 +2155,16 @@ type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
   defaultVal: string;
   value: string;
   hasSecret: boolean;
+};
+
+type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextAreaParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
 };
 
 export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
@@ -5874,79 +5967,6 @@ export type GitDiffResponse = {
   isTruncated: boolean;
 };
 
-type TerminalSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Terminal;
-};
-
-export function createTerminalSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTerminalSectionImpl>
-    | Partial<TerminalSectionImpl> = {},
-  overrides?: Partial<TerminalSectionImpl>,
-): TerminalSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTerminalSectionImpl,
-    TerminalSectionImpl
-  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Terminal,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-    },
-    resolved.overrides,
-  );
-}
-
-type CodeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-
-export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeParamCodeObjImpl>
-    | Partial<CodeParamCodeObjImpl> = {},
-  overrides?: Partial<CodeParamCodeObjImpl>,
-): CodeParamCodeObjImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: CodeObjTypeEnum.CodeParam,
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
-      passingStyle: "DEFAULT",
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
-    },
-    resolved.overrides,
-  );
-}
-
 export type AcceptRenameRefactorRequest = {
   projectConfigId: string;
   frontendOpId: string;
@@ -8491,9 +8511,11 @@ export type BaseCodeObjImplUnion =
   | ButtonParamCodeObjImpl
   | SliderParamCodeObjImpl
   | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
   | ColorPickerParamCodeObjImpl
   | DropdownParamCodeObjImpl
   | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
 
@@ -8505,9 +8527,11 @@ export type BaseChildlessCodeObjImplUnion =
   | TimeParamCodeObjImpl
   | SliderParamCodeObjImpl
   | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
   | ColorPickerParamCodeObjImpl
   | DropdownParamCodeObjImpl
   | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl;
 
 type BaseParamCodeObjImplUnion =
@@ -8519,9 +8543,11 @@ type BaseParamCodeObjImplUnion =
   | ButtonParamCodeObjImpl
   | SliderParamCodeObjImpl
   | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
   | ColorPickerParamCodeObjImpl
   | DropdownParamCodeObjImpl
   | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
 
@@ -9626,34 +9652,34 @@ export function createDefaultAppPolicy(
 
 const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
   CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.DropzoneParam,
 ]);
 
 export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
   CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.DropzoneParam,
   CodeObjTypeEnum.NestedParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
 ]);
 
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
@@ -9666,7 +9692,6 @@ export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.DateParam,
   CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.SliderParam,
   CodeObjTypeEnum.RotaryParam,
@@ -9674,6 +9699,7 @@ export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.ColorPickerParam,
   CodeObjTypeEnum.DropdownParam,
   CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.DropzoneParam,
 ]);
 
@@ -9682,23 +9708,23 @@ export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.DateParam,
   CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.SliderParam,
   CodeObjTypeEnum.RotaryParam,
   CodeObjTypeEnum.SwitchParam,
   CodeObjTypeEnum.ColorPickerParam,
   CodeObjTypeEnum.DropdownParam,
   CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.DropzoneParam,
   CodeObjTypeEnum.NestedParam,
 ]);
 
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.ListRoot,
+  SectionTypeEnum.Group,
   SectionTypeEnum.Code,
   SectionTypeEnum.GenPythonCode,
   SectionTypeEnum.GenPythonMetadata,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.ListRoot,
 ]);
 
 const BaseDictSectionImplTypeSet = new Set<SectionType>([

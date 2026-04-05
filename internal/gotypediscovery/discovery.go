@@ -506,7 +506,11 @@ func structMatchesOptions(typed *ast.StructType, options DiscoverOptions) bool {
 	if !options.RequireJSONTaggedStructs {
 		return true
 	}
+	hasExportedEmbeddedField := false
 	for _, field := range typed.Fields.List {
+		if fieldHasEmbeddedExportedType(field) {
+			hasExportedEmbeddedField = true
+		}
 		if !fieldHasExportedName(field) {
 			continue
 		}
@@ -514,12 +518,15 @@ func structMatchesOptions(typed *ast.StructType, options DiscoverOptions) bool {
 			return true
 		}
 	}
-	return false
+	return hasExportedEmbeddedField
 }
 
 func fieldHasExportedName(field *ast.Field) bool {
-	if field == nil || len(field.Names) == 0 {
+	if field == nil {
 		return false
+	}
+	if len(field.Names) == 0 {
+		return fieldHasEmbeddedExportedType(field)
 	}
 	for _, name := range field.Names {
 		if name != nil && name.IsExported() {
@@ -527,6 +534,30 @@ func fieldHasExportedName(field *ast.Field) bool {
 		}
 	}
 	return false
+}
+
+func fieldHasEmbeddedExportedType(field *ast.Field) bool {
+	if field == nil || len(field.Names) != 0 {
+		return false
+	}
+	return exprHasExportedTypeName(field.Type)
+}
+
+func exprHasExportedTypeName(expr ast.Expr) bool {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		return typed != nil && typed.IsExported()
+	case *ast.SelectorExpr:
+		return typed != nil && typed.Sel != nil && ast.IsExported(typed.Sel.Name)
+	case *ast.StarExpr:
+		return typed != nil && exprHasExportedTypeName(typed.X)
+	case *ast.IndexExpr:
+		return typed != nil && exprHasExportedTypeName(typed.X)
+	case *ast.IndexListExpr:
+		return typed != nil && exprHasExportedTypeName(typed.X)
+	default:
+		return false
+	}
 }
 
 func hasSupportedJSONTag(field *ast.Field) bool {
