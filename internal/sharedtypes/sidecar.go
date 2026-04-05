@@ -22,6 +22,7 @@ type SemanticSidecar struct {
 	Routes                []RouteInventoryEntry      `json:"routes"`
 	Defaults              []DefaultEntry             `json:"defaults,omitempty"`
 	ExportedValues        []ExportedValueEntry       `json:"exportedValues,omitempty"`
+	DiscriminatedUnions   []DiscriminatedUnionEntry  `json:"discriminatedUnions,omitempty"`
 	DiscriminatedFamilies []DiscriminatedFamilyEntry `json:"discriminatedFamilies,omitempty"`
 }
 
@@ -53,6 +54,18 @@ type ExportedValueEntry struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
 	Value any    `json:"value"`
+}
+
+type DiscriminatedUnionEntry struct {
+	Name               string                          `json:"name"`
+	EnumType           string                          `json:"enumType,omitempty"`
+	DiscriminatorField string                          `json:"discriminatorField"`
+	Members            []DiscriminatedUnionMemberEntry `json:"members"`
+}
+
+type DiscriminatedUnionMemberEntry struct {
+	Name               string `json:"name"`
+	DiscriminatorValue string `json:"discriminatorValue"`
 }
 
 type DiscriminatedFamilyEntry struct {
@@ -89,6 +102,10 @@ func BuildSemanticSidecar() (SemanticSidecar, error) {
 	if err != nil {
 		return SemanticSidecar{}, err
 	}
+	discriminatedUnions, err := buildDiscriminatedUnionEntries()
+	if err != nil {
+		return SemanticSidecar{}, err
+	}
 
 	return SemanticSidecar{
 		SchemaVersion:         1,
@@ -96,6 +113,7 @@ func BuildSemanticSidecar() (SemanticSidecar, error) {
 		Routes:                routes,
 		Defaults:              buildDefaultEntries(),
 		ExportedValues:        buildExportedValueEntries(),
+		DiscriminatedUnions:   discriminatedUnions,
 		DiscriminatedFamilies: families,
 	}, nil
 }

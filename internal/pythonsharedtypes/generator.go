@@ -37,6 +37,7 @@ func Build() (GeneratedTypes, error) {
 
 	standardBlocks, standardImports, _, err := pythonSharedSchemaDeclarations(
 		ctx.DefaultSourcesByType,
+		ctx.SemanticSidecar,
 	)
 	if err != nil {
 		return GeneratedTypes{}, err

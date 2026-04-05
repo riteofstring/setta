@@ -1,18 +1,16 @@
-from typing import Annotated, Any
+from typing import Annotated
 
 from pydantic import ConfigDict, Discriminator, Tag
 from setta.types.generated.go_shared_types import (
-    BinaryDependencyValue as GoBinaryDependencyValue,
+    _base_dependency_key_union_discriminator,
 )
 from setta.types.generated.go_shared_types import (
+    BaseDependencyValueUnion,
+    BinaryDependencyValue,
     DependencyKeyType,
     DependencyValueType,
-)
-from setta.types.generated.go_shared_types import (
-    FileReadDependencyValue as GoFileReadDependencyValue,
-)
-from setta.types.generated.go_shared_types import (
-    LiteralDependencyValue as GoLiteralDependencyValue,
+    FileReadDependencyValue,
+    LiteralDependencyValue,
 )
 from setta.types.generated.go_shared_types import (
     SectionDependencyKey as GoSectionDependencyKey,
@@ -45,43 +43,25 @@ def create_dep_key(sectionId: ID, codeObjId: ID | None = None):
 
 
 BaseDependencyKeyUnion = SectionDependencyKey | SectionParamDependencyKey
-
-
-def _dependency_key_type(value: Any) -> str | None:
-    raw_type = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_type, DependencyKeyType):
-        return raw_type.value
-    if isinstance(raw_type, str):
-        return raw_type
-    return None
-
-
 BaseDependencyKeyUnionWithDiscriminator = Annotated[
     Annotated[SectionDependencyKey, Tag(DependencyKeyType.Section.value)]
     | Annotated[
         SectionParamDependencyKey,
         Tag(DependencyKeyType.SectionParam.value),
     ],
-    Discriminator(_dependency_key_type),
+    Discriminator(_base_dependency_key_union_discriminator),
 ]
 
-
-def _dependency_value_type(value: Any) -> str | None:
-    raw_type = (
-        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
-    )
-    if isinstance(raw_type, DependencyValueType):
-        return raw_type.value
-    if isinstance(raw_type, str):
-        return raw_type
-    return None
-
-
-BaseDependencyValueUnion = Annotated[
-    Annotated[GoLiteralDependencyValue, Tag(DependencyValueType.Literal.value)]
-    | Annotated[GoFileReadDependencyValue, Tag(DependencyValueType.FileRead.value)]
-    | Annotated[GoBinaryDependencyValue, Tag(DependencyValueType.Binary.value)],
-    Discriminator(_dependency_value_type),
+__all__ = [
+    "BaseDependencyKeyUnion",
+    "BaseDependencyKeyUnionWithDiscriminator",
+    "BaseDependencyValueUnion",
+    "BinaryDependencyValue",
+    "DependencyKeyType",
+    "DependencyValueType",
+    "FileReadDependencyValue",
+    "LiteralDependencyValue",
+    "SectionDependencyKey",
+    "SectionParamDependencyKey",
+    "create_dep_key",
 ]

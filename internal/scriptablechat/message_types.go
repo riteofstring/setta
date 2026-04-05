@@ -112,7 +112,7 @@ func (BaseChatMessageUnion) FrontendBindingUnionTypes() []reflect.Type {
 
 type SystemChatMessage struct {
 	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
-	Role        ChatRole             `json:"role" py_default:"ChatRole.system" ts_type:"typeof ChatRoleEnum.system"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.system" ts_type:"typeof ChatRoleEnum.system" shared_discriminator:"system"`
 	CreatedAt   int                  `json:"createdAt" py_default:"0"`
 	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)" ts_type:"Array<MessageContent>"`
 	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
@@ -120,7 +120,7 @@ type SystemChatMessage struct {
 
 type AssistantChatMessage struct {
 	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
-	Role        ChatRole             `json:"role" py_default:"ChatRole.assistant" ts_type:"typeof ChatRoleEnum.assistant"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.assistant" ts_type:"typeof ChatRoleEnum.assistant" shared_discriminator:"assistant"`
 	CreatedAt   int                  `json:"createdAt" py_default:"0"`
 	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)" ts_type:"Array<MessageContent>"`
 	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
@@ -129,7 +129,7 @@ type AssistantChatMessage struct {
 
 type UserChatMessage struct {
 	ID          string               `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
-	Role        ChatRole             `json:"role" py_default:"ChatRole.user" ts_type:"typeof ChatRoleEnum.user"`
+	Role        ChatRole             `json:"role" py_default:"ChatRole.user" ts_type:"typeof ChatRoleEnum.user" shared_discriminator:"user"`
 	CreatedAt   int                  `json:"createdAt" py_default:"0"`
 	Content     []map[string]any     `json:"content" py_type:"list[MessageTextContent | MessageImageURLContent | MessageThinkingContent]" py_default:"Field(default_factory=list)" ts_type:"Array<MessageContent>"`
 	Attachments []ChatFileAttachment `json:"attachments" py_default:"Field(default_factory=list)"`
@@ -137,7 +137,7 @@ type UserChatMessage struct {
 
 type ToolChatMessage struct {
 	ID          string           `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
-	Role        ChatRole         `json:"role" py_default:"ChatRole.tool" ts_type:"typeof ChatRoleEnum.tool"`
+	Role        ChatRole         `json:"role" py_default:"ChatRole.tool" ts_type:"typeof ChatRoleEnum.tool" shared_discriminator:"tool"`
 	CreatedAt   int              `json:"createdAt" py_default:"0"`
 	ToolCallID  string           `json:"tool_call_id"`
 	ToolName    *string          `json:"tool_name,omitempty"`

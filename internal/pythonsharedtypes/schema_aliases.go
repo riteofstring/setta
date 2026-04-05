@@ -142,8 +142,13 @@ func repoRootFromCaller() (string, error) {
 
 func pythonSharedSchemaDeclarations(
 	defaultSourcesByType map[reflect.Type]reflect.Value,
+	sidecar sharedtypes.SemanticSidecar,
 ) ([]string, []string, map[string]struct{}, error) {
 	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	module, discriminatorImports, err := applyPythonDiscriminatedUnionDeclarations(module, sidecar)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -154,6 +159,13 @@ func pythonSharedSchemaDeclarations(
 	}
 	imports := map[string]struct{}{}
 	for _, line := range module.ImportLines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		imports[line] = struct{}{}
+	}
+	for _, line := range discriminatorImports {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

@@ -10654,6 +10654,127 @@
       }
     }
   ],
+  "discriminatedUnions": [
+    {
+      "name": "BaseArtifactUnion",
+      "enumType": "ArtifactType",
+      "discriminatorField": "type",
+      "members": [
+        {
+          "name": "ImageArtifact",
+          "discriminatorValue": "Image"
+        },
+        {
+          "name": "BrushStrokeArtifact",
+          "discriminatorValue": "BrushStroke"
+        },
+        {
+          "name": "DrawAreaLayerItemTransformArtifact",
+          "discriminatorValue": "DrawAreaLayerItemTransform"
+        },
+        {
+          "name": "ChartDataArtifact",
+          "discriminatorValue": "ChartData"
+        },
+        {
+          "name": "FileArtifact",
+          "discriminatorValue": "File"
+        }
+      ]
+    },
+    {
+      "name": "BaseChatMessageUnion",
+      "enumType": "ChatRole",
+      "discriminatorField": "role",
+      "members": [
+        {
+          "name": "SystemChatMessage",
+          "discriminatorValue": "system"
+        },
+        {
+          "name": "AssistantChatMessage",
+          "discriminatorValue": "assistant"
+        },
+        {
+          "name": "UserChatMessage",
+          "discriminatorValue": "user"
+        },
+        {
+          "name": "ToolChatMessage",
+          "discriminatorValue": "tool"
+        }
+      ]
+    },
+    {
+      "name": "BaseDependencyKeyUnion",
+      "enumType": "DependencyKeyType",
+      "discriminatorField": "type",
+      "members": [
+        {
+          "name": "SectionDependencyKey",
+          "discriminatorValue": "Section"
+        },
+        {
+          "name": "SectionParamDependencyKey",
+          "discriminatorValue": "SectionParam"
+        }
+      ]
+    },
+    {
+      "name": "BaseDependencyValueUnion",
+      "enumType": "DependencyValueType",
+      "discriminatorField": "type",
+      "members": [
+        {
+          "name": "LiteralDependencyValue",
+          "discriminatorValue": "Literal"
+        },
+        {
+          "name": "FileReadDependencyValue",
+          "discriminatorValue": "FileRead"
+        },
+        {
+          "name": "BinaryDependencyValue",
+          "discriminatorValue": "Binary"
+        }
+      ]
+    },
+    {
+      "name": "LLMStreamingResponseChunk",
+      "enumType": "StreamingEventType",
+      "discriminatorField": "type",
+      "members": [
+        {
+          "name": "MessageStartEvent",
+          "discriminatorValue": "message_start"
+        },
+        {
+          "name": "MessageDeltaEvent",
+          "discriminatorValue": "delta"
+        },
+        {
+          "name": "ToolCallDeltaEvent",
+          "discriminatorValue": "tool_call_delta"
+        },
+        {
+          "name": "ToolResultEvent",
+          "discriminatorValue": "tool_result"
+        },
+        {
+          "name": "ToolArgumentPreviewDeltaEvent",
+          "discriminatorValue": "tool_argument_preview_delta"
+        },
+        {
+          "name": "MessageStopEvent",
+          "discriminatorValue": "message_stop"
+        },
+        {
+          "name": "MessageFinalizedEvent",
+          "discriminatorValue": "message_finalized"
+        }
+      ]
+    }
+  ],
   "discriminatedFamilies": [
     {
       "baseType": "BaseCodeObjImpl",

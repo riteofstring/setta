@@ -159,6 +159,56 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	}
 }
 
+func TestBuildSemanticSidecarIncludesDiscriminatedUnionSemantics(t *testing.T) {
+	t.Parallel()
+
+	sidecar, err := BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+
+	var chatUnion *DiscriminatedUnionEntry
+	for index := range sidecar.DiscriminatedUnions {
+		entry := &sidecar.DiscriminatedUnions[index]
+		if entry.Name == "BaseChatMessageUnion" {
+			chatUnion = entry
+			break
+		}
+	}
+	if chatUnion == nil {
+		t.Fatalf("expected shared sidecar discriminated union entry for BaseChatMessageUnion")
+	}
+	if got := chatUnion.DiscriminatorField; got != "role" {
+		t.Fatalf("BaseChatMessageUnion discriminatorField = %q, want %q", got, "role")
+	}
+	if got := chatUnion.EnumType; got != "ChatRole" {
+		t.Fatalf("BaseChatMessageUnion enumType = %q, want %q", got, "ChatRole")
+	}
+
+	memberValues := map[string]string{}
+	for _, member := range chatUnion.Members {
+		memberValues[member.Name] = member.DiscriminatorValue
+	}
+	if got := memberValues["AssistantChatMessage"]; got != "assistant" {
+		t.Fatalf("AssistantChatMessage discriminator value = %q, want %q", got, "assistant")
+	}
+
+	var artifactUnion *DiscriminatedUnionEntry
+	for index := range sidecar.DiscriminatedUnions {
+		entry := &sidecar.DiscriminatedUnions[index]
+		if entry.Name == "BaseArtifactUnion" {
+			artifactUnion = entry
+			break
+		}
+	}
+	if artifactUnion == nil {
+		t.Fatalf("expected shared sidecar discriminated union entry for BaseArtifactUnion")
+	}
+	if got := artifactUnion.DiscriminatorField; got != "type" {
+		t.Fatalf("BaseArtifactUnion discriminatorField = %q, want %q", got, "type")
+	}
+}
+
 func TestSharedArtifactsSkipUnexportedRuntimeTypes(t *testing.T) {
 	t.Parallel()
 

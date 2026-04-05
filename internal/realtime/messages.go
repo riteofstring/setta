@@ -139,18 +139,18 @@ func (MessageContentDelta) FrontendBindingUnionTypes() []reflect.Type {
 }
 
 type MessageStartEvent struct {
-	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_start"`
+	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_start" shared_discriminator:"message_start"`
 	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion" shared_schema_ref:"BaseChatMessageUnion"`
 }
 
 type MessageDeltaEvent struct {
-	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.delta"`
+	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.delta" shared_discriminator:"delta"`
 	MessageID string             `json:"message_id"`
 	Content   []any              `json:"content" ts_type:"Array<MessageContentDelta> | null" ts_optional:"true" shared_schema_items_ref:"MessageContentDelta"`
 }
 
 type ToolCallDeltaEvent struct {
-	Type           StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_call_delta"`
+	Type           StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_call_delta" shared_discriminator:"tool_call_delta"`
 	MessageID      string             `json:"message_id"`
 	ToolCallID     string             `json:"tool_call_id"`
 	ArgumentsDelta string             `json:"arguments_delta"`
@@ -158,12 +158,12 @@ type ToolCallDeltaEvent struct {
 }
 
 type ToolResultEvent struct {
-	Type   StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_result"`
+	Type   StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_result" shared_discriminator:"tool_result"`
 	Result map[string]any     `json:"result" ts_type:"ToolChatMessage" shared_schema_ref:"ToolChatMessage"`
 }
 
 type ToolArgumentPreviewDeltaEvent struct {
-	Type              StreamingEventType  `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_argument_preview_delta"`
+	Type              StreamingEventType  `json:"type" ts_type:"typeof StreamingEventTypeEnum.tool_argument_preview_delta" shared_discriminator:"tool_argument_preview_delta"`
 	MessageID         string              `json:"message_id"`
 	ToolCallID        string              `json:"tool_call_id"`
 	ToolName          string              `json:"tool_name"`
@@ -174,12 +174,12 @@ type ToolArgumentPreviewDeltaEvent struct {
 }
 
 type MessageStopEvent struct {
-	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_stop"`
+	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_stop" shared_discriminator:"message_stop"`
 	MessageID string             `json:"message_id"`
 }
 
 type MessageFinalizedEvent struct {
-	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_finalized"`
+	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.message_finalized" shared_discriminator:"message_finalized"`
 	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion" shared_schema_ref:"BaseChatMessageUnion"`
 }
 

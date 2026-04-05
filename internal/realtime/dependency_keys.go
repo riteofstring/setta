@@ -17,12 +17,12 @@ const (
 )
 
 type SectionDependencyKey struct {
-	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.Section"`
+	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.Section" shared_discriminator:"Section"`
 	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type SectionParamDependencyKey struct {
-	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.SectionParam"`
+	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.SectionParam" shared_discriminator:"SectionParam"`
 	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 	CodeObjID string            `json:"codeObjId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
@@ -36,17 +36,17 @@ const (
 )
 
 type LiteralDependencyValue struct {
-	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.Literal"`
+	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.Literal" shared_discriminator:"Literal"`
 	Payload string              `json:"payload"`
 }
 
 type FileReadDependencyValue struct {
-	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.FileRead"`
+	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.FileRead" shared_discriminator:"FileRead"`
 	Payload string              `json:"payload"`
 }
 
 type BinaryDependencyValue struct {
-	Type    DependencyValueType      `json:"type" ts_type:"typeof DependencyValueTypeEnum.Binary"`
+	Type    DependencyValueType      `json:"type" ts_type:"typeof DependencyValueTypeEnum.Binary" shared_discriminator:"Binary"`
 	Payload binarypayload.ContentRef `json:"payload"`
 }
 

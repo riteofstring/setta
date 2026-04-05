@@ -12,6 +12,7 @@ import (
 const GeneratedPythonModulePath = "backend/setta/types/generated/go_shared_types.py"
 
 type generationContext struct {
+	SemanticSidecar      sharedtypes.SemanticSidecar
 	DefaultSourcesByType map[reflect.Type]reflect.Value
 }
 
@@ -37,6 +38,7 @@ func buildGenerationContext() (generationContext, error) {
 	}
 
 	return generationContext{
+		SemanticSidecar:      sidecar,
 		DefaultSourcesByType: defaultSources,
 	}, nil
 }

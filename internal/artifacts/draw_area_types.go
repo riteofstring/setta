@@ -52,13 +52,13 @@ type DrawAreaLayer struct {
 }
 
 type BrushStrokeArtifact struct {
-	Type  ArtifactType `json:"type" ts_type:"typeof ArtifactTypeEnum.BrushStroke"`
+	Type  ArtifactType `json:"type" ts_type:"typeof ArtifactTypeEnum.BrushStroke" shared_discriminator:"BrushStroke"`
 	ID    string       `json:"id" ts_create_expr:"createJsonArtifactId()"`
 	Value BrushStroke  `json:"value" ts_create_expr:"createBrushStroke()"`
 }
 
 type DrawAreaLayerItemTransformArtifact struct {
-	Type  ArtifactType               `json:"type" ts_type:"typeof ArtifactTypeEnum.DrawAreaLayerItemTransform"`
+	Type  ArtifactType               `json:"type" ts_type:"typeof ArtifactTypeEnum.DrawAreaLayerItemTransform" shared_discriminator:"DrawAreaLayerItemTransform"`
 	ID    string                     `json:"id" ts_create_expr:"createJsonArtifactId()"`
 	Value DrawAreaLayerItemTransform `json:"value" ts_create_expr:"createDrawAreaLayerItemTransform()"`
 }

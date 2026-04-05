@@ -201,3 +201,33 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildEmitsDiscriminatedSharedUnionAliases(t *testing.T) {
+	t.Helper()
+
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	output := generated.PythonModule
+	for _, snippet := range []string{
+		"def _base_artifact_union_discriminator(value: Any) -> str | None:",
+		"type BaseArtifactUnion = Annotated[",
+		"Tag(ArtifactType.Image.value)",
+		"Discriminator(_base_artifact_union_discriminator)",
+		"def _base_chat_message_union_discriminator(value: Any) -> str | None:",
+		"Tag(ChatRole.assistant.value)",
+		"Discriminator(_base_chat_message_union_discriminator)",
+		"def _base_dependency_value_union_discriminator(value: Any) -> str | None:",
+		"Tag(DependencyValueType.Binary.value)",
+		"Discriminator(_base_dependency_value_union_discriminator)",
+		"def _llm_streaming_response_chunk_discriminator(value: Any) -> str | None:",
+		"Tag(StreamingEventType.message_start.value)",
+		"Discriminator(_llm_streaming_response_chunk_discriminator)",
+	} {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("generated output missing discriminated-union snippet %q", snippet)
+		}
+	}
+}
