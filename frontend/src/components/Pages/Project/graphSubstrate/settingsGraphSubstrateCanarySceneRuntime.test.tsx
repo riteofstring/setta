@@ -201,7 +201,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("keeps a section-model size seed until a fresher measured size arrives", async () => {
+  it("keeps section-model size authoritative and does not resubscribe to measured-size churn when model geometry already exists", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -243,35 +243,57 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
       expect(readSceneRenderCount(host)).toBe(1);
     });
 
+    expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+      height: 78,
+      id: "section-a",
+      position: { x: 120, y: 80 },
+      sizeAuthority: "sectionModel",
+      style: undefined,
+      tempZIndex: 2,
+      type: undefined,
+      width: 550,
+      zIndex: 2,
+    });
+
     act(() => {
       useSectionElementSizeRegistry.setState({
         "section-a": { width: 620, height: 210 },
       });
     });
+    await act(async () => {});
 
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 620,
-          height: 210,
+    expect(readSceneSnapshot(host)).toEqual({
+      sceneBounds: {
+        x: 120,
+        y: 80,
+        width: 550,
+        height: 78,
+      },
+      sections: [
+        {
+          height: 78,
+          position: { x: 120, y: 80 },
+          positionAndSizeLocked: false,
+          renderedPosition: { x: 120, y: 80 },
+          resolvedSize: { width: 550, height: 78 },
+          sectionId: "section-a",
+          tempZIndex: 2,
+          width: 550,
+          zIndex: 2,
         },
-        sections: [
-          {
-            height: 78,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: false,
-            renderedPosition: { x: 120, y: 80 },
-            resolvedSize: { width: 620, height: 210 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: 550,
-            zIndex: 2,
-          },
-        ],
-      });
-      expect(readSceneRenderCount(host)).toBe(2);
+      ],
+    });
+    expect(readSceneRenderCount(host)).toBe(1);
+    expect(useNodeInternals.getState().x.get("section-a")).toEqual({
+      height: 78,
+      id: "section-a",
+      position: { x: 120, y: 80 },
+      sizeAuthority: "sectionModel",
+      style: undefined,
+      tempZIndex: 2,
+      type: undefined,
+      width: 550,
+      zIndex: 2,
     });
   });
 
@@ -583,9 +605,8 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         height: 190,
         id: "section-a",
         position: { x: 120, y: 80 },
-        style: undefined,
+        sizeAuthority: "sharedNode",
         tempZIndex: 2,
-        type: undefined,
         width: 280,
         zIndex: 2,
       });

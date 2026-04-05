@@ -41,6 +41,39 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     ).toBe(false);
   });
 
+  it("stops observing measured size when section-model geometry already exists", () => {
+    expect(
+      shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
+        width: 550,
+        height: 78,
+        positionAndSizeLocked: false,
+        sizeAuthority: "sectionModel",
+      }),
+    ).toBe(false);
+
+    expect(
+      resolveSettingsGraphSubstrateCanarySectionGeometry(
+        {
+          sectionId: "section-model-section",
+          position: { x: 120, y: 80 },
+          width: 550,
+          height: 78,
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+          sizeAuthority: "sectionModel",
+        },
+        {
+          "section-model-section": { width: 620, height: 210 },
+        },
+        null,
+      ),
+    ).toEqual({
+      renderedPosition: { x: 120, y: 80 },
+      resolvedSize: { width: 550, height: 78 },
+    });
+  });
+
   it("keeps observing measured size when a section is seeded from shared node authority", () => {
     expect(
       shouldObserveSettingsGraphSubstrateCanarySectionElementSize({

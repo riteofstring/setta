@@ -4,7 +4,7 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs explicit size authority while keeping measured fallback only when layout is missing", () => {
+  it("syncs layout and section-model sizes authoritatively while leaving measured fallback only on shared-node sections", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -40,17 +40,28 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         {
           sectionId: "section-b",
           position: { x: 120, y: 80 },
-          width: null,
-          height: null,
+          width: 550,
+          height: 78,
           sizeAuthority: "sectionModel",
           zIndex: 2,
           tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+        {
+          sectionId: "section-c",
+          position: { x: 260, y: 140 },
+          width: 260,
+          height: 180,
+          sizeAuthority: "sharedNode",
+          zIndex: 3,
+          tempZIndex: 3,
           positionAndSizeLocked: false,
         },
       ],
       {
         "section-a": { width: 360, height: 210 },
         "section-b": { width: 280, height: 190 },
+        "section-c": { width: 320, height: 220 },
       },
       null,
       "section-a",
@@ -75,11 +86,22 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
     expect(nextNodeInternals.get("section-b")).toEqual({
       id: "section-b",
       position: { x: 120, y: 80 },
-      width: 280,
-      height: 190,
+      width: 550,
+      height: 78,
       sizeAuthority: "sectionModel",
       zIndex: 2,
       tempZIndex: 2,
+      type: undefined,
+      style: undefined,
+    });
+    expect(nextNodeInternals.get("section-c")).toEqual({
+      id: "section-c",
+      position: { x: 260, y: 140 },
+      width: 320,
+      height: 220,
+      sizeAuthority: "sharedNode",
+      zIndex: 3,
+      tempZIndex: 3,
       type: undefined,
       style: undefined,
     });

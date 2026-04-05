@@ -36,9 +36,18 @@ export function shouldObserveSettingsGraphSubstrateCanarySectionElementSize(
     "height" | "positionAndSizeLocked" | "sizeAuthority" | "width"
   >,
 ) {
-  return (
-    getSettingsGraphSubstrateCanarySectionSizeAuthority(section) !== "layout"
-  );
+  const sizeAuthority =
+    getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
+
+  if (sizeAuthority === "layout") {
+    return false;
+  }
+
+  if (sizeAuthority === "sectionModel") {
+    return getStoredSectionSize(section) === null;
+  }
+
+  return true;
 }
 
 function getRenderedSectionPosition(
@@ -59,7 +68,10 @@ function getResolvedSectionSize(
   const sizeAuthority =
     getSettingsGraphSubstrateCanarySectionSizeAuthority(section);
 
-  if (sizeAuthority === "layout") {
+  if (
+    sizeAuthority === "layout" ||
+    (sizeAuthority === "sectionModel" && sectionSize)
+  ) {
     return sectionSize;
   }
 

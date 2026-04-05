@@ -185,7 +185,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - if Pixi approval arrives, use the shell-layer plus body-surface contracts to land the first scene-owned static shell/body surface while the DOM body/editor content stays intact
   - otherwise collapse section header/title chrome behind one renderer-facing header contract instead of exposing `SectionHeader`/header layout details directly
-LOOP_TERMINAL_MARKER: none
+    LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-06 228
 
@@ -275,16 +275,15 @@ LOOP_TERMINAL_MARKER: none
     - the canary shell now exposes one renderer-facing appearance object that a future scene-owned static shell layer can consume directly
     - shell-owned DOM layers are now render-only adapters over that contract instead of three separate section-chrome subscription sites
     - this keeps the rewrite moving on renderer ownership without reopening geometry or parity churn
-  - Next:
-    - if approval arrives, install Pixi and use the new shell appearance contract to land the first scene-owned static shell layer while the DOM body stays in `SettingsGraphSubstrateCanaryDomSectionBody`
-    - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the border/outline/top-drag-handle trio behind one shell-layer adapter boundary
-LOOP_TERMINAL_MARKER: none
+  - Next: - if approval arrives, install Pixi and use the new shell appearance contract to land the first scene-owned static shell layer while the DOM body stays in `SettingsGraphSubstrateCanaryDomSectionBody` - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the border/outline/top-drag-handle trio behind one shell-layer adapter boundary
+    LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-06 224
 
 - Item: mirror the backend layout-dimension fallback chain inside the settings graph substrate canary resolver so sections can seed authoritative geometry from section model data before local measurement.
 - Status: `done`
 - Details:
+
   - Why:
     - item `223` left the active geometry-authority seam in sections that still reached `sizeAuthority: "none"` and depended entirely on local DOM measurement timing
     - the backend already has the standardized dimension fallback chain in `helpers_lvl2.py`, so the next bounded slice was to mirror that source-of-truth path in the frontend canary model instead of adding another heuristic or another harness-only pass
@@ -319,12 +318,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - settings canary sections can now promote more cases from measurement-only fallback into authoritative geometry before the local DOM size registry catches up
     - the active lane moved from another seam-lift toward the real geometry-authority frontier by reusing the backend fallback chain instead of inventing a parallel heuristic
-  - Next:
-    - move the same backend dimension-fallback chain into shared top-level node hydration or a shared helper so `createNodesMapFromProjectConfigChildren(...)` and the canary section resolver stop diverging on geometry authority
-    - keep the canonical compare lane on `rotaryParamCodeObjDefault` and do not reopen the standalone Playwright harness lane unless the next product slice genuinely requires it
-LOOP_TERMINAL_MARKER: none
+  - Next: - move the same backend dimension-fallback chain into shared top-level node hydration or a shared helper so `createNodesMapFromProjectConfigChildren(...)` and the canary section resolver stop diverging on geometry authority - keep the canonical compare lane on `rotaryParamCodeObjDefault` and do not reopen the standalone Playwright harness lane unless the next product slice genuinely requires it
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `220` | 2026-04-06 15:23 EDT
+
   - Subtask: move shared-node size authority up to the canary section model/controller boundary so the scene runtime no longer owns a second local node-internals fallback merge.
   - Why:
     - item `219` proved the canary could seed missing geometry from shared node internals, but that seed still lived inside `useSettingsGraphSubstrateCanarySceneRuntime(...)`
@@ -375,12 +373,11 @@ LOOP_TERMINAL_MARKER: none
     - shared-node size authority now enters the canary through the section model/controller boundary instead of a second fallback path inside the runtime
     - the runtime still accepts fresher measured DOM size for non-layout sections, but the carry-forward path now belongs to shared node state + controller refresh rather than a local runtime merge
     - the targeted headless Playwright lane remains unhealthy for the same pre-test reason even after the allowed restart, so this slice is live-checked by CDP rather than Playwright
-  - Next:
-    - continue the geometry-authority lane at the shared read-side hydration boundary in `frontend/src/state/actions/sectionInfos.ts`, where top-level node hydration still falls back through persisted `layout.w/h`
-    - do not spend the next iteration on the same `ensureAppReady(...)` recovery pattern alone
-LOOP_TERMINAL_MARKER: none
+  - Next: - continue the geometry-authority lane at the shared read-side hydration boundary in `frontend/src/state/actions/sectionInfos.ts`, where top-level node hydration still falls back through persisted `layout.w/h` - do not spend the next iteration on the same `ensureAppReady(...)` recovery pattern alone
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `219` | 2026-04-06 15:08 EDT
+
   - Subtask: seed missing canary section geometry from shared node internals before the local measured-size registry arrives.
   - Why:
     - the last three landed iterations (`216` through `218`) were all shell-ownership moves, so another shell-only affordance hop would have been churn instead of progress on the geometry-authority frontier
@@ -427,10 +424,8 @@ LOOP_TERMINAL_MARKER: none
     - the canary scene no longer has to start from `null` bounds when `layout.w/h` is missing but the shared node store already knows the section size
     - live measured size still takes over once it publishes
     - if a still-mounted canary section temporarily loses its local measured registry entry, the scene keeps the last shared size instead of collapsing immediately
-  - Next:
-    - continue the geometry-authority lane by moving the next remaining canary size/scene seam that still depends on raw `layout.w/h` or canary-local measurement timing, not another shell-affordance hop
-    - do not spend the next iteration on the same headless `ensureAppReady(...)` recovery pattern alone
-LOOP_TERMINAL_MARKER: none
+  - Next: - continue the geometry-authority lane by moving the next remaining canary size/scene seam that still depends on raw `layout.w/h` or canary-local measurement timing, not another shell-affordance hop - do not spend the next iteration on the same headless `ensureAppReady(...)` recovery pattern alone
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `217` | 2026-04-06 01:18 EDT
   - Subtask: move the canary's outer shell border/frame tone onto `SettingsGraphSubstrateCanarySectionShell` while keeping the DOM body border transparent for box-model stability.
@@ -481,14 +476,13 @@ LOOP_TERMINAL_MARKER: none
     - the canary shell boundary now owns both the active outline and the outer shell border/frame tone
     - the DOM body still preserves its border width, so section geometry stays stable while the duplicate visible border tone disappears
     - the refreshed live worktree canary continues to pass the focused `rotaryParamCodeObjDefault` ownership regression after the one bounded lifecycle retry
-  - Next:
-    - keep product work on the shell-ownership lane by moving the next smallest shell-only affordance, preferably the top drag handle, while DOM bodies stay DOM-backed
-    - do not reopen the stale `3076/8076` bootstrap issue as a standalone lane; treat it as resolved by the bounded worktree restart
-LOOP_TERMINAL_MARKER: none
+  - Next: - keep product work on the shell-ownership lane by moving the next smallest shell-only affordance, preferably the top drag handle, while DOM bodies stay DOM-backed - do not reopen the stale `3076/8076` bootstrap issue as a standalone lane; treat it as resolved by the bounded worktree restart
+    LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-06 00:54 EDT - Ralph item 216
 
 - Moved active-outline ownership onto `SettingsGraphSubstrateCanarySectionShell` so the canary shell boundary now owns one visible shell affordance beyond the substrate-owned background while the DOM section body suppresses the duplicate outline.
+
   - Why:
     - item `215` explicitly handed the loop back to the first scene-owned static-layer frontier instead of more viewport/parity churn
     - the canary already had a shell/body split and the DOM section path already exposed `forceHideOutline`, so active outline was the smallest visible shell-only affordance that could move without reopening a wide chrome extraction
@@ -535,12 +529,11 @@ LOOP_TERMINAL_MARKER: none
     - the canary shell boundary now owns the active outline
     - the DOM body no longer duplicates that outline and stays behind the memoized body boundary
     - the canary shell selector contract now matches the existing `data-section-id`-based Playwright helpers
-  - Next:
-    - keep product work on the same shell-ownership lane by moving one more visible shell-only affordance, preferably the outer shell border/frame tone at `SettingsGraphSubstrateCanarySectionShell`, while DOM bodies stay DOM-backed
-    - if that border/frame move is too wide for one slice without a new dependency, fall back to the next smallest shell-owned affordance such as the top drag handle instead of reopening parity/support work
-LOOP_TERMINAL_MARKER: none
+  - Next: - keep product work on the same shell-ownership lane by moving one more visible shell-only affordance, preferably the outer shell border/frame tone at `SettingsGraphSubstrateCanarySectionShell`, while DOM bodies stay DOM-backed - if that border/frame move is too wide for one slice without a new dependency, fall back to the next smallest shell-owned affordance such as the top drag handle instead of reopening parity/support work
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `215` | 2026-04-05 21:54 EDT
+
   - Subtask:
     - add a focused live-reload regression proving the worktree canary restores a persisted shared viewport on `All Settings` after a full page reload
   - Why:
@@ -566,12 +559,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - the worktree canary does restore a persisted backend/shared viewport through a full reload on the checked lane
     - item `214`'s mounted-tab framing mismatch is now narrowed to session/oracle noise on untouched mounted tabs rather than a broken viewport hydration path in the canary runtime
-  - Next:
-    - do not spend another iteration on this reload-hydration lane unless a deterministic lane regresses
-    - return to the next real product frontier from the plan: the first scene-owned static layer / Pixi-owned graph output beyond the existing background while section bodies stay DOM-backed
-LOOP_TERMINAL_MARKER: none
+  - Next: - do not spend another iteration on this reload-hydration lane unless a deterministic lane regresses - return to the next real product frontier from the plan: the first scene-owned static layer / Pixi-owned graph output beyond the existing background while section bodies stay DOM-backed
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `213` | 2026-04-05 21:23 EDT
+
   - Subtask: make positive layout `w/h` authoritative for unlocked canary sections so the scene runtime only falls back to shared DOM size when layout geometry is actually missing.
   - Why:
     - item `212` already removed stale carried-forward measured-size fallbacks, but `settingsGraphSubstrateCanarySectionGeometry.ts` still preferred `useSectionElementSizes(...)` for unlocked sections even when the current `All Settings` layout already had positive `w/h`
@@ -622,12 +614,11 @@ LOOP_TERMINAL_MARKER: none
     - the canary now uses one rule for current size authority: positive layout size wins whenever it exists, and measured DOM size is only fallback for sections whose current layout geometry is missing
     - unlocked sections with current layout geometry no longer keep the canary scene runtime subscribed to shared DOM size churn
     - the broad normalized `rotaryParamCodeObjDefault` lane remained green after the authority change
-  - Next:
-    - audit the shared node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`createNodesMapFromProjectConfigChildren(...)`) so project-state rebuilds keep shared node internals aligned with the same positive-layout authority rule
-    - do not reopen parity-only work unless the existing broad normalized `rotaryParamCodeObjDefault` lane fails
-LOOP_TERMINAL_MARKER: none
+  - Next: - audit the shared node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`createNodesMapFromProjectConfigChildren(...)`) so project-state rebuilds keep shared node internals aligned with the same positive-layout authority rule - do not reopen parity-only work unless the existing broad normalized `rotaryParamCodeObjDefault` lane fails
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `212` | 2026-04-05 21:05 EDT
+
   - Subtask: remove the canary's carried-forward scene-bounds size cache so scene bounds and `fitView(...)` only use current authoritative geometry.
   - Why:
     - item `211` restored unlocked layout fallback size at the model boundary, but the scene runtime still carried `sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`
@@ -672,12 +663,11 @@ LOOP_TERMINAL_MARKER: none
     - scene bounds, stored scene snapshot state, and `fitView(...)` now match node sync's current-geometry-only authority rule
     - unlocked sections still start from project-layout fallback size and can still switch to fresher live measured size
     - when both layout and current measured size are unavailable, the canary now drops `sceneBounds` to `null` instead of preserving last-frame measured DOM geometry
-  - Next:
-    - if dependency approval remains unavailable, keep the next bounded product slice on remaining canary-local DOM measurement authority or scene-surface ownership preparation rather than another oracle/chrome pass
-    - do not reopen parity-only work unless the broad normalized `rotaryParamCodeObjDefault` lane fails
-LOOP_TERMINAL_MARKER: none
+  - Next: - if dependency approval remains unavailable, keep the next bounded product slice on remaining canary-local DOM measurement authority or scene-surface ownership preparation rather than another oracle/chrome pass - do not reopen parity-only work unless the broad normalized `rotaryParamCodeObjDefault` lane fails
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `211` | 2026-04-05 20:54 EDT
+
   - Subtask: preserve unlocked top-level layout `w/h` as canary fallback geometry so the scene runtime can start from project layout size before measured DOM size arrives.
   - Why:
     - item `210` already moved the background/grid layer onto substrate-owned viewport state, but the canary model still nulled `layout.w/h` for unlocked sections before scene geometry resolved
@@ -720,12 +710,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - unlocked sections now keep project-layout width/height available as canary fallback geometry instead of dropping that authority before the scene runtime sees it
     - scene bounds and shared node internals can start from source-state layout size and still hand off to fresher measured size when it appears
-  - Next:
-    - if dependency approval is still unavailable, keep the next bounded slice on the remaining carried-forward geometry fallback in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts` / `settingsGraphSubstrateCanarySceneSnapshot.ts` (`sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`) so scene bounds stop depending on last-known measured DOM size once layout fallback exists
-    - do not reuse the direct live-session first-render spec as the primary gate until its setup is normalized away from the legacy `.react-flow__pane` ready selector
-LOOP_TERMINAL_MARKER: none
+  - Next: - if dependency approval is still unavailable, keep the next bounded slice on the remaining carried-forward geometry fallback in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts` / `settingsGraphSubstrateCanarySceneSnapshot.ts` (`sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`) so scene bounds stop depending on last-known measured DOM size once layout fallback exists - do not reuse the direct live-session first-render spec as the primary gate until its setup is normalized away from the legacy `.react-flow__pane` ready selector
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `210` | 2026-04-05 20:31 EDT
+
   - Subtask: replace the canary's direct `xyflow` background dependency with a substrate-owned background component driven by the canary viewport state.
   - Why:
     - the last few iterations had stayed on chrome-contract extraction, and repeating that pattern again would have been churn instead of moving the active renderer frontier
@@ -770,12 +759,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - the canary graph surface now owns its background/grid treatment instead of depending on `xyflow`'s `Background` component and transform hook
     - this lands one real static renderer-facing surface at the graph boundary without reopening the repeated header/chrome contract lane
-  - Next:
-    - if approval arrives to add the dependency, use the new background ownership seam plus the existing section shell boundary to land the first Pixi-owned static shell layer while section bodies stay DOM-backed
-    - if approval is still unavailable, keep the next bounded slice on a canary scene-surface composition boundary near `SettingsGraphSubstrateCanary.tsx` / `SettingsGraphSubstrateCanarySectionsLayer.tsx` instead of reopening header-action/button chrome extraction
-LOOP_TERMINAL_MARKER: none
+  - Next: - if approval arrives to add the dependency, use the new background ownership seam plus the existing section shell boundary to land the first Pixi-owned static shell layer while section bodies stay DOM-backed - if approval is still unavailable, keep the next bounded slice on a canary scene-surface composition boundary near `SettingsGraphSubstrateCanary.tsx` / `SettingsGraphSubstrateCanarySectionsLayer.tsx` instead of reopening header-action/button chrome extraction
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `209` | 2026-04-05 20:14 EDT
+
   - Subtask: extract section-title appearance into the shared chrome contract so section headers and project chat window headers stop depending on `SectionHeader` for title styling.
   - Why:
     - item `208` closed the section-surface/meta-control appearance lane, but title tone, uppercase fixed-title handling, and themed-vs-default title text still lived inside `SectionHeader.tsx`
@@ -818,12 +806,11 @@ LOOP_TERMINAL_MARKER: none
     - title appearance now lives beside shell and surface appearance in the shared chrome module instead of inside `SectionHeader`
     - project chat window headers no longer depend on a DOM header helper to match section title styling
     - this closes the title portion of the header/title/action appearance lane while keeping the broad normalized parity lane green
-  - Next:
-    - if approval is still unavailable, extract shared header action/button appearance across `SectionHeader`, `ProjectChatWindowSurface`, and `ProjectChatBottomDock`
-    - do not reopen parity or controller cleanup unless the broad normalized `rotaryParamCodeObjDefault` lane fails
-LOOP_TERMINAL_MARKER: none
+  - Next: - if approval is still unavailable, extract shared header action/button appearance across `SectionHeader`, `ProjectChatWindowSurface`, and `ProjectChatBottomDock` - do not reopen parity or controller cleanup unless the broad normalized `rotaryParamCodeObjDefault` lane fails
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `208` | 2026-04-05 20:00 EDT
+
   - Subtask: extract the shared section-surface/meta-control appearance contract from `SectionContainerCoreResizabe` and `CustomResizable`.
   - Production:
     - added `resolveSectionChromeSurfaceDecorations(...)` and `getSectionChromeSurfaceDomAdapter(...)` in `frontend/src/components/Section/Container/sectionChrome.ts`
@@ -852,12 +839,11 @@ LOOP_TERMINAL_MARKER: none
     - the surface/meta-control appearance seam is now renderer-facing and no longer split between section-container and resizable DOM class logic
     - deterministic regression coverage stayed green on the normalized `rotaryParamCodeObjDefault` lane
     - required CDP visual confirmation is blocked by `reference_unhealthy` main-session state rather than renderer drift
-  - Next:
-    - retry the CDP compare on fresh worktree/main sessions next iteration
-    - once the visual gate clears, continue renderer-ownership extraction on section header/title/action appearance if Pixi approval is still unavailable
-LOOP_TERMINAL_MARKER: none
+  - Next: - retry the CDP compare on fresh worktree/main sessions next iteration - once the visual gate clears, continue renderer-ownership extraction on section header/title/action appearance if Pixi approval is still unavailable
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `207` | 2026-04-05 19:45 EDT
+
   - Subtask: extract the outer section-shell decoration state behind one renderer-facing contract so future scene-owned shells do not need to reverse-engineer active/global/scope/AI highlight behavior from `SectionContainerCore`.
   - Why:
     - item `206` established the canary section-shell boundary, but the current DOM section chrome path still kept outer-shell decoration decisions inline inside `SectionContainerCore`
@@ -905,12 +891,11 @@ LOOP_TERMINAL_MARKER: none
     - the outer shell now has one explicit decoration contract that a future scene-owned shell layer can consume directly instead of reparsing DOM-only Tailwind decisions from `SectionContainerCore`
     - standalone section windows and project chat windows now reuse the same outer-shell decoration contract rather than carrying equivalent inactive shell assumptions separately
     - the broad normalized `rotaryParamCodeObjDefault` lane remains green, so this stays product architecture work rather than a parity-only reopen
-  - Next:
-    - if Pixi approval arrives, use `SettingsGraphSubstrateCanarySectionShell` plus the shared shell-decoration contract to land the first scene-owned static shell layer while DOM bodies stay in `SettingsGraphSubstrateCanaryDomSectionBody`
-    - if approval is still unavailable, extract the remaining section-surface/meta-control appearance contract from `SectionContainerCoreResizable` / `CustomResizable` instead of reopening parity or controller cleanup
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use `SettingsGraphSubstrateCanarySectionShell` plus the shared shell-decoration contract to land the first scene-owned static shell layer while DOM bodies stay in `SettingsGraphSubstrateCanaryDomSectionBody` - if approval is still unavailable, extract the remaining section-surface/meta-control appearance contract from `SectionContainerCoreResizable` / `CustomResizable` instead of reopening parity or controller cleanup
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `206` | 2026-04-05 19:31 EDT
+
   - Subtask: split the canary sections layer into a section-shell boundary plus a memoized DOM body implementation so shell-only updates stop rerendering `SectionContainer`.
   - Why:
     - item `205` handed off to the renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` instead of more controller or oracle churn
@@ -949,12 +934,11 @@ LOOP_TERMINAL_MARKER: none
     - shell-only updates now stop at the shell boundary instead of forcing the DOM body to rerender for the same `sectionId`
     - the canary now has a real section-shell seam where a future scene-owned static layer can attach while the current DOM body remains isolated
     - this was renderer-facing product architecture and a targeted render-cost reduction, not another parity-only or pure forwarding pass
-  - Next:
-    - if Pixi approval arrives, use `SettingsGraphSubstrateCanarySectionShell` plus the existing controller/runtime seams to land the first scene-owned static shell layer while `SettingsGraphSubstrateCanaryDomSectionBody` keeps DOM editing behavior
-    - if approval is still unavailable, keep the next bounded slice on renderer ownership by extracting the shell appearance data the future scene-owned layer will need from the current DOM section chrome path
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use `SettingsGraphSubstrateCanarySectionShell` plus the existing controller/runtime seams to land the first scene-owned static shell layer while `SettingsGraphSubstrateCanaryDomSectionBody` keeps DOM editing behavior - if approval is still unavailable, keep the next bounded slice on renderer ownership by extracting the shell appearance data the future scene-owned layer will need from the current DOM section chrome path
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `205` | 2026-04-05 19:20 EDT
+
   - Subtask: extract the remaining canary pane/viewport controller wiring out of `SettingsGraphSubstrateCanary.tsx` into one dedicated controller seam.
   - Why:
     - the plan's immediate next frontier explicitly called for finishing the remaining viewport/runtime controller ownership split before the first renderer insertion
@@ -993,12 +977,11 @@ LOOP_TERMINAL_MARKER: none
     - `SettingsGraphSubstrateCanary.tsx` is now a thinner view-only render shell for the DOM-backed canary instead of a mixed render/runtime owner
     - the future renderer swap now has one dedicated controller seam for pane interaction, viewport transform, and canary runtime wiring
     - this closes the planned controller-ownership split without reopening parity-only work
-  - Next:
-    - if explicit approval arrives to add the frontend dependency, install Pixi and land the first scene-owned static layer behind the new controller seam while section bodies stay DOM-backed
-    - if approval is still unavailable, treat the next bounded product slice as a renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` or equivalent section-shell contract; do not reopen parity-only or controller-only cleanup
-LOOP_TERMINAL_MARKER: none
+  - Next: - if explicit approval arrives to add the frontend dependency, install Pixi and land the first scene-owned static layer behind the new controller seam while section bodies stay DOM-backed - if approval is still unavailable, treat the next bounded product slice as a renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` or equivalent section-shell contract; do not reopen parity-only or controller-only cleanup
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `204` | 2026-04-05 19:05 EDT
+
   - Subtask: keep canary scene bounds and explicit fit behavior on the last live runtime size without reviving stale shared node-size authority.
   - Why:
     - item `203` explicitly handed off to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of another shared stale-`w/h` pass
@@ -1038,12 +1021,11 @@ LOOP_TERMINAL_MARKER: none
     - shared node internals still clear width/height to `null` when the current authoritative size disappears, so stale size authority is not reintroduced
     - the carried-forward bounds cache prunes when a section leaves the active canary scene
     - the broad normalized `rotaryParamCodeObjDefault` lane remains green and visually comparable after the change
-  - Next:
-    - if Pixi approval arrives, use the existing surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - if approval is still unavailable, treat the remaining first-live-measurement requirement as the only open bounds dependency and do not reopen more DOM-only `w/h` fallback slices unless a concrete live canary failure shows this bounds cache is insufficient
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the existing surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - if approval is still unavailable, treat the remaining first-live-measurement requirement as the only open bounds dependency and do not reopen more DOM-only `w/h` fallback slices unless a concrete live canary failure shows this bounds cache is insufficient
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `202` | 2026-04-05 18:36 EDT
+
   - Subtask: stop shared read-side top-level node hydration from reviving stale persisted `w/h` when a live node currently reports `null` dimensions.
   - Why:
     - item `200` fixed top-level snapshot persistence and item `201` fixed optimistic pane-move writes, but `createNodesMapFromProjectConfigChildren(...)` still rebuilt live nodes with `nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`
@@ -1081,12 +1063,11 @@ LOOP_TERMINAL_MARKER: none
     - shared read-side node hydration now matches the same no-size authority rule already enforced in top-level snapshot persistence and optimistic pane-move writes
     - project load and backend reconciliation can no longer silently repopulate stale DOM-measured size back into live node internals after the current runtime cleared it
     - the broad normalized `rotaryParamCodeObjDefault` lane remains green and visually comparable after the change
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - if dependency approval is still unavailable, audit whether `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` should keep treating persisted `layout.w/h` as size authority or whether that boundary needs the next explicit split
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - if dependency approval is still unavailable, audit whether `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` should keep treating persisted `layout.w/h` as size authority or whether that boundary needs the next explicit split
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `203` | 2026-04-05 18:45 EDT
+
   - Subtask: stop the canary model from seeding unlocked sections with persisted top-level `layout.w/h`.
   - Why:
     - items `200` through `202` already removed the shared stale-size fallbacks, but the canary model still copied persisted layout size into every visible section before live measurement ran
@@ -1122,10 +1103,8 @@ LOOP_TERMINAL_MARKER: none
     - unlocked canary sections no longer re-enter the runtime with persisted layout size already treated as authority
     - locked sections still keep layout-owned size authority, so the existing locked-size behavior remains intact
     - this meaningfully narrows canary-local geometry authority instead of extending the earlier shared fallback cleanup pattern
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - if approval is still unavailable, move to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of reopening another stale `w/h` fallback lane
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - if approval is still unavailable, move to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of reopening another stale `w/h` fallback lane
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `199` | 2026-04-05 18:06 EDT
   - Subtask: stop canary node sync from preserving stale previously measured width/height after the current scene snapshot loses authoritative size.
@@ -1156,11 +1135,8 @@ LOOP_TERMINAL_MARKER: none
     - shared node internals now clear width/height back to `null` when the canary currently has no authoritative size instead of preserving an older measured DOM size
     - scene snapshot and shared node internals now agree on the same no-size authority boundary
     - the broad normalized regression lane remains green after the change
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - otherwise keep removing stale DOM-size authority only where an existing authoritative signal can be proven; the next bounded candidate is auditing shared-node/top-level-layout persistence paths such as `createTopLevelSectionLayoutDict(...)`
-LOOP_TERMINAL_MARKER: none
-
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - otherwise keep removing stale DOM-size authority only where an existing authoritative signal can be proven; the next bounded candidate is auditing shared-node/top-level-layout persistence paths such as `createTopLevelSectionLayoutDict(...)`
+    LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-03 060
 
@@ -3249,6 +3225,7 @@ LOOP_TERMINAL_MARKER: none
   - the next bounded frontier is to normalize an equivalent widened `drawSectionDefault` compare state on the legacy `main` surface before rerunning the cross-surface pan compare
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 17:48 EDT - Ralph item 061
 
 - Closed item `060`'s deferred live worktree gate for widened `drawSectionDefault` post-drop frontmost ordering; no production or test files changed this iteration.
@@ -3723,6 +3700,7 @@ LOOP_TERMINAL_MARKER: none
   - inspect and fix the renderer-side reason the `sectionSizingPolicy` authoritative viewport-shift plus toolbar-zoom lane still diverges on the canary versus read-only main
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 01:58 EDT - Ralph item 148
 
 - Item: Harden the existing `chartSectionDefault` fit-view-plus-toolbar-zoom parity lane with origin-aware restore plus named-section preflight, then verify that lane on the live run-008 worktree/main surfaces with Playwright plus CDP.
@@ -3766,6 +3744,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to the distinct shared `dropzoneParamCodeObjDefault` dynamic lane on the current live surfaces and run one bounded normalized action anchored on `Mode` before adding another support-only guard or reopening closed dict/chart/browser/taskBoard/group/spreadsheet/draw/chat families
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 01:32 EDT - Ralph item 146
 
 - Item: Harden the existing `dictSectionDefault` authoritative viewport-shift parity lane with origin-aware preflight, then verify that named lane on the live run-006 worktree/main surfaces with Playwright plus CDP.
@@ -3863,6 +3842,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still lacks current live run-005 evidence, preferably the deterministic `dictSectionDefault` authoritative viewport shift lane instead of reopening Browser/title-edit churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 01:06 EDT - Ralph item 144
 
 - Item: Split the shared Browser/task-board top-level drag title-edit probe into one explicit `browserSectionDefault` lane with origin-aware preflight, then verify that named Browser lane on the live run-004 worktree/main surfaces with Playwright plus CDP.
@@ -3907,6 +3887,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - do not open another shared-section harness lane; revisit the older concrete `browserSectionDefault` authoritative top-level move + targeted fit question on the current live surfaces and either reproduce the compression drift or close that report as stale
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 10:31 EDT - Ralph item 114
 
 - Tightened the shared title-edit-after-pan parity probe to compare the checked section's visible title box, then used a fresh normalized CDP replay to close the remaining backend-placement mismatch as oracle noise instead of landing a speculative renderer fix.
@@ -3938,6 +3919,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different normalized dynamic Gate 1 / Gate 2 lane that CDP can still drive end-to-end, not more `backend` title-edit-after-pan probe churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 10:12 EDT - Ralph item 113
 
 - Tightened the shared title-edit-after-pan parity probe so it compares the checked section's post-pan geometry directly instead of relying on a loose whole-surface landing readout.
@@ -3971,6 +3953,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate why the live backend-pinned CDP placement still diverges when the exact automated title-edit-after-pan probe reports matching post-pan section rects and viewport transforms
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 09:31 EDT - Ralph item 111
 
 - Reused the existing shared title-edit-after-pan parity lane as one bounded evidence pass on the fresh run-030 runtimes instead of guessing at a production fix.
@@ -4000,6 +3983,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun this same title-edit-after-pan lane with one exact live replay that uses a verified blank graph-surface pan target or an equivalent CDP-compatible pan path before deciding whether the `browserSectionDefault` versus `sectionSizingPolicy` landing difference is a real renderer defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 18:03 EDT - Ralph item 062
 
 - Closed one different normalized `spreadsheetSectionDefault` motion lane with a shared state-backed top-level move after authoritative targeted fit; no production or test files changed this iteration.
@@ -4022,6 +4006,7 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: no worktree-only renderer or layout artifact appeared on this bounded `spreadsheetSectionDefault` state-backed move lane; keep the claim narrow and do not treat it as a physical mouse-drag oracle.
 - Next frontier: move to a different trustworthy interaction or motion lane, preferably one that exercises a user-driven live interaction instead of another backend-state move on the same section.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 18:25 EDT - Ralph item 063
 
 - Closed one different user-driven `spreadsheetSectionDefault` drag lane by adding a widened top-level drag guard, then rechecking the widened fit state live after the one allowed lifecycle recovery.
@@ -4063,6 +4048,7 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: the widened `spreadsheetSectionDefault` top-level drag lane is now closed with targeted automated proof plus a live post-recovery graph-surface fit gate; do not reopen this exact spreadsheet drag lane unless a later regression appears.
 - Next frontier: move to one different user-driven interaction or motion lane on a different named section, or isolate the first remaining canary-only artifact if a fresh normalized compare exposes one.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 18:37 EDT - Ralph item 064
 
 - Completed the required non-harness bounded oracle step after items `062` and `063` by isolating the next live canary artifact on a different named section; no production or test files changed this iteration.
@@ -4086,6 +4072,7 @@ LOOP_TERMINAL_MARKER: none
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` still derive fit/zoom center math from `overviewTrueWidth` / `uiEditorTrueWidth` without a visibility-aware effective-width layer; test that path first next iteration.
 - Next frontier: implement a production fix for the canary fit/visible-viewport width path, then rerun the same `groupSectionDefault` targeted-fit + zoom CDP compare.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 18:52 EDT - Ralph item 065
 
 - Fixed the canary fit/center path for hidden-pane states by making the viewport math visibility-aware instead of trusting stale remembered pane widths.
@@ -4125,6 +4112,7 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: the old worktree-left-shift bug is closed on this exact stale-hidden-pane lane; the remaining difference is smaller and flipped, with `main` about `96px` farther right.
 - Next frontier: run one narrower normalized `groupSectionDefault` centering/parity probe to decide whether the remaining `main`-right offset is legacy-oracle behavior or another shared centering mismatch.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:05 EDT - Ralph item 066
 
 - Attempted the planned normalized `groupSectionDefault` centering/parity probe without changing production or test code; the goal was to decide whether item `065`'s remaining `main`-right `96px` delta survives a visible-graph-surface-centered oracle.
@@ -4139,6 +4127,7 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: blocked on Chrome DevTools MCP access after the allowed recovery attempt; no new renderer conclusion beyond item `065` was earned this iteration.
 - Next frontier: restart the worktree lifecycle fresh and retry the same visible-graph-surface-centered `groupSectionDefault` probe before any more product or harness work.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:14 EDT - Ralph item 067
 
 - Re-ran the delayed `groupSectionDefault` centering probe on the fresh loop session without changing production or test code, then tightened the oracle to the exact targeted-fit helper before deciding whether the remaining horizontal delta was real renderer evidence.
@@ -4174,6 +4163,7 @@ LOOP_TERMINAL_MARKER: none
   - the exact worktree targeted-fit path is centered, so the remaining blocker is a fresh, trustworthy reference-session canary for the same exact compare
 - Next frontier: retry the exact targeted `groupSectionDefault` compare on a fresh reference session before doing more production centering work.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:23 EDT - Ralph item 068
 
 - Re-ran the exact normalized `groupSectionDefault` targeted-fit compare on the fresh loop session without changing production or test code; after two oracle-only passes, this was the one remaining bounded step that could either reopen centering work or close it.
@@ -4203,6 +4193,7 @@ LOOP_TERMINAL_MARKER: none
   - the blocker has repeated: the read-only `main` session is failing to render the canary root on the exact compare path, which prevents a trustworthy parity oracle
 - Next frontier: pivot to resolving or explaining the repeated read-only `main` missing-canary/websocket blocker before reopening any more `groupSectionDefault` centering/parity work.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:36 EDT - Ralph item 069
 
 - Addressed the repeated missing-canary/websocket blocker with one bounded auth-cookie slice instead of another centering/oracle-only rerun.
@@ -4232,6 +4223,7 @@ LOOP_TERMINAL_MARKER: none
   - because both canaries are visible again, the normalized `groupSectionDefault` centering/parity lane should not stay paused on the old missing-canary assumption
 - Next frontier: let the next fresh lifecycle pick up the worktree auth-cookie cleanup, then rerun the normalized exact `groupSectionDefault` targeted-fit compare and treat shared websocket console noise as secondary unless either page stops rendering canary sections again.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:44 EDT - Ralph item 070
 
 - Replaced the shared default auth-cookie namespace with a deterministic workspace-scoped default instead of reopening parity work on a runtime that still used host-wide `setta_auth`.
@@ -4259,6 +4251,7 @@ LOOP_TERMINAL_MARKER: none
   - the next iteration should verify the fresh restarted worktree no longer hits the websocket `SecurityError: line too long` path before reopening the normalized `groupSectionDefault` parity lane
 - Next frontier: let the next fresh lifecycle pick up the workspace-scoped auth-cookie namespace, then run a fresh-context worktree-vs-main websocket/CDP sanity check with the expectation that worktree should improve even if read-only `main` remains noisy on old code.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 19:59 EDT - Ralph item 071
 
 - Corrected the live auth-cookie lane by removing the remaining `ai`/dev-script override and pruning the previous same-workspace script namespace during bootstrap.
@@ -4291,6 +4284,7 @@ LOOP_TERMINAL_MARKER: none
   - the remaining websocket blocker is the broader cross-namespace/shared-profile accumulation lane, especially foreign namespaces like the read-only `main` reference cookies, not the already-fixed worktree default namespace
 - Next frontier: decide the narrowest bounded fix or verification lane for the remaining cross-namespace shared-profile cookie buildup before reopening `groupSectionDefault` parity work.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 20:06 EDT - Ralph item 072
 
 - Removed the leftover legacy auth-cookie namespace override from `scripts/run-playwright-e2e.sh` so Playwright E2E now follows the same workspace-derived auth-cookie default as the live runtime instead of forcing `setta_auth_${INSTANCE_NAME}`.
@@ -4312,6 +4306,7 @@ LOOP_TERMINAL_MARKER: none
   - the live websocket `SecurityError: line too long` blocker is still open; this slice only removed a harness mismatch and did not change the runtime cross-namespace/shared-browser behavior
 - Next frontier: return to the live cross-namespace auth-cookie/websocket blocker and choose one bounded runtime fix or measurement step instead of another support-only cleanup pass.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 20:19 EDT - Ralph item 073
 
 - Cleared stale loopback Setta auth cookies from the dedicated DevTools browser profile before Chrome bootstrap, which restored a clean worktree websocket handshake on the live restarted runtime.
@@ -4341,6 +4336,7 @@ LOOP_TERMINAL_MARKER: none
   - this slice did not reopen the normalized `All Settings` compare yet; the default settings-page probe still lacked `[data-testid="graph-substrate-canary"]`, so the compare lane still needs explicit `All Settings` normalization
 - Next frontier: use the same cleanup helper manually against the read-only `main` reference DevTools profile, then rerun the normalized `All Settings` graph-surface compare instead of reopening the worktree auth lane.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 20:34 EDT - Ralph item 074
 
 - Fixed the DevTools browser stop path so stale `devtools.pid` files no longer leave orphaned Chrome running across lifecycle resets, which restores a trustworthy CDP recovery path for the next normalized compare.
@@ -4375,6 +4371,7 @@ LOOP_TERMINAL_MARKER: none
   - the worktree now has a fresh, trustworthy CDP endpoint again on `9297`
 - Next frontier: return to the normalized `All Settings` graph-surface compare on worktree `3077/8077` versus read-only `main`, using the recovered `9297` browser instead of spending another iteration on lifecycle/auth cleanup.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 20:46 EDT - Ralph item 075
 
 - Added a deterministic Playwright normalization guard for the `All Settings` targeted-fit compare so the next live CDP pass does not confuse persisted active-section chrome with graph-surface drift.
@@ -4401,6 +4398,7 @@ LOOP_TERMINAL_MARKER: none
   - the targeted-fit normalization lane now explicitly neutralizes durable active-section noise before live compare work
 - Next frontier: rerun the normalized live CDP dynamic compare on `All Settings` using the selection-cleared targeted-fit setup, then isolate the first real graph-surface artifact that survives that normalization.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 21:08 EDT - Ralph item 076
 
 - Reran the live `drawSectionDefault` post-drop frontmost lane with corrected in-page normalization wiring and found the remaining blocker is untrustworthy CDP mouse-drop completion, not a confirmed worktree-only renderer defect.
@@ -4431,6 +4429,7 @@ LOOP_TERMINAL_MARKER: none
   - the trustworthy evidence for this lane is still the passing Playwright drag/frontmost guard; direct CDP mouse drag remains unreliable as the drop oracle
 - Next frontier: choose one different dynamic compare that CDP can complete end-to-end, or pair CDP post-state inspection with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 21:24 EDT - Ralph item 077
 
 - Normalized the `spreadsheetSectionDefault` body-search pan/zoom guard onto the named body-heavy section and removed its dependency on active-section placeholder state.
@@ -4463,6 +4462,7 @@ LOOP_TERMINAL_MARKER: none
   - do not reopen this lane with placeholder-specific assertions unless a future compare shows the actual filter input disappearing or detaching
 - Next frontier: return to the normalized live dynamic compare and pick the first remaining graph-surface artifact that survives cleared selection state, using the real spreadsheet filter/body anchor instead of placeholder text if this body-heavy lane is revisited.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 21:29 EDT - Ralph item 078
 
 - Closed the live `spreadsheetSectionDefault` body-input pan/zoom compare lane with fresh CDP evidence; no worktree-only renderer or interaction artifact was confirmed after the normalized compare.
@@ -4483,6 +4483,7 @@ LOOP_TERMINAL_MARKER: none
   - do not reopen it unless a future compare shows the real filter/body handoff disappearing or detaching
 - Next frontier: move to another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably the widened `drawSectionDefault` pane-pan lane or another shared named section under the graph-surface-only oracle.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 00:30 EDT - Ralph item 079
 
 - Attempted the next widened `drawSectionDefault` pane-pan live compare after one allowed lifecycle recovery and found that this exact CDP compare shape is still not a trustworthy oracle, but it did not expose a confirmed worktree-only renderer bug.
@@ -4521,6 +4522,7 @@ LOOP_TERMINAL_MARKER: none
   - do not treat missing `graph-substrate-canary` hooks on `main` as a product defect; future live compares should use shared visible section geometry or screenshots against the legacy `main` surface instead
 - Next frontier: choose another normalized non-drag dynamic compare that CDP can actually complete end-to-end, preferably a widened `drawSectionDefault` zoom/fit-view compare or another shared named section that does not depend on CDP pan via store-written transforms.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 00:56 EDT - Ralph item 080
 
 - Restored the mounted authoritative viewport override path on the `All Settings` canary so a backend/project-state viewport update now survives a prior local `fitView` and visibly moves `drawSectionDefault`.
@@ -4566,6 +4568,7 @@ LOOP_TERMINAL_MARKER: none
   - backend/store viewport writes are trustworthy again for future normalized compare steps on the worktree side
 - Next frontier: return to a normalized non-drag live compare on `drawSectionDefault`, but use shared visible section geometry or screenshots against legacy `main` instead of assuming `graph-substrate-canary` exists on the read-only oracle.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 01:18 EDT - Ralph item 081
 
 - Added a shared legacy/canary section-geometry probe for normalized `settings` compares and used it to verify one logical-section lane end-to-end against read-only `main`.
@@ -4625,6 +4628,7 @@ LOOP_TERMINAL_MARKER: none
   - the remaining frontier is now a real renderer/layout question, not another oracle-support gap
 - Next frontier: investigate why normalized `All Settings` canary fit/centering math lands the logical `shortcuts` card about `80px` left of legacy/main at the same zoom and size, likely by comparing canary visible-width/root-center calculations against legacy React Flow with panes hidden.
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 01:50 EDT - Ralph item 082
 
 - Closed the live worktree canary-vs-legacy `fitView` centering blocker on the shared `shortcuts` lane and reduced the remaining `main` mismatch to remembered-pane normalization noise across sessions.
@@ -4708,6 +4712,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - reuse the normalized pane-state helper on a short shared-section pan or drag compare so the next iteration isolates the first real post-fit motion/interactions artifact instead of reopening pane-state noise
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 02:36 EDT - Ralph item 085
 
 - Tested whether the next shared-section `shortcuts` drag/frontmost live lane is actually trustworthy and concluded that this exact CDP mouse-drop shape should not be reopened.
@@ -4737,6 +4742,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - if a live drag/frontmost context is needed again, pair an existing Playwright drag/frontmost oracle with CDP post-state inspection on an already widened lane, or pivot to another dynamic pulse that CDP can actually drive end-to-end
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 02:23 EDT - Ralph item 084
 
 - Added a normalized worktree legacy-vs-canary short-pan parity guard on the shared `shortcuts` lane and closed that specific post-fit motion slice without reopening pane-state normalization.
@@ -4775,6 +4781,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - attempt another shared-section motion lane that DevTools can drive more trustworthily end-to-end, most likely a bounded top-level drag/frontmost compare if CDP mouse-drop proves usable
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 02:58 EDT - Ralph item 086
 
 - Added a normalized shared-section short-drag parity guard on the worktree `Core` legacy vs `All Settings` canary lane and closed that bounded motion slice with live worktree-only browser evidence.
@@ -4808,6 +4815,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move back to a real renderer-facing compare, preferably one cross-worktree graph-surface-only motion lane that CDP can drive end-to-end now that short pan and short drag are both guarded on the shared worktree lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 04:05 EDT - Ralph item 090
 
 - Added an opt-in cross-worktree spreadsheet body-search interaction-state probe for normalized `All Settings` and closed that bounded body-heavy lane without reopening another plain rect-delta motion compare.
@@ -4844,6 +4852,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a concrete widened body-heavy drag-attachment compare or production renderer defect investigation, not another short geometry-only parity guard by default
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 03:09 EDT - Ralph item 087
 
 - Added a normalized shared-section modified-wheel zoom parity guard on the worktree `Core` legacy vs `All Settings` canary lane and recorded the remaining live CDP driver boundary explicitly instead of reopening another untrustworthy wheel compare.
@@ -4879,6 +4888,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move back to a renderer-facing cross-worktree compare that CDP can physically drive end-to-end, or pair Playwright-driven motion with CDP post-state inspection instead of forcing another wheel-only lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 03:43 EDT - Ralph item 088
 
 - Added an opt-in cross-worktree short-pan parity probe for worktree `All Settings` canary vs read-only `main` `All Settings` legacy and used it to close the live normalization blocker that CDP alone could not drive honestly.
@@ -4908,6 +4918,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move past short-pan coverage and use the same Playwright-motion-plus-CDP-post-state pattern on another renderer-facing cross-worktree lane, preferably a short top-level drag or a body-heavy motion path where interaction-state drift could still surface
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 03:51 EDT - Ralph item 089
 
 - Added an opt-in cross-worktree short top-level drag parity probe for worktree `All Settings` canary vs read-only `main` `All Settings` legacy and closed that bounded motion lane without reopening another short-pan-only compare.
@@ -4937,6 +4948,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pivot to a body-heavy motion or interaction-state drift compare on normalized `All Settings`, using the same Playwright-motion-plus-CDP-post-state pattern only when it directly answers that renderer question
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 04:18 EDT - Ralph item 091
 
 - Added an opt-in cross-worktree spreadsheet body-anchor top-level drag probe for normalized `All Settings` and closed that bounded body-heavy drag-attachment lane without reopening another generic drag-delta compare.
@@ -4970,6 +4982,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different body-heavy motion path or a concrete production renderer defect investigation, not more spreadsheet-specific guard tightening by default
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 04:30 EDT - Ralph item 092
 
 - Added an opt-in cross-worktree cleared-viewport entry parity probe for normalized `All Settings` and closed that bounded viewport-restoration oracle lane without reopening another motion-only compare.
@@ -5002,6 +5015,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to dynamic Gate 1 / Gate 2 behavior on a different shared action or section, or to a concrete production renderer defect if a fresh live compare actually exposes one
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 04:48 EDT - Ralph item 093
 
 - Fixed a concrete canary-only fast-switch `fit view` defect on normalized `All Settings` instead of extending the parity harness again.
@@ -5034,6 +5048,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun a fresh normalized live Gate 1 / Gate 2 compare on `All Settings` and isolate the next remaining canary-only dynamic artifact, if any, rather than adding more fit-view or landing-oracle support work
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 05:14 EDT - Ralph item 094
 
 - Tightened the shared normalized graph-surface pane helper so parity compares wait for visible pane chrome to disappear before measuring the graph surface.
@@ -5064,6 +5079,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one bounded renderer-facing dynamic compare on normalized `All Settings`; if the fast-switch `fit view` main-reference lane is retried, first define the exact authoritative reference surface/metric instead of landing another half-bounded draft probe
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 05:29 EDT - Ralph item 095
 
 - Added a normalized cross-worktree `groupSectionDefault` body-anchor top-level drag probe and closed that bounded body-heavy drag lane without reopening the spreadsheet path.
@@ -5094,6 +5110,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different shared dynamic action or a concrete production renderer defect instead of adding another `args-filter` top-level drag variant
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 05:41 EDT - Ralph item 096
 
 - Added a normalized cross-worktree shared-section `fit view` restore probe after manual pan and closed that bounded viewport-reset lane without reopening the earlier drag/body-anchor pattern.
@@ -5125,6 +5142,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different shared dynamic action, preferably a normalized modified-wheel zoom compare on a shared named section, or to a concrete production renderer defect if a fresh CDP compare finally exposes one
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 05:54 EDT - Ralph item 097
 
 - Added a normalized cross-worktree modified-wheel zoom probe on a shared `All Settings` section and closed that bounded zoom lane without reopening the earlier pan/drag/fit-view shapes.
@@ -5157,6 +5175,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - run one fresh normalized live compare aimed at isolating the first remaining canary-only production artifact, with production fix work preferred over adding another new parity guard by default
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 06:14 EDT - Ralph item 098
 
 - Fixed the canary wheel-target gate so plain-wheel pan now works from ordinary section chrome instead of only from blank pane.
@@ -5192,6 +5211,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare aimed at the next remaining canary-only production artifact on a different dynamic path, not another section-wheel guard
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 06:30 EDT - Ralph item 099
 
 - Added a normalized cross-worktree shared-title edit-after-pan parity probe and closed that bounded post-pan editing lane without inventing a production fix.
@@ -5225,6 +5245,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare aimed at the next remaining body-editability or interaction-state artifact on a shared `All Settings` section, with production fixes preferred again if that compare finally reveals a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 06:52 EDT - Ralph item 100
 
 - Added a normalized cross-worktree `groupSectionDefault` args-filter-after-pan parity probe and closed that bounded body-editability lane without inventing a production fix.
@@ -5258,6 +5279,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `099` and `100` are both probe-only slices, pivot back to a fresh normalized live compare specifically hunting the next concrete canary-only production defect on a different dynamic path, with production-fix work preferred over opening a third probe-first lane by default
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 07:05 EDT - Ralph item 101
 
 - Tightened the shared normalized graph-surface compare helper so parity probes wait out transient autosave/loading/focus chrome before taking graph-surface measurements.
@@ -5290,6 +5312,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred immediately if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 07:13 EDT - Ralph item 102
 
 - Added a normalized cross-worktree section-chrome plain-wheel-pan parity probe and closed that bounded dynamic lane without inventing a production fix.
@@ -5323,6 +5346,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 08:20 EDT - Ralph item 106
 
 - Spent the one bounded post-probe oracle step on a fresh-context live compare of the spreadsheet `.nowheel` wheel-ownership lane and closed it without landing a production or harness change.
@@ -5347,6 +5371,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different normalized live dynamic lane that can still expose a product defect, not more spreadsheet wheel bookkeeping
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 07:33 EDT - Ralph item 103
 
 - Added a normalized cross-worktree widened `drawSectionDefault` pane-pan parity probe and closed that bounded non-group/non-spreadsheet wide-card motion lane without inventing a production fix.
@@ -5380,6 +5405,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 08:32 EDT - Ralph item 107
 
 - Fixed the canary `.nowheel` wheel gate so modifier-wheel zoom/pinch now matches legacy instead of being suppressed at the body boundary.
@@ -5416,6 +5442,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one different normalized dynamic Gate 1 / Gate 2 path that CDP can drive end-to-end, not more `.nowheel` modifier-wheel churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 07:52 EDT - Ralph item 104
 
 - Narrowed the remaining normalized top-level drag oracle so the main-reference drag parity probe no longer lands back inside section filter/input focus before the actual drag question.
@@ -5451,6 +5478,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on the now-stable top-level drag/reorder path, with production-fix work preferred immediately if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 08:10 EDT - Ralph item 105
 
 - Added a normalized cross-worktree `drawSectionDefault` frontmost-after-overlap-drag parity probe and closed that bounded drag/reorder lane without inventing a production fix.
@@ -5486,6 +5514,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 08:42 EDT - Ralph item 108
 
 - Closed the normalized blank-pane deselect lane with a deterministic main-reference probe after a fresh CDP compare found no user-visible canary-only drift there.
@@ -5518,6 +5547,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different normalized dynamic Gate 1 / Gate 2 lane that CDP can drive end-to-end, with the shared focus-shortcut restore path a good next candidate
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 09:11 EDT - Ralph item 109
 
 - Added a deterministic main-reference probe for the shared canvas-focus shortcut lane and used it to isolate the next concrete production blocker.
@@ -5553,6 +5583,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate/fix the shared canvas-focus shortcut parity on normalized `All Settings`, starting with why the canary visibly restores `browserSectionDefault` while read-only `main` ends blank/offscreen under the exact stored-target shortcut lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 09:56 EDT - Ralph item 110
 
 - Spent the one allowed post-support oracle step on the shared canvas-focus shortcut lane and closed it as non-reproducible on the current runtimes instead of landing a speculative production fix.
@@ -5581,6 +5612,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one different normalized dynamic Gate 1 / Gate 2 lane, with production-fix work preferred immediately if that next compare exposes a concrete renderer defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 11:04 EDT - Ralph item 116
 
 - Fixed a real canary toolbar regression on the shared pan-and-zoom title-edit lane instead of extending the probe again.
@@ -5620,6 +5652,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different normalized dynamic Gate 1 / Gate 2 lane now that CDP access is restored and this motion/editing blocker is closed
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 09:54 EDT - Ralph item 112
 
 - Tightened the shared title-edit-after-pan parity helper so the live compare could use one verified blank graph-surface pan path instead of another loose replay.
@@ -5654,6 +5687,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate/fix why the canary and legacy land on different visible sections (`browserSectionDefault` vs `sectionSizingPolicy`) after the same verified normalized pane pan on the shared Browser lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 10:50 EDT - Ralph item 115
 
 - Added the missing main-reference pan-and-zoom title-edit parity probe, then hit a post-recovery CDP access blocker before the required live visual gate could be rerun on the exact new lane.
@@ -5693,6 +5727,7 @@ LOOP_TERMINAL_MARKER: none
   - first restore a trustworthy chrome-devtools-mcp session, then rerun the exact new pan-and-zoom title-edit lane on live worktree vs read-only `main`
   - if CDP is still unavailable on the next fresh iteration, treat that as tooling/lifecycle debt instead of reopening product code on speculation
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 11:22 EDT - Ralph item 117
 
 - Added the missing shared drag-plus-title-edit parity probe instead of reopening the just-closed pan-and-zoom title-edit lane.
@@ -5726,6 +5761,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - keep the shared Browser drag-plus-title-edit lane and align the moved section on-screen on both surfaces after the same authoritative move, or make CDP drag trustworthy enough to use directly, before changing product code
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 11:40 EDT - Ralph item 118
 
 - Added a deterministic authoritative-move-plus-fit title-edit parity probe so the shared Browser drag lane can be judged live without relying on untrustworthy CDP mouse drag.
@@ -5759,6 +5795,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate why the canary `fitGraphViewportToSection(...)` path leaves moved `browserSectionDefault` visually compressed after the authoritative move while read-only `main` does not
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 13:00 EDT - Ralph item 122
 
 - Closed one bounded live `taskBoardSectionDefault` short blank-pane pan lane as clean on the current run-041 surfaces, without adding another probe.
@@ -5789,6 +5826,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - either pick a truly new trustworthy visible live lane that is not already covered by the existing shared default probes, or pivot to the first concrete production renderer question instead of extending default-lane harness churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 12:12 EDT - Ralph item 119
 
 - Closed the Browser authoritative-move-plus-fit compression lane by fixing both the stale canary fit-bounds source and the stale acknowledged top-level-layout replay that was masking backend layout moves on the worktree canary.
@@ -5829,6 +5867,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move off the now-closed Browser lane and pick the next shared normalized Gate 1 / Gate 2 motion lane on `All Settings` (for example, a different shared named section or a short pan/drag lane) instead of spending another pass on Browser-only churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 12:36 EDT - Ralph item 120
 
 - Investigated the next Browser-specific motion lane and closed it as non-viable on the current normalized live surfaces; the speculative probe was reverted before commit.
@@ -5859,6 +5898,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick a different shared normalized Gate 1 / Gate 2 motion lane whose control/body anchor is visibly present on both surfaces after `clear viewport -> fit view`, instead of spending another iteration on Browser-anchor guesswork
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 12:53 EDT - Ralph item 121
 
 - Added one deterministic shared `taskBoardSectionDefault` top-level drag probe on the actual visible task-board anchor instead of reopening Browser body/control guesswork.
@@ -5897,6 +5937,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick the next shared normalized live motion lane from the remaining visibly present sections (`drawSectionDefault` is the clearest default) and use that compare to hunt the next real canary-only artifact instead of reopening Browser or another hidden-control lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 13:20 EDT - Ralph item 123
 
 - Closed the bounded live `taskBoardSectionDefault` fit-plus-zoom lane as clean on the current run-042 surfaces, without adding another probe or product change.
@@ -5926,6 +5967,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pivot away from task-board default motion lanes and hunt the first concrete production renderer question on a truly new visible lane, with production-fix work preferred over another harness-only pass
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 13:38 EDT - Ralph item 124
 
 - Closed the explicit Browser control-surface normalization experiment as non-viable on the current run-043 surfaces, without adding another speculative probe.
@@ -5956,6 +5998,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to a non-Browser shared visible lane or a concrete production renderer question instead of spending another pass on Browser visibility normalization
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 13:56 EDT - Ralph item 125
 
 - Closed the shared title-edit-after-normalized-pan-and-zoom lane as clean on the current run-044 surfaces, without changing production or test code.
@@ -5992,6 +6035,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 14:29 EDT - Ralph item 126
 
 - Landed the shared programmatic `panBy(...)` path on the custom substrate and closed the normalized `panBy -> zoomIn` lane on the current run-045 surfaces.
@@ -6036,6 +6080,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 15:04 EDT - Ralph item 127
 
 - Tightened the normalized `fit view`-after-manual-pan main-reference probe so it uses the settled post-pan shared landing as the oracle on the current run-046 surfaces instead of trusting the live legacy first-fit landing.
@@ -6077,6 +6122,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane, and treat CDP as a post-state/static visual sanity check when native modified-wheel replay is not available
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 15:24 EDT - Ralph item 128
 
 - Fixed a false-negative on the normalized top-level drag plus title-edit main-reference probe by waiting for settled post-drag section/layout state before comparing deltas on the current run-047 surfaces.
@@ -6117,6 +6163,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different normalized dynamic lane on `All Settings` instead of spending another iteration on Browser title-drag oracle churn; prefer a non-Browser shared section with a visibly present body/control anchor or the first concrete renderer defect surfaced by a fresh graph-surface compare
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 15:45 EDT - Ralph item 129
 
 - Reran the normalized modified-wheel zoom delta main-reference lane on the current run-048 surfaces and closed it as clean again, using the planned CDP fallback static sanity check instead of pretending CDP can replay the native modified-wheel gesture.
@@ -6151,6 +6198,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick one different normalized dynamic lane on `All Settings` instead of reopening modified-wheel or the recent drag/edit oracle family; prefer a shared non-Browser section with a visibly present body/control anchor or a fresh normalized compare that isolates the first remaining canary-only renderer defect
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 16:12 EDT - Ralph item 130
 
 - Identified `chatSectionDefault` as the next viable shared non-Browser body-heavy lane on normalized `All Settings` without reopening closed `group` / `spreadsheet` / `draw` / `taskBoard` / Browser families.
@@ -6183,6 +6231,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun one from-scratch normalized dynamic action on `chatSectionDefault` across both surfaces, preferably a short blank-pane pan pulse or one short top-level drag, before adding any new harness work
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 16:37 EDT - Ralph item 131
 
 - Corrected the misidentified chat body-heavy lane from `chatSectionDefault` to `chatWindowing` and landed deterministic pane-pan coverage on the real `Auto Create Initial Chat` control.
@@ -6219,6 +6268,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - use `chatWindowing` for the next renderer-facing compare; prefer one short top-level drag or another trustworthy live compare that does not depend on the unavailable read-only-main programmatic pan path
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 16:57 EDT - Ralph item 132
 
 - Added deterministic top-level drag coverage for the corrected `chatWindowing` lane and closed the checked chat pan/drag motion family as clean on the current run-051 surfaces.
@@ -6256,6 +6306,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to the next distinct normalized `All Settings` renderer-facing lane or the first fresh graph-surface artifact beyond the now-closed `chatWindowing` pan/drag family
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 17:14 EDT - Ralph item 133
 
 - Used one fresh-context normalized CDP compare to identify the next distinct `All Settings` renderer-facing lane after closing the `chatWindowing` pan/drag family.
@@ -6287,6 +6338,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - use `dropzoneParamCodeObjDefault` for one bounded normalized dynamic action across both surfaces, anchored on `Mode`, before adding any new deterministic main-reference guard
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 17:29 EDT - Ralph item 134
 
 - Attempted the bounded `dropzoneParamCodeObjDefault` -> `Mode` normalized dynamic compare, but the required Chrome DevTools MCP gate stayed inaccessible even after the one allowed worktree lifecycle restart.
@@ -6329,6 +6381,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - begin the next iteration with a fresh worktree lifecycle bootstrap and retry the same normalized `dropzoneParamCodeObjDefault` -> `Mode` dynamic compare from scratch using refreshed runtime values before any new harness work
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 17:46 EDT - Ralph item 135
 
 - Retried the `dropzoneParamCodeObjDefault` -> `Mode` lane with fresh-context CDP sessions and project-state-derived ids, then closed that lane as unsupported for the current tool stack because the third setup-heavy pass still never produced one trustworthy bounded compare.
@@ -6360,6 +6413,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to the next shared normalized `All Settings` lane from item `133`, with `dictSectionDefault` as the next canonical target section instead of spending a fourth pass on `dropzoneParamCodeObjDefault`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 18:04 EDT - Ralph item 136
 
 - Landed deterministic `dictSectionDefault` authoritative-viewport parity coverage, anchored on the shared `Config Language` body row, so the next dict-lane motion compare stays on a trusted path instead of reopening ad hoc CDP drag/pan.
@@ -6406,6 +6460,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - use `dictSectionDefault` for one more trusted motion family beyond authoritative viewport, preferably a toolbar zoom or another bounded post-motion confirmation anchored on `Config Language`, before moving to a different section
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 18:30 EDT - Ralph item 137
 
 - Landed deterministic `dictSectionDefault` toolbar-zoom parity coverage, anchored on the shared `Config Language` body row, and closed the checked dict toolbar-zoom motion lane as clean on the current run-056 surfaces.
@@ -6464,6 +6519,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `136` and `137` are now two probe-only passes on the same named dict lane, the next iteration must either land product code on a remaining concrete dict-lane artifact or move to a different renderer-facing named lane instead of spending a third probe-only pass on `dictSectionDefault`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 18:58 EDT - Ralph item 138
 
 - Opened `chartSectionDefault` as the next trusted toolbar-zoom lane, anchored it on the live `dataPath` row, and used the required CDP visual gate to isolate the first concrete canary-only chart drift instead of continuing the exhausted dict lane.
@@ -6512,6 +6568,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - tighten this lane against canary-owned chart geometry or land the product fix for the chart fit/zoom drift before opening another support-only lane
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 19:25 EDT - Ralph item 139
 
 - Tightened the existing `chartSectionDefault` toolbar-zoom parity lane by asserting absolute chart title and `dataPath` row geometry, then reran the lane on refreshed run-058 sessions to decide whether the item `138` collapse was still an active blocker.
@@ -6554,6 +6611,7 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `138` and `139` are now two support/probe passes on the same named chart lane, the next iteration must move to a different renderer-facing lane or land product code on a real remaining artifact instead of spending a third chart probe on `chartSectionDefault`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-04 19:46 EDT - Ralph item 140
 
 - Item: Fix two-runtime settings-graph preflight backend routing and rerun the named `drawSectionDefault` pane-pan lane on the live run-059 worktree/main surfaces.
@@ -6601,6 +6659,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still needs current run-059 evidence, preferably a body-heavy `spreadsheetSectionDefault` motion lane, reusing the new origin-aware preflight instead of reopening `chartSectionDefault` or repeating `drawSectionDefault`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 00:55 EDT - Ralph item 143
 
 - Item: Harden the existing `taskBoardSectionDefault` top-level drag parity lane with origin-aware preflight, then verify that named lane on the live run-003 worktree/main surfaces with Playwright plus CDP.
@@ -6648,6 +6707,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still lacks a canonical, current live check, preferably splitting the shared `browserSectionDefault` / `taskBoardSectionDefault` title-edit drag probe into one explicit `browserSectionDefault` lane with origin-aware preflight
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 01:49 EDT - Ralph item 147
 
 - Item: Harden the existing `dictSectionDefault` fit-view-plus-toolbar-zoom parity lane with restore-plus-preflight, then verify that named lane on the live run-007 worktree/main surfaces with Playwright plus CDP.
@@ -6693,6 +6753,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to the existing `chartSectionDefault` fit-view-plus-toolbar-zoom lane on the current live surfaces, and either harden it to the same preflight-backed shape or close it with current evidence instead of reopening dict/browser churn
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 00:45 EDT - Ralph item 142
 
 - Item: Harden the existing `groupSectionDefault` pane-pan editability parity lane with origin-aware preflight, then verify that named lane on the live run-002 worktree/main surfaces with Playwright plus CDP.
@@ -6740,6 +6801,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still lacks current live evidence, preferably `taskBoardSectionDefault` / `settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 00:33 EDT - Ralph item 141
 
 - Item: Finish the in-progress `spreadsheetSectionDefault` motion/search parity hardening by reusing origin-aware preflight on the current live worktree/main surfaces, then verify that named lane with Playwright plus CDP.
@@ -6788,6 +6850,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to a different renderer-facing named lane that still lacks origin-aware preflight on the current live surfaces, preferably `groupSectionDefault` / `settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary`
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 02:16 EDT - Ralph item 149
 
 - Item: Add a trusted expected-fail parity repro for `dropzoneParamCodeObjDefault` on the shared fit-view-plus-toolbar-zoom lane, then verify that the current live canary drift is card-geometry expansion rather than `Mode` row detachment.
@@ -6830,6 +6893,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - land a production fix for the dropzone card height / vertical-placement drift on the named `dropzoneParamCodeObjDefault` lane, then rerun this expected-fail probe until it turns into a normal pass
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 02:57 EDT - Ralph item 150
 
 - Item: Normalize the named `dropzoneParamCodeObjDefault` toolbar-zoom lane by aligning the effective section `paramFilter` between worktree and read-only main, then rerun and close the lane if the stale expected fail disappears.
@@ -6869,6 +6933,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - move to one different named Gate 1 / Gate 2 lane or production renderer slice that still lacks a trusted normalized result; the dropzone toolbar-zoom lane is no longer the blocker
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 03:55 EDT - Ralph item 153
 
 - Item: Make the canary fit/scene-bounds path keep authoritative layout size when available, then recheck one clean fit/zoom lane plus the active `sectionSizingPolicy` blocker lane on the live run-013 surfaces.
@@ -6893,7 +6958,7 @@ LOOP_TERMINAL_MARKER: none
     - after restoring the expected-fail marker, the combined live rerun of:
       - `chartSectionDefault`
       - `sectionSizingPolicy`
-      passed as targeted verification (`2 passed`), which means the known-clean chart lane stayed clean while `sectionSizingPolicy` remained the expected-fail repro
+        passed as targeted verification (`2 passed`), which means the known-clean chart lane stayed clean while `sectionSizingPolicy` remained the expected-fail repro
     - fresh-context CDP on the live `3076/settings` and `3087/settings` tabs showed:
       - `chartSectionDefault` still looked attached after normalized `All Settings` plus shared `fit view -> zoom in`
       - `sectionSizingPolicy` was only partially in view on the worktree side during that quick read, and the sub-agent did not see an obvious new right/down drift there; that visual read stays secondary to the unchanged Playwright delta
@@ -6923,6 +6988,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - investigate canary authoritative viewport / fit-center math on `sectionSizingPolicy`; the remaining blocker no longer looks like a geometry-authority problem
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 03:14 EDT - Ralph item 151
 
 - Item: Open an explicit `sectionSizingPolicy` normalized pan-plus-zoom title-edit lane on the current live surfaces, then decide whether it closes cleanly or becomes the next real renderer-facing repro.
@@ -6973,6 +7039,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - investigate and fix why the `sectionSizingPolicy` targeted fit/zoom landing leaves the canary farther right/down than read-only main, then rerun this expected-fail lane until it turns into a normal pass
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 04:34 EDT - Ralph item 154
 
 - Item: Close the normalized `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom drift lane by matching the legacy d3 toolbar zoom base after backend-driven viewport writes.
@@ -7023,6 +7090,7 @@ LOOP_TERMINAL_MARKER: none
 - Next action:
   - use the now-clean `sectionSizingPolicy` lane to open one trusted normalized pan or top-level drag compare on the same named section, or move to another named section that still lacks current motion evidence
 - LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-05 04:50 EDT - Ralph item 155
 
 - Item: Open the named `sectionSizingPolicy` normalized top-level drag lane, then decide whether it closes cleanly or becomes the next expected-fail motion repro.
@@ -8697,6 +8765,7 @@ LOOP_TERMINAL_MARKER: none
   - once approved, use the surface-runtime boundary plus the shared chrome appearance and frame-structure contracts to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 - LOOP_TERMINAL_MARKER: none
 - Ralph item `197` | 2026-04-05 17:45 EDT
+
   - Subtask: centralize canary section geometry resolution and keep locked section layout size authoritative over fresher DOM measurements.
   - Why:
     - items `195` and `196` already finished the useful chrome prep; another DOM-only chrome helper slice would have repeated the same refactor shape without touching the active geometry blocker
@@ -8718,12 +8787,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - the canary now has one explicit geometry resolver seam that future scene-owned drawing can consume
     - locked sections no longer let later DOM measurement override explicit layout size, while unlocked sections keep the old measured-size-first behavior
-  - Next:
-    - if Pixi dependency approval lands, use the surface-runtime boundary + chrome seams + geometry resolver to insert the first scene-owned static layer
-    - otherwise keep moving authority toward robust existing state instead of reopening parity/chrome-helper lanes
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi dependency approval lands, use the surface-runtime boundary + chrome seams + geometry resolver to insert the first scene-owned static layer - otherwise keep moving authority toward robust existing state instead of reopening parity/chrome-helper lanes
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `214` | 2026-04-05 21:40 EDT
+
   - Subtask: make positive top-level layout `w/h` authoritative when shared node internals are rebuilt from backend project state.
   - Why:
     - item `213` unified the canary size-authority rule, but `createNodesMapFromProjectConfigChildren(...)` in `frontend/src/state/actions/sectionInfos.ts` still rehydrated `currentNode.width/height` ahead of backend layout during project-state rebuilds
@@ -8764,12 +8832,11 @@ LOOP_TERMINAL_MARKER: none
     - shared node internals now follow the same positive-layout-first size-authority rule that the canary scene runtime already uses
     - backend project-state rebuilds no longer rehydrate stale measured width/height back into live node state when current layout geometry already exists
     - current node size remains available only as the fallback path for sections whose current layout size is still missing
-  - Next:
-    - investigate why the reloaded mounted worktree `/settings` CDP session on `3076` still lands in overview-style `All Settings` framing while read-only `main` resolves to focused `rotaryParamCodeObjDefault`, despite the deterministic normalized Playwright lane matching transforms
-    - do not reopen new parity-only lanes; target the live viewport/camera-state hydration path that blocks trustworthy CDP confirmation
-LOOP_TERMINAL_MARKER: none
+  - Next: - investigate why the reloaded mounted worktree `/settings` CDP session on `3076` still lands in overview-style `All Settings` framing while read-only `main` resolves to focused `rotaryParamCodeObjDefault`, despite the deterministic normalized Playwright lane matching transforms - do not reopen new parity-only lanes; target the live viewport/camera-state hydration path that blocks trustworthy CDP confirmation
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `198` | 2026-04-05 17:56 EDT
+
   - Subtask: stop subscribing locked canary sections with authoritative layout size to shared DOM size churn.
   - Why:
     - item `197` already made locked layout size authoritative inside the geometry resolver, but the runtime still subscribed every canary section to `useSectionElementSizes(...)`
@@ -8798,12 +8865,11 @@ LOOP_TERMINAL_MARKER: none
       - when layout size is authoritative
       - when the canary still genuinely needs measured fallback
     - the broad normalized lane remains green after the runtime change
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - otherwise keep replacing remaining DOM-size subscriptions only where an existing authoritative size signal can be proven; do not reopen parity-only work
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - otherwise keep replacing remaining DOM-size subscriptions only where an existing authoritative size signal can be proven; do not reopen parity-only work
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `200` | 2026-04-05 18:14 EDT
+
   - Subtask: stop shared top-level layout snapshots from reviving stale persisted `w/h` when a live node currently reports `null` dimensions.
   - Why:
     - item `199` already cleared stale width/height from canary node-internals sync, but `createTopLevelSectionLayoutDict(...)` still reintroduced `existingLayouts.w/h` for visible nodes with `null` size
@@ -8841,12 +8907,11 @@ LOOP_TERMINAL_MARKER: none
   - Result:
     - shared top-level layout persistence now matches the canary no-size authority boundary instead of silently reviving older persisted size for live sections
     - hidden or missing-node sections still remain in the snapshot, so preview/snapshot preservation behavior for absent nodes is unchanged
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - if dependency approval is still unavailable, audit the remaining shared layout writers that still copy `existing?.w/h`, starting with `updateTopLevelLayout(...)` in `frontend/src/state/actions/sections/moveSections.ts`
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - if dependency approval is still unavailable, audit the remaining shared layout writers that still copy `existing?.w/h`, starting with `updateTopLevelLayout(...)` in `frontend/src/state/actions/sections/moveSections.ts`
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `201` | 2026-04-05 18:23 EDT
+
   - Subtask: stop optimistic pane-move layout writes from reviving stale persisted `w/h` when a live top-level node moves on the pane.
   - Why:
     - item `200` already fixed the snapshot/persistence writer, but `updateTopLevelLayout(...)` in `moveSections.ts` still copied `existing?.w/h` unconditionally during pane moves
@@ -8884,12 +8949,11 @@ LOOP_TERMINAL_MARKER: none
     - optimistic pane-move layout writes now match the same live-node size authority rule already enforced by top-level layout snapshots
     - a live top-level section can no longer move around the pane and silently resurrect an older persisted width/height from `projectConfig.topLevelSections`
     - active view mode top-level layouts stay aligned with the same current-node authority boundary because both shared layout stores receive the same live-node-derived `nextLayout`
-  - Next:
-    - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed
-    - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
-LOOP_TERMINAL_MARKER: none
+  - Next: - if Pixi approval arrives, use the surface-runtime boundary plus the chrome seams and geometry resolver to land the first scene-owned static layer while section bodies stay DOM-backed - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `221` | 2026-04-06 15:35 EDT
+
   - Subtask: make shared top-level size hydration pair-only so the reader/canary model cannot fabricate a size from mixed partial layout and node-internals dimensions.
   - Why:
     - item `220` moved shared-node size authority up to the canary section model/controller boundary, but `getAuthoritativeTopLevelSectionNodeSize(...)` still merged `width` and `height` per-dimension across `layout` and `currentNode`
@@ -8936,12 +9000,11 @@ LOOP_TERMINAL_MARKER: none
     - the shared reader and the canary model now agree that a section only has size authority when one source provides both positive dimensions together
     - mixed partial `layout`/`currentNode` geometry now resolves to `null` size instead of silently reintroducing a hybrid pair
     - the remaining risk moved to the writer side, where some top-level layout persistence paths still store `w` and `h` independently
-  - Next:
-    - enforce the same pair-only size rule in the top-level layout writers that still persist split `w` / `h` pairs, starting with `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)`
-    - do not spend the next iteration on the same Playwright lifecycle recovery alone unless the live runtime is actually down
-LOOP_TERMINAL_MARKER: none
+  - Next: - enforce the same pair-only size rule in the top-level layout writers that still persist split `w` / `h` pairs, starting with `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)` - do not spend the next iteration on the same Playwright lifecycle recovery alone unless the live runtime is actually down
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `218` | 2026-04-06 01:48 EDT
+
   - Subtask: move the canary's top drag handle onto `SettingsGraphSubstrateCanarySectionShell` and suppress the duplicate DOM handle in the section body.
   - Why:
     - item `217` already moved the visible shell border/frame tone to the shell boundary, and the top drag handle was the next smallest shell-only chrome affordance still owned only by the DOM body
@@ -9000,10 +9063,8 @@ LOOP_TERMINAL_MARKER: none
     - the canary shell boundary now owns the top drag handle markup and tone contract
     - the DOM body suppresses the duplicate handle while keeping the rest of the DOM-backed content/editing path unchanged
     - the hover-reveal visual gate remains deferred to a trustworthy hover-capable verification path
-  - Next:
-    - keep product work on the shell-ownership lane only if the next affordance can be verified without another hover-only proof path, or return to the first scene-owned static layer once dependency approval arrives
-    - do not spend a third pass re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
-LOOP_TERMINAL_MARKER: none
+  - Next: - keep product work on the shell-ownership lane only if the next affordance can be verified without another hover-only proof path, or return to the first scene-owned static layer once dependency approval arrives - do not spend a third pass re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `223` | 2026-04-06 16:03 EDT
   - Subtask: keep canary scene bounds authoritative on the resolved subset so one unresolved section no longer blocks the whole `All Settings` scene from auto-fitting.
@@ -9038,10 +9099,8 @@ LOOP_TERMINAL_MARKER: none
     - the canary scene no longer loses all bounds just because one sibling section is unresolved
     - mixed-authority scenes can auto-fit from the authoritative subset without waiting on another local measurement timing cycle
     - bounds still correctly stay `null` when no section has current authoritative geometry
-  - Next:
-    - continue the geometry-authority lane by shrinking the sections that still reach `sizeAuthority: "none"` / measured-size-only fallback before they can contribute authoritative bounds
-    - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop unless the next product slice truly needs live Playwright again
-LOOP_TERMINAL_MARKER: none
+  - Next: - continue the geometry-authority lane by shrinking the sections that still reach `sizeAuthority: "none"` / measured-size-only fallback before they can contribute authoritative bounds - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop unless the next product slice truly needs live Playwright again
+    LOOP_TERMINAL_MARKER: none
 
 ## 2026-04-06 225
 
@@ -9151,11 +9210,13 @@ LOOP_TERMINAL_MARKER: none
   - a future scene-owned static shell layer can consume the same contract without inheriting the old border/outline/top-drag-handle component split
   - the slice advanced renderer ownership without reopening geometry-authority work or spending another iteration on recovery-only churn
 - Next action:
+
   - if Pixi approval arrives, use the shell-layer contract to land the first scene-owned static shell layer while keeping the DOM body/editor path intact
   - otherwise collapse the DOM section-body chrome-suppression trio behind one renderer-facing body adapter boundary instead of reopening geometry or parity work
-LOOP_TERMINAL_MARKER: none
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `222` | 2026-04-06 15:53 EDT
+
   - Subtask: enforce pair-only top-level layout persistence so writer paths cannot re-store split `w/h` geometry after the reader/model started rejecting it.
   - Why:
     - item `221` made shared size hydration pair-only, but `createTopLevelSectionLayoutDict(...)` and `moveSections.updateTopLevelLayout(...)` still wrote `w` and `h` independently from live node internals
@@ -9202,10 +9263,8 @@ LOOP_TERMINAL_MARKER: none
     - the shared top-level layout writers now match the pair-only size-authority rule already enforced by the reader/model layer
     - split persisted `w/h` pairs are no longer recreated by layout snapshots or pane moves
     - the writer seam named in item `221` is now closed; the next real frontier is back in canary-local bounds/measurement timing
-  - Next:
-    - move to the remaining canary-local geometry timing seam, starting with `settingsGraphSubstrateCanaryBounds.ts` / related scene-bounds authority
-    - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop; the harness failure repeated before the spec body even after the one allowed restart
-LOOP_TERMINAL_MARKER: none
+  - Next: - move to the remaining canary-local geometry timing seam, starting with `settingsGraphSubstrateCanaryBounds.ts` / related scene-bounds authority - do not spend the next iteration on another standalone `ensureAppReady(...)` recovery loop; the harness failure repeated before the spec body even after the one allowed restart
+    LOOP_TERMINAL_MARKER: none
 
 - Ralph item `230` | 2026-04-06 18:23 EDT
   - Subtask: collapse canary section header/title chrome behind one renderer-facing header contract so the canary body path no longer hard-codes the default `SectionHeader` inside `SectionContainerCoreResizable`.
@@ -9249,11 +9308,10 @@ LOOP_TERMINAL_MARKER: none
     - the canary now chooses header/title chrome at one renderer-facing boundary rather than inheriting the default `SectionHeader` wiring implicitly from the generic container
     - `SectionContainerCoreResizable` can accept a renderer-provided header implementation without changing current DOM body/editor behavior
     - the slice advances renderer ownership while keeping the DOM-backed canary visually stable
-  - Next action:
-    - if Pixi approval arrives, use the shell-layer, body-surface, and header-renderer contracts to land the first scene-owned static shell/body/header surface while the DOM editor/body content stays intact
-    - otherwise collapse `SectionHeader` title/actions layout behind one renderer-facing header-layout contract instead of exposing `MenuButton`/`SectionTitle` internals directly
-LOOP_TERMINAL_MARKER: none
+  - Next action: - if Pixi approval arrives, use the shell-layer, body-surface, and header-renderer contracts to land the first scene-owned static shell/body/header surface while the DOM editor/body content stays intact - otherwise collapse `SectionHeader` title/actions layout behind one renderer-facing header-layout contract instead of exposing `MenuButton`/`SectionTitle` internals directly
+    LOOP_TERMINAL_MARKER: none
 - 2026-04-06 18:39 EDT, Ralph item `231`
+
   - Summary: collapsed `SectionHeader` title/actions composition behind a renderer-facing layout contract by adding `SectionHeaderLayoutRenderProps`, optional `layoutRenderer`, and the default DOM layout adapter; the header now resolves `leadingControls`, `title`, and `actions` once instead of hard-coding their placement inline.
   - Files: `frontend/src/components/Section/Header/SectionHeader.tsx`, `frontend/src/components/Section/Header/SectionHeader.test.tsx`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
   - Verification:
@@ -9266,6 +9324,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 18:48 EDT, Ralph item `232`
+
   - Summary: collapsed the `SectionHeader` trailing action strip behind a renderer-facing controls contract by adding `SectionHeaderControlsRenderProps`, optional `controlsRenderer`, and the default DOM controls adapter; the header now resolves the action-strip contract once instead of hard-coding diagnostics/run/follow/window/container controls inline.
   - Files: `frontend/src/components/Section/Header/SectionHeader.tsx`, `frontend/src/components/Section/Header/SectionHeader.test.tsx`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9278,6 +9337,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 19:00 EDT, Ralph item `233`
+
   - Summary: collapsed the remaining `SectionHeader` leading menu/tag-color composition behind a renderer-facing leading-controls contract by adding `SectionHeaderLeadingControlsRenderProps`, optional `leadingControlsRenderer`, and the default DOM leading-controls adapter.
   - Files: `frontend/src/components/Section/Header/SectionHeader.tsx`, `frontend/src/components/Section/Header/SectionHeader.test.tsx`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9290,6 +9350,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 19:05 EDT, Ralph item `234`
+
   - Summary: synchronized the durable loop docs so the next frontier no longer points at the already-complete controller/header fallback lanes and instead records the real external blocker: explicit approval to add the frontend Pixi dependency.
   - Files: `RALPH.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9305,6 +9366,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 22:09 EDT, Ralph item `235`
+
   - Summary: recorded the granted Pixi approval by pinning `pixi.js@8.17.1` in the frontend and synchronizing the durable rewrite docs so the next frontier is the first scene-owned static shell/header/body slice rather than another approval or DOM-only seam pass.
   - Files: `frontend/package.json`, `frontend/pnpm-lock.yaml`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9321,6 +9383,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 23:06 EDT, Ralph item `236`
+
   - Summary: landed the first local Pixi-owned canary shell slice by moving section border/outline chrome onto a root-level screen-space Pixi layer while keeping DOM bodies/editors and the hover-only top drag handle intact, but the required CDP visual gate stayed blocked after the one allowed worktree restart so the slice remains uncommitted.
   - Files: `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`, `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShell.tsx`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellLayer.tsx`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.ts`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiModel.test.ts`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9347,6 +9410,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 23:22 EDT, Ralph item `237`
+
   - Summary: retried the pending item `236` Chrome DevTools MCP acceptance gate on a fresh outer pass, reran the focused non-CDP verification green, used the one allowed headless `aireset` recovery, but the required visual gate still blocked because `chrome-devtools-mcp` remained unavailable for a trustworthy spot-check even after the restart.
   - Files: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9375,6 +9439,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-06 23:35 EDT, Ralph item `238`
+
   - Summary: retried the pending item `236` acceptance gate, reran the focused non-CDP verification green, used the one allowed in-pass `aireset` recovery, restored a usable `chrome-devtools-mcp` session, and then found the live worktree failed named-lane preflight because `rotaryParamCodeObjDefault` was absent after the reset, so the Pixi shell slice still cannot be visually accepted or committed.
   - Files: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`, `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
   - Verification:
@@ -9403,6 +9468,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 01:08 EDT, Ralph item `241`
+
   - Summary: isolated a real Pixi runtime crash inside the pending shell-owned slice, fixed the shell-layer double-destroy path in `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`, verified the focused unit/typecheck suite green, reverted the temporary debug-only Playwright edits, and stopped with the next remaining shell-border acceptance blocker plus a still-broken CDP transport.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
@@ -9428,6 +9494,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 01:35 EDT, Ralph item `242`
+
   - Summary: fixed the remaining shell-layer mount stall by deferring shell-layer Pixi ref publication until `app.init(...)` completed, reran the sanctioned shell-owned border/top-handle acceptance tests green, used the one allowed headless `aireset` recovery, and still could not complete the required CDP visual spot-check because `chrome-devtools-mcp` remained unavailable in fresh sub-agent sessions.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
@@ -9456,6 +9523,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 01:54 EDT, Ralph item `243`
+
   - Summary: moved the first Pixi-owned shell slice deeper by making the root Pixi shell canvas own section surface fills via a new renderer-facing `backgroundColor` contract, added an explicit themed `forceTransparentBackground` DOM-surface override so the duplicate fill actually disappears, verified the focused Vitest suite green, and captured a narrow CDP spot-check showing no obvious duplicate DOM fill seam on the live worktree canary.
   - Files:
     - `frontend/src/components/Section/Container/sectionChromeAppearance.ts`
@@ -9493,6 +9561,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 02:16 EDT, Ralph item `244`
+
   - Summary: moved the shell-owned top drag handle visual from the per-section DOM shell into the root Pixi shell canvas, added hovered-section state so the canvas can reveal that handle without rerendering the DOM-backed body subtree, and verified the live worktree visually in CDP against the read-only `main` settings shell.
   - Files:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -9524,6 +9593,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-07 02:53 EDT, Ralph item `245`
+
   - Summary: moved the DOM surface-frame pseudo-border into the root Pixi shell canvas by adding renderer-facing surface-frame colors plus a `forceHideFrameBorder` suppression path through the canary DOM surface stack, then verified the live worktree visually in CDP.
   - Files:
     - `frontend/src/components/Section/Container/sectionChromeAppearance.ts`
@@ -9558,6 +9628,54 @@ LOOP_TERMINAL_MARKER: none
     - the DOM section surface stack now has an explicit `forceHideFrameBorder` seam instead of leaving the pseudo-border implicitly active
     - this lane should not reopen default helper cleanup work; the remaining rerun timeout is still cleanup-side noise rather than new product evidence
   - Next:
-    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing header/body visual
+    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next default slice to geometry authority under the existing Pixi shell baseline instead of another shell-affordance micro-slice
     - if `settings-view-modes.spec.ts` is touched again, do it only to support a future product slice rather than chasing the existing `finally` cleanup noise by itself
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 03:01 EDT, progress review checkpoint after successful runs `001` through `010`
+
+  - Summary: the recent stretch is still worthwhile because the loop eventually pivoted out of CDP/Playwright acceptance churn and landed real Pixi shell ownership slices, but the durable plan was stale and needed to stop steering the next pass toward another vague shell-affordance move.
+  - Evidence:
+    - runs `001` through `004` were mostly blocked by Chrome DevTools transport churn, named-lane preflight instability, and sanctioned helper failures around the first shell-owned slice
+    - runs `005` through `010` produced durable product progress, including commits `9c6203a591f82967278351ce699b0029520694f4`, `147e855a62692a2bedb311e2a6c3a831dfde76da`, `7e2614c51571d3ffb0adbd7df0f0f40fc4fee6e8`, `69464d1bb608a63e4ada083b9d9349754af24653`, `0c350fb02261781a0b769ec2eb8355e82c09eb7b`, and `72090a9da466b6c0dc8e30b01a4c1d20e22d3acd`
+    - the latest three product passes moved section fill, top drag handle, and surface frame into the root Pixi shell canvas with live CDP confirmation, so the first visible Pixi shell baseline is now clearly established
+  - Decision:
+    - keep going, but only after a durable replan
+    - treat `settings-view-modes.spec.ts` cleanup-only `finally -> /setViewport` timeouts as known helper noise unless a future product slice fails before cleanup
+    - treat standalone CDP/lifecycle retries as closed churn for already-green lanes unless the runtime itself is unhealthy
+    - stop using “another remaining non-editing header/body visual” as the default next-slice picker
+  - Next:
+    - pivot the next default slice to geometry authority in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`
+    - reduce measured-DOM size dependence for sections that already have `layout` or `sectionModel` authority, while keeping `rotaryParamCodeObjDefault` and the current shell-owned visual lanes as regression coverage
+  - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 03:21 EDT, Ralph item `246`
+  - Summary: made `sectionModel` geometry authoritative once positive model width/height already exists so those sections stop resubscribing to DOM size churn and stop letting measured fallback override their resolved scene size.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - no new section-specific parity lane was opened for this authority slice
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` -> passed (`4 files`, `26 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'` -> timed out at `applyProjectStateUpdate(...)` before the spec body reached the product lane, so it was not used as slice-specific renderer evidence
+    - fresh-context CDP sub-agent attempt 1 -> blocked; `chrome-devtools-mcp` unavailable in-session
+    - one allowed recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> restarted worktree on backend `8075`, bootstrap session `469c56`, debug port `9297`
+    - runtime refresh: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-supervisor.JIBNqD/loop-001/run-012/worktree-ai.log` -> confirmed refreshed runtime values
+    - fresh-context CDP sub-agent attempt 2 -> blocked; `chrome-devtools-mcp` still unavailable, so no required visual gate could be run
+  - Result:
+    - `sectionModel` sections now keep stored geometry as the scene/runtime/node-sync authority once that model size exists
+    - the remaining measured-size authority frontier is the `sharedNode` / unresolved path rather than already-sized `sectionModel` sections
+    - the iteration is blocked only on the required CDP visual gate after the allowed recovery attempt, not on a new unit-tested product regression in this slice
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next product slice to the remaining `sharedNode` / unresolved measured-size path
+    - retry live visual verification only when `chrome-devtools-mcp` is actually available again
   - LOOP_TERMINAL_MARKER: none

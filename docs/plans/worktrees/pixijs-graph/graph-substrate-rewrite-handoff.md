@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 02:53 EDT
+Last updated: 2026-04-07 03:21 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,7 +41,62 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `246` narrowed the geometry-authority lane by making `sectionModel` sizes authoritative once positive model geometry already exists, so those sections no longer resubscribe to measured DOM size churn or let measured fallback override their resolved scene size.
+
+  - Why this pass stopped here:
+    - the updated plan and handoff explicitly said the next default slice had to tighten geometry authority under the landed Pixi shell baseline instead of moving another shell affordance
+    - `settingsGraphSubstrateCanarySectionGeometry.ts` still observed `sectionModel` sections and let `useSectionElementSizes(...)` override `resolvedSize` even when the section already had positive model width/height
+    - this pass kept the slice bounded to `sectionModel` authority only, leaving the remaining `sharedNode` / unresolved measured-size paths for the next geometry pass
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor for the geometry-authority lane
+    - no new section-specific parity lane was opened for this slice
+  - Product/test change:
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts)
+      - `sectionModel` sections now stop subscribing to `useSectionElementSizes(...)` once they already have a positive stored size
+      - `resolvedSize` now stays on stored `sectionModel` geometry instead of yielding to later measured fallback for those sections
+    - updated focused tests in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts)
+      - locked the new `sectionModel` authority behavior end-to-end across geometry resolution, scene snapshot composition, runtime rerender behavior, and node-internals sync
+      - preserved the measured fallback path for `sharedNode` sections so the next slice still has a clear remaining frontier
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - result: passed (`4 files`, `26 tests`)
+    - broad Playwright regression attempt:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: timed out at `applyProjectStateUpdate(...)` before the spec body reached the product lane, so it was not used as slice-specific renderer evidence
+    - CDP visual gate:
+      - not run
+      - two fresh-context CDP sub-agents reported `chrome-devtools-mcp` unavailable in-session
+      - one allowed worktree recovery was attempted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - runtime refresh confirmed backend `http://127.0.0.1:8075`, bootstrap session `469c56`, and debug port `9297`, but the retrying CDP sub-agent still could not invoke browser tools
+  - Lane status:
+    - `sectionModel` geometry is no longer part of the canary's live measured-size churn once stored model size already exists
+    - the remaining measured-size authority frontier is now the `sharedNode` / unresolved path, not the already-populated `sectionModel` path
+    - the required live CDP visual confirmation remains blocked by unavailable browser tools rather than new renderer evidence on this slice
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as regression coverage and narrow the next geometry slice to `sharedNode` / unresolved measured-size paths in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`
+    - retry the pending CDP visual gate only when `chrome-devtools-mcp` is actually available again; do not treat the blocked gate as renderer drift
+
+- Progress review checkpoint after successful runs `001` through `010`:
+
+  - Conclusion:
+    - the trajectory is still worthwhile, but the durable plan was stale after the first visible Pixi shell ownership landed
+    - items `243` through `245` are real product progress, not probe churn: the root Pixi shell canvas now owns fill, top drag handle, and surface frame on top of the earlier border/outline move
+  - Red herrings now closed:
+    - do not spend a default iteration on `settings-view-modes.spec.ts` cleanup-only `finally -> /setViewport` timeouts unless a future pass first fails before cleanup
+    - do not spend standalone iterations on CDP/lifecycle recovery for a lane that already has deterministic product verification green unless the live runtime is actually unhealthy
+    - do not keep peeling one DOM shell affordance at a time without also tightening geometry authority underneath the new Pixi shell baseline
+  - Next frontier:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor
+    - treat the first Pixi shell baseline as landed: border, outline, fill, top drag handle, and surface frame are already scene-owned
+    - pivot the next default slice to geometry authority in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`
+    - reduce `useSectionElementSizes(...)` / measured-DOM dependence for sections that already have `layout` or `sectionModel` size authority, and keep DOM measurement only where no stronger source exists yet
+
 - Ralph item `245` moved the remaining DOM surface-frame pseudo-border into the root Pixi shell canvas, while suppressing that duplicate DOM frame on canary sections through the existing body/surface stack.
+
   - Why this pass stopped here:
     - item `244` explicitly said to keep moving the first scene-owned shell slice into another non-editing shell/header visual instead of reopening cleanup churn
     - after fill, border, outline, and top-drag-handle ownership moved into the root shell canvas, the surface-frame pseudo-border in `CustomResizable` was the next real static visual still painted by the DOM surface itself
@@ -84,10 +139,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - the DOM section surface stack now has an explicit suppression prop for that frame, so the ownership boundary is no longer implicit in CSS defaults
     - the new Playwright lane is useful regression coverage, but the file still exhibits the known cleanup-timeout noise in some reruns; do not spend a default iteration on that helper behavior alone
   - Next frontier:
-    - keep `rotaryParamCodeObjDefault` as regression coverage and move the next scene-owned slice into another remaining non-editing header/body visual instead of reopening surface-frame helper cleanup work
+    - keep `rotaryParamCodeObjDefault` as regression coverage and pivot the next default slice to geometry authority under the existing Pixi shell baseline instead of another shell-affordance micro-slice
     - if the settings-view-modes helper is touched again, do it only to support a future product slice, not as standalone cleanup churn
 
 - Ralph item `244` moved the shell-owned top drag handle visual out of the per-section DOM shell and into the root Pixi shell canvas, while keeping drag interaction on the existing section root and preserving the duplicate-DOM suppression contract.
+
   - Why this pass stopped here:
     - item `243` explicitly said to keep moving the first scene-owned shell slice deeper into non-editing shell/body/header visuals instead of reopening shell-lane cleanup churn
     - the old shell-layer contract still rendered the top drag handle through a dedicated DOM adapter even though interaction already lived on the section root, so it was the next meaningful non-editing shell visual to transfer without inventing new runtime seams
@@ -132,6 +188,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if the sanctioned Playwright helper is touched again, do it only in service of a later product slice, not as standalone cleanup churn
 
 - Ralph item `243` moved the first Pixi-owned shell slice deeper by making the root Pixi layer own section surface fills wherever the shared chrome contract can provide an explicit renderer-facing background color, while forcing the DOM section surface transparent at the actual themed owner boundary.
+
   - Why this pass stopped here:
     - the plan and handoff explicitly said to stop spending default iterations on shell-lane verification churn and to keep moving the first scene-owned Pixi slice deeper into non-editing shell/body/header visuals
     - the prior Pixi shell layer only owned border/outline strokes; the DOM section surface still painted the fill, so the first scene-owned shell slice was incomplete
@@ -180,6 +237,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if the sanctioned helper is touched again, do it only to support a future product change, not as a standalone retry loop
 
 - Ralph item `242` fixed the remaining shell-layer mount stall in the first Pixi-owned slice, reran the two sanctioned shell-owned acceptance tests green, and exhausted the one allowed headless lifecycle recovery without restoring a usable `chrome-devtools-mcp` visual spot-check.
+
   - Why this pass stopped here:
     - item `241` already said the next bounded step was to rerun the sanctioned shell-owned border and top-drag-handle tests on committed code, then diagnose the remaining canary-mount blocker rather than inventing another support-only lane
     - a fresh single-test rerun plus Playwright API tracing showed the browser stalled immediately after `applyProjectStateUpdate(...)`; the border lane never progressed past finding the `All Settings` button or the canary root, so the remaining blocker was a live product-side mount hang inside the new shell layer rather than cleanup noise in `finally`
@@ -224,6 +282,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - keep the pending visual spot-check explicit, and move to the next real product frontier on the Pixi-owned canary unless the next iteration can complete the spot-check without another recovery-only pass
 
 - Ralph item `241` fixed a real Pixi runtime crash in the first shell-owned slice, but the sanctioned shell-border acceptance lane still needs a clean rerun on the committed code and the required CDP spot-check remains blocked by DevTools transport timeouts.
+
   - Why this pass stopped here:
     - item `240` said the next bounded step was to isolate the first post-setup stall inside the shell-border Playwright lane instead of doing another generic acceptance rerun
     - a trace-backed disposable-workspace rerun exposed an actual product crash rather than a pure harness wait: the worktree hit `TypeError: this._cancelResize is not a function` from `pixi.js` / `settingsGraphSubstrateCanarySectionShellPixiLayer.tsx` while switching into the shell-owned canary
@@ -263,6 +322,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - retry the required worktree CDP spot-check once `chrome-devtools-mcp` is usable again; the last failure shape was `Network.enable timed out`
 
 - Ralph item `240` narrowed the sanctioned shell-owned Playwright lane so it now matches the current Pixi ownership contract, but the acceptance gate is still blocked by a remaining browser-only stall inside the first border test.
+
   - Why this pass stopped here:
     - item `239` already proved the named `rotaryParamCodeObjDefault` target is healthy again on the fresh outer-loop runtime, so the next bounded subtask had to be the first failing sanctioned helper lane rather than another generic acceptance rerun
     - the border test was still asserting against a removed per-section DOM border layer and was also repeating a redundant `All Settings` tab click after the backend already switched the active view mode and applied state locally
@@ -298,6 +358,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once that specific wait is bounded/fixed, rerun the two sanctioned shell-owned tests together and then retry the required CDP worktree spot-check for item `236`
 
 - Ralph item `239` reran the pending item `236` acceptance gate on the fresh outer-loop runtime and confirmed the named lane subject is healthy again, but the slice is still uncommitted because the sanctioned Playwright helper now times out on the new shell-ownership lane and the required CDP screenshot capture is still not trustworthy on the live worktree.
+
   - Why this pass stopped here:
     - the last two iterations had already repeated the same acceptance-gate retry shape around missing target/session state, so this pass first checked whether the fresh outer bootstrap still lacked `rotaryParamCodeObjDefault`
     - the fresh worktree runtime no longer reproduces the `worktree_unhealthy` missing-target failure from item `238`, so the blocker has moved from runtime state back to verification on the existing Pixi shell slice
@@ -343,6 +404,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - after that lane is trustworthy again, rerun the required CDP spot-check with a capture shape that can actually isolate the worktree graph surface before committing item `236`
 
 - Ralph item `238` retried the pending item `236` acceptance gate again, restored a usable `chrome-devtools-mcp` session after the one allowed in-pass worktree recovery, but the live worktree then failed hard preflight because `rotaryParamCodeObjDefault` was no longer present after the `aireset` reset, so the first Pixi shell slice remains uncommitted.
+
   - Why this pass stopped here:
     - item `236` is still the active product frontier, so the narrowest valid next subtask remained the blocked CDP acceptance gate rather than starting another renderer slice
     - item `237` ended on browser-tooling debt, so this pass had to spend the one allowed recovery attempt proving whether the blocker was still transport-related before treating it as product/runtime state
@@ -383,6 +445,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - only after the worktree passes named-lane preflight should item `236` be visually accepted and committed
 
 - Ralph item `237` retried the pending item `236` CDP acceptance gate on a fresh outer pass, but the required Chrome DevTools MCP visual check is still blocked after the one allowed worktree recovery, so the first Pixi shell slice remains uncommitted.
+
   - Why this pass stopped here:
     - item `236` already landed the first real Pixi-owned shell border/outline layer in code, so the narrowest valid next subtask was to finish its pending acceptance gate rather than start another product slice
     - the loop rules require the Chrome DevTools MCP visual check before claiming a frontend slice complete, and the prior iteration explicitly handed off this exact pending gate
@@ -421,6 +484,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not start a new product slice until that gate is either completed or the tooling blocker changes materially
 
 - Ralph item `236` lands the first visible Pixi-owned canary shell slice in code, but the required CDP visual gate is still blocked after the one allowed worktree lifecycle restart, so this slice is not committed yet.
+
   - Why this slice was chosen:
     - item `235` cleared the Pixi dependency gate, so the next real product step had to be the first scene-owned renderer insertion rather than another seam-lift or oracle-only pass
     - shell border/outline chrome was the narrowest non-editing canary surface that could move to Pixi without taking over DOM editors or reopening geometry-authority seams
@@ -476,6 +540,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once that gate passes, extend the scene-owned surface deeper into shell/body/header visuals instead of reopening DOM-only seams
 
 - Ralph item `235` clears the last external dependency gate by recording the granted approval, pinning `pixi.js@8.17.1` in the frontend, and updating the durable rewrite docs so the next loop resumes at the first scene-owned static shell/header/body slice instead of self-blocking on approval collection.
+
   - Why this slice was needed:
     - item `234` intentionally stopped the loop on an approval blocker, and that blocker is now resolved
     - `frontend/package.json` and `frontend/pnpm-lock.yaml` needed the exact Pixi pin from the research worktree before the first visible renderer slice could land here
@@ -508,6 +573,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun one broad normalized `rotaryParamCodeObjDefault` lane plus the required CDP spot-check after that first scene-owned slice
 
 - Ralph item `234` synchronizes the durable loop docs with the actual frontier after item `233`, so the next iteration no longer reopens the already-complete controller/header fallback lanes by mistake.
+
   - Why this slice was needed:
     - item `205` already finished the canary controller split, but the plan's immediate-next-frontier text still told the loop to redo that completed boundary
     - item `233` already closed the remaining DOM-only header fallback seam, but the bottom handoff summary still told the loop to reopen the same leading-controls slice if Pixi approval was unavailable
@@ -539,6 +605,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - after approval, install Pixi and land the first scene-owned static layer on the canary while section bodies remain DOM-backed
 
 - Ralph item `233` collapses the remaining `SectionHeader` leading controls behind one renderer-facing contract, so the generic header no longer hard-codes `MenuButton` plus tag-color composition inline at the same boundary a future scene-owned header would need to replace.
+
   - Why this slice was needed:
     - item `232` let the generic header choose one trailing controls boundary, but `SectionHeader` still assembled the leading menu/tag-color area inline before handing those controls to the shared layout seam
     - without a leading-controls contract at that composition boundary, a future scene-owned header would still need to reverse-engineer the default DOM menu/tag-color composition even after layout and trailing controls moved behind renderer-facing seams
@@ -586,6 +653,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - without that approval, stop extending DOM-only header seams; the next real step is the permission-gated scene-owned implementation rather than another fallback seam
 
 - Ralph item `232` collapses the `SectionHeader` trailing action strip behind one renderer-facing controls contract, so the generic header no longer hard-codes diagnostics/run/follow/window/container button composition inline at the same boundary a future scene-owned header would need to replace.
+
   - Why this slice was needed:
     - item `231` let the generic header choose one layout boundary for title/actions placement, but `SectionHeader` still assembled the entire trailing action strip inline before handing it to that layout seam
     - without a controls contract at that composition boundary, a future scene-owned header would still need to reverse-engineer the default DOM diagnostics/run/follow/window/container button strip even after layout ownership moved behind `layoutRenderer`
@@ -632,6 +700,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the remaining leading header controls behind one renderer-facing contract instead of leaving `MenuButton`/tag-color composition inline inside `SectionHeader`
 
 - Ralph item `231` collapses `SectionHeader` title/actions composition behind one renderer-facing layout contract, so the generic header no longer hard-codes menu/title/trailing-action placement inline at the same boundary a future scene-owned header would need to replace.
+
   - Why this slice was needed:
     - item `230` let the canary choose one header renderer boundary, but `SectionHeader` still hard-coded `MenuButton`, title placement, and trailing actions inside the default DOM header implementation
     - without a layout seam at that composition boundary, a future scene-owned header would still need to reverse-engineer the DOM title/actions arrangement even after the canary stopped instantiating `SectionHeader` directly from the generic container
@@ -676,6 +745,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the trailing header action strip behind one renderer-facing controls contract instead of exposing the individual button composition directly
 
 - Ralph item `230` collapses the canary section header/title chrome behind one renderer-facing header contract, so `SectionContainerCoreResizable` no longer hard-codes the default `SectionHeader` implementation on the canary path.
+
   - Why this slice was needed:
     - item `229` collapsed DOM body surface/background treatment behind one renderer-facing body contract, but the canary body path still relied on `SectionContainerCoreResizable` to instantiate `SectionHeader` and its window-toggle layout implicitly
     - a future scene-owned shell/header surface should be able to choose one header implementation boundary without reverse-engineering `SectionHeader` internals from inside the generic section container
@@ -728,6 +798,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing `SectionHeader` title/actions layout behind one renderer-facing header-layout contract instead of exposing `MenuButton`/`SectionTitle` internals directly
 
 - Ralph item `229` collapses the canary DOM body surface/background treatment behind one renderer-facing body-surface contract, so the canary body path no longer relies on `SectionContainerCoreResizable` to infer that surface implicitly.
+
   - Why this slice was needed:
     - item `228` moved the shell-suppression trio behind one body adapter, but the DOM body still left `bgColor` plus `surfaceDecorations` hidden inside `SectionContainerCoreResizable`
     - a future scene-owned shell/body surface should be able to consume one body-surface contract without reverse-engineering `SectionContainer` or `sectionChrome` internals
@@ -781,6 +852,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing section header/title chrome behind one renderer-facing header contract instead of exposing `SectionHeader`/header layout details directly
 
 - Ralph item `228` collapses the canary DOM section-body chrome-suppression trio behind one renderer-facing body adapter boundary, so the canary composition layer no longer names `SectionContainer` shell-suppression flags directly.
+
   - Why this slice was needed:
     - item `227` collapsed the shell chrome into one shell-layer contract, but the canary body path still hard-coded the DOM suppression trio (`forceHideOutline`, `forceTransparentBorder`, `forceHideTopDragHandle`) straight into `SectionContainer`
     - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to keep moving renderer ownership forward without adding a dependency
@@ -838,6 +910,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded fallback slice on renderer ownership by collapsing the DOM body surface/background shell treatment behind one renderer-facing body-surface contract instead of exposing `SectionContainer`/`sectionChrome` details directly
 
 - Ralph item `227` collapses the canary shell chrome trio behind one renderer-facing shell-layer contract and one DOM adapter, so the canary shell no longer exposes separate border/outline/top-drag-handle renderer boundaries.
+
   - Why this slice was needed:
     - item `226` centralized shell appearance, but `SettingsGraphSubstrateCanarySectionShell.tsx` still owned three separate DOM chrome adapters and a future scene-owned shell would still need to reverse-engineer that trio
     - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to keep moving renderer ownership forward without adding a dependency
@@ -891,6 +964,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the DOM section-body chrome-suppression trio (`forceHideOutline`, `forceTransparentBorder`, `forceHideTopDragHandle`) behind one renderer-facing body adapter boundary rather than reopening geometry or parity work
 
 - Ralph item `226` extracts one renderer-facing canary shell-appearance boundary so the DOM shell layers stop each owning their own section-chrome subscriptions and decoration resolution.
+
   - Why this slice was needed:
     - item `225` closed the shared size-authority divergence, so continuing the same geometry-authority refactor shape again would have been churn instead of moving the active renderer frontier
     - explicit approval to add Pixi is still unavailable, so the bounded fallback slice had to deepen renderer ownership without introducing a new dependency
@@ -937,6 +1011,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded slice on renderer ownership by collapsing the border/outline/top-drag-handle DOM trio behind one shell-layer adapter boundary rather than reopening geometry or parity work
 
 - Ralph item `225` unifies shared top-level size hydration with the canary section-model fallback chain, and carries explicit size authority through node internals so section-model fallback does not get re-persisted as authoritative layout.
+
   - Why this slice was needed:
     - item `224` taught the canary resolver to seed authoritative size from `layout -> impl.size -> sectionSizingPolicy min`, but the shared top-level node map still diverged on the older pair-only `layout/currentNode` path
     - once shared hydration starts carrying section-model fallback sizes, the writer seam from item `222` would reopen unless the runtime could distinguish section-model seed size from real measured/shared-node size
@@ -994,6 +1069,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not spend the next iteration on another standalone Playwright/lifecycle recovery loop unless that next product slice genuinely requires it
 
 - Ralph item `224` mirrors the backend top-level layout dimension fallback inside the canary section model, so settings sections now resolve `layout -> impl.size -> sectionSizingPolicy min` before local DOM measurement arrives.
+
   - Why this slice was needed:
     - item `223` stopped unresolved siblings from collapsing the whole scene, but the settings canary still entered `sizeAuthority: "none"` whenever the default settings layout only had `x/y`
     - the backend already resolves missing top-level layout dimensions through `_resolve_layout_dimension_with_fallback(...)`, so the canary was lagging the standardized source-of-truth path that placement and smart-space logic already trust
@@ -1041,6 +1117,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not spend the next iteration on standalone Playwright/lifecycle recovery unless that slice specifically needs live E2E beyond the current unit/runtime/CDP evidence
 
 - Ralph item `223` keeps canary scene bounds authoritative on the resolved subset, so one unresolved section no longer nulls the whole `All Settings` scene or leaves the viewport stuck on the provisional seed.
+
   - Why this slice was needed:
     - item `222` closed the writer-side split-size persistence seam, but the canary scene-bounds reducer still returned `null` as soon as any section lacked a positive current size
     - that meant one unresolved section could block the entire scene from auto-fitting even when sibling sections already had authoritative geometry, leaving the canary dependent on another local measurement timing cycle
@@ -1083,6 +1160,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not spend the next iteration on another standalone Playwright/lifecycle recovery loop unless the next product slice genuinely requires it
 
 - Ralph item `222` closes the writer-side split-size persistence seam, so top-level layout snapshots and pane moves can no longer re-store a mixed partial `w/h` pair after item `221` taught the reader/model to reject those hybrids.
+
   - Why this slice was needed:
     - item `221` moved the shared reader/model to a strict pair-only size rule, but the two production writer paths named in the handoff still persisted `w` and `h` independently from live node internals
     - that meant a partial live node measurement could recreate the exact split `layout.w` / `layout.h` state that the reader now correctly resolves to `null`
@@ -1137,6 +1215,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if a future slice still needs live Playwright, treat stale runtime-log frontend ports as oracle noise and do only one bounded runtime recovery before moving back to product work
 
 - Ralph item `221` makes shared top-level size hydration pair-only, so the canary/shared reader can no longer fabricate a "valid" section size by mixing one dimension from persisted layout and the other from live node state.
+
   - Why this slice was needed:
     - item `220` moved shared-node size authority up to the canary section model/controller boundary, but `getAuthoritativeTopLevelSectionNodeSize(...)` in `frontend/src/state/actions/sectionInfos.ts` still merged `width` and `height` independently across layout and current node state
     - that let both the shared reader and the canary model synthesize a positive size from stale `layout.w` plus `currentNode.height` (or the inverse), which contradicts the explicit `layout` vs `sharedNode` vs `none` size-authority model
@@ -1192,6 +1271,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if that writer seam is not the next slice, choose another remaining raw `layout.w/h` / canary-local measurement timing dependency, not another shell-affordance move
 
 - Ralph item `220` moves shared-node size authority up to the canary section model/controller boundary, so the scene runtime no longer owns a second local node-internals fallback merge.
+
   - Why this slice was needed:
     - item `219` proved that shared node internals could seed missing canary geometry, but the seed still lived inside `useSettingsGraphSubstrateCanarySceneRuntime(...)`, which kept the live size authority entangled with canary-local measurement timing
     - the next real geometry-authority step was to make the section list itself carry shared-node size authority before the runtime resolves scene geometry, while still letting fresh measured DOM size override that seed for non-layout sections
@@ -1252,6 +1332,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if that reader seam is not the next slice, choose another remaining raw `layout.w/h` / canary-local measurement timing dependency, not another shell-affordance move
 
 - Ralph item `219` seeds missing canary section geometry from shared node internals before the local measured-size registry arrives, so the live scene can keep authoritative section bounds without waiting on another canary-local DOM measurement cycle.
+
   - Why this slice was needed:
     - the last three landed iterations (`216` through `218`) were all shell-ownership moves, so continuing that pattern would have been churn instead of progress on the active geometry-authority frontier
     - `state/actions/sectionInfos.ts` already had a typed shared-node-size authority helper for top-level sections, but the canary scene runtime still treated missing `layout.w/h` as a pure measured-DOM problem
@@ -1307,6 +1388,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if the next slice needs live Playwright again, treat stale runtime-log frontend ports as oracle noise and only do one bounded runtime recovery before moving back to product work
 
 - Ralph item `218` moves top-drag-handle ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns the hover-only top drag affordance while the DOM body suppresses the duplicate handle.
+
   - Why this slice was needed:
     - item `217` already moved the visible shell border/frame tone to the shell boundary, and the top drag handle was the next smallest shell-only chrome affordance still owned only by the DOM body
     - the DOM body already exposed the shared `showTopDragHandle` decision, so this slice could move ownership with one explicit suppression prop instead of reopening broader DOM chrome extraction
@@ -1368,6 +1450,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not spend another iteration re-proving this exact hover lane with the same headless `ensureAppReady(...)` / CDP-hover limitations alone
 
 - Ralph item `217` moves outer shell border/frame-tone ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns the visible card frame while the DOM body keeps only a transparent border for box-model stability.
+
   - Why this slice was needed:
     - item `216` already moved active outline ownership to the shell boundary, and the next smallest real shell-only affordance was the outer border/frame tone rather than another support-only parity pass
     - simply deleting the DOM shell border risked geometry drift, so this slice preserves the DOM shell border width as transparent while the shell renders the visible frame tone
@@ -1429,6 +1512,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if that top-handle move proves too coupled for one slice, choose one other single shell-only chrome affordance rather than reopening parity/support work
 
 - Ralph item `216` moves active-outline ownership onto `SettingsGraphSubstrateCanarySectionShell`, so the canary shell boundary now owns one real visible shell affordance beyond the substrate-owned background while the DOM body suppresses the duplicate outline.
+
   - Why this slice was needed:
     - item `215` explicitly moved the loop back to the first scene-owned static-layer frontier instead of more viewport/parity churn
     - the canary already had a shell/body boundary and the DOM section path already exposed `forceHideOutline`, so active outline was the smallest visible shell-only affordance that could move to the shell boundary without reopening another wide chrome extraction
@@ -1490,6 +1574,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if that border/frame move proves too wide for one slice without a new dependency, fall back to the next smallest shell-owned affordance such as the top drag handle instead of reopening support-only parity work
 
 - Ralph item `215` adds a focused live-reload regression proving the worktree canary restores a persisted shared viewport on `All Settings` after a full page reload.
+
   - Why this slice was needed:
     - item `214` left an unresolved CDP-only mounted-tab framing mismatch where the worktree sometimes reloaded into a broader overview-style `All Settings` framing while read-only `main` stayed focused on `rotaryParamCodeObjDefault`
     - before spending another product slice on viewport/camera hydration, the loop needed one bounded proof of whether the worktree canary actually loses a persisted shared viewport across a full reload or whether that mounted-tab mismatch is session/oracle noise
@@ -1525,6 +1610,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move back to the next real product frontier from the plan: the first scene-owned static layer / Pixi-owned graph output beyond the existing background, while section bodies stay DOM-backed
 
 - Ralph item `214` makes positive top-level layout `w/h` authoritative when shared node internals are rebuilt from backend project state.
+
   - Why this slice was needed:
     - item `213` unified the canary's size-authority rule, but `createNodesMapFromProjectConfigChildren(...)` in `frontend/src/state/actions/sectionInfos.ts` still rehydrated `currentNode.width/height` ahead of backend layout during project-state rebuilds
     - that meant shared node internals could keep reviving stale measured size or a stale `null` size even when the current `All Settings` layout already had positive authoritative `w/h`
@@ -1574,6 +1660,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not reopen new parity-only lanes; target the live viewport/camera-state hydration path that blocks trustworthy CDP confirmation
 
 - Ralph item `213` makes positive layout `w/h` authoritative for unlocked canary sections too, so the scene runtime no longer subscribes those sections to shared DOM size churn once current project layout geometry already exists.
+
   - Why this slice was needed:
     - item `212` removed the canary's carried-forward measured-size fallback, but `settingsGraphSubstrateCanarySectionGeometry.ts` still preferred `useSectionElementSizes(...)` for unlocked sections even when the current `All Settings` layout already had positive `w/h`
     - that left a remaining lock-state-only authority gap inside the canary: scene bounds, node internals, and runtime subscriptions still woke up on DOM-size churn for sections whose current project layout was already good enough to drive the substrate
@@ -1631,6 +1718,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not reopen parity-only work unless the existing broad normalized `rotaryParamCodeObjDefault` lane fails
 
 - Ralph item `212` removes the canary's carried-forward scene-bounds size cache so scene bounds and fit-view now depend only on current authoritative geometry.
+
   - Why this slice was needed:
     - item `211` restored unlocked layout `w/h` at the model boundary, but the scene runtime still carried `sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`
     - that let the canary keep using last-frame measured DOM size for scene bounds and `fitView(...)` even after the current snapshot and shared node internals had already dropped size authority
@@ -1686,6 +1774,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not reopen parity-only work unless the existing broad normalized `rotaryParamCodeObjDefault` lane fails
 
 - Ralph item `211` preserves unlocked top-level layout `w/h` as canary fallback geometry so the scene runtime no longer waits on measured DOM size when project layout dimensions already exist.
+
   - Why this slice was needed:
     - item `210` moved one real static visual layer to substrate ownership, but the canary model still nulled `layout.w/h` for every unlocked section before scene geometry resolved
     - that meant unlocked sections still depended on local measured-size arrival even when `All Settings` top-level layout already had positive width/height in project state
@@ -1741,6 +1830,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not reuse the direct live-session first-render spec as the primary gate until its setup is normalized away from the legacy `.react-flow__pane` ready selector
 
 - Ralph item `210` replaced the canary's direct `xyflow` background dependency with a substrate-owned background component so the settings graph surface now owns one real static visual layer at the renderer boundary without adding a new dependency.
+
   - Why this slice was needed:
     - the last few iterations had stayed on chrome-contract extraction, and continuing into header-action/button appearance would have repeated the same refactor shape instead of moving the active renderer frontier
     - the immediate plan frontier says to keep product work near the remaining viewport/runtime ownership boundary that makes the first renderer insertion possible
@@ -1795,6 +1885,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded slice on a canary scene-surface composition boundary near `SettingsGraphSubstrateCanary.tsx` / `SettingsGraphSubstrateCanarySectionsLayer.tsx` so future static shell ownership lands there rather than reopening header-action/button chrome extraction
 
 - Ralph item `209` extracted section-title appearance behind the shared chrome contract so section headers and project chat window headers no longer depend on a DOM header helper for title styling.
+
   - Why this slice was needed:
     - item `208` closed section-surface/meta-control appearance, but title tone, uppercase fixed-title handling, and themed-vs-default title text rules still lived inside `SectionHeader.tsx`
     - `ProjectChatWindowSurface.tsx` was importing `getTitleStyles(...)` from `SectionHeader`, so a future scene-owned header/title layer would still have depended on a DOM header component for title appearance
@@ -1851,6 +1942,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not reopen parity or controller cleanup unless the existing broad normalized lane fails
 
 - Ralph item `208` extracted the section-surface/meta-control appearance contract behind one renderer-facing surface-decoration seam so future scene-owned shells no longer have to reconstruct transparent hover frames, single-cell meta layout, hover elevation, minimal resize-handle tone, or top drag-handle visibility from both `SectionContainerCoreResizabe` and `CustomResizable`.
+
   - Why this slice was needed:
     - item `207` closed the outer shell-decoration contract, but the next renderer-owned shell layer still would have had to duplicate section-surface/meta-control appearance rules that were split across `SectionContainerCoreResizabe` and `CustomResizable`
     - transparent meta-style frames, single-cell meta layout, hover z-index lift, minimal resize handles, and top drag-handle visibility were still encoded as DOM-only class logic instead of one reusable renderer contract
@@ -1907,6 +1999,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable after that visual gate clears, keep the next bounded renderer-ownership slice on section header/title/action appearance extraction rather than reopening parity or controller cleanup
 
 - Ralph item `207` extracted the outer section-shell decoration state behind one renderer-facing contract so future scene-owned shells no longer have to reverse-engineer active/global/scope/AI highlight behavior from `SectionContainerCore`.
+
   - Why this slice was needed:
     - item `206` created the canary section-shell boundary, but the current DOM section chrome path still kept outer-shell decoration decisions inline inside `SectionContainerCore`
     - active outline tone, read/write scope rings, AI highlight state, and shell elevation were still expressed as DOM-only class-string logic at the render site instead of a reusable renderer contract
@@ -1966,6 +2059,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded slice on renderer ownership by extracting the remaining section-surface/meta-control appearance contract from `SectionContainerCoreResizable` / `CustomResizable` instead of reopening parity or controller cleanup
 
 - Ralph item `206` split the canary sections layer into a section-shell boundary plus a memoized DOM body implementation so shell-only updates no longer rerender `SectionContainer`.
+
   - Why this slice was needed:
     - item `205` explicitly handed off to a renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` when Pixi approval was still unavailable
     - drag state, z-index, and rendered-position updates still flowed through the same component that rendered the heavy DOM-backed section body, so any first scene-owned shell insertion would have to reopen that fused layer
@@ -2020,6 +2114,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, keep the next bounded slice on renderer ownership rather than parity/controller cleanup by extracting the section-shell appearance data that a future scene-owned layer will need from the current DOM section chrome path
 
 - Ralph item `205` extracted the remaining canary pane/viewport controller wiring out of `SettingsGraphSubstrateCanary.tsx` into one dedicated controller seam.
+
   - Why this slice was needed:
     - the plan's immediate next frontier explicitly called for finishing the remaining viewport/runtime controller ownership split before the first renderer insertion
     - `SettingsGraphSubstrateCanary.tsx` still owned store selection, pane-click side effects, viewport transform derivation, and runtime/controller wiring even though the lower runtime pieces were already extracted
@@ -2074,6 +2169,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, treat the next bounded product slice as a renderer-facing boundary around `SettingsGraphSubstrateCanarySectionsLayer` or equivalent section-shell contract; do not reopen parity-only or controller-only cleanup
 
 - Ralph item `204` kept canary scene bounds and explicit fit behavior on the last live runtime size for active sections without reviving stale shared node-size authority.
+
   - Why this slice was needed:
     - item `203` explicitly handed off to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of another shared `w/h` cleanup
     - items `199` through `203` already removed stale size authority from node sync, persistence, hydration, and the canary model, but the canary scene snapshot still collapsed `sceneBounds` to `null` as soon as the current measured fallback disappeared
@@ -2131,6 +2227,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, treat the remaining first-live-measurement requirement as the only open bounds dependency and do not reopen more DOM-only `w/h` fallback slices unless a concrete live canary failure shows this bounds cache is insufficient
 
 - Ralph item `203` split canary-side size authority at the model boundary: unlocked sections no longer seed the graph substrate runtime from persisted top-level `layout.w/h`.
+
   - Why this slice was needed:
     - items `200` through `202` removed the shared stale-size fallbacks, but the canary model still copied persisted `layout.w/h` into every visible section before live measurement ran
     - that meant unlocked sections could still re-enter the runtime with DOM-era layout size already treated as authority even though the downstream geometry/runtime path already supports measured-size-or-null ownership
@@ -2187,6 +2284,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if approval is still unavailable, move to the remaining canary-local DOM measurement dependency in scene-bounds / fit behavior instead of reopening another stale `w/h` fallback lane
 
 - Ralph item `202` closed the remaining shared read-side top-level size hydration fallback named in item `201`: `createNodesMapFromProjectConfigChildren(...)` no longer revives persisted `layout.w/h` when a live node currently reports `null` dimensions.
+
   - Why this slice was needed:
     - item `200` fixed top-level snapshot persistence and item `201` fixed optimistic pane-move writes, but the shared read-side hydration path still rebuilt live nodes with `nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`
     - that meant a live top-level section could intentionally clear current size authority to `null` and then immediately reacquire an older persisted width/height the next time project load or backend reconciliation rebuilt node internals from top-level layouts
@@ -2243,6 +2341,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still unavailable, audit whether canary-side section model selection in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` should keep treating persisted `layout.w/h` as size authority, or whether that boundary now needs the next explicit authority split
 
 - Ralph item `201` cut the last obvious stale size-authority fallback out of shared top-level layout writes during pane moves: `moveSections.ts` no longer revives persisted `w/h` when updating a live top-level section layout.
+
   - Why this slice was needed:
     - item `200` already stopped snapshot persistence from reviving stale `existingLayouts.w/h` when a live node reported `null` dimensions
     - but `updateTopLevelLayout(...)` in `moveSections.ts` still copied `existing?.w/h` unconditionally whenever a section moved on the pane
@@ -2298,6 +2397,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still unavailable, audit the remaining read-side top-level node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`nodes.get(sectionId)?.width ?? layout.w` / `height ?? layout.h`) so stale persisted size cannot be rehydrated back into live node state
 
 - Ralph item `200` cut one more stale size-authority fallback out of shared top-level layout persistence: a live top-level node that currently reports `null` width/height no longer revives an older persisted `w/h` from `existingLayouts`.
+
   - Why this slice was needed:
     - item `199` already stopped shared node internals from silently preserving stale width/height after the current canary scene snapshot lost authoritative size
     - but `createTopLevelSectionLayoutDict(...)` in `sectionInfos.ts` still reused `existingLayouts.w/h` whenever a current node existed with `null` dimensions
@@ -2352,6 +2452,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still unavailable, keep auditing shared layout writers that can still revive stale size data without a current authoritative source; the next bounded candidate is `updateTopLevelLayout(...)` in `frontend/src/state/actions/sections/moveSections.ts`
 
 - Ralph item `199` cut one more stale DOM-size authority path out of the canary sync layer: shared node internals no longer keep reasserting a previously measured width/height after the current scene snapshot loses authoritative size.
+
   - Why this slice was needed:
     - item `198` already stopped unnecessary live measurement subscriptions for locked sections with authoritative layout size, but `settingsGraphSubstrateCanaryNodeSync.ts` still fell back to `currentNode.width` and `currentNode.height`
     - that meant an old measured size could survive in shared node state even after the current scene snapshot no longer had layout or measured geometry for that section
@@ -2404,6 +2505,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still not available, keep removing stale DOM-size authority only where an existing authoritative signal already exists; the next bounded candidate is auditing shared-node/top-level-layout persistence paths such as `createTopLevelSectionLayoutDict(...)` instead of reopening parity-only work
 
 - Ralph item `198` cut one more real DOM-measurement dependency out of the canary scene runtime: locked sections with authoritative layout width/height no longer subscribe to shared section-size registry churn.
+
   - Why this slice was needed:
     - item `197` made locked layout size authoritative inside the geometry resolver, but the runtime still subscribed every canary section to the shared DOM size registry even when the resolver would ignore those measurements
     - that kept an unnecessary DOM observer dependency alive in the exact geometry-authority seam the plan says to deepen
@@ -2461,6 +2563,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still not available, keep replacing remaining canary DOM-size subscriptions only where an existing authoritative size signal can be proven, rather than reopening parity-only work
 
 - Ralph item `197` moved one real geometry-authority rule out of the implicit scene-snapshot fallback path: locked canary sections now keep layout size authority even when the shared DOM size registry reports a different measured size.
+
   - Why this slice was needed:
     - items `195` and `196` already finished the low-risk chrome seam prep for the eventual first scene-owned layer; repeating another DOM-only chrome helper slice would have been the same refactor shape without touching the active geometry blocker
     - the plan's current architectural blocker is still that canary geometry resolution depends on measured DOM size; this slice narrows that dependency using one robust source-of-truth signal that already exists in product state: `positionAndSizeLocked`
@@ -2520,6 +2623,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if dependency approval is still not available, keep pushing geometry authority through robust existing state rather than reopening DOM-only parity or chrome-helper lanes
 
 - Ralph item `196` added a renderer-neutral section chrome frame-structure resolver behind the existing DOM class helpers so the first scene-owned static layer can consume shell structure without reverse-engineering Tailwind strings.
+
   - Why this slice was needed:
     - item `195` already centralized chrome appearance values, but the remaining shell/frame structure still only existed implicitly inside Tailwind class concatenation
     - the first scene-owned static layer would otherwise need to duplicate or parse DOM-only border, outline, joined-corner, and frame-border rules before it could draw the same shell shape
@@ -2574,6 +2678,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once approved, use the surface-runtime boundary plus the shared chrome appearance and frame-structure contracts to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 
 - Ralph item `195` moved section chrome appearance authority behind one shared resolver used by the canary-backed DOM shell path and the standalone section window surface.
+
   - Why this slice was needed:
     - item `194` already closed the last meaningful controller-boundary split, so another render-surface forwarding hop would have been churn
     - the next planned milestone is the first scene-owned static layer, but `SectionContainerCore.tsx` and `SectionWindowSurface.tsx` still duplicated the same preview-style-color, meta-control transparency, background-color, and themed CSS-var decisions inline
@@ -2630,6 +2735,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once approved, use the new surface-runtime boundary plus the shared chrome appearance contract to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 
 - Ralph item `194` extracted the remaining canary controller/surface wiring behind a dedicated `useSettingsGraphSubstrateCanarySurfaceRuntime(...)` hook, so `SettingsGraphSubstrateCanary.tsx` is now a render-focused shell ahead of the first scene-owned insertion.
+
   - Why this slice was needed:
     - item `192` explicitly redirected the loop toward finishing the remaining controller split before any Pixi-owned static layer work
     - item `193` cleared the required `rotaryParamCodeObjDefault` CDP blocker, so repeating more lifecycle/parity support work would have been churn instead of product progress
@@ -2690,6 +2796,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once approved, use the new surface-runtime boundary to land the first scene-owned static layer while section bodies remain DOM-backed, then rerun the same broad Playwright lane plus CDP
 
 - Ralph item `193` closed the pending normalized `rotaryParamCodeObjDefault` visual-gate blocker after the bounded `aireset.sh` recovery that item `191` enabled.
+
   - Why this slice was needed:
     - item `191` explicitly handed off to one fresh retry of the required CDP compare on the corrected restart path before another product slice
     - item `192` moved the default frontier back to product work, but this exact retry was still justified because the blocker had not yet been reclassified on the corrected recovery path
@@ -2730,6 +2837,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - then take the next geometry-authority product slice from that deeper boundary and rerun the broad normalized `rotaryParamCodeObjDefault` lane plus CDP as regression coverage
 
 - Ralph item `192` manually replanned the loop so it stops defaulting to standalone CDP/lifecycle recovery and instead targets the first visible Pixi-owned static layer once the remaining canary controller split is in place.
+
   - Why this slice was needed:
     - items `189` through `191` spent three consecutive iterations on CDP/lifecycle access and restart behavior while the broad normalized `rotaryParamCodeObjDefault` Playwright lane remained green
     - one bounded recovery retry was justified, but continuing to spend default iterations on tooling-only repair would be the same parity-churn pattern the earlier replan already identified
@@ -2755,6 +2863,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun one broad normalized pan/zoom/drag/edit lane plus CDP after that first Pixi slice
 
 - Ralph item `191` fixed the `aireset.sh` restart path so the loop's one allowed self-recovery no longer layers a fresh launch on top of the existing worktree browser/runtime.
+
   - Why this slice was needed:
     - items `189` and `190` showed the same recovery failure twice: after `./aireset.sh`, the latest backend/bootstrap session moved to `8077`, but CDP/runtime discovery still resolved the older worktree browser transport
     - the live recovery artifacts confirmed the restart path was not actually clean:
@@ -2780,6 +2889,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if fresh-context `chrome-devtools` still times out after a clean restart, keep the blocker explicit as CDP/tooling access rather than reopening more recovery-semantics work
 
 - Ralph item `190` intentionally did not take another product slice because the handoff required one fresh-iteration retry of the blocked CDP visual gate before more geometry-authority work.
+
   - Why this slice was needed:
     - item `189` explicitly handed off to rerunning the normalized `rotaryParamCodeObjDefault` CDP compare on a fresh outer iteration before taking another geometry-authority move
     - the last few iterations were already a run of geometry-authority product slices, so taking another canary refactor without closing or classifying the visual gate would have been sequencing churn
@@ -2818,6 +2928,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if the fresh pass still shows stale `3076/9297` transport metadata or `chrome-devtools` call timeouts, keep the loop blocked on lifecycle/CDP repair instead of taking another geometry-authority change
 
 - Ralph item `189` moved canary drag lookup/cancellation onto the authoritative scene snapshot, but the required CDP confirmation is still blocked after the one allowed worktree lifecycle recovery and retry.
+
   - Why this slice was needed:
     - item `188` showed the blocker was the fresh-context CDP path rather than renderer drift, so repeating another probe-only pass would have been churn
     - the next bounded geometry-authority seam at the canary root was the raw `sectionById` map, which still existed only to drive drag lookup/cancellation outside the authoritative `sceneSnapshot`
@@ -2878,6 +2989,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if fresh-context `chrome-devtools` is still inaccessible on that fresh pass, keep the blocker explicit instead of inventing a non-CDP visual fallback
 
 - Ralph item `188` retried item `187`'s blocked visual gate on the fresh run-019 sessions, but the required CDP confirmation is still blocked at the fresh-context sub-agent tool layer even though the canonical normalized Playwright lane stayed green.
+
   - Why this slice was needed:
     - item `187` explicitly handed off to rerunning the same normalized `rotaryParamCodeObjDefault` CDP compare before taking another product slice
     - the recent iterations were already a run of geometry-authority product moves, so taking another seam move without first resolving the required visual gate would have been sequencing churn
@@ -2918,6 +3030,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - if the fresh-context sub-agent still cannot invoke `chrome-devtools`, keep the blocker explicit instead of inventing a non-CDP visual fallback
 
 - Ralph item `187` moved the canary viewport fallback seed onto the authoritative scene snapshot, so viewport startup no longer reads raw `sections[0].position` at the canary root.
+
   - Why this slice was needed:
     - item `186` explicitly handed off to the remaining raw scene-geometry inputs at the root, starting with fallback viewport seeding from `sections[0]`
     - `useSettingsGraphSubstrateCanaryViewportRuntime(...)` still depended on an `initialSectionPosition` prop even though the canary already had a dedicated scene-runtime boundary publishing authoritative rendered positions
@@ -2982,6 +3095,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once CDP is trustworthy again, continue removing remaining raw scene-geometry inputs from the canary root instead of reopening new parity lanes
 
 - Ralph item `186` split authoritative scene runtime publication out of `useSettingsGraphSubstrateCanarySceneState(...)`, so the local scene-state hook now only owns transient drag/override/controller state while a new runtime hook owns section-size lookup, authoritative snapshot derivation, scene-store publication, cleanup, and shared node-internals sync.
+
   - Why this slice was needed:
     - item `185` explicitly handed off to deepening the scene runtime boundary rather than reopening another parity lane or repeating a geometry-precedence tweak
     - `useSettingsGraphSubstrateCanarySceneState(...)` still mixed transient controller state with authoritative scene publication and shared node-internals sync, which kept the canary root coupled to a broad hook
@@ -3042,6 +3156,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - keep the same normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare as the regression gate
 
 - Ralph item `185` made the shared live section-size registry authoritative inside the canary scene snapshot, so visible canary geometry now prefers measured section size over persisted layout size while keeping layout width/height as fallback.
+
   - Why this slice was needed:
     - the plan's geometry-authority frontier explicitly called for feeding fit/pan/zoom and node-internals sync from one authoritative scene snapshot instead of leaving visible size resolution partly anchored to stale stored layout geometry
     - after item `184`, the normalized `rotaryParamCodeObjDefault` performance lane was already healthy again, so repeating another viewport-only perf fix would have been churn instead of the next real product seam
@@ -3103,6 +3218,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - keep the same normalized `rotaryParamCodeObjDefault` performance probe plus CDP compare as the regression gate for that next product slice
 
 - Ralph item `184` removed the canary's live React Flow transform render subscription so local viewport ownership no longer rerenders the canary root for mirrored store writes on the canonical normal-zoom perf lane.
+
   - Why this slice was needed:
     - item `183` explicitly handed off to the remaining viewport/root transform path instead of reopening another oracle lane or doing another pure extraction
     - even after section-layer memoization, `SettingsGraphSubstrateCanary.tsx` still subscribed in render to `useReactFlow(state.transform)` while the viewport runtime mirrored that same transform back into the store on every local pan/zoom tick
@@ -3163,6 +3279,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once the live worktree is healthy again, keep this same normalized perf lane as the regression gate before choosing another product hotspot
 
 - Ralph item `183` isolated the canary section-wrapper tree behind a memoized layer so viewport-only pan/zoom updates stop remapping every visible section wrapper on the canonical normal-zoom perf lane.
+
   - Why this slice was needed:
     - item `182` explicitly handed off to one product change against the saved canary-side `presentation delay` hotspot instead of reopening the probe or doing another controller extraction
     - the canary root still rerendered on every viewport tick and rebuilt the section-wrapper map even though pan/zoom only changes the parent viewport transform
@@ -3268,10 +3385,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - the plan's first measured normal-zoom performance probe is now landed as automated regression coverage plus a documented baseline report
     - do not spend the next pass reopening another probe-only lane unless this specific perf lane breaks; use the saved trace to drive the next product slice
 - Next frontier:
+
   - inspect the canary-side `presentation delay` contributor from the saved normal-zoom trace and land one bounded product change against that hotspot on the same `rotaryParamCodeObjDefault` lane
   - rerun this exact performance probe plus the required CDP visual/perf check after that product change instead of opening a new parity lane
 
 - Ralph item `181` moved the canary viewport/runtime lifecycle behind a dedicated hook so `SettingsGraphSubstrateCanary.tsx` no longer owns shared/local/auto-fit viewport state, DOM size observation, or ReactFlow controller wiring inline.
+
   - Why this slice was needed:
     - the plan's immediate frontier explicitly called for splitting `SettingsGraphSubstrateCanary.tsx` so viewport/runtime control becomes testable behind a deeper boundary instead of continuing another seam-lift or harness-only pass
     - after item `180`, the refreshed run-011 broad Playwright lane was already healthy again, so repeating compare-pane normalization work would have been churn rather than the next real product step
@@ -3320,6 +3439,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - record before/after findings under `perf/` and use that measurement to choose the next real product hotspot instead of reopening another controller-only extraction lane
 
 - Ralph item `180` removed the canary scene state's dependency on the local `useObservedSectionElementSizes` observer by moving measured section-shell size publication onto the shared section-ref boundary.
+
   - Why this slice was needed:
     - the active geometry-authority blocker after item `179` was still the canary-local size observer path inside `useSettingsGraphSubstrateCanarySceneState`
     - scene bounds, fit/viewport logic, and node-internals mirroring were still fed by a canary-owned `ResizeObserver` subscription even though minimap and graph rendering had already moved onto the shared scene snapshot
@@ -3386,6 +3506,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once that blocker is cleared, rerun the same `rotaryParamCodeObjDefault` broad lane plus CDP confirmation as regression coverage before opening another product frontier
 
 - Ralph item `179` moved minimap canary-node derivation onto the shared scene snapshot so the minimap now follows the same rendered position, resolved size, and temp z-order authority as the graph surface.
+
   - Why this slice was needed:
     - item `178` made the scene snapshot authoritative for active drag z-order, but the minimap still rebuilt canary nodes by mixing layout sections with shared node-internals width/height/temp-z values
     - that left one obvious geometry-authority seam unresolved: the graph surface and minimap were still allowed to disagree during drag/size transitions because they were not reading the same snapshot
@@ -3447,6 +3568,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun the same broad normalized Playwright lane plus CDP confirmation after that next geometry-authority slice
 
 - Ralph item `178` removed the canary selector's dependency on shared `nodeInternals` temp-z reads so the scene snapshot now owns active drag z-order and syncs that state back outward.
+
   - Why this slice was needed:
     - item `177` moved scene-snapshot composition behind `useSettingsGraphSubstrateCanarySceneState`, but `SettingsGraphSubstrateCanary.tsx` still selected canary sections through `selectSettingsGraphSubstrateCanarySections(state, nodeInternals)`
     - transient frontmost drag ownership still originated from `raiseTempZIndex` / node-internals reset behavior in the drag controller, which meant the snapshot still was not authoritative for active z-order
@@ -3508,6 +3630,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun the same broad normalized Playwright lane plus CDP confirmation after that product slice
 
 - Ralph item `177` moved canary scene-snapshot composition and transient drag-position ownership behind a dedicated scene-state hook and kept the broad normalized regression lane green on the live run-007 surfaces.
+
   - Why this slice was needed:
     - item `176` explicitly closed the controller-boundary lane, so repeating another controller extraction would have been churn
     - `SettingsGraphSubstrateCanary.tsx` still directly owned render-facing drag-position state, shared observed-size wiring, scene-snapshot composition, and node-internals sync inline
@@ -3558,6 +3681,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun the same broad normalized Playwright lane plus CDP confirmation after that product slice
 
 - Ralph item `176` extracted the remaining section-drag bookkeeping out of `SettingsGraphSubstrateCanary.tsx` and kept the broad normalized regression lane green on the live run-006 surfaces.
+
   - Why this slice was needed:
     - items `174` and `175` already moved the viewport controller and pane pan/wheel ownership behind dedicated modules, but section drag still lived inline with controller-local state, temp z-index handling, and persisted end-position writes
     - that remaining drag path was still a real runtime ownership seam inside the active controller/geometry lane, not a pure forwarding hop
@@ -3610,6 +3734,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - use the same broad normalized `rotaryParamCodeObjDefault` Playwright lane plus CDP compare as the regression gate after that geometry slice
 
 - Ralph item `175` extracted the canary pane pan/wheel interaction bookkeeping out of `SettingsGraphSubstrateCanary.tsx` and kept the broad normalized regression lane green on the live run-005 surfaces.
+
   - Why this slice was needed:
     - item `174` already pulled the viewport-controller behavior behind a deeper boundary, but pane pointer/wheel ownership still lived directly inside the render component with controller-local refs, timeout bookkeeping, and viewport-interaction store writes inline
     - that was still a real ownership seam inside the active geometry-authority/controller lane, not another pure forwarding hop
@@ -3662,6 +3787,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - rerun the same broad normalized Playwright lane plus CDP confirmation after that next product slice
 
 - Ralph item `174` split the canary viewport-controller logic out of `SettingsGraphSubstrateCanary.tsx` and cleared the stale run-003 title-edit blocker before taking the planned controller-boundary slice.
+
   - Why this slice was needed:
     - item `173` left the next action pointed at a worktree-canary title-edit persistence bug on the broad normalized pan+zoom lane, but that diagnosis was still based on run-003 evidence
     - before touching product code again, the loop reran the trusted regression lane on the live run-004 surfaces and found that the pan+zoom title-edit lane now passes with fresh auth, so the earlier failure should not keep steering the frontier
@@ -3713,6 +3839,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - keep the broad normalized `rotaryParamCodeObjDefault` pan+zoom title-edit lane as regression coverage plus CDP confirmation after the next product slice
 
 - Ralph item `173` reran the pending visual gate for item `172` and showed that the old `reference_unhealthy` diagnosis is stale; the live blocker is now a reproducible worktree-canary title-edit persistence failure on the broad shared pan+zoom lane.
+
   - Why this slice was needed:
     - item `172` finished product code but left the lane blocked by an assumed `main` CDP availability problem
     - before moving on to the next geometry-authority split, the loop needed to determine whether that blocker was still real or whether the pending gate would surface a product regression on current runtimes
@@ -3752,6 +3879,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once that lane is clean again, rerun the same Playwright oracle plus CDP confirmation before continuing with the planned `SettingsGraphSubstrateCanary.tsx` controller split
 
 - Ralph item `172` routed canary fallback size observation through the shared section-ref pipeline, but the required CDP side-by-side visual confirmation is currently blocked by a `reference_unhealthy` `main` runtime.
+
   - Why this slice was needed:
     - item `171` landed the first shared scene snapshot, but `SettingsGraphSubstrateCanary.tsx` still owned `useObservedElementSizes` and a canary-local `ResizeObserver`
     - the next bounded geometry-authority step was to remove that local observation ownership instead of doing another pure forwarding hop or reopening parity lanes
@@ -3800,6 +3928,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - after that visual gate clears, split the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx`
 
 - Ralph item `171` introduced the first shared canary scene-snapshot boundary and moved the live canary onto it for scene bounds, fit-view targeting, and node-internals sync.
+
   - Why this slice was needed:
     - item `170` explicitly changed the frontier from parity-lane churn to geometry authority, with the next useful step defined as one canary scene snapshot that owns section world position, resolved size, z-order, and scene bounds
     - before this slice, the canary still resolved geometry in three different places: local `observedElementSizes` state in `SettingsGraphSubstrateCanary.tsx`, raw bounds reduction in `settingsGraphSubstrateCanaryBounds.ts`, and a node-sync path that could let observed DOM sizes override already-resolved layout sizes
@@ -3850,6 +3979,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - once that input boundary is deeper, split the remaining viewport/runtime controller logic out of `SettingsGraphSubstrateCanary.tsx` so the canary component stops owning observation, controller state, and rendering together
 
 - Manual replan `170` shifted the loop away from opening more section-by-section Gate 1 / Gate 2 parity lanes and onto the geometry-authority blocker inside the canary implementation.
+
   - Why this replan was needed:
     - item `169` was already a real `REPLAN_REQUIRED` boundary and established that the broad shared title-edit-after-pan-and-zoom lane stayed clean on the live run-029 surfaces
     - items `165` through `169` together closed the remaining named motion/editing lanes that were still justified under the old sequence, so the loop no longer had a concrete renderer defect to chase through another section-specific replay
@@ -3873,6 +4003,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - split the canary runtime/controller logic into a deeper testable module, then rerun one broad normalized pan/zoom/edit parity lane plus CDP as the regression check
 
 - Ralph item `169` rechecked the broader shared title-edit-after-pan-and-zoom lane on the current run-029 surfaces and confirmed it is still clean, which leaves the loop at a real replan boundary instead of another justified probe slice.
+
   - Why this slice was needed:
     - item `168` explicitly said the next pass had to pick a genuinely new renderer-facing Gate 1 / Gate 2 question or stop for replan instead of reopening another section-by-section motion/editing replay
     - the existing broad `shared title editing working after normalized pan and zoom` lane was already Playwright-backed, so it was the narrowest non-harness check that could still surface a current renderer artifact on the live run-029 surfaces
@@ -3902,6 +4033,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - stop for a real replan/human review; under the current Gate 1 / Gate 2 sequence, the remaining obvious next steps are more probe churn rather than a newly isolated renderer defect
 
 - Ralph item `168` closed the stale `spreadsheetSectionDefault` normalized motion/editing frontier on the current run-028 surfaces with fresh Playwright and CDP evidence, so the loop does not keep reopening that same body-heavy lane by default.
+
   - Why this slice was needed:
     - item `167` explicitly handed the next product-side Gate 1 / Gate 2 question to the existing `spreadsheetSectionDefault` motion/editing lane
     - the recent loop had been repeating section-by-section parity closures, so the next honest step was to decide whether this named spreadsheet lane still exposed a live canary-only artifact on the current surfaces or could be retired as stale guidance
@@ -3929,6 +4061,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not spend the next iteration on another section-by-section replay of the same motion/editing shape; pick the next genuinely new renderer-facing Gate 1 / Gate 2 question or return `REPLAN_REQUIRED` if the only remaining options are more probe churn
 
 - Ralph item `167` opened and closed the canonical `dictSectionDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation.
+
   - Why this slice was needed:
     - items `165` and `166` were both oracle-only lane closures, so one more support pass was only justified if it directly closed the next named motion-family gap instead of widening helpers
     - item `166` explicitly handed the next motion sequence to `dictSectionDefault`, which already had trusted viewport-shift, toolbar-zoom, and top-level drag lanes but still lacked any named blank-pane pan evidence on normalized `All Settings`
@@ -3962,6 +4095,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - blank-pane pan coverage for the current canonical sections is now closed; pivot to the next product-side Gate 1 / Gate 2 motion or interaction question instead of opening another support-only lane, starting with `spreadsheetSectionDefault` on the existing normalized motion/editing lane to isolate the first remaining canary-only artifact
 
 - Ralph item `166` opened and closed the canonical `chartSectionDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation.
+
   - Why this slice was needed:
     - item `165` explicitly handed the motion sequence to `chartSectionDefault` as the next named section that still only had drag/zoom-style coverage on normalized `All Settings`
     - `chartSectionDefault` already had trusted toolbar-zoom and top-level drag lanes, but it still lacked any named blank-pane pan evidence
@@ -3995,6 +4129,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized blank-pane pan lane on `dictSectionDefault`, which still only has drag/zoom-style coverage on `All Settings`
 
 - Ralph item `165` opened and closed the canonical `dropzoneParamCodeObjDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation after one bounded lifecycle recovery.
+
   - Why this slice was needed:
     - item `163` had already closed `taskBoardSectionDefault` for blank-pane pan, and item `164` explicitly handed the motion sequence back to `dropzoneParamCodeObjDefault` as the next named section that still only had drag/zoom-style coverage
     - `dropzoneParamCodeObjDefault` already had trusted toolbar-zoom and drag/post-move lanes, but it still lacked any named blank-pane pan evidence on normalized `All Settings`
@@ -4035,6 +4170,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized blank-pane pan lane on `chartSectionDefault`, which still only has drag/zoom-style coverage on `All Settings`
 
 - Ralph item `164` landed a renderer-side wheel-pan fix so ongoing canary pan-scroll bursts no longer stall when the pointer crosses a `.nowheel` island inside a section body.
+
   - Why this slice was needed:
     - the last three iterations had all been parity-lane support work, so the next bounded step needed to be product code instead of another probe-only lane
     - the canary wheel gate was still stricter than legacy `ZoomPane`: legacy keeps a pan-scroll burst alive across `.nowheel` descendants once the burst is already in progress, while the canary blocked those follow-up wheel events
@@ -4073,6 +4209,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - return to the normalized `All Settings` motion lane sequence by opening the next named blank-pane pan lane on `dropzoneParamCodeObjDefault`
 
 - Ralph item `163` opened and closed the canonical `taskBoardSectionDefault` normalized blank-pane pan lane by adding a trusted Playwright probe plus fresh-context CDP confirmation.
+
   - Why this slice was needed:
     - items `161` and `162` had already closed recent drag lanes, so repeating another top-level drag probe would have kept the same refactor shape alive without changing the renderer question
     - `taskBoardSectionDefault` already had fresh normalized drag evidence, but it still lacked any named blank-pane pan evidence on `All Settings`
@@ -4107,6 +4244,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized blank-pane pan lane on a section that still only has drag/zoom-style coverage, starting with `dropzoneParamCodeObjDefault`
 
 - Ralph item `162` opened and closed the canonical `dictSectionDefault` normalized top-level drag lane by adding a trusted Playwright probe and classifying the remaining CDP mismatch as non-motion oracle noise.
+
   - Why this slice was needed:
     - item `161` closed `dropzoneParamCodeObjDefault`, so the next bounded motion step had to move to another named section instead of repeating a finished lane
     - `dictSectionDefault` already had authoritative viewport-shift and toolbar-zoom coverage, but it still lacked fresh named drag evidence on normalized `All Settings`
@@ -4145,6 +4283,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 
 - Ralph item `161` closed the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane by promoting the exact deterministic backend/state post-move path into a trusted Playwright oracle and rechecking it through fresh-context CDP.
+
   - Why this slice was needed:
     - item `160` left `dropzoneParamCodeObjDefault` open only because one fresh-context CDP read reported about `105px` of vertical drift after the deterministic backend/state post-move lane
     - the last two completed iterations were support/oracle-heavy, so this pass needed to spend its one allowed support slice on the exact open renderer question instead of opening another lane
@@ -4182,6 +4321,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 
 - Ralph item `160` opened the canonical `dropzoneParamCodeObjDefault` normalized top-level drag lane and left it as the next concrete renderer question.
+
   - Why this slice was needed:
     - item `159` closed `chartSectionDefault`, so the next bounded motion step had to move to another named section instead of re-proving the same lane
     - `dropzoneParamCodeObjDefault` already had a trusted toolbar-zoom lane, but it still lacked any fresh named pan-or-drag evidence on normalized `All Settings`
@@ -4225,6 +4365,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate why the canary leaves `dropzoneParamCodeObjDefault` about `105px` off vertically after the same normalized backend-driven post-drag state, now that filter normalization and manual-drag noise are removed
 
 - Ralph item `159` closed the canonical `chartSectionDefault` normalized top-level drag lane and retired the old manual-CDP replay as an untrusted verification shape.
+
   - Why this slice was needed:
     - item `158` left `chartSectionDefault` open only because a manual CDP drag looked visually off even though the trusted Playwright drag lane was already green
     - the plan's oracle rules say Playwright should drive motion on these lanes and CDP should confirm the post-state visually, not replay fragile drag input from scratch
@@ -4258,6 +4399,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next named normalized motion lane on another section that still lacks fresh Gate 1 / Gate 2 drag-or-pan evidence
 
 - Ralph item `158` opened the canonical `chartSectionDefault` normalized top-level drag lane and turned it into the next named motion oracle.
+
   - Why this slice was needed:
     - item `157` closed the `sectionSizingPolicy` top-level drag lane cleanly, so the next bounded step had to move to another named section instead of repeating the same closed motion path
     - `chartSectionDefault` already had fit-view plus toolbar-zoom evidence, but it still lacked a trusted normalized top-level drag lane on `All Settings`
@@ -4291,6 +4433,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - reconcile the `chartSectionDefault` drag lane by determining whether the CDP visual mismatch is a real renderer motion artifact or a non-deterministic manual-drag discrepancy against the trusted Playwright path
 
 - Ralph item `157` closed the named `sectionSizingPolicy` normalized top-level drag lane by matching legacy drag-threshold start semantics on the canary.
+
   - Why this slice was needed:
     - item `156` had already reduced the lane to one stubborn `~12px` post-drag center-offset residual, so the next pass had to land product code on that exact motion lane rather than reopen support/oracle work
     - the targeted rerun showed the remaining mismatch was not viewport or size drift: the canary was applying the full scripted `120x80` screen drag while legacy only moved `108x72`
@@ -4335,6 +4478,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - open the next trusted normalized motion lane on another named section that still lacks fresh Gate 1 / Gate 2 evidence, now that `sectionSizingPolicy` top-level drag is closed
 
 - Ralph item `156` restored legacy drag-end snap semantics on the canary and folded `snapToGrid` into the normalized compare state, which cleared the full-grid drag delta noise and shrank the named `sectionSizingPolicy` residual repro.
+
   - Why this slice was needed:
     - item `155` had already spent the lane budget opening the trusted `sectionSizingPolicy` top-level drag repro, so the next pass had to land product code on that lane rather than another probe-only iteration
     - the canary top-level drag path still persisted raw world positions on pointer-up, while legacy `d3` drag snaps the final node position to `snapGrid` when `snapToGrid` is enabled
@@ -4386,6 +4530,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate why `sectionSizingPolicy` still settles about `12px` farther from the graph root center after normalized top-level drag even with legacy drag-end snapping matched and `snapToGrid` compare noise removed
 
 - Ralph item `155` opened the trusted normalized `sectionSizingPolicy` top-level drag lane and stabilized it as the new expected-fail motion repro.
+
   - Why this slice was needed:
     - item `154` had already closed the named `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom lane, so the plan's next valid step was one trusted pan-or-drag lane on the same named section instead of more seam-lift or oracle churn
     - the current frontier is motion parity on normalized `All Settings`, and `sectionSizingPolicy` still lacked one explicit top-level drag lane with title-edit handoff evidence
@@ -4430,6 +4575,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate why the canary's post-drag settle state leaves `sectionSizingPolicy` about `13.28px` farther from the graph root center than read-only main after the same normalized top-level drag
 
 - Ralph item `154` closed the normalized `sectionSizingPolicy` authoritative-viewport-shift plus toolbar-zoom lane by mirroring the legacy d3 toolbar zoom base after backend-driven viewport writes.
+
   - Why this slice was needed:
     - item `153` had already ruled out geometry authority as the root cause, while the live lane still failed on the same `transformDelta.x` gap around `143.658`
     - the live probe work before this iteration showed fit-view and the authoritative `+120,+80` viewport shift already landed on both runtimes, so the remaining mismatch was isolated to the post-shift toolbar `zoom in`
@@ -4481,6 +4627,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - use the now-clean `sectionSizingPolicy` lane to open one trusted normalized pan or top-level drag compare on the same named section, or move to another named section that still lacks current motion evidence, in line with the plan's immediate Gate 1 / Gate 2 pan-drag frontier
 
 - Ralph item `153` made the canary fit path keep authoritative top-level layout dimensions instead of promoting live DOM-measured section size, then reran the live run-013 chart and `sectionSizingPolicy` lanes.
+
   - Why this slice was needed:
     - items `151` and `152` had already closed the lane-selection/oracle question for `sectionSizingPolicy`, so the next valid step had to be production code on that named lane rather than another probe-only pass
     - `sectionSizingPolicy` already reported the same backend layout size (`w=552 h=352`) on both runtimes, so one plausible remaining cause was the canary fit path still shrinking its scene bounds from observed DOM size instead of the authoritative view-mode layout
@@ -4531,6 +4678,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate the canary-side authoritative viewport / fit-center math on the named `sectionSizingPolicy` lane, because geometry authority no longer looks like the remaining root cause
 
 - Ralph item `152` corrected the named `sectionSizingPolicy` lane so it no longer relies on the untrustworthy blank-pane mouse path, then reran it as a trusted expected-fail repro on the live run-012 surfaces.
+
   - Why this slice was needed:
     - item `151` treated `sectionSizingPolicy` as product-side drift, but a live step-by-step probe on the checked lane showed the supposed blank-pane `pan` was not panning the viewport at all
     - on both worktree canary and read-only main legacy, the old lane kept the viewport transform fixed while the section rect moved, which means the motion step was effectively section drag rather than pane pan
@@ -4565,6 +4713,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate the product-side reason the corrected `sectionSizingPolicy` authoritative viewport-shift plus toolbar-zoom lane still diverges on the canary versus read-only main, starting from the now-trusted `transformDelta` mismatch rather than from blank-pane gesture setup
 
 - Ralph item `151` opened `sectionSizingPolicy` as a new named normalized Gate 1 / Gate 2 lane, then turned it into a trusted expected-fail repro after the current live worktree/read-only-main compare exposed real post-fit/zoom drift.
+
   - Why this slice was needed:
     - item `150` closed the normalized dropzone toolbar-zoom lane, so the next valid step had to move to a different named section instead of reopening the same lane or doing another support-only normalization pass
     - `sectionSizingPolicy` was already the stale alternate landing in the older Browser pan history, remained visibly shared on both runtimes, and still lacked one explicit trusted lane on the current live surfaces
@@ -4613,6 +4762,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - investigate and fix why the `sectionSizingPolicy` targeted fit/zoom landing leaves the canary farther right/down than read-only main, then rerun this expected-fail lane until it turns into a normal pass
 
 - Ralph item `150` normalized the named `dropzoneParamCodeObjDefault` toolbar-zoom lane by aligning the effective section `paramFilter` on both runtimes before compare, which turned the lane into a normal pass and superseded item `149`'s renderer-drift conclusion.
+
   - Why this slice was needed:
     - item `149` treated the dropzone mismatch as product-side card geometry drift, but the latest live probes showed that the two runtimes were not rendering the same effective section config on that lane
     - the shared top-level `shownParamIds` and visible lane shape were misleadingly similar, so the next honest step was one bounded normalization pass on the named lane rather than a speculative production fix
@@ -4649,6 +4799,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to a different named Gate 1 / Gate 2 lane or renderer-facing section that still lacks a trusted normalized result; the dropzone toolbar-zoom lane no longer blocks the rewrite plan
 
 - Ralph item `149` added a trusted expected-fail live parity repro for the named `dropzoneParamCodeObjDefault` toolbar-zoom lane, anchored on the `Mode` row, and verified that the current canary drift is section-geometry expansion rather than row detachment.
+
   - Why this slice was needed:
     - item `148` explicitly named `dropzoneParamCodeObjDefault` as the next renderer-facing lane on the current live surfaces
     - the closed older dropzone drag/pan lane was already marked unsupported for the current tool stack, so the next honest step had to be a different trusted lane shape rather than reopening that same oracle family
@@ -4695,6 +4846,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - land a production fix for the dropzone card height / vertical-placement drift on the named `dropzoneParamCodeObjDefault` lane, then rerun this expected-fail probe until it turns into a normal pass
 
 - Ralph item `148` hardened the existing deterministic `chartSectionDefault` fit-view-plus-toolbar-zoom lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-008 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `147` explicitly pointed to the existing `chartSectionDefault` fit-view-plus-toolbar-zoom lane as the next named lane that still lacked current live evidence in the newer trusted shape
     - the chart toolbar-zoom probe still used the older direct-fit setup with no explicit restore or side-aware preflight, so the current live result was less trustworthy than the nearby hardened lanes
@@ -4736,6 +4888,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to the distinct shared `dropzoneParamCodeObjDefault` dynamic lane on the current live surfaces and run one bounded normalized action anchored on `Mode` before adding another support-only guard or reopening closed dict/chart/browser/taskBoard/group/spreadsheet/draw/chat families
 
 - Ralph item `147` hardened the existing deterministic `dictSectionDefault` fit-view-plus-toolbar-zoom lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-007 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `146` explicitly pointed to the existing `dictSectionDefault` fit-view-plus-toolbar-zoom lane as the next named lane that still lacked current live evidence in the newer trusted shape
     - the dict toolbar-zoom probe still used the older direct-fit setup with no explicit restore or side-aware preflight, so the current live result was less trustworthy than the nearby hardened lanes
@@ -4779,6 +4932,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to the existing `chartSectionDefault` fit-view-plus-toolbar-zoom lane on the current live surfaces, and either harden it to the same preflight-backed shape or close it with current evidence instead of reopening dict/browser churn
 
 - Ralph item `146` hardened the existing deterministic `dictSectionDefault` authoritative viewport-shift lane with the same restore-plus-preflight setup used by the newer named lanes, then reran that lane on the live run-006 worktree/main surfaces.
+
   - Why this slice was needed:
     - the last two completed iterations were Browser-lane oracle passes, so the next honest step had to either land product code or complete one bounded normalization step that directly unblocked a concrete renderer question
     - item `145` explicitly pointed to the deterministic `dictSectionDefault` authoritative viewport shift lane as the next named lane that still lacked current live evidence
@@ -4823,6 +4977,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to the existing `dictSectionDefault` fit-view-plus-toolbar-zoom lane on the current live surfaces, and either harden it to the same preflight-backed shape or close it with current evidence instead of reopening Browser churn
 
 - Ralph item `145` revisited the older Browser authoritative-move-plus-fit question by pinning that probe to `browserSectionDefault`, waiting for the backend move to surface in page state, and rerunning the lane on the live run-005 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `144` explicitly said not to open another shared-section harness lane and to revisit the older concrete `browserSectionDefault` authoritative top-level move + targeted fit question on the current live surfaces
     - the existing authoritative-move probe still used the old shared `browserSectionDefault` / `taskBoardSectionDefault` target selection and still treated raw viewport `transform.x/y` parity as a renderer oracle, which could not answer whether the old Browser compression report was still real
@@ -4871,6 +5026,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to a different renderer-facing named lane that still lacks current live run-005 evidence, preferably the deterministic `dictSectionDefault` authoritative viewport shift lane instead of reopening Browser/title-edit churn
 
 - Ralph item `144` completed one bounded Browser-lane normalization step by pinning the previously shared top-level drag title-edit probe to `browserSectionDefault`, then rerunning that explicit lane on the live run-004 worktree/main surfaces.
+
   - Why this slice was needed:
     - the last three completed items were the same parity-hardening shape on different named lanes, so opening another shared/fallback lane without removing the Browser ambiguity would have been churn
     - item `143` explicitly pointed to the still-ambiguous shared `browserSectionDefault` / `taskBoardSectionDefault` title-edit drag probe, and that probe could not answer a Browser-specific renderer question while it still selected between sections at runtime
@@ -4916,6 +5072,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - do not open another shared-section harness lane; revisit the older concrete `browserSectionDefault` authoritative top-level move + targeted fit question on the current live surfaces and either reproduce the compression drift or close that report as stale
 
 - Ralph item `143` completed the `taskBoardSectionDefault` top-level drag attachment lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-003 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `142` explicitly closed the checked `groupSectionDefault` pane-pan lane and pointed the next bounded step at `taskBoardSectionDefault` instead of reopening the same group/spreadsheet checks
     - the existing task-board top-level drag lane still relied on an ad hoc `fitGraphViewportToSection(...)` assumption and no explicit slow-test budget, so current live evidence on that named lane was less trustworthy than the newer preflight-backed lanes
@@ -4961,6 +5118,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to a different renderer-facing named lane that still lacks a canonical, current live check, preferably splitting the shared `browserSectionDefault` / `taskBoardSectionDefault` title-edit drag probe into one explicit `browserSectionDefault` lane with origin-aware preflight
 
 - Ralph item `142` completed the `groupSectionDefault` pane-pan editability lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-002 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `141` explicitly closed the checked spreadsheet lane and pointed the next bounded step at `groupSectionDefault` instead of reopening spreadsheet/draw
     - the existing group pane-pan editability lane still relied on an ad hoc `fitGraphViewportToSection(...)` assumption and no explicit slow-test budget, so current live evidence on that named lane was less trustworthy than the newer preflight-backed lanes
@@ -5006,6 +5164,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - move to a different renderer-facing named lane that still lacks current live evidence, preferably `taskBoardSectionDefault` / `settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
 
 - Ralph item `141` completed the body-heavy `spreadsheetSectionDefault` motion/search lane by wiring the existing two-runtime spec through origin-aware preflight, then rerunning that lane on the live run-001 worktree/main surfaces.
+
   - Why this slice was needed:
     - item `140` explicitly closed the checked `drawSectionDefault` pane-pan lane and pointed the next bounded step at a body-heavy spreadsheet motion lane instead of reopening chart/draw
     - the worktree already contained a narrow uncommitted spreadsheet-lane update that reused `runSettingsGraphComparePreflight(...)`; finishing and verifying that exact slice was the smallest honest step that matched the handoff
@@ -8780,6 +8939,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `238`
-- Latest item: `2026-04-06 238`
+- Active history window: items `001` through `246`
+- Latest item: `2026-04-07 246`
 - Older history archives: none yet

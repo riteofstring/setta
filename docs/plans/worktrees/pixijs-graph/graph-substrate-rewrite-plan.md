@@ -1,7 +1,7 @@
 # Graph Substrate Rewrite Plan
 
 Date: 2026-04-02
-Updated: 2026-04-06
+Updated: 2026-04-07
 Worktree: `pixijs-graph`
 Current branch: `pixijs-graph`
 Execution base: `main`
@@ -222,11 +222,11 @@ The normalized Gate 1 / Gate 2 motion/editing lane matrix has now done its job.
 
 Recent Ralph items `165` through `169` closed the remaining named blank-pane pan, spreadsheet motion/editing, and broad shared title-edit lanes on live worktree versus read-only `main` surfaces. Those probes remain valuable regression coverage, but they are no longer the active product frontier.
 
-The active architectural blocker is that the canary still maintains canary-local geometry authority inside the substrate implementation:
+The active architectural blocker is that the canary still resolves too much scene geometry from measured DOM size feedback inside the substrate implementation:
 
-- `SettingsGraphSubstrateCanary.tsx` tracks `observedElementSizes` with its own `ResizeObserver`
-- `settingsGraphSubstrateCanaryBounds.ts` still depends on measured DOM sizes before scene bounds and fit logic can resolve
-- `settingsGraphSubstrateCanaryNodeSync.ts` still backfills node internals from those observed DOM sizes
+- `settingsGraphSubstrateCanarySceneRuntime.ts` still builds the scene snapshot from `useSectionElementSizes(...)`
+- `settingsGraphSubstrateCanarySceneSnapshot.ts` still treats measured section element sizes as `resolvedSize` for non-layout sections
+- `settingsGraphSubstrateCanaryNodeSync.ts` still mirrors those measured sizes back into `nodeInternals`
 
 That contradicts the rewrite ownership rule that graph placement should not depend on DOM-measured scene placement as the source of truth. Continuing to add section-specific parity probes before changing that seam would be probe churn rather than rewrite progress.
 
@@ -245,7 +245,7 @@ From this point:
 - allow at most one bounded CDP/lifecycle retry per new product slice, or when the live worktree/reference runtime is genuinely unhealthy
 - do not spend standalone iterations on parity or transport cleanup for a lane that already has repeated green deterministic evidence unless the runtime itself is down
 - treat the current DOM-backed canary as the viewable baseline to preserve while the next architectural milestone lands
-- make the next visible milestone the first scene-owned Pixi output rather than finer DOM-backed parity closure
+- treat the first visible Pixi shell baseline as landed; do not keep peeling shell affordances one by one unless the next pass also tightens geometry authority underneath that shell
 
 ## Branching decision
 
@@ -259,11 +259,13 @@ Rules:
 
 ## Immediate next frontier
 
-Pivot from DOM-backed renderer-boundary prep to the first visible Pixi insertion:
+The first visible Pixi insertion is now in place, so pivot from shell-chrome buildup to authority cleanup under the new shell baseline:
 
 1. Do not reopen the completed controller split from Ralph item `205`; `SettingsGraphSubstrateCanary.tsx` is already a view shell and that prep boundary is in place.
-2. Do not reopen the completed DOM-only shell/header/body seam-lift lane from items `228` through `233`; those contracts are now regression coverage and future scene-owned inputs, not the next default slice picker.
-3. `pixi.js@8.17.1` is now installed in the frontend, so the first remaining product frontier is to land the first scene-owned static layer for the canary while section bodies remain DOM-backed.
-4. Scope that first Pixi slice to non-editing visuals only: card shells, section chrome, simple static decoration, or equivalent scene-owned visuals that do not take over editor/input behavior.
-5. Keep the broad normalized `rotaryParamCodeObjDefault` lane as the regression oracle; rerun it plus CDP after product slices instead of opening new section-specific parity coverage.
-6. Do not spend more iterations on DOM-only seam lifts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy or one of those failures directly blocks the first scene-owned slice.
+2. Do not reopen the completed DOM-only shell/header/body seam-lift lane from items `228` through `233`; those contracts are regression coverage and future scene-owned inputs, not the next default slice picker.
+3. Treat the first Pixi shell baseline as landed: border, outline, fill, top drag handle, and surface frame now render from the root Pixi shell canvas while section bodies remain DOM-backed.
+4. The next real frontier is geometry authority under that shell. Start in `settingsGraphSubstrateCanarySceneRuntime.ts`, `settingsGraphSubstrateCanarySceneSnapshot.ts`, and `settingsGraphSubstrateCanaryNodeSync.ts`.
+5. The first authority-cleanup slice is now landed for `sectionModel` geometry: once a section already has positive model width/height, do not keep it subscribed to `useSectionElementSizes(...)` or let measured fallback override its resolved size.
+6. Narrow the next slice to the remaining measured paths on the broad `rotaryParamCodeObjDefault` lane: keep `layout` and `sectionModel` sizes on non-measured paths, and leave DOM measurement only where no stronger `sharedNode` / unresolved size authority exists yet.
+7. Keep the broad normalized `rotaryParamCodeObjDefault` lane plus the current shell-owned Playwright/CDP checks as regression coverage; do not open another affordance-specific shell visual lane by default.
+8. Do not spend more iterations on `settings-view-modes.spec.ts` cleanup-only `finally -> /setViewport` timeouts, standalone lifecycle cleanup, or harness-only work unless a live runtime is genuinely unhealthy or a future product slice fails before cleanup.

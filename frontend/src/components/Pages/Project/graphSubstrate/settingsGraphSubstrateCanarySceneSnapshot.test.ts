@@ -111,6 +111,47 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     });
   });
 
+  it("keeps section-model size authoritative inside the scene snapshot", () => {
+    const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
+      [
+        {
+          sectionId: "section-a",
+          position: { x: 120, y: 80 },
+          width: 550,
+          height: 78,
+          sizeAuthority: "sectionModel",
+          zIndex: 2,
+          tempZIndex: 2,
+          positionAndSizeLocked: false,
+        },
+      ],
+      {
+        "section-a": { width: 620, height: 210 },
+      },
+      null,
+      null,
+    );
+
+    expect(snapshot.sections[0]).toEqual({
+      sectionId: "section-a",
+      position: { x: 120, y: 80 },
+      renderedPosition: { x: 120, y: 80 },
+      width: 550,
+      height: 78,
+      sizeAuthority: "sectionModel",
+      resolvedSize: { width: 550, height: 78 },
+      zIndex: 2,
+      tempZIndex: 2,
+      positionAndSizeLocked: false,
+    });
+    expect(snapshot.sceneBounds).toEqual({
+      x: 120,
+      y: 80,
+      width: 550,
+      height: 78,
+    });
+  });
+
   it("keeps scene bounds on the authoritative subset when another section is still unresolved", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
