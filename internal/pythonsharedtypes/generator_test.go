@@ -154,19 +154,19 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
-		"BaseChatMessageUnion = SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
-		"BaseArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
-		"SectionSizeValue = float | SectionSizeMode",
-		"class SectionSize(SettaSharedTypeModel):",
+		"type BaseChatMessageUnion = Annotated[",
+		"type BaseArtifactUnion = Annotated[",
+		"type SectionSizeValue = Annotated[",
+		"class SectionSize(BaseModel):",
 		"class Chat(SettaSharedTypeModel):",
 		"messages: list[BaseChatMessageUnion]",
 		"class DependencyEvent(SettaSharedTypeModel):",
 		"dependencyKey: BaseDependencyKeyUnion",
-		"payload: BaseDependencyValueUnion | None = None",
-		"class MessageStartEvent(SettaSharedTypeModel):",
+		"payload: BaseDependencyValueUnion | None",
+		"class MessageStartEvent(BaseModel):",
 		"message: BaseChatMessageUnion",
-		"class MessageDeltaEvent(SettaSharedTypeModel):",
-		"content: list[MessageContentDelta]",
+		"class MessageDeltaEvent(BaseModel):",
+		"content: list[MessageContentDelta] | None",
 	} {
 		if !strings.Contains(output, snippet) {
 			t.Fatalf("generated output missing snippet %q", snippet)

@@ -18,47 +18,71 @@ const (
 	datamodelGeneratorModule       = "datamodel_code_generator"
 )
 
+type datamodelDeclarationKind string
+
+const (
+	datamodelDeclarationKindClass datamodelDeclarationKind = "class"
+	datamodelDeclarationKindType  datamodelDeclarationKind = "type"
+)
+
+type datamodelDeclaration struct {
+	Name         string
+	Kind         datamodelDeclarationKind
+	Block        string
+	Dependencies []string
+}
+
+type datamodelModule struct {
+	ImportLines       []string
+	Declarations      []datamodelDeclaration
+	declarationByName map[string]datamodelDeclaration
+}
+
 var (
+	pythonSharedSchemaModuleOnce sync.Once
+	pythonSharedSchemaModuleData datamodelModule
+	pythonSharedSchemaModuleErr  error
+
 	pythonSharedSchemaAliasExprsOnce sync.Once
 	pythonSharedSchemaAliasExprsMap  map[string]string
 	pythonSharedSchemaAliasExprsErr  error
 )
 
-func pythonSharedSchemaAliasExprs() (map[string]string, error) {
-	pythonSharedSchemaAliasExprsOnce.Do(func() {
-		pythonSharedSchemaAliasExprsMap, pythonSharedSchemaAliasExprsErr = buildPythonSharedSchemaAliasExprs()
+func pythonSharedSchemaModule() (datamodelModule, error) {
+	pythonSharedSchemaModuleOnce.Do(func() {
+		pythonSharedSchemaModuleData, pythonSharedSchemaModuleErr = buildPythonSharedSchemaModule()
 	})
-	if pythonSharedSchemaAliasExprsErr != nil {
-		return nil, pythonSharedSchemaAliasExprsErr
+	if pythonSharedSchemaModuleErr != nil {
+		return datamodelModule{}, pythonSharedSchemaModuleErr
 	}
-	return pythonSharedSchemaAliasExprsMap, nil
+	return pythonSharedSchemaModuleData, nil
 }
 
-func buildPythonSharedSchemaAliasExprs() (map[string]string, error) {
+func buildPythonSharedSchemaModule() (datamodelModule, error) {
 	document, err := sharedtypes.BuildOpenAPIProjectionDocument()
 	if err != nil {
-		return nil, err
+		return datamodelModule{}, err
 	}
 
-	tempDir, err := os.MkdirTemp("", "setta-python-shared-aliases-*")
+	tempDir, err := os.MkdirTemp("", "setta-python-shared-schema-*")
 	if err != nil {
-		return nil, fmt.Errorf("python shared types: create datamodel temp dir: %w", err)
+		return datamodelModule{}, fmt.Errorf("python shared types: create datamodel temp dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	inputPath := filepath.Join(tempDir, "openapi.json")
-	outputPath := filepath.Join(tempDir, "aliases.py")
+	outputPath := filepath.Join(tempDir, "schema.py")
 	payload, err := json.Marshal(document)
 	if err != nil {
-		return nil, fmt.Errorf("python shared types: marshal shared OpenAPI projection: %w", err)
+		return datamodelModule{}, fmt.Errorf("python shared types: marshal shared OpenAPI projection: %w", err)
 	}
 	if err := os.WriteFile(inputPath, payload, 0o600); err != nil {
-		return nil, fmt.Errorf("python shared types: write shared OpenAPI projection: %w", err)
+		return datamodelModule{}, fmt.Errorf("python shared types: write shared OpenAPI projection: %w", err)
 	}
 
 	pythonBin, err := pythonGeneratorExecutable()
 	if err != nil {
-		return nil, err
+		return datamodelModule{}, err
 	}
 
 	cmd := exec.Command(
@@ -85,18 +109,14 @@ func buildPythonSharedSchemaAliasExprs() (map[string]string, error) {
 		if message == "" {
 			message = err.Error()
 		}
-		return nil, fmt.Errorf("python shared types: run %q: %s", strings.Join(cmd.Args, " "), message)
+		return datamodelModule{}, fmt.Errorf("python shared types: run %q: %s", strings.Join(cmd.Args, " "), message)
 	}
 
 	module, err := os.ReadFile(outputPath)
 	if err != nil {
-		return nil, fmt.Errorf("python shared types: read datamodel alias output: %w", err)
+		return datamodelModule{}, fmt.Errorf("python shared types: read datamodel module output: %w", err)
 	}
-	aliases, err := extractDatamodelTypeAliases(string(module))
-	if err != nil {
-		return nil, err
-	}
-	return aliases, nil
+	return parseDatamodelModule(string(module))
 }
 
 func pythonGeneratorExecutable() (string, error) {
@@ -125,28 +145,321 @@ func repoRootFromCaller() (string, error) {
 	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..")), nil
 }
 
-func extractDatamodelTypeAliases(module string) (map[string]string, error) {
+func pythonSharedSchemaAliasExprs() (map[string]string, error) {
+	pythonSharedSchemaAliasExprsOnce.Do(func() {
+		pythonSharedSchemaAliasExprsMap, pythonSharedSchemaAliasExprsErr = buildPythonSharedSchemaAliasExprs()
+	})
+	if pythonSharedSchemaAliasExprsErr != nil {
+		return nil, pythonSharedSchemaAliasExprsErr
+	}
+	return pythonSharedSchemaAliasExprsMap, nil
+}
+
+func buildPythonSharedSchemaAliasExprs() (map[string]string, error) {
+	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		return nil, err
+	}
 	aliases := map[string]string{}
-	lines := strings.Split(module, "\n")
-	for index := 0; index < len(lines); {
-		line := strings.TrimSpace(lines[index])
-		if !strings.HasPrefix(line, "type ") {
-			index++
+	for _, declaration := range module.Declarations {
+		if declaration.Kind != datamodelDeclarationKindType {
 			continue
 		}
-
-		block := []string{line}
-		index++
-		for index < len(lines) {
-			trimmed := strings.TrimSpace(lines[index])
-			if trimmed == "" {
-				break
-			}
-			block = append(block, trimmed)
-			index++
+		name, expr, err := parseDatamodelTypeAliasBlock(strings.Split(declaration.Block, "\n"))
+		if err != nil {
+			return nil, err
 		}
+		if name == "" || datamodelAliasExprReferencesName(name, expr) {
+			continue
+		}
+		aliases[name] = expr
+	}
+	return aliases, nil
+}
 
-		name, expr, err := parseDatamodelTypeAliasBlock(block)
+func pythonSharedSchemaDeclarations(
+	sidecar sharedtypes.SemanticSidecar,
+	excludedNames map[string]struct{},
+) ([]string, []string, map[string]struct{}, error) {
+	module, err := pythonSharedSchemaModule()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	rootNames := map[string]struct{}{}
+	for _, entry := range sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		if _, excluded := excludedNames[name]; excluded {
+			continue
+		}
+		rootNames[name] = struct{}{}
+	}
+
+	selected := reachableDatamodelDeclarations(module, rootNames, excludedNames)
+	blocks := make([]string, 0, len(selected))
+	includedNames := make(map[string]struct{}, len(selected))
+	for _, declaration := range selected {
+		blocks = append(blocks, declaration.Block)
+		includedNames[declaration.Name] = struct{}{}
+	}
+	return blocks, append([]string(nil), module.ImportLines...), includedNames, nil
+}
+
+func reachableDatamodelDeclarations(
+	module datamodelModule,
+	rootNames map[string]struct{},
+	excludedNames map[string]struct{},
+) []datamodelDeclaration {
+	included := map[string]struct{}{}
+	queue := make([]string, 0, len(rootNames))
+
+	enqueue := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, excluded := excludedNames[name]; excluded {
+			return
+		}
+		if _, ok := module.declarationByName[name]; !ok {
+			return
+		}
+		if _, seen := included[name]; seen {
+			return
+		}
+		included[name] = struct{}{}
+		queue = append(queue, name)
+	}
+
+	for name := range rootNames {
+		enqueue(name)
+	}
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		declaration, ok := module.declarationByName[name]
+		if !ok {
+			continue
+		}
+		for _, dependency := range declaration.Dependencies {
+			enqueue(dependency)
+		}
+	}
+
+	selected := make([]datamodelDeclaration, 0, len(included))
+	for _, declaration := range module.Declarations {
+		if _, ok := included[declaration.Name]; !ok {
+			continue
+		}
+		selected = append(selected, declaration)
+	}
+	return selected
+}
+
+func parseDatamodelModule(module string) (datamodelModule, error) {
+	importLines := datamodelImportLines(module)
+	declarations, err := parseDatamodelDeclarations(module)
+	if err != nil {
+		return datamodelModule{}, err
+	}
+	declarationByName := make(map[string]datamodelDeclaration, len(declarations))
+	for _, declaration := range declarations {
+		declarationByName[declaration.Name] = declaration
+	}
+	return datamodelModule{
+		ImportLines:       importLines,
+		Declarations:      declarations,
+		declarationByName: declarationByName,
+	}, nil
+}
+
+func datamodelImportLines(module string) []string {
+	lines := strings.Split(module, "\n")
+	imports := []string{}
+	seen := map[string]struct{}{}
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case trimmed == "", strings.HasPrefix(trimmed, "#"):
+			continue
+		case trimmed == "from __future__ import annotations":
+			continue
+		case isDatamodelDeclarationStart(line):
+			return imports
+		case strings.HasPrefix(trimmed, "from "), strings.HasPrefix(trimmed, "import "):
+			if _, duplicate := seen[trimmed]; duplicate {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			imports = append(imports, trimmed)
+		}
+	}
+	return imports
+}
+
+func parseDatamodelDeclarations(module string) ([]datamodelDeclaration, error) {
+	lines := strings.Split(module, "\n")
+	declarations := []datamodelDeclaration{}
+	start := -1
+	for index, line := range lines {
+		if !isDatamodelDeclarationStart(line) {
+			continue
+		}
+		if start >= 0 {
+			declaration, err := parseDatamodelDeclaration(lines[start:index])
+			if err != nil {
+				return nil, err
+			}
+			declarations = append(declarations, declaration)
+		}
+		start = index
+	}
+	if start >= 0 {
+		declaration, err := parseDatamodelDeclaration(lines[start:])
+		if err != nil {
+			return nil, err
+		}
+		declarations = append(declarations, declaration)
+	}
+	return declarations, nil
+}
+
+func isDatamodelDeclarationStart(line string) bool {
+	trimmedLeft := strings.TrimLeft(line, " \t")
+	if trimmedLeft != line {
+		return false
+	}
+	trimmed := strings.TrimSpace(line)
+	return strings.HasPrefix(trimmed, "class ") || strings.HasPrefix(trimmed, "type ")
+}
+
+func parseDatamodelDeclaration(lines []string) (datamodelDeclaration, error) {
+	blockLines := trimDatamodelBlockLines(lines)
+	if len(blockLines) == 0 {
+		return datamodelDeclaration{}, fmt.Errorf("python shared types: empty datamodel declaration block")
+	}
+	header := strings.TrimSpace(blockLines[0])
+	switch {
+	case strings.HasPrefix(header, "class "):
+		name, err := parseDatamodelClassName(header)
+		if err != nil {
+			return datamodelDeclaration{}, err
+		}
+		return datamodelDeclaration{
+			Name:         name,
+			Kind:         datamodelDeclarationKindClass,
+			Block:        strings.Join(blockLines, "\n"),
+			Dependencies: datamodelClassDependencies(blockLines),
+		}, nil
+	case strings.HasPrefix(header, "type "):
+		name, expr, err := parseDatamodelTypeAliasBlock(blockLines)
+		if err != nil {
+			return datamodelDeclaration{}, err
+		}
+		return datamodelDeclaration{
+			Name:         name,
+			Kind:         datamodelDeclarationKindType,
+			Block:        strings.Join(blockLines, "\n"),
+			Dependencies: datamodelAliasDependencies(expr),
+		}, nil
+	default:
+		return datamodelDeclaration{}, fmt.Errorf("python shared types: unsupported datamodel declaration header %q", header)
+	}
+}
+
+func trimDatamodelBlockLines(lines []string) []string {
+	start := 0
+	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
+		start++
+	}
+	end := len(lines)
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+	trimmed := make([]string, 0, end-start)
+	for _, line := range lines[start:end] {
+		trimmed = append(trimmed, strings.TrimRight(line, " \t"))
+	}
+	return trimmed
+}
+
+func parseDatamodelClassName(header string) (string, error) {
+	name := strings.TrimSpace(strings.TrimPrefix(header, "class "))
+	if before, _, ok := strings.Cut(name, "("); ok {
+		name = strings.TrimSpace(before)
+	}
+	name = strings.TrimSuffix(name, ":")
+	if name == "" {
+		return "", fmt.Errorf("python shared types: datamodel class has empty name")
+	}
+	return name, nil
+}
+
+func datamodelClassDependencies(lines []string) []string {
+	dependencies := map[string]struct{}{}
+	for _, line := range lines[1:] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "model_config") {
+			continue
+		}
+		fieldName, typeExpr, ok := datamodelClassFieldTypeExpr(trimmed)
+		if !ok || fieldName == "" {
+			continue
+		}
+		for _, name := range referencedTypeNames(typeExpr) {
+			if pythonTypeNameIsBuiltin(name) {
+				continue
+			}
+			dependencies[name] = struct{}{}
+		}
+	}
+	return sortedImportNames(dependencies)
+}
+
+func datamodelClassFieldTypeExpr(line string) (string, string, bool) {
+	fieldName, rhs, ok := strings.Cut(line, ": ")
+	if !ok {
+		return "", "", false
+	}
+	fieldName = strings.TrimSpace(fieldName)
+	if fieldName == "" || strings.Contains(fieldName, " ") {
+		return "", "", false
+	}
+	typeExpr := strings.TrimSpace(rhs)
+	if before, _, ok := strings.Cut(typeExpr, " = "); ok {
+		typeExpr = strings.TrimSpace(before)
+	}
+	if typeExpr == "" {
+		return "", "", false
+	}
+	return fieldName, typeExpr, true
+}
+
+func datamodelAliasDependencies(expr string) []string {
+	dependencies := map[string]struct{}{}
+	for _, name := range referencedTypeNames(expr) {
+		if pythonTypeNameIsBuiltin(name) {
+			continue
+		}
+		dependencies[name] = struct{}{}
+	}
+	return sortedImportNames(dependencies)
+}
+
+func extractDatamodelTypeAliases(module string) (map[string]string, error) {
+	parsed, err := parseDatamodelModule(module)
+	if err != nil {
+		return nil, err
+	}
+	aliases := map[string]string{}
+	for _, declaration := range parsed.Declarations {
+		if declaration.Kind != datamodelDeclarationKindType {
+			continue
+		}
+		name, expr, err := parseDatamodelTypeAliasBlock(strings.Split(declaration.Block, "\n"))
 		if err != nil {
 			return nil, err
 		}

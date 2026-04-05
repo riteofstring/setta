@@ -32,6 +32,7 @@ type contractSpec struct {
 }
 
 type generationContext struct {
+	Sidecar              sharedtypes.SemanticSidecar
 	ContractSpecs        []contractSpec
 	AliasSpecs           []aliasSpec
 	DefaultSourcesByType map[reflect.Type]reflect.Value
@@ -70,6 +71,7 @@ func buildGenerationContext() (generationContext, error) {
 	}
 
 	return generationContext{
+		Sidecar:              sidecar,
 		ContractSpecs:        specs,
 		AliasSpecs:           aliases,
 		DefaultSourcesByType: defaultSources,

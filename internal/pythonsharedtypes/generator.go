@@ -52,25 +52,34 @@ func Build() (GeneratedTypes, error) {
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
-	specs := ctx.ContractSpecs
-	aliases := ctx.AliasSpecs
-	knownContractNames := knownContractNameSet(specs, aliases)
+
+	manualOverrideNames := contractSpecNameSet(manualOverrideContractSpecs(ctx.ContractSpecs))
+	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(ctx.Sidecar, manualOverrideNames)
+	if err != nil {
+		return GeneratedTypes{}, err
+	}
+
+	manualSpecs := manualContractSpecs(ctx.ContractSpecs, standardDeclarationNames, manualOverrideNames)
+	manualAliases := missingStandardAliasSpecs(ctx.AliasSpecs, standardDeclarationNames)
+	knownContractNames := knownContractNameSetFromSidecar(ctx.Sidecar)
 	models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, err := collectRenderedContractSpecs(
-		specs,
+		manualSpecs,
 		knownContractNames,
 		ctx.DefaultSourcesByType,
 	)
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
-	applyAliasRenderNeeds(aliases, typingImports, &needsDatetime)
-	models = pruneModelSpecsWithResolvedReferences(models, enums, aliases)
 	models = sortModelSpecsByDependencies(models)
+	applyAliasRenderNeeds(manualAliases, typingImports, &needsDatetime)
+
 	return GeneratedTypes{
 		PythonModule: renderGeneratedTypesModule(
+			standardImports,
+			standardBlocks,
 			enums,
 			models,
-			aliases,
+			manualAliases,
 			externalImports,
 			typingImports,
 			needsEnum,
@@ -106,6 +115,106 @@ func knownContractNameSet(specs []contractSpec, aliases []aliasSpec) map[string]
 		known[alias.Name] = struct{}{}
 	}
 	return known
+}
+
+func knownContractNameSetFromSidecar(sidecar sharedtypes.SemanticSidecar) map[string]struct{} {
+	known := map[string]struct{}{}
+	for _, entry := range sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		known[name] = struct{}{}
+	}
+	return known
+}
+
+func contractSpecNameSet(specs []contractSpec) map[string]struct{} {
+	names := map[string]struct{}{}
+	for _, spec := range specs {
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			continue
+		}
+		names[name] = struct{}{}
+	}
+	return names
+}
+
+func manualContractSpecs(
+	specs []contractSpec,
+	standardDeclarationNames map[string]struct{},
+	manualOverrideNames map[string]struct{},
+) []contractSpec {
+	manual := make([]contractSpec, 0, len(specs))
+	for _, spec := range specs {
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			continue
+		}
+		if _, overridden := manualOverrideNames[name]; overridden {
+			manual = append(manual, spec)
+			continue
+		}
+		if _, present := standardDeclarationNames[name]; present {
+			continue
+		}
+		manual = append(manual, spec)
+	}
+	return manual
+}
+
+func manualOverrideContractSpecs(specs []contractSpec) []contractSpec {
+	overrides := make([]contractSpec, 0, len(specs))
+	for _, spec := range specs {
+		if spec.Kind != contractKindModel {
+			continue
+		}
+		if !pythonModelRequiresManualOverride(spec.Type) {
+			continue
+		}
+		overrides = append(overrides, spec)
+	}
+	return overrides
+}
+
+func pythonModelRequiresManualOverride(t reflect.Type) bool {
+	if t == nil || t.Kind() != reflect.Struct {
+		return false
+	}
+	for _, field := range visibleFields(t) {
+		if field.Type.Kind() == reflect.Pointer {
+			return true
+		}
+		if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
+			return true
+		}
+		if strings.TrimSpace(field.Tag.Get("py_import")) != "" {
+			return true
+		}
+		if strings.TrimSpace(field.Tag.Get("py_default")) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func missingStandardAliasSpecs(
+	aliases []aliasSpec,
+	standardDeclarationNames map[string]struct{},
+) []aliasSpec {
+	missing := make([]aliasSpec, 0, len(aliases))
+	for _, alias := range aliases {
+		name := strings.TrimSpace(alias.Name)
+		if name == "" {
+			continue
+		}
+		if _, present := standardDeclarationNames[name]; present {
+			continue
+		}
+		missing = append(missing, alias)
+	}
+	return missing
 }
 
 func collectRenderedContractSpecs(
@@ -212,6 +321,8 @@ func recordTypeExprRenderNeeds(
 }
 
 func renderGeneratedTypesModule(
+	standardImportLines []string,
+	standardBlocks []string,
 	enums []contractSpec,
 	models []modelSpec,
 	aliases []aliasSpec,
@@ -226,9 +337,11 @@ func renderGeneratedTypesModule(
 	builder.WriteString("\n")
 	builder.WriteString("from __future__ import annotations\n")
 	builder.WriteString("\n")
-	writeStandardImports(&builder, typingImports, needsEnum, needsDatetime)
+	writeRawImportLines(&builder, standardImportLines)
+	writeStandardImports(&builder, typingImports, needsEnum, needsDatetime, needsPydanticField)
 	writeExternalImports(&builder, externalImports)
-	writePydanticBaseModel(&builder, needsPydanticField)
+	writePydanticBaseModel(&builder, len(models) > 0)
+	writeStandardSchemaBlocks(&builder, standardBlocks)
 	writeEnumSpecs(&builder, enums)
 	writeModelSpecs(&builder, models)
 	writeAliasSpecs(&builder, aliases)
@@ -240,6 +353,7 @@ func writeStandardImports(
 	typingImports map[string]struct{},
 	needsEnum bool,
 	needsDatetime bool,
+	needsPydanticField bool,
 ) {
 	if needsEnum {
 		builder.WriteString("from enum import Enum\n")
@@ -252,9 +366,12 @@ func writeStandardImports(
 		builder.WriteString(strings.Join(sortedImportNames(typingImports), ", "))
 		builder.WriteString("\n")
 	}
-	if needsEnum || needsDatetime || len(typingImports) > 0 {
-		builder.WriteString("\n")
+	builder.WriteString("from pydantic import BaseModel, ConfigDict")
+	if needsPydanticField {
+		builder.WriteString(", Field")
 	}
+	builder.WriteString("\n")
+	builder.WriteString("\n")
 }
 
 func writeExternalImports(builder *strings.Builder, externalImports map[string]struct{}) {
@@ -268,15 +385,13 @@ func writeExternalImports(builder *strings.Builder, externalImports map[string]s
 	builder.WriteString("\n")
 }
 
-func writePydanticBaseModel(builder *strings.Builder, needsPydanticField bool) {
-	builder.WriteString("from pydantic import BaseModel, ConfigDict")
-	if needsPydanticField {
-		builder.WriteString(", Field")
+func writePydanticBaseModel(builder *strings.Builder, needed bool) {
+	if !needed {
+		return
 	}
-	builder.WriteString("\n")
-	builder.WriteString("\n\n")
 	builder.WriteString("class SettaSharedTypeModel(BaseModel):\n")
 	builder.WriteString("    model_config = ConfigDict(extra=\"forbid\")\n")
+	builder.WriteString("\n")
 }
 
 func writeEnumSpecs(builder *strings.Builder, enums []contractSpec) {
@@ -297,7 +412,7 @@ func writeEnumSpecs(builder *strings.Builder, enums []contractSpec) {
 
 func writeModelSpecs(builder *strings.Builder, models []modelSpec) {
 	for _, model := range models {
-		builder.WriteString("\n\n")
+		builder.WriteString("\n")
 		builder.WriteString("class ")
 		builder.WriteString(model.Name)
 		builder.WriteString("(SettaSharedTypeModel):\n")
@@ -308,6 +423,32 @@ func writeModelSpecs(builder *strings.Builder, models []modelSpec) {
 		for _, field := range model.Fields {
 			builder.WriteString(renderFieldLine(field))
 		}
+	}
+}
+
+func writeRawImportLines(builder *strings.Builder, importLines []string) {
+	if len(importLines) == 0 {
+		return
+	}
+	for _, line := range importLines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		builder.WriteString(trimmed)
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\n")
+}
+
+func writeStandardSchemaBlocks(builder *strings.Builder, blocks []string) {
+	for _, block := range blocks {
+		trimmed := strings.TrimSpace(block)
+		if trimmed == "" {
+			continue
+		}
+		builder.WriteString(trimmed)
+		builder.WriteString("\n\n")
 	}
 }
 

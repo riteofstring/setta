@@ -15,38 +15,8 @@ export type AIFollowToolArgumentsUpdateContent = {
  * AIFollowToolArgumentsUpdateMessage
  */
 type AIFollowToolArgumentsUpdateMessage = {
-  content: {
-    chatId: string;
-    idsByType: {
-      [key: string]: null | Array<string>;
-    };
-    projectConfigId: string;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: AIFollowToolArgumentsUpdateContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -64,38 +34,8 @@ export type AIFollowToolResultUpdateContent = {
  * AIFollowToolResultUpdateMessage
  */
 type AIFollowToolResultUpdateMessage = {
-  content: {
-    chatId: string;
-    idsByType: {
-      [key: string]: null | Array<string>;
-    };
-    projectConfigId: string;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: AIFollowToolResultUpdateContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -124,61 +64,15 @@ export type AgentProfile = {
  * AgentProfilesUpdatedContent
  */
 type AgentProfilesUpdatedContent = {
-  profiles: null | Array<{
-    description: string;
-    enableBackgroundSummaryFill: boolean;
-    enableLlmChatTitles: boolean;
-    engineConfigId: null | string;
-    id: string;
-    memoryScope: null | string;
-    name: string;
-    systemPrompt: string;
-    toolAllowlist: null | Array<string>;
-  }>;
+  profiles: null | Array<AgentProfile>;
 };
 
 /**
  * AgentProfilesUpdatedMessage
  */
 type AgentProfilesUpdatedMessage = {
-  content: {
-    profiles: null | Array<{
-      description: string;
-      enableBackgroundSummaryFill: boolean;
-      enableLlmChatTitles: boolean;
-      engineConfigId: null | string;
-      id: string;
-      memoryScope: null | string;
-      name: string;
-      systemPrompt: string;
-      toolAllowlist: null | Array<string>;
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: AgentProfilesUpdatedContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -186,15 +80,8 @@ type AgentProfilesUpdatedMessage = {
  */
 export type AgentRun = {
   cost?: null | number;
-  events: null | Array<{
-    id: string;
-    payload?: {
-      [key: string]: unknown;
-    };
-    timestamp: string;
-    type: string;
-  }>;
-  finishedAt?: null | string;
+  events: null | Array<RunEvent>;
+  finishedAt?: string | null;
   id: string;
   inputs?: {
     [key: string]: unknown;
@@ -203,8 +90,8 @@ export type AgentRun = {
     [key: string]: unknown;
   };
   profileId?: null | string;
-  startedAt?: null | string;
-  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  startedAt?: string | null;
+  status: RunStatus;
   toolCalls: null | Array<{
     [key: string]: unknown;
   }>;
@@ -214,67 +101,19 @@ export type AgentRun = {
  * AgentRunUpdatedMessage
  */
 type AgentRunUpdatedMessage = {
-  content: {
-    cost?: null | number;
-    events: null | Array<{
-      id: string;
-      payload?: {
-        [key: string]: unknown;
-      };
-      timestamp: string;
-      type: string;
-    }>;
-    finishedAt?: null | string;
-    id: string;
-    inputs?: {
-      [key: string]: unknown;
-    };
-    outputs?: {
-      [key: string]: unknown;
-    };
-    profileId?: null | string;
-    startedAt?: null | string;
-    status: "queued" | "running" | "completed" | "failed" | "cancelled";
-    toolCalls: null | Array<{
-      [key: string]: unknown;
-    }>;
-  };
+  content: AgentRun;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
  * AgenticEdge
  */
 export type AgenticEdge = {
-  contextMode?: "reference_only" | "inline_text" | "summary";
+  contextMode?: AgenticEdgeContextMode;
   hidden?: boolean;
   id: string;
-  kind: "chat_chat" | "section_chat" | "chat_section";
+  kind: AgenticEdgeKind;
   selected?: boolean;
   sourceSectionId: string;
   style?: RawMessage | null;
@@ -311,37 +150,12 @@ export type AgenticSummaryCacheStatus = {
 export type AllConfigs = {
   codexMcpImportedAt?: string;
   configs: {
-    [key: string]: {
-      api_key_env?: string;
-      base_url?: string;
-      id: string;
-      mcpServerIds?: null | Array<string>;
-      model: string;
-      other_params?: {
-        [key: string]: unknown;
-      };
-      provider?: string;
-      temporary?: boolean;
-    };
+    [key: string]: LLMConfig;
   };
   defaultMcpServerIds: null | Array<string>;
   default_config_id?: string;
   mcpServers: {
-    [key: string]: {
-      args?: null | Array<string>;
-      command?: string;
-      cwd?: string;
-      encoding?: string;
-      encoding_error_handler?: string;
-      env?: {
-        [key: string]: string;
-      };
-      http_headers?: {
-        [key: string]: string;
-      };
-      transport: "sse" | "streamable_http" | "stdio";
-      url?: string;
-    };
+    [key: string]: ServerConfig;
   };
 };
 
@@ -349,37 +163,8 @@ export type AllConfigs = {
  * AllConnectionsMessage
  */
 type AllConnectionsMessage = {
-  content: null | Array<{
-    connectionType: "frontend" | "listener" | "SERVER" | "terminal";
-    currentAddress?: string;
-    id: string;
-    shareSessionId?: string;
-  }>;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: null | Array<Connection>;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -387,10 +172,7 @@ type AllConnectionsMessage = {
  */
 export type AllProjectMetadata = {
   defaultProjectConfigId: null | string;
-  projectMetadata: null | Array<{
-    id: string;
-    name: string;
-  }>;
+  projectMetadata: null | Array<ProjectConfigMetadata>;
 };
 
 /**
@@ -398,49 +180,16 @@ export type AllProjectMetadata = {
  */
 type AllProjectMetadataContent = {
   defaultProjectConfigId: null | string;
-  projectMetadata: null | Array<{
-    id: string;
-    name: string;
-  }>;
+  projectMetadata: null | Array<ProjectConfigMetadata>;
 };
 
 /**
  * AllProjectMetadataMessage
  */
 type AllProjectMetadataMessage = {
-  content: {
-    defaultProjectConfigId: null | string;
-    projectMetadata: null | Array<{
-      id: string;
-      name: string;
-    }>;
-  };
+  content: AllProjectMetadataContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -475,11 +224,7 @@ export type AppDefinition = {
   assets?: RawMessage | null;
   catalogId?: string;
   dataBindings?: RawMessage | null;
-  routes?: null | Array<{
-    name?: string;
-    path: string;
-    rootKey?: string;
-  }>;
+  routes?: null | Array<AppRoute>;
   theme?: RawMessage | null;
 };
 
@@ -487,65 +232,23 @@ export type AppDefinition = {
  * AppDefinitionMutationResult
  */
 type AppDefinitionMutationResult = {
-  appDefinition?: null | {
-    actions?: RawMessage | null;
-    appSpecPath?: string;
-    appSpecVersion?: string;
-    assets?: RawMessage | null;
-    catalogId?: string;
-    dataBindings?: RawMessage | null;
-    routes?: null | Array<{
-      name?: string;
-      path: string;
-      rootKey?: string;
-    }>;
-    theme?: RawMessage | null;
-  };
+  appDefinition?: AppDefinition | null;
 };
 
 /**
  * AppDefinitionReadResult
  */
 type AppDefinitionReadResult = {
-  appDefinition?: null | {
-    actions?: RawMessage | null;
-    appSpecPath?: string;
-    appSpecVersion?: string;
-    assets?: RawMessage | null;
-    catalogId?: string;
-    dataBindings?: RawMessage | null;
-    routes?: null | Array<{
-      name?: string;
-      path: string;
-      rootKey?: string;
-    }>;
-    theme?: RawMessage | null;
-  };
+  appDefinition?: AppDefinition | null;
 };
 
 /**
  * AppDefinitionValidationResult
  */
 type AppDefinitionValidationResult = {
-  capabilities: {
-    appSpecVersion: string;
-    catalogId: string;
-    catalogVersion: string;
-    features: {
-      [key: string]: boolean;
-    };
-    themeSchemaVersion: string;
-  };
-  errors: null | Array<{
-    elementKey?: string;
-    elementType?: string;
-    message: string;
-  }>;
-  warnings: null | Array<{
-    elementKey?: string;
-    elementType?: string;
-    message: string;
-  }>;
+  capabilities: AppCapabilities;
+  errors: null | Array<AppValidationIssue>;
+  warnings: null | Array<AppValidationIssue>;
 };
 
 /**
@@ -591,13 +294,8 @@ type ArtifactSaveResult = {
   backupPath?: null | string;
   id: string;
   message?: null | string;
-  status: "saved" | "unchanged" | "skipped" | "conflict";
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
+  status: SaveStatus;
+  type: ArtifactType;
 };
 
 /**
@@ -614,28 +312,14 @@ export type ArtifactType =
  * AssistantChatMessage
  */
 export type AssistantChatMessage = {
-  attachments: null | Array<{
-    id: string;
-    mimeType?: null | string;
-    name: string;
-    size?: null | number;
-  }>;
+  attachments: null | Array<ChatFileAttachment>;
   content: null | Array<{
     [key: string]: unknown;
   }>;
   createdAt: number;
   id: string;
-  role: "system" | "user" | "assistant" | "tool";
-  tool_calls?: null | Array<{
-    function: {
-      arguments: {
-        [key: string]: unknown;
-      };
-      name: string;
-    };
-    id: string;
-    type: string;
-  }>;
+  role: ChatRole;
+  tool_calls?: null | Array<ToolCall>;
 };
 
 /**
@@ -656,13 +340,7 @@ type BackendCodegenTargetRequest = {
  * BackendHTTPRequest
  */
 type BackendHTTPRequest = {
-  context: {
-    hasAuth: boolean;
-    projectConfigId?: string;
-    serverMode: "ide" | "share" | "app" | "launcher";
-    sessionId?: string;
-    shareSessionId?: string;
-  };
+  context: BackendRequestContext;
   headers: {
     [key: string]: null | Array<string>;
   };
@@ -685,13 +363,7 @@ type BackendHTTPResponse = {
  * BackendListenerEndpointRequest
  */
 type BackendListenerEndpointRequest = {
-  context: {
-    hasAuth: boolean;
-    projectConfigId?: string;
-    serverMode: "ide" | "share" | "app" | "launcher";
-    sessionId?: string;
-    shareSessionId?: string;
-  };
+  context: BackendRequestContext;
   endpointName: string;
   payload: {
     [key: string]: unknown;
@@ -704,7 +376,7 @@ type BackendListenerEndpointRequest = {
 type BackendRequestContext = {
   hasAuth: boolean;
   projectConfigId?: string;
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: Mode;
   sessionId?: string;
   shareSessionId?: string;
 };
@@ -761,22 +433,7 @@ export type BaseCodeObjImpl = {
   id: string;
   isPreset: boolean;
   name: string;
-  type:
-    | "CodeCallable"
-    | "CodeParam"
-    | "TextParam"
-    | "DateParam"
-    | "TimeParam"
-    | "ButtonParam"
-    | "SliderParam"
-    | "RotaryParam"
-    | "SwitchParam"
-    | "ColorPickerParam"
-    | "DropdownParam"
-    | "PasswordParam"
-    | "TextAreaParam"
-    | "DropzoneParam"
-    | "NestedParam";
+  type: CodeObjType;
 };
 
 export type BaseCodeObjImplUnion =
@@ -840,38 +497,10 @@ type BaseSectionImpl = {
   isPreset: boolean;
   name: string;
   positionAndSizeLocked: boolean;
-  size: {
-    height: SectionSizeValue;
-    width: SectionSizeValue;
-  };
+  size: SectionSize;
   styleColor: null | string;
   tagColor: null | string;
-  type:
-    | "Callable"
-    | "Dict"
-    | "ListRoot"
-    | "Group"
-    | "StateMachineStart"
-    | "StateMachineGate"
-    | "StateMachineEnd"
-    | "Image"
-    | "Chart"
-    | "Draw"
-    | "TextBlock"
-    | "Prompt"
-    | "MetaControl"
-    | "Social"
-    | "GlobalVariables"
-    | "Code"
-    | "GenPythonCode"
-    | "GenPythonMetadata"
-    | "Terminal"
-    | "IFrame"
-    | "Chat"
-    | "Browser"
-    | "Plugin"
-    | "TaskBoard"
-    | "Spreadsheet";
+  type: SectionType;
 };
 
 export type BaseSectionImplUnion =
@@ -917,13 +546,8 @@ type BaseValueParamCodeObjImpl = {
  * BinaryDependencyValue
  */
 export type BinaryDependencyValue = {
-  payload: {
-    byteLength: number;
-    contentId: string;
-    mimeType?: string;
-    sha256?: string;
-  };
-  type: "Literal" | "Binary" | "FileRead";
+  payload: ContentRef;
+  type: DependencyValueType;
 };
 
 /**
@@ -964,14 +588,8 @@ export type BrowserSavedSearch = {
   name: string;
   query: string;
   quickInfo: string;
-  searchScope: "recursive" | "local";
-  typeFilters: null | {
-    audio: boolean;
-    data: boolean;
-    image: boolean;
-    text: boolean;
-    video: boolean;
-  };
+  searchScope: BrowserSearchScope;
+  typeFilters: BrowserSavedSearchTypeFilters | null;
 };
 
 /**
@@ -1006,21 +624,7 @@ type BrowserSectionImpl = {
   isPreset: boolean;
   name: string;
   positionAndSizeLocked: boolean;
-  savedSearches: null | Array<{
-    color: string;
-    id: string;
-    name: string;
-    query: string;
-    quickInfo: string;
-    searchScope: "recursive" | "local";
-    typeFilters: null | {
-      audio: boolean;
-      data: boolean;
-      image: boolean;
-      text: boolean;
-      video: boolean;
-    };
-  }>;
+  savedSearches: null | Array<BrowserSavedSearch>;
   size: {
     height: {
       Auto: boolean;
@@ -1035,7 +639,7 @@ type BrowserSectionImpl = {
   tagColor: null | string;
   type: string;
   typesColumnWidth?: null | number;
-  viewMode: "list" | "thumbnail" | "carousel";
+  viewMode: BrowserAreaViewMode;
 };
 
 /**
@@ -1043,7 +647,7 @@ type BrowserSectionImpl = {
  */
 export type BrushStroke = {
   globalCompositeOperation: string;
-  lineCap: "butt" | "round" | "square";
+  lineCap: DrawAreaBrushShape;
   lineWidth: number;
   points: null | Array<unknown>;
   strokeStyle: string;
@@ -1054,19 +658,8 @@ export type BrushStroke = {
  */
 export type BrushStrokeArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
-  value: {
-    globalCompositeOperation: string;
-    lineCap: "butt" | "round" | "square";
-    lineWidth: number;
-    points: null | Array<unknown>;
-    strokeStyle: string;
-  };
+  type: ArtifactType;
+  value: BrushStroke;
 };
 
 /**
@@ -1074,11 +667,11 @@ export type BrushStrokeArtifact = {
  */
 export type BrushStrokeWithTransform = {
   globalCompositeOperation: string;
-  lineCap: "butt" | "round" | "square";
+  lineCap: DrawAreaBrushShape;
   lineWidth: number;
   points: null | Array<unknown>;
   strokeStyle: string;
-  transform: [number, number, number, number, number, number];
+  transform: DrawAreaTransform;
 };
 
 /**
@@ -1093,7 +686,7 @@ export type ButtonActionMode =
  * ButtonParamCodeObjImpl
  */
 export type ButtonParamCodeObjImpl = {
-  actionMode: "WEBSOCKET_LISTENER" | "HTTP_REQUEST" | "SETTA_API";
+  actionMode: ButtonActionMode;
   coreNameEditable: boolean;
   coreNameType: string;
   description: string;
@@ -1105,14 +698,7 @@ export type ButtonParamCodeObjImpl = {
   requestBody: string;
   requestHeaderKey: string;
   requestHeaderValue: string;
-  requestMethod:
-    | "GET"
-    | "POST"
-    | "PUT"
-    | "PATCH"
-    | "DELETE"
-    | "HEAD"
-    | "OPTIONS";
+  requestMethod: HTTPRequestMethod;
   requestUrl: string;
   type: string;
   typeAnnotation: string;
@@ -1129,7 +715,7 @@ export type CallableSectionImpl = {
     [key: string]: string;
   };
   columnWidth: null | number;
-  configLanguage: "python" | "json";
+  configLanguage: ConfigLanguage;
   edgeInputParams: null | Array<string>;
   edgeOutputPorts: null | Array<{
     accessor: string;
@@ -1178,12 +764,7 @@ export type CanvasPoint = [number, number];
  */
 export type ChartDataArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
+  type: ArtifactType;
   value: ChartDataValue;
 };
 
@@ -1229,7 +810,7 @@ export type ChartSectionImpl = {
 type ChartSettingsUpdate = {
   categoryColumn?: null | string;
   secondYAxisColumns?: null | Array<string>;
-  type: "line" | "scatter";
+  type: ChartType;
   xAxisColumn?: null | string;
   xAxisLog?: boolean;
   y1AxisLog?: boolean;
@@ -1248,18 +829,7 @@ export type ChartType = "line" | "scatter";
 type Chat = {
   id: string;
   lastUpdated: string;
-  llmConfig: {
-    api_key_env?: string;
-    base_url?: string;
-    id: string;
-    mcpServerIds?: null | Array<string>;
-    model: string;
-    other_params?: {
-      [key: string]: unknown;
-    };
-    provider?: string;
-    temporary?: boolean;
-  };
+  llmConfig: LLMConfig;
   messages: null | Array<BaseChatMessageUnion>;
   name: string;
   projectConfigId?: null | string;
@@ -1297,18 +867,7 @@ export type ChatFileAttachment = {
 type ChatMetadata = {
   id: string;
   lastUpdated: string;
-  llmConfig: {
-    api_key_env?: string;
-    base_url?: string;
-    id: string;
-    mcpServerIds?: null | Array<string>;
-    model: string;
-    other_params?: {
-      [key: string]: unknown;
-    };
-    provider?: string;
-    temporary?: boolean;
-  };
+  llmConfig: LLMConfig;
   name: string;
   projectConfigId?: null | string;
 };
@@ -1352,7 +911,7 @@ export type ChatSectionImpl = {
     };
   };
   chatId?: null | string;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   engineConfigId?: null | string;
   id: string;
   inputText: string;
@@ -1365,7 +924,7 @@ export type ChatSectionImpl = {
     [key: string]: unknown;
   }>;
   name: string;
-  permissionMode: "minimal" | "yolo" | "config_toml_custom";
+  permissionMode: ChatPermissionMode;
   positionAndSizeLocked: boolean;
   searchEnabled: boolean;
   size: {
@@ -1394,10 +953,10 @@ export type ChatSectionImpl = {
  */
 type ChatSectionSettings = {
   agentProfileId: null | string;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   engineConfigId: null | string;
   managed: boolean;
-  permissionMode: "minimal" | "yolo" | "config_toml_custom";
+  permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
   thinking: boolean;
   transcriptionProfileId: null | string;
@@ -1409,12 +968,7 @@ type ChatSectionSettings = {
 export type ChatSectionState = {
   activeBranchId: null | string;
   branches: {
-    [key: string]: {
-      branchFromMessageId: null | string;
-      createdAt: number;
-      messages: null | Array<BaseChatMessageUnion>;
-      parentBranchId: null | string;
-    };
+    [key: string]: ChatSectionBranch;
   };
   inputText: string;
   messages: null | Array<BaseChatMessageUnion>;
@@ -1433,16 +987,11 @@ type ChatSendAction = "send";
  * ChatSendEvent
  */
 export type ChatSendEvent = {
-  action: "send";
-  attachments: null | Array<{
-    id: string;
-    mimeType?: null | string;
-    name: string;
-    size?: null | number;
-  }>;
+  action: ChatSendAction;
+  attachments: null | Array<ChatFileAttachment>;
   managed: boolean;
   messageId: string;
-  role: "system" | "user" | "assistant" | "tool";
+  role: ChatRole;
   sectionId: string;
   text: string;
   timestampMs: number;
@@ -1457,7 +1006,7 @@ type ChatStopAction = "stop";
  * ChatStopEvent
  */
 export type ChatStopEvent = {
-  action: "stop";
+  action: ChatStopAction;
   managed: boolean;
   sectionId: string;
   timestampMs: number;
@@ -1520,11 +1069,7 @@ type ClaudeSettingsManaged = {
   mcp?: {
     [key: string]: unknown;
   };
-  permissions?: null | {
-    allow: null | Array<string>;
-    ask: null | Array<string>;
-    deny: null | Array<string>;
-  };
+  permissions?: ClaudeSettingsPermissions | null;
 };
 
 /**
@@ -1570,25 +1115,10 @@ type ClipboardProjectStateCore = {
       | NestedParamCodeObjImpl;
   };
   codeObjVariants?: {
-    [key: string]: {
-      id: string;
-      implId: string;
-      isFrozen?: boolean;
-      modifier?: RawMessage | null;
-      name?: string;
-      nonPresetImplIds?: null | Array<string>;
-    };
+    [key: string]: CodeObjectVariant;
   };
   codeObjs?: {
-    [key: string]: {
-      defaultVariantId?: string;
-      displayName?: string;
-      id: string;
-      name: string;
-      sharedModifier?: RawMessage | null;
-      unsharedKeys?: null | Array<string>;
-      variantIds?: null | Array<string>;
-    };
+    [key: string]: CodeObject;
   };
   sectionImpls?: {
     [key: string]:
@@ -1614,26 +1144,10 @@ type ClipboardProjectStateCore = {
       | SpreadsheetSectionImpl;
   };
   sectionVariants?: {
-    [key: string]: {
-      id: string;
-      implId: string;
-      isFrozen?: boolean;
-      modifier?: RawMessage | null;
-      name?: string;
-      nonPresetImplIds?: null | Array<string>;
-    };
+    [key: string]: SectionVariant;
   };
   sections?: {
-    [key: string]: {
-      defaultVariantId?: string;
-      displayName?: string;
-      id: string;
-      name: string;
-      parentSectionId?: string;
-      sharedModifier?: RawMessage | null;
-      unsharedKeys?: null | Array<string>;
-      variantIds?: null | Array<string>;
-    };
+    [key: string]: Section;
   };
 };
 
@@ -1641,93 +1155,7 @@ type ClipboardProjectStateCore = {
  * ClipboardProjectStateCoreWithSectionVariantMap
  */
 type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: {
-    codeObjImpls?: {
-      [key: string]:
-        | BaseCodeObjImpl
-        | CodeCallableCodeObjImpl
-        | CodeParamCodeObjImpl
-        | TextParamCodeObjImpl
-        | DateParamCodeObjImpl
-        | TimeParamCodeObjImpl
-        | ButtonParamCodeObjImpl
-        | SliderParamCodeObjImpl
-        | RotaryParamCodeObjImpl
-        | SwitchParamCodeObjImpl
-        | ColorPickerParamCodeObjImpl
-        | DropdownParamCodeObjImpl
-        | PasswordParamCodeObjImpl
-        | TextAreaParamCodeObjImpl
-        | DropzoneParamCodeObjImpl
-        | NestedParamCodeObjImpl;
-    };
-    codeObjVariants?: {
-      [key: string]: {
-        id: string;
-        implId: string;
-        isFrozen?: boolean;
-        modifier?: RawMessage | null;
-        name?: string;
-        nonPresetImplIds?: null | Array<string>;
-      };
-    };
-    codeObjs?: {
-      [key: string]: {
-        defaultVariantId?: string;
-        displayName?: string;
-        id: string;
-        name: string;
-        sharedModifier?: RawMessage | null;
-        unsharedKeys?: null | Array<string>;
-        variantIds?: null | Array<string>;
-      };
-    };
-    sectionImpls?: {
-      [key: string]:
-        | BaseSectionImpl
-        | CallableSectionImpl
-        | DictSectionImpl
-        | ListRootSectionImpl
-        | GroupSectionImpl
-        | StateMachineStartSectionImpl
-        | StateMachineGateSectionImpl
-        | StateMachineEndSectionImpl
-        | ChartSectionImpl
-        | TextBlockSectionImpl
-        | PromptSectionImpl
-        | GlobalVariablesSectionImpl
-        | CodeSectionImpl
-        | GenPythonCodeSectionImpl
-        | GenPythonMetadataSectionImpl
-        | TerminalSectionImpl
-        | ChatSectionImpl
-        | BrowserSectionImpl
-        | TaskBoardSectionImpl
-        | SpreadsheetSectionImpl;
-    };
-    sectionVariants?: {
-      [key: string]: {
-        id: string;
-        implId: string;
-        isFrozen?: boolean;
-        modifier?: RawMessage | null;
-        name?: string;
-        nonPresetImplIds?: null | Array<string>;
-      };
-    };
-    sections?: {
-      [key: string]: {
-        defaultVariantId?: string;
-        displayName?: string;
-        id: string;
-        name: string;
-        parentSectionId?: string;
-        sharedModifier?: RawMessage | null;
-        unsharedKeys?: null | Array<string>;
-        variantIds?: null | Array<string>;
-      };
-    };
-  };
+  core: ClipboardProjectStateCore;
   sectionVariantMap?: {
     [key: string]: string;
   };
@@ -1754,7 +1182,7 @@ export type CodeFileAccessMode = "read_write" | "read_only" | "write_only";
  * CodeFileBinding
  */
 export type CodeFileBinding = {
-  access_mode: "read_write" | "read_only" | "write_only";
+  access_mode: CodeFileAccessMode;
   autoBinding: boolean;
   canonical_path: string;
 };
@@ -1805,24 +1233,14 @@ export type CodeObjType =
  * CodeObjTypeValuePolicy
  */
 export type CodeObjTypeValuePolicy = {
-  representation:
-    | "expression"
-    | "json_parsed"
-    | "string"
-    | "file_path"
-    | "file_read";
+  representation: CodeObjValueRepresentationMode;
 };
 
 /**
  * CodeObjValueOverride
  */
 export type CodeObjValueOverride = {
-  representation:
-    | "expression"
-    | "json_parsed"
-    | "string"
-    | "file_path"
-    | "file_read";
+  representation: CodeObjValueRepresentationMode;
 };
 
 /**
@@ -1830,24 +1248,10 @@ export type CodeObjValueOverride = {
  */
 export type CodeObjValuePolicy = {
   codeObjOverrides: {
-    [key: string]: {
-      representation:
-        | "expression"
-        | "json_parsed"
-        | "string"
-        | "file_path"
-        | "file_read";
-    };
+    [key: string]: CodeObjValueOverride;
   };
   typePolicies: {
-    [key: string]: {
-      representation:
-        | "expression"
-        | "json_parsed"
-        | "string"
-        | "file_path"
-        | "file_read";
-    };
+    [key: string]: CodeObjTypeValuePolicy;
   };
 };
 
@@ -1929,16 +1333,9 @@ export type CodeSectionImpl = {
   attachedTerminalSectionId?: null | string;
   children: null | Array<string>;
   code: string;
-  codeFileBinding?: null | {
-    access_mode: "read_write" | "read_only" | "write_only";
-    autoBinding: boolean;
-    canonical_path: string;
-  };
+  codeFileBinding?: CodeFileBinding | null;
   codeLanguage: string;
-  diagnosticsIgnoreState: {
-    muted: boolean;
-    suppressedCodes: null | Array<unknown>;
-  };
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -1998,7 +1395,7 @@ type ConfigLanguage = "python" | "json";
  * Connection
  */
 export type Connection = {
-  connectionType: "frontend" | "listener" | "SERVER" | "terminal";
+  connectionType: ConnectionType;
   currentAddress?: string;
   id: string;
   shareSessionId?: string;
@@ -2120,25 +1517,11 @@ type CreateTopLevelSectionInput = {
   };
   implType: string;
   name?: null | string;
-  position?: null | {
-    x: number;
-    y: number;
-  };
+  position?: Position | null;
   topLevelSections?: {
-    [key: string]: {
-      h?: null | number;
-      w?: null | number;
-      x: number;
-      y: number;
-      zIndex?: number;
-    };
+    [key: string]: TopLevelSectionLayout;
   };
-  viewportBounds?: null | {
-    h: number;
-    w: number;
-    x: number;
-    y: number;
-  };
+  viewportBounds?: ViewportBounds | null;
 };
 
 /**
@@ -2146,10 +1529,7 @@ type CreateTopLevelSectionInput = {
  */
 export type CreateTopLevelSectionResult = {
   metaControlParamId?: null | string;
-  panTo?: null | {
-    x: number;
-    y: number;
-  };
+  panTo?: Position | null;
   sectionId: string;
 };
 
@@ -2159,11 +1539,7 @@ export type CreateTopLevelSectionResult = {
 export type CurrentAddressUpdateMessage = {
   content: string;
   id?: null | string;
-  messageType:
-    | "CurrentAddressUpdate"
-    | "UISettingRevealResult"
-    | "RealtimeUIChange"
-    | "RealtimeDependencyEvent";
+  messageType: MessageType;
 };
 
 /**
@@ -2187,11 +1563,11 @@ export type DateDisplayFormat = "iso" | "us" | "eu" | "long";
 export type DateParamCodeObjImpl = {
   coreNameEditable: boolean;
   coreNameType: string;
-  dateCalendarWeekStart: "sunday" | "monday";
-  dateControlMode: "input" | "calendar";
-  dateDisplayFormat: "iso" | "us" | "eu" | "long";
+  dateCalendarWeekStart: DateCalendarWeekStart;
+  dateControlMode: DateControlMode;
+  dateDisplayFormat: DateDisplayFormat;
   dateIncludesTime: boolean;
-  dateSelectionMode: "single" | "multiple";
+  dateSelectionMode: DateSelectionMode;
   defaultVal: string;
   description: string;
   id: string;
@@ -2235,15 +1611,7 @@ type DeleteKwargResult = {
  * DeleteRequest
  */
 type DeleteRequest = {
-  artifacts: null | Array<{
-    id: string;
-    type:
-      | "Image"
-      | "BrushStroke"
-      | "DrawAreaLayerItemTransform"
-      | "ChartData"
-      | "File";
-  }>;
+  artifacts: null | Array<DeleteRequestItem>;
 };
 
 /**
@@ -2251,12 +1619,7 @@ type DeleteRequest = {
  */
 type DeleteRequestItem = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
+  type: ArtifactType;
 };
 
 /**
@@ -2292,11 +1655,8 @@ type DeleteSelectedParamsResult = {
  * DependencyEvent
  */
 export type DependencyEvent = {
-  dependencyKey: SectionDependencyKey | SectionParamDependencyKey;
-  payload:
-    | LiteralDependencyValue
-    | FileReadDependencyValue
-    | BinaryDependencyValue;
+  dependencyKey: BaseDependencyKeyUnion;
+  payload: BaseDependencyValueUnion | null;
   timestampMs: number;
 };
 
@@ -2324,7 +1684,7 @@ type DetachedRun = {
   runId: string;
   snapshotPath: string;
   startedAtMs: null | number;
-  status: "queued" | "running" | "exited" | "failed" | "canceled" | "lost";
+  status: DetachedStatus;
   tags: {
     [key: string]: string;
   };
@@ -2409,11 +1769,7 @@ export type DrawAreaBrushShape = "butt" | "round" | "square";
  * DrawAreaLayer
  */
 export type DrawAreaLayer = {
-  elements: null | Array<{
-    dataPath: string;
-    transformId: string;
-    type: "Image" | "BrushStroke";
-  }>;
+  elements: null | Array<DrawAreaLayerItem>;
   layerOpacity: number;
   name: string;
   visible: boolean;
@@ -2425,22 +1781,15 @@ export type DrawAreaLayer = {
 export type DrawAreaLayerItem = {
   dataPath: string;
   transformId: string;
-  type: "Image" | "BrushStroke";
+  type: DrawAreaLayerItemType;
 };
 
 /**
  * DrawAreaLayerItemTransform
  */
 export type DrawAreaLayerItemTransform = {
-  eraserStrokes: null | Array<{
-    globalCompositeOperation: string;
-    lineCap: "butt" | "round" | "square";
-    lineWidth: number;
-    points: null | Array<unknown>;
-    strokeStyle: string;
-    transform: [number, number, number, number, number, number];
-  }>;
-  transform: [number, number, number, number, number, number];
+  eraserStrokes: null | Array<BrushStrokeWithTransform>;
+  transform: DrawAreaTransform;
 };
 
 /**
@@ -2448,23 +1797,8 @@ export type DrawAreaLayerItemTransform = {
  */
 export type DrawAreaLayerItemTransformArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
-  value: {
-    eraserStrokes: null | Array<{
-      globalCompositeOperation: string;
-      lineCap: "butt" | "round" | "square";
-      lineWidth: number;
-      points: null | Array<unknown>;
-      strokeStyle: string;
-      transform: [number, number, number, number, number, number];
-    }>;
-    transform: [number, number, number, number, number, number];
-  };
+  type: ArtifactType;
+  value: DrawAreaLayerItemTransform;
 };
 
 /**
@@ -2530,7 +1864,7 @@ export type DropzoneParamCodeObjImpl = {
   id: string;
   isPreset: boolean;
   maxAttachments?: null | number;
-  mode: "STATEFUL" | "STATELESS";
+  mode: DropzoneMode;
   name: string;
   passingStyle: string;
   placeholder: string;
@@ -2587,23 +1921,19 @@ export type EndpointOrigin = "backend" | "launcher" | "backend-origin";
  * EndpointOriginPolicy
  */
 export type EndpointOriginPolicy = {
-  [key: string]: "backend" | "launcher" | "backend-origin";
+  [key: string]: EndpointOrigin;
 };
 
 /**
  * EngineConfig
  */
 export type EngineConfig = {
-  defaults?: {
-    thinking?: null | boolean;
-  };
-  engineType: "setta_llm" | "external_agent";
+  defaults?: EngineConfigDefaults;
+  engineType: EngineType;
   externalAgentConfigId?: null | string;
   id: string;
   name: string;
-  runtimeSupport?: null | {
-    thinking: boolean;
-  };
+  runtimeSupport?: EngineRuntimeSupport | null;
   settaLlmConfigId?: null | string;
 };
 
@@ -2618,65 +1948,15 @@ export type EngineConfigDefaults = {
  * EngineConfigsUpdatedContent
  */
 type EngineConfigsUpdatedContent = {
-  configs: null | Array<{
-    defaults?: {
-      thinking?: null | boolean;
-    };
-    engineType: "setta_llm" | "external_agent";
-    externalAgentConfigId?: null | string;
-    id: string;
-    name: string;
-    runtimeSupport?: null | {
-      thinking: boolean;
-    };
-    settaLlmConfigId?: null | string;
-  }>;
+  configs: null | Array<EngineConfig>;
 };
 
 /**
  * EngineConfigsUpdatedMessage
  */
 type EngineConfigsUpdatedMessage = {
-  content: {
-    configs: null | Array<{
-      defaults?: {
-        thinking?: null | boolean;
-      };
-      engineType: "setta_llm" | "external_agent";
-      externalAgentConfigId?: null | string;
-      id: string;
-      name: string;
-      runtimeSupport?: null | {
-        thinking: boolean;
-      };
-      settaLlmConfigId?: null | string;
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: EngineConfigsUpdatedContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -2727,154 +2007,31 @@ export type ExternalAgentConfig = {
   envVarWhitelist: null | Array<string>;
   id: string;
   name: string;
-  runMode: "mcp" | "server" | "sdk" | "app_server";
+  runMode: RunMode;
   sandboxPolicy?: null | string;
   settingsAllowSettaEdits: boolean;
   settingsFilePath?: null | string;
-  settingsManagedBlock?: null | {
-    claude?: null | {
-      defaultMode?: null | string;
-      mcp?: {
-        [key: string]: unknown;
-      };
-      permissions?: null | {
-        allow: null | Array<string>;
-        ask: null | Array<string>;
-        deny: null | Array<string>;
-      };
-    };
-    codex?: {
-      [key: string]: unknown;
-    };
-  };
-  settingsMode:
-    | "read_only"
-    | "managed_local"
-    | "managed_project"
-    | "explicit_path";
-  settingsSources?: null | Array<"user" | "project" | "local">;
-  toolType: "claude_code" | "codex";
+  settingsManagedBlock?: SettingsManagedBlock | null;
+  settingsMode: SettingsMode;
+  settingsSources?: null | Array<ClaudeSettingsSource>;
+  toolType: ToolType;
   workingDir?: null | string;
-  workingDirStrategy: "project_root" | "temp_dir" | "custom";
+  workingDirStrategy: WorkingDirStrategy;
 };
 
 /**
  * ExternalAgentConfigsUpdatedContent
  */
 type ExternalAgentConfigsUpdatedContent = {
-  configs: null | Array<{
-    approvalPolicy?: null | string;
-    baseUrl?: null | string;
-    codexSkipGitRepoCheck?: null | boolean;
-    commandPath?: null | string;
-    defaultModel?: null | string;
-    description: string;
-    envVarWhitelist: null | Array<string>;
-    id: string;
-    name: string;
-    runMode: "mcp" | "server" | "sdk" | "app_server";
-    sandboxPolicy?: null | string;
-    settingsAllowSettaEdits: boolean;
-    settingsFilePath?: null | string;
-    settingsManagedBlock?: null | {
-      claude?: null | {
-        defaultMode?: null | string;
-        mcp?: {
-          [key: string]: unknown;
-        };
-        permissions?: null | {
-          allow: null | Array<string>;
-          ask: null | Array<string>;
-          deny: null | Array<string>;
-        };
-      };
-      codex?: {
-        [key: string]: unknown;
-      };
-    };
-    settingsMode:
-      | "read_only"
-      | "managed_local"
-      | "managed_project"
-      | "explicit_path";
-    settingsSources?: null | Array<"user" | "project" | "local">;
-    toolType: "claude_code" | "codex";
-    workingDir?: null | string;
-    workingDirStrategy: "project_root" | "temp_dir" | "custom";
-  }>;
+  configs: null | Array<ExternalAgentConfig>;
 };
 
 /**
  * ExternalAgentConfigsUpdatedMessage
  */
 type ExternalAgentConfigsUpdatedMessage = {
-  content: {
-    configs: null | Array<{
-      approvalPolicy?: null | string;
-      baseUrl?: null | string;
-      codexSkipGitRepoCheck?: null | boolean;
-      commandPath?: null | string;
-      defaultModel?: null | string;
-      description: string;
-      envVarWhitelist: null | Array<string>;
-      id: string;
-      name: string;
-      runMode: "mcp" | "server" | "sdk" | "app_server";
-      sandboxPolicy?: null | string;
-      settingsAllowSettaEdits: boolean;
-      settingsFilePath?: null | string;
-      settingsManagedBlock?: null | {
-        claude?: null | {
-          defaultMode?: null | string;
-          mcp?: {
-            [key: string]: unknown;
-          };
-          permissions?: null | {
-            allow: null | Array<string>;
-            ask: null | Array<string>;
-            deny: null | Array<string>;
-          };
-        };
-        codex?: {
-          [key: string]: unknown;
-        };
-      };
-      settingsMode:
-        | "read_only"
-        | "managed_local"
-        | "managed_project"
-        | "explicit_path";
-      settingsSources?: null | Array<"user" | "project" | "local">;
-      toolType: "claude_code" | "codex";
-      workingDir?: null | string;
-      workingDirStrategy: "project_root" | "temp_dir" | "custom";
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: ExternalAgentConfigsUpdatedContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -2886,16 +2043,13 @@ type ExternalAgentStatus = {
   cliVersion?: null | string;
   commandPath?: null | string;
   configId: string;
-  envVars: {
-    missing: null | Array<string>;
-    present: null | Array<string>;
-  };
+  envVars: EnvVarStatus;
   issues: null | Array<string>;
   name: string;
-  runMode: "mcp" | "server" | "sdk" | "app_server";
+  runMode: RunMode;
   sdkVersion?: null | string;
   supported: boolean;
-  toolType: "claude_code" | "codex";
+  toolType: ToolType;
   workingDir?: null | string;
 };
 
@@ -2904,18 +2058,8 @@ type ExternalAgentStatus = {
  */
 export type FileArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
-  value: {
-    byteLength: number;
-    contentId: string;
-    mimeType?: string;
-    sha256?: string;
-  };
+  type: ArtifactType;
+  value: ContentRef;
 };
 
 /**
@@ -2932,7 +2076,7 @@ type FileBrowserTransportRoutes = {
  */
 type FileReadDependencyValue = {
   payload: string;
-  type: "Literal" | "Binary" | "FileRead";
+  type: DependencyValueType;
 };
 
 /**
@@ -2949,16 +2093,9 @@ export type GenPythonCodeSectionImpl = {
   attachedTerminalSectionId?: null | string;
   children: null | Array<string>;
   code: string;
-  codeFileBinding?: null | {
-    access_mode: "read_write" | "read_only" | "write_only";
-    autoBinding: boolean;
-    canonical_path: string;
-  };
+  codeFileBinding?: CodeFileBinding | null;
   codeLanguage: string;
-  diagnosticsIgnoreState: {
-    muted: boolean;
-    suppressedCodes: null | Array<unknown>;
-  };
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -2990,16 +2127,9 @@ export type GenPythonMetadataSectionImpl = {
   attachedTerminalSectionId?: null | string;
   children: null | Array<string>;
   code: string;
-  codeFileBinding?: null | {
-    access_mode: "read_write" | "read_only" | "write_only";
-    autoBinding: boolean;
-    canonical_path: string;
-  };
+  codeFileBinding?: CodeFileBinding | null;
   codeLanguage: string;
-  diagnosticsIgnoreState: {
-    muted: boolean;
-    suppressedCodes: null | Array<unknown>;
-  };
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -3026,7 +2156,7 @@ export type GenPythonMetadataSectionImpl = {
  * GeneratedSectionImpl
  */
 type GeneratedSectionImpl = {
-  kind: "python_code" | "python_metadata" | "plugin";
+  kind: GeneratedSectionKind;
 };
 
 /**
@@ -3108,32 +2238,7 @@ export type GroupSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   children: null | Array<string>;
-  defaultChildSectionType:
-    | "Callable"
-    | "Dict"
-    | "ListRoot"
-    | "Group"
-    | "StateMachineStart"
-    | "StateMachineGate"
-    | "StateMachineEnd"
-    | "Image"
-    | "Chart"
-    | "Draw"
-    | "TextBlock"
-    | "Prompt"
-    | "MetaControl"
-    | "Social"
-    | "GlobalVariables"
-    | "Code"
-    | "GenPythonCode"
-    | "GenPythonMetadata"
-    | "Terminal"
-    | "IFrame"
-    | "Chat"
-    | "Browser"
-    | "Plugin"
-    | "TaskBoard"
-    | "Spreadsheet";
+  defaultChildSectionType: SectionType;
   id: string;
   isFrozen: boolean;
   isHorizontalOrientation: boolean;
@@ -3188,34 +2293,8 @@ type IdentityContent = {
  * IdentityMessage
  */
 type IdentityMessage = {
-  content: {
-    frontendAffinityToken: string;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: IdentityContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -3223,18 +2302,8 @@ type IdentityMessage = {
  */
 export type ImageArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
-  value: {
-    byteLength: number;
-    contentId: string;
-    mimeType?: string;
-    sha256?: string;
-  };
+  type: ArtifactType;
+  value: ContentRef;
 };
 
 /**
@@ -3242,7 +2311,7 @@ export type ImageArtifact = {
  */
 type ImportFilesRequest = {
   paths: null | Array<string>;
-  uploadScope: "chat" | "generic";
+  uploadScope: UploadScope;
 };
 
 /**
@@ -3269,12 +2338,7 @@ type IndentParamsInput = {
  */
 export type JSONArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
+  type: ArtifactType;
   value: RawMessage | null;
 };
 
@@ -3282,40 +2346,8 @@ export type JSONArtifact = {
  * LLMAPIKeysUpdatedMessage
  */
 type LLMAPIKeysUpdatedMessage = {
-  content: {
-    apiKeys: {
-      [key: string]: string;
-    };
-    corrupt: boolean;
-    errorCode: null | string;
-    message: null | string;
-    revision: number;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: ManagedAPIKeysSnapshot;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -3338,67 +2370,8 @@ export type LLMConfig = {
  * LLMConfigUpdatedMessage
  */
 type LLMConfigUpdatedMessage = {
-  content: {
-    codexMcpImportedAt?: string;
-    configs: {
-      [key: string]: {
-        api_key_env?: string;
-        base_url?: string;
-        id: string;
-        mcpServerIds?: null | Array<string>;
-        model: string;
-        other_params?: {
-          [key: string]: unknown;
-        };
-        provider?: string;
-        temporary?: boolean;
-      };
-    };
-    defaultMcpServerIds: null | Array<string>;
-    default_config_id?: string;
-    mcpServers: {
-      [key: string]: {
-        args?: null | Array<string>;
-        command?: string;
-        cwd?: string;
-        encoding?: string;
-        encoding_error_handler?: string;
-        env?: {
-          [key: string]: string;
-        };
-        http_headers?: {
-          [key: string]: string;
-        };
-        transport: "sse" | "streamable_http" | "stdio";
-        url?: string;
-      };
-    };
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: AllConfigs;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -3427,38 +2400,9 @@ export type LLMStreamingResponseContent = {
  * LLMStreamingResponseMessage
  */
 type LLMStreamingResponseMessage = {
-  content: {
-    chatId: string;
-    chunk: LLMStreamingResponseChunk;
-    projectConfigId: null | string;
-    sectionId: null | string;
-  };
+  content: LLMStreamingResponseContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -3466,16 +2410,7 @@ type LLMStreamingResponseMessage = {
  */
 export type LSPDiagnostic = {
   message: string;
-  range: {
-    end: {
-      character: number;
-      line: number;
-    };
-    start: {
-      character: number;
-      line: number;
-    };
-  };
+  range: LSPDiagnosticRange;
   severity: null | number;
   source: null | string;
   uri: null | string;
@@ -3493,94 +2428,16 @@ type LSPDiagnosticPosition = {
  * LSPDiagnosticRange
  */
 type LSPDiagnosticRange = {
-  end: {
-    character: number;
-    line: number;
-  };
-  start: {
-    character: number;
-    line: number;
-  };
+  end: LSPDiagnosticPosition;
+  start: LSPDiagnosticPosition;
 };
 
 /**
  * LSPDiagnosticsMessage
  */
 type LSPDiagnosticsMessage = {
-  content: {
-    codeSections: {
-      [key: string]: null | Array<{
-        message: string;
-        range: {
-          end: {
-            character: number;
-            line: number;
-          };
-          start: {
-            character: number;
-            line: number;
-          };
-        };
-        severity: null | number;
-        source: null | string;
-        uri: null | string;
-      }>;
-    };
-    genCode: {
-      errors: {
-        [key: string]: {
-          callable: null | Array<string>;
-          params: {
-            [key: string]: null | Array<string>;
-          };
-        };
-      };
-      isGenCode: boolean;
-      projectConfigId: string;
-    };
-    projectConfigId: string;
-    unmappedGenCode: null | Array<{
-      message: string;
-      range: {
-        end: {
-          character: number;
-          line: number;
-        };
-        start: {
-          character: number;
-          line: number;
-        };
-      };
-      severity: null | number;
-      source: null | string;
-      uri: null | string;
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: LSPDiagnosticsPayload;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -3588,52 +2445,11 @@ type LSPDiagnosticsMessage = {
  */
 export type LSPDiagnosticsPayload = {
   codeSections: {
-    [key: string]: null | Array<{
-      message: string;
-      range: {
-        end: {
-          character: number;
-          line: number;
-        };
-        start: {
-          character: number;
-          line: number;
-        };
-      };
-      severity: null | number;
-      source: null | string;
-      uri: null | string;
-    }>;
+    [key: string]: null | Array<LSPDiagnostic>;
   };
-  genCode: {
-    errors: {
-      [key: string]: {
-        callable: null | Array<string>;
-        params: {
-          [key: string]: null | Array<string>;
-        };
-      };
-    };
-    isGenCode: boolean;
-    projectConfigId: string;
-  };
+  genCode: ProjectConfigDiagnostics;
   projectConfigId: string;
-  unmappedGenCode: null | Array<{
-    message: string;
-    range: {
-      end: {
-        character: number;
-        line: number;
-      };
-      start: {
-        character: number;
-        line: number;
-      };
-    };
-    severity: null | number;
-    source: null | string;
-    uri: null | string;
-  }>;
+  unmappedGenCode: null | Array<LSPDiagnostic>;
 };
 
 /**
@@ -3651,7 +2467,7 @@ type LauncherManagementTransportRoutes = {
  */
 export type LineChartSettings = {
   secondYAxisColumns: null | Array<string>;
-  type: "line" | "scatter";
+  type: ChartType;
   xAxisColumn?: null | string;
   xAxisLog: boolean;
   y1AxisLog: boolean;
@@ -3665,32 +2481,7 @@ export type ListRootSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   children: null | Array<string>;
-  defaultChildSectionType:
-    | "Callable"
-    | "Dict"
-    | "ListRoot"
-    | "Group"
-    | "StateMachineStart"
-    | "StateMachineGate"
-    | "StateMachineEnd"
-    | "Image"
-    | "Chart"
-    | "Draw"
-    | "TextBlock"
-    | "Prompt"
-    | "MetaControl"
-    | "Social"
-    | "GlobalVariables"
-    | "Code"
-    | "GenPythonCode"
-    | "GenPythonMetadata"
-    | "Terminal"
-    | "IFrame"
-    | "Chat"
-    | "Browser"
-    | "Plugin"
-    | "TaskBoard"
-    | "Spreadsheet";
+  defaultChildSectionType: SectionType;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -3711,7 +2502,7 @@ export type ListRootSectionImpl = {
   styleColor: null | string;
   tagColor: null | string;
   type: string;
-  viewMode: "default" | "task_list" | "kanban";
+  viewMode: ListRootViewMode;
 };
 
 /**
@@ -3733,7 +2524,7 @@ type ListenerConfig = {
 type ListenerCoverageDependency = {
   codeObjId?: string;
   sectionId: string;
-  type: "Section" | "SectionParam";
+  type: DependencyKeyType;
 };
 
 /**
@@ -3749,57 +2540,15 @@ export type ListenerCoverageSnapshot = {
  * ListenerCoverageSnapshotMessage
  */
 type ListenerCoverageSnapshotMessage = {
-  content: {
-    dependencies: null | Array<BaseDependencyKeyUnion>;
-    hasRealtimeWildcard: boolean;
-    projectConfigId: string;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: ListenerCoverageSnapshot;
+  messageType: WebsocketMessageType;
 };
 
 /**
  * ListenerDependencyCatalog
  */
 type ListenerDependencyCatalog = {
-  entries: null | Array<{
-    codeObjType?: string;
-    controlCodeObjId?: string;
-    controlCodeObjType?: string;
-    controlValueRepresentation?: string;
-    dependencies?: null | Array<string>;
-    dependencyKey: string;
-    fullPathName: string;
-    includeInCodegen: boolean;
-    name: string;
-    passingStyle?: string;
-    sectionRepresentation?: string;
-    sectionType?: string;
-    valueRepresentation?: string;
-  }>;
+  entries: null | Array<ListenerDependencyCatalogEntry>;
 };
 
 /**
@@ -3834,11 +2583,7 @@ type ListenerDependencyEvent = {
  * ListenerDependencyEventContent
  */
 type ListenerDependencyEventContent = {
-  dependencyEvents: null | Array<{
-    dependencyKey: string;
-    payload?: RawMessage | null;
-    timestampMs: number;
-  }>;
+  dependencyEvents: null | Array<ListenerDependencyEvent>;
   projectConfigId: string;
   sequence: number;
   shareSessionId?: string;
@@ -3857,27 +2602,8 @@ type ListenerDependencyEventEntry = {
  * ListenerDependencyEventMessage
  */
 type ListenerDependencyEventMessage = {
-  content: {
-    dependencyEvents: null | Array<{
-      dependencyKey: string;
-      payload?: RawMessage | null;
-      timestampMs: number;
-    }>;
-    projectConfigId: string;
-    sequence: number;
-    shareSessionId?: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerDependencyEventContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -3909,23 +2635,8 @@ type ListenerErrorEvent = {
  * ListenerErrorMessage
  */
 type ListenerErrorMessage = {
-  content: {
-    details?: {
-      [key: string]: unknown;
-    };
-    error: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerErrorContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -3935,33 +2646,7 @@ type ListenerForceRefreshContent = {
   callId?: string;
   refreshKind?: string;
   sequence?: null | number;
-  snapshot: {
-    dependencyCatalog: {
-      entries: null | Array<{
-        codeObjType?: null | string;
-        controlCodeObjId?: null | string;
-        controlCodeObjType?: null | string;
-        controlValueRepresentation?: null | string;
-        dependencies: null | Array<string>;
-        dependencyKey: string;
-        fullPathName: string;
-        includeInCodegen: boolean;
-        name: string;
-        passingStyle?: null | string;
-        sectionRepresentation?: null | string;
-        sectionType?: null | string;
-        valueRepresentation?: null | string;
-      }>;
-    };
-    dependencyValues: {
-      entries: null | Array<{
-        dependencyKey: string;
-        renderedValue: string;
-      }>;
-    };
-    projectConfigId: string;
-    shareSessionId?: null | string;
-  };
+  snapshot: ListenerSnapshot;
 };
 
 /**
@@ -3971,98 +2656,22 @@ type ListenerForceRefreshEvent = {
   callId?: null | string;
   refreshKind?: null | string;
   sequence?: null | number;
-  snapshot: {
-    dependencyCatalog: {
-      entries: null | Array<{
-        codeObjType?: null | string;
-        controlCodeObjId?: null | string;
-        controlCodeObjType?: null | string;
-        controlValueRepresentation?: null | string;
-        dependencies: null | Array<string>;
-        dependencyKey: string;
-        fullPathName: string;
-        includeInCodegen: boolean;
-        name: string;
-        passingStyle?: null | string;
-        sectionRepresentation?: null | string;
-        sectionType?: null | string;
-        valueRepresentation?: null | string;
-      }>;
-    };
-    dependencyValues: {
-      entries: null | Array<{
-        dependencyKey: string;
-        renderedValue: string;
-      }>;
-    };
-    projectConfigId: string;
-    shareSessionId?: null | string;
-  };
+  snapshot: ListenerSnapshot;
 };
 
 /**
  * ListenerForceRefreshMessage
  */
 type ListenerForceRefreshMessage = {
-  content: {
-    callId?: string;
-    refreshKind?: string;
-    sequence?: null | number;
-    snapshot: {
-      dependencyCatalog: {
-        entries: null | Array<{
-          codeObjType?: null | string;
-          controlCodeObjId?: null | string;
-          controlCodeObjType?: null | string;
-          controlValueRepresentation?: null | string;
-          dependencies: null | Array<string>;
-          dependencyKey: string;
-          fullPathName: string;
-          includeInCodegen: boolean;
-          name: string;
-          passingStyle?: null | string;
-          sectionRepresentation?: null | string;
-          sectionType?: null | string;
-          valueRepresentation?: null | string;
-        }>;
-      };
-      dependencyValues: {
-        entries: null | Array<{
-          dependencyKey: string;
-          renderedValue: string;
-        }>;
-      };
-      projectConfigId: string;
-      shareSessionId?: null | string;
-    };
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerForceRefreshContent;
+  messageType: ListenerMessageType;
 };
 
 /**
  * ListenerFrontendEmitContent
  */
 type ListenerFrontendEmitContent = {
-  artifactUpdates?: null | Array<{
-    id: string;
-    type:
-      | "Image"
-      | "BrushStroke"
-      | "DrawAreaLayerItemTransform"
-      | "ChartData"
-      | "File";
-    value: RawMessage | null;
-  }>;
+  artifactUpdates?: null | Array<RawArtifact>;
   dependencyValues?: {
     [key: string]: RawMessage | null;
   };
@@ -4073,33 +2682,8 @@ type ListenerFrontendEmitContent = {
  * ListenerFrontendEmitMessage
  */
 type ListenerFrontendEmitMessage = {
-  content: {
-    artifactUpdates?: null | Array<{
-      id: string;
-      type:
-        | "Image"
-        | "BrushStroke"
-        | "DrawAreaLayerItemTransform"
-        | "ChartData"
-        | "File";
-      value: RawMessage | null;
-    }>;
-    dependencyValues?: {
-      [key: string]: RawMessage | null;
-    };
-    projectConfigId: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerFrontendEmitContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4126,22 +2710,8 @@ type ListenerInitContent = {
  * ListenerInitMessage
  */
 type ListenerInitMessage = {
-  content: {
-    projectConfigId?: string;
-    projectName?: string;
-    useTemporaryIds?: boolean;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerInitContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4180,16 +2750,8 @@ type ListenerRealtimeDelta = {
  * ListenerRealtimeEvent
  */
 type ListenerRealtimeEvent = {
-  deltas: null | Array<{
-    dependency: string;
-    value: RawMessage | null;
-  }>;
-  dependencyValues?: null | {
-    entries: null | Array<{
-      dependencyKey: string;
-      renderedValue: string;
-    }>;
-  };
+  deltas: null | Array<ListenerRealtimeDelta>;
+  dependencyValues?: ListenerRenderedDependencyValues | null;
   projectConfigId: string;
   sequence: number;
   shareSessionId?: null | string;
@@ -4199,16 +2761,8 @@ type ListenerRealtimeEvent = {
  * ListenerRealtimeEventContent
  */
 type ListenerRealtimeEventContent = {
-  deltas: null | Array<{
-    dependency: string;
-    value: RawMessage | null;
-  }>;
-  dependencyValues?: null | {
-    entries: null | Array<{
-      dependencyKey: string;
-      renderedValue: string;
-    }>;
-  };
+  deltas: null | Array<ListenerRealtimeDelta>;
+  dependencyValues?: ListenerRenderedDependencyValues | null;
   projectConfigId: string;
   sequence: number;
   shareSessionId?: string;
@@ -4218,32 +2772,8 @@ type ListenerRealtimeEventContent = {
  * ListenerRealtimeEventMessage
  */
 type ListenerRealtimeEventMessage = {
-  content: {
-    deltas: null | Array<{
-      dependency: string;
-      value: RawMessage | null;
-    }>;
-    dependencyValues?: null | {
-      entries: null | Array<{
-        dependencyKey: string;
-        renderedValue: string;
-      }>;
-    };
-    projectConfigId: string;
-    sequence: number;
-    shareSessionId?: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerRealtimeEventContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4251,10 +2781,7 @@ type ListenerRealtimeEventMessage = {
  */
 type ListenerRegisterAckContent = {
   callbacks: {
-    [key: string]: {
-      message?: string;
-      status: string;
-    };
+    [key: string]: ListenerRegisterAckStatus;
   };
   projectConfigId: string;
   shareSessionId?: string;
@@ -4265,10 +2792,7 @@ type ListenerRegisterAckContent = {
  */
 type ListenerRegisterAckEvent = {
   callbacks: {
-    [key: string]: {
-      message?: null | string;
-      status: string;
-    };
+    [key: string]: ListenerRegisterAckStatus;
   };
   projectConfigId: string;
   shareSessionId?: null | string;
@@ -4278,27 +2802,8 @@ type ListenerRegisterAckEvent = {
  * ListenerRegisterAckMessage
  */
 type ListenerRegisterAckMessage = {
-  content: {
-    callbacks: {
-      [key: string]: {
-        message?: string;
-        status: string;
-      };
-    };
-    projectConfigId: string;
-    shareSessionId?: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerRegisterAckContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4314,7 +2819,7 @@ type ListenerRegisterAckStatus = {
  */
 type ListenerRegisterCallbackSpec = {
   dependencies: null | Array<string>;
-  dependencyMode: "always" | "realtime_only" | "refresh_only";
+  dependencyMode: ListenerDependencyMode;
 };
 
 /**
@@ -4322,10 +2827,7 @@ type ListenerRegisterCallbackSpec = {
  */
 type ListenerRegisterContent = {
   callbacks: {
-    [key: string]: {
-      dependencies: null | Array<string>;
-      dependencyMode: "always" | "realtime_only" | "refresh_only";
-    };
+    [key: string]: ListenerRegisterCallbackSpec;
   };
   projectConfigId?: string;
 };
@@ -4334,26 +2836,8 @@ type ListenerRegisterContent = {
  * ListenerRegisterMessage
  */
 type ListenerRegisterMessage = {
-  content: {
-    callbacks: {
-      [key: string]: {
-        dependencies: null | Array<string>;
-        dependencyMode: "always" | "realtime_only" | "refresh_only";
-      };
-    };
-    projectConfigId?: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerRegisterContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4361,13 +2845,7 @@ type ListenerRegisterMessage = {
  */
 type ListenerRegisterRequest = {
   callbacks: {
-    [key: string]: {
-      debounceMs?: null | number;
-      dependencies: null | Array<string>;
-      dependencyMode: string;
-      runOnRefresh: boolean;
-      throttleMs?: null | number;
-    };
+    [key: string]: ListenerRegisterCallbackSpec;
   };
   projectConfigId: string;
 };
@@ -4384,10 +2862,7 @@ type ListenerRenderedDependencyValue = {
  * ListenerRenderedDependencyValues
  */
 type ListenerRenderedDependencyValues = {
-  entries: null | Array<{
-    dependencyKey: string;
-    renderedValue: string;
-  }>;
+  entries: null | Array<ListenerRenderedDependencyValue>;
 };
 
 /**
@@ -4418,25 +2893,8 @@ type ListenerRouterEndpointCallContent = {
  * ListenerRouterEndpointCallMessage
  */
 type ListenerRouterEndpointCallMessage = {
-  content: {
-    callId: string;
-    endpointName: string;
-    payload: {
-      [key: string]: unknown;
-    };
-    projectConfigId: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerRouterEndpointCallContent;
+  messageType: ListenerMessageType;
 };
 
 /**
@@ -4469,55 +2927,16 @@ type ListenerRouterEndpointResultContent = {
  * ListenerRouterEndpointResultMessage
  */
 type ListenerRouterEndpointResultMessage = {
-  content: {
-    callId: string;
-    details?: {
-      [key: string]: unknown;
-    };
-    error?: string;
-    ok: boolean;
-    projectConfigId: string;
-  };
-  messageType:
-    | "ListenerInit"
-    | "ListenerRegister"
-    | "ListenerRegisterAck"
-    | "ListenerFrontendEmit"
-    | "ListenerRouterEndpointCall"
-    | "ListenerRouterEndpointResult"
-    | "ListenerRealtimeEvent"
-    | "ListenerDependencyEvent"
-    | "ListenerForceRefresh"
-    | "ListenerError";
+  content: ListenerRouterEndpointResultContent;
+  messageType: ListenerMessageType;
 };
 
 /**
  * ListenerSnapshot
  */
 type ListenerSnapshot = {
-  dependencyCatalog: {
-    entries: null | Array<{
-      codeObjType?: null | string;
-      controlCodeObjId?: null | string;
-      controlCodeObjType?: null | string;
-      controlValueRepresentation?: null | string;
-      dependencies: null | Array<string>;
-      dependencyKey: string;
-      fullPathName: string;
-      includeInCodegen: boolean;
-      name: string;
-      passingStyle?: null | string;
-      sectionRepresentation?: null | string;
-      sectionType?: null | string;
-      valueRepresentation?: null | string;
-    }>;
-  };
-  dependencyValues: {
-    entries: null | Array<{
-      dependencyKey: string;
-      renderedValue: string;
-    }>;
-  };
+  dependencyCatalog: ListenerDependencyCatalog;
+  dependencyValues: ListenerRenderedDependencyValues;
   projectConfigId: string;
   shareSessionId?: null | string;
 };
@@ -4527,7 +2946,7 @@ type ListenerSnapshot = {
  */
 export type LiteralDependencyValue = {
   payload: string;
-  type: "Literal" | "Binary" | "FileRead";
+  type: DependencyValueType;
 };
 
 /**
@@ -4561,46 +2980,16 @@ type LocalCoreListenerRealtimeDelta = {
  * LocalCoreRenderRealtimeDependencyValuesRequest
  */
 type LocalCoreRenderRealtimeDependencyValuesRequest = {
-  currentDependencyValues: {
-    entries: null | Array<{
-      dependencyKey: string;
-      renderedValue: string;
-    }>;
-  };
-  deltas: null | Array<{
-    binaryPayloadBase64?: null | string;
-    dependency: string;
-    value: RawMessage | null;
-  }>;
-  dependencyCatalog: {
-    entries: null | Array<{
-      codeObjType?: null | string;
-      controlCodeObjId?: null | string;
-      controlCodeObjType?: null | string;
-      controlValueRepresentation?: null | string;
-      dependencies: null | Array<string>;
-      dependencyKey: string;
-      fullPathName: string;
-      includeInCodegen: boolean;
-      name: string;
-      passingStyle?: null | string;
-      sectionRepresentation?: null | string;
-      sectionType?: null | string;
-      valueRepresentation?: null | string;
-    }>;
-  };
+  currentDependencyValues: ListenerRenderedDependencyValues;
+  deltas: null | Array<LocalCoreListenerRealtimeDelta>;
+  dependencyCatalog: ListenerDependencyCatalog;
 };
 
 /**
  * LocalCoreRenderRealtimeDependencyValuesResult
  */
 type LocalCoreRenderRealtimeDependencyValuesResult = {
-  dependencyValues: {
-    entries: null | Array<{
-      dependencyKey: string;
-      renderedValue: string;
-    }>;
-  };
+  dependencyValues: ListenerRenderedDependencyValues;
 };
 
 /**
@@ -4661,12 +3050,9 @@ type Manifest = {
   createdAt?: string;
   defaultProjectConfigId: string;
   deploymentName: string;
-  deploymentType: "share" | "app";
+  deploymentType: Type;
   deploymentVersion: string;
-  listener?: null | {
-    enabled: boolean;
-    entrypoint: string;
-  };
+  listener?: ListenerConfig | null;
   version: number;
 };
 
@@ -4689,14 +3075,7 @@ type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
 export type MessageDeltaEvent = {
   content: null | Array<MessageContentDelta>;
   message_id: string;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -4704,14 +3083,7 @@ export type MessageDeltaEvent = {
  */
 export type MessageFinalizedEvent = {
   message: BaseChatMessageUnion;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -4726,10 +3098,7 @@ type MessageImageURL = {
  * MessageImageURLContent
  */
 export type MessageImageURLContent = {
-  image_url: {
-    detail?: null | string;
-    url: string;
-  };
+  image_url: MessageImageURL;
   type: string;
 };
 
@@ -4738,14 +3107,7 @@ export type MessageImageURLContent = {
  */
 export type MessageStartEvent = {
   message: BaseChatMessageUnion;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -4753,14 +3115,7 @@ export type MessageStartEvent = {
  */
 type MessageStopEvent = {
   message_id: string;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -4819,96 +3174,21 @@ type MetaControlSizeMode = "any" | "auto_only" | "manual_only";
  * MetaControlSizingPolicyByType
  */
 export type MetaControlSizingPolicyByType = {
-  ButtonParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  CodeCallable: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  CodeParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  ColorPickerParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  DateParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  DropdownParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  DropzoneParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  NestedParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  PasswordParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  RotaryParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  SliderParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  SwitchParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  TextAreaParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  TextParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
-  TimeParam: {
-    minHeight: number;
-    minWidth: number;
-    sizeModeHeight: "any" | "auto_only" | "manual_only";
-    sizeModeWidth: "any" | "auto_only" | "manual_only";
-  };
+  ButtonParam: MetaControlSizingPolicyTypeEntry;
+  CodeCallable: MetaControlSizingPolicyTypeEntry;
+  CodeParam: MetaControlSizingPolicyTypeEntry;
+  ColorPickerParam: MetaControlSizingPolicyTypeEntry;
+  DateParam: MetaControlSizingPolicyTypeEntry;
+  DropdownParam: MetaControlSizingPolicyTypeEntry;
+  DropzoneParam: MetaControlSizingPolicyTypeEntry;
+  NestedParam: MetaControlSizingPolicyTypeEntry;
+  PasswordParam: MetaControlSizingPolicyTypeEntry;
+  RotaryParam: MetaControlSizingPolicyTypeEntry;
+  SliderParam: MetaControlSizingPolicyTypeEntry;
+  SwitchParam: MetaControlSizingPolicyTypeEntry;
+  TextAreaParam: MetaControlSizingPolicyTypeEntry;
+  TextParam: MetaControlSizingPolicyTypeEntry;
+  TimeParam: MetaControlSizingPolicyTypeEntry;
 };
 
 /**
@@ -4917,8 +3197,8 @@ export type MetaControlSizingPolicyByType = {
 export type MetaControlSizingPolicyTypeEntry = {
   minHeight: number;
   minWidth: number;
-  sizeModeHeight: "any" | "auto_only" | "manual_only";
-  sizeModeWidth: "any" | "auto_only" | "manual_only";
+  sizeModeHeight: MetaControlSizeMode;
+  sizeModeWidth: MetaControlSizeMode;
 };
 
 /**
@@ -4930,7 +3210,7 @@ type Metadata = {
   defaultProjectConfigName: string;
   deploymentName: string;
   deploymentRoot: string;
-  deploymentType: "share" | "app";
+  deploymentType: Type;
   deploymentVersion: string;
   policyPath: string;
 };
@@ -4958,11 +3238,7 @@ type MoveParamGroupInput = {
  * MoveParamGroupsInput
  */
 type MoveParamGroupsInput = {
-  moves: null | Array<{
-    newIndex: number;
-    newParentId: string;
-    paramIds: null | Array<string>;
-  }>;
+  moves: null | Array<MoveParamGroupInput>;
   sectionId: string;
 };
 
@@ -4983,10 +3259,7 @@ type MoveSectionsInput = {
   newIndex?: null | number;
   newParentId?: null | string;
   positionsById?: {
-    [key: string]: {
-      x: number;
-      y: number;
-    };
+    [key: string]: Position;
   };
   sectionIds: null | Array<string>;
 };
@@ -5021,41 +3294,8 @@ type NameValidationErrors = {
  * NameValidationErrorsMessage
  */
 type NameValidationErrorsMessage = {
-  content: {
-    paramErrors: {
-      [key: string]: null | Array<string>;
-    };
-    projectConfigId: string;
-    projectErrors: null | Array<string>;
-    sectionErrors: {
-      [key: string]: null | Array<string>;
-    };
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: NameValidationErrors;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -5097,51 +3337,16 @@ type NotificationContent = {
   read_status: boolean;
   temporary: boolean;
   timestamp: string;
-  type: "error" | "warning" | "info" | "save";
+  type: NotificationType;
 };
 
 /**
  * NotificationMessage
  */
 type NotificationMessage = {
-  content: {
-    id: string;
-    message: string;
-    metadata: {
-      [key: string]: unknown;
-    };
-    projectConfigId: string;
-    read_status: boolean;
-    temporary: boolean;
-    timestamp: string;
-    type: "error" | "warning" | "info" | "save";
-  };
+  content: NotificationContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -5164,13 +3369,8 @@ type PanOnScrollMode = "free" | "vertical" | "horizontal";
  */
 type ParamCodeObjFields = {
   coreNameEditable: boolean;
-  coreNameType: "CODE" | "TEXT";
-  passingStyle:
-    | "DEFAULT"
-    | "ARGS"
-    | "KWARGS"
-    | "POSITIONAL_ONLY"
-    | "KEYWORD_ONLY";
+  coreNameType: ParamNameType;
+  passingStyle: ParameterPassingStyle;
   typeAnnotation: string;
 };
 
@@ -5212,102 +3412,8 @@ export type PasswordParamCodeObjImpl = {
  */
 type PasteSectionsInput = {
   asRef: boolean;
-  data: {
-    core: {
-      codeObjImpls?: {
-        [key: string]:
-          | BaseCodeObjImpl
-          | CodeCallableCodeObjImpl
-          | CodeParamCodeObjImpl
-          | TextParamCodeObjImpl
-          | DateParamCodeObjImpl
-          | TimeParamCodeObjImpl
-          | ButtonParamCodeObjImpl
-          | SliderParamCodeObjImpl
-          | RotaryParamCodeObjImpl
-          | SwitchParamCodeObjImpl
-          | ColorPickerParamCodeObjImpl
-          | DropdownParamCodeObjImpl
-          | PasswordParamCodeObjImpl
-          | TextAreaParamCodeObjImpl
-          | DropzoneParamCodeObjImpl
-          | NestedParamCodeObjImpl;
-      };
-      codeObjVariants?: {
-        [key: string]: {
-          id: string;
-          implId: string;
-          isFrozen?: boolean;
-          modifier?: RawMessage | null;
-          name?: string;
-          nonPresetImplIds?: null | Array<string>;
-        };
-      };
-      codeObjs?: {
-        [key: string]: {
-          defaultVariantId?: string;
-          displayName?: string;
-          id: string;
-          name: string;
-          sharedModifier?: RawMessage | null;
-          unsharedKeys?: null | Array<string>;
-          variantIds?: null | Array<string>;
-        };
-      };
-      sectionImpls?: {
-        [key: string]:
-          | BaseSectionImpl
-          | CallableSectionImpl
-          | DictSectionImpl
-          | ListRootSectionImpl
-          | GroupSectionImpl
-          | StateMachineStartSectionImpl
-          | StateMachineGateSectionImpl
-          | StateMachineEndSectionImpl
-          | ChartSectionImpl
-          | TextBlockSectionImpl
-          | PromptSectionImpl
-          | GlobalVariablesSectionImpl
-          | CodeSectionImpl
-          | GenPythonCodeSectionImpl
-          | GenPythonMetadataSectionImpl
-          | TerminalSectionImpl
-          | ChatSectionImpl
-          | BrowserSectionImpl
-          | TaskBoardSectionImpl
-          | SpreadsheetSectionImpl;
-      };
-      sectionVariants?: {
-        [key: string]: {
-          id: string;
-          implId: string;
-          isFrozen?: boolean;
-          modifier?: RawMessage | null;
-          name?: string;
-          nonPresetImplIds?: null | Array<string>;
-        };
-      };
-      sections?: {
-        [key: string]: {
-          defaultVariantId?: string;
-          displayName?: string;
-          id: string;
-          name: string;
-          parentSectionId?: string;
-          sharedModifier?: RawMessage | null;
-          unsharedKeys?: null | Array<string>;
-          variantIds?: null | Array<string>;
-        };
-      };
-    };
-    sectionVariantMap?: {
-      [key: string]: string;
-    };
-  };
-  position: {
-    x: number;
-    y: number;
-  };
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  position: Position;
 };
 
 /**
@@ -5322,7 +3428,7 @@ type PluginBackendManifest = {
  */
 export type PluginBlockedCapability = {
   capability: string;
-  reason: "mode_policy" | "host_policy" | "manifest_invalid";
+  reason: PluginBlockedCapabilityReason;
 };
 
 /**
@@ -5363,9 +3469,7 @@ type PluginConfigWriteResponse = {
     [key: string]: unknown;
   };
   pluginId: string;
-  validation: {
-    ok: boolean;
-  };
+  validation: PluginConfigValidationResult;
 };
 
 /**
@@ -5392,7 +3496,7 @@ type PluginContentManifest = {
 type PluginEnableDisableResponse = {
   pluginId: string;
   restartRequired: boolean;
-  state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
+  state: PluginRuntimeState;
 };
 
 /**
@@ -5443,15 +3547,10 @@ type PluginInstallHistoryEntry = {
  */
 type PluginInstallMetadataEntry = {
   canonicalSourceKey: string;
-  history: null | Array<{
-    snapshotPath: string;
-    sourceDigestSha256: null | string;
-    timestampIso: string;
-    version: string;
-  }>;
-  installerBackend: "auto" | "pip" | "uv";
+  history: null | Array<PluginInstallHistoryEntry>;
+  installerBackend: PluginInstallerBackend | null;
   pluginId: string;
-  scope: "workspace" | "setta_files" | "global";
+  scope: PluginScope;
   sourceDigestSha256: null | string;
   sourceSpec: string;
   version: string;
@@ -5462,21 +3561,7 @@ type PluginInstallMetadataEntry = {
  */
 type PluginInstallMetadataFile = {
   entries: {
-    [key: string]: {
-      canonicalSourceKey: string;
-      history: null | Array<{
-        snapshotPath: string;
-        sourceDigestSha256: null | string;
-        timestampIso: string;
-        version: string;
-      }>;
-      installerBackend: "auto" | "pip" | "uv";
-      pluginId: string;
-      scope: "workspace" | "setta_files" | "global";
-      sourceDigestSha256: null | string;
-      sourceSpec: string;
-      version: string;
-    };
+    [key: string]: PluginInstallMetadataEntry;
   };
 };
 
@@ -5491,10 +3576,10 @@ export type PluginInstallResponse = {
   restartRequired: boolean;
   sourceDigestSha256: null | string;
   sourcePath: string;
-  sourceScope: "workspace" | "setta_files" | "global";
+  sourceScope: PluginScope;
   sourceScopeLabel: string;
-  state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
-  trustStatus: "unverified";
+  state: PluginRuntimeState;
+  trustStatus: PluginSourceTrustStatus;
   trustWarning: string;
   version: string;
 };
@@ -5510,39 +3595,18 @@ type PluginInstallerBackend = "auto" | "pip" | "uv";
 export type PluginListEntry = {
   canonicalSourceKey: string;
   components: null | Array<string>;
-  config: {
-    currentConfig: {
-      [key: string]: unknown;
-    };
-    currentConfigDigestSha256: null | string;
-    hasSchema: boolean;
-    schemaJson: {
-      [key: string]: unknown;
-    };
-    schemaJsonDigestSha256: null | string;
-  };
-  content: {
-    hasBlueprints: boolean;
-    hasProjectTemplates: boolean;
-    hasPrompts: boolean;
-  };
+  config: PluginConfigDescriptor;
+  content: PluginContentDescriptor;
   effectiveCapabilities: null | Array<string>;
-  enablementSource:
-    | "workspace_disabled"
-    | "workspace_enabled"
-    | "global_auto_enabled"
-    | "manifest_default";
-  frontend: {
-    entrypointUrl: null | string;
-    styleUrl: null | string;
-  };
+  enablementSource: PluginEnablementSource | null;
+  frontend: PluginFrontendDescriptor;
   name: string;
   pluginId: string;
   restartRequired: boolean;
   sourceDigestSha256: null | string;
-  sourceManager: "setta" | "package_manager";
+  sourceManager: PluginSourceManager;
   sourceManagerHint: null | string;
-  sourceScope: "workspace" | "setta_files" | "global";
+  sourceScope: PluginScope;
   sourceScopeLabel: string;
   version: string;
 };
@@ -5551,52 +3615,10 @@ export type PluginListEntry = {
  * PluginListResponse
  */
 export type PluginListResponse = {
-  plugins: null | Array<{
-    canonicalSourceKey: string;
-    components: null | Array<string>;
-    config: {
-      currentConfig: {
-        [key: string]: unknown;
-      };
-      currentConfigDigestSha256: null | string;
-      hasSchema: boolean;
-      schemaJson: {
-        [key: string]: unknown;
-      };
-      schemaJsonDigestSha256: null | string;
-    };
-    content: {
-      hasBlueprints: boolean;
-      hasProjectTemplates: boolean;
-      hasPrompts: boolean;
-    };
-    effectiveCapabilities: null | Array<string>;
-    enablementSource:
-      | "workspace_disabled"
-      | "workspace_enabled"
-      | "global_auto_enabled"
-      | "manifest_default";
-    frontend: {
-      entrypointUrl: null | string;
-      styleUrl: null | string;
-    };
-    name: string;
-    pluginId: string;
-    restartRequired: boolean;
-    sourceDigestSha256: null | string;
-    sourceManager: "setta" | "package_manager";
-    sourceManagerHint: null | string;
-    sourceScope: "workspace" | "setta_files" | "global";
-    sourceScopeLabel: string;
-    version: string;
-  }>;
-  restartCapability: {
-    command: null | string;
-    mode: "manual" | "programmatic";
-    reason: null | string;
-  };
+  plugins: null | Array<PluginListEntry>;
+  restartCapability: PluginRestartCapability;
   schemaVersion: number;
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: Mode;
 };
 
 /**
@@ -5613,9 +3635,9 @@ type PluginLockApplyResponse = {
  */
 type PluginLockEntry = {
   canonicalSourceKey: string;
-  installerBackend: "auto" | "pip" | "uv";
+  installerBackend: PluginInstallerBackend | null;
   pluginId: string;
-  scope: "workspace" | "setta_files" | "global";
+  scope: PluginScope;
   sourceDigestSha256: null | string;
   sourceSpec: null | string;
   version: string;
@@ -5633,21 +3655,12 @@ type PluginLockWriteResponse = {
  * PluginManifest
  */
 type PluginManifest = {
-  backend?: null | {
-    entrypoint: string;
-  };
+  backend?: PluginBackendManifest | null;
   capabilities: null | Array<string>;
   configSchemaPath?: string;
-  content?: null | {
-    blueprintsDir?: string;
-    projectTemplatesDir?: string;
-    promptsDir?: string;
-  };
+  content?: PluginContentManifest | null;
   enabledByDefault: boolean;
-  frontend?: null | {
-    entrypoint: string;
-    style?: string;
-  };
+  frontend?: PluginFrontendManifest | null;
   id: string;
   name: string;
   schemaVersion: number;
@@ -5725,7 +3738,7 @@ type PluginRegisteredUISetting = {
  */
 export type PluginRestartCapability = {
   command: null | string;
-  mode: "manual" | "programmatic";
+  mode: PluginRestartCapabilityMode;
   reason: null | string;
 };
 
@@ -5740,7 +3753,7 @@ type PluginRestartCapabilityMode = "manual" | "programmatic";
 export type PluginRestartResponse = {
   accepted: boolean;
   command: null | string;
-  mode: "manual" | "programmatic";
+  mode: PluginRestartCapabilityMode;
   reason: null | string;
 };
 
@@ -5758,114 +3771,9 @@ type PluginRollbackResponse = {
  * PluginRuntimeResponse
  */
 export type PluginRuntimeResponse = {
-  list: {
-    plugins: null | Array<{
-      canonicalSourceKey: string;
-      components: null | Array<string>;
-      config: {
-        currentConfig: {
-          [key: string]: unknown;
-        };
-        currentConfigDigestSha256: null | string;
-        hasSchema: boolean;
-        schemaJson: {
-          [key: string]: unknown;
-        };
-        schemaJsonDigestSha256: null | string;
-      };
-      content: {
-        hasBlueprints: boolean;
-        hasProjectTemplates: boolean;
-        hasPrompts: boolean;
-      };
-      effectiveCapabilities: null | Array<string>;
-      enablementSource:
-        | "workspace_disabled"
-        | "workspace_enabled"
-        | "global_auto_enabled"
-        | "manifest_default";
-      frontend: {
-        entrypointUrl: null | string;
-        styleUrl: null | string;
-      };
-      name: string;
-      pluginId: string;
-      restartRequired: boolean;
-      sourceDigestSha256: null | string;
-      sourceManager: "setta" | "package_manager";
-      sourceManagerHint: null | string;
-      sourceScope: "workspace" | "setta_files" | "global";
-      sourceScopeLabel: string;
-      version: string;
-    }>;
-    restartCapability: {
-      command: null | string;
-      mode: "manual" | "programmatic";
-      reason: null | string;
-    };
-    schemaVersion: number;
-    serverMode: "ide" | "share" | "app" | "launcher";
-  };
+  list: PluginListResponse;
   schemaVersion: number;
-  status: {
-    plugins: null | Array<{
-      blockedCapabilities: null | Array<{
-        capability: string;
-        reason: "mode_policy" | "host_policy" | "manifest_invalid";
-      }>;
-      canonicalSourceKey: string;
-      components: null | Array<string>;
-      effectiveCapabilities: null | Array<string>;
-      enablementSource:
-        | "workspace_disabled"
-        | "workspace_enabled"
-        | "global_auto_enabled"
-        | "manifest_default";
-      errors: null | Array<{
-        code: string;
-        message: string;
-      }>;
-      name: string;
-      pluginId: string;
-      registeredBackendRoutes: null | Array<{
-        methods: null | Array<string>;
-        path: string;
-      }>;
-      registeredCodegenTargets: null | Array<{
-        defaultFileName: string;
-        language: string;
-        name: string;
-        pluginId: string;
-        targetId: string;
-      }>;
-      registeredListenerEndpoints: null | Array<{
-        name: string;
-      }>;
-      registeredStaticDirs: null | Array<{
-        dir: string;
-        routePrefix: string;
-      }>;
-      requestedCapabilities: null | Array<string>;
-      restartRequired: boolean;
-      runtimePayloadDigestSha256: string;
-      shadowedBySourcePath: null | string;
-      sourceDigestSha256: null | string;
-      sourceManager: "setta" | "package_manager";
-      sourceManagerHint: null | string;
-      sourcePath: string;
-      sourceScope: "workspace" | "setta_files" | "global";
-      sourceScopeLabel: string;
-      state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
-      version: string;
-    }>;
-    restartCapability: {
-      command: null | string;
-      mode: "manual" | "programmatic";
-      reason: null | string;
-    };
-    schemaVersion: number;
-    serverMode: "ide" | "share" | "app" | "launcher";
-  };
+  status: PluginStatusResponse;
 };
 
 /**
@@ -5902,53 +3810,29 @@ type PluginSourceTrustStatus = "unverified";
  * PluginStatusEntry
  */
 export type PluginStatusEntry = {
-  blockedCapabilities: null | Array<{
-    capability: string;
-    reason: "mode_policy" | "host_policy" | "manifest_invalid";
-  }>;
+  blockedCapabilities: null | Array<PluginBlockedCapability>;
   canonicalSourceKey: string;
   components: null | Array<string>;
   effectiveCapabilities: null | Array<string>;
-  enablementSource:
-    | "workspace_disabled"
-    | "workspace_enabled"
-    | "global_auto_enabled"
-    | "manifest_default";
-  errors: null | Array<{
-    code: string;
-    message: string;
-  }>;
+  enablementSource: PluginEnablementSource | null;
+  errors: null | Array<PluginErrorInfo>;
   name: string;
   pluginId: string;
-  registeredBackendRoutes: null | Array<{
-    methods: null | Array<string>;
-    path: string;
-  }>;
-  registeredCodegenTargets: null | Array<{
-    defaultFileName: string;
-    language: string;
-    name: string;
-    pluginId: string;
-    targetId: string;
-  }>;
-  registeredListenerEndpoints: null | Array<{
-    name: string;
-  }>;
-  registeredStaticDirs: null | Array<{
-    dir: string;
-    routePrefix: string;
-  }>;
+  registeredBackendRoutes: null | Array<PluginRegisteredBackendRoute>;
+  registeredCodegenTargets: null | Array<PluginRegisteredCodegenTarget>;
+  registeredListenerEndpoints: null | Array<PluginRegisteredListenerEndpoint>;
+  registeredStaticDirs: null | Array<PluginRegisteredStaticDir>;
   requestedCapabilities: null | Array<string>;
   restartRequired: boolean;
   runtimePayloadDigestSha256: string;
   shadowedBySourcePath: null | string;
   sourceDigestSha256: null | string;
-  sourceManager: "setta" | "package_manager";
+  sourceManager: PluginSourceManager;
   sourceManagerHint: null | string;
   sourcePath: string;
-  sourceScope: "workspace" | "setta_files" | "global";
+  sourceScope: PluginScope;
   sourceScopeLabel: string;
-  state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
+  state: PluginRuntimeState;
   version: string;
 };
 
@@ -5956,63 +3840,10 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
-  plugins: null | Array<{
-    blockedCapabilities: null | Array<{
-      capability: string;
-      reason: "mode_policy" | "host_policy" | "manifest_invalid";
-    }>;
-    canonicalSourceKey: string;
-    components: null | Array<string>;
-    effectiveCapabilities: null | Array<string>;
-    enablementSource:
-      | "workspace_disabled"
-      | "workspace_enabled"
-      | "global_auto_enabled"
-      | "manifest_default";
-    errors: null | Array<{
-      code: string;
-      message: string;
-    }>;
-    name: string;
-    pluginId: string;
-    registeredBackendRoutes: null | Array<{
-      methods: null | Array<string>;
-      path: string;
-    }>;
-    registeredCodegenTargets: null | Array<{
-      defaultFileName: string;
-      language: string;
-      name: string;
-      pluginId: string;
-      targetId: string;
-    }>;
-    registeredListenerEndpoints: null | Array<{
-      name: string;
-    }>;
-    registeredStaticDirs: null | Array<{
-      dir: string;
-      routePrefix: string;
-    }>;
-    requestedCapabilities: null | Array<string>;
-    restartRequired: boolean;
-    runtimePayloadDigestSha256: string;
-    shadowedBySourcePath: null | string;
-    sourceDigestSha256: null | string;
-    sourceManager: "setta" | "package_manager";
-    sourceManagerHint: null | string;
-    sourcePath: string;
-    sourceScope: "workspace" | "setta_files" | "global";
-    sourceScopeLabel: string;
-    state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
-    version: string;
-  }>;
-  restartCapability: {
-    command: null | string;
-    mode: "manual" | "programmatic";
-    reason: null | string;
-  };
+  plugins: null | Array<PluginStatusEntry>;
+  restartCapability: PluginRestartCapability;
   schemaVersion: number;
-  serverMode: "ide" | "share" | "app" | "launcher";
+  serverMode: Mode;
 };
 
 /**
@@ -6020,7 +3851,7 @@ export type PluginStatusResponse = {
  */
 type PluginUninstallResponse = {
   pluginId: string;
-  removedFromScope: "workspace" | "setta_files" | "global";
+  removedFromScope: PluginScope;
   restartRequired: boolean;
 };
 
@@ -6046,15 +3877,7 @@ type PluginsGlobalStateFile = {
  * PluginsLockFile
  */
 type PluginsLockFile = {
-  plugins: null | Array<{
-    canonicalSourceKey: string;
-    installerBackend: "auto" | "pip" | "uv";
-    pluginId: string;
-    scope: "workspace" | "setta_files" | "global";
-    sourceDigestSha256: null | string;
-    sourceSpec: null | string;
-    version: string;
-  }>;
+  plugins: null | Array<PluginLockEntry>;
   schemaVersion: number;
 };
 
@@ -6082,7 +3905,7 @@ export type Policy = {
   allowParamChanges: boolean;
   allowRun: boolean;
   allowVariantChanges: boolean;
-  runSnapshotMode: "ephemeral" | "always" | "never";
+  runSnapshotMode: RunSnapshotMode;
 };
 
 /**
@@ -6097,29 +3920,17 @@ export type Position = {
  * ProjectChatWindowInstance
  */
 export type ProjectChatWindowInstance = {
-  bounds?: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
+  bounds?: ChatWindowBounds;
   chatId?: null | string;
-  dockMetrics?: {
-    preferredWidthPx?: null | number;
-    widthFraction?: null | number;
-  };
+  dockMetrics?: ChatWindowDockMetrics;
   instanceId: string;
   isClosed?: boolean;
   isMaximized?: boolean;
   isMinimized?: boolean;
   lastFocusedAt?: number;
-  lastPlacementBeforeMaximize?:
-    | "bottom_docked"
-    | "floating"
-    | "maximized"
-    | "canvas_section";
-  mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-  placement?: "bottom_docked" | "floating" | "maximized" | "canvas_section";
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  placement?: ChatWindowPlacement;
   sectionIdOrNull?: null | string;
   title?: null | string;
   zIndex?: number;
@@ -6130,34 +3941,7 @@ export type ProjectChatWindowInstance = {
  */
 export type ProjectChatWindowingState = {
   instancesById: {
-    [key: string]: {
-      bounds?: {
-        height: number;
-        width: number;
-        x: number;
-        y: number;
-      };
-      chatId?: null | string;
-      dockMetrics?: {
-        preferredWidthPx?: null | number;
-        widthFraction?: null | number;
-      };
-      instanceId: string;
-      isClosed?: boolean;
-      isMaximized?: boolean;
-      isMinimized?: boolean;
-      lastFocusedAt?: number;
-      lastPlacementBeforeMaximize?:
-        | "bottom_docked"
-        | "floating"
-        | "maximized"
-        | "canvas_section";
-      mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-      placement?: "bottom_docked" | "floating" | "maximized" | "canvas_section";
-      sectionIdOrNull?: null | string;
-      title?: null | string;
-      zIndex?: number;
-    };
+    [key: string]: ProjectChatWindowInstance;
   };
   nextInstanceNumber: number;
   order: null | Array<string>;
@@ -6182,91 +3966,12 @@ export type ProjectCodegenPluginTarget = {
  * ProjectCodegenPythonTarget
  */
 export type ProjectCodegenPythonTarget = {
-  codeObjValuePolicy: {
-    codeObjOverrides: {
-      [key: string]: {
-        representation:
-          | "expression"
-          | "json_parsed"
-          | "string"
-          | "file_path"
-          | "file_read";
-      };
-    };
-    typePolicies: {
-      [key: string]: {
-        representation:
-          | "expression"
-          | "json_parsed"
-          | "string"
-          | "file_path"
-          | "file_read";
-      };
-    };
-  };
+  codeObjValuePolicy: CodeObjValuePolicy;
   genCodePrefix: string;
   genCodeSuffix: string;
   generateMetadata: boolean;
-  language: "python";
-  sectionPolicy: {
-    allowlist: null | Array<
-      | "Callable"
-      | "Dict"
-      | "ListRoot"
-      | "Group"
-      | "StateMachineStart"
-      | "StateMachineGate"
-      | "StateMachineEnd"
-      | "Image"
-      | "Chart"
-      | "Draw"
-      | "TextBlock"
-      | "Prompt"
-      | "MetaControl"
-      | "Social"
-      | "GlobalVariables"
-      | "Code"
-      | "GenPythonCode"
-      | "GenPythonMetadata"
-      | "Terminal"
-      | "IFrame"
-      | "Chat"
-      | "Browser"
-      | "Plugin"
-      | "TaskBoard"
-      | "Spreadsheet"
-    >;
-    exclude: null | Array<string>;
-    metaControlAllowlist: null | Array<
-      | "CodeCallable"
-      | "CodeParam"
-      | "TextParam"
-      | "DateParam"
-      | "TimeParam"
-      | "ButtonParam"
-      | "SliderParam"
-      | "RotaryParam"
-      | "SwitchParam"
-      | "ColorPickerParam"
-      | "DropdownParam"
-      | "PasswordParam"
-      | "TextAreaParam"
-      | "DropzoneParam"
-      | "NestedParam"
-    >;
-    sectionOverrides: {
-      [key: string]: {
-        mode: "inherit" | "include" | "exclude";
-        representation: "expression" | "file_path" | "file_read";
-      };
-    };
-    typePolicies: {
-      [key: string]: {
-        mode: "inherit" | "include" | "exclude";
-        representation: "expression" | "file_path" | "file_read";
-      };
-    };
-  };
+  language: ProjectCodegenLanguage;
+  sectionPolicy: SectionCodegenPolicy;
 };
 
 /**
@@ -6282,49 +3987,17 @@ export type ProjectCodegenTarget =
 export type ProjectConfig = {
   activeIds: null | Array<string>;
   activeViewModeId: null | string;
-  agenticEdges: null | Array<{
-    contextMode?: "reference_only" | "inline_text" | "summary";
-    hidden?: boolean;
-    id: string;
-    kind: "chat_chat" | "section_chat" | "chat_section";
-    selected?: boolean;
-    sourceSectionId: string;
-    style?: RawMessage | null;
-    targetSectionId: string;
-    zIndex?: number;
-  }>;
+  agenticEdges: null | Array<AgenticEdge>;
   allowJsonSourceKeyEdits: boolean;
-  codegenTargets: null | Array<
-    ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-  >;
-  edges: null | Array<{
-    animated?: boolean;
-    data?: RawMessage | null;
-    hidden?: boolean;
-    id: string;
-    label?: null | string;
-    selected?: boolean;
-    sourcePortId: string;
-    sourceSectionId: string;
-    sourceVariantId: string;
-    style?: RawMessage | null;
-    targetPortId: string;
-    targetSectionId: string;
-    targetVariantId: string;
-    type?: string;
-    zIndex?: number;
-  }>;
+  codegenTargets: null | Array<ProjectCodegenTarget | null>;
+  edges: null | Array<Edge>;
   entryCodeBlockId: null | string;
   hasPythonCodegenTarget: boolean;
   id: string;
   isEditingViewMode: boolean;
   name: string;
   previewImgColor?: string;
-  runCapabilities: {
-    canRunFromMain: boolean;
-    effectiveEntrySectionId: null | string;
-    mainRunDisabledReason: null | string;
-  };
+  runCapabilities: ProjectRunCapabilities;
   sectionIdsByPathSlug: {
     [key: string]: null | Array<string>;
   };
@@ -6335,104 +4008,23 @@ export type ProjectConfig = {
     [key: string]: string;
   };
   showParamDisplayNames: boolean;
-  stateMachineEdges: null | Array<{
-    hidden?: boolean;
-    id: string;
-    machineGroupId: string;
-    selected?: boolean;
-    sourceActivationCountCondition?: null | {
-      operator: "lt" | "lte" | "eq" | "gte" | "gt";
-      value: number;
-    };
-    sourceFilter?: null | {
-      equals?: null | string;
-      payloadField?: null | string;
-      signalName?: null | string;
-      type: "run_completed" | "run_failed" | "signal";
-    };
-    sourcePortId: string;
-    sourceSectionId: string;
-    style?: RawMessage | null;
-    targetAction?: null | {
-      agentProfileId?: null | string;
-      engineConfigId?: null | string;
-      inlinePrompt?: null | string;
-      permissionMode?: null | string;
-      promptInputs?: {
-        [key: string]: string;
-      };
-      promptSectionId?: null | string;
-      promptTemplateId?: null | string;
-      searchEnabled?: null | boolean;
-      stopIfRunning?: boolean;
-      threadStrategy: "continue_current_thread" | "new_thread_before_send";
-      type: "send_prompt" | "reset_thread";
-    };
-    targetPortId: string;
-    targetSectionId: string;
-    zIndex?: number;
-  }>;
+  stateMachineEdges: null | Array<StateMachineEdge>;
   topLevelSections: {
-    [key: string]: {
-      h?: null | number;
-      w?: null | number;
-      x: number;
-      y: number;
-      zIndex?: number;
-    };
+    [key: string]: TopLevelSectionLayout;
   };
   viewModes: {
-    [key: string]: {
-      id: string;
-      isTab?: boolean;
-      isUserFacing?: boolean;
-      name: string;
-      sortIndex: number;
-      topLevelSections?: {
-        [key: string]: {
-          h?: null | number;
-          w?: null | number;
-          x: number;
-          y: number;
-          zIndex?: number;
-        };
-      };
-      viewport?: null | {
-        x: number;
-        y: number;
-        zoom: number;
-      };
-      viewportInitialized?: boolean;
-      visibilityBySectionId?: {
-        [key: string]: boolean;
-      };
-    };
+    [key: string]: ViewMode;
   };
-  viewport: null | {
-    x: number;
-    y: number;
-    zoom: number;
-  };
+  viewport: Viewport | null;
   viewportInitialized: boolean;
   watchCodeBaselineByPath: {
     [key: string]: null | Array<string>;
   };
   watchCodeEnabled: boolean;
   watchCodeFiles: null | Array<string>;
-  watchCodeFolders: null | Array<{
-    path: string;
-    recursive: boolean;
-  }>;
+  watchCodeFolders: null | Array<WatchCodeFolder>;
   watchCodeRegistry: {
-    [key: string]: {
-      bodyHash: string;
-      callableName: string;
-      kind: "function" | "async_function" | "class_init";
-      sectionIds?: null | Array<string>;
-      sectionsCount?: number;
-      signatureHash: string;
-      sourcePath: string;
-    };
+    [key: string]: WatchCodeRegistryEntry;
   };
   windowSpaceIdsBySlug: {
     [key: string]: null | Array<string>;
@@ -6441,29 +4033,7 @@ export type ProjectConfig = {
     [key: string]: string;
   };
   windowSpaces: {
-    [key: string]: {
-      id?: string;
-      name?: string;
-      order: null | Array<string>;
-      sortIndex?: number;
-      windowsById: {
-        [key: string]: {
-          chatId?: null | string;
-          embeddedGitPaneVisible?: boolean;
-          mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-          normalizedBounds?: {
-            height: number;
-            width: number;
-            x: number;
-            y: number;
-          };
-          sectionIdOrNull?: null | string;
-          surfaceKind?: "project_chat" | "section";
-          title?: null | string;
-          zIndex?: number;
-        };
-      };
-    };
+    [key: string]: WindowSpaceConfig;
   };
 };
 
@@ -6472,12 +4042,7 @@ export type ProjectConfig = {
  */
 export type ProjectConfigDiagnostics = {
   errors: {
-    [key: string]: {
-      callable: null | Array<string>;
-      params: {
-        [key: string]: null | Array<string>;
-      };
-    };
+    [key: string]: SectionTypeErrors;
   };
   isGenCode: boolean;
   projectConfigId: string;
@@ -6508,13 +4073,7 @@ type ProjectStateItem = {
   coreName: string;
   parentSectionId?: null | string;
   sectionId: string;
-  topLevelLayout?: null | {
-    h?: null | number;
-    w?: null | number;
-    x: number;
-    y: number;
-    zIndex?: number;
-  };
+  topLevelLayout?: TopLevelSectionLayout | null;
   variantId: string;
   variantName: string;
 };
@@ -6523,222 +4082,14 @@ type ProjectStateItem = {
  * ProjectStateSummary
  */
 type ProjectStateSummary = {
-  genCodeBinding?: null | {
-    access_mode: "read_write" | "read_only" | "write_only";
-    autoBinding: boolean;
-    canonical_path: string;
-  };
+  genCodeBinding?: CodeFileBinding | null;
   parentSectionMap: {
     [key: string]: null | string;
   };
-  projectConfig: {
-    activeIds: null | Array<string>;
-    activeViewModeId: null | string;
-    agenticEdges: null | Array<{
-      contextMode?: "reference_only" | "inline_text" | "summary";
-      hidden?: boolean;
-      id: string;
-      kind: "chat_chat" | "section_chat" | "chat_section";
-      selected?: boolean;
-      sourceSectionId: string;
-      style?: RawMessage | null;
-      targetSectionId: string;
-      zIndex?: number;
-    }>;
-    allowJsonSourceKeyEdits: boolean;
-    codegenTargets: null | Array<
-      ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-    >;
-    edges: null | Array<{
-      animated?: boolean;
-      data?: RawMessage | null;
-      hidden?: boolean;
-      id: string;
-      label?: null | string;
-      selected?: boolean;
-      sourcePortId: string;
-      sourceSectionId: string;
-      sourceVariantId: string;
-      style?: RawMessage | null;
-      targetPortId: string;
-      targetSectionId: string;
-      targetVariantId: string;
-      type?: string;
-      zIndex?: number;
-    }>;
-    entryCodeBlockId: null | string;
-    hasPythonCodegenTarget: boolean;
-    id: string;
-    isEditingViewMode: boolean;
-    name: string;
-    previewImgColor?: string;
-    runCapabilities: {
-      canRunFromMain: boolean;
-      effectiveEntrySectionId: null | string;
-      mainRunDisabledReason: null | string;
-    };
-    sectionIdsByPathSlug: {
-      [key: string]: null | Array<string>;
-    };
-    sectionPathSlugsById: {
-      [key: string]: string;
-    };
-    sectionVariantMap: {
-      [key: string]: string;
-    };
-    showParamDisplayNames: boolean;
-    stateMachineEdges: null | Array<{
-      hidden?: boolean;
-      id: string;
-      machineGroupId: string;
-      selected?: boolean;
-      sourceActivationCountCondition?: null | {
-        operator: "lt" | "lte" | "eq" | "gte" | "gt";
-        value: number;
-      };
-      sourceFilter?: null | {
-        equals?: null | string;
-        payloadField?: null | string;
-        signalName?: null | string;
-        type: "run_completed" | "run_failed" | "signal";
-      };
-      sourcePortId: string;
-      sourceSectionId: string;
-      style?: RawMessage | null;
-      targetAction?: null | {
-        agentProfileId?: null | string;
-        engineConfigId?: null | string;
-        inlinePrompt?: null | string;
-        permissionMode?: null | string;
-        promptInputs?: {
-          [key: string]: string;
-        };
-        promptSectionId?: null | string;
-        promptTemplateId?: null | string;
-        searchEnabled?: null | boolean;
-        stopIfRunning?: boolean;
-        threadStrategy: "continue_current_thread" | "new_thread_before_send";
-        type: "send_prompt" | "reset_thread";
-      };
-      targetPortId: string;
-      targetSectionId: string;
-      zIndex?: number;
-    }>;
-    topLevelSections: {
-      [key: string]: {
-        h?: null | number;
-        w?: null | number;
-        x: number;
-        y: number;
-        zIndex?: number;
-      };
-    };
-    viewModes: {
-      [key: string]: {
-        id: string;
-        isTab?: boolean;
-        isUserFacing?: boolean;
-        name: string;
-        sortIndex: number;
-        topLevelSections?: {
-          [key: string]: {
-            h?: null | number;
-            w?: null | number;
-            x: number;
-            y: number;
-            zIndex?: number;
-          };
-        };
-        viewport?: null | {
-          x: number;
-          y: number;
-          zoom: number;
-        };
-        viewportInitialized?: boolean;
-        visibilityBySectionId?: {
-          [key: string]: boolean;
-        };
-      };
-    };
-    viewport: null | {
-      x: number;
-      y: number;
-      zoom: number;
-    };
-    viewportInitialized: boolean;
-    watchCodeBaselineByPath: {
-      [key: string]: null | Array<string>;
-    };
-    watchCodeEnabled: boolean;
-    watchCodeFiles: null | Array<string>;
-    watchCodeFolders: null | Array<{
-      path: string;
-      recursive: boolean;
-    }>;
-    watchCodeRegistry: {
-      [key: string]: {
-        bodyHash: string;
-        callableName: string;
-        kind: "function" | "async_function" | "class_init";
-        sectionIds?: null | Array<string>;
-        sectionsCount?: number;
-        signatureHash: string;
-        sourcePath: string;
-      };
-    };
-    windowSpaceIdsBySlug: {
-      [key: string]: null | Array<string>;
-    };
-    windowSpaceSlugsById: {
-      [key: string]: string;
-    };
-    windowSpaces: {
-      [key: string]: {
-        id?: string;
-        name?: string;
-        order: null | Array<string>;
-        sortIndex?: number;
-        windowsById: {
-          [key: string]: {
-            chatId?: null | string;
-            embeddedGitPaneVisible?: boolean;
-            mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-            normalizedBounds?: {
-              height: number;
-              width: number;
-              x: number;
-              y: number;
-            };
-            sectionIdOrNull?: null | string;
-            surfaceKind?: "project_chat" | "section";
-            title?: null | string;
-            zIndex?: number;
-          };
-        };
-      };
-    };
-  };
+  projectConfig: ProjectConfig;
   requiredDecodedImages: null | Array<string>;
-  sections: null | Array<{
-    childSectionIds: null | Array<string>;
-    coreName: string;
-    parentSectionId?: null | string;
-    sectionId: string;
-    topLevelLayout?: null | {
-      h?: null | number;
-      w?: null | number;
-      x: number;
-      y: number;
-      zIndex?: number;
-    };
-    variantId: string;
-    variantName: string;
-  }>;
-  singletonSections: {
-    GenPythonCode: null | string;
-    GenPythonMetadata: null | string;
-    GlobalVariables: null | string;
-  };
+  sections: null | Array<ProjectStateItem>;
+  singletonSections: SingletonSections;
 };
 
 /**
@@ -6747,750 +4098,16 @@ type ProjectStateSummary = {
 type ProjectStateUpdateContent = {
   completedOpIds: null | Array<string>;
   pendingOpIds: null | Array<string>;
-  projectState: {
-    artifactGroups?: {
-      [key: string]: unknown;
-    };
-    codeObjImpls: {
-      [key: string]:
-        | BaseCodeObjImpl
-        | CodeCallableCodeObjImpl
-        | CodeParamCodeObjImpl
-        | TextParamCodeObjImpl
-        | DateParamCodeObjImpl
-        | TimeParamCodeObjImpl
-        | ButtonParamCodeObjImpl
-        | SliderParamCodeObjImpl
-        | RotaryParamCodeObjImpl
-        | SwitchParamCodeObjImpl
-        | ColorPickerParamCodeObjImpl
-        | DropdownParamCodeObjImpl
-        | PasswordParamCodeObjImpl
-        | TextAreaParamCodeObjImpl
-        | DropzoneParamCodeObjImpl
-        | NestedParamCodeObjImpl;
-    };
-    codeObjVariants: {
-      [key: string]: {
-        id: string;
-        impl: string;
-        isFrozen: boolean;
-        modifier: RawMessage | null;
-        name: string;
-        nonPresetImpls: null | Array<string>;
-      };
-    };
-    codeObjs: {
-      [key: string]: {
-        defaultVariant: null | string;
-        displayName: string;
-        id: string;
-        name: string;
-        sharedModifier: RawMessage | null;
-        unsharedKeys: null | Array<string>;
-        variants: null | Array<string>;
-      };
-    };
-    genCodeBinding: null | {
-      access_mode: "read_write" | "read_only" | "write_only";
-      autoBinding: boolean;
-      canonical_path: string;
-    };
-    parentSectionMap: {
-      [key: string]: null | string;
-    };
-    projectChatWindowing: {
-      instancesById: {
-        [key: string]: {
-          bounds?: {
-            height: number;
-            width: number;
-            x: number;
-            y: number;
-          };
-          chatId?: null | string;
-          dockMetrics?: {
-            preferredWidthPx?: null | number;
-            widthFraction?: null | number;
-          };
-          instanceId: string;
-          isClosed?: boolean;
-          isMaximized?: boolean;
-          isMinimized?: boolean;
-          lastFocusedAt?: number;
-          lastPlacementBeforeMaximize?:
-            | "bottom_docked"
-            | "floating"
-            | "maximized"
-            | "canvas_section";
-          mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-          placement?:
-            | "bottom_docked"
-            | "floating"
-            | "maximized"
-            | "canvas_section";
-          sectionIdOrNull?: null | string;
-          title?: null | string;
-          zIndex?: number;
-        };
-      };
-      nextInstanceNumber: number;
-      order: null | Array<string>;
-    };
-    projectConfig: {
-      activeIds: null | Array<string>;
-      activeViewModeId: null | string;
-      agenticEdges: null | Array<{
-        contextMode?: "reference_only" | "inline_text" | "summary";
-        hidden?: boolean;
-        id: string;
-        kind: "chat_chat" | "section_chat" | "chat_section";
-        selected?: boolean;
-        sourceSectionId: string;
-        style?: RawMessage | null;
-        targetSectionId: string;
-        zIndex?: number;
-      }>;
-      allowJsonSourceKeyEdits: boolean;
-      codegenTargets: null | Array<
-        ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-      >;
-      edges: null | Array<{
-        animated?: boolean;
-        data?: RawMessage | null;
-        hidden?: boolean;
-        id: string;
-        label?: null | string;
-        selected?: boolean;
-        sourcePortId: string;
-        sourceSectionId: string;
-        sourceVariantId: string;
-        style?: RawMessage | null;
-        targetPortId: string;
-        targetSectionId: string;
-        targetVariantId: string;
-        type?: string;
-        zIndex?: number;
-      }>;
-      entryCodeBlockId: null | string;
-      hasPythonCodegenTarget: boolean;
-      id: string;
-      isEditingViewMode: boolean;
-      name: string;
-      previewImgColor?: string;
-      runCapabilities: {
-        canRunFromMain: boolean;
-        effectiveEntrySectionId: null | string;
-        mainRunDisabledReason: null | string;
-      };
-      sectionIdsByPathSlug: {
-        [key: string]: null | Array<string>;
-      };
-      sectionPathSlugsById: {
-        [key: string]: string;
-      };
-      sectionVariantMap: {
-        [key: string]: string;
-      };
-      showParamDisplayNames: boolean;
-      stateMachineEdges: null | Array<{
-        hidden?: boolean;
-        id: string;
-        machineGroupId: string;
-        selected?: boolean;
-        sourceActivationCountCondition?: null | {
-          operator: "lt" | "lte" | "eq" | "gte" | "gt";
-          value: number;
-        };
-        sourceFilter?: null | {
-          equals?: null | string;
-          payloadField?: null | string;
-          signalName?: null | string;
-          type: "run_completed" | "run_failed" | "signal";
-        };
-        sourcePortId: string;
-        sourceSectionId: string;
-        style?: RawMessage | null;
-        targetAction?: null | {
-          agentProfileId?: null | string;
-          engineConfigId?: null | string;
-          inlinePrompt?: null | string;
-          permissionMode?: null | string;
-          promptInputs?: {
-            [key: string]: string;
-          };
-          promptSectionId?: null | string;
-          promptTemplateId?: null | string;
-          searchEnabled?: null | boolean;
-          stopIfRunning?: boolean;
-          threadStrategy: "continue_current_thread" | "new_thread_before_send";
-          type: "send_prompt" | "reset_thread";
-        };
-        targetPortId: string;
-        targetSectionId: string;
-        zIndex?: number;
-      }>;
-      topLevelSections: {
-        [key: string]: {
-          h?: null | number;
-          w?: null | number;
-          x: number;
-          y: number;
-          zIndex?: number;
-        };
-      };
-      viewModes: {
-        [key: string]: {
-          id: string;
-          isTab?: boolean;
-          isUserFacing?: boolean;
-          name: string;
-          sortIndex: number;
-          topLevelSections?: {
-            [key: string]: {
-              h?: null | number;
-              w?: null | number;
-              x: number;
-              y: number;
-              zIndex?: number;
-            };
-          };
-          viewport?: null | {
-            x: number;
-            y: number;
-            zoom: number;
-          };
-          viewportInitialized?: boolean;
-          visibilityBySectionId?: {
-            [key: string]: boolean;
-          };
-        };
-      };
-      viewport: null | {
-        x: number;
-        y: number;
-        zoom: number;
-      };
-      viewportInitialized: boolean;
-      watchCodeBaselineByPath: {
-        [key: string]: null | Array<string>;
-      };
-      watchCodeEnabled: boolean;
-      watchCodeFiles: null | Array<string>;
-      watchCodeFolders: null | Array<{
-        path: string;
-        recursive: boolean;
-      }>;
-      watchCodeRegistry: {
-        [key: string]: {
-          bodyHash: string;
-          callableName: string;
-          kind: "function" | "async_function" | "class_init";
-          sectionIds?: null | Array<string>;
-          sectionsCount?: number;
-          signatureHash: string;
-          sourcePath: string;
-        };
-      };
-      windowSpaceIdsBySlug: {
-        [key: string]: null | Array<string>;
-      };
-      windowSpaceSlugsById: {
-        [key: string]: string;
-      };
-      windowSpaces: {
-        [key: string]: {
-          id?: string;
-          name?: string;
-          order: null | Array<string>;
-          sortIndex?: number;
-          windowsById: {
-            [key: string]: {
-              chatId?: null | string;
-              embeddedGitPaneVisible?: boolean;
-              mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-              normalizedBounds?: {
-                height: number;
-                width: number;
-                x: number;
-                y: number;
-              };
-              sectionIdOrNull?: null | string;
-              surfaceKind?: "project_chat" | "section";
-              title?: null | string;
-              zIndex?: number;
-            };
-          };
-        };
-      };
-    };
-    requiredDecodedImages: null | Array<string>;
-    sectionCapabilities: {
-      [key: string]: {
-        canRun: boolean;
-        canSelectAsEntryCodeBlock: boolean;
-        entryCodeBlockValue: null | string;
-        runDisabledReason: null | string;
-        runRequestSectionId: null | string;
-      };
-    };
-    sectionImpls: {
-      [key: string]:
-        | BaseSectionImpl
-        | CallableSectionImpl
-        | DictSectionImpl
-        | ListRootSectionImpl
-        | GroupSectionImpl
-        | StateMachineStartSectionImpl
-        | StateMachineGateSectionImpl
-        | StateMachineEndSectionImpl
-        | ChartSectionImpl
-        | TextBlockSectionImpl
-        | PromptSectionImpl
-        | GlobalVariablesSectionImpl
-        | CodeSectionImpl
-        | GenPythonCodeSectionImpl
-        | GenPythonMetadataSectionImpl
-        | TerminalSectionImpl
-        | ChatSectionImpl
-        | BrowserSectionImpl
-        | TaskBoardSectionImpl
-        | SpreadsheetSectionImpl;
-    };
-    sectionVariants: {
-      [key: string]: {
-        id: string;
-        impl: string;
-        isFrozen: boolean;
-        modifier: RawMessage | null;
-        name: string;
-        nonPresetImpls: null | Array<string>;
-      };
-    };
-    sections: {
-      [key: string]: {
-        defaultVariant: null | string;
-        displayName: string;
-        id: string;
-        name: string;
-        sharedModifier: RawMessage | null;
-        unsharedKeys: null | Array<string>;
-        variants: null | Array<string>;
-      };
-    };
-    shownParamIds: {
-      [key: string]: {
-        pinned: {
-          requiredParamIdsToPaths: {
-            [key: string]: null | Array<string>;
-          };
-          topLevelParamIds: null | Array<string>;
-        };
-        unpinned: {
-          requiredParamIdsToPaths: {
-            [key: string]: null | Array<string>;
-          };
-          topLevelParamIds: null | Array<string>;
-        };
-      };
-    };
-    singletonSections: {
-      GenPythonCode: null | string;
-      GenPythonMetadata: null | string;
-      GlobalVariables: null | string;
-    };
-  };
+  projectState: SingleConfig;
 };
 
 /**
  * ProjectStateUpdateMessage
  */
 type ProjectStateUpdateMessage = {
-  content: {
-    completedOpIds: null | Array<string>;
-    pendingOpIds: null | Array<string>;
-    projectState: {
-      artifactGroups?: {
-        [key: string]: unknown;
-      };
-      codeObjImpls: {
-        [key: string]:
-          | BaseCodeObjImpl
-          | CodeCallableCodeObjImpl
-          | CodeParamCodeObjImpl
-          | TextParamCodeObjImpl
-          | DateParamCodeObjImpl
-          | TimeParamCodeObjImpl
-          | ButtonParamCodeObjImpl
-          | SliderParamCodeObjImpl
-          | RotaryParamCodeObjImpl
-          | SwitchParamCodeObjImpl
-          | ColorPickerParamCodeObjImpl
-          | DropdownParamCodeObjImpl
-          | PasswordParamCodeObjImpl
-          | TextAreaParamCodeObjImpl
-          | DropzoneParamCodeObjImpl
-          | NestedParamCodeObjImpl;
-      };
-      codeObjVariants: {
-        [key: string]: {
-          id: string;
-          impl: string;
-          isFrozen: boolean;
-          modifier: RawMessage | null;
-          name: string;
-          nonPresetImpls: null | Array<string>;
-        };
-      };
-      codeObjs: {
-        [key: string]: {
-          defaultVariant: null | string;
-          displayName: string;
-          id: string;
-          name: string;
-          sharedModifier: RawMessage | null;
-          unsharedKeys: null | Array<string>;
-          variants: null | Array<string>;
-        };
-      };
-      genCodeBinding: null | {
-        access_mode: "read_write" | "read_only" | "write_only";
-        autoBinding: boolean;
-        canonical_path: string;
-      };
-      parentSectionMap: {
-        [key: string]: null | string;
-      };
-      projectChatWindowing: {
-        instancesById: {
-          [key: string]: {
-            bounds?: {
-              height: number;
-              width: number;
-              x: number;
-              y: number;
-            };
-            chatId?: null | string;
-            dockMetrics?: {
-              preferredWidthPx?: null | number;
-              widthFraction?: null | number;
-            };
-            instanceId: string;
-            isClosed?: boolean;
-            isMaximized?: boolean;
-            isMinimized?: boolean;
-            lastFocusedAt?: number;
-            lastPlacementBeforeMaximize?:
-              | "bottom_docked"
-              | "floating"
-              | "maximized"
-              | "canvas_section";
-            mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-            placement?:
-              | "bottom_docked"
-              | "floating"
-              | "maximized"
-              | "canvas_section";
-            sectionIdOrNull?: null | string;
-            title?: null | string;
-            zIndex?: number;
-          };
-        };
-        nextInstanceNumber: number;
-        order: null | Array<string>;
-      };
-      projectConfig: {
-        activeIds: null | Array<string>;
-        activeViewModeId: null | string;
-        agenticEdges: null | Array<{
-          contextMode?: "reference_only" | "inline_text" | "summary";
-          hidden?: boolean;
-          id: string;
-          kind: "chat_chat" | "section_chat" | "chat_section";
-          selected?: boolean;
-          sourceSectionId: string;
-          style?: RawMessage | null;
-          targetSectionId: string;
-          zIndex?: number;
-        }>;
-        allowJsonSourceKeyEdits: boolean;
-        codegenTargets: null | Array<
-          ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-        >;
-        edges: null | Array<{
-          animated?: boolean;
-          data?: RawMessage | null;
-          hidden?: boolean;
-          id: string;
-          label?: null | string;
-          selected?: boolean;
-          sourcePortId: string;
-          sourceSectionId: string;
-          sourceVariantId: string;
-          style?: RawMessage | null;
-          targetPortId: string;
-          targetSectionId: string;
-          targetVariantId: string;
-          type?: string;
-          zIndex?: number;
-        }>;
-        entryCodeBlockId: null | string;
-        hasPythonCodegenTarget: boolean;
-        id: string;
-        isEditingViewMode: boolean;
-        name: string;
-        previewImgColor?: string;
-        runCapabilities: {
-          canRunFromMain: boolean;
-          effectiveEntrySectionId: null | string;
-          mainRunDisabledReason: null | string;
-        };
-        sectionIdsByPathSlug: {
-          [key: string]: null | Array<string>;
-        };
-        sectionPathSlugsById: {
-          [key: string]: string;
-        };
-        sectionVariantMap: {
-          [key: string]: string;
-        };
-        showParamDisplayNames: boolean;
-        stateMachineEdges: null | Array<{
-          hidden?: boolean;
-          id: string;
-          machineGroupId: string;
-          selected?: boolean;
-          sourceActivationCountCondition?: null | {
-            operator: "lt" | "lte" | "eq" | "gte" | "gt";
-            value: number;
-          };
-          sourceFilter?: null | {
-            equals?: null | string;
-            payloadField?: null | string;
-            signalName?: null | string;
-            type: "run_completed" | "run_failed" | "signal";
-          };
-          sourcePortId: string;
-          sourceSectionId: string;
-          style?: RawMessage | null;
-          targetAction?: null | {
-            agentProfileId?: null | string;
-            engineConfigId?: null | string;
-            inlinePrompt?: null | string;
-            permissionMode?: null | string;
-            promptInputs?: {
-              [key: string]: string;
-            };
-            promptSectionId?: null | string;
-            promptTemplateId?: null | string;
-            searchEnabled?: null | boolean;
-            stopIfRunning?: boolean;
-            threadStrategy:
-              | "continue_current_thread"
-              | "new_thread_before_send";
-            type: "send_prompt" | "reset_thread";
-          };
-          targetPortId: string;
-          targetSectionId: string;
-          zIndex?: number;
-        }>;
-        topLevelSections: {
-          [key: string]: {
-            h?: null | number;
-            w?: null | number;
-            x: number;
-            y: number;
-            zIndex?: number;
-          };
-        };
-        viewModes: {
-          [key: string]: {
-            id: string;
-            isTab?: boolean;
-            isUserFacing?: boolean;
-            name: string;
-            sortIndex: number;
-            topLevelSections?: {
-              [key: string]: {
-                h?: null | number;
-                w?: null | number;
-                x: number;
-                y: number;
-                zIndex?: number;
-              };
-            };
-            viewport?: null | {
-              x: number;
-              y: number;
-              zoom: number;
-            };
-            viewportInitialized?: boolean;
-            visibilityBySectionId?: {
-              [key: string]: boolean;
-            };
-          };
-        };
-        viewport: null | {
-          x: number;
-          y: number;
-          zoom: number;
-        };
-        viewportInitialized: boolean;
-        watchCodeBaselineByPath: {
-          [key: string]: null | Array<string>;
-        };
-        watchCodeEnabled: boolean;
-        watchCodeFiles: null | Array<string>;
-        watchCodeFolders: null | Array<{
-          path: string;
-          recursive: boolean;
-        }>;
-        watchCodeRegistry: {
-          [key: string]: {
-            bodyHash: string;
-            callableName: string;
-            kind: "function" | "async_function" | "class_init";
-            sectionIds?: null | Array<string>;
-            sectionsCount?: number;
-            signatureHash: string;
-            sourcePath: string;
-          };
-        };
-        windowSpaceIdsBySlug: {
-          [key: string]: null | Array<string>;
-        };
-        windowSpaceSlugsById: {
-          [key: string]: string;
-        };
-        windowSpaces: {
-          [key: string]: {
-            id?: string;
-            name?: string;
-            order: null | Array<string>;
-            sortIndex?: number;
-            windowsById: {
-              [key: string]: {
-                chatId?: null | string;
-                embeddedGitPaneVisible?: boolean;
-                mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-                normalizedBounds?: {
-                  height: number;
-                  width: number;
-                  x: number;
-                  y: number;
-                };
-                sectionIdOrNull?: null | string;
-                surfaceKind?: "project_chat" | "section";
-                title?: null | string;
-                zIndex?: number;
-              };
-            };
-          };
-        };
-      };
-      requiredDecodedImages: null | Array<string>;
-      sectionCapabilities: {
-        [key: string]: {
-          canRun: boolean;
-          canSelectAsEntryCodeBlock: boolean;
-          entryCodeBlockValue: null | string;
-          runDisabledReason: null | string;
-          runRequestSectionId: null | string;
-        };
-      };
-      sectionImpls: {
-        [key: string]:
-          | BaseSectionImpl
-          | CallableSectionImpl
-          | DictSectionImpl
-          | ListRootSectionImpl
-          | GroupSectionImpl
-          | StateMachineStartSectionImpl
-          | StateMachineGateSectionImpl
-          | StateMachineEndSectionImpl
-          | ChartSectionImpl
-          | TextBlockSectionImpl
-          | PromptSectionImpl
-          | GlobalVariablesSectionImpl
-          | CodeSectionImpl
-          | GenPythonCodeSectionImpl
-          | GenPythonMetadataSectionImpl
-          | TerminalSectionImpl
-          | ChatSectionImpl
-          | BrowserSectionImpl
-          | TaskBoardSectionImpl
-          | SpreadsheetSectionImpl;
-      };
-      sectionVariants: {
-        [key: string]: {
-          id: string;
-          impl: string;
-          isFrozen: boolean;
-          modifier: RawMessage | null;
-          name: string;
-          nonPresetImpls: null | Array<string>;
-        };
-      };
-      sections: {
-        [key: string]: {
-          defaultVariant: null | string;
-          displayName: string;
-          id: string;
-          name: string;
-          sharedModifier: RawMessage | null;
-          unsharedKeys: null | Array<string>;
-          variants: null | Array<string>;
-        };
-      };
-      shownParamIds: {
-        [key: string]: {
-          pinned: {
-            requiredParamIdsToPaths: {
-              [key: string]: null | Array<string>;
-            };
-            topLevelParamIds: null | Array<string>;
-          };
-          unpinned: {
-            requiredParamIdsToPaths: {
-              [key: string]: null | Array<string>;
-            };
-            topLevelParamIds: null | Array<string>;
-          };
-        };
-      };
-      singletonSections: {
-        GenPythonCode: null | string;
-        GenPythonMetadata: null | string;
-        GlobalVariables: null | string;
-      };
-    };
-  };
+  content: ProjectStateUpdateContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -7499,7 +4116,7 @@ type ProjectStateUpdateMessage = {
 export type PromptSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
-  format: "Jinja";
+  format: Format;
   id: string;
   inputs: {
     [key: string]: string;
@@ -7534,65 +4151,15 @@ export type PromptSectionImpl = {
  * PromptTemplatesUpdatedContent
  */
 type PromptTemplatesUpdatedContent = {
-  templates: null | Array<{
-    description: string;
-    format: "Jinja";
-    id: string;
-    inputSchema: {
-      [key: string]: unknown;
-    };
-    metadata: {
-      [key: string]: unknown;
-    };
-    name: string;
-    template: string;
-  }>;
+  templates: null | Array<Template>;
 };
 
 /**
  * PromptTemplatesUpdatedMessage
  */
 type PromptTemplatesUpdatedMessage = {
-  content: {
-    templates: null | Array<{
-      description: string;
-      format: "Jinja";
-      id: string;
-      inputSchema: {
-        [key: string]: unknown;
-      };
-      metadata: {
-        [key: string]: unknown;
-      };
-      name: string;
-      template: string;
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: PromptTemplatesUpdatedContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -7620,12 +4187,7 @@ type PythonSectionRepresentationMode = "expression" | "file_path" | "file_read";
  */
 type RawArtifact = {
   id: string;
-  type:
-    | "Image"
-    | "BrushStroke"
-    | "DrawAreaLayerItemTransform"
-    | "ChartData"
-    | "File";
+  type: ArtifactType;
   value: RawMessage | null;
 };
 
@@ -7654,16 +4216,9 @@ type RealtimeDependencyEventContent = {
  * RealtimeDependencyEventMessage
  */
 export type RealtimeDependencyEventMessage = {
-  content: {
-    dependencyEvent: DependencyEvent;
-    projectConfigId: string;
-  };
+  content: RealtimeDependencyEventContent;
   id?: null | string;
-  messageType:
-    | "CurrentAddressUpdate"
-    | "UISettingRevealResult"
-    | "RealtimeUIChange"
-    | "RealtimeDependencyEvent";
+  messageType: MessageType;
 };
 
 /**
@@ -7688,34 +4243,19 @@ type RealtimeUIChangeContent = {
  * RealtimeUIChangeMessage
  */
 export type RealtimeUIChangeMessage = {
-  content: {
-    dependencyKey: BaseDependencyKeyUnion | null;
-    projectConfigId: string;
-    value: BaseDependencyValueUnion | null;
-  };
+  content: RealtimeUIChangeContent;
   id?: null | string;
-  messageType:
-    | "CurrentAddressUpdate"
-    | "UISettingRevealResult"
-    | "RealtimeUIChange"
-    | "RealtimeDependencyEvent";
+  messageType: MessageType;
 };
 
 /**
  * RenameRefactorBroadcastContent
  */
 export type RenameRefactorBroadcastContent = {
-  changedNodeValues: null | Array<{
-    depKey: {
-      codeObjId?: string;
-      sectionId: string;
-      type: string;
-    };
-    newValue: string;
-  }>;
+  changedNodeValues: null | Array<RenameReferenceChangedValue>;
   frontendOpId: string;
   projectConfigId: string;
-  renameMode: "ALWAYS_ASK" | "ALWAYS_RENAME" | "NEVER_RENAME";
+  renameMode: RenameRefactorMode;
 };
 
 /**
@@ -7730,56 +4270,16 @@ export type RenameRefactorMode =
  * RenameRefactorResultsMessage
  */
 type RenameRefactorResultsMessage = {
-  content: {
-    changedNodeValues: null | Array<{
-      depKey: {
-        codeObjId?: string;
-        sectionId: string;
-        type: string;
-      };
-      newValue: string;
-    }>;
-    frontendOpId: string;
-    projectConfigId: string;
-    renameMode: "ALWAYS_ASK" | "ALWAYS_RENAME" | "NEVER_RENAME";
-  };
+  content: RenameRefactorBroadcastContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
  * RenameReferenceChangedValue
  */
 export type RenameReferenceChangedValue = {
-  depKey: {
-    codeObjId?: string;
-    sectionId: string;
-    type: string;
-  };
+  depKey: RenameReferenceDependencyKey;
   newValue: string;
 };
 
@@ -7805,61 +4305,8 @@ export type RequiredUIEditorTabMap = {
 type RestartRequiredResponse = {
   pendingPluginIds: null | Array<string>;
   pendingPluginIdsWithoutStatus: null | Array<string>;
-  pendingPlugins: null | Array<{
-    blockedCapabilities: null | Array<{
-      capability: string;
-      reason: "mode_policy" | "host_policy" | "manifest_invalid";
-    }>;
-    canonicalSourceKey: string;
-    components: null | Array<string>;
-    effectiveCapabilities: null | Array<string>;
-    enablementSource:
-      | "workspace_disabled"
-      | "workspace_enabled"
-      | "global_auto_enabled"
-      | "manifest_default";
-    errors: null | Array<{
-      code: string;
-      message: string;
-    }>;
-    name: string;
-    pluginId: string;
-    registeredBackendRoutes: null | Array<{
-      methods: null | Array<string>;
-      path: string;
-    }>;
-    registeredCodegenTargets: null | Array<{
-      defaultFileName: string;
-      language: string;
-      name: string;
-      pluginId: string;
-      targetId: string;
-    }>;
-    registeredListenerEndpoints: null | Array<{
-      name: string;
-    }>;
-    registeredStaticDirs: null | Array<{
-      dir: string;
-      routePrefix: string;
-    }>;
-    requestedCapabilities: null | Array<string>;
-    restartRequired: boolean;
-    runtimePayloadDigestSha256: string;
-    shadowedBySourcePath: null | string;
-    sourceDigestSha256: null | string;
-    sourceManager: "setta" | "package_manager";
-    sourceManagerHint: null | string;
-    sourcePath: string;
-    sourceScope: "workspace" | "setta_files" | "global";
-    sourceScopeLabel: string;
-    state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
-    version: string;
-  }>;
-  restartCapability: {
-    command: null | string;
-    mode: "manual" | "programmatic";
-    reason: null | string;
-  };
+  pendingPlugins: null | Array<PluginStatusEntry>;
+  restartCapability: PluginRestartCapability;
 };
 
 /**
@@ -7907,11 +4354,7 @@ type RunEvent = {
  */
 type RunIndex = {
   runs?: {
-    [key: string]: {
-      chatId?: null | string;
-      projectConfigId?: null | string;
-      runType?: null | string;
-    };
+    [key: string]: RunIndexEntry;
   };
   version: number;
 };
@@ -7972,16 +4415,9 @@ type RunnerSummarySection = {
   displayName?: null | string;
   id: string;
   name: string;
-  params: null | Array<{
-    displayName?: null | string;
-    id: string;
-    name: string;
-  }>;
+  params: null | Array<RunnerSummaryParam>;
   supportsParams: boolean;
-  variants: null | Array<{
-    id: string;
-    name: string;
-  }>;
+  variants: null | Array<RunnerSummaryVariant>;
 };
 
 /**
@@ -7989,21 +4425,7 @@ type RunnerSummarySection = {
  */
 type RunnerSummarySnapshot = {
   projectConfigId: string;
-  sections: null | Array<{
-    displayName?: null | string;
-    id: string;
-    name: string;
-    params: null | Array<{
-      displayName?: null | string;
-      id: string;
-      name: string;
-    }>;
-    supportsParams: boolean;
-    variants: null | Array<{
-      id: string;
-      name: string;
-    }>;
-  }>;
+  sections: null | Array<RunnerSummarySection>;
 };
 
 /**
@@ -8043,7 +4465,7 @@ type SaveStatus = "saved" | "unchanged" | "skipped" | "conflict";
  */
 export type ScatterChartSettings = {
   categoryColumn?: null | string;
-  type: "line" | "scatter";
+  type: ChartType;
   xAxisColumn?: null | string;
   xAxisLog: boolean;
   yAxisLog: boolean;
@@ -8083,70 +4505,22 @@ type SectionCodegenMode = "inherit" | "include" | "exclude";
  * SectionCodegenOverride
  */
 export type SectionCodegenOverride = {
-  mode: "inherit" | "include" | "exclude";
-  representation: "expression" | "file_path" | "file_read";
+  mode: SectionCodegenMode;
+  representation: SectionRepresentationMode;
 };
 
 /**
  * SectionCodegenPolicy
  */
 export type SectionCodegenPolicy = {
-  allowlist: null | Array<
-    | "Callable"
-    | "Dict"
-    | "ListRoot"
-    | "Group"
-    | "StateMachineStart"
-    | "StateMachineGate"
-    | "StateMachineEnd"
-    | "Image"
-    | "Chart"
-    | "Draw"
-    | "TextBlock"
-    | "Prompt"
-    | "MetaControl"
-    | "Social"
-    | "GlobalVariables"
-    | "Code"
-    | "GenPythonCode"
-    | "GenPythonMetadata"
-    | "Terminal"
-    | "IFrame"
-    | "Chat"
-    | "Browser"
-    | "Plugin"
-    | "TaskBoard"
-    | "Spreadsheet"
-  >;
+  allowlist: null | Array<SectionType>;
   exclude: null | Array<string>;
-  metaControlAllowlist: null | Array<
-    | "CodeCallable"
-    | "CodeParam"
-    | "TextParam"
-    | "DateParam"
-    | "TimeParam"
-    | "ButtonParam"
-    | "SliderParam"
-    | "RotaryParam"
-    | "SwitchParam"
-    | "ColorPickerParam"
-    | "DropdownParam"
-    | "PasswordParam"
-    | "TextAreaParam"
-    | "DropzoneParam"
-    | "NestedParam"
-  >;
+  metaControlAllowlist: null | Array<CodeObjType>;
   sectionOverrides: {
-    [key: string]: {
-      mode: "inherit" | "include" | "exclude";
-      representation: "expression" | "file_path" | "file_read";
-    };
+    [key: string]: SectionCodegenOverride;
   };
   typePolicies: {
-    [key: string]: {
-      mode: "inherit" | "include" | "exclude";
-      representation: "expression" | "file_path" | "file_read";
-    };
+    [key: string]: SectionTypeCodegenPolicy;
   };
 };
 
@@ -8155,44 +4529,20 @@ export type SectionCodegenPolicy = {
  */
 export type SectionDependencyKey = {
   sectionId: string;
-  type: "Section" | "SectionParam";
+  type: DependencyKeyType;
 };
 
 /**
  * SectionImpl
  */
 type SectionImpl = {
-  code?: null | {
-    attachedTerminalSectionId?: string;
-    binding?: null | {
-      accessMode?: "read_write" | "read_only" | "write_only";
-      autoBinding?: boolean;
-      path: string;
-    };
-    children?: null | Array<string>;
-    language:
-      | "python"
-      | "bash"
-      | "javascript"
-      | "typescript"
-      | "json"
-      | "yaml"
-      | "toml"
-      | "markdown"
-      | "plaintext";
-  };
-  draw?: null | {
-    renderedImagePath?: string;
-  };
-  generated?: null | {
-    kind: "python_code" | "python_metadata" | "plugin";
-  };
+  code?: CodeSectionImpl | null;
+  draw?: DrawSectionImpl | null;
+  generated?: GeneratedSectionImpl | null;
   id: string;
-  kind: "code" | "terminal" | "draw" | "generated";
+  kind: SectionKind;
   payload?: RawMessage | null;
-  terminal?: null | {
-    sessionMode?: "" | "managed_console";
-  };
+  terminal?: TerminalSectionImpl | null;
 };
 
 /**
@@ -8206,7 +4556,7 @@ type SectionKind = "code" | "terminal" | "draw" | "generated";
 export type SectionParamDependencyKey = {
   codeObjId: string;
   sectionId: string;
-  type: "Section" | "SectionParam";
+  type: DependencyKeyType;
 };
 
 /**
@@ -8236,418 +4586,40 @@ type SectionSizeValue = number | SectionSizeMode;
  * SectionSizingPolicy
  */
 export type SectionSizingPolicy = {
-  byType: {
-    Browser: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Callable: {
-      hideParamsMinHeight: number;
-      hideSearchMinHeight: number;
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Chart: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Chat: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Code: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Dict: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Draw: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    GenPythonCode: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    GenPythonMetadata: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    GlobalVariables: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Group: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    IFrame: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Image: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    ListRoot: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    MetaControl: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Plugin: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Prompt: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Social: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Spreadsheet: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    StateMachineEnd: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    StateMachineGate: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    StateMachineStart: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    TaskBoard: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    Terminal: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-    TextBlock: {
-      maxHeight: number;
-      maxWidth: number;
-      minHeight: number;
-      minWidth: number;
-    };
-  };
-  globals: {
-    autoMaxHeight: number;
-    infiniteMaxHeight: number;
-    infiniteMaxWidth: number;
-    minimizedHeight: number;
-    pinnedParamsAreaMinHeight: number;
-    unpinnedParamsAreaMinHeight: number;
-  };
-  metaControlByType: {
-    ButtonParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    CodeCallable: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    CodeParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    ColorPickerParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    DateParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    DropdownParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    DropzoneParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    NestedParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    PasswordParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    RotaryParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    SliderParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    SwitchParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    TextAreaParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    TextParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-    TimeParam: {
-      minHeight: number;
-      minWidth: number;
-      sizeModeHeight: "any" | "auto_only" | "manual_only";
-      sizeModeWidth: "any" | "auto_only" | "manual_only";
-    };
-  };
+  byType: SectionSizingPolicyByType;
+  globals: SectionSizingPolicyGlobals;
+  metaControlByType: MetaControlSizingPolicyByType;
 };
 
 /**
  * SectionSizingPolicyByType
  */
 export type SectionSizingPolicyByType = {
-  Browser: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Callable: {
-    hideParamsMinHeight: number;
-    hideSearchMinHeight: number;
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Chart: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Chat: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Code: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Dict: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Draw: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  GenPythonCode: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  GenPythonMetadata: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  GlobalVariables: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Group: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  IFrame: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Image: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  ListRoot: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  MetaControl: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Plugin: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Prompt: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Social: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Spreadsheet: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  StateMachineEnd: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  StateMachineGate: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  StateMachineStart: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  TaskBoard: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  Terminal: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
-  TextBlock: {
-    maxHeight: number;
-    maxWidth: number;
-    minHeight: number;
-    minWidth: number;
-  };
+  Browser: SectionSizingPolicyTypeEntry;
+  Callable: SectionSizingPolicyCallableTypeEntry;
+  Chart: SectionSizingPolicyTypeEntry;
+  Chat: SectionSizingPolicyTypeEntry;
+  Code: SectionSizingPolicyTypeEntry;
+  Dict: SectionSizingPolicyTypeEntry;
+  Draw: SectionSizingPolicyTypeEntry;
+  GenPythonCode: SectionSizingPolicyTypeEntry;
+  GenPythonMetadata: SectionSizingPolicyTypeEntry;
+  GlobalVariables: SectionSizingPolicyTypeEntry;
+  Group: SectionSizingPolicyTypeEntry;
+  IFrame: SectionSizingPolicyTypeEntry;
+  Image: SectionSizingPolicyTypeEntry;
+  ListRoot: SectionSizingPolicyTypeEntry;
+  MetaControl: SectionSizingPolicyTypeEntry;
+  Plugin: SectionSizingPolicyTypeEntry;
+  Prompt: SectionSizingPolicyTypeEntry;
+  Social: SectionSizingPolicyTypeEntry;
+  Spreadsheet: SectionSizingPolicyTypeEntry;
+  StateMachineEnd: SectionSizingPolicyTypeEntry;
+  StateMachineGate: SectionSizingPolicyTypeEntry;
+  StateMachineStart: SectionSizingPolicyTypeEntry;
+  TaskBoard: SectionSizingPolicyTypeEntry;
+  Terminal: SectionSizingPolicyTypeEntry;
+  TextBlock: SectionSizingPolicyTypeEntry;
 };
 
 /**
@@ -8718,8 +4690,8 @@ export type SectionType =
  * SectionTypeCodegenPolicy
  */
 export type SectionTypeCodegenPolicy = {
-  mode: "inherit" | "include" | "exclude";
-  representation: "expression" | "file_path" | "file_read";
+  mode: SectionCodegenMode;
+  representation: SectionRepresentationMode;
 };
 
 /**
@@ -8786,16 +4758,8 @@ type SectionWithParamsLeadingFields = {
  */
 type SectionWithParamsTrailingFields = {
   edgeInputParams: null | Array<string>;
-  edgeOutputPorts: null | Array<{
-    accessor: string;
-    id: string;
-  }>;
-  ignoreTypeErrors: {
-    callable: boolean;
-    params: {
-      [key: string]: boolean;
-    };
-  };
+  edgeOutputPorts: null | Array<EdgePort>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
   pinnedParams: null | Array<string>;
   selectedParams: null | Array<string>;
 };
@@ -8804,99 +4768,8 @@ type SectionWithParamsTrailingFields = {
  * SectionsClipboardData
  */
 export type SectionsClipboardData = {
-  data: {
-    core: {
-      codeObjImpls?: {
-        [key: string]:
-          | BaseCodeObjImpl
-          | CodeCallableCodeObjImpl
-          | CodeParamCodeObjImpl
-          | TextParamCodeObjImpl
-          | DateParamCodeObjImpl
-          | TimeParamCodeObjImpl
-          | ButtonParamCodeObjImpl
-          | SliderParamCodeObjImpl
-          | RotaryParamCodeObjImpl
-          | SwitchParamCodeObjImpl
-          | ColorPickerParamCodeObjImpl
-          | DropdownParamCodeObjImpl
-          | PasswordParamCodeObjImpl
-          | TextAreaParamCodeObjImpl
-          | DropzoneParamCodeObjImpl
-          | NestedParamCodeObjImpl;
-      };
-      codeObjVariants?: {
-        [key: string]: {
-          id: string;
-          implId: string;
-          isFrozen?: boolean;
-          modifier?: RawMessage | null;
-          name?: string;
-          nonPresetImplIds?: null | Array<string>;
-        };
-      };
-      codeObjs?: {
-        [key: string]: {
-          defaultVariantId?: string;
-          displayName?: string;
-          id: string;
-          name: string;
-          sharedModifier?: RawMessage | null;
-          unsharedKeys?: null | Array<string>;
-          variantIds?: null | Array<string>;
-        };
-      };
-      sectionImpls?: {
-        [key: string]:
-          | BaseSectionImpl
-          | CallableSectionImpl
-          | DictSectionImpl
-          | ListRootSectionImpl
-          | GroupSectionImpl
-          | StateMachineStartSectionImpl
-          | StateMachineGateSectionImpl
-          | StateMachineEndSectionImpl
-          | ChartSectionImpl
-          | TextBlockSectionImpl
-          | PromptSectionImpl
-          | GlobalVariablesSectionImpl
-          | CodeSectionImpl
-          | GenPythonCodeSectionImpl
-          | GenPythonMetadataSectionImpl
-          | TerminalSectionImpl
-          | ChatSectionImpl
-          | BrowserSectionImpl
-          | TaskBoardSectionImpl
-          | SpreadsheetSectionImpl;
-      };
-      sectionVariants?: {
-        [key: string]: {
-          id: string;
-          implId: string;
-          isFrozen?: boolean;
-          modifier?: RawMessage | null;
-          name?: string;
-          nonPresetImplIds?: null | Array<string>;
-        };
-      };
-      sections?: {
-        [key: string]: {
-          defaultVariantId?: string;
-          displayName?: string;
-          id: string;
-          name: string;
-          parentSectionId?: string;
-          sharedModifier?: RawMessage | null;
-          unsharedKeys?: null | Array<string>;
-          variantIds?: null | Array<string>;
-        };
-      };
-    };
-    sectionVariantMap?: {
-      [key: string]: string;
-    };
-  };
-  type: "Sections";
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+  type: ClipboardDataType;
 };
 
 /**
@@ -8919,7 +4792,7 @@ type ServerConfig = {
   http_headers?: {
     [key: string]: string;
   };
-  transport: "sse" | "streamable_http" | "stdio";
+  transport: Transport;
   url?: string;
 };
 
@@ -8927,22 +4800,15 @@ type ServerConfig = {
  * ServerModeBoundary
  */
 type ServerModeBoundary = {
-  capabilities: {
-    canManageDesktopLauncher: boolean;
-  };
-  workspaceLaunchRouteKind: "ide" | "launcher" | "blocked";
+  capabilities: ServerModeCapabilities;
+  workspaceLaunchRouteKind: WorkspaceLaunchRouteKind;
 };
 
 /**
  * ServerModeBoundaryPolicy
  */
 export type ServerModeBoundaryPolicy = {
-  [key: string]: {
-    capabilities: {
-      canManageDesktopLauncher: boolean;
-    };
-    workspaceLaunchRouteKind: "ide" | "launcher" | "blocked";
-  };
+  [key: string]: ServerModeBoundary;
 };
 
 /**
@@ -9058,8 +4924,8 @@ export type SettingsBackend = {
   defaultTerminalShell?: null | string;
   exportDbReadableOnSave: boolean;
   exportDbReadableWithVariantsOnSave: boolean;
-  renameRefactorMode: "ALWAYS_ASK" | "ALWAYS_RENAME" | "NEVER_RENAME";
-  runSnapshotMode: "ephemeral" | "always" | "never";
+  renameRefactorMode: RenameRefactorMode;
+  runSnapshotMode: RunSnapshotMode;
   saveRenderedValues: boolean;
   showDefaultConfigOnLoad: boolean;
 };
@@ -9071,20 +4937,17 @@ export type SettingsGUI = {
   defaultZoomLevel: number;
   gridColor: string;
   gridColorDarkMode: string;
-  gridPattern: "lines" | "dots" | "cross";
+  gridPattern: BackgroundVariant;
   gridPatternSize: number;
   leftSidePaneShiftsMap: boolean;
   maxZoom: number;
   minZoom: number;
   panOnDrag: boolean;
   panOnScroll: boolean;
-  panOnScrollMode: "free" | "vertical" | "horizontal";
+  panOnScrollMode: PanOnScrollMode;
   panOnScrollSpeed: number;
-  sectionTagColorChoices: null | Array<{
-    color: string;
-    description: string;
-  }>;
-  selectionMode: "partial" | "full";
+  sectionTagColorChoices: null | Array<ColorPickerChoice>;
+  selectionMode: SelectionMode;
   showGridLines: boolean;
   snapGrid: [number, number];
   transitionDuration: number;
@@ -9099,17 +4962,7 @@ export type SettingsGUI = {
  * SettingsManagedBlock
  */
 type SettingsManagedBlock = {
-  claude?: null | {
-    defaultMode?: null | string;
-    mcp?: {
-      [key: string]: unknown;
-    };
-    permissions?: null | {
-      allow: null | Array<string>;
-      ask: null | Array<string>;
-      deny: null | Array<string>;
-    };
-  };
+  claude?: ClaudeSettingsManaged | null;
   codex?: {
     [key: string]: unknown;
   };
@@ -9196,406 +5049,21 @@ export type SettingsShortcuts = {
  * SettingsState
  */
 export type SettingsState = {
-  backend: {
-    autoRefetchCallableParamsOnLspMismatch: boolean;
-    autobackup: boolean;
-    autobackupFreq: number;
-    autobackupKeepLastN: number;
-    autosave: boolean;
-    clearTerminalBeforeMarkingAsReady: boolean;
-    completionGuardEnabled: boolean;
-    defaultTerminalShell?: null | string;
-    exportDbReadableOnSave: boolean;
-    exportDbReadableWithVariantsOnSave: boolean;
-    renameRefactorMode: "ALWAYS_ASK" | "ALWAYS_RENAME" | "NEVER_RENAME";
-    runSnapshotMode: "ephemeral" | "always" | "never";
-    saveRenderedValues: boolean;
-    showDefaultConfigOnLoad: boolean;
-  };
-  gui: {
-    defaultZoomLevel: number;
-    gridColor: string;
-    gridColorDarkMode: string;
-    gridPattern: "lines" | "dots" | "cross";
-    gridPatternSize: number;
-    leftSidePaneShiftsMap: boolean;
-    maxZoom: number;
-    minZoom: number;
-    panOnDrag: boolean;
-    panOnScroll: boolean;
-    panOnScrollMode: "free" | "vertical" | "horizontal";
-    panOnScrollSpeed: number;
-    sectionTagColorChoices: null | Array<{
-      color: string;
-      description: string;
-    }>;
-    selectionMode: "partial" | "full";
-    showGridLines: boolean;
-    snapGrid: [number, number];
-    transitionDuration: number;
-    wireColor: string;
-    wireColorDarkMode: string;
-    zoomOnDoubleClick: boolean;
-    zoomOnPinch: boolean;
-    zoomOnScroll: boolean;
-  };
+  backend: SettingsBackend;
+  gui: SettingsGUI;
   languageServer: {
     [key: string]: unknown;
   };
-  sectionSizingPolicy: {
-    byType: {
-      Browser: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Callable: {
-        hideParamsMinHeight: number;
-        hideSearchMinHeight: number;
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Chart: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Chat: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Code: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Dict: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Draw: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      GenPythonCode: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      GenPythonMetadata: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      GlobalVariables: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Group: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      IFrame: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Image: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      ListRoot: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      MetaControl: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Plugin: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Prompt: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Social: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Spreadsheet: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      StateMachineEnd: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      StateMachineGate: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      StateMachineStart: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      TaskBoard: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      Terminal: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-      TextBlock: {
-        maxHeight: number;
-        maxWidth: number;
-        minHeight: number;
-        minWidth: number;
-      };
-    };
-    globals: {
-      autoMaxHeight: number;
-      infiniteMaxHeight: number;
-      infiniteMaxWidth: number;
-      minimizedHeight: number;
-      pinnedParamsAreaMinHeight: number;
-      unpinnedParamsAreaMinHeight: number;
-    };
-    metaControlByType: {
-      ButtonParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      CodeCallable: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      CodeParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      ColorPickerParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      DateParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      DropdownParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      DropzoneParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      NestedParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      PasswordParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      RotaryParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      SliderParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      SwitchParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      TextAreaParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      TextParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-      TimeParam: {
-        minHeight: number;
-        minWidth: number;
-        sizeModeHeight: "any" | "auto_only" | "manual_only";
-        sizeModeWidth: "any" | "auto_only" | "manual_only";
-      };
-    };
-  };
-  shortcuts: {
-    advancedSearchShortcut: string;
-    commandPaletteShortcut: string;
-    copyShortcut: string;
-    copyTooltipTextShortcut: string;
-    decrementTooltipPageShortcut: string;
-    deleteSectionShortcut: string;
-    fitViewShortcut: string;
-    focusCanvasShortcut: string;
-    focusHeaderShortcut: string;
-    focusOverviewShortcut: string;
-    focusUiEditorShortcut: string;
-    formatCode: string;
-    freezeTooltipShortcut: string;
-    frozenTooltipCopyShortcut: string;
-    frozenTooltipDecrementShortcut: string;
-    frozenTooltipIncrementShortcut: string;
-    frozenTooltipToMarkdownShortcut: string;
-    frozenTooltipToPlaintextShortcut: string;
-    groupShortcut: string;
-    incrementTooltipPageShortcut: string;
-    loadShortcut: string;
-    movingFreeShortcut: string;
-    multiSelectionKeyCode: string;
-    newCardShortcut: string;
-    newGroupShortcut: string;
-    newProjectConfigShortcut: string;
-    newTerminalShortcut: string;
-    nextTopLevelSectionShortcut: string;
-    panActivationKeyCode: string;
-    paramIndentShortcut: string;
-    paramMoveDownShortcut: string;
-    paramMoveUpShortcut: string;
-    paramSelect: string;
-    paramUnindentShortcut: string;
-    pasteAsRefShortcut: string;
-    pasteShortcut: string;
-    prevTopLevelSectionShortcut: string;
-    redoShortcut: string;
-    resetZoomShortcut: string;
-    restartLanguageServerShortcut: string;
-    runCodeShortcut: string;
-    runEntryCodeBlockShortcut: string;
-    saveAsShortcut: string;
-    saveShortcut: string;
-    searchShortcut: string;
-    selectAll: string;
-    selectTopLevelNonGroupSections: string;
-    selectionKeyCode: string;
-    showParamUITypeTabShortcut: string;
-    showProjectOverviewTabShortcut: string;
-    showTooltipShortcut: string;
-    showVersionsTabShortcut: string;
-    sortingShortcut: string;
-    tooltipToMarkdownShortcut: string;
-    tooltipToPlaintextShortcut: string;
-    typeCheckShortcut: string;
-    undoShortcut: string;
-    ungroupShortcut: string;
-    zoomActivationKeyCode: string;
-    zoomInShortcut: string;
-    zoomOutShortcut: string;
-    zoomToMouseShortcut: string;
-  };
+  sectionSizingPolicy: SectionSizingPolicy;
+  shortcuts: SettingsShortcuts;
 };
 
 /**
  * SettingsUpdateMessage
  */
 type SettingsUpdateMessage = {
-  content: {
-    [key: string]: unknown;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: Document;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -9610,7 +5078,7 @@ type SharePolicyOverrides = {
   allowParamChanges?: null | boolean;
   allowRun?: null | boolean;
   allowVariantChanges?: null | boolean;
-  runSnapshotMode?: "ephemeral" | "always" | "never";
+  runSnapshotMode?: RunSnapshotMode | null;
 };
 
 /**
@@ -9627,18 +5095,8 @@ type ShownParamIDDetails = {
  * ShownParamIDs
  */
 export type ShownParamIDs = {
-  pinned: {
-    requiredParamIdsToPaths: {
-      [key: string]: null | Array<string>;
-    };
-    topLevelParamIds: null | Array<string>;
-  };
-  unpinned: {
-    requiredParamIdsToPaths: {
-      [key: string]: null | Array<string>;
-    };
-    topLevelParamIds: null | Array<string>;
-  };
+  pinned: ShownParamIDDetails;
+  unpinned: ShownParamIDDetails;
 };
 
 /**
@@ -9673,268 +5131,20 @@ export type SingleConfig = {
       | NestedParamCodeObjImpl;
   };
   codeObjVariants: {
-    [key: string]: {
-      id: string;
-      impl: string;
-      isFrozen: boolean;
-      modifier: RawMessage | null;
-      name: string;
-      nonPresetImpls: null | Array<string>;
-    };
+    [key: string]: Variant;
   };
   codeObjs: {
-    [key: string]: {
-      defaultVariant: null | string;
-      displayName: string;
-      id: string;
-      name: string;
-      sharedModifier: RawMessage | null;
-      unsharedKeys: null | Array<string>;
-      variants: null | Array<string>;
-    };
+    [key: string]: Core;
   };
-  genCodeBinding: null | {
-    access_mode: "read_write" | "read_only" | "write_only";
-    autoBinding: boolean;
-    canonical_path: string;
-  };
+  genCodeBinding: CodeFileBinding | null;
   parentSectionMap: {
     [key: string]: null | string;
   };
-  projectChatWindowing: {
-    instancesById: {
-      [key: string]: {
-        bounds?: {
-          height: number;
-          width: number;
-          x: number;
-          y: number;
-        };
-        chatId?: null | string;
-        dockMetrics?: {
-          preferredWidthPx?: null | number;
-          widthFraction?: null | number;
-        };
-        instanceId: string;
-        isClosed?: boolean;
-        isMaximized?: boolean;
-        isMinimized?: boolean;
-        lastFocusedAt?: number;
-        lastPlacementBeforeMaximize?:
-          | "bottom_docked"
-          | "floating"
-          | "maximized"
-          | "canvas_section";
-        mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-        placement?:
-          | "bottom_docked"
-          | "floating"
-          | "maximized"
-          | "canvas_section";
-        sectionIdOrNull?: null | string;
-        title?: null | string;
-        zIndex?: number;
-      };
-    };
-    nextInstanceNumber: number;
-    order: null | Array<string>;
-  };
-  projectConfig: {
-    activeIds: null | Array<string>;
-    activeViewModeId: null | string;
-    agenticEdges: null | Array<{
-      contextMode?: "reference_only" | "inline_text" | "summary";
-      hidden?: boolean;
-      id: string;
-      kind: "chat_chat" | "section_chat" | "chat_section";
-      selected?: boolean;
-      sourceSectionId: string;
-      style?: RawMessage | null;
-      targetSectionId: string;
-      zIndex?: number;
-    }>;
-    allowJsonSourceKeyEdits: boolean;
-    codegenTargets: null | Array<
-      ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
-    >;
-    edges: null | Array<{
-      animated?: boolean;
-      data?: RawMessage | null;
-      hidden?: boolean;
-      id: string;
-      label?: null | string;
-      selected?: boolean;
-      sourcePortId: string;
-      sourceSectionId: string;
-      sourceVariantId: string;
-      style?: RawMessage | null;
-      targetPortId: string;
-      targetSectionId: string;
-      targetVariantId: string;
-      type?: string;
-      zIndex?: number;
-    }>;
-    entryCodeBlockId: null | string;
-    hasPythonCodegenTarget: boolean;
-    id: string;
-    isEditingViewMode: boolean;
-    name: string;
-    previewImgColor?: string;
-    runCapabilities: {
-      canRunFromMain: boolean;
-      effectiveEntrySectionId: null | string;
-      mainRunDisabledReason: null | string;
-    };
-    sectionIdsByPathSlug: {
-      [key: string]: null | Array<string>;
-    };
-    sectionPathSlugsById: {
-      [key: string]: string;
-    };
-    sectionVariantMap: {
-      [key: string]: string;
-    };
-    showParamDisplayNames: boolean;
-    stateMachineEdges: null | Array<{
-      hidden?: boolean;
-      id: string;
-      machineGroupId: string;
-      selected?: boolean;
-      sourceActivationCountCondition?: null | {
-        operator: "lt" | "lte" | "eq" | "gte" | "gt";
-        value: number;
-      };
-      sourceFilter?: null | {
-        equals?: null | string;
-        payloadField?: null | string;
-        signalName?: null | string;
-        type: "run_completed" | "run_failed" | "signal";
-      };
-      sourcePortId: string;
-      sourceSectionId: string;
-      style?: RawMessage | null;
-      targetAction?: null | {
-        agentProfileId?: null | string;
-        engineConfigId?: null | string;
-        inlinePrompt?: null | string;
-        permissionMode?: null | string;
-        promptInputs?: {
-          [key: string]: string;
-        };
-        promptSectionId?: null | string;
-        promptTemplateId?: null | string;
-        searchEnabled?: null | boolean;
-        stopIfRunning?: boolean;
-        threadStrategy: "continue_current_thread" | "new_thread_before_send";
-        type: "send_prompt" | "reset_thread";
-      };
-      targetPortId: string;
-      targetSectionId: string;
-      zIndex?: number;
-    }>;
-    topLevelSections: {
-      [key: string]: {
-        h?: null | number;
-        w?: null | number;
-        x: number;
-        y: number;
-        zIndex?: number;
-      };
-    };
-    viewModes: {
-      [key: string]: {
-        id: string;
-        isTab?: boolean;
-        isUserFacing?: boolean;
-        name: string;
-        sortIndex: number;
-        topLevelSections?: {
-          [key: string]: {
-            h?: null | number;
-            w?: null | number;
-            x: number;
-            y: number;
-            zIndex?: number;
-          };
-        };
-        viewport?: null | {
-          x: number;
-          y: number;
-          zoom: number;
-        };
-        viewportInitialized?: boolean;
-        visibilityBySectionId?: {
-          [key: string]: boolean;
-        };
-      };
-    };
-    viewport: null | {
-      x: number;
-      y: number;
-      zoom: number;
-    };
-    viewportInitialized: boolean;
-    watchCodeBaselineByPath: {
-      [key: string]: null | Array<string>;
-    };
-    watchCodeEnabled: boolean;
-    watchCodeFiles: null | Array<string>;
-    watchCodeFolders: null | Array<{
-      path: string;
-      recursive: boolean;
-    }>;
-    watchCodeRegistry: {
-      [key: string]: {
-        bodyHash: string;
-        callableName: string;
-        kind: "function" | "async_function" | "class_init";
-        sectionIds?: null | Array<string>;
-        sectionsCount?: number;
-        signatureHash: string;
-        sourcePath: string;
-      };
-    };
-    windowSpaceIdsBySlug: {
-      [key: string]: null | Array<string>;
-    };
-    windowSpaceSlugsById: {
-      [key: string]: string;
-    };
-    windowSpaces: {
-      [key: string]: {
-        id?: string;
-        name?: string;
-        order: null | Array<string>;
-        sortIndex?: number;
-        windowsById: {
-          [key: string]: {
-            chatId?: null | string;
-            embeddedGitPaneVisible?: boolean;
-            mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-            normalizedBounds?: {
-              height: number;
-              width: number;
-              x: number;
-              y: number;
-            };
-            sectionIdOrNull?: null | string;
-            surfaceKind?: "project_chat" | "section";
-            title?: null | string;
-            zIndex?: number;
-          };
-        };
-      };
-    };
-  };
+  projectChatWindowing: ProjectChatWindowingState;
+  projectConfig: ProjectConfig;
   requiredDecodedImages: null | Array<string>;
   sectionCapabilities: {
-    [key: string]: {
-      canRun: boolean;
-      canSelectAsEntryCodeBlock: boolean;
-      entryCodeBlockValue: null | string;
-      runDisabledReason: null | string;
-      runRequestSectionId: null | string;
-    };
+    [key: string]: SectionCapabilities;
   };
   sectionImpls: {
     [key: string]:
@@ -9960,47 +5170,15 @@ export type SingleConfig = {
       | SpreadsheetSectionImpl;
   };
   sectionVariants: {
-    [key: string]: {
-      id: string;
-      impl: string;
-      isFrozen: boolean;
-      modifier: RawMessage | null;
-      name: string;
-      nonPresetImpls: null | Array<string>;
-    };
+    [key: string]: Variant;
   };
   sections: {
-    [key: string]: {
-      defaultVariant: null | string;
-      displayName: string;
-      id: string;
-      name: string;
-      sharedModifier: RawMessage | null;
-      unsharedKeys: null | Array<string>;
-      variants: null | Array<string>;
-    };
+    [key: string]: Core;
   };
   shownParamIds: {
-    [key: string]: {
-      pinned: {
-        requiredParamIdsToPaths: {
-          [key: string]: null | Array<string>;
-        };
-        topLevelParamIds: null | Array<string>;
-      };
-      unpinned: {
-        requiredParamIdsToPaths: {
-          [key: string]: null | Array<string>;
-        };
-        topLevelParamIds: null | Array<string>;
-      };
-    };
+    [key: string]: ShownParamIDs;
   };
-  singletonSections: {
-    GenPythonCode: null | string;
-    GenPythonMetadata: null | string;
-    GlobalVariables: null | string;
-  };
+  singletonSections: SingletonSections;
 };
 
 /**
@@ -10045,7 +5223,7 @@ export type SpreadsheetSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   autoReloadOnExternalChange: boolean;
-  density: "compact" | "comfortable";
+  density: SpreadsheetGridDensity;
   filePath: string;
   id: string;
   isFrozen: boolean;
@@ -10084,34 +5262,12 @@ type StateMachineEdge = {
   id: string;
   machineGroupId: string;
   selected?: boolean;
-  sourceActivationCountCondition?: null | {
-    operator: "lt" | "lte" | "eq" | "gte" | "gt";
-    value: number;
-  };
-  sourceFilter?: null | {
-    equals?: null | string;
-    payloadField?: null | string;
-    signalName?: null | string;
-    type: "run_completed" | "run_failed" | "signal";
-  };
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  sourceFilter?: StateMachineSourceFilter | null;
   sourcePortId: string;
   sourceSectionId: string;
   style?: RawMessage | null;
-  targetAction?: null | {
-    agentProfileId?: null | string;
-    engineConfigId?: null | string;
-    inlinePrompt?: null | string;
-    permissionMode?: null | string;
-    promptInputs?: {
-      [key: string]: string;
-    };
-    promptSectionId?: null | string;
-    promptTemplateId?: null | string;
-    searchEnabled?: null | boolean;
-    stopIfRunning?: boolean;
-    threadStrategy: "continue_current_thread" | "new_thread_before_send";
-    type: "send_prompt" | "reset_thread";
-  };
+  targetAction?: StateMachineTargetAction | null;
   targetPortId: string;
   targetSectionId: string;
   zIndex?: number;
@@ -10153,7 +5309,7 @@ type StateMachineEndSectionImpl = {
 type StateMachineGateSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
-  gateType: "AND" | "OR" | "XOR";
+  gateType: StateMachineGateType;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -10176,9 +5332,7 @@ type StateMachineGateSectionImpl = {
   styleColor: null | string;
   tagColor: null | string;
   type: string;
-  ui: {
-    showDetails: boolean;
-  };
+  ui: StateMachineGateUIState;
 };
 
 /**
@@ -10197,7 +5351,7 @@ type StateMachineGateUIState = {
  * StateMachineSectionSettings
  */
 type StateMachineSectionSettings = {
-  gateType?: "AND" | "OR" | "XOR";
+  gateType?: StateMachineGateType | null;
   label: string;
   machineGroupId: string;
 };
@@ -10206,7 +5360,7 @@ type StateMachineSectionSettings = {
  * StateMachineSourceActivationCountCondition
  */
 type StateMachineSourceActivationCountCondition = {
-  operator: "lt" | "lte" | "eq" | "gte" | "gt";
+  operator: StateMachineCountOperator;
   value: number;
 };
 
@@ -10217,7 +5371,7 @@ type StateMachineSourceFilter = {
   equals?: null | string;
   payloadField?: null | string;
   signalName?: null | string;
-  type: "run_completed" | "run_failed" | "signal";
+  type: StateMachineSourceFilterType;
 };
 
 /**
@@ -10271,8 +5425,8 @@ type StateMachineTargetAction = {
   promptTemplateId?: null | string;
   searchEnabled?: null | boolean;
   stopIfRunning?: boolean;
-  threadStrategy: "continue_current_thread" | "new_thread_before_send";
-  type: "send_prompt" | "reset_thread";
+  threadStrategy: StateMachineThreadStrategy;
+  type: StateMachineTargetActionType;
 };
 
 /**
@@ -10328,18 +5482,13 @@ export type SwitchParamCodeObjImpl = {
  * SystemChatMessage
  */
 type SystemChatMessage = {
-  attachments: null | Array<{
-    id: string;
-    mimeType?: null | string;
-    name: string;
-    size?: null | number;
-  }>;
+  attachments: null | Array<ChatFileAttachment>;
   content: null | Array<{
     [key: string]: unknown;
   }>;
   createdAt: number;
   id: string;
-  role: "system" | "user" | "assistant" | "tool";
+  role: ChatRole;
 };
 
 /**
@@ -10392,12 +5541,7 @@ export type TaskBoardRecurringWeekday =
 export type TaskBoardSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
-  columns: null | Array<{
-    color: string;
-    id: string;
-    name: string;
-    sortIndex: number;
-  }>;
+  columns: null | Array<TaskBoardColumn>;
   id: string;
   isFrozen: boolean;
   isInOtherProjectConfigs: boolean;
@@ -10417,21 +5561,9 @@ export type TaskBoardSectionImpl = {
   };
   styleColor: null | string;
   tagColor: null | string;
-  tasks: null | Array<{
-    columnId: null | string;
-    completed: boolean;
-    description: string;
-    dueDateIso: string;
-    id: string;
-    recurrence: string;
-    recurrenceDays: null | Array<string>;
-    recurrenceMonths: null | Array<string>;
-    recurrenceYears: null | Array<number>;
-    sortIndex: number;
-    title: string;
-  }>;
+  tasks: null | Array<TaskBoardTask>;
   type: string;
-  viewMode: "task_list" | "kanban";
+  viewMode: TaskBoardViewMode;
 };
 
 /**
@@ -10472,7 +5604,7 @@ export type TaskBoardViewMode = "task_list" | "kanban";
  */
 export type Template = {
   description: string;
-  format: "Jinja";
+  format: Format;
   id: string;
   inputSchema: {
     [key: string]: unknown;
@@ -10550,7 +5682,7 @@ type TextBlockFormat = "Plaintext" | "Markdown";
 export type TextBlockSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
-  format: "Plaintext" | "Markdown";
+  format: TextBlockFormat;
   headingAsSectionName: boolean;
   id: string;
   isFrozen: boolean;
@@ -10574,7 +5706,7 @@ export type TextBlockSectionImpl = {
   styleColor: null | string;
   tagColor: null | string;
   text: string;
-  textDisplayMode: "Render" | "Edit";
+  textDisplayMode: TextBlockDisplayMode;
   type: string;
 };
 
@@ -10592,7 +5724,7 @@ export type TextParamCodeObjImpl = {
   passingStyle: string;
   type: string;
   typeAnnotation: string;
-  uiType: "plain" | "time" | "date";
+  uiType: TextParamInputUIType;
   value: string;
 };
 
@@ -10628,9 +5760,9 @@ export type TimeParamCodeObjImpl = {
   isPreset: boolean;
   name: string;
   passingStyle: string;
-  timeControlMode: "input" | "display";
-  timeDisplayFont: "clock" | "monospace" | "system";
-  timeDisplayFormat: "twenty_four_hour" | "twelve_hour";
+  timeControlMode: TimeControlMode;
+  timeDisplayFont: TimeDisplayFont;
+  timeDisplayFormat: TimeDisplayFormat;
   timeDisplayScale: number;
   timeDisplayTransparent: boolean;
   type: string;
@@ -10659,26 +5791,14 @@ export type ToolArgumentPreviewDeltaEvent = {
   };
   tool_call_id: string;
   tool_name: string;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
  * ToolCall
  */
 export type ToolCall = {
-  function: {
-    arguments: {
-      [key: string]: unknown;
-    };
-    name: string;
-  };
+  function: ToolCallFunction;
   id: string;
   type: string;
 };
@@ -10691,14 +5811,7 @@ export type ToolCallDeltaEvent = {
   message_id: string;
   tool_call_id: string;
   tool_name: null | string;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -10715,14 +5828,14 @@ export type ToolCallFunction = {
  * ToolChatMessage
  */
 export type ToolChatMessage = {
-  completed_at?: null | string;
+  completed_at?: string | null;
   content: null | Array<{
     [key: string]: unknown;
   }>;
   createdAt: number;
   id: string;
   is_error: boolean;
-  role: "system" | "user" | "assistant" | "tool";
+  role: ChatRole;
   started_at: string;
   tool_call_id: string;
   tool_name?: null | string;
@@ -10750,14 +5863,7 @@ type ToolReferenceContent = {
  */
 export type ToolResultEvent = {
   result: ToolChatMessage;
-  type:
-    | "message_start"
-    | "delta"
-    | "tool_call_delta"
-    | "tool_argument_preview_delta"
-    | "tool_result"
-    | "message_stop"
-    | "message_finalized";
+  type: StreamingEventType;
 };
 
 /**
@@ -10786,64 +5892,22 @@ export type TranscriptionProfile = {
   name: string;
   supportsRealtimeTranscription: boolean;
   transcriptionLlmConfigId: string;
-  transportMode: "auto" | "file" | "realtime";
+  transportMode: TransportMode;
 };
 
 /**
  * TranscriptionProfilesUpdatedContent
  */
 type TranscriptionProfilesUpdatedContent = {
-  profiles: null | Array<{
-    chunkMs: number;
-    id: string;
-    language?: null | string;
-    name: string;
-    supportsRealtimeTranscription: boolean;
-    transcriptionLlmConfigId: string;
-    transportMode: "auto" | "file" | "realtime";
-  }>;
+  profiles: null | Array<TranscriptionProfile>;
 };
 
 /**
  * TranscriptionProfilesUpdatedMessage
  */
 type TranscriptionProfilesUpdatedMessage = {
-  content: {
-    profiles: null | Array<{
-      chunkMs: number;
-      id: string;
-      language?: null | string;
-      name: string;
-      supportsRealtimeTranscription: boolean;
-      transcriptionLlmConfigId: string;
-      transportMode: "auto" | "file" | "realtime";
-    }>;
-  };
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  content: TranscriptionProfilesUpdatedContent;
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -10861,51 +5925,14 @@ type TransportMode = "auto" | "file" | "realtime";
  */
 export type TransportRoutes = {
   apiPrefix: string;
-  binary: {
-    download: string;
-    upload: string;
-  };
-  fileBrowser: {
-    getFileBrowserRoot: string;
-    getFolderContents: string;
-    writeFileBrowserContent: string;
-  };
-  launcherManagement: {
-    getLauncherStatus: string;
-    removeLauncher: string;
-    repairLauncher: string;
-    updateLauncher: string;
-  };
-  root: {
-    bootstrapPage: string;
-    toolsCall: string;
-  };
-  serverModeBoundary: {
-    addLauncherRecentWorkspace: string;
-    createWorkspaceLaunchIntent: string;
-    getLauncherFilesystemRoots: string;
-    getLauncherRecentWorkspaces: string;
-    getSettaHomeInfo: string;
-    launch: string;
-    listLauncherDirectory: string;
-    openLauncherWorkspace: string;
-    pinLauncherRecentWorkspace: string;
-    removeLauncherRecentWorkspace: string;
-  };
-  settaApiPresets: {
-    createTopLevelSection: string;
-    getLatestProjectState: string;
-    saveProject: string;
-  };
-  status: {
-    getSettaHomeInfo: string;
-    revealPathInOsFileExplorer: string;
-  };
-  websocket: {
-    frontend: string;
-    listenerById: string;
-    terminalBySection: string;
-  };
+  binary: BinaryTransportRoutes;
+  fileBrowser: FileBrowserTransportRoutes;
+  launcherManagement: LauncherManagementTransportRoutes;
+  root: RootTransportRoutes;
+  serverModeBoundary: ServerModeBoundaryRoutes;
+  settaApiPresets: SettaAPIPresetRoutes;
+  status: StatusTransportRoutes;
+  websocket: WebsocketTransportRoutes;
 };
 
 /**
@@ -10940,75 +5967,16 @@ export type UISettingRevealContent = {
   durationMs: number;
   projectConfigId: string;
   requestId: string;
-  reveals: null | Array<{
-    anchorId?: null | string;
-    overviewTabKey?: null | string;
-    paneId?: null | string;
-    pluginId?: null | string;
-    pluginRevealKey?: null | string;
-    revealActivationSteps?: null | Array<{
-      itemValue: string;
-      type: string;
-    }>;
-    settingId: string;
-    side: string;
-    strategy: string;
-    uiEditorTabName?: null | string;
-  }>;
+  reveals: null | Array<UISettingRevealTarget>;
 };
 
 /**
  * UISettingRevealMessage
  */
 type UISettingRevealMessage = {
-  content: {
-    activeSectionId?: null | string;
-    chatId?: null | string;
-    durationMs: number;
-    projectConfigId: string;
-    requestId: string;
-    reveals: null | Array<{
-      anchorId?: null | string;
-      overviewTabKey?: null | string;
-      paneId?: null | string;
-      pluginId?: null | string;
-      pluginRevealKey?: null | string;
-      revealActivationSteps?: null | Array<{
-        itemValue: string;
-        type: string;
-      }>;
-      settingId: string;
-      side: string;
-      strategy: string;
-      uiEditorTabName?: null | string;
-    }>;
-  };
+  content: UISettingRevealContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -11017,28 +5985,14 @@ type UISettingRevealMessage = {
 type UISettingRevealResultContent = {
   projectConfigId: string;
   requestId: string;
-  statuses: null | Array<{
-    errorCode: null | string;
-    errorMessage: null | string;
-    settingId: string;
-    status: string;
-  }>;
+  statuses: null | Array<UISettingRevealResultStatus>;
 };
 
 /**
  * UISettingRevealResultMessage
  */
 export type UISettingRevealResultMessage = {
-  content: {
-    projectConfigId: string;
-    requestId: string;
-    statuses: null | Array<{
-      errorCode: null | string;
-      errorMessage: null | string;
-      settingId: string;
-      status: string;
-    }>;
-  };
+  content: UISettingRevealResultContent;
   id: null | string;
   messageType: string;
 };
@@ -11062,10 +6016,7 @@ export type UISettingRevealTarget = {
   paneId?: null | string;
   pluginId?: null | string;
   pluginRevealKey?: null | string;
-  revealActivationSteps?: null | Array<{
-    itemValue: string;
-    type: string;
-  }>;
+  revealActivationSteps?: null | Array<UISettingRevealActivationStep>;
   settingId: string;
   side: string;
   strategy: string;
@@ -11099,36 +6050,9 @@ type UpdateArtifactsContent = {
  * UpdateArtifactsMessage
  */
 type UpdateArtifactsMessage = {
-  content: {
-    artifacts: null | Array<BaseArtifactUnion>;
-    updateType: string;
-  };
+  content: UpdateArtifactsContent;
   id: null | string;
-  messageType:
-    | "Notification"
-    | "AllProjectMetadata"
-    | "AllConnections"
-    | "FrontendIdentity"
-    | "ListenerCoverageSnapshot"
-    | "UpdateArtifacts"
-    | "LLMStreamingResponse"
-    | "AIFollowToolArgumentsUpdate"
-    | "AIFollowToolResultUpdate"
-    | "UISettingReveal"
-    | "LSPDiagnostics"
-    | "NameValidationErrors"
-    | "LLMConfigUpdated"
-    | "LLMApiKeysUpdated"
-    | "ExternalAgentConfigsUpdated"
-    | "EngineConfigsUpdated"
-    | "AgentProfilesUpdated"
-    | "AgentRunUpdated"
-    | "PromptTemplatesUpdated"
-    | "TranscriptionProfilesUpdated"
-    | "UpdateFrontendProjectState"
-    | "UpdateSettings"
-    | "ReturnRenameRefactorResults"
-    | "BackendLogEvent";
+  messageType: WebsocketMessageType;
 };
 
 /**
@@ -11136,8 +6060,8 @@ type UpdateArtifactsMessage = {
  */
 type UpdateRequest = {
   artifacts: null | Array<BaseArtifactUnion>;
-  conflictStrategy: "skip" | "backup" | "overwrite";
-  uploadScope: "chat" | "generic";
+  conflictStrategy: SaveConflictStrategy | null;
+  uploadScope: UploadScope;
 };
 
 /**
@@ -11149,18 +6073,13 @@ type UploadScope = "chat" | "generic";
  * UserChatMessage
  */
 export type UserChatMessage = {
-  attachments: null | Array<{
-    id: string;
-    mimeType?: null | string;
-    name: string;
-    size?: null | number;
-  }>;
+  attachments: null | Array<ChatFileAttachment>;
   content: null | Array<{
     [key: string]: unknown;
   }>;
   createdAt: number;
   id: string;
-  role: "system" | "user" | "assistant" | "tool";
+  role: ChatRole;
 };
 
 /**
@@ -11185,19 +6104,9 @@ export type ViewMode = {
   name: string;
   sortIndex: number;
   topLevelSections?: {
-    [key: string]: {
-      h?: null | number;
-      w?: null | number;
-      x: number;
-      y: number;
-      zIndex?: number;
-    };
+    [key: string]: TopLevelSectionLayout;
   };
-  viewport?: null | {
-    x: number;
-    y: number;
-    zoom: number;
-  };
+  viewport?: Viewport | null;
   viewportInitialized?: boolean;
   visibilityBySectionId?: {
     [key: string]: boolean;
@@ -11242,7 +6151,7 @@ export type WatchCodeFolder = {
 type WatchCodeRegistryEntry = {
   bodyHash: string;
   callableName: string;
-  kind: "function" | "async_function" | "class_init";
+  kind: WatchCodeCallableKind;
   sectionIds?: null | Array<string>;
   sectionsCount?: number;
   signatureHash: string;
@@ -11296,21 +6205,7 @@ export type WindowSpaceConfig = {
   order: null | Array<string>;
   sortIndex?: number;
   windowsById: {
-    [key: string]: {
-      chatId?: null | string;
-      embeddedGitPaneVisible?: boolean;
-      mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-      normalizedBounds?: {
-        height: number;
-        width: number;
-        x: number;
-        y: number;
-      };
-      sectionIdOrNull?: null | string;
-      surfaceKind?: "project_chat" | "section";
-      title?: null | string;
-      zIndex?: number;
-    };
+    [key: string]: WindowSpaceWindow;
   };
 };
 
@@ -11320,21 +6215,7 @@ export type WindowSpaceConfig = {
 export type WindowSpaceState = {
   order: null | Array<string>;
   windowsById: {
-    [key: string]: {
-      chatId?: null | string;
-      embeddedGitPaneVisible?: boolean;
-      mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-      normalizedBounds?: {
-        height: number;
-        width: number;
-        x: number;
-        y: number;
-      };
-      sectionIdOrNull?: null | string;
-      surfaceKind?: "project_chat" | "section";
-      title?: null | string;
-      zIndex?: number;
-    };
+    [key: string]: WindowSpaceWindow;
   };
 };
 
@@ -11349,15 +6230,10 @@ type WindowSpaceSurfaceKind = "project_chat" | "section";
 export type WindowSpaceWindow = {
   chatId?: null | string;
   embeddedGitPaneVisible?: boolean;
-  mode?: "project_ai_mode" | "section_mode" | "git_graph_mode";
-  normalizedBounds?: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
+  mode?: ChatWindowMode;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
   sectionIdOrNull?: null | string;
-  surfaceKind?: "project_chat" | "section";
+  surfaceKind?: WindowSpaceSurfaceKind;
   title?: null | string;
   zIndex?: number;
 };

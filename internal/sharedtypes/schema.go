@@ -108,7 +108,7 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array:
 		if schema.Items != nil {
-			if refSchema, ok, err := specialSchemaRefForType(t.Elem(), schemaAllowsNull(schema.Items)); err != nil {
+			if refSchema, ok, err := nestedSharedSchemaForType(t.Elem(), schemaAllowsNull(schema.Items)); err != nil {
 				return err
 			} else if ok {
 				schema.Items = refSchema
@@ -118,7 +118,7 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 		}
 	case reflect.Map:
 		if schema.AdditionalProperties != nil {
-			if refSchema, ok, err := specialSchemaRefForType(t.Elem(), schemaAllowsNull(schema.AdditionalProperties)); err != nil {
+			if refSchema, ok, err := nestedSharedSchemaForType(t.Elem(), schemaAllowsNull(schema.AdditionalProperties)); err != nil {
 				return err
 			} else if ok {
 				schema.AdditionalProperties = refSchema
@@ -146,7 +146,7 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 				schema.Properties[propertyName] = overriddenSchema
 				continue
 			}
-			if refSchema, ok, err := specialSchemaRefForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
+			if refSchema, ok, err := nestedSharedSchemaForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
 				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			} else if ok {
 				schema.Properties[propertyName] = refSchema
@@ -208,6 +208,11 @@ func unionSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
 func specialSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
 	t = canonicalType(t)
 	switch t {
+	case sharedSchemaTimeType:
+		return &jsonschema.Schema{
+			Type:   "string",
+			Format: "date-time",
+		}, true, nil
 	case sharedSchemaRawJSONType:
 		return rawJSONSchema(), true, nil
 	case reflect.TypeOf(projectstate.SectionSizeValue{}):
@@ -239,21 +244,54 @@ func specialSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
 	}
 }
 
-func specialSchemaRefForType(t reflect.Type, nullable bool) (*jsonschema.Schema, bool, error) {
+func nestedSharedSchemaForType(t reflect.Type, nullable bool) (*jsonschema.Schema, bool, error) {
 	baseType, isNullable := dereferenceSchemaType(t)
 	if baseType == nil {
 		return nil, false, nil
 	}
-	if _, ok, err := specialSchemaForType(baseType); err != nil {
-		return nil, false, err
-	} else if !ok {
-		return nil, false, nil
+
+	if baseType == sharedSchemaTimeType {
+		specialSchema, _, err := specialSchemaForType(baseType)
+		if err != nil {
+			return nil, false, err
+		}
+		if nullable || isNullable {
+			return &jsonschema.Schema{
+				AnyOf: []*jsonschema.Schema{
+					specialSchema,
+					{Type: "null"},
+				},
+			}, true, nil
+		}
+		return specialSchema, true, nil
 	}
+
+	if specialSchema, ok, err := specialSchemaForType(baseType); err != nil {
+		return nil, false, err
+	} else if ok && strings.TrimSpace(ContractNameForType(baseType)) == "" {
+		if nullable || isNullable {
+			return &jsonschema.Schema{
+				AnyOf: []*jsonschema.Schema{
+					specialSchema,
+					{Type: "null"},
+				},
+			}, true, nil
+		}
+		return specialSchema, true, nil
+	}
+
 	contractName := strings.TrimSpace(ContractNameForType(baseType))
 	if contractName == "" {
-		return nil, false, fmt.Errorf("%s has no shared schema contract name", baseType)
+		return nil, false, nil
 	}
-	refSchema := &jsonschema.Schema{Ref: "#/$defs/" + contractName}
+	if _, ok := TypeByContractName(contractName); !ok {
+		return nil, false, nil
+	}
+
+	refSchema, err := sharedSchemaRefOrFamilyUnionSchema(contractName)
+	if err != nil {
+		return nil, false, err
+	}
 	if nullable || isNullable {
 		return &jsonschema.Schema{
 			AnyOf: []*jsonschema.Schema{

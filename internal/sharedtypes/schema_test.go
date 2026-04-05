@@ -176,6 +176,25 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 	if got := chatStateSchema.Properties["messages"].Items.Ref; got != "#/$defs/BaseChatMessageUnion" {
 		t.Fatalf("ChatSectionState.messages items ref = %q, want %q", got, "#/$defs/BaseChatMessageUnion")
 	}
+	if got := chatStateSchema.Properties["branches"].AdditionalProperties.Ref; got != "#/$defs/ChatSectionBranch" {
+		t.Fatalf("ChatSectionState.branches additionalProperties ref = %q, want %q", got, "#/$defs/ChatSectionBranch")
+	}
+
+	chatSchema := document.Defs["Chat"]
+	if chatSchema == nil {
+		t.Fatalf("expected Chat schema in $defs")
+	}
+	if got := chatSchema.Properties["llmConfig"].Ref; got != "#/$defs/LLMConfig" {
+		t.Fatalf("Chat.llmConfig ref = %q, want %q", got, "#/$defs/LLMConfig")
+	}
+
+	chatMetadataSchema := document.Defs["ChatMetadata"]
+	if chatMetadataSchema == nil {
+		t.Fatalf("expected ChatMetadata schema in $defs")
+	}
+	if got := chatMetadataSchema.Properties["llmConfig"].Ref; got != "#/$defs/LLMConfig" {
+		t.Fatalf("ChatMetadata.llmConfig ref = %q, want %q", got, "#/$defs/LLMConfig")
+	}
 
 	realtimeUIChangeSchema := document.Defs["RealtimeUIChangeContent"]
 	if realtimeUIChangeSchema == nil {
@@ -288,6 +307,55 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 	}
 }
 
+func TestBuildSchemaDocumentUsesDateTimeFormatForTimeFields(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	chatMetadataSchema := document.Defs["ChatMetadata"]
+	if chatMetadataSchema == nil {
+		t.Fatalf("expected ChatMetadata schema in $defs")
+	}
+	lastUpdatedSchema := chatMetadataSchema.Properties["lastUpdated"]
+	if lastUpdatedSchema == nil {
+		t.Fatalf("expected ChatMetadata.lastUpdated schema")
+	}
+	if got := lastUpdatedSchema.Type; got != "string" {
+		t.Fatalf("ChatMetadata.lastUpdated type = %q, want %q", got, "string")
+	}
+	if got := lastUpdatedSchema.Format; got != "date-time" {
+		t.Fatalf("ChatMetadata.lastUpdated format = %q, want %q", got, "date-time")
+	}
+
+	toolChatMessageSchema := document.Defs["ToolChatMessage"]
+	if toolChatMessageSchema == nil {
+		t.Fatalf("expected ToolChatMessage schema in $defs")
+	}
+	startedAtSchema := toolChatMessageSchema.Properties["started_at"]
+	if startedAtSchema == nil {
+		t.Fatalf("expected ToolChatMessage.started_at schema")
+	}
+	if got := startedAtSchema.Type; got != "string" {
+		t.Fatalf("ToolChatMessage.started_at type = %q, want %q", got, "string")
+	}
+	if got := startedAtSchema.Format; got != "date-time" {
+		t.Fatalf("ToolChatMessage.started_at format = %q, want %q", got, "date-time")
+	}
+	completedAtSchema := toolChatMessageSchema.Properties["completed_at"]
+	if completedAtSchema == nil || len(completedAtSchema.AnyOf) != 2 {
+		t.Fatalf("expected ToolChatMessage.completed_at nullable anyOf schema")
+	}
+	if got := completedAtSchema.AnyOf[0].Format; got != "date-time" {
+		t.Fatalf("ToolChatMessage.completed_at format = %q, want %q", got, "date-time")
+	}
+	if got := completedAtSchema.AnyOf[1].Type; got != "null" {
+		t.Fatalf("ToolChatMessage.completed_at null member type = %q, want %q", got, "null")
+	}
+}
+
 func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	t.Parallel()
 
@@ -322,5 +390,21 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	}
 	if !strings.HasPrefix(firstRef, "#/components/schemas/") {
 		t.Fatalf("BaseArtifactUnion first anyOf ref = %q, want OpenAPI components ref", firstRef)
+	}
+
+	chatProjection, ok := schemas["Chat"].(map[string]any)
+	if !ok {
+		t.Fatalf("Chat projection type = %T, want map[string]any", schemas["Chat"])
+	}
+	properties, ok := chatProjection["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("Chat projection properties type = %T, want map[string]any", chatProjection["properties"])
+	}
+	llmConfig, ok := properties["llmConfig"].(map[string]any)
+	if !ok {
+		t.Fatalf("Chat.llmConfig projection type = %T, want map[string]any", properties["llmConfig"])
+	}
+	if got, _ := llmConfig["$ref"].(string); got != "#/components/schemas/LLMConfig" {
+		t.Fatalf("Chat.llmConfig projection ref = %q, want %q", got, "#/components/schemas/LLMConfig")
 	}
 }

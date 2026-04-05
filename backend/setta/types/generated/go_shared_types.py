@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Any
+from enum import Enum, StrEnum
+from typing import Annotated, Any
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,19 +17,19 @@ class SettaSharedTypeModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class AgenticEdgeContextMode(str, Enum):
+class AgenticEdgeContextMode(StrEnum):
     reference_only = "reference_only"
     inline_text = "inline_text"
     summary = "summary"
 
 
-class AgenticEdgeKind(str, Enum):
+class AgenticEdgeKind(StrEnum):
     chat_chat = "chat_chat"
     section_chat = "section_chat"
     chat_section = "chat_section"
 
 
-class ArtifactType(str, Enum):
+class ArtifactType(StrEnum):
     Image = "Image"
     BrushStroke = "BrushStroke"
     DrawAreaLayerItemTransform = "DrawAreaLayerItemTransform"
@@ -37,28 +37,64 @@ class ArtifactType(str, Enum):
     File = "File"
 
 
-class ChatRole(str, Enum):
+type CanvasPoint = Annotated[
+    list[float], Field(..., max_length=2, min_length=2, title="CanvasPoint")
+]
+
+type ChartDataValue = dict[str, list[str | float]]
+
+
+class ChartType(StrEnum):
+    line = "line"
+    scatter = "scatter"
+
+
+class ChatRole(StrEnum):
     system = "system"
     user = "user"
     assistant = "assistant"
     tool = "tool"
 
 
-class ChatSendAction(str, Enum):
+class ChatSendAction(StrEnum):
     send = "send"
 
 
-class ChatStopAction(str, Enum):
+class ChatSendEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    action: ChatSendAction
+    attachments: list[ChatFileAttachment] | None
+    managed: bool
+    messageId: str
+    role: ChatRole
+    sectionId: str
+    text: str
+    timestampMs: int
+
+
+class ChatStopAction(StrEnum):
     stop = "stop"
 
 
-class ChatWindowMode(str, Enum):
+class ChatStopEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    action: ChatStopAction
+    managed: bool
+    sectionId: str
+    timestampMs: int
+
+
+class ChatWindowMode(StrEnum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
     git_graph_mode = "git_graph_mode"
 
 
-class CodeObjType(str, Enum):
+class CodeObjType(StrEnum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
     TextParam = "TextParam"
@@ -76,7 +112,7 @@ class CodeObjType(str, Enum):
     NestedParam = "NestedParam"
 
 
-class CodeObjValueRepresentationMode(str, Enum):
+class CodeObjValueRepresentationMode(StrEnum):
     expression = "expression"
     json_parsed = "json_parsed"
     string = "string"
@@ -84,30 +120,97 @@ class CodeObjValueRepresentationMode(str, Enum):
     file_read = "file_read"
 
 
-class DependencyKeyType(str, Enum):
+class ContentRef(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    byteLength: int
+    contentId: str
+    mimeType: str | None = None
+    sha256: str | None = None
+
+
+class DependencyKeyType(StrEnum):
     Section = "Section"
     SectionParam = "SectionParam"
 
 
-class DependencyValueType(str, Enum):
+class DependencyValueType(StrEnum):
     Literal = "Literal"
     Binary = "Binary"
     FileRead = "FileRead"
 
 
-class DrawAreaBrushShape(str, Enum):
+class DrawAreaBrushShape(StrEnum):
     butt = "butt"
     round = "round"
     square = "square"
 
 
-class ListenerDependencyMode(str, Enum):
+type DrawAreaTransform = Annotated[
+    list[float], Field(..., max_length=6, min_length=6, title="DrawAreaTransform")
+]
+
+
+class EndpointOrigin(StrEnum):
+    backend = "backend"
+    launcher = "launcher"
+    backend_origin = "backend-origin"
+
+
+type EndpointOriginPolicy = dict[str, EndpointOrigin]
+
+
+class FileArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: ContentRef
+
+
+class FileReadDependencyValue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    payload: str
+    type: DependencyValueType
+
+
+class ImageArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: ContentRef
+
+
+class ListenerDependencyMode(StrEnum):
     always = "always"
     realtime_only = "realtime_only"
     refresh_only = "refresh_only"
 
 
-class ListenerMessageType(str, Enum):
+class ListenerErrorContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    details: dict[str, Any] | None = None
+    error: str
+
+
+class ListenerInitContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    projectConfigId: str | None = None
+    projectName: str | None = None
+    useTemporaryIds: bool | None = None
+
+
+class ListenerMessageType(StrEnum):
     ListenerInit = "ListenerInit"
     ListenerRegister = "ListenerRegister"
     ListenerRegisterAck = "ListenerRegisterAck"
@@ -120,7 +223,106 @@ class ListenerMessageType(str, Enum):
     ListenerError = "ListenerError"
 
 
-class ParameterPassingStyle(str, Enum):
+class ListenerRegisterAckStatus(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: str | None = None
+    status: str
+
+
+class ListenerRouterEndpointCallContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str
+    endpointName: str
+    payload: dict[str, Any]
+    projectConfigId: str
+
+
+class ListenerRouterEndpointCallMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerRouterEndpointCallContent
+    messageType: ListenerMessageType
+
+
+class ListenerRouterEndpointResultContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callId: str
+    details: dict[str, Any] | None = None
+    error: str | None = None
+    ok: bool
+    projectConfigId: str
+    result: Any | None = None
+
+
+class ListenerRouterEndpointResultMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerRouterEndpointResultContent
+    messageType: ListenerMessageType
+
+
+class LiteralDependencyValue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    payload: str
+    type: DependencyValueType
+
+
+class MessageImageURLContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    image_url: MessageImageURL
+    type: str
+
+
+class MessageTextContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    text: str
+    type: str
+
+
+class MessageTextDelta(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    index: int
+    text: str
+    type: str
+
+
+type ModeScopedLauncherRoutes = Annotated[
+    list[str], Field(..., title="ModeScopedLauncherRoutes")
+]
+
+
+class NormalizedFloatingWindowBounds(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    height: float
+    width: float
+    x: float
+    y: float
+
+
+type OpenAIRealtimeTranscriptionStreamMode = Annotated[
+    int, Field(..., title="OpenAIRealtimeTranscriptionStreamMode")
+]
+
+
+class ParameterPassingStyle(StrEnum):
     DEFAULT = "DEFAULT"
     ARGS = "ARGS"
     KWARGS = "KWARGS"
@@ -128,8 +330,517 @@ class ParameterPassingStyle(str, Enum):
     KEYWORD_ONLY = "KEYWORD_ONLY"
 
 
-class ProjectCodegenLanguage(str, Enum):
+class ProjectCodegenLanguage(StrEnum):
     python = "python"
+
+
+class ProjectCodegenPluginTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    language: str
+    options: dict[str, Any]
+
+
+type RawMessage = Annotated[
+    bool | float | str | list[RawMessage] | dict[str, RawMessage] | None,
+    Field(..., title="RawMessage"),
+]
+
+type RequiredUIEditorTabMap = dict[str, list[str]] | None
+
+
+class RunSnapshotMode(StrEnum):
+    ephemeral = "ephemeral"
+    always = "always"
+    never = "never"
+
+
+class SectionCodegenMode(StrEnum):
+    inherit = "inherit"
+    include = "include"
+    exclude = "exclude"
+
+
+class SectionRepresentationMode(StrEnum):
+    expression = "expression"
+    file_path = "file_path"
+    file_read = "file_read"
+
+
+class SectionSizeMode(StrEnum):
+    auto = "auto"
+
+
+type SectionSizeValue = Annotated[
+    float | SectionSizeMode, Field(..., title="SectionSizeValue")
+]
+
+
+class SectionType(StrEnum):
+    Callable = "Callable"
+    Dict = "Dict"
+    ListRoot = "ListRoot"
+    Group = "Group"
+    StateMachineStart = "StateMachineStart"
+    StateMachineGate = "StateMachineGate"
+    StateMachineEnd = "StateMachineEnd"
+    Image = "Image"
+    Chart = "Chart"
+    Draw = "Draw"
+    TextBlock = "TextBlock"
+    Prompt = "Prompt"
+    MetaControl = "MetaControl"
+    Social = "Social"
+    GlobalVariables = "GlobalVariables"
+    Code = "Code"
+    GenPythonCode = "GenPythonCode"
+    GenPythonMetadata = "GenPythonMetadata"
+    Terminal = "Terminal"
+    IFrame = "IFrame"
+    Chat = "Chat"
+    Browser = "Browser"
+    Plugin = "Plugin"
+    TaskBoard = "TaskBoard"
+    Spreadsheet = "Spreadsheet"
+
+
+class SectionTypeCodegenPolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    mode: SectionCodegenMode
+    representation: SectionRepresentationMode
+
+
+class ServerModeCapabilities(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    canManageDesktopLauncher: bool
+
+
+class StateMachineCountOperator(StrEnum):
+    lt = "lt"
+    lte = "lte"
+    eq = "eq"
+    gte = "gte"
+    gt = "gt"
+
+
+class StateMachineSourceActivationCountCondition(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    operator: StateMachineCountOperator
+    value: int
+
+
+class StateMachineSourceFilterType(StrEnum):
+    run_completed = "run_completed"
+    run_failed = "run_failed"
+    signal = "signal"
+
+
+class StateMachineTargetActionType(StrEnum):
+    send_prompt = "send_prompt"
+    reset_thread = "reset_thread"
+
+
+class StateMachineThreadStrategy(StrEnum):
+    continue_current_thread = "continue_current_thread"
+    new_thread_before_send = "new_thread_before_send"
+
+
+class StreamingEventType(StrEnum):
+    message_start = "message_start"
+    delta = "delta"
+    tool_call_delta = "tool_call_delta"
+    tool_argument_preview_delta = "tool_argument_preview_delta"
+    tool_result = "tool_result"
+    message_stop = "message_stop"
+    message_finalized = "message_finalized"
+
+
+class ToolArgumentPreviewDeltaEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    arguments_delta: str
+    message_id: str
+    preview_kind: str
+    preview_value_delta: str
+    target_ids_by_type: dict[str, list[str]]
+    tool_call_id: str
+    tool_name: str
+    type: StreamingEventType
+
+
+class ToolCallFunction(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    arguments: dict[str, Any]
+    name: str
+
+
+class ToolReferenceContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    tool_name: str
+    type: str
+
+
+class ToolResultEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    result: ToolChatMessage
+    type: StreamingEventType
+
+
+class WatchCodeCallableKind(StrEnum):
+    function = "function"
+    async_function = "async_function"
+    class_init = "class_init"
+
+
+class WatchCodeFolder(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    path: str
+    recursive: bool
+
+
+class WatchCodeRegistryEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    bodyHash: str
+    callableName: str
+    kind: WatchCodeCallableKind
+    sectionIds: list[str] | None = None
+    sectionsCount: int | None = None
+    signatureHash: str
+    sourcePath: str
+
+
+class WindowSpaceSurfaceKind(StrEnum):
+    project_chat = "project_chat"
+    section = "section"
+
+
+class WorkspaceLaunchRouteKind(StrEnum):
+    ide = "ide"
+    launcher = "launcher"
+    blocked = "blocked"
+
+
+class AgenticEdge(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    contextMode: AgenticEdgeContextMode | None = None
+    hidden: bool | None = None
+    id: str
+    kind: AgenticEdgeKind
+    selected: bool | None = None
+    sourceSectionId: str
+    style: RawMessage | None = None
+    targetSectionId: str
+    zIndex: int | None = None
+
+
+type BaseChartSettingsUnion = Annotated[
+    LineChartSettings | ScatterChartSettings, Field(..., title="BaseChartSettingsUnion")
+]
+
+type BaseDependencyKeyUnion = Annotated[
+    SectionDependencyKey | SectionParamDependencyKey,
+    Field(..., title="BaseDependencyKeyUnion"),
+]
+
+
+class BinaryDependencyValue(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    payload: ContentRef
+    type: DependencyValueType
+
+
+class BrushStroke(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    globalCompositeOperation: str
+    lineCap: DrawAreaBrushShape
+    lineWidth: float
+    points: list[Any] | None
+    strokeStyle: str
+
+
+class BrushStrokeArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: BrushStroke
+
+
+class BrushStrokeWithTransform(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    globalCompositeOperation: str
+    lineCap: DrawAreaBrushShape
+    lineWidth: float
+    points: list[Any] | None
+    strokeStyle: str
+    transform: DrawAreaTransform
+
+
+class ChartDataArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: ChartDataValue
+
+
+class CodeObjTypeValuePolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    representation: CodeObjValueRepresentationMode
+
+
+class CodeObjValueOverride(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    representation: CodeObjValueRepresentationMode
+
+
+class CodeObjValuePolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjOverrides: dict[str, CodeObjValueOverride]
+    typePolicies: dict[str, CodeObjTypeValuePolicy]
+
+
+class DrawAreaLayerItemTransform(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    eraserStrokes: list[BrushStrokeWithTransform] | None
+    transform: DrawAreaTransform
+
+
+class DrawAreaLayerItemTransformArtifact(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str
+    type: ArtifactType
+    value: DrawAreaLayerItemTransform
+
+
+class ListenerErrorMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerErrorContent
+    messageType: ListenerMessageType
+
+
+class ListenerInitMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerInitContent
+    messageType: ListenerMessageType
+
+
+class ListenerRegisterAckContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callbacks: dict[str, ListenerRegisterAckStatus]
+    projectConfigId: str
+    shareSessionId: str | None = None
+
+
+class ListenerRegisterAckMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerRegisterAckContent
+    messageType: ListenerMessageType
+
+
+type MessageContent = Annotated[
+    MessageTextContent | MessageImageURLContent | MessageThinkingContent,
+    Field(..., title="MessageContent"),
+]
+
+type MessageContentDelta = Annotated[
+    MessageTextDelta | MessageThinkingDelta, Field(..., title="MessageContentDelta")
+]
+
+
+class MessageDeltaEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: list[MessageContentDelta] | None
+    message_id: str
+    type: StreamingEventType
+
+
+class MessageStopEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message_id: str
+    type: StreamingEventType
+
+
+class SectionCodegenOverride(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    mode: SectionCodegenMode
+    representation: SectionRepresentationMode
+
+
+class SectionCodegenPolicy(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    allowlist: list[SectionType] | None
+    exclude: list[str] | None
+    metaControlAllowlist: list[CodeObjType] | None
+    sectionOverrides: dict[str, SectionCodegenOverride]
+    typePolicies: dict[str, SectionTypeCodegenPolicy]
+
+
+class ServerModeBoundary(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    capabilities: ServerModeCapabilities
+    workspaceLaunchRouteKind: WorkspaceLaunchRouteKind
+
+
+type ServerModeBoundaryPolicy = dict[str, ServerModeBoundary]
+
+
+class ToolCall(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    function: ToolCallFunction
+    id: str
+    type: str
+
+
+class WindowSpaceConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: str | None = None
+    name: str | None = None
+    order: list[str] | None
+    sortIndex: int | None = None
+    windowsById: dict[str, WindowSpaceWindow]
+
+
+type BaseArtifactUnion = Annotated[
+    ImageArtifact
+    | BrushStrokeArtifact
+    | DrawAreaLayerItemTransformArtifact
+    | ChartDataArtifact
+    | FileArtifact,
+    Field(..., title="BaseArtifactUnion"),
+]
+
+type BaseChatMessageUnion = Annotated[
+    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage,
+    Field(..., title="BaseChatMessageUnion"),
+]
+
+type BaseDependencyValueUnion = Annotated[
+    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue,
+    Field(..., title="BaseDependencyValueUnion"),
+]
+
+
+class ListenerFrontendEmitContent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    artifactUpdates: list[RawArtifact] | None = None
+    dependencyValues: dict[str, RawMessage | None] | None = None
+    projectConfigId: str
+
+
+class ListenerFrontendEmitMessage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    content: ListenerFrontendEmitContent
+    messageType: ListenerMessageType
+
+
+class MessageFinalizedEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: BaseChatMessageUnion
+    type: StreamingEventType
+
+
+class MessageStartEvent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: BaseChatMessageUnion
+    type: StreamingEventType
+
+
+class ProjectCodegenPythonTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    codeObjValuePolicy: CodeObjValuePolicy
+    genCodePrefix: str
+    genCodeSuffix: str
+    generateMetadata: bool
+    language: ProjectCodegenLanguage
+    sectionPolicy: SectionCodegenPolicy
+
+
+type ProjectCodegenTarget = Annotated[
+    ProjectCodegenPythonTarget | ProjectCodegenPluginTarget,
+    Field(..., title="ProjectCodegenTarget"),
+]
+
+type LLMStreamingResponseChunk = Annotated[
+    MessageStartEvent
+    | MessageDeltaEvent
+    | ToolCallDeltaEvent
+    | ToolResultEvent
+    | ToolArgumentPreviewDeltaEvent
+    | MessageStopEvent
+    | MessageFinalizedEvent,
+    Field(..., title="LLMStreamingResponseChunk"),
+]
 
 
 class Route(str, Enum):
@@ -444,138 +1155,6 @@ class Route(str, Enum):
     WRITE_FILE_BROWSER_CONTENT = "/writeFileBrowserFileContent"
 
 
-class RunSnapshotMode(str, Enum):
-    ephemeral = "ephemeral"
-    always = "always"
-    never = "never"
-
-
-class SectionCodegenMode(str, Enum):
-    inherit = "inherit"
-    include = "include"
-    exclude = "exclude"
-
-
-class SectionRepresentationMode(str, Enum):
-    expression = "expression"
-    file_path = "file_path"
-    file_read = "file_read"
-
-
-class SectionType(str, Enum):
-    Callable = "Callable"
-    Dict = "Dict"
-    ListRoot = "ListRoot"
-    Group = "Group"
-    StateMachineStart = "StateMachineStart"
-    StateMachineGate = "StateMachineGate"
-    StateMachineEnd = "StateMachineEnd"
-    Image = "Image"
-    Chart = "Chart"
-    Draw = "Draw"
-    TextBlock = "TextBlock"
-    Prompt = "Prompt"
-    MetaControl = "MetaControl"
-    Social = "Social"
-    GlobalVariables = "GlobalVariables"
-    Code = "Code"
-    GenPythonCode = "GenPythonCode"
-    GenPythonMetadata = "GenPythonMetadata"
-    Terminal = "Terminal"
-    IFrame = "IFrame"
-    Chat = "Chat"
-    Browser = "Browser"
-    Plugin = "Plugin"
-    TaskBoard = "TaskBoard"
-    Spreadsheet = "Spreadsheet"
-
-
-class StateMachineCountOperator(str, Enum):
-    lt = "lt"
-    lte = "lte"
-    eq = "eq"
-    gte = "gte"
-    gt = "gt"
-
-
-class StateMachineSourceFilterType(str, Enum):
-    run_completed = "run_completed"
-    run_failed = "run_failed"
-    signal = "signal"
-
-
-class StateMachineTargetActionType(str, Enum):
-    send_prompt = "send_prompt"
-    reset_thread = "reset_thread"
-
-
-class StateMachineThreadStrategy(str, Enum):
-    continue_current_thread = "continue_current_thread"
-    new_thread_before_send = "new_thread_before_send"
-
-
-class StreamingEventType(str, Enum):
-    message_start = "message_start"
-    delta = "delta"
-    tool_call_delta = "tool_call_delta"
-    tool_argument_preview_delta = "tool_argument_preview_delta"
-    tool_result = "tool_result"
-    message_stop = "message_stop"
-    message_finalized = "message_finalized"
-
-
-class WatchCodeCallableKind(str, Enum):
-    function = "function"
-    async_function = "async_function"
-    class_init = "class_init"
-
-
-class WindowSpaceSurfaceKind(str, Enum):
-    project_chat = "project_chat"
-    section = "section"
-
-
-class AgenticEdge(SettaSharedTypeModel):
-    id: str
-    sourceSectionId: str
-    targetSectionId: str
-    kind: AgenticEdgeKind
-    contextMode: AgenticEdgeContextMode | None = None
-    style: Any | None = None
-    hidden: bool | None = None
-    zIndex: int | None = None
-    selected: bool | None = None
-
-
-class BrushStroke(SettaSharedTypeModel):
-    strokeStyle: str
-    lineWidth: float
-    lineCap: DrawAreaBrushShape
-    points: list[Any]
-    globalCompositeOperation: str
-
-
-class BrushStrokeArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: BrushStroke
-
-
-class BrushStrokeWithTransform(SettaSharedTypeModel):
-    strokeStyle: str
-    lineWidth: float
-    lineCap: DrawAreaBrushShape
-    points: list[Any]
-    globalCompositeOperation: str
-    transform: list[float]
-
-
-class ChartDataArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: dict[str, list[Any]]
-
-
 class ChatFileAttachment(SettaSharedTypeModel):
     id: str
     name: str
@@ -599,60 +1178,6 @@ class ChatSectionState(SettaSharedTypeModel):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-class ChatSendEvent(SettaSharedTypeModel):
-    action: ChatSendAction
-    sectionId: str
-    messageId: str
-    text: str
-    attachments: list[ChatFileAttachment]
-    role: ChatRole
-    timestampMs: int
-    managed: bool
-
-
-class ChatStopEvent(SettaSharedTypeModel):
-    action: ChatStopAction
-    sectionId: str
-    timestampMs: int
-    managed: bool
-
-
-class CodeObjTypeValuePolicy(SettaSharedTypeModel):
-    representation: CodeObjValueRepresentationMode
-
-
-class CodeObjValueOverride(SettaSharedTypeModel):
-    representation: CodeObjValueRepresentationMode
-
-
-class CodeObjValuePolicy(SettaSharedTypeModel):
-    typePolicies: dict[str, CodeObjTypeValuePolicy]
-    codeObjOverrides: dict[str, CodeObjValueOverride]
-
-
-class ContentRef(SettaSharedTypeModel):
-    contentId: str
-    byteLength: int
-    mimeType: str | None = None
-    sha256: str | None = None
-
-
-class BinaryDependencyValue(SettaSharedTypeModel):
-    type: DependencyValueType
-    payload: ContentRef
-
-
-class DrawAreaLayerItemTransform(SettaSharedTypeModel):
-    transform: list[float]
-    eraserStrokes: list[BrushStrokeWithTransform]
-
-
-class DrawAreaLayerItemTransformArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: DrawAreaLayerItemTransform
-
-
 class Edge(SettaSharedTypeModel):
     id: str
     sourceSectionId: str
@@ -669,23 +1194,6 @@ class Edge(SettaSharedTypeModel):
     zIndex: int | None = None
     data: Any | None = None
     selected: bool | None = None
-
-
-class FileArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: ContentRef
-
-
-class FileReadDependencyValue(SettaSharedTypeModel):
-    type: DependencyValueType
-    payload: str
-
-
-class ImageArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: ContentRef
 
 
 class LLMConfig(SettaSharedTypeModel):
@@ -717,114 +1225,18 @@ class ChatMetadata(SettaSharedTypeModel):
     projectConfigId: ID | None = None
 
 
-class ListenerErrorContent(SettaSharedTypeModel):
-    error: str
-    details: dict[str, Any] | None = None
-
-
-class ListenerErrorMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerErrorContent
-
-
-class ListenerInitContent(SettaSharedTypeModel):
-    projectConfigId: str | None = None
-    projectName: str | None = None
-    useTemporaryIds: bool | None = None
-
-
-class ListenerInitMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerInitContent
-
-
-class ListenerRegisterAckStatus(SettaSharedTypeModel):
-    status: str
-    message: str | None = None
-
-
-class ListenerRegisterAckContent(SettaSharedTypeModel):
-    projectConfigId: str
-    shareSessionId: str | None = None
-    callbacks: dict[str, ListenerRegisterAckStatus]
-
-
-class ListenerRegisterAckMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerRegisterAckContent
-
-
-class ListenerRouterEndpointCallContent(SettaSharedTypeModel):
-    projectConfigId: str
-    callId: str
-    endpointName: str
-    payload: dict[str, Any]
-
-
-class ListenerRouterEndpointCallMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerRouterEndpointCallContent
-
-
-class ListenerRouterEndpointResultContent(SettaSharedTypeModel):
-    projectConfigId: str
-    callId: str
-    ok: bool
-    result: Any | None = None
-    error: str | None = None
-    details: dict[str, Any] | None = None
-
-
-class ListenerRouterEndpointResultMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerRouterEndpointResultContent
-
-
-class LiteralDependencyValue(SettaSharedTypeModel):
-    type: DependencyValueType
-    payload: str
-
-
-class MessageDeltaEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message_id: str
-    content: list[MessageContentDelta]
-
-
-class MessageFinalizedEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message: BaseChatMessageUnion
+class LineChartSettings(SettaSharedTypeModel):
+    type: ChartType = ChartType.line
+    xAxisColumn: str | None = None
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
 
 
 class MessageImageURL(SettaSharedTypeModel):
     url: str
     detail: str | None = None
-
-
-class MessageImageURLContent(SettaSharedTypeModel):
-    type: str
-    image_url: MessageImageURL
-
-
-class MessageStartEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message: BaseChatMessageUnion
-
-
-class MessageStopEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message_id: str
-
-
-class MessageTextContent(SettaSharedTypeModel):
-    type: str
-    text: str
-
-
-class MessageTextDelta(SettaSharedTypeModel):
-    type: str
-    index: int
-    text: str
 
 
 class MessageThinkingContent(SettaSharedTypeModel):
@@ -834,24 +1246,23 @@ class MessageThinkingContent(SettaSharedTypeModel):
     signature: str | None = None
 
 
+class AssistantChatMessage(SettaSharedTypeModel):
+    id: ID = Field(default_factory=create_new_id)
+    role: ChatRole = ChatRole.assistant
+    createdAt: int = 0
+    content: list[
+        MessageTextContent | MessageImageURLContent | MessageThinkingContent
+    ] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    tool_calls: list[ToolCall] | None = None
+
+
 class MessageThinkingDelta(SettaSharedTypeModel):
     type: str
     index: int
     thinking: str
     summary: str | None = None
     signature: str | None = None
-
-
-class NormalizedFloatingWindowBounds(SettaSharedTypeModel):
-    x: float
-    y: float
-    width: float
-    height: float
-
-
-class ProjectCodegenPluginTarget(SettaSharedTypeModel):
-    language: str
-    options: dict[str, Any]
 
 
 class ProjectRunCapabilities(SettaSharedTypeModel):
@@ -866,20 +1277,12 @@ class RawArtifact(SettaSharedTypeModel):
     value: Any | None = None
 
 
-class ListenerFrontendEmitContent(SettaSharedTypeModel):
-    projectConfigId: str
-    dependencyValues: dict[str, Any] | None = None
-    artifactUpdates: list[RawArtifact] | None = None
-
-
-class ListenerFrontendEmitMessage(SettaSharedTypeModel):
-    messageType: ListenerMessageType
-    content: ListenerFrontendEmitContent
-
-
-class SectionCodegenOverride(SettaSharedTypeModel):
-    mode: SectionCodegenMode
-    representation: SectionRepresentationMode
+class ScatterChartSettings(SettaSharedTypeModel):
+    type: ChartType = ChartType.scatter
+    xAxisColumn: str | None = None
+    categoryColumn: str | None = None
+    xAxisLog: bool = False
+    yAxisLog: bool = False
 
 
 class SectionDependencyKey(SettaSharedTypeModel):
@@ -891,33 +1294,6 @@ class SectionParamDependencyKey(SettaSharedTypeModel):
     type: DependencyKeyType
     sectionId: ID
     codeObjId: ID
-
-
-class SectionTypeCodegenPolicy(SettaSharedTypeModel):
-    mode: SectionCodegenMode
-    representation: SectionRepresentationMode
-
-
-class SectionCodegenPolicy(SettaSharedTypeModel):
-    allowlist: list[SectionType]
-    metaControlAllowlist: list[CodeObjType]
-    exclude: list[str]
-    typePolicies: dict[str, SectionTypeCodegenPolicy]
-    sectionOverrides: dict[str, SectionCodegenOverride]
-
-
-class ProjectCodegenPythonTarget(SettaSharedTypeModel):
-    language: ProjectCodegenLanguage
-    genCodePrefix: str
-    genCodeSuffix: str
-    generateMetadata: bool
-    sectionPolicy: SectionCodegenPolicy
-    codeObjValuePolicy: CodeObjValuePolicy
-
-
-class StateMachineSourceActivationCountCondition(SettaSharedTypeModel):
-    operator: StateMachineCountOperator
-    value: int
 
 
 class StateMachineSourceFilter(SettaSharedTypeModel):
@@ -969,50 +1345,12 @@ class SystemChatMessage(SettaSharedTypeModel):
     attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
-class ToolArgumentPreviewDeltaEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    message_id: str
-    tool_call_id: str
-    tool_name: str
-    arguments_delta: str
-    preview_kind: str
-    target_ids_by_type: dict[str, list[str]]
-    preview_value_delta: str
-
-
 class ToolCallDeltaEvent(SettaSharedTypeModel):
     type: StreamingEventType
     message_id: str
     tool_call_id: str
     arguments_delta: str
     tool_name: str | None = None
-
-
-class ToolCallFunction(SettaSharedTypeModel):
-    name: str
-    arguments: dict[str, Any]
-
-
-class ToolCall(SettaSharedTypeModel):
-    id: str
-    type: str
-    function: ToolCallFunction
-
-
-class AssistantChatMessage(SettaSharedTypeModel):
-    id: ID = Field(default_factory=create_new_id)
-    role: ChatRole = ChatRole.assistant
-    createdAt: int = 0
-    content: list[
-        MessageTextContent | MessageImageURLContent | MessageThinkingContent
-    ] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
-    tool_calls: list[ToolCall] | None = None
-
-
-class ToolReferenceContent(SettaSharedTypeModel):
-    type: str
-    tool_name: str
 
 
 class ToolChatMessage(SettaSharedTypeModel):
@@ -1029,11 +1367,6 @@ class ToolChatMessage(SettaSharedTypeModel):
     is_error: bool = False
     started_at: datetime = Field(default_factory=get_now_timestamp)
     completed_at: datetime | None = None
-
-
-class ToolResultEvent(SettaSharedTypeModel):
-    type: StreamingEventType
-    result: ToolChatMessage
 
 
 class TopLevelSectionLayout(SettaSharedTypeModel):
@@ -1070,40 +1403,6 @@ class ViewMode(SettaSharedTypeModel):
     viewport: Viewport | None = None
     viewportInitialized: bool | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] | None = None
-
-
-class WatchCodeFolder(SettaSharedTypeModel):
-    path: str
-    recursive: bool
-
-
-class WatchCodeRegistryEntry(SettaSharedTypeModel):
-    callableName: str
-    kind: WatchCodeCallableKind
-    signatureHash: str
-    bodyHash: str
-    sourcePath: str
-    sectionIds: list[str] | None = None
-    sectionsCount: int | None = None
-
-
-class WindowSpaceWindow(SettaSharedTypeModel):
-    surfaceKind: WindowSpaceSurfaceKind | None = None
-    sectionIdOrNull: str | None = None
-    mode: ChatWindowMode | None = None
-    title: str | None = None
-    chatId: str | None = None
-    embeddedGitPaneVisible: bool | None = None
-    zIndex: int | None = None
-    normalizedBounds: NormalizedFloatingWindowBounds | None = None
-
-
-class WindowSpaceConfig(SettaSharedTypeModel):
-    windowsById: dict[str, WindowSpaceWindow]
-    order: list[str]
-    id: str | None = None
-    name: str | None = None
-    sortIndex: int | None = None
 
 
 class ProjectConfig(SettaSharedTypeModel):
@@ -1341,20 +1640,12 @@ class ProjectConfig(SettaSharedTypeModel):
     stateMachineEdges: list[StateMachineEdge] = Field(default_factory=list)
 
 
-BaseChatMessageUnion = (
-    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-)
-
-
-LLMStreamingResponseChunk = (
-    MessageStartEvent
-    | MessageDeltaEvent
-    | ToolCallDeltaEvent
-    | ToolResultEvent
-    | ToolArgumentPreviewDeltaEvent
-    | MessageStopEvent
-    | MessageFinalizedEvent
-)
-
-
-MessageContentDelta = MessageTextDelta | MessageThinkingDelta
+class WindowSpaceWindow(SettaSharedTypeModel):
+    surfaceKind: WindowSpaceSurfaceKind | None = None
+    sectionIdOrNull: str | None = None
+    mode: ChatWindowMode | None = None
+    title: str | None = None
+    chatId: str | None = None
+    embeddedGitPaneVisible: bool | None = None
+    zIndex: int | None = None
+    normalizedBounds: NormalizedFloatingWindowBounds | None = None
