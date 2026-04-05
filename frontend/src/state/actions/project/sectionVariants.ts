@@ -6,11 +6,9 @@ import {
 import type {
   DeleteJSONSourceFileAndVariantRequest,
   DeleteSectionVariantOrAskRequest,
-  DeleteSectionVariantOrAskResponse,
 } from "utils/generatedTypes";
 
-type DeleteSectionVariantRouteResponse =
-  ResponseDataAndStatus<DeleteSectionVariantOrAskResponse | null>;
+type DeleteSectionVariantRouteResponse = ResponseDataAndStatus<string | null>;
 type DeleteJSONSourceFileAndVariantRouteResponse = ResponseDataAndStatus<null>;
 
 export async function deleteSectionVariantOrAsk(

@@ -24,7 +24,7 @@ import {
   TextBlockFormatEnum,
   TopLevelSectionLayout,
   ViewportBounds,
-  type CreateTopLevelSectionResponse,
+  type CreateTopLevelSectionResult,
 } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
 import {
@@ -47,7 +47,7 @@ type CreateTopLevelSectionArgs = {
   name?: string | null;
 };
 
-type CreateTopLevelSectionResult = {
+type CreatedTopLevelSection = {
   sectionId: string;
   metaControlParamId: string | null;
 };
@@ -58,7 +58,7 @@ type SmartPlacementContext = {
 };
 
 type CreateTopLevelSectionRouteResponse =
-  ResponseDataAndStatus<CreateTopLevelSectionResponse>;
+  ResponseDataAndStatus<CreateTopLevelSectionResult>;
 
 export async function createTopLevelSectionWithResult({
   implType,
@@ -66,7 +66,7 @@ export async function createTopLevelSectionWithResult({
   controlCodeObjType = null,
   position = null,
   name = null,
-}: CreateTopLevelSectionArgs): Promise<CreateTopLevelSectionResult | null> {
+}: CreateTopLevelSectionArgs): Promise<CreatedTopLevelSection | null> {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
   }

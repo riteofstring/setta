@@ -2,7 +2,6 @@ import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
-  type AIFollowSnapshotResponse,
   AIFollowToolArgumentsUpdateContent,
   AIFollowToolResultUpdateContent,
 } from "utils/generatedTypes";
@@ -33,8 +32,9 @@ function cloneIdsByType(
   ) as AIFollowIdsByType;
 }
 
-type AIFollowSnapshotRouteResponse =
-  ResponseDataAndStatus<AIFollowSnapshotResponse>;
+type AIFollowSnapshotRouteResponse = ResponseDataAndStatus<
+  Array<AIFollowToolArgumentsUpdateContent>
+>;
 
 function buildTimeoutKey(
   projectConfigId: string,

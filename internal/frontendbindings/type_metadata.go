@@ -43,14 +43,6 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 		"ViewMode",
 		"createViewMode(options)",
 	),
-	reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}): aliasDeclaration(
-		"BaseClipboardDataUnionWithDiscriminator",
-		"SectionsClipboardData",
-	),
-	reflect.TypeOf(SectionsClipboardDataResponse{}): aliasDeclaration(
-		"SectionsClipboardDataResponse",
-		"SectionsClipboardData",
-	),
 	reflect.TypeOf(JSONValue{}): aliasDeclaration(
 		"JSONValue",
 		"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",

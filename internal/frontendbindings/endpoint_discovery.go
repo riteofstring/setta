@@ -454,13 +454,13 @@ func resolveDiscoveredEndpointResponseType(
 			return t, nil
 		}
 	}
-	if t, ok := registry.fromSource(discovered); ok {
-		return t, nil
-	}
 	if discovered.Container == "slice" && discovered.Elem != nil {
 		if listType, ok := registry.listTypeForElement(*discovered.Elem); ok {
 			return listType, nil
 		}
+	}
+	if t, ok := registry.fromSource(discovered); ok {
+		return t, nil
 	}
 	if discovered.Builtin == "" && discovered.Name == "" {
 		return nil, nil
@@ -680,10 +680,29 @@ func (r namedTypeRegistry) byNameExact(name string) (reflect.Type, bool) {
 
 func (r namedTypeRegistry) fromSource(ref sourceTypeRef) (reflect.Type, bool) {
 	if ref.Container != "" {
-		return nil, false
+		switch ref.Container {
+		case "slice":
+			if ref.Elem == nil {
+				return nil, false
+			}
+			elem, ok := r.fromSource(*ref.Elem)
+			if !ok {
+				return nil, false
+			}
+			return reflect.SliceOf(elem), true
+		default:
+			return nil, false
+		}
 	}
 	if ref.Builtin != "" {
-		return nil, false
+		t, ok := builtinReflectType(ref.Builtin)
+		if !ok {
+			return nil, false
+		}
+		return t, true
+	}
+	if isErrorTypeRef(ref) {
+		return reflect.TypeOf((*error)(nil)).Elem(), true
 	}
 	if ref.Name == "" || ref.PkgPath == "" {
 		return nil, false
@@ -940,10 +959,10 @@ func (r *sourceResolver) analyzeFuncBody(
 		if request, ok := r.requestTypeFromStmt(ctx, stmt, env); ok && spec.RequestType == (sourceTypeRef{}) {
 			spec.RequestType = request
 		}
-		r.updateEnvFromStmt(ctx, stmt, env)
 		if response, ok := r.successResponseTypeFromStmt(ctx, stmt, env); ok && spec.ResponseType == (sourceTypeRef{}) {
 			spec.ResponseType = response
 		}
+		r.updateEnvFromStmt(ctx, stmt, env)
 		if !spec.Binary && stmtContainsBinaryResponse(stmt) {
 			spec.Binary = true
 		}
@@ -1039,12 +1058,13 @@ func (r *sourceResolver) updateEnvFromStmt(
 ) {
 	assign, ok := stmt.(*ast.AssignStmt)
 	if ok {
+		rhsTypes := r.resolveAssignmentRhsTypes(ctx, assign, env)
 		for index, lhs := range assign.Lhs {
 			ident, ok := lhs.(*ast.Ident)
-			if !ok || ident.Name == "_" || index >= len(assign.Rhs) {
+			if !ok || ident.Name == "_" || index >= len(rhsTypes) {
 				continue
 			}
-			if ref, ok := r.resolveValueExprType(ctx, assign.Rhs[index], env); ok {
+			if ref := rhsTypes[index]; ref != (sourceTypeRef{}) {
 				env[ident.Name] = ref
 			}
 		}
@@ -1085,34 +1105,117 @@ func (r *sourceResolver) updateEnvFromStmt(
 	}
 }
 
+func (r *sourceResolver) resolveAssignmentRhsTypes(
+	ctx sourceFileContext,
+	assign *ast.AssignStmt,
+	env sourceValueEnv,
+) []sourceTypeRef {
+	if assign == nil {
+		return nil
+	}
+	if len(assign.Rhs) == 1 {
+		if call, ok := assign.Rhs[0].(*ast.CallExpr); ok {
+			if refs, ok := r.resolveCallExprReturnTypes(ctx, call, env); ok {
+				return refs
+			}
+		}
+	}
+
+	refs := make([]sourceTypeRef, len(assign.Rhs))
+	for index, rhs := range assign.Rhs {
+		if ref, ok := r.resolveValueExprType(ctx, rhs, env); ok {
+			refs[index] = ref
+		}
+	}
+	return refs
+}
+
 func (r *sourceResolver) successResponseTypeFromStmt(
 	ctx sourceFileContext,
 	stmt ast.Stmt,
 	env sourceValueEnv,
 ) (sourceTypeRef, bool) {
-	exprStmt, ok := stmt.(*ast.ExprStmt)
-	if !ok {
+	switch typed := stmt.(type) {
+	case *ast.BlockStmt:
+		return r.successResponseTypeFromBlock(ctx, typed, cloneSourceValueEnv(env))
+	case *ast.IfStmt:
+		var fallback sourceTypeRef
+		var hasFallback bool
+
+		bodyEnv := cloneSourceValueEnv(env)
+		if typed.Init != nil {
+			r.updateEnvFromStmt(ctx, typed.Init, bodyEnv)
+		}
+		if response, ok := r.successResponseTypeFromBlock(ctx, typed.Body, bodyEnv); ok {
+			if !isNilSourceTypeRef(response) {
+				return response, true
+			}
+			fallback = response
+			hasFallback = true
+		}
+
+		if typed.Else != nil {
+			elseEnv := cloneSourceValueEnv(env)
+			if typed.Init != nil {
+				r.updateEnvFromStmt(ctx, typed.Init, elseEnv)
+			}
+			if response, ok := r.successResponseTypeFromStmt(ctx, typed.Else, elseEnv); ok {
+				if !isNilSourceTypeRef(response) {
+					return response, true
+				}
+				fallback = response
+				hasFallback = true
+			}
+		}
+
+		return fallback, hasFallback
+	case *ast.ExprStmt:
+		call, ok := typed.X.(*ast.CallExpr)
+		if !ok {
+			return sourceTypeRef{}, false
+		}
+		selector, ok := call.Fun.(*ast.Ident)
+		if !ok || selector.Name != "writeJSON" {
+			return sourceTypeRef{}, false
+		}
+		if len(call.Args) < 3 {
+			return sourceTypeRef{}, false
+		}
+		if !isSuccessHTTPStatus(call.Args[1]) {
+			return sourceTypeRef{}, false
+		}
+		if ident, ok := call.Args[2].(*ast.Ident); ok && ident.Name == "nil" {
+			return sourceTypeRef{}, true
+		}
+		ref, ok := r.resolveValueExprType(ctx, call.Args[2], env)
+		return ref, ok
+	default:
 		return sourceTypeRef{}, false
 	}
-	call, ok := exprStmt.X.(*ast.CallExpr)
-	if !ok {
+}
+
+func (r *sourceResolver) successResponseTypeFromBlock(
+	ctx sourceFileContext,
+	body *ast.BlockStmt,
+	env sourceValueEnv,
+) (sourceTypeRef, bool) {
+	if body == nil {
 		return sourceTypeRef{}, false
 	}
-	selector, ok := call.Fun.(*ast.Ident)
-	if !ok || selector.Name != "writeJSON" {
-		return sourceTypeRef{}, false
+
+	var fallback sourceTypeRef
+	var hasFallback bool
+	for _, stmt := range body.List {
+		if response, ok := r.successResponseTypeFromStmt(ctx, stmt, env); ok {
+			if !isNilSourceTypeRef(response) {
+				return response, true
+			}
+			fallback = response
+			hasFallback = true
+		}
+		r.updateEnvFromStmt(ctx, stmt, env)
 	}
-	if len(call.Args) < 3 {
-		return sourceTypeRef{}, false
-	}
-	if !isSuccessHTTPStatus(call.Args[1]) {
-		return sourceTypeRef{}, false
-	}
-	if ident, ok := call.Args[2].(*ast.Ident); ok && ident.Name == "nil" {
-		return sourceTypeRef{}, true
-	}
-	ref, ok := r.resolveValueExprType(ctx, call.Args[2], env)
-	return ref, ok
+	return fallback, hasFallback
 }
 
 func isSuccessHTTPStatus(expr ast.Expr) bool {
@@ -1183,54 +1286,12 @@ func (r *sourceResolver) resolveCallExprType(
 	call *ast.CallExpr,
 	env sourceValueEnv,
 ) (sourceTypeRef, bool) {
-	switch fun := call.Fun.(type) {
-	case *ast.Ident:
-		if isBuiltinTypeName(fun.Name) || ctx.pkg.types[fun.Name] != nil {
-			return r.resolveTypeExpr(ctx, fun)
-		}
-		decl := ctx.pkg.funcs[fun.Name]
-		if decl == nil {
-			return sourceTypeRef{}, false
-		}
-		return r.funcDeclReturnType(ctx, decl)
-	case *ast.SelectorExpr:
-		if importPath, ok := ctx.imports[identName(fun.X)]; ok {
-			pkg, err := r.loadPackage(importPath)
-			if err != nil {
-				return sourceTypeRef{}, false
-			}
-			if pkg.types[fun.Sel.Name] != nil {
-				return sourceTypeRef{
-					PkgPath: importPath,
-					Name:    fun.Sel.Name,
-				}, true
-			}
-			decl := pkg.funcs[fun.Sel.Name]
-			if decl == nil {
-				return sourceTypeRef{}, false
-			}
-			return r.funcDeclReturnType(r.fileContext(pkg, r.fileForDecl(pkg, decl)), decl)
-		}
-		receiver, ok := r.resolveValueExprType(ctx, fun.X, env)
-		if !ok {
-			return sourceTypeRef{}, false
-		}
-		return r.resolveMethodReturnType(receiver, fun.Sel.Name)
-	default:
+	refs, ok := r.resolveCallExprReturnTypes(ctx, call, env)
+	if !ok {
 		return sourceTypeRef{}, false
 	}
-}
-
-func (r *sourceResolver) funcDeclReturnType(ctx sourceFileContext, fn *ast.FuncDecl) (sourceTypeRef, bool) {
-	if fn == nil || fn.Type == nil || fn.Type.Results == nil {
-		return sourceTypeRef{}, false
-	}
-	for _, field := range fn.Type.Results.List {
-		ref, ok := r.resolveTypeExpr(ctx, field.Type)
-		if !ok {
-			continue
-		}
-		if ref.Name == "error" && ref.PkgPath == "" && ref.Builtin == "" {
+	for _, ref := range refs {
+		if isErrorTypeRef(ref) {
 			continue
 		}
 		return ref, true
@@ -1238,9 +1299,86 @@ func (r *sourceResolver) funcDeclReturnType(ctx sourceFileContext, fn *ast.FuncD
 	return sourceTypeRef{}, false
 }
 
+func (r *sourceResolver) resolveCallExprReturnTypes(
+	ctx sourceFileContext,
+	call *ast.CallExpr,
+	env sourceValueEnv,
+) ([]sourceTypeRef, bool) {
+	switch fun := call.Fun.(type) {
+	case *ast.Ident:
+		if isBuiltinTypeName(fun.Name) || ctx.pkg.types[fun.Name] != nil {
+			ref, ok := r.resolveTypeExpr(ctx, fun)
+			if !ok {
+				return nil, false
+			}
+			return []sourceTypeRef{ref}, true
+		}
+		decl := ctx.pkg.funcs[fun.Name]
+		if decl == nil {
+			return nil, false
+		}
+		return r.funcDeclReturnTypes(ctx, decl)
+	case *ast.SelectorExpr:
+		if importPath, ok := ctx.imports[identName(fun.X)]; ok {
+			pkg, err := r.loadPackage(importPath)
+			if err != nil {
+				return nil, false
+			}
+			if pkg.types[fun.Sel.Name] != nil {
+				return []sourceTypeRef{{
+					PkgPath: importPath,
+					Name:    fun.Sel.Name,
+				}}, true
+			}
+			decl := pkg.funcs[fun.Sel.Name]
+			if decl == nil {
+				return nil, false
+			}
+			return r.funcDeclReturnTypes(r.fileContext(pkg, r.fileForDecl(pkg, decl)), decl)
+		}
+		receiver, ok := r.resolveValueExprType(ctx, fun.X, env)
+		if !ok {
+			return nil, false
+		}
+		return r.resolveMethodReturnTypes(receiver, fun.Sel.Name)
+	default:
+		return nil, false
+	}
+}
+
+func (r *sourceResolver) funcDeclReturnTypes(
+	ctx sourceFileContext,
+	fn *ast.FuncDecl,
+) ([]sourceTypeRef, bool) {
+	if fn == nil || fn.Type == nil || fn.Type.Results == nil {
+		return nil, false
+	}
+	refs := []sourceTypeRef{}
+	for _, field := range fn.Type.Results.List {
+		ref, ok := r.resolveTypeExpr(ctx, field.Type)
+		if !ok {
+			continue
+		}
+		count := len(field.Names)
+		if count == 0 {
+			count = 1
+		}
+		for i := 0; i < count; i++ {
+			refs = append(refs, ref)
+		}
+	}
+	if len(refs) == 0 {
+		return nil, false
+	}
+	return refs, true
+}
+
 func (r *sourceResolver) resolveTypeExpr(ctx sourceFileContext, expr ast.Expr) (sourceTypeRef, bool) {
 	switch typed := expr.(type) {
 	case *ast.Ident:
+		if typed.Name == "error" {
+			return sourceTypeRef{Name: "error"}, true
+		}
 		if isBuiltinTypeName(typed.Name) {
 			return sourceTypeRef{Builtin: typed.Name}, true
 		}
@@ -1279,23 +1417,26 @@ func (r *sourceResolver) resolveTypeExpr(ctx sourceFileContext, expr ast.Expr) (
 	}
 }
 
-func (r *sourceResolver) resolveMethodReturnType(receiver sourceTypeRef, methodName string) (sourceTypeRef, bool) {
+func (r *sourceResolver) resolveMethodReturnTypes(
+	receiver sourceTypeRef,
+	methodName string,
+) ([]sourceTypeRef, bool) {
 	pkg, err := r.loadPackage(receiver.PkgPath)
 	if err != nil {
-		return sourceTypeRef{}, false
+		return nil, false
 	}
 	if methods := pkg.methods[receiver.Name]; methods != nil {
 		if decl := methods[methodName]; decl != nil {
-			return r.funcDeclReturnType(r.fileContext(pkg, r.fileForDecl(pkg, decl)), decl)
+			return r.funcDeclReturnTypes(r.fileContext(pkg, r.fileForDecl(pkg, decl)), decl)
 		}
 	}
 	typeSpec := pkg.types[receiver.Name]
 	if typeSpec == nil {
-		return sourceTypeRef{}, false
+		return nil, false
 	}
 	interfaceType, ok := typeSpec.Type.(*ast.InterfaceType)
 	if !ok {
-		return sourceTypeRef{}, false
+		return nil, false
 	}
 	for _, field := range interfaceType.Methods.List {
 		if len(field.Names) != 1 || field.Names[0].Name != methodName {
@@ -1303,20 +1444,27 @@ func (r *sourceResolver) resolveMethodReturnType(receiver sourceTypeRef, methodN
 		}
 		fnType, ok := field.Type.(*ast.FuncType)
 		if !ok || fnType.Results == nil {
-			return sourceTypeRef{}, false
+			return nil, false
 		}
+		refs := []sourceTypeRef{}
 		for _, result := range fnType.Results.List {
 			ref, ok := r.resolveTypeExpr(r.fileContext(pkg, r.fileForTypeSpec(pkg, typeSpec)), result.Type)
 			if !ok {
 				continue
 			}
-			if ref.Name == "error" && ref.PkgPath == "" && ref.Builtin == "" {
-				continue
+			count := len(result.Names)
+			if count == 0 {
+				count = 1
 			}
-			return ref, true
+			for i := 0; i < count; i++ {
+				refs = append(refs, ref)
+			}
+		}
+		if len(refs) > 0 {
+			return refs, true
 		}
 	}
-	return sourceTypeRef{}, false
+	return nil, false
 }
 
 func (r *sourceResolver) resolveFieldType(receiver sourceTypeRef, fieldName string) (sourceTypeRef, bool) {
@@ -1380,5 +1528,52 @@ func isBuiltinTypeName(name string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func isErrorTypeRef(ref sourceTypeRef) bool {
+	return ref.Name == "error" &&
+		ref.PkgPath == "" &&
+		ref.Builtin == "" &&
+		ref.Container == "" &&
+		ref.Elem == nil
+}
+
+func isNilSourceTypeRef(ref sourceTypeRef) bool {
+	return ref == (sourceTypeRef{})
+}
+
+func cloneSourceValueEnv(env sourceValueEnv) sourceValueEnv {
+	cloned := make(sourceValueEnv, len(env))
+	for name, ref := range env {
+		cloned[name] = ref
+	}
+	return cloned
+}
+
+func builtinReflectType(name string) (reflect.Type, bool) {
+	switch strings.TrimSpace(name) {
+	case "string":
+		return reflect.TypeOf(""), true
+	case "bool":
+		return reflect.TypeOf(false), true
+	case "int":
+		return reflect.TypeOf(int(0)), true
+	case "int64":
+		return reflect.TypeOf(int64(0)), true
+	case "int32":
+		return reflect.TypeOf(int32(0)), true
+	case "float64":
+		return reflect.TypeOf(float64(0)), true
+	case "float32":
+		return reflect.TypeOf(float32(0)), true
+	case "byte":
+		return reflect.TypeOf(byte(0)), true
+	case "rune":
+		return reflect.TypeOf(rune(0)), true
+	case "any":
+		return reflect.TypeOf((*interface{})(nil)).Elem(), true
+	default:
+		return nil, false
 	}
 }

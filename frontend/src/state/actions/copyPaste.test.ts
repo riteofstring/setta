@@ -10,8 +10,8 @@ import {
   route_prepare_sections_for_copy,
 } from "utils/generatedEndpoints";
 import {
-  BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
+  type SectionsClipboardData,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy, paste } from "./copyPaste";
@@ -43,7 +43,7 @@ let clipboardReadTextMock = vi.fn();
 let originalNavigatorDescriptor: PropertyDescriptor | undefined;
 let originalWindowDescriptor: PropertyDescriptor | undefined;
 
-const sectionsClipboardPayload: BaseClipboardDataUnionWithDiscriminator = {
+const sectionsClipboardPayload: SectionsClipboardData = {
   type: ClipboardDataTypeEnum.Sections,
   data: {
     core: {

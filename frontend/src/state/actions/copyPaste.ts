@@ -11,16 +11,15 @@ import {
   route_prepare_sections_for_copy,
 } from "utils/generatedEndpoints";
 import {
-  BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
   NotificationTypeEnum,
-  SectionsClipboardDataResponse,
+  type SectionsClipboardData,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
 type PrepareSectionsForCopyRouteResponse =
-  ResponseDataAndStatus<SectionsClipboardDataResponse>;
+  ResponseDataAndStatus<SectionsClipboardData>;
 type PasteSectionsRouteResponse = ResponseDataAndStatus<null>;
 
 export async function copy() {
@@ -45,7 +44,7 @@ export async function paste({ asRef = false }) {
   if (useShareSession.getState().isDeploymentMode) {
     return;
   }
-  let x: BaseClipboardDataUnionWithDiscriminator;
+  let x: SectionsClipboardData;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
   } catch {

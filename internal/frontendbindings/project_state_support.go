@@ -6,15 +6,12 @@ import (
 	"setta/internal/lspcompletion"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
-	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 )
 
 type ShownParamIdDetails projectview.ShownParamIDDetails
 
 type ShownParamIds projectview.ShownParamIDs
-
-type BaseClipboardDataUnionWithDiscriminator struct{}
 
 type ProjectMetadataEntry projectstate.ProjectConfigMetadata
 
@@ -97,13 +94,9 @@ type AgenticSummaryCacheStatus struct {
 	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
 }
 
-type AIFollowSnapshotResponse []realtime.AIFollowToolArgumentsUpdateContent
-
 type CodeMirrorCompletionResponse []lspcompletion.CodeMirrorCompletion
 
 type CreateNewSectionVariantRequestInput httpapi.CreateNewSectionVariantRequest
-
-type CreateNewSectionVariantResponse projectstate.CreateNewSectionVariantResult
 
 type SetSectionVariantRequestInput httpapi.SetSectionVariantRequest
 
@@ -118,8 +111,6 @@ type ToggleVariantJSONSourceRequestInput httpapi.ToggleVariantJSONSourceRequest
 type SetVariantJSONSourceKeysRequestInput httpapi.SetVariantJSONSourceKeysRequest
 
 type SetSectionVariantNameRequestInput httpapi.SetSectionVariantNameRequest
-
-type DeleteSectionVariantOrAskResponse string
 
 type CreateChildSectionsRequestInput struct {
 	FrontendOpID    *string                          `json:"frontendOpId,omitempty"`
@@ -138,11 +129,7 @@ type CreateChildSectionsViaIncrementerRequestInput struct {
 	NumChildren     int                              `json:"numChildren"`
 }
 
-type CreateChildSectionsResponse projectstate.CreateChildSectionsResult
-
 type DeleteChildSectionsViaDecrementerRequestInput httpapi.DeleteChildSectionsViaDecrementerRequest
-
-type DeleteChildSectionsViaDecrementerResponse projectstate.DeleteSectionsResult
 
 type DeleteSectionsRequestInput httpapi.DeleteSectionsRequest
 
@@ -151,8 +138,6 @@ type DeleteSelectedParamsRequestInput httpapi.DeleteSelectedParamsRequest
 type PrepareSectionsForCopyRequestInput httpapi.PrepareSectionsForCopyRequest
 
 type PasteSectionsRequestInput httpapi.PasteSectionsRequest
-
-type SectionsClipboardDataResponse struct{}
 
 type CreateEdgeRequestInput struct {
 	FrontendOpID    *string        `json:"frontendOpId,omitempty"`
@@ -271,11 +256,7 @@ type SaveSettingsRequestInput struct {
 
 type CreateTopLevelSectionRequestInput httpapi.CreateTopLevelSectionRequest
 
-type CreateTopLevelSectionResponse projectstate.CreateTopLevelSectionResult
-
 type CreateViewModeRequestInput httpapi.CreateViewModeRequest
-
-type CreateViewModeResponse string
 
 type SetActiveViewModeRequestInput httpapi.SetActiveViewModeRequest
 

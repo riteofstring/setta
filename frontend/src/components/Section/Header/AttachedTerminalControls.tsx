@@ -19,13 +19,13 @@ import {
   route_toggle_minimized,
 } from "utils/generatedEndpoints";
 import {
-  type CreateChildSectionsResponse,
+  type CreateChildSectionsResult,
   type ProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
 type CreateChildSectionsRouteResponse =
-  ResponseDataAndStatus<CreateChildSectionsResponse>;
+  ResponseDataAndStatus<CreateChildSectionsResult>;
 type LatestProjectStateRouteResponse =
   ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 
