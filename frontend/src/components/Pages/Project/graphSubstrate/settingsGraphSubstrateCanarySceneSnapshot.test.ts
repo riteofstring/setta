@@ -5,7 +5,7 @@ import {
 } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
-  it("prefers the shared measured size while still applying live drag overrides", () => {
+  it("keeps layout size authoritative when current layout geometry exists while still applying live drag overrides", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -45,7 +45,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
         renderedPosition: { x: 180, y: 140 },
         width: 240,
         height: 160,
-        resolvedSize: { width: 360, height: 210 },
+        resolvedSize: { width: 240, height: 160 },
         zIndex: 2,
         tempZIndex: 1002,
         positionAndSizeLocked: false,

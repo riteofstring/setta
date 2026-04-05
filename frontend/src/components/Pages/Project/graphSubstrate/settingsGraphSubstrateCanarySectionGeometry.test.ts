@@ -31,17 +31,17 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
     });
   });
 
-  it("stops observing shared measured size when a locked section already has layout geometry", () => {
+  it("stops observing shared measured size when layout geometry already exists, even for unlocked sections", () => {
     expect(
       shouldObserveSettingsGraphSubstrateCanarySectionElementSize({
         width: 240,
         height: 160,
-        positionAndSizeLocked: true,
+        positionAndSizeLocked: false,
       }),
     ).toBe(false);
   });
 
-  it("still prefers the live measured size for unlocked sections", () => {
+  it("keeps layout size authoritative for unlocked sections even when the measured registry disagrees", () => {
     expect(
       resolveSettingsGraphSubstrateCanarySectionGeometry(
         {
@@ -60,7 +60,7 @@ describe("settingsGraphSubstrateCanarySectionGeometry", () => {
       ),
     ).toEqual({
       renderedPosition: { x: 120, y: 80 },
-      resolvedSize: { width: 360, height: 210 },
+      resolvedSize: { width: 240, height: 160 },
     });
   });
 

@@ -125,7 +125,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("uses unlocked layout size as the initial shared fallback until measured geometry arrives", async () => {
+  it("keeps unlocked layout size authoritative and does not resubscribe to measured-size churn when layout geometry already exists", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -180,38 +180,38 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
         "section-a": { width: 280, height: 190 },
       });
     });
+    await act(async () => {});
 
-    await vi.waitFor(() => {
-      expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 280,
-          height: 190,
+    expect(readSceneSnapshot(host)).toEqual({
+      sceneBounds: {
+        x: 120,
+        y: 80,
+        width: 240,
+        height: 160,
+      },
+      sections: [
+        {
+          height: 160,
+          position: { x: 120, y: 80 },
+          positionAndSizeLocked: false,
+          renderedPosition: { x: 120, y: 80 },
+          resolvedSize: { width: 240, height: 160 },
+          sectionId: "section-a",
+          tempZIndex: 2,
+          width: 240,
+          zIndex: 2,
         },
-        sections: [
-          {
-            height: 160,
-            position: { x: 120, y: 80 },
-            positionAndSizeLocked: false,
-            renderedPosition: { x: 120, y: 80 },
-            resolvedSize: { width: 280, height: 190 },
-            sectionId: "section-a",
-            tempZIndex: 2,
-            width: 240,
-            zIndex: 2,
-          },
-        ],
-      });
+      ],
     });
+    expect(readSceneRenderCount(host)).toBe(1);
     expect(useNodeInternals.getState().x.get("section-a")).toEqual({
-      height: 190,
+      height: 160,
       id: "section-a",
       position: { x: 120, y: 80 },
       style: undefined,
       tempZIndex: 2,
       type: undefined,
-      width: 280,
+      width: 240,
       zIndex: 2,
     });
   });

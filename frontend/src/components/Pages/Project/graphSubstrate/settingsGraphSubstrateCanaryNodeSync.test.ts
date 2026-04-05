@@ -4,7 +4,7 @@ import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateC
 import { resolveSettingsGraphSubstrateCanarySceneSnapshot } from "./settingsGraphSubstrateCanarySceneSnapshot";
 
 describe("settingsGraphSubstrateCanaryNodeSync", () => {
-  it("syncs locked layout size authority and unlocked measured-size authority into shared node internals", () => {
+  it("syncs layout size authority when current layout geometry exists and measured fallback only when layout is missing", () => {
     const nodeInternals = new Map<string, Node>([
       [
         "section-a",
@@ -21,8 +21,9 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
       ],
     ]);
 
-    // Locked sections should keep layout-size authority while unlocked
-    // sections can still use fresher measured DOM sizes.
+    // Layout size should stay authoritative for sections that already have
+    // current project geometry, while sections missing layout size can still
+    // fall back to shared measured DOM size.
     const sceneSnapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -32,7 +33,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           height: 160,
           zIndex: 4,
           tempZIndex: 4,
-          positionAndSizeLocked: true,
+          positionAndSizeLocked: false,
         },
         {
           sectionId: "section-b",
@@ -86,8 +87,8 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
         {
           id: "section-a",
           position: { x: 500, y: 300 },
-          width: 360,
-          height: 210,
+          width: 240,
+          height: 160,
           zIndex: 4,
           tempZIndex: 1004,
         },

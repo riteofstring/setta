@@ -75,6 +75,62 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `213` | 2026-04-05 21:23 EDT
+  - Subtask: make positive layout `w/h` authoritative for unlocked canary sections so the scene runtime only falls back to shared DOM size when layout geometry is actually missing.
+  - Why:
+    - item `212` already removed stale carried-forward measured-size fallbacks, but `settingsGraphSubstrateCanarySectionGeometry.ts` still preferred `useSectionElementSizes(...)` for unlocked sections even when the current `All Settings` layout already had positive `w/h`
+    - that meant scene bounds, node internals, and the canary runtime subscription path still woke on DOM-size churn for sections whose current project layout geometry was already good enough to drive the substrate
+    - this closes the remaining lock-state-only authority gap inside the canary scene path rather than opening another parity-only or forwarding slice
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts`
+      - positive layout `width/height` now resolve as authoritative regardless of `positionAndSizeLocked`
+      - `shouldObserveSettingsGraphSubstrateCanarySectionElementSize(...)` now returns `true` only when the current layout size is missing
+    - no scene-runtime wiring change was needed because `useSettingsGraphSubstrateCanarySceneRuntime(...)` already funnels its measured-section subscription through that helper
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts`
+      - now asserts unlocked sections stop observing measured-size churn once positive layout geometry exists
+      - now asserts unlocked sections keep layout size authoritative even when the shared measured registry disagrees
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+      - now asserts unlocked section bounds keep the current layout size when layout geometry already exists
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - now asserts the shared snapshot keeps current layout size authoritative while still applying drag-position overrides
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+      - now asserts shared node internals use layout authority when current layout exists and measured fallback only when layout is missing
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - now asserts unlocked sections with positive layout size do not resubscribe or rerender from registry churn
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed (`6 files`, `28 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanarySectionGeometry(\\.test)?\\.ts|settingsGraphSubstrateCanaryBounds(\\.test)?\\.ts|settingsGraphSubstrateCanarySceneSnapshot(\\.test)?\\.ts|settingsGraphSubstrateCanaryNodeSync(\\.test)?\\.ts|settingsGraphSubstrateCanarySceneRuntime\\.test\\.tsx" || true` -> no matches
+  - Runtime verification:
+    - refreshed run-044 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-044/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-044/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - first refreshed-token attempt exposed one transient worktree perf miss (`maxFrameDurationMs 133.3`) while transform parity and visible section count still matched; the probe was rerun once to separate a headless spike from a product regression
+      - fresh-token retry:
+        - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-044 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh run-044 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line`
+        - result: passed (`1 passed`, `35.3s`)
+        - both sides ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+        - reference average frame duration was `16.68441ms`; worktree average frame duration was `17.01314ms`
+        - reference max frame duration was `35.3ms`; worktree max frame duration was `50.0ms`
+        - visible section count stayed `46` on both sides
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - mounted `/settings` compare on worktree `3076` and read-only `main` `3087` was not normalized to the same zoom/center state, so the worktree tab stayed more zoomed out while `main` remained centered on `rotaryParamCodeObjDefault`
+      - panel field values still aligned; that mismatch was treated as session-state/oracle noise rather than graph-surface renderer drift
+  - Result:
+    - the canary now uses one rule for current size authority: positive layout size wins whenever it exists, and measured DOM size is only fallback for sections whose current layout geometry is missing
+    - unlocked sections with current layout geometry no longer keep the canary scene runtime subscribed to shared DOM size churn
+    - the broad normalized `rotaryParamCodeObjDefault` lane remained green after the authority change
+  - Next:
+    - audit the shared node hydration boundary in `frontend/src/state/actions/sectionInfos.ts` (`createNodesMapFromProjectConfigChildren(...)`) so project-state rebuilds keep shared node internals aligned with the same positive-layout authority rule
+    - do not reopen parity-only work unless the existing broad normalized `rotaryParamCodeObjDefault` lane fails
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `212` | 2026-04-05 21:05 EDT
   - Subtask: remove the canary's carried-forward scene-bounds size cache so scene bounds and `fitView(...)` only use current authoritative geometry.
   - Why:

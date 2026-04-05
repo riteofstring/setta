@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 
 describe("settingsGraphSubstrateCanaryBounds", () => {
-  it("prefers the shared measured size when an unlocked section registry is fresher than layout", () => {
+  it("keeps unlocked section bounds on layout size when current layout geometry already exists", () => {
     const bounds = getSettingsGraphSubstrateCanarySceneBounds(
       [
         {
@@ -27,8 +27,8 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     expect(bounds).toEqual({
       x: 120,
       y: 1280,
-      width: 320,
-      height: 240,
+      width: 552,
+      height: 352,
     });
   });
 
