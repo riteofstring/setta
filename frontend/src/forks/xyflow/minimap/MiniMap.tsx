@@ -5,11 +5,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
   useEffect,
+  useMemo,
   useRef,
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
-import { getNodes } from "state/actions/nodeInternals";
 import {
   useActiveSectionUI,
   useLocalStorage,
@@ -26,9 +26,9 @@ import type {
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
 import {
-  areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
+  useMiniMapRenderableNodes,
 } from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
@@ -167,10 +167,10 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(
-    getNodes,
-    areMiniMapNodesRenderableInputsEqual,
-  );
+  const nodes = useMiniMapRenderableNodes();
+  const nodesById = useMemo(() => {
+    return new Map(nodes.map((node) => [node.id, node]));
+  }, [nodes]);
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(
@@ -280,7 +280,11 @@ function MiniMap({
 
   const onSvgNodeClick = onNodeClick
     ? (event: ReactMouseEvent, nodeId: string) => {
-        const node = useNodeInternals.getState().x.get(nodeId)!;
+        const node =
+          nodesById.get(nodeId) ?? useNodeInternals.getState().x.get(nodeId);
+        if (!node) {
+          return;
+        }
         onNodeClick(event, node);
       }
     : undefined;
@@ -313,7 +317,7 @@ function MiniMap({
         maskColor={maskColor}
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
-        nodes={null}
+        nodes={nodes}
         enableSelectionSync
       />
     </Panel>

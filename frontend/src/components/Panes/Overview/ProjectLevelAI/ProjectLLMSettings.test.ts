@@ -1,4 +1,4 @@
-import { type AllConfigs } from "utils/generatedTypes";
+import { type AllLLMConfigs } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildApiKeyEntries,
@@ -13,7 +13,7 @@ function buildConfig({
   id: string;
   provider: string;
   apiKeyEnv: string | null;
-}): AllConfigs["configs"][string] {
+}): AllLLMConfigs["configs"][string] {
   return {
     id,
     model: `${provider}-model`,
@@ -28,7 +28,7 @@ function buildConfig({
 
 describe("buildApiKeyEntries", () => {
   it("includes config-referenced keys and manually added keys", () => {
-    const allLLMConfigs: AllConfigs = {
+    const allLLMConfigs: AllLLMConfigs = {
       configs: {
         "anthropic-main": buildConfig({
           id: "anthropic-main",
