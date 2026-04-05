@@ -48,11 +48,31 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import {
+  resolveSectionChromeSurfaceDecorations,
+  type SectionChromeBodySurface,
+} from "./sectionChrome";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
+export type SectionContainerHeaderRenderProps = {
+  hasSectionStyleTheme: boolean;
+  isInOtherProjectConfigs: boolean;
+  isRoot: boolean;
+  isUserView: boolean;
+  sectionId: string;
+  sectionTypeName: SectionType;
+};
+
+type SectionContainerHeaderRenderer =
+  React.ComponentType<SectionContainerHeaderRenderProps>;
+
 type SectionContainerCoreResizableProps = {
+  bodySurfaceOverride?: SectionChromeBodySurface | undefined;
+  forceTransparentBackground?: boolean;
+  forceHideFrameBorder?: boolean;
+  headerRenderer?: SectionContainerHeaderRenderer | undefined;
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
@@ -60,9 +80,43 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  forceHideTopDragHandle?: boolean;
 };
 
+function DefaultSectionContainerHeaderDomAdapter({
+  hasSectionStyleTheme,
+  isInOtherProjectConfigs,
+  isRoot,
+  isUserView,
+  sectionId,
+  sectionTypeName,
+}: SectionContainerHeaderRenderProps) {
+  return (
+    <SectionHeader
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      isInOtherProjectConfigs={isInOtherProjectConfigs}
+      isUserView={isUserView}
+      isRoot={isRoot}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      extraControls={
+        !isUserView ? (
+          <SectionWindowToggleButton
+            sectionId={sectionId}
+            sectionTypeName={sectionTypeName}
+            isRoot={isRoot}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
 function _SectionContainerCoreResizable({
+  bodySurfaceOverride,
+  forceTransparentBackground = false,
+  headerRenderer,
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
@@ -70,6 +124,8 @@ function _SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  forceHideFrameBorder = false,
+  forceHideTopDragHandle = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -95,39 +151,56 @@ function _SectionContainerCoreResizable({
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
-  const bgColor = useMetaControlStyle
+  const defaultBgColor = useMetaControlStyle
     ? "bg-transparent"
     : getBgColor(sectionTypeName);
   const shouldRenderMetaMenu = isMetaControl && !isUserView;
   const shouldRenderTextBlockMetaMenu =
     textBlockMetaControlStyle && !isUserView;
-  const showMetaControlDragHandle =
-    useMetaControlStyle && !isUserView && !positionAndSizeLocked;
-  const metaControlFrameClassName = useMetaControlStyle
-    ? "before:!border-transparent dark:before:!border-transparent group-hover/card-section:before:!border-setta-400/60 dark:group-hover/card-section:before:!border-setta-700/60"
-    : undefined;
-  const metaControlLayoutClassName = isMetaControl
-    ? "grid-cols-1 grid-rows-1"
-    : undefined;
+  const defaultSurfaceDecorations = resolveSectionChromeSurfaceDecorations({
+    useMetaControlStyle,
+    isMetaControlSection: isMetaControl,
+    isUserView,
+    positionAndSizeLocked,
+  });
+  const bodySurface = bodySurfaceOverride ?? {
+    bgColor: defaultBgColor,
+    surfaceDecorations: defaultSurfaceDecorations,
+  };
+  const headerRenderProps: SectionContainerHeaderRenderProps = {
+    hasSectionStyleTheme,
+    isInOtherProjectConfigs,
+    isRoot,
+    isUserView,
+    sectionId,
+    sectionTypeName,
+  };
+  const HeaderRenderer =
+    headerRenderer ?? DefaultSectionContainerHeaderDomAdapter;
 
   return (
     <CustomResizable
       sectionId={sectionId}
       as="section"
-      bgColor={bgColor}
+      bgColor={bodySurface.bgColor}
+      forceTransparentBackground={forceTransparentBackground}
+      forceHideFrameBorder={forceHideFrameBorder}
       isYouTube={isYouTube}
-      isMetaControl={useMetaControlStyle}
+      surfaceDecorations={bodySurface.surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
     >
-      {showMetaControlDragHandle && (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100">
-          <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
-        </div>
-      )}
+      {bodySurface.surfaceDecorations.showTopDragHandle &&
+        !forceHideTopDragHandle && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-3 w-12 -translate-x-1/2 -translate-y-1/2 cursor-move items-center justify-center opacity-0 transition-opacity group-hover/card-section:pointer-events-auto group-hover/card-section:opacity-100"
+            data-testid="section-top-drag-handle"
+          >
+            <div className="h-1 w-8 rounded-full bg-setta-300/70 dark:bg-setta-600/70" />
+          </div>
+        )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
           <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
@@ -154,30 +227,13 @@ function _SectionContainerCoreResizable({
           </div>
         )
       ) : !hideHeader ? (
-        <SectionHeader
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          extraControls={
-            !isUserView ? (
-              <SectionWindowToggleButton
-                sectionId={sectionId}
-                sectionTypeName={sectionTypeName}
-                isRoot={isRoot}
-                hasSectionStyleTheme={hasSectionStyleTheme}
-              />
-            ) : null
-          }
-        />
+        <HeaderRenderer {...headerRenderProps} />
       ) : null}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       <CanvasSectionBody
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
+        bgColor={bodySurface.bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
       />
@@ -259,13 +315,17 @@ export function AreaSwitch({
         <ChatSectionArea
           sectionId={sectionId}
           host={chatHost}
-          modeOverride={chatModeOverride}
-          projectChatId={projectChatId}
-          setProjectChatId={setProjectChatId}
-          surfaceId={projectChatSurfaceId}
-          onProjectChatBlockedErrorCodeChange={
-            onProjectChatBlockedErrorCodeChange
-          }
+          {...(chatModeOverride !== undefined
+            ? { modeOverride: chatModeOverride }
+            : {})}
+          {...(projectChatId !== undefined ? { projectChatId } : {})}
+          {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+          {...(projectChatSurfaceId !== undefined
+            ? { surfaceId: projectChatSurfaceId }
+            : {})}
+          {...(onProjectChatBlockedErrorCodeChange !== undefined
+            ? { onProjectChatBlockedErrorCodeChange }
+            : {})}
         />
       );
     case SectionTypeEnum.Browser:
@@ -373,9 +433,11 @@ function ChatSectionArea({
         surfaceId ??
         buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId)
       }
-      projectChatId={projectChatId}
-      setProjectChatId={setProjectChatId}
-      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
+      {...(projectChatId !== undefined ? { projectChatId } : {})}
+      {...(setProjectChatId !== undefined ? { setProjectChatId } : {})}
+      {...(onProjectChatBlockedErrorCodeChange !== undefined
+        ? { onProjectChatBlockedErrorCodeChange }
+        : {})}
     />
   );
 }

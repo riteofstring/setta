@@ -9,7 +9,7 @@ describe("plugin runtime bootstrap", () => {
   afterEach(() => {
     vi.resetModules();
     vi.doUnmock("react");
-    vi.doUnmock("openapi/http");
+    vi.doUnmock("utils/generatedEndpoints");
   });
 
   it("triggers runtime refresh only when bootstrap is enabled", async () => {
@@ -32,15 +32,17 @@ describe("plugin runtime bootstrap", () => {
           plugins: [],
         },
       },
-      response: new Response(null, { status: 200 }),
+      status: 200,
+      hasResponse: true,
     }));
 
-    vi.doMock("openapi/http", async () => {
-      const actual =
-        await vi.importActual<typeof import("openapi/http")>("openapi/http");
+    vi.doMock("utils/generatedEndpoints", async () => {
+      const actual = await vi.importActual<
+        typeof import("utils/generatedEndpoints")
+      >("utils/generatedEndpoints");
       return {
         ...actual,
-        getPluginsRuntime: routePluginsRuntime,
+        route_plugins_runtime: routePluginsRuntime,
       };
     });
 
