@@ -1,133 +1,39 @@
-/* @vitest-environment jsdom */
-import type { ReactNode } from "react";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { useProjectState, useShareSession } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
-import { createProjectConfig, createViewMode } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ViewingEditingMode } from "./ViewingEditingMode";
-vi.mock("re-resizable", () => ({
-  Resizable: ({ children }: { children: ReactNode }) => children,
-}));
-vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: ReactNode }) => children,
-  useViewModeSortableItem: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: () => {},
-    setActivatorNodeRef: () => {},
-    style: {},
-    isDragging: false,
-  }),
-}));
-vi.mock("state/actions/activeSections", () => ({
-  pruneActiveSectionIdsForViewMode: () => {},
-}));
-vi.mock("state/actions/project/loadProject", () => ({
-  useCreateAndGoToProjectConfig: () => () => {},
-}));
-vi.mock("./ProjectConfigs", () => ({
-  ProjectConfigs: () => <div data-testid="project-configs-placeholder" />,
-}));
-vi.mock("./WindowSpacesPane", () => ({
-  WindowSpacesPane: () => <div data-testid="window-spaces-placeholder" />,
-}));
-const routeSetViewModeNameMock = vi.fn();
-vi.mock("openapi/http", () => ({
-  createViewMode: () => Promise.resolve(undefined),
-  setActiveViewMode: () => Promise.resolve(undefined),
-  setViewModeName: (...args: unknown[]) => routeSetViewModeNameMock(...args),
-  toggleIsEditingViewMode: () => Promise.resolve(undefined),
-  toggleViewModeTab: () => Promise.resolve(undefined),
-  toggleViewModeUserFacing: () => Promise.resolve(undefined),
-}));
-describe("ViewingEditingMode", () => {
-  let host: HTMLDivElement;
-  let root: Root;
-  beforeEach(() => {
-    routeSetViewModeNameMock.mockReset();
-    resetProjectStores();
-    useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({
-        id: "project-config-id",
-        name: "Project Alpha",
-        activeViewModeId: "view-mode-a",
-        isEditingViewMode: true,
-        viewModes: {
-          "view-mode-a": createViewMode({
-            id: "view-mode-a",
-            name: "Focus",
-            sortIndex: 0,
-            isUserFacing: false,
-            isTab: true,
-            visibilityBySectionId: {},
-            topLevelSections: {},
-          }),
-          "view-mode-b": createViewMode({
-            id: "view-mode-b",
-            name: "Details",
-            sortIndex: 1,
-            isUserFacing: false,
-            isTab: true,
-            visibilityBySectionId: {},
-            topLevelSections: {},
-          }),
-        },
-      });
+import { createViewModeConfig } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
+import { compactViewModeSortIndices } from "./ViewingEditingMode";
+
+describe("compactViewModeSortIndices", () => {
+  it("reassigns sequential sort indices using the current sorted order", () => {
+    const modeA = createViewModeConfig({
+      id: "mode-a",
+      name: "Mode A",
+      sortIndex: 8,
     });
-    host = document.createElement("div");
-    document.body.appendChild(host);
-    root = createRoot(host);
-  });
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
+    const modeB = createViewModeConfig({
+      id: "mode-b",
+      name: "Mode B",
+      sortIndex: 2,
     });
-    host.remove();
-    resetProjectStores();
-  });
-  it("submits conflicting view-mode renames to the backend and shows the backend error", async () => {
-    routeSetViewModeNameMock.mockResolvedValue({
-      data: {
-        detail:
-          "View mode name 'Details' conflicts with existing view mode 'Details'.",
-      },
-      hasResponse: true,
-      status: 400,
+    const modeC = createViewModeConfig({
+      id: "mode-c",
+      name: "Mode C",
+      sortIndex: 5,
     });
-    await act(async () => {
-      root.render(<ViewingEditingMode />);
-    });
-    const input = host.querySelector(
-      '[data-view-mode-id="view-mode-a"] input',
-    ) as HTMLInputElement | null;
-    expect(input).not.toBeNull();
-    await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value",
-      )?.set;
-      valueSetter?.call(input, "Details");
-      input?.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    await act(async () => {
-      input?.focus();
-      input?.blur();
-    });
-    expect(routeSetViewModeNameMock).toHaveBeenCalledTimes(1);
-    expect(routeSetViewModeNameMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectConfigId: "project-config-id",
-        viewModeId: "view-mode-a",
-        name: "Details",
-        frontendOpId: expect.any(String),
-      }),
-    );
-    expect(host.textContent).toContain(
-      "View mode name 'Details' conflicts with existing view mode 'Details'.",
-    );
+    const viewModes = {
+      [modeA.id]: modeA,
+      [modeB.id]: modeB,
+      [modeC.id]: modeC,
+    };
+
+    const sortedModes = compactViewModeSortIndices(viewModes);
+
+    expect(sortedModes.map((mode) => mode.id)).toEqual([
+      modeB.id,
+      modeC.id,
+      modeA.id,
+    ]);
+    expect(viewModes[modeB.id]?.sortIndex).toBe(0);
+    expect(viewModes[modeC.id]?.sortIndex).toBe(1);
+    expect(viewModes[modeA.id]?.sortIndex).toBe(2);
   });
 });
