@@ -1,6 +1,4 @@
-import { AllLLMConfigs, LLMAPIKeysSnapshot } from "utils/generatedTypes";
-
-type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+import { AllLLMConfigs, APIKeys } from "utils/generatedTypes";
 
 type LLMConfigGroup = {
   group: string;
@@ -55,23 +53,6 @@ export function buildLLMConfigGroups(
 
 export function countLLMConfigs(groups: Array<LLMConfigGroup>): number {
   return groups.reduce((sum, group) => sum + group.items.length, 0);
-}
-
-export function resolveSelectableLLMConfigId(
-  groups: Array<LLMConfigGroup>,
-  configId: string | null,
-): string | null {
-  if (!configId) {
-    return null;
-  }
-  for (const group of groups) {
-    for (const item of group.items) {
-      if (item.id === configId) {
-        return configId;
-      }
-    }
-  }
-  return null;
 }
 
 export function pickDefaultConfigId(
