@@ -1194,13 +1194,6 @@ export type BaseSectionImplUnion =
   | TaskBoardSectionImpl
   | SpreadsheetSectionImpl;
 
-type BaseParentSectionImplUnion =
-  | ListRootSectionImpl
-  | GroupSectionImpl
-  | CodeSectionImpl
-  | GenPythonCodeSectionImpl
-  | GenPythonMetadataSectionImpl;
-
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.ListRoot,
   SectionTypeEnum.Group,
@@ -1211,14 +1204,14 @@ const BaseParentSectionImplTypeSet = new Set<SectionType>([
 
 export function isBaseParentSectionImpl(
   x: BaseSectionImplUnion,
-): x is BaseParentSectionImplUnion {
+): x is
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl {
   return BaseParentSectionImplTypeSet.has(x.type);
 }
-
-type BaseSectionWithParamsImplUnion =
-  | CallableSectionImpl
-  | DictSectionImpl
-  | GlobalVariablesSectionImpl;
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Callable,
@@ -1228,7 +1221,7 @@ const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImplUnion,
-): x is BaseSectionWithParamsImplUnion {
+): x is CallableSectionImpl | DictSectionImpl | GlobalVariablesSectionImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
@@ -1952,23 +1945,6 @@ export function isBaseChildlessCodeObjImpl(
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
 
-type BaseParamCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-
 const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
@@ -1988,13 +1964,24 @@ const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
 
 export function isBaseParamCodeObjImpl(
   x: BaseCodeObjImplUnion,
-): x is BaseParamCodeObjImplUnion {
+): x is
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl {
   return BaseParamCodeObjImplTypeSet.has(x.type);
 }
-
-type BaseParentCodeObjImplUnion =
-  | CodeCallableCodeObjImpl
-  | NestedParamCodeObjImpl;
 
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeCallable,
@@ -2003,7 +1990,7 @@ const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
 
 export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImplUnion,
-): x is BaseParentCodeObjImplUnion {
+): x is CodeCallableCodeObjImpl | NestedParamCodeObjImpl {
   return BaseParentCodeObjImplTypeSet.has(x.type);
 }
 

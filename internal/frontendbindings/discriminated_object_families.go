@@ -238,10 +238,10 @@ func discriminatedObjectFamilyTraitDeclarations(
 		if trait.IncludeBase {
 			memberNames = append([]string{baseTypeName}, memberNames...)
 		}
-		if trait.LocalUnion {
-			declarations = append(declarations, localUnionDeclaration(unionName, memberNames...))
-		} else {
+		returnType := unionAliasExpr(memberNames...)
+		if !trait.LocalUnion {
 			declarations = append(declarations, aliasUnionDeclaration(unionName, memberNames...))
+			returnType = unionName
 		}
 		traitTypeName := strings.TrimSuffix(unionName, "Union")
 		traitSetName := traitTypeName + "TypeSet"
@@ -254,7 +254,7 @@ func discriminatedObjectFamilyTraitDeclarations(
 			typeGuardDeclaration(
 				"is"+traitTypeName,
 				baseUnionName,
-				unionName,
+				returnType,
 				traitSetName,
 			),
 		)

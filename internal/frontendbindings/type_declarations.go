@@ -12,7 +12,6 @@ type TypeDeclaration struct {
 	Name            string
 	Kind            string
 	Alias           string
-	TypeParams      string
 	Properties      []TypeProperty
 	EnumValues      []stringenumvalues.EnumValue
 	CreateBody      string
@@ -97,24 +96,11 @@ func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
 	return aliasDeclaration(name, unionAliasExpr(members...))
 }
 
-func localUnionDeclaration(name string, members ...string) TypeDeclaration {
-	return localAliasDeclaration(name, "", unionAliasExpr(members...))
-}
-
 func aliasDeclaration(name string, alias string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:  name,
 		Kind:  "alias",
 		Alias: alias,
-	}
-}
-
-func localAliasDeclaration(name string, typeParams string, alias string) TypeDeclaration {
-	return TypeDeclaration{
-		Name:       name,
-		Kind:       "local_alias",
-		TypeParams: typeParams,
-		Alias:      alias,
 	}
 }
 

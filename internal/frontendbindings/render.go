@@ -80,7 +80,7 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 			return err
 		}
 		switch declaration.Kind {
-		case "object", "enum", "alias", "local_alias", "set", "type_guard", "function", "const":
+		case "object", "enum", "alias", "set", "type_guard", "function", "const":
 		default:
 			return fmt.Errorf("declaration %s: unsupported kind %q", declaration.Name, declaration.Kind)
 		}
@@ -110,7 +110,7 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 
 func emittedTypeSymbolsForDeclaration(declaration TypeDeclaration) []emittedSymbol {
 	switch declaration.Kind {
-	case "object", "enum", "alias", "local_alias":
+	case "object", "enum", "alias":
 		return []emittedSymbol{{
 			Name:   declaration.Name,
 			Origin: "declaration " + declaration.Name,
@@ -178,7 +178,7 @@ func validateTypeDeclarationShape(declaration TypeDeclaration) error {
 				return err
 			}
 		}
-	case "alias", "local_alias":
+	case "alias":
 		if strings.TrimSpace(declaration.Alias) == "" {
 			return fmt.Errorf("declaration %s: %s requires alias expression", declaration.Name, declaration.Kind)
 		}

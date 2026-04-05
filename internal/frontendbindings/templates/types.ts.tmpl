@@ -68,8 +68,6 @@ export const {{ .Name }}Enum = {
 export type {{ .Name }} = ObjectValues<typeof {{ .Name }}Enum>;
 {{ else if eq .Kind "alias" }}
 export type {{ .Name }} = {{ .Alias }};
-{{ else if eq .Kind "local_alias" }}
-type {{ .Name }}{{ .TypeParams }} = {{ .Alias }};
 {{ else if eq .Kind "set" }}
 {{ if .Exported }}export {{ end }}const {{ .Name }} = new Set<{{ .SetElementType }}>([
 {{- range .SetMembers }}
