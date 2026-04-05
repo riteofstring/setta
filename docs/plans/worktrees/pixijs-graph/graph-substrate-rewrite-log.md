@@ -11702,3 +11702,61 @@ LOOP_TERMINAL_MARKER: none
     on the same `rotaryParamCodeObjDefault` lane before opening another
     product reduction
 - LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 09:07 EDT - Ralph item 306
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the bounded verifier-refresh subtask named in the handoff: restore
+  one trustworthy automated verdict for the landed item-`305`
+  presentation-owner split before opening another product reduction.
+- Landed:
+  - no product/runtime code changes; the pass stayed bounded to refreshing the
+    canonical measurement and recording the resulting blocker
+  - fresh perf note
+    `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split-verdict.md`
+  - refreshed `graph-substrate-rewrite-handoff.md` so the next iteration
+    starts with the now-explicit CDP/bootstrap blocker instead of another blind
+    product slice
+- Verification:
+  - canonical cross-worktree perf probe on the pre-recovery `run-023`
+    runtime pair:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='SETTA_HISTORY_REDACTED' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=SETTA_HISTORY_REDACTED' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000`
+    - result: passed (`1 passed`, `47.4s`)
+  - passing normalized motion-perf output:
+    - legacy `main`: average `17.06ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.82ms`, max `50.4ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - worktree motion attribution on the passing rerun:
+    - `interactionMiscStateSync`: `1`, `0ms` total
+    - `interactionReactFlowStateSync`: `1`, `0.1ms` total, dominant owner
+    - `presentedSceneSectionVisibilityFilter`: `40` calls, `0ms` total
+    - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
+    - `pixiViewportPresent`: `0`
+    - `reactFlowViewportPublish`: `0`
+    - `reactFlowTransformSubscriptionCallback`: `0`
+    - `reactFlowTransformFollowerCallback`: `0`
+    - `viewportPersistenceDispatch`: `0`
+- CDP / lifecycle recovery:
+  - first fresh-context CDP sub-agent could not use `chrome-devtools-mcp` at
+    all on the existing runtime pair
+  - one bounded headless worktree recovery was attempted as required:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+    - refreshed worktree runtime after recovery: backend `8076`, debug port
+      `9297`, bootstrap `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+  - the fresh-context CDP retry still failed after recovery:
+    - `chrome-devtools-mcp` could not connect to Chrome because
+      `http://127.0.0.1:9297/json/version` was unavailable
+  - retrying the canonical Playwright probe after recovery failed in global
+    setup because the fresh worktree bootstrap token returned
+    `401 Unauthorized` at `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+- Result:
+  - item `305` now has one fresh trustworthy numeric verdict, and neither
+    split presentation owner carries measurable duration on the captured motion
+    burst
+  - the only non-zero owner on that run is the one-off
+    `interactionReactFlowStateSync` entry, so another blind reduction on the
+    two split presentation owners is not justified by the fresh evidence
+  - the iteration is blocked on current worktree CDP/bootstrap health after the
+    one allowed in-pass recovery; the next fresh loop should restart the
+    worktree lifecycle and retry the required visual smoke before opening
+    another product slice
+- LOOP_TERMINAL_MARKER: none

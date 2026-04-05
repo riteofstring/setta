@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 08:53 EDT
+Last updated: 2026-04-08 09:07 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,52 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `306` restored one fresh trustworthy automated verdict for the landed
+    item-`305` presentation-owner split on the canonical
+    `rotaryParamCodeObjDefault` lane before the required visual gate re-blocked:
+    - no product/runtime code changed on this pass; the work stayed bounded to
+      refreshing the canonical measurement and recording the blocker
+    - the canonical cross-worktree motion probe exited cleanly on the
+      pre-recovery `run-023` runtime pair:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --timeout=180000` -> passed (`1 passed`, `47.4s`)
+    - fresh normalized motion-perf output:
+      - legacy `main`: average `17.06ms`, max `51.9ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.82ms`, max `50.4ms`, `44` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - fresh canary motion attribution on the passing rerun:
+      - `interactionMiscStateSync`: `1`, `0ms` total
+      - `interactionReactFlowStateSync`: `1`, `0.1ms` total, dominant owner
+      - `presentedSceneSectionVisibilityFilter`: `40` calls, `0ms` total
+      - `presentedSceneVisibleViewportWorldRectResolve`: `40` calls, `0ms` total
+      - `pixiViewportPresent`: `0`
+      - `reactFlowViewportPublish`: `0`
+      - `reactFlowTransformSubscriptionCallback`: `0`
+      - `reactFlowTransformFollowerCallback`: `0`
+      - `viewportPersistenceDispatch`: `0`
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-presented-scene-visibility-attribution-split-verdict.md`
+    - the required CDP visual gate is blocked again on this pass:
+      - first fresh-context sub-agent could not use `chrome-devtools-mcp` at
+        all on the existing runtime pair
+      - one bounded headless worktree recovery was attempted as required:
+        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` -> succeeded
+        - refreshed worktree runtime after recovery: backend `8076`, debug
+          port `9297`, bootstrap
+          `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+      - the fresh-context CDP retry still failed after recovery:
+        - `chrome-devtools-mcp` could not connect to Chrome because
+          `http://127.0.0.1:9297/json/version` was unavailable
+      - retrying the canonical Playwright probe after recovery failed in global
+        setup because the fresh worktree bootstrap token returned
+        `401 Unauthorized` at `http://127.0.0.1:8076/__setta__/bootstrap#token=...`
+    - reading:
+      - item `305` now has a fresh numeric verdict, and neither split
+        presentation owner carries measurable duration on the captured motion
+        burst
+      - the remaining non-zero owner on that run is the one-off
+        `interactionReactFlowStateSync` entry, so do not open another blind
+        reduction on the two split presentation owners
+      - the next bounded pass must restore current worktree CDP/bootstrap
+        health and close the required visual gate before this lane moves on
   - item `305` completed one bounded attribution split on the residual
     presentation-path owner named by item `304`:
     - landed two non-overlapping motion-attribution owners in
@@ -424,30 +470,33 @@ This section overrides older "next frontier" notes below when choosing the next 
 
 Pick one bounded subtask:
 
-- restore one trustworthy automated verdict for the landed item-`305`
-  presentation-owner split on `rotaryParamCodeObjDefault`
+- start from a fresh loop-managed worktree lifecycle and restore current
+  CDP/bootstrap health on `rotaryParamCodeObjDefault` so item `306` can close
+  the required visual gate
 
 Recommended next target:
 
-- keep the new attribution split in place; do not reopen already closed React
-  Flow / persistence / host-size / pointer-suppression lanes while the current
-  slice still lacks a trustworthy verdict
-- repair or narrowly replace the canonical verifier path on the same
-  `rotaryParamCodeObjDefault` lane so one fresh measurement names whether:
-  - `presentedSceneVisibleViewportWorldRectResolve` dominates, or
-  - `presentedSceneSectionVisibilityFilter` dominates
-- if the same post-banner stall reproduces again on a fresh runtime pair, stop
-  treating the current cross-worktree probe as trustworthy for this lane until
-  a narrower deterministic measurement path is landed
+- keep the landed presentation-owner split in place; item `306` already
+  restored one fresh automated numeric verdict for it
+- rerun the current worktree lifecycle from the outer loop and confirm the
+  refreshed debug Chrome exposes a live CDP endpoint before spending another
+  iteration on product code
+- re-establish one worktree bootstrap path that Playwright global setup accepts
+  again; if the first fresh token still returns `401`, classify the worktree as
+  unhealthy instead of blaming renderer drift
+- once CDP/bootstrap health is restored, close the required visual smoke on the
+  worktree and read-only `main` `/settings` surfaces
+- only after the visual gate is healthy should the lane choose whether the next
+  frontier is deeper attribution around the residual interaction-sync owner or
+  a broader motion-cost owner outside the current canary counters
 
 Recommended deliverables for the next iteration:
 
-- one fresh automated motion-attribution verdict for the landed item-`305`
-  instrumentation slice
-- if the probe passes, update the hotspot reading and only then choose the next
-  reducer
-- if the probe still stalls, land one bounded verifier fix or worktree-only
-  deterministic measurement seam instead of another product reduction
+- one successful fresh-context CDP smoke on both worktree and read-only `main`,
+  or a crisp tooling failure classification with the exact failing endpoint
+- one healthy worktree bootstrap token accepted by Playwright global setup
+- if both tooling gates recover, use item `306` as the latest numeric baseline
+  and then choose the next real product frontier
 
 Recommended canonical target:
 
@@ -458,13 +507,11 @@ Do not use the next iteration for:
 
 - more `tldraw` investigation
 - another blind transform-consumer / shared-store mirror toggle without fresh attribution that names the next consumer
-- another standalone smoke-only retry unless the deterministic Playwright lane also becomes unhealthy
-- another product reduction on a closed React Flow / persistence / host-size /
-  pointer-suppression lane before the item-`305` verifier blocker is resolved
+- another product reduction before the current worktree CDP/bootstrap blocker is resolved
 - another Pixi host-size cache experiment unless a new trace shows that path dominating the lane
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
-- another report-only pass after the attribution lane has already named the next hotspot
+- another report-only pass after the tooling blocker is already explicit
 - more runtime-log hygiene unless a fresh loop-managed lifecycle shows the session-aware helper is still insufficient
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
