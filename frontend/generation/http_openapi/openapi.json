@@ -10572,7 +10572,10 @@
             "type": "boolean"
           },
           "codegenTargets": {
-            "items": {},
+            "items": {
+              "contentEncoding": "base64",
+              "type": "string"
+            },
             "type": ["array", "null"]
           },
           "edges": {

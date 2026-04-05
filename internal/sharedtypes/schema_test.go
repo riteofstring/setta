@@ -35,6 +35,35 @@ func TestBuildSchemaDocumentIncludesAuthoritativeEnumValues(t *testing.T) {
 	}
 }
 
+func TestBuildSchemaDocumentUsesProjectCodegenTargetUnionForProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	unionSchema := document.Defs["ProjectCodegenTarget"]
+	if unionSchema == nil {
+		t.Fatalf("expected ProjectCodegenTarget schema in $defs")
+	}
+	if got := len(unionSchema.AnyOf); got != 2 {
+		t.Fatalf("ProjectCodegenTarget anyOf count = %d, want 2", got)
+	}
+
+	projectConfigSchema := document.Defs["ProjectConfig"]
+	if projectConfigSchema == nil {
+		t.Fatalf("expected ProjectConfig schema in $defs")
+	}
+	codegenTargetsSchema := projectConfigSchema.Properties["codegenTargets"]
+	if codegenTargetsSchema == nil || codegenTargetsSchema.Items == nil {
+		t.Fatalf("expected ProjectConfig.codegenTargets array schema with items")
+	}
+	if got := len(codegenTargetsSchema.Items.AnyOf); got != 2 {
+		t.Fatalf("ProjectConfig.codegenTargets anyOf count = %d, want 2", got)
+	}
+}
+
 func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	t.Parallel()
 

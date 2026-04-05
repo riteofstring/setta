@@ -346,7 +346,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectview.CodeObjValuePolicy{}),
 		reflect.TypeOf(projectview.ProjectCodegenPythonTarget{}),
 		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}),
-		reflect.TypeOf(projectview.ProjectCodegenTarget{}),
+		reflect.TypeOf(projectview.ProjectCodegenTarget(nil)),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),
 		reflect.TypeOf(projectview.ProjectRunCapabilities{}),

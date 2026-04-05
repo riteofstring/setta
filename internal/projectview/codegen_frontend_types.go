@@ -1,6 +1,10 @@
 package projectview
 
-import "reflect"
+import (
+	"reflect"
+
+	"setta/internal/projectstate"
+)
 
 type ProjectCodegenLanguage string
 
@@ -43,8 +47,8 @@ type SectionCodegenOverride struct {
 }
 
 type SectionCodegenPolicy struct {
-	Allowlist            []string                            `json:"allowlist" ts_type:"Array<SectionType> | null" ts_optional:"true"`
-	MetaControlAllowlist []string                            `json:"metaControlAllowlist" ts_type:"Array<CodeObjType> | null" ts_optional:"true"`
+	Allowlist            []projectstate.FrontendSectionType  `json:"allowlist" ts_optional:"true"`
+	MetaControlAllowlist []projectstate.FrontendCodeObjType  `json:"metaControlAllowlist" ts_optional:"true"`
 	Exclude              []string                            `json:"exclude"`
 	TypePolicies         map[string]SectionTypeCodegenPolicy `json:"typePolicies" ts_type:"Record<SectionType, SectionTypeCodegenPolicy>" ts_create_map_values:"true"`
 	SectionOverrides     map[string]SectionCodegenOverride   `json:"sectionOverrides" ts_type:"Record<string, SectionCodegenOverride>" ts_create_map_values:"true"`
@@ -77,7 +81,22 @@ type ProjectCodegenPluginTarget struct {
 	Options  map[string]any `json:"options"`
 }
 
-type ProjectCodegenTarget struct{}
+type ProjectCodegenTarget []byte
+
+func (target ProjectCodegenTarget) MarshalJSON() ([]byte, error) {
+	if len(target) == 0 {
+		return []byte("null"), nil
+	}
+	return append([]byte(nil), target...), nil
+}
+
+func (target *ProjectCodegenTarget) UnmarshalJSON(data []byte) error {
+	if target == nil {
+		return nil
+	}
+	*target = append((*target)[:0], data...)
+	return nil
+}
 
 func (ProjectCodegenTarget) FrontendBindingUnionTypes() []reflect.Type {
 	return []reflect.Type{

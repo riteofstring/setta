@@ -36,7 +36,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -109,7 +135,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -294,7 +346,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -388,7 +466,14 @@
           ]
         },
         "status": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled"
+          ]
         },
         "startedAt": {
           "type": [
@@ -476,7 +561,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -491,7 +602,14 @@
               ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+              ]
             },
             "startedAt": {
               "type": [
@@ -590,10 +708,20 @@
           "type": "string"
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "chat_chat",
+            "section_chat",
+            "chat_section"
+          ]
         },
         "contextMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "reference_only",
+            "inline_text",
+            "summary"
+          ]
         },
         "style": {
           "type": [
@@ -769,7 +897,12 @@
             "type": "object",
             "properties": {
               "transport": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "sse",
+                  "streamable_http",
+                  "stdio"
+                ]
               },
               "url": {
                 "type": "string"
@@ -842,7 +975,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": [
@@ -856,7 +1015,13 @@
                 "type": "string"
               },
               "connectionType": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "frontend",
+                  "listener",
+                  "SERVER",
+                  "terminal"
+                ]
               },
               "shareSessionId": {
                 "type": "string"
@@ -968,7 +1133,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -1473,10 +1664,23 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "status": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "saved",
+            "unchanged",
+            "skipped",
+            "conflict"
+          ]
         },
         "backupPath": {
           "type": [
@@ -1517,7 +1721,13 @@
           "type": "string"
         },
         "role": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
         },
         "createdAt": {
           "type": "integer"
@@ -1651,7 +1861,13 @@
           "type": "object",
           "properties": {
             "serverMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ide",
+                "share",
+                "app",
+                "launcher"
+              ]
             },
             "hasAuth": {
               "type": "boolean"
@@ -1736,7 +1952,13 @@
           "type": "object",
           "properties": {
             "serverMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ide",
+                "share",
+                "app",
+                "launcher"
+              ]
             },
             "hasAuth": {
               "type": "boolean"
@@ -1777,7 +1999,13 @@
       "type": "object",
       "properties": {
         "serverMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ide",
+            "share",
+            "app",
+            "launcher"
+          ]
         },
         "hasAuth": {
           "type": "boolean"
@@ -1809,20 +2037,55 @@
       ]
     },
     "BaseChartSettingsUnion": {
-      "type": "object",
       "title": "BaseChartSettingsUnion",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LineChartSettings"
+        },
+        {
+          "$ref": "#/$defs/ScatterChartSettings"
+        }
+      ]
     },
     "BaseChatMessageUnion": {
-      "type": "object",
       "title": "BaseChatMessageUnion",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SystemChatMessage"
+        },
+        {
+          "$ref": "#/$defs/AssistantChatMessage"
+        },
+        {
+          "$ref": "#/$defs/UserChatMessage"
+        },
+        {
+          "$ref": "#/$defs/ToolChatMessage"
+        }
+      ]
     },
     "BaseCodeObjImpl": {
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "CodeCallable",
+            "CodeParam",
+            "TextParam",
+            "DateParam",
+            "TimeParam",
+            "ButtonParam",
+            "SliderParam",
+            "RotaryParam",
+            "SwitchParam",
+            "ColorPickerParam",
+            "DropdownParam",
+            "PasswordParam",
+            "TextAreaParam",
+            "DropzoneParam",
+            "NestedParam"
+          ]
         },
         "id": {
           "type": "string"
@@ -1896,7 +2159,34 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Callable",
+            "Dict",
+            "ListRoot",
+            "Group",
+            "StateMachineStart",
+            "StateMachineGate",
+            "StateMachineEnd",
+            "Image",
+            "Chart",
+            "Draw",
+            "TextBlock",
+            "Prompt",
+            "MetaControl",
+            "Social",
+            "GlobalVariables",
+            "Code",
+            "GenPythonCode",
+            "GenPythonMetadata",
+            "Terminal",
+            "IFrame",
+            "Chat",
+            "Browser",
+            "Plugin",
+            "TaskBoard",
+            "Spreadsheet"
+          ]
         },
         "id": {
           "type": "string"
@@ -2057,7 +2347,12 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Literal",
+            "Binary",
+            "FileRead"
+          ]
         },
         "payload": {
           "type": "object",
@@ -2160,7 +2455,11 @@
           "type": "string"
         },
         "searchScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "recursive",
+            "local"
+          ]
         },
         "typeFilters": {
           "type": [
@@ -2356,7 +2655,12 @@
           ]
         },
         "viewMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "list",
+            "thumbnail",
+            "carousel"
+          ]
         },
         "savedSearches": {
           "type": [
@@ -2376,7 +2680,11 @@
                 "type": "string"
               },
               "searchScope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "recursive",
+                  "local"
+                ]
               },
               "typeFilters": {
                 "type": [
@@ -2462,7 +2770,12 @@
           "type": "number"
         },
         "lineCap": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "butt",
+            "round",
+            "square"
+          ]
         },
         "points": {
           "type": [
@@ -2489,7 +2802,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -2504,7 +2824,12 @@
               "type": "number"
             },
             "lineCap": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "butt",
+                "round",
+                "square"
+              ]
             },
             "points": {
               "type": [
@@ -2545,7 +2870,12 @@
           "type": "number"
         },
         "lineCap": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "butt",
+            "round",
+            "square"
+          ]
         },
         "points": {
           "type": [
@@ -2620,10 +2950,24 @@
           "type": "string"
         },
         "actionMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "WEBSOCKET_LISTENER",
+            "HTTP_REQUEST",
+            "SETTA_API"
+          ]
         },
         "requestMethod": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS"
+          ]
         },
         "requestUrl": {
           "type": "string"
@@ -2766,7 +3110,11 @@
           ]
         },
         "configLanguage": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "python",
+            "json"
+          ]
         },
         "pinnedParams": {
           "type": [
@@ -2889,7 +3237,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -3042,7 +3397,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "line",
+            "scatter"
+          ]
         },
         "xAxisColumn": {
           "type": [
@@ -3473,13 +3832,23 @@
           "type": "boolean"
         },
         "permissionMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "minimal",
+            "yolo",
+            "config_toml_custom"
+          ]
         },
         "searchEnabled": {
           "type": "boolean"
         },
         "dictationMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "auto",
+            "browser",
+            "provider"
+          ]
         },
         "messages": {
           "type": [
@@ -3608,13 +3977,23 @@
           "type": "boolean"
         },
         "permissionMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "minimal",
+            "yolo",
+            "config_toml_custom"
+          ]
         },
         "searchEnabled": {
           "type": "boolean"
         },
         "dictationMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "auto",
+            "browser",
+            "provider"
+          ]
         }
       },
       "title": "ChatSectionSettings",
@@ -3724,7 +4103,10 @@
       "type": "object",
       "properties": {
         "action": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "send"
+          ]
         },
         "sectionId": {
           "type": "string"
@@ -3770,7 +4152,13 @@
           }
         },
         "role": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
         },
         "timestampMs": {
           "type": "integer"
@@ -3803,7 +4191,10 @@
       "type": "object",
       "properties": {
         "action": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "stop"
+          ]
         },
         "sectionId": {
           "type": "string"
@@ -4069,7 +4460,13 @@
                 "type": "string"
               },
               "kind": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "code",
+                  "terminal",
+                  "draw",
+                  "generated"
+                ]
               },
               "payload": {
                 "type": [
@@ -4089,7 +4486,18 @@
                 ],
                 "properties": {
                   "language": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "python",
+                      "bash",
+                      "javascript",
+                      "typescript",
+                      "json",
+                      "yaml",
+                      "toml",
+                      "markdown",
+                      "plaintext"
+                    ]
                   },
                   "binding": {
                     "type": [
@@ -4101,7 +4509,12 @@
                         "type": "string"
                       },
                       "accessMode": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "read_write",
+                          "read_only",
+                          "write_only"
+                        ]
                       },
                       "autoBinding": {
                         "type": "boolean"
@@ -4137,7 +4550,11 @@
                 ],
                 "properties": {
                   "sessionMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "",
+                      "managed_console"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -4161,7 +4578,12 @@
                 ],
                 "properties": {
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "python_code",
+                      "python_metadata",
+                      "plugin"
+                    ]
                   }
                 },
                 "required": [
@@ -4427,7 +4849,13 @@
                     "type": "string"
                   },
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "code",
+                      "terminal",
+                      "draw",
+                      "generated"
+                    ]
                   },
                   "payload": {
                     "type": [
@@ -4447,7 +4875,18 @@
                     ],
                     "properties": {
                       "language": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "python",
+                          "bash",
+                          "javascript",
+                          "typescript",
+                          "json",
+                          "yaml",
+                          "toml",
+                          "markdown",
+                          "plaintext"
+                        ]
                       },
                       "binding": {
                         "type": [
@@ -4459,7 +4898,12 @@
                             "type": "string"
                           },
                           "accessMode": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "read_write",
+                              "read_only",
+                              "write_only"
+                            ]
                           },
                           "autoBinding": {
                             "type": "boolean"
@@ -4495,7 +4939,11 @@
                     ],
                     "properties": {
                       "sessionMode": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "",
+                          "managed_console"
+                        ]
                       }
                     },
                     "additionalProperties": false
@@ -4519,7 +4967,12 @@
                     ],
                     "properties": {
                       "kind": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "python_code",
+                          "python_metadata",
+                          "plugin"
+                        ]
                       }
                     },
                     "required": [
@@ -4780,7 +5233,12 @@
           "type": "string"
         },
         "access_mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "read_write",
+            "read_only",
+            "write_only"
+          ]
         },
         "autoBinding": {
           "type": "boolean"
@@ -4851,7 +5309,14 @@
       "type": "object",
       "properties": {
         "representation": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "expression",
+            "json_parsed",
+            "string",
+            "file_path",
+            "file_read"
+          ]
         }
       },
       "title": "CodeObjTypeValuePolicy",
@@ -4864,7 +5329,14 @@
       "type": "object",
       "properties": {
         "representation": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "expression",
+            "json_parsed",
+            "string",
+            "file_path",
+            "file_read"
+          ]
         }
       },
       "title": "CodeObjValueOverride",
@@ -4882,7 +5354,14 @@
             "type": "object",
             "properties": {
               "representation": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "expression",
+                  "json_parsed",
+                  "string",
+                  "file_path",
+                  "file_read"
+                ]
               }
             },
             "required": [
@@ -4897,7 +5376,14 @@
             "type": "object",
             "properties": {
               "representation": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "expression",
+                  "json_parsed",
+                  "string",
+                  "file_path",
+                  "file_read"
+                ]
               }
             },
             "required": [
@@ -5232,7 +5718,12 @@
               "type": "string"
             },
             "access_mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read_write",
+                "read_only",
+                "write_only"
+              ]
             },
             "autoBinding": {
               "type": "boolean"
@@ -5396,7 +5887,13 @@
           "type": "string"
         },
         "connectionType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "frontend",
+            "listener",
+            "SERVER",
+            "terminal"
+          ]
         },
         "shareSessionId": {
           "type": "string"
@@ -5894,7 +6391,13 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "CurrentAddressUpdate",
+            "UISettingRevealResult",
+            "RealtimeUIChange",
+            "RealtimeDependencyEvent"
+          ]
         },
         "content": {
           "type": "string"
@@ -5970,16 +6473,34 @@
           "type": "string"
         },
         "dateDisplayFormat": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "iso",
+            "us",
+            "eu",
+            "long"
+          ]
         },
         "dateControlMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "input",
+            "calendar"
+          ]
         },
         "dateSelectionMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "single",
+            "multiple"
+          ]
         },
         "dateCalendarWeekStart": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "sunday",
+            "monday"
+          ]
         },
         "dateIncludesTime": {
           "type": "boolean"
@@ -6078,7 +6599,14 @@
                 "type": "string"
               },
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Image",
+                  "BrushStroke",
+                  "DrawAreaLayerItemTransform",
+                  "ChartData",
+                  "File"
+                ]
               }
             },
             "required": [
@@ -6102,7 +6630,14 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         }
       },
       "title": "DeleteRequestItem",
@@ -6196,15 +6731,27 @@
       "type": "object",
       "properties": {
         "dependencyKey": {
-          "type": "object",
-          "additionalProperties": false
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SectionDependencyKey"
+            },
+            {
+              "$ref": "#/$defs/SectionParamDependencyKey"
+            }
+          ]
         },
         "payload": {
-          "type": [
-            "null",
-            "object"
-          ],
-          "additionalProperties": false
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LiteralDependencyValue"
+            },
+            {
+              "$ref": "#/$defs/FileReadDependencyValue"
+            },
+            {
+              "$ref": "#/$defs/BinaryDependencyValue"
+            }
+          ]
         },
         "timestampMs": {
           "type": "integer"
@@ -6242,7 +6789,15 @@
           "type": "string"
         },
         "status": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "exited",
+            "failed",
+            "canceled",
+            "lost"
+          ]
         },
         "createdAtMs": {
           "type": "integer"
@@ -6583,7 +7138,11 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Image",
+                  "BrushStroke"
+                ]
               },
               "dataPath": {
                 "type": "string"
@@ -6620,7 +7179,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke"
+          ]
         },
         "dataPath": {
           "type": "string"
@@ -6663,7 +7226,12 @@
                 "type": "number"
               },
               "lineCap": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "butt",
+                  "round",
+                  "square"
+                ]
               },
               "points": {
                 "type": [
@@ -6707,7 +7275,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -6738,7 +7313,12 @@
                     "type": "number"
                   },
                   "lineCap": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "butt",
+                      "round",
+                      "square"
+                    ]
                   },
                   "points": {
                     "type": [
@@ -6920,7 +7500,11 @@
           "type": "string"
         },
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "STATEFUL",
+            "STATELESS"
+          ]
         },
         "maxAttachments": {
           "type": [
@@ -7074,7 +7658,12 @@
       "type": "object",
       "title": "EndpointOriginPolicy",
       "additionalProperties": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "backend",
+          "launcher",
+          "backend-origin"
+        ]
       }
     },
     "EngineConfig": {
@@ -7087,7 +7676,11 @@
           "type": "string"
         },
         "engineType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "setta_llm",
+            "external_agent"
+          ]
         },
         "settaLlmConfigId": {
           "type": [
@@ -7168,7 +7761,11 @@
                 "type": "string"
               },
               "engineType": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "setta_llm",
+                  "external_agent"
+                ]
               },
               "settaLlmConfigId": {
                 "type": [
@@ -7229,7 +7826,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -7249,7 +7872,11 @@
                     "type": "string"
                   },
                   "engineType": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "setta_llm",
+                      "external_agent"
+                    ]
                   },
                   "settaLlmConfigId": {
                     "type": [
@@ -7392,10 +8019,20 @@
           "type": "string"
         },
         "toolType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "claude_code",
+            "codex"
+          ]
         },
         "runMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "mcp",
+            "server",
+            "sdk",
+            "app_server"
+          ]
         },
         "commandPath": {
           "type": [
@@ -7428,7 +8065,13 @@
           ]
         },
         "settingsMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "read_only",
+            "managed_local",
+            "managed_project",
+            "explicit_path"
+          ]
         },
         "settingsSources": {
           "type": [
@@ -7436,7 +8079,12 @@
             "array"
           ],
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "user",
+              "project",
+              "local"
+            ]
           }
         },
         "settingsFilePath": {
@@ -7531,7 +8179,12 @@
           }
         },
         "workingDirStrategy": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "project_root",
+            "temp_dir",
+            "custom"
+          ]
         },
         "workingDir": {
           "type": [
@@ -7581,10 +8234,20 @@
                 "type": "string"
               },
               "toolType": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "claude_code",
+                  "codex"
+                ]
               },
               "runMode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "mcp",
+                  "server",
+                  "sdk",
+                  "app_server"
+                ]
               },
               "commandPath": {
                 "type": [
@@ -7617,7 +8280,13 @@
                 ]
               },
               "settingsMode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "read_only",
+                  "managed_local",
+                  "managed_project",
+                  "explicit_path"
+                ]
               },
               "settingsSources": {
                 "type": [
@@ -7625,7 +8294,12 @@
                   "array"
                 ],
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "project",
+                    "local"
+                  ]
                 }
               },
               "settingsFilePath": {
@@ -7720,7 +8394,12 @@
                 }
               },
               "workingDirStrategy": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_root",
+                  "temp_dir",
+                  "custom"
+                ]
               },
               "workingDir": {
                 "type": [
@@ -7760,7 +8439,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -7783,10 +8488,20 @@
                     "type": "string"
                   },
                   "toolType": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "claude_code",
+                      "codex"
+                    ]
                   },
                   "runMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "mcp",
+                      "server",
+                      "sdk",
+                      "app_server"
+                    ]
                   },
                   "commandPath": {
                     "type": [
@@ -7819,7 +8534,13 @@
                     ]
                   },
                   "settingsMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "read_only",
+                      "managed_local",
+                      "managed_project",
+                      "explicit_path"
+                    ]
                   },
                   "settingsSources": {
                     "type": [
@@ -7827,7 +8548,12 @@
                       "array"
                     ],
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "project",
+                        "local"
+                      ]
                     }
                   },
                   "settingsFilePath": {
@@ -7922,7 +8648,12 @@
                     }
                   },
                   "workingDirStrategy": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "project_root",
+                      "temp_dir",
+                      "custom"
+                    ]
                   },
                   "workingDir": {
                     "type": [
@@ -7975,10 +8706,20 @@
           "type": "string"
         },
         "toolType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "claude_code",
+            "codex"
+          ]
         },
         "runMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "mcp",
+            "server",
+            "sdk",
+            "app_server"
+          ]
         },
         "supported": {
           "type": "boolean"
@@ -8071,7 +8812,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -8111,7 +8859,12 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Literal",
+            "Binary",
+            "FileRead"
+          ]
         },
         "payload": {
           "type": "string"
@@ -8241,7 +8994,12 @@
               "type": "string"
             },
             "access_mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read_write",
+                "read_only",
+                "write_only"
+              ]
             },
             "autoBinding": {
               "type": "boolean"
@@ -8417,7 +9175,12 @@
               "type": "string"
             },
             "access_mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read_write",
+                "read_only",
+                "write_only"
+              ]
             },
             "autoBinding": {
               "type": "boolean"
@@ -8860,7 +9623,34 @@
           "type": "boolean"
         },
         "defaultChildSectionType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Callable",
+            "Dict",
+            "ListRoot",
+            "Group",
+            "StateMachineStart",
+            "StateMachineGate",
+            "StateMachineEnd",
+            "Image",
+            "Chart",
+            "Draw",
+            "TextBlock",
+            "Prompt",
+            "MetaControl",
+            "Social",
+            "GlobalVariables",
+            "Code",
+            "GenPythonCode",
+            "GenPythonMetadata",
+            "Terminal",
+            "IFrame",
+            "Chat",
+            "Browser",
+            "Plugin",
+            "TaskBoard",
+            "Spreadsheet"
+          ]
         }
       },
       "title": "GroupSectionImpl",
@@ -8935,7 +9725,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -8961,7 +9777,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -9010,7 +9833,11 @@
           }
         },
         "uploadScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "chat",
+            "generic"
+          ]
         }
       },
       "title": "ImportFilesRequest",
@@ -9076,7 +9903,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -9105,7 +9939,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -9198,7 +10058,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -9253,7 +10139,12 @@
                 "type": "object",
                 "properties": {
                   "transport": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "sse",
+                      "streamable_http",
+                      "stdio"
+                    ]
                   },
                   "url": {
                     "type": "string"
@@ -9330,9 +10221,30 @@
       "additionalProperties": false
     },
     "LLMStreamingResponseChunk": {
-      "type": "object",
       "title": "LLMStreamingResponseChunk",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageStartEvent"
+        },
+        {
+          "$ref": "#/$defs/MessageDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolCallDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolResultEvent"
+        },
+        {
+          "$ref": "#/$defs/ToolArgumentPreviewDeltaEvent"
+        },
+        {
+          "$ref": "#/$defs/MessageStopEvent"
+        },
+        {
+          "$ref": "#/$defs/MessageFinalizedEvent"
+        }
+      ]
     },
     "LLMStreamingResponseContent": {
       "type": "object",
@@ -9373,7 +10285,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -9555,7 +10493,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -10044,7 +11008,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "line",
+            "scatter"
+          ]
         },
         "xAxisColumn": {
           "type": [
@@ -10179,10 +11147,42 @@
           }
         },
         "defaultChildSectionType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Callable",
+            "Dict",
+            "ListRoot",
+            "Group",
+            "StateMachineStart",
+            "StateMachineGate",
+            "StateMachineEnd",
+            "Image",
+            "Chart",
+            "Draw",
+            "TextBlock",
+            "Prompt",
+            "MetaControl",
+            "Social",
+            "GlobalVariables",
+            "Code",
+            "GenPythonCode",
+            "GenPythonMetadata",
+            "Terminal",
+            "IFrame",
+            "Chat",
+            "Browser",
+            "Plugin",
+            "TaskBoard",
+            "Spreadsheet"
+          ]
         },
         "viewMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "default",
+            "task_list",
+            "kanban"
+          ]
         }
       },
       "title": "ListRootSectionImpl",
@@ -10237,7 +11237,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Section",
+            "SectionParam"
+          ]
         },
         "sectionId": {
           "type": "string"
@@ -10268,7 +11272,11 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Section",
+                  "SectionParam"
+                ]
               },
               "sectionId": {
                 "type": "string"
@@ -10300,7 +11308,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -10317,7 +11351,11 @@
                 "type": "object",
                 "properties": {
                   "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "Section",
+                      "SectionParam"
+                    ]
                   },
                   "sectionId": {
                     "type": "string"
@@ -10598,7 +11636,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -10709,7 +11759,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11087,7 +12149,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11296,7 +12370,14 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Image",
+                  "BrushStroke",
+                  "DrawAreaLayerItemTransform",
+                  "ChartData",
+                  "File"
+                ]
               },
               "id": {
                 "type": "string"
@@ -11332,7 +12413,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11363,7 +12456,14 @@
                 "type": "object",
                 "properties": {
                   "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "Image",
+                      "BrushStroke",
+                      "DrawAreaLayerItemTransform",
+                      "ChartData",
+                      "File"
+                    ]
                   },
                   "id": {
                     "type": "string"
@@ -11456,7 +12556,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11726,7 +12838,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11901,7 +13025,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -11974,7 +13110,12 @@
           }
         },
         "dependencyMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "always",
+            "realtime_only",
+            "refresh_only"
+          ]
         }
       },
       "title": "ListenerRegisterCallbackSpec",
@@ -12005,7 +13146,12 @@
                 }
               },
               "dependencyMode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "always",
+                  "realtime_only",
+                  "refresh_only"
+                ]
               }
             },
             "required": [
@@ -12026,7 +13172,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -12049,7 +13207,12 @@
                     }
                   },
                   "dependencyMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "always",
+                      "realtime_only",
+                      "refresh_only"
+                    ]
                   }
                 },
                 "required": [
@@ -12233,7 +13396,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -12333,7 +13508,19 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ListenerInit",
+            "ListenerRegister",
+            "ListenerRegisterAck",
+            "ListenerFrontendEmit",
+            "ListenerRouterEndpointCall",
+            "ListenerRouterEndpointResult",
+            "ListenerRealtimeEvent",
+            "ListenerDependencyEvent",
+            "ListenerForceRefresh",
+            "ListenerError"
+          ]
         },
         "content": {
           "type": "object",
@@ -12524,7 +13711,12 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Literal",
+            "Binary",
+            "FileRead"
+          ]
         },
         "payload": {
           "type": "string"
@@ -12941,7 +14133,11 @@
           "type": "string"
         },
         "deploymentType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "share",
+            "app"
+          ]
         },
         "defaultProjectConfigId": {
           "type": "string"
@@ -12983,20 +14179,44 @@
       "additionalProperties": false
     },
     "MessageContent": {
-      "type": "object",
       "title": "MessageContent",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageTextContent"
+        },
+        {
+          "$ref": "#/$defs/MessageImageURLContent"
+        },
+        {
+          "$ref": "#/$defs/MessageThinkingContent"
+        }
+      ]
     },
     "MessageContentDelta": {
-      "type": "object",
       "title": "MessageContentDelta",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MessageTextDelta"
+        },
+        {
+          "$ref": "#/$defs/MessageThinkingDelta"
+        }
+      ]
     },
     "MessageDeltaEvent": {
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message_id": {
           "type": "string"
@@ -13021,7 +14241,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message": {
           "type": "object",
@@ -13090,7 +14319,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message": {
           "type": "object",
@@ -13108,7 +14346,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message_id": {
           "type": "string"
@@ -13255,10 +14502,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13279,10 +14536,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13303,10 +14570,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13327,10 +14604,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13351,10 +14638,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13375,10 +14672,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13399,10 +14706,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13423,10 +14740,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13447,10 +14774,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13471,10 +14808,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13495,10 +14842,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13519,10 +14876,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13543,10 +14910,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13567,10 +14944,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13591,10 +14978,20 @@
               "type": "number"
             },
             "sizeModeHeight": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             },
             "sizeModeWidth": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "any",
+                "auto_only",
+                "manual_only"
+              ]
             }
           },
           "required": [
@@ -13636,10 +15033,20 @@
           "type": "number"
         },
         "sizeModeHeight": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "any",
+            "auto_only",
+            "manual_only"
+          ]
         },
         "sizeModeWidth": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "any",
+            "auto_only",
+            "manual_only"
+          ]
         }
       },
       "title": "MetaControlSizingPolicyTypeEntry",
@@ -13661,7 +15068,11 @@
           "type": "string"
         },
         "deploymentType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "share",
+            "app"
+          ]
         },
         "defaultProjectConfigId": {
           "type": "string"
@@ -13978,7 +15389,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -14126,7 +15563,13 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "save"
+          ]
         },
         "message": {
           "type": "string"
@@ -14168,7 +15611,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -14180,7 +15649,13 @@
               "type": "string"
             },
             "type": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "error",
+                "warning",
+                "info",
+                "save"
+              ]
             },
             "message": {
               "type": "string"
@@ -14247,13 +15722,24 @@
       "type": "object",
       "properties": {
         "coreNameType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "CODE",
+            "TEXT"
+          ]
         },
         "coreNameEditable": {
           "type": "boolean"
         },
         "passingStyle": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "DEFAULT",
+            "ARGS",
+            "KWARGS",
+            "POSITIONAL_ONLY",
+            "KEYWORD_ONLY"
+          ]
         },
         "typeAnnotation": {
           "type": "string"
@@ -14419,7 +15905,13 @@
                         "type": "string"
                       },
                       "kind": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "code",
+                          "terminal",
+                          "draw",
+                          "generated"
+                        ]
                       },
                       "payload": {
                         "type": [
@@ -14439,7 +15931,18 @@
                         ],
                         "properties": {
                           "language": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "python",
+                              "bash",
+                              "javascript",
+                              "typescript",
+                              "json",
+                              "yaml",
+                              "toml",
+                              "markdown",
+                              "plaintext"
+                            ]
                           },
                           "binding": {
                             "type": [
@@ -14451,7 +15954,12 @@
                                 "type": "string"
                               },
                               "accessMode": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "read_write",
+                                  "read_only",
+                                  "write_only"
+                                ]
                               },
                               "autoBinding": {
                                 "type": "boolean"
@@ -14487,7 +15995,11 @@
                         ],
                         "properties": {
                           "sessionMode": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "managed_console"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -14511,7 +16023,12 @@
                         ],
                         "properties": {
                           "kind": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "python_code",
+                              "python_metadata",
+                              "plugin"
+                            ]
                           }
                         },
                         "required": [
@@ -14764,7 +16281,12 @@
           "type": "string"
         },
         "reason": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "mode_policy",
+            "host_policy",
+            "manifest_invalid"
+          ]
         }
       },
       "title": "PluginBlockedCapability",
@@ -14908,7 +16430,14 @@
           "type": "string"
         },
         "state": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "active",
+            "disabled",
+            "invalid",
+            "shadowed",
+            "pending_restart"
+          ]
         },
         "restartRequired": {
           "type": "boolean"
@@ -15023,15 +16552,22 @@
           "type": "string"
         },
         "scope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "sourceSpec": {
           "type": "string"
         },
         "installerBackend": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "auto",
+            "pip",
+            "uv"
           ]
         },
         "canonicalSourceKey": {
@@ -15105,15 +16641,22 @@
                 "type": "string"
               },
               "scope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "setta_files",
+                  "global"
+                ]
               },
               "sourceSpec": {
                 "type": "string"
               },
               "installerBackend": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "pip",
+                  "uv"
                 ]
               },
               "canonicalSourceKey": {
@@ -15192,7 +16735,12 @@
           "type": "string"
         },
         "sourceScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "sourceScopeLabel": {
           "type": "string"
@@ -15219,7 +16767,10 @@
           }
         },
         "trustStatus": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "unverified"
+          ]
         },
         "trustWarning": {
           "type": "string"
@@ -15234,7 +16785,14 @@
           }
         },
         "state": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "active",
+            "disabled",
+            "invalid",
+            "shadowed",
+            "pending_restart"
+          ]
         },
         "restartRequired": {
           "type": "boolean"
@@ -15280,13 +16838,22 @@
           "type": "string"
         },
         "sourceScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "sourceScopeLabel": {
           "type": "string"
         },
         "sourceManager": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "setta",
+            "package_manager"
+          ]
         },
         "sourceManagerHint": {
           "type": [
@@ -15400,9 +16967,12 @@
           }
         },
         "enablementSource": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "workspace_disabled",
+            "workspace_enabled",
+            "global_auto_enabled",
+            "manifest_default"
           ]
         },
         "restartRequired": {
@@ -15437,13 +17007,23 @@
           "type": "integer"
         },
         "serverMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ide",
+            "share",
+            "app",
+            "launcher"
+          ]
         },
         "restartCapability": {
           "type": "object",
           "properties": {
             "mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "manual",
+                "programmatic"
+              ]
             },
             "command": {
               "type": [
@@ -15483,13 +17063,22 @@
                 "type": "string"
               },
               "sourceScope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "setta_files",
+                  "global"
+                ]
               },
               "sourceScopeLabel": {
                 "type": "string"
               },
               "sourceManager": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "setta",
+                  "package_manager"
+                ]
               },
               "sourceManagerHint": {
                 "type": [
@@ -15603,9 +17192,12 @@
                 }
               },
               "enablementSource": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "workspace_disabled",
+                  "workspace_enabled",
+                  "global_auto_enabled",
+                  "manifest_default"
                 ]
               },
               "restartRequired": {
@@ -15683,7 +17275,12 @@
           "type": "string"
         },
         "scope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "sourceDigestSha256": {
           "type": [
@@ -15698,9 +17295,11 @@
           ]
         },
         "installerBackend": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "auto",
+            "pip",
+            "uv"
           ]
         }
       },
@@ -16019,7 +17618,11 @@
       "type": "object",
       "properties": {
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "manual",
+            "programmatic"
+          ]
         },
         "command": {
           "type": [
@@ -16057,7 +17660,11 @@
           "type": "boolean"
         },
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "manual",
+            "programmatic"
+          ]
         },
         "command": {
           "type": [
@@ -16122,13 +17729,23 @@
               "type": "integer"
             },
             "serverMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ide",
+                "share",
+                "app",
+                "launcher"
+              ]
             },
             "restartCapability": {
               "type": "object",
               "properties": {
                 "mode": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "programmatic"
+                  ]
                 },
                 "command": {
                   "type": [
@@ -16168,13 +17785,22 @@
                     "type": "string"
                   },
                   "sourceScope": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "workspace",
+                      "setta_files",
+                      "global"
+                    ]
                   },
                   "sourceScopeLabel": {
                     "type": "string"
                   },
                   "sourceManager": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "setta",
+                      "package_manager"
+                    ]
                   },
                   "sourceManagerHint": {
                     "type": [
@@ -16288,9 +17914,12 @@
                     }
                   },
                   "enablementSource": {
-                    "type": [
-                      "null",
-                      "string"
+                    "type": "string",
+                    "enum": [
+                      "workspace_disabled",
+                      "workspace_enabled",
+                      "global_auto_enabled",
+                      "manifest_default"
                     ]
                   },
                   "restartRequired": {
@@ -16334,13 +17963,23 @@
               "type": "integer"
             },
             "serverMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ide",
+                "share",
+                "app",
+                "launcher"
+              ]
             },
             "restartCapability": {
               "type": "object",
               "properties": {
                 "mode": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "manual",
+                    "programmatic"
+                  ]
                 },
                 "command": {
                   "type": [
@@ -16380,16 +18019,32 @@
                     "type": "string"
                   },
                   "state": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "disabled",
+                      "invalid",
+                      "shadowed",
+                      "pending_restart"
+                    ]
                   },
                   "sourceScope": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "workspace",
+                      "setta_files",
+                      "global"
+                    ]
                   },
                   "sourceScopeLabel": {
                     "type": "string"
                   },
                   "sourceManager": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "setta",
+                      "package_manager"
+                    ]
                   },
                   "sourceManagerHint": {
                     "type": [
@@ -16445,7 +18100,12 @@
                           "type": "string"
                         },
                         "reason": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "mode_policy",
+                            "host_policy",
+                            "manifest_invalid"
+                          ]
                         }
                       },
                       "required": [
@@ -16567,9 +18227,12 @@
                     }
                   },
                   "enablementSource": {
-                    "type": [
-                      "null",
-                      "string"
+                    "type": "string",
+                    "enum": [
+                      "workspace_disabled",
+                      "workspace_enabled",
+                      "global_auto_enabled",
+                      "manifest_default"
                     ]
                   },
                   "restartRequired": {
@@ -16704,16 +18367,32 @@
           "type": "string"
         },
         "state": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "active",
+            "disabled",
+            "invalid",
+            "shadowed",
+            "pending_restart"
+          ]
         },
         "sourceScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "sourceScopeLabel": {
           "type": "string"
         },
         "sourceManager": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "setta",
+            "package_manager"
+          ]
         },
         "sourceManagerHint": {
           "type": [
@@ -16769,7 +18448,12 @@
                 "type": "string"
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "mode_policy",
+                  "host_policy",
+                  "manifest_invalid"
+                ]
               }
             },
             "required": [
@@ -16891,9 +18575,12 @@
           }
         },
         "enablementSource": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "workspace_disabled",
+            "workspace_enabled",
+            "global_auto_enabled",
+            "manifest_default"
           ]
         },
         "restartRequired": {
@@ -16961,13 +18648,23 @@
           "type": "integer"
         },
         "serverMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ide",
+            "share",
+            "app",
+            "launcher"
+          ]
         },
         "restartCapability": {
           "type": "object",
           "properties": {
             "mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "manual",
+                "programmatic"
+              ]
             },
             "command": {
               "type": [
@@ -17007,16 +18704,32 @@
                 "type": "string"
               },
               "state": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "active",
+                  "disabled",
+                  "invalid",
+                  "shadowed",
+                  "pending_restart"
+                ]
               },
               "sourceScope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "setta_files",
+                  "global"
+                ]
               },
               "sourceScopeLabel": {
                 "type": "string"
               },
               "sourceManager": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "setta",
+                  "package_manager"
+                ]
               },
               "sourceManagerHint": {
                 "type": [
@@ -17072,7 +18785,12 @@
                       "type": "string"
                     },
                     "reason": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "mode_policy",
+                        "host_policy",
+                        "manifest_invalid"
+                      ]
                     }
                   },
                   "required": [
@@ -17194,9 +18912,12 @@
                 }
               },
               "enablementSource": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "workspace_disabled",
+                  "workspace_enabled",
+                  "global_auto_enabled",
+                  "manifest_default"
                 ]
               },
               "restartRequired": {
@@ -17274,7 +18995,12 @@
           "type": "string"
         },
         "removedFromScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "workspace",
+            "setta_files",
+            "global"
+          ]
         },
         "restartRequired": {
           "type": "boolean"
@@ -17363,7 +19089,12 @@
                 "type": "string"
               },
               "scope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "setta_files",
+                  "global"
+                ]
               },
               "sourceDigestSha256": {
                 "type": [
@@ -17378,9 +19109,11 @@
                 ]
               },
               "installerBackend": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "pip",
+                  "uv"
                 ]
               }
             },
@@ -17476,7 +19209,12 @@
           "type": "boolean"
         },
         "runSnapshotMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ephemeral",
+            "always",
+            "never"
+          ]
         }
       },
       "title": "Policy",
@@ -17517,7 +19255,13 @@
           "type": "string"
         },
         "placement": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "bottom_docked",
+            "floating",
+            "maximized",
+            "canvas_section"
+          ]
         },
         "isMinimized": {
           "type": "boolean"
@@ -17574,13 +19318,21 @@
           "type": "integer"
         },
         "lastPlacementBeforeMaximize": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "bottom_docked",
+            "floating",
+            "maximized",
+            "canvas_section"
           ]
         },
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "project_ai_mode",
+            "section_mode",
+            "git_graph_mode"
+          ]
         },
         "sectionIdOrNull": {
           "type": [
@@ -17622,7 +19374,13 @@
                 "type": "string"
               },
               "placement": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "bottom_docked",
+                  "floating",
+                  "maximized",
+                  "canvas_section"
+                ]
               },
               "isMinimized": {
                 "type": "boolean"
@@ -17679,13 +19437,21 @@
                 "type": "integer"
               },
               "lastPlacementBeforeMaximize": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "bottom_docked",
+                  "floating",
+                  "maximized",
+                  "canvas_section"
                 ]
               },
               "mode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_ai_mode",
+                  "section_mode",
+                  "git_graph_mode"
+                ]
               },
               "sectionIdOrNull": {
                 "type": [
@@ -17765,7 +19531,10 @@
       "type": "object",
       "properties": {
         "language": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "python"
+          ]
         },
         "genCodePrefix": {
           "type": "string"
@@ -17785,7 +19554,34 @@
                 "array"
               ],
               "items": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Callable",
+                  "Dict",
+                  "ListRoot",
+                  "Group",
+                  "StateMachineStart",
+                  "StateMachineGate",
+                  "StateMachineEnd",
+                  "Image",
+                  "Chart",
+                  "Draw",
+                  "TextBlock",
+                  "Prompt",
+                  "MetaControl",
+                  "Social",
+                  "GlobalVariables",
+                  "Code",
+                  "GenPythonCode",
+                  "GenPythonMetadata",
+                  "Terminal",
+                  "IFrame",
+                  "Chat",
+                  "Browser",
+                  "Plugin",
+                  "TaskBoard",
+                  "Spreadsheet"
+                ]
               }
             },
             "metaControlAllowlist": {
@@ -17794,7 +19590,24 @@
                 "array"
               ],
               "items": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "CodeCallable",
+                  "CodeParam",
+                  "TextParam",
+                  "DateParam",
+                  "TimeParam",
+                  "ButtonParam",
+                  "SliderParam",
+                  "RotaryParam",
+                  "SwitchParam",
+                  "ColorPickerParam",
+                  "DropdownParam",
+                  "PasswordParam",
+                  "TextAreaParam",
+                  "DropzoneParam",
+                  "NestedParam"
+                ]
               }
             },
             "exclude": {
@@ -17812,10 +19625,20 @@
                 "type": "object",
                 "properties": {
                   "mode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "inherit",
+                      "include",
+                      "exclude"
+                    ]
                   },
                   "representation": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "expression",
+                      "file_path",
+                      "file_read"
+                    ]
                   }
                 },
                 "required": [
@@ -17831,10 +19654,20 @@
                 "type": "object",
                 "properties": {
                   "mode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "inherit",
+                      "include",
+                      "exclude"
+                    ]
                   },
                   "representation": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "expression",
+                      "file_path",
+                      "file_read"
+                    ]
                   }
                 },
                 "required": [
@@ -17863,7 +19696,14 @@
                 "type": "object",
                 "properties": {
                   "representation": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "expression",
+                      "json_parsed",
+                      "string",
+                      "file_path",
+                      "file_read"
+                    ]
                   }
                 },
                 "required": [
@@ -17878,7 +19718,14 @@
                 "type": "object",
                 "properties": {
                   "representation": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "expression",
+                      "json_parsed",
+                      "string",
+                      "file_path",
+                      "file_read"
+                    ]
                   }
                 },
                 "required": [
@@ -17907,9 +19754,15 @@
       "additionalProperties": false
     },
     "ProjectCodegenTarget": {
-      "type": "object",
       "title": "ProjectCodegenTarget",
-      "additionalProperties": false
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectCodegenPythonTarget"
+        },
+        {
+          "$ref": "#/$defs/ProjectCodegenPluginTarget"
+        }
+      ]
     },
     "ProjectConfig": {
       "type": "object",
@@ -18094,15 +19947,14 @@
             "array"
           ],
           "items": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 255
-            }
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProjectCodegenPythonTarget"
+              },
+              {
+                "$ref": "#/$defs/ProjectCodegenPluginTarget"
+              }
+            ]
           }
         },
         "watchCodeEnabled": {
@@ -18148,7 +20000,12 @@
                 "type": "string"
               },
               "kind": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "function",
+                  "async_function",
+                  "class_init"
+                ]
               },
               "signatureHash": {
                 "type": "string"
@@ -18281,7 +20138,11 @@
                   "type": "object",
                   "properties": {
                     "surfaceKind": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "project_chat",
+                        "section"
+                      ]
                     },
                     "sectionIdOrNull": {
                       "type": [
@@ -18290,7 +20151,12 @@
                       ]
                     },
                     "mode": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "project_ai_mode",
+                        "section_mode",
+                        "git_graph_mode"
+                      ]
                     },
                     "title": {
                       "type": [
@@ -18482,10 +20348,20 @@
                 "type": "string"
               },
               "kind": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "chat_chat",
+                  "section_chat",
+                  "chat_section"
+                ]
               },
               "contextMode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "reference_only",
+                  "inline_text",
+                  "summary"
+                ]
               },
               "style": {
                 "type": [
@@ -18550,7 +20426,12 @@
                 ],
                 "properties": {
                   "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "run_completed",
+                      "run_failed",
+                      "signal"
+                    ]
                   },
                   "signalName": {
                     "type": [
@@ -18583,7 +20464,14 @@
                 ],
                 "properties": {
                   "operator": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "lt",
+                      "lte",
+                      "eq",
+                      "gte",
+                      "gt"
+                    ]
                   },
                   "value": {
                     "type": "integer"
@@ -18602,7 +20490,11 @@
                 ],
                 "properties": {
                   "type": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "send_prompt",
+                      "reset_thread"
+                    ]
                   },
                   "promptTemplateId": {
                     "type": [
@@ -18629,7 +20521,11 @@
                     }
                   },
                   "threadStrategy": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "continue_current_thread",
+                      "new_thread_before_send"
+                    ]
                   },
                   "stopIfRunning": {
                     "type": "boolean"
@@ -19089,15 +20985,14 @@
                 "array"
               ],
               "items": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ProjectCodegenPythonTarget"
+                  },
+                  {
+                    "$ref": "#/$defs/ProjectCodegenPluginTarget"
+                  }
+                ]
               }
             },
             "watchCodeEnabled": {
@@ -19143,7 +21038,12 @@
                     "type": "string"
                   },
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "function",
+                      "async_function",
+                      "class_init"
+                    ]
                   },
                   "signatureHash": {
                     "type": "string"
@@ -19276,7 +21176,11 @@
                       "type": "object",
                       "properties": {
                         "surfaceKind": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "project_chat",
+                            "section"
+                          ]
                         },
                         "sectionIdOrNull": {
                           "type": [
@@ -19285,7 +21189,12 @@
                           ]
                         },
                         "mode": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "project_ai_mode",
+                            "section_mode",
+                            "git_graph_mode"
+                          ]
                         },
                         "title": {
                           "type": [
@@ -19477,10 +21386,20 @@
                     "type": "string"
                   },
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "chat_chat",
+                      "section_chat",
+                      "chat_section"
+                    ]
                   },
                   "contextMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "reference_only",
+                      "inline_text",
+                      "summary"
+                    ]
                   },
                   "style": {
                     "type": [
@@ -19545,7 +21464,12 @@
                     ],
                     "properties": {
                       "type": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "run_completed",
+                          "run_failed",
+                          "signal"
+                        ]
                       },
                       "signalName": {
                         "type": [
@@ -19578,7 +21502,14 @@
                     ],
                     "properties": {
                       "operator": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "lt",
+                          "lte",
+                          "eq",
+                          "gte",
+                          "gt"
+                        ]
                       },
                       "value": {
                         "type": "integer"
@@ -19597,7 +21528,11 @@
                     ],
                     "properties": {
                       "type": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "send_prompt",
+                          "reset_thread"
+                        ]
                       },
                       "promptTemplateId": {
                         "type": [
@@ -19624,7 +21559,11 @@
                         }
                       },
                       "threadStrategy": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "continue_current_thread",
+                          "new_thread_before_send"
+                        ]
                       },
                       "stopIfRunning": {
                         "type": "boolean"
@@ -19863,7 +21802,12 @@
               "type": "string"
             },
             "access_mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read_write",
+                "read_only",
+                "write_only"
+              ]
             },
             "autoBinding": {
               "type": "boolean"
@@ -20366,15 +22310,14 @@
                     "array"
                   ],
                   "items": {
-                    "type": [
-                      "null",
-                      "array"
-                    ],
-                    "items": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 255
-                    }
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectCodegenPythonTarget"
+                      },
+                      {
+                        "$ref": "#/$defs/ProjectCodegenPluginTarget"
+                      }
+                    ]
                   }
                 },
                 "watchCodeEnabled": {
@@ -20420,7 +22363,12 @@
                         "type": "string"
                       },
                       "kind": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "function",
+                          "async_function",
+                          "class_init"
+                        ]
                       },
                       "signatureHash": {
                         "type": "string"
@@ -20553,7 +22501,11 @@
                           "type": "object",
                           "properties": {
                             "surfaceKind": {
-                              "type": "string"
+                              "type": "string",
+                              "enum": [
+                                "project_chat",
+                                "section"
+                              ]
                             },
                             "sectionIdOrNull": {
                               "type": [
@@ -20562,7 +22514,12 @@
                               ]
                             },
                             "mode": {
-                              "type": "string"
+                              "type": "string",
+                              "enum": [
+                                "project_ai_mode",
+                                "section_mode",
+                                "git_graph_mode"
+                              ]
                             },
                             "title": {
                               "type": [
@@ -20754,10 +22711,20 @@
                         "type": "string"
                       },
                       "kind": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "chat_chat",
+                          "section_chat",
+                          "chat_section"
+                        ]
                       },
                       "contextMode": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "reference_only",
+                          "inline_text",
+                          "summary"
+                        ]
                       },
                       "style": {
                         "type": [
@@ -20822,7 +22789,12 @@
                         ],
                         "properties": {
                           "type": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "run_completed",
+                              "run_failed",
+                              "signal"
+                            ]
                           },
                           "signalName": {
                             "type": [
@@ -20855,7 +22827,14 @@
                         ],
                         "properties": {
                           "operator": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "lt",
+                              "lte",
+                              "eq",
+                              "gte",
+                              "gt"
+                            ]
                           },
                           "value": {
                             "type": "integer"
@@ -20874,7 +22853,11 @@
                         ],
                         "properties": {
                           "type": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "send_prompt",
+                              "reset_thread"
+                            ]
                           },
                           "promptTemplateId": {
                             "type": [
@@ -20901,7 +22884,11 @@
                             }
                           },
                           "threadStrategy": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "continue_current_thread",
+                              "new_thread_before_send"
+                            ]
                           },
                           "stopIfRunning": {
                             "type": "boolean"
@@ -21135,7 +23122,12 @@
                   "type": "string"
                 },
                 "access_mode": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "read_write",
+                    "read_only",
+                    "write_only"
+                  ]
                 },
                 "autoBinding": {
                   "type": "boolean"
@@ -21160,7 +23152,13 @@
                         "type": "string"
                       },
                       "placement": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "bottom_docked",
+                          "floating",
+                          "maximized",
+                          "canvas_section"
+                        ]
                       },
                       "isMinimized": {
                         "type": "boolean"
@@ -21217,13 +23215,21 @@
                         "type": "integer"
                       },
                       "lastPlacementBeforeMaximize": {
-                        "type": [
-                          "null",
-                          "string"
+                        "type": "string",
+                        "enum": [
+                          "bottom_docked",
+                          "floating",
+                          "maximized",
+                          "canvas_section"
                         ]
                       },
                       "mode": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "project_ai_mode",
+                          "section_mode",
+                          "git_graph_mode"
+                        ]
                       },
                       "sectionIdOrNull": {
                         "type": [
@@ -21333,7 +23339,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -21814,15 +23846,14 @@
                         "array"
                       ],
                       "items": {
-                        "type": [
-                          "null",
-                          "array"
-                        ],
-                        "items": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 255
-                        }
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/ProjectCodegenPythonTarget"
+                          },
+                          {
+                            "$ref": "#/$defs/ProjectCodegenPluginTarget"
+                          }
+                        ]
                       }
                     },
                     "watchCodeEnabled": {
@@ -21868,7 +23899,12 @@
                             "type": "string"
                           },
                           "kind": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "function",
+                              "async_function",
+                              "class_init"
+                            ]
                           },
                           "signatureHash": {
                             "type": "string"
@@ -22001,7 +24037,11 @@
                               "type": "object",
                               "properties": {
                                 "surfaceKind": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "enum": [
+                                    "project_chat",
+                                    "section"
+                                  ]
                                 },
                                 "sectionIdOrNull": {
                                   "type": [
@@ -22010,7 +24050,12 @@
                                   ]
                                 },
                                 "mode": {
-                                  "type": "string"
+                                  "type": "string",
+                                  "enum": [
+                                    "project_ai_mode",
+                                    "section_mode",
+                                    "git_graph_mode"
+                                  ]
                                 },
                                 "title": {
                                   "type": [
@@ -22202,10 +24247,20 @@
                             "type": "string"
                           },
                           "kind": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "chat_chat",
+                              "section_chat",
+                              "chat_section"
+                            ]
                           },
                           "contextMode": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "reference_only",
+                              "inline_text",
+                              "summary"
+                            ]
                           },
                           "style": {
                             "type": [
@@ -22270,7 +24325,12 @@
                             ],
                             "properties": {
                               "type": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "run_completed",
+                                  "run_failed",
+                                  "signal"
+                                ]
                               },
                               "signalName": {
                                 "type": [
@@ -22303,7 +24363,14 @@
                             ],
                             "properties": {
                               "operator": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "lt",
+                                  "lte",
+                                  "eq",
+                                  "gte",
+                                  "gt"
+                                ]
                               },
                               "value": {
                                 "type": "integer"
@@ -22322,7 +24389,11 @@
                             ],
                             "properties": {
                               "type": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "send_prompt",
+                                  "reset_thread"
+                                ]
                               },
                               "promptTemplateId": {
                                 "type": [
@@ -22349,7 +24420,11 @@
                                 }
                               },
                               "threadStrategy": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "continue_current_thread",
+                                  "new_thread_before_send"
+                                ]
                               },
                               "stopIfRunning": {
                                 "type": "boolean"
@@ -22583,7 +24658,12 @@
                       "type": "string"
                     },
                     "access_mode": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "read_write",
+                        "read_only",
+                        "write_only"
+                      ]
                     },
                     "autoBinding": {
                       "type": "boolean"
@@ -22608,7 +24688,13 @@
                             "type": "string"
                           },
                           "placement": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "bottom_docked",
+                              "floating",
+                              "maximized",
+                              "canvas_section"
+                            ]
                           },
                           "isMinimized": {
                             "type": "boolean"
@@ -22665,13 +24751,21 @@
                             "type": "integer"
                           },
                           "lastPlacementBeforeMaximize": {
-                            "type": [
-                              "null",
-                              "string"
+                            "type": "string",
+                            "enum": [
+                              "bottom_docked",
+                              "floating",
+                              "maximized",
+                              "canvas_section"
                             ]
                           },
                           "mode": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "project_ai_mode",
+                              "section_mode",
+                              "git_graph_mode"
+                            ]
                           },
                           "sectionIdOrNull": {
                             "type": [
@@ -22877,7 +24971,10 @@
           "type": "string"
         },
         "format": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Jinja"
+          ]
         },
         "inputs": {
           "type": "object",
@@ -22952,7 +25049,10 @@
                 "type": "string"
               },
               "format": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Jinja"
+                ]
               },
               "inputSchema": {
                 "type": "object",
@@ -22986,7 +25086,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -23012,7 +25138,10 @@
                     "type": "string"
                   },
                   "format": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "Jinja"
+                    ]
                   },
                   "inputSchema": {
                     "type": "object",
@@ -23082,7 +25211,14 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Image",
+            "BrushStroke",
+            "DrawAreaLayerItemTransform",
+            "ChartData",
+            "File"
+          ]
         },
         "id": {
           "type": "string"
@@ -23179,7 +25315,13 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "CurrentAddressUpdate",
+            "UISettingRevealResult",
+            "RealtimeUIChange",
+            "RealtimeDependencyEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -23285,7 +25427,13 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "CurrentAddressUpdate",
+            "UISettingRevealResult",
+            "RealtimeUIChange",
+            "RealtimeDependencyEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -23341,7 +25489,12 @@
           "type": "string"
         },
         "renameMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ALWAYS_ASK",
+            "ALWAYS_RENAME",
+            "NEVER_RENAME"
+          ]
         },
         "changedNodeValues": {
           "type": [
@@ -23410,7 +25563,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -23422,7 +25601,12 @@
               "type": "string"
             },
             "renameMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ALWAYS_ASK",
+                "ALWAYS_RENAME",
+                "NEVER_RENAME"
+              ]
             },
             "changedNodeValues": {
               "type": [
@@ -23567,16 +25751,32 @@
                 "type": "string"
               },
               "state": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "active",
+                  "disabled",
+                  "invalid",
+                  "shadowed",
+                  "pending_restart"
+                ]
               },
               "sourceScope": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "workspace",
+                  "setta_files",
+                  "global"
+                ]
               },
               "sourceScopeLabel": {
                 "type": "string"
               },
               "sourceManager": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "setta",
+                  "package_manager"
+                ]
               },
               "sourceManagerHint": {
                 "type": [
@@ -23632,7 +25832,12 @@
                       "type": "string"
                     },
                     "reason": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "mode_policy",
+                        "host_policy",
+                        "manifest_invalid"
+                      ]
                     }
                   },
                   "required": [
@@ -23754,9 +25959,12 @@
                 }
               },
               "enablementSource": {
-                "type": [
-                  "null",
-                  "string"
+                "type": "string",
+                "enum": [
+                  "workspace_disabled",
+                  "workspace_enabled",
+                  "global_auto_enabled",
+                  "manifest_default"
                 ]
               },
               "restartRequired": {
@@ -23839,7 +26047,11 @@
           "type": "object",
           "properties": {
             "mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "manual",
+                "programmatic"
+              ]
             },
             "command": {
               "type": [
@@ -24373,7 +26585,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "line",
+            "scatter"
+          ]
         },
         "xAxisColumn": {
           "type": [
@@ -24453,10 +26669,20 @@
       "type": "object",
       "properties": {
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "inherit",
+            "include",
+            "exclude"
+          ]
         },
         "representation": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "expression",
+            "file_path",
+            "file_read"
+          ]
         }
       },
       "title": "SectionCodegenOverride",
@@ -24475,7 +26701,34 @@
             "array"
           ],
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "Callable",
+              "Dict",
+              "ListRoot",
+              "Group",
+              "StateMachineStart",
+              "StateMachineGate",
+              "StateMachineEnd",
+              "Image",
+              "Chart",
+              "Draw",
+              "TextBlock",
+              "Prompt",
+              "MetaControl",
+              "Social",
+              "GlobalVariables",
+              "Code",
+              "GenPythonCode",
+              "GenPythonMetadata",
+              "Terminal",
+              "IFrame",
+              "Chat",
+              "Browser",
+              "Plugin",
+              "TaskBoard",
+              "Spreadsheet"
+            ]
           }
         },
         "metaControlAllowlist": {
@@ -24484,7 +26737,24 @@
             "array"
           ],
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "CodeCallable",
+              "CodeParam",
+              "TextParam",
+              "DateParam",
+              "TimeParam",
+              "ButtonParam",
+              "SliderParam",
+              "RotaryParam",
+              "SwitchParam",
+              "ColorPickerParam",
+              "DropdownParam",
+              "PasswordParam",
+              "TextAreaParam",
+              "DropzoneParam",
+              "NestedParam"
+            ]
           }
         },
         "exclude": {
@@ -24502,10 +26772,20 @@
             "type": "object",
             "properties": {
               "mode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "inherit",
+                  "include",
+                  "exclude"
+                ]
               },
               "representation": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "expression",
+                  "file_path",
+                  "file_read"
+                ]
               }
             },
             "required": [
@@ -24521,10 +26801,20 @@
             "type": "object",
             "properties": {
               "mode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "inherit",
+                  "include",
+                  "exclude"
+                ]
               },
               "representation": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "expression",
+                  "file_path",
+                  "file_read"
+                ]
               }
             },
             "required": [
@@ -24549,7 +26839,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Section",
+            "SectionParam"
+          ]
         },
         "sectionId": {
           "type": "string"
@@ -24576,7 +26870,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Section",
+            "SectionParam"
+          ]
         },
         "sectionId": {
           "type": "string"
@@ -25309,10 +27607,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25333,10 +27641,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25357,10 +27675,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25381,10 +27709,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25405,10 +27743,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25429,10 +27777,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25453,10 +27811,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25477,10 +27845,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25501,10 +27879,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25525,10 +27913,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25549,10 +27947,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25573,10 +27981,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25597,10 +28015,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25621,10 +28049,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -25645,10 +28083,20 @@
                   "type": "number"
                 },
                 "sizeModeHeight": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 },
                 "sizeModeWidth": {
-                  "type": "string"
+                  "type": "string",
+                  "enum": [
+                    "any",
+                    "auto_only",
+                    "manual_only"
+                  ]
                 }
               },
               "required": [
@@ -26488,10 +28936,20 @@
       "type": "object",
       "properties": {
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "inherit",
+            "include",
+            "exclude"
+          ]
         },
         "representation": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "expression",
+            "file_path",
+            "file_read"
+          ]
         }
       },
       "title": "SectionTypeCodegenPolicy",
@@ -26754,7 +29212,10 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Sections"
+          ]
         },
         "data": {
           "type": "object",
@@ -26828,7 +29289,13 @@
                         "type": "string"
                       },
                       "kind": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "code",
+                          "terminal",
+                          "draw",
+                          "generated"
+                        ]
                       },
                       "payload": {
                         "type": [
@@ -26848,7 +29315,18 @@
                         ],
                         "properties": {
                           "language": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "python",
+                              "bash",
+                              "javascript",
+                              "typescript",
+                              "json",
+                              "yaml",
+                              "toml",
+                              "markdown",
+                              "plaintext"
+                            ]
                           },
                           "binding": {
                             "type": [
@@ -26860,7 +29338,12 @@
                                 "type": "string"
                               },
                               "accessMode": {
-                                "type": "string"
+                                "type": "string",
+                                "enum": [
+                                  "read_write",
+                                  "read_only",
+                                  "write_only"
+                                ]
                               },
                               "autoBinding": {
                                 "type": "boolean"
@@ -26896,7 +29379,11 @@
                         ],
                         "properties": {
                           "sessionMode": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "managed_console"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -26920,7 +29407,12 @@
                         ],
                         "properties": {
                           "kind": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "python_code",
+                              "python_metadata",
+                              "plugin"
+                            ]
                           }
                         },
                         "required": [
@@ -27145,7 +29637,12 @@
       "type": "object",
       "properties": {
         "transport": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "sse",
+            "streamable_http",
+            "stdio"
+          ]
         },
         "url": {
           "type": "string"
@@ -27209,7 +29706,12 @@
             "additionalProperties": false
           },
           "workspaceLaunchRouteKind": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "ide",
+              "launcher",
+              "blocked"
+            ]
           }
         },
         "required": [
@@ -27353,13 +29855,23 @@
           "type": "boolean"
         },
         "renameRefactorMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ALWAYS_ASK",
+            "ALWAYS_RENAME",
+            "NEVER_RENAME"
+          ]
         },
         "saveRenderedValues": {
           "type": "boolean"
         },
         "runSnapshotMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "ephemeral",
+            "always",
+            "never"
+          ]
         },
         "completionGuardEnabled": {
           "type": "boolean"
@@ -27398,7 +29910,12 @@
           "type": "boolean"
         },
         "gridPattern": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "lines",
+            "dots",
+            "cross"
+          ]
         },
         "gridPatternSize": {
           "type": "number"
@@ -27434,7 +29951,12 @@
           "type": "number"
         },
         "panOnScrollMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "free",
+            "vertical",
+            "horizontal"
+          ]
         },
         "zoomOnScroll": {
           "type": "boolean"
@@ -27446,7 +29968,11 @@
           "type": "boolean"
         },
         "selectionMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "partial",
+            "full"
+          ]
         },
         "leftSidePaneShiftsMap": {
           "type": "boolean"
@@ -28116,7 +30642,12 @@
               "type": "boolean"
             },
             "gridPattern": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "lines",
+                "dots",
+                "cross"
+              ]
             },
             "gridPatternSize": {
               "type": "number"
@@ -28152,7 +30683,12 @@
               "type": "number"
             },
             "panOnScrollMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "free",
+                "vertical",
+                "horizontal"
+              ]
             },
             "zoomOnScroll": {
               "type": "boolean"
@@ -28164,7 +30700,11 @@
               "type": "boolean"
             },
             "selectionMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "partial",
+                "full"
+              ]
             },
             "leftSidePaneShiftsMap": {
               "type": "boolean"
@@ -28258,13 +30798,23 @@
               "type": "boolean"
             },
             "renameRefactorMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ALWAYS_ASK",
+                "ALWAYS_RENAME",
+                "NEVER_RENAME"
+              ]
             },
             "saveRenderedValues": {
               "type": "boolean"
             },
             "runSnapshotMode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "ephemeral",
+                "always",
+                "never"
+              ]
             },
             "completionGuardEnabled": {
               "type": "boolean"
@@ -28944,10 +31494,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -28968,10 +31528,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -28992,10 +31562,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29016,10 +31596,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29040,10 +31630,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29064,10 +31664,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29088,10 +31698,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29112,10 +31732,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29136,10 +31766,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29160,10 +31800,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29184,10 +31834,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29208,10 +31868,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29232,10 +31902,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29256,10 +31936,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29280,10 +31970,20 @@
                       "type": "number"
                     },
                     "sizeModeHeight": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     },
                     "sizeModeWidth": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "any",
+                        "auto_only",
+                        "manual_only"
+                      ]
                     }
                   },
                   "required": [
@@ -29373,7 +32073,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -29439,9 +32165,11 @@
           ]
         },
         "runSnapshotMode": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "ephemeral",
+            "always",
+            "never"
           ]
         }
       },
@@ -30038,15 +32766,14 @@
                 "array"
               ],
               "items": {
-                "type": [
-                  "null",
-                  "array"
-                ],
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 255
-                }
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ProjectCodegenPythonTarget"
+                  },
+                  {
+                    "$ref": "#/$defs/ProjectCodegenPluginTarget"
+                  }
+                ]
               }
             },
             "watchCodeEnabled": {
@@ -30092,7 +32819,12 @@
                     "type": "string"
                   },
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "function",
+                      "async_function",
+                      "class_init"
+                    ]
                   },
                   "signatureHash": {
                     "type": "string"
@@ -30225,7 +32957,11 @@
                       "type": "object",
                       "properties": {
                         "surfaceKind": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "project_chat",
+                            "section"
+                          ]
                         },
                         "sectionIdOrNull": {
                           "type": [
@@ -30234,7 +32970,12 @@
                           ]
                         },
                         "mode": {
-                          "type": "string"
+                          "type": "string",
+                          "enum": [
+                            "project_ai_mode",
+                            "section_mode",
+                            "git_graph_mode"
+                          ]
                         },
                         "title": {
                           "type": [
@@ -30426,10 +33167,20 @@
                     "type": "string"
                   },
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "chat_chat",
+                      "section_chat",
+                      "chat_section"
+                    ]
                   },
                   "contextMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "reference_only",
+                      "inline_text",
+                      "summary"
+                    ]
                   },
                   "style": {
                     "type": [
@@ -30494,7 +33245,12 @@
                     ],
                     "properties": {
                       "type": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "run_completed",
+                          "run_failed",
+                          "signal"
+                        ]
                       },
                       "signalName": {
                         "type": [
@@ -30527,7 +33283,14 @@
                     ],
                     "properties": {
                       "operator": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "lt",
+                          "lte",
+                          "eq",
+                          "gte",
+                          "gt"
+                        ]
                       },
                       "value": {
                         "type": "integer"
@@ -30546,7 +33309,11 @@
                     ],
                     "properties": {
                       "type": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "send_prompt",
+                          "reset_thread"
+                        ]
                       },
                       "promptTemplateId": {
                         "type": [
@@ -30573,7 +33340,11 @@
                         }
                       },
                       "threadStrategy": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                          "continue_current_thread",
+                          "new_thread_before_send"
+                        ]
                       },
                       "stopIfRunning": {
                         "type": "boolean"
@@ -30807,7 +33578,12 @@
               "type": "string"
             },
             "access_mode": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "read_write",
+                "read_only",
+                "write_only"
+              ]
             },
             "autoBinding": {
               "type": "boolean"
@@ -30832,7 +33608,13 @@
                     "type": "string"
                   },
                   "placement": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "bottom_docked",
+                      "floating",
+                      "maximized",
+                      "canvas_section"
+                    ]
                   },
                   "isMinimized": {
                     "type": "boolean"
@@ -30889,13 +33671,21 @@
                     "type": "integer"
                   },
                   "lastPlacementBeforeMaximize": {
-                    "type": [
-                      "null",
-                      "string"
+                    "type": "string",
+                    "enum": [
+                      "bottom_docked",
+                      "floating",
+                      "maximized",
+                      "canvas_section"
                     ]
                   },
                   "mode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "project_ai_mode",
+                      "section_mode",
+                      "git_graph_mode"
+                    ]
                   },
                   "sectionIdOrNull": {
                     "type": [
@@ -31176,7 +33966,11 @@
           "type": "boolean"
         },
         "density": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "compact",
+            "comfortable"
+          ]
         },
         "autoReloadOnExternalChange": {
           "type": "boolean"
@@ -31245,7 +34039,12 @@
           ],
           "properties": {
             "type": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "run_completed",
+                "run_failed",
+                "signal"
+              ]
             },
             "signalName": {
               "type": [
@@ -31278,7 +34077,14 @@
           ],
           "properties": {
             "operator": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "lt",
+                "lte",
+                "eq",
+                "gte",
+                "gt"
+              ]
             },
             "value": {
               "type": "integer"
@@ -31297,7 +34103,11 @@
           ],
           "properties": {
             "type": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "send_prompt",
+                "reset_thread"
+              ]
             },
             "promptTemplateId": {
               "type": [
@@ -31324,7 +34134,11 @@
               }
             },
             "threadStrategy": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "continue_current_thread",
+                "new_thread_before_send"
+              ]
             },
             "stopIfRunning": {
               "type": "boolean"
@@ -31600,7 +34414,12 @@
           "type": "string"
         },
         "gateType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "AND",
+            "OR",
+            "XOR"
+          ]
         },
         "label": {
           "type": "string"
@@ -31673,9 +34492,11 @@
           "type": "string"
         },
         "gateType": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "AND",
+            "OR",
+            "XOR"
           ]
         }
       },
@@ -31690,7 +34511,14 @@
       "type": "object",
       "properties": {
         "operator": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "lt",
+            "lte",
+            "eq",
+            "gte",
+            "gt"
+          ]
         },
         "value": {
           "type": "integer"
@@ -31707,7 +34535,12 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "run_completed",
+            "run_failed",
+            "signal"
+          ]
         },
         "signalName": {
           "type": [
@@ -31869,7 +34702,11 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "send_prompt",
+            "reset_thread"
+          ]
         },
         "promptTemplateId": {
           "type": [
@@ -31896,7 +34733,11 @@
           }
         },
         "threadStrategy": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "continue_current_thread",
+            "new_thread_before_send"
+          ]
         },
         "stopIfRunning": {
           "type": "boolean"
@@ -32022,7 +34863,13 @@
           "type": "string"
         },
         "role": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
         },
         "createdAt": {
           "type": "integer"
@@ -32235,7 +35082,11 @@
           "type": "boolean"
         },
         "viewMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "task_list",
+            "kanban"
+          ]
         },
         "columns": {
           "type": [
@@ -32479,7 +35330,10 @@
           "type": "string"
         },
         "format": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Jinja"
+          ]
         },
         "inputSchema": {
           "type": "object",
@@ -32776,7 +35630,11 @@
           "type": "boolean"
         },
         "format": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Plaintext",
+            "Markdown"
+          ]
         },
         "masterFontSizePx": {
           "type": "number"
@@ -32788,7 +35646,11 @@
           "type": "boolean"
         },
         "textDisplayMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Render",
+            "Edit"
+          ]
         },
         "text": {
           "type": "string"
@@ -32856,7 +35718,12 @@
           "type": "string"
         },
         "uiType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "plain",
+            "time",
+            "date"
+          ]
         }
       },
       "title": "TextParamCodeObjImpl",
@@ -32947,10 +35814,18 @@
           "type": "string"
         },
         "timeControlMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "input",
+            "display"
+          ]
         },
         "timeDisplayFormat": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "twenty_four_hour",
+            "twelve_hour"
+          ]
         },
         "timeDisplayTransparent": {
           "type": "boolean"
@@ -32959,7 +35834,12 @@
           "type": "number"
         },
         "timeDisplayFont": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "clock",
+            "monospace",
+            "system"
+          ]
         }
       },
       "title": "TimeParamCodeObjImpl",
@@ -33004,7 +35884,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message_id": {
           "type": "string"
@@ -33089,7 +35978,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "message_id": {
           "type": "string"
@@ -33142,7 +36040,13 @@
           "type": "string"
         },
         "role": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
         },
         "createdAt": {
           "type": "integer"
@@ -33237,7 +36141,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "message_start",
+            "delta",
+            "tool_call_delta",
+            "tool_argument_preview_delta",
+            "tool_result",
+            "message_stop",
+            "message_finalized"
+          ]
         },
         "result": {
           "type": "object",
@@ -33304,7 +36217,12 @@
           "type": "string"
         },
         "transportMode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "auto",
+            "file",
+            "realtime"
+          ]
         },
         "chunkMs": {
           "type": "integer"
@@ -33351,7 +36269,12 @@
                 "type": "string"
               },
               "transportMode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "file",
+                  "realtime"
+                ]
               },
               "chunkMs": {
                 "type": "integer"
@@ -33388,7 +36311,33 @@
       "type": "object",
       "properties": {
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -33411,7 +36360,12 @@
                     "type": "string"
                   },
                   "transportMode": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "file",
+                      "realtime"
+                    ]
                   },
                   "chunkMs": {
                     "type": "integer"
@@ -33843,7 +36797,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -34282,7 +37262,33 @@
           ]
         },
         "messageType": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Notification",
+            "AllProjectMetadata",
+            "AllConnections",
+            "FrontendIdentity",
+            "ListenerCoverageSnapshot",
+            "UpdateArtifacts",
+            "LLMStreamingResponse",
+            "AIFollowToolArgumentsUpdate",
+            "AIFollowToolResultUpdate",
+            "UISettingReveal",
+            "LSPDiagnostics",
+            "NameValidationErrors",
+            "LLMConfigUpdated",
+            "LLMApiKeysUpdated",
+            "ExternalAgentConfigsUpdated",
+            "EngineConfigsUpdated",
+            "AgentProfilesUpdated",
+            "AgentRunUpdated",
+            "PromptTemplatesUpdated",
+            "TranscriptionProfilesUpdated",
+            "UpdateFrontendProjectState",
+            "UpdateSettings",
+            "ReturnRenameRefactorResults",
+            "BackendLogEvent"
+          ]
         },
         "content": {
           "type": "object",
@@ -34325,7 +37331,14 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "Image",
+                  "BrushStroke",
+                  "DrawAreaLayerItemTransform",
+                  "ChartData",
+                  "File"
+                ]
               },
               "id": {
                 "type": "string"
@@ -34351,13 +37364,19 @@
           }
         },
         "conflictStrategy": {
-          "type": [
-            "null",
-            "string"
+          "type": "string",
+          "enum": [
+            "skip",
+            "backup",
+            "overwrite"
           ]
         },
         "uploadScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "chat",
+            "generic"
+          ]
         }
       },
       "title": "UpdateRequest",
@@ -34383,7 +37402,13 @@
           "type": "string"
         },
         "role": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
         },
         "createdAt": {
           "type": "integer"
@@ -34662,7 +37687,12 @@
           "type": "string"
         },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "function",
+            "async_function",
+            "class_init"
+          ]
         },
         "signatureHash": {
           "type": "string"
@@ -34735,7 +37765,11 @@
             "type": "object",
             "properties": {
               "surfaceKind": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_chat",
+                  "section"
+                ]
               },
               "sectionIdOrNull": {
                 "type": [
@@ -34744,7 +37778,12 @@
                 ]
               },
               "mode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_ai_mode",
+                  "section_mode",
+                  "git_graph_mode"
+                ]
               },
               "title": {
                 "type": [
@@ -34827,7 +37866,11 @@
             "type": "object",
             "properties": {
               "surfaceKind": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_chat",
+                  "section"
+                ]
               },
               "sectionIdOrNull": {
                 "type": [
@@ -34836,7 +37879,12 @@
                 ]
               },
               "mode": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "project_ai_mode",
+                  "section_mode",
+                  "git_graph_mode"
+                ]
               },
               "title": {
                 "type": [
@@ -34913,7 +37961,11 @@
       "type": "object",
       "properties": {
         "surfaceKind": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "project_chat",
+            "section"
+          ]
         },
         "sectionIdOrNull": {
           "type": [
@@ -34922,7 +37974,12 @@
           ]
         },
         "mode": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "project_ai_mode",
+            "section_mode",
+            "git_graph_mode"
+          ]
         },
         "title": {
           "type": [

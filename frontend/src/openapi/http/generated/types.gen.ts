@@ -3491,7 +3491,7 @@ export type ProjectviewProjectConfig = {
   activeViewModeId: string | null;
   agenticEdges: Array<ProjectstateAgenticEdge> | null;
   allowJsonSourceKeyEdits: boolean;
-  codegenTargets: Array<unknown> | null;
+  codegenTargets: Array<string> | null;
   edges: Array<ProjectstateEdge> | null;
   entryCodeBlockId: string | null;
   hasPythonCodegenTarget: boolean;

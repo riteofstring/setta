@@ -503,7 +503,7 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 		IsEditingViewMode:       config.IsEditingViewMode,
 		HasPythonCodegenTarget:  config.HasPythonCodegenTarget,
 		RunCapabilities:         runCapabilities,
-		CodegenTargets:          cloneRawJSONList(config.CodegenTargets),
+		CodegenTargets:          cloneProjectCodegenTargets(config.CodegenTargets),
 		WatchCodeEnabled:        config.WatchCodeEnabled,
 		WatchCodeFolders:        cloneWatchCodeFolders(config.WatchCodeFolders),
 		WatchCodeFiles:          append([]string(nil), config.WatchCodeFiles...),

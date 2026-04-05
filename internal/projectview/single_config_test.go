@@ -1495,11 +1495,11 @@ func testProjectViewDocument(t *testing.T) projectstate.Document {
 	return document
 }
 
-func decodeProjectCodegenTargetPayload(t *testing.T, raw json.RawMessage) map[string]any {
+func decodeProjectCodegenTargetPayload(t *testing.T, raw ProjectCodegenTarget) map[string]any {
 	t.Helper()
 
 	var payload map[string]any
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		t.Fatalf("decode project codegen target payload: %v", err)
 	}
 	return payload

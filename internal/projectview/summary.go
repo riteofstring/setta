@@ -163,7 +163,7 @@ func cloneProjectConfig(config ProjectConfig) ProjectConfig {
 	cloned.RunCapabilities = cloneSummaryProjectRunCapabilities(config.RunCapabilities)
 	cloned.Viewport = cloneSummaryViewport(config.Viewport)
 	cloned.ViewModes = cloneSummaryViewModes(config.ViewModes)
-	cloned.CodegenTargets = cloneSummaryRawJSONList(config.CodegenTargets)
+	cloned.CodegenTargets = cloneSummaryProjectCodegenTargets(config.CodegenTargets)
 	cloned.WatchCodeFolders = cloneSummaryWatchCodeFolders(config.WatchCodeFolders)
 	cloned.WatchCodeFiles = append([]string(nil), config.WatchCodeFiles...)
 	cloned.WatchCodeRegistry = cloneSummaryWatchCodeRegistry(config.WatchCodeRegistry)
@@ -201,13 +201,13 @@ func cloneSummaryViewModes(values map[string]projectstate.ViewMode) map[string]p
 	return cloned
 }
 
-func cloneSummaryRawJSONList(values []projectstate.RawJSON) []projectstate.RawJSON {
+func cloneSummaryProjectCodegenTargets(values []ProjectCodegenTarget) []ProjectCodegenTarget {
 	if values == nil {
 		return nil
 	}
-	cloned := make([]projectstate.RawJSON, len(values))
+	cloned := make([]ProjectCodegenTarget, len(values))
 	for index, value := range values {
-		cloned[index] = append(projectstate.RawJSON(nil), value...)
+		cloned[index] = append(ProjectCodegenTarget(nil), value...)
 	}
 	return cloned
 }

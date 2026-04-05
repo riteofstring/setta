@@ -28,13 +28,13 @@ func cloneViewport(value *projectstate.Viewport) *projectstate.Viewport {
 	return &cloned
 }
 
-func cloneRawJSONList(values []projectstate.RawJSON) []projectstate.RawJSON {
+func cloneProjectCodegenTargets(values []projectview.ProjectCodegenTarget) []projectview.ProjectCodegenTarget {
 	if values == nil {
 		return nil
 	}
-	cloned := make([]projectstate.RawJSON, len(values))
+	cloned := make([]projectview.ProjectCodegenTarget, len(values))
 	for index, value := range values {
-		cloned[index] = append(projectstate.RawJSON(nil), value...)
+		cloned[index] = append(projectview.ProjectCodegenTarget(nil), value...)
 	}
 	return cloned
 }

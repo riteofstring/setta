@@ -3812,8 +3812,8 @@ function createSectionCodegenOverride(
 }
 
 type SectionCodegenPolicy = {
-  allowlist?: Array<SectionType> | null;
-  metaControlAllowlist?: Array<CodeObjType> | null;
+  allowlist?: Array<SectionType>;
+  metaControlAllowlist?: Array<CodeObjType>;
   exclude: Array<string>;
   typePolicies: Record<SectionType, SectionTypeCodegenPolicy>;
   sectionOverrides: Record<string, SectionCodegenOverride>;

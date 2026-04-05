@@ -39,8 +39,8 @@ func PythonSharedDefaultProjectConfig() ProjectConfig {
 		AllowJSONSourceKeyEdits: true,
 		PreviewImgColor:         pythonSharedDefaultProjectPreviewImageColor,
 		Viewport:                &viewport,
-		CodegenTargets: []json.RawMessage{
-			mustMarshal(FrontendDefaultProjectCodegenPythonTarget()),
+		CodegenTargets: []ProjectCodegenTarget{
+			ProjectCodegenTarget(mustMarshal(FrontendDefaultProjectCodegenPythonTarget())),
 		},
 	}
 	initializeNilCollections(&defaults)

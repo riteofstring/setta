@@ -897,8 +897,8 @@ class SectionTypeCodegenPolicy(SettaSharedTypeModel):
 
 
 class SectionCodegenPolicy(SettaSharedTypeModel):
-    allowlist: list[str]
-    metaControlAllowlist: list[str]
+    allowlist: list[SectionType]
+    metaControlAllowlist: list[CodeObjType]
     exclude: list[str]
     typePolicies: dict[str, SectionTypeCodegenPolicy]
     sectionOverrides: dict[str, SectionCodegenOverride]
@@ -1135,31 +1135,31 @@ class ProjectConfig(SettaSharedTypeModel):
                     generateMetadata=False,
                     sectionPolicy=SectionCodegenPolicy(
                         allowlist=[
-                            "Callable",
-                            "Dict",
-                            "ListRoot",
-                            "Group",
-                            "GlobalVariables",
-                            "TextBlock",
-                            "Draw",
-                            "MetaControl",
-                            "TaskBoard",
-                            "Spreadsheet",
+                            SectionType.Callable,
+                            SectionType.Dict,
+                            SectionType.ListRoot,
+                            SectionType.Group,
+                            SectionType.GlobalVariables,
+                            SectionType.TextBlock,
+                            SectionType.Draw,
+                            SectionType.MetaControl,
+                            SectionType.TaskBoard,
+                            SectionType.Spreadsheet,
                         ],
                         metaControlAllowlist=[
-                            "CodeParam",
-                            "TextParam",
-                            "DateParam",
-                            "TimeParam",
-                            "TextAreaParam",
-                            "SliderParam",
-                            "RotaryParam",
-                            "SwitchParam",
-                            "ColorPickerParam",
-                            "DropdownParam",
-                            "PasswordParam",
-                            "ButtonParam",
-                            "DropzoneParam",
+                            CodeObjType.CodeParam,
+                            CodeObjType.TextParam,
+                            CodeObjType.DateParam,
+                            CodeObjType.TimeParam,
+                            CodeObjType.TextAreaParam,
+                            CodeObjType.SliderParam,
+                            CodeObjType.RotaryParam,
+                            CodeObjType.SwitchParam,
+                            CodeObjType.ColorPickerParam,
+                            CodeObjType.DropdownParam,
+                            CodeObjType.PasswordParam,
+                            CodeObjType.ButtonParam,
+                            CodeObjType.DropzoneParam,
                         ],
                         exclude=[],
                         typePolicies={

@@ -48,17 +48,17 @@ var (
 		"TaskBoard",
 		"Spreadsheet",
 	}
-	defaultPythonSectionAllowlistOrder = []string{
-		"Callable",
-		"Dict",
-		"ListRoot",
-		"Group",
-		"GlobalVariables",
-		"TextBlock",
-		"Draw",
-		"MetaControl",
-		"TaskBoard",
-		"Spreadsheet",
+	defaultPythonSectionAllowlistOrder = []projectstate.FrontendSectionType{
+		projectstate.FrontendSectionTypeCallable,
+		projectstate.FrontendSectionTypeDict,
+		projectstate.FrontendSectionTypeListRoot,
+		projectstate.FrontendSectionTypeGroup,
+		projectstate.FrontendSectionTypeGlobalVariables,
+		projectstate.FrontendSectionTypeTextBlock,
+		projectstate.FrontendSectionTypeDraw,
+		projectstate.FrontendSectionTypeMetaControl,
+		projectstate.FrontendSectionTypeTaskBoard,
+		projectstate.FrontendSectionTypeSpreadsheet,
 	}
 	pythonCodeObjTypeOrder = []string{
 		"CodeCallable",
@@ -77,20 +77,20 @@ var (
 		"DropzoneParam",
 		"NestedParam",
 	}
-	defaultPythonMetaControlAllowlistOrder = []string{
-		"CodeParam",
-		"TextParam",
-		"DateParam",
-		"TimeParam",
-		"TextAreaParam",
-		"SliderParam",
-		"RotaryParam",
-		"SwitchParam",
-		"ColorPickerParam",
-		"DropdownParam",
-		"PasswordParam",
-		"ButtonParam",
-		"DropzoneParam",
+	defaultPythonMetaControlAllowlistOrder = []projectstate.FrontendCodeObjType{
+		projectstate.FrontendCodeObjTypeCodeParam,
+		projectstate.FrontendCodeObjTypeTextParam,
+		projectstate.FrontendCodeObjTypeDateParam,
+		projectstate.FrontendCodeObjTypeTimeParam,
+		projectstate.FrontendCodeObjTypeTextAreaParam,
+		projectstate.FrontendCodeObjTypeSliderParam,
+		projectstate.FrontendCodeObjTypeRotaryParam,
+		projectstate.FrontendCodeObjTypeSwitchParam,
+		projectstate.FrontendCodeObjTypeColorPickerParam,
+		projectstate.FrontendCodeObjTypeDropdownParam,
+		projectstate.FrontendCodeObjTypePasswordParam,
+		projectstate.FrontendCodeObjTypeButtonParam,
+		projectstate.FrontendCodeObjTypeDropzoneParam,
 	}
 )
 
@@ -125,7 +125,7 @@ type ProjectConfig struct {
 	IsEditingViewMode       bool                                           `json:"isEditingViewMode" py_default:"go_value"`
 	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget" py_default:"go_value"`
 	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities" py_default:"go_value"`
-	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value" ts_type:"Array<ProjectCodegenTarget>"`
+	CodegenTargets          []ProjectCodegenTarget                         `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value"`
 	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled" py_default:"go_value"`
 	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders" py_default:"go_value"`
 	WatchCodeFiles          []string                                       `json:"watchCodeFiles" py_default:"go_value"`
@@ -315,9 +315,9 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 		viewModes[viewModeID] = clonedViewMode
 	}
 
-	codegenTargets := make([]json.RawMessage, 0, len(project.CodegenTargets))
+	codegenTargets := make([]ProjectCodegenTarget, 0, len(project.CodegenTargets))
 	for _, target := range project.CodegenTargets {
-		codegenTargets = append(codegenTargets, codegenTargetPayload(target))
+		codegenTargets = append(codegenTargets, ProjectCodegenTarget(codegenTargetPayload(target)))
 	}
 
 	sectionPathSlugsByID, sectionIDsByPathSlug, err := projectstate.ActiveSectionSlugMaps(project)
@@ -1056,29 +1056,29 @@ func frontendPythonSectionPolicy(
 	rawFields, ok := rawJSONObjectFields(raw)
 	if !ok {
 		return SectionCodegenPolicy{
-			Allowlist:            orderedPolicyList(policy.Allowlist, defaultPythonSectionAllowlistOrder, policy.AllowlistAllowAll),
-			MetaControlAllowlist: orderedPolicyList(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder, policy.MetaControlAllowlistAllowAll),
+			Allowlist:            orderedTypedPolicyList(policy.Allowlist, defaultPythonSectionAllowlistOrder, policy.AllowlistAllowAll),
+			MetaControlAllowlist: orderedTypedPolicyList(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder, policy.MetaControlAllowlistAllowAll),
 			Exclude:              orderedSetValues(policy.Exclude),
 			TypePolicies:         frontendPythonSectionTypePolicies(policy.TypePolicies),
 			SectionOverrides:     frontendPythonSectionOverrides(policy.SectionOverrides),
 		}
 	}
 
-	allowlist := orderedPolicyList(
+	allowlist := orderedTypedPolicyList(
 		policy.Allowlist,
 		defaultPythonSectionAllowlistOrder,
 		policy.AllowlistAllowAll,
 	)
 	if rawAllowlist, exists := rawFields["allowlist"]; exists {
-		allowlist = decodeOrderedStringList(rawAllowlist, allowlist)
+		allowlist = decodeOrderedTypedList(rawAllowlist, allowlist)
 	}
-	metaControlAllowlist := orderedPolicyList(
+	metaControlAllowlist := orderedTypedPolicyList(
 		policy.MetaControlAllowlist,
 		defaultPythonMetaControlAllowlistOrder,
 		policy.MetaControlAllowlistAllowAll,
 	)
 	if rawAllowlist, exists := rawFields["metaControlAllowlist"]; exists {
-		metaControlAllowlist = decodeOrderedStringList(
+		metaControlAllowlist = decodeOrderedTypedList(
 			rawAllowlist,
 			metaControlAllowlist,
 		)
@@ -1242,19 +1242,50 @@ func frontendPythonCodeObjOverridesFromRaw(
 	return result
 }
 
-func orderedPolicyList(
+func orderedTypedPolicyList[T ~string](
 	values map[string]struct{},
-	reference []string,
+	reference []T,
 	allowAll bool,
-) []string {
+) []T {
 	if allowAll {
 		return nil
 	}
-	return orderedSetValuesByReference(values, reference)
+	return orderedTypedSetValuesByReference(values, reference)
 }
 
 func orderedSetValues(values map[string]struct{}) []string {
 	return orderedSetValuesByReference(values, nil)
+}
+
+func orderedTypedSetValuesByReference[T ~string](
+	values map[string]struct{},
+	reference []T,
+) []T {
+	if len(values) == 0 {
+		return []T{}
+	}
+	ordered := make([]T, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, key := range reference {
+		stringKey := string(key)
+		if _, ok := values[stringKey]; !ok {
+			continue
+		}
+		ordered = append(ordered, key)
+		seen[stringKey] = struct{}{}
+	}
+	extras := make([]string, 0, len(values)-len(seen))
+	for key := range values {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		extras = append(extras, key)
+	}
+	sort.Strings(extras)
+	for _, key := range extras {
+		ordered = append(ordered, T(key))
+	}
+	return ordered
 }
 
 func orderedSetValuesByReference(
@@ -1305,6 +1336,22 @@ func decodeOrderedStringList(raw json.RawMessage, fallback []string) []string {
 		return fallback
 	}
 	return values
+}
+
+func decodeOrderedTypedList[T ~string](raw json.RawMessage, fallback []T) []T {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "null" {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return fallback
+	}
+	converted := make([]T, 0, len(values))
+	for _, value := range values {
+		converted = append(converted, T(value))
+	}
+	return converted
 }
 
 func orderedPolicyKeys[T any](values map[string]T, reference []string) []string {
