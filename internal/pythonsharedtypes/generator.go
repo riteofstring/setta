@@ -197,10 +197,7 @@ func pythonGoValueDefaultExpr(
 	if !defaultValue.IsValid() {
 		return "None", nil, nil
 	}
-	if expr, ok := pythonEmptyCollectionDefaultExpr(defaultValue); ok {
-		return expr, nil, nil
-	}
-	if expr, ok := pythonScalarDefaultExpr(defaultValue); ok {
+	if expr, ok := pythonLiteralDefaultExpr(defaultValue); ok {
 		return expr, nil, nil
 	}
 	payload, err := json.Marshal(defaultValue.Interface())
@@ -214,29 +211,20 @@ func pythonGoValueDefaultExpr(
 	), map[string]struct{}{"from pydantic import TypeAdapter": {}}, nil
 }
 
-func pythonEmptyCollectionDefaultExpr(value reflect.Value) (string, bool) {
+func pythonLiteralDefaultExpr(value reflect.Value) (string, bool) {
+	valueType := value.Type()
+	if valueType.Kind() == reflect.String && valueType.Name() != "" && valueType.PkgPath() != "" {
+		return "", false
+	}
 	switch value.Kind() {
 	case reflect.Map:
 		if value.IsNil() || value.Len() == 0 {
 			return "Field(default_factory=dict)", true
 		}
 	case reflect.Slice:
-		if value.Type().Elem().Kind() == reflect.Uint8 {
-			return "", false
-		}
-		if value.IsNil() || value.Len() == 0 {
+		if value.Type().Elem().Kind() != reflect.Uint8 && (value.IsNil() || value.Len() == 0) {
 			return "Field(default_factory=list)", true
 		}
-	}
-	return "", false
-}
-
-func pythonScalarDefaultExpr(value reflect.Value) (string, bool) {
-	valueType := value.Type()
-	if valueType.Kind() == reflect.String && valueType.Name() != "" && valueType.PkgPath() != "" {
-		return "", false
-	}
-	switch value.Kind() {
 	case reflect.String:
 		return strconv.Quote(value.String()), true
 	case reflect.Bool:
@@ -246,25 +234,18 @@ func pythonScalarDefaultExpr(value reflect.Value) (string, bool) {
 		return "False", true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return strconv.FormatInt(value.Int(), 10), true
-	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return strconv.FormatUint(value.Uint(), 10), true
-	case reflect.Uint8:
-		return strconv.FormatUint(value.Uint(), 10), true
-	case reflect.Float32:
-		return pythonFloatLiteral(value.Float(), 32), true
-	case reflect.Float64:
-		return pythonFloatLiteral(value.Float(), 64), true
+	case reflect.Float32, reflect.Float64:
+		literal := strconv.FormatFloat(value.Float(), 'f', -1, valueType.Bits())
+		if !strings.ContainsRune(literal, '.') {
+			literal += ".0"
+		}
+		return literal, true
 	default:
 		return "", false
 	}
-}
-
-func pythonFloatLiteral(value float64, bitSize int) string {
-	literal := strconv.FormatFloat(value, 'f', -1, bitSize)
-	if strings.ContainsRune(literal, '.') {
-		return literal
-	}
-	return literal + ".0"
+	return "", false
 }
 
 func sortedImportNames(imports map[string]struct{}) []string {

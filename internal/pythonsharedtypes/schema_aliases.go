@@ -325,18 +325,18 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 	seen := map[string]struct{}{}
 	declarations := []datamodelDeclaration{}
 	sawDeclaration := false
-	for _, block := range splitDatamodelBlocks(module) {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
+
+	flushBlock := func(block []string) error {
+		if len(block) == 0 {
+			return nil
 		}
-		header, _, _ := strings.Cut(block, "\n")
+		header := block[0]
 		header = strings.TrimSpace(header)
 		switch {
 		case header == "", strings.HasPrefix(header, "#"), header == "from __future__ import annotations":
-			continue
+			return nil
 		case !sawDeclaration && (strings.HasPrefix(header, "from ") || strings.HasPrefix(header, "import ")):
-			for _, line := range strings.Split(block, "\n") {
+			for _, line := range block {
 				trimmed := strings.TrimSpace(line)
 				if trimmed == "" || strings.HasPrefix(trimmed, "#") || trimmed == "from __future__ import annotations" {
 					continue
@@ -350,49 +350,44 @@ func parseDatamodelModule(module string) (datamodelModule, error) {
 				seen[trimmed] = struct{}{}
 				imports = append(imports, trimmed)
 			}
+			return nil
 		default:
-			declaration := datamodelDeclaration{Block: block}
+			declaration := datamodelDeclaration{Block: strings.Join(block, "\n")}
 			if strings.HasPrefix(header, "class ") {
 				name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(header, "class "), ":"))
 				if before, _, ok := strings.Cut(name, "("); ok {
 					name = strings.TrimSpace(before)
 				}
 				if name == "" {
-					return datamodelModule{}, fmt.Errorf("python shared types: datamodel class has empty name")
+					return fmt.Errorf("python shared types: datamodel class has empty name")
 				}
 				declaration.Name = name
 			}
 			sawDeclaration = true
 			declarations = append(declarations, declaration)
 		}
+		return nil
+	}
+
+	block := []string{}
+	for _, line := range strings.Split(module, "\n") {
+		line = strings.TrimRight(line, " \t")
+		if strings.TrimSpace(line) == "" {
+			if err := flushBlock(block); err != nil {
+				return datamodelModule{}, err
+			}
+			block = block[:0]
+			continue
+		}
+		block = append(block, line)
+	}
+	if err := flushBlock(block); err != nil {
+		return datamodelModule{}, err
 	}
 	return datamodelModule{
 		ImportLines:  imports,
 		Declarations: declarations,
 	}, nil
-}
-
-func splitDatamodelBlocks(module string) []string {
-	lines := strings.Split(module, "\n")
-	blocks := make([]string, 0)
-	current := make([]string, 0)
-	flush := func() {
-		if len(current) == 0 {
-			return
-		}
-		blocks = append(blocks, strings.Join(current, "\n"))
-		current = current[:0]
-	}
-	for _, line := range lines {
-		trimmedRight := strings.TrimRight(line, " \t")
-		if strings.TrimSpace(trimmedRight) == "" {
-			flush()
-			continue
-		}
-		current = append(current, trimmedRight)
-	}
-	flush()
-	return blocks
 }
 
 func isPythonIdentifier(value string) bool {
