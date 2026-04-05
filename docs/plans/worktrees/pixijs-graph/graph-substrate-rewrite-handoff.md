@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-05 15:30 EDT
+Last updated: 2026-04-05 15:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -40,6 +40,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not spend a third pass re-proving the same setup
 
 ## Current status
+
+- Ralph item `190` intentionally did not take another product slice because the handoff required one fresh-iteration retry of the blocked CDP visual gate before more geometry-authority work.
+  - Why this slice was needed:
+    - item `189` explicitly handed off to rerunning the normalized `rotaryParamCodeObjDefault` CDP compare on a fresh outer iteration before taking another geometry-authority move
+    - the last few iterations were already a run of geometry-authority product slices, so taking another canary refactor without closing or classifying the visual gate would have been sequencing churn
+  - What this slice established:
+    - the fresh-context CDP path is still the blocker on a fresh outer iteration:
+      - the first fresh-context CDP sub-agent read `docs/guides/browser-mcp-quickstart.md` and then timed out on `chrome-devtools/list_pages` after `120s`
+      - the same attempt never reached either live settings surface; an interrupted `list_console_messages` follow-up had already burned `159.4s`
+    - the one allowed in-iteration self-recovery still left mixed worktree transport state instead of one trustworthy restarted browser/runtime pair:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh` launched a fresh worktree runtime on `3077/8077` and reported `debug 9299`
+      - `./scripts/dev-runtime-info.sh --workspace ... --runtime-log .../run-021/worktree-ai.log` still reported `frontendUrl: http://127.0.0.1:3076/`, `backendUrl: http://127.0.0.1:8077`, and `debugPort: 9297`
+      - the fallback `setta status --connect-info --latest --json` agreed that the latest backend/bootstrap session is `8077`, while `./scripts/cdp-port.sh --workspace ... --json` still pointed at the stale `9297` process-scan transport metadata
+    - the post-recovery fresh-context CDP retry still did not complete a DevTools call:
+      - the second sub-agent again read `docs/guides/browser-mcp-quickstart.md`
+      - it could not verify `chrome-devtools` reachability or complete the normalized `All Settings` plus `rotaryParamCodeObjDefault` visual compare
+    - no production code changed in this iteration because the staged-gate sequencing blocked another product slice until the required CDP compare runs or the tooling failure is classified
+  - Verification:
+    - fresh-context CDP retry before recovery:
+      - result: blocked by `chrome-devtools/list_pages` timeout (`120s`) before page inspection
+    - bounded self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: new worktree runtime printed `3077/8077`, bootstrap session `8a6e04`, and `debug 9299`
+    - runtime refresh after recovery:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-021/worktree-ai.log`
+      - result: mixed old/new state (`3076` frontend from runtime log, `8077` backend from status, `9297` debug from process scan)
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: latest worktree backend/bootstrap session confirmed on `8077`
+      - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+      - result: still reported stale `debugPort: 9297`
+    - fresh-context CDP retry after recovery:
+      - result: blocked again; the sub-agent could not complete any `chrome-devtools` MCP call, so no normalized visual compare ran
+  - Lane status:
+    - the geometry-authority lane remains paused behind the required CDP visual gate
+    - the blocker is still tooling/lifecycle transport state, not a newly observed renderer regression
+  - Next frontier:
+    - start the next iteration with a fresh outer worktree lifecycle bootstrap and retry the same normalized `rotaryParamCodeObjDefault` CDP compare before any new product slice
+    - if the fresh pass still shows stale `3076/9297` transport metadata or `chrome-devtools` call timeouts, keep the loop blocked on lifecycle/CDP repair instead of taking another geometry-authority change
 
 - Ralph item `189` moved canary drag lookup/cancellation onto the authoritative scene snapshot, but the required CDP confirmation is still blocked after the one allowed worktree lifecycle recovery and retry.
   - Why this slice was needed:
