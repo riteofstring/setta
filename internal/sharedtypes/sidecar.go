@@ -36,8 +36,9 @@ type RouteInventoryEntry struct {
 }
 
 type DefaultEntry struct {
-	Type  string `json:"type"`
-	Value any    `json:"value"`
+	Profile string `json:"profile,omitempty"`
+	Type    string `json:"type"`
+	Value   any    `json:"value"`
 }
 
 type ExportedValueEntry struct {
@@ -112,21 +113,27 @@ func buildContractEntries() ([]ContractEntry, error) {
 
 func buildDefaultEntries() []DefaultEntry {
 	entries := []DefaultEntry{}
-	for _, t := range DiscoveredTypes() {
-		provider, ok := frontendbindings.DefaultValueProviderForType(t)
-		if !ok || provider == nil {
-			continue
+	for profile, providersByType := range DefaultValueProvidersByProfile() {
+		for _, t := range DiscoveredTypes() {
+			provider, ok := providersByType[t]
+			if !ok || provider == nil {
+				continue
+			}
+			name := strings.TrimSpace(ContractNameForType(t))
+			if name == "" {
+				continue
+			}
+			entries = append(entries, DefaultEntry{
+				Profile: profile,
+				Type:    name,
+				Value:   provider(),
+			})
 		}
-		name := strings.TrimSpace(ContractNameForType(t))
-		if name == "" {
-			continue
-		}
-		entries = append(entries, DefaultEntry{
-			Type:  name,
-			Value: provider(),
-		})
 	}
 	sort.Slice(entries, func(i int, j int) bool {
+		if entries[i].Type == entries[j].Type {
+			return entries[i].Profile < entries[j].Profile
+		}
 		return entries[i].Type < entries[j].Type
 	})
 	return entries

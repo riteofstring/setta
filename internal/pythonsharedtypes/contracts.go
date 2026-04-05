@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/projectview"
 	"setta/internal/sharedtypes"
 	"setta/internal/stringenumvalues"
 )
@@ -42,54 +41,23 @@ var pythonSharedEnumFallbackPackages = []string{
 	"setta/internal/runs",
 }
 
-type pythonSharedDefaultFieldKey struct {
-	OwnerType reflect.Type
-	FieldName string
-}
-
-var pythonSharedExplicitDefaultSourcesByType = map[reflect.Type]func() any{
-	reflect.TypeOf(projectview.ProjectConfig{}): func() any {
-		return projectview.PythonSharedDefaultProjectConfig()
-	},
-}
-
-var pythonSharedDefaultFieldOverrides = map[pythonSharedDefaultFieldKey]func() any{
-	{
-		OwnerType: reflect.TypeOf(projectview.ProjectConfig{}),
-		FieldName: "CodegenTargets",
-	}: func() any {
-		return []projectview.ProjectCodegenPythonTarget{
-			projectview.FrontendDefaultProjectCodegenPythonTarget(),
-		}
-	},
-}
-
 func buildGenerationContext() (generationContext, error) {
 	sidecar, err := sharedtypes.BuildSemanticSidecar()
 	if err != nil {
 		return generationContext{}, err
 	}
 
-	defaultSources, err := defaultSourcesFromSidecar(sidecar)
+	defaultSources, err := defaultSourcesFromSidecar(
+		sidecar,
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
 	if err != nil {
 		return generationContext{}, err
 	}
 	specs, err := contractSpecsFromSidecar(sidecar, defaultSources)
 	if err != nil {
 		return generationContext{}, err
-	}
-	for t, buildSource := range pythonSharedExplicitDefaultSourcesByType {
-		value, ok, err := coerceDefaultSourceValue(t, buildSource())
-		if err != nil {
-			return generationContext{}, fmt.Errorf(
-				"python shared types: explicit default %s: %w",
-				pythonSharedContractNameForType(t),
-				err,
-			)
-		}
-		if ok {
-			defaultSources[t] = value
-		}
 	}
 
 	return generationContext{
@@ -168,12 +136,43 @@ func routeContractSpecFromSidecar(sidecar sharedtypes.SemanticSidecar) contractS
 
 func defaultSourcesFromSidecar(
 	sidecar sharedtypes.SemanticSidecar,
+	profiles ...string,
 ) (map[reflect.Type]reflect.Value, error) {
+	profileRank := map[string]int{}
+	for index, profile := range profiles {
+		profile = strings.TrimSpace(profile)
+		if profile == "" {
+			continue
+		}
+		if _, exists := profileRank[profile]; exists {
+			continue
+		}
+		profileRank[profile] = index
+	}
 	defaultSources := map[reflect.Type]reflect.Value{}
+	selectedProfileByType := map[reflect.Type]string{}
 	for _, entry := range sidecar.Defaults {
+		entryProfile := strings.TrimSpace(entry.Profile)
+		rank, ok := profileRank[entryProfile]
+		if !ok {
+			continue
+		}
 		typ, ok := sharedtypes.TypeByContractName(entry.Type)
 		if !ok {
 			return nil, fmt.Errorf("python shared types: missing discovered type for sidecar default %s", entry.Type)
+		}
+		if existingProfile, exists := selectedProfileByType[typ]; exists {
+			existingRank := profileRank[existingProfile]
+			if existingRank < rank {
+				continue
+			}
+			if existingRank == rank {
+				return nil, fmt.Errorf(
+					"python shared types: duplicate sidecar default %s for profile %s",
+					entry.Type,
+					entryProfile,
+				)
+			}
 		}
 		value, ok, err := coerceDefaultSourceValue(typ, entry.Value)
 		if err != nil {
@@ -181,6 +180,7 @@ func defaultSourcesFromSidecar(
 		}
 		if ok {
 			defaultSources[typ] = value
+			selectedProfileByType[typ] = entryProfile
 		}
 	}
 	return defaultSources, nil
@@ -276,13 +276,6 @@ func pythonSharedDefaultValueForField(
 	field reflect.StructField,
 	defaultSourcesByType map[reflect.Type]reflect.Value,
 ) (reflect.Value, bool) {
-	if override, ok := pythonSharedDefaultFieldOverrides[pythonSharedDefaultFieldKey{
-		OwnerType: ownerType,
-		FieldName: field.Name,
-	}]; ok {
-		return reflect.ValueOf(override()), true
-	}
-
 	defaultSource, ok := defaultSourcesByType[ownerType]
 	if !ok {
 		return reflect.Value{}, false

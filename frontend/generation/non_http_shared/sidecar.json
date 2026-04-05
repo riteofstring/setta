@@ -4126,6 +4126,7 @@
   ],
   "defaults": [
     {
+      "profile": "frontend",
       "type": "AgentRun",
       "value": {
         "id": "",
@@ -4135,6 +4136,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "AgenticEdge",
       "value": {
         "id": "",
@@ -4146,6 +4148,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "AssistantChatMessage",
       "value": {
         "id": "",
@@ -4156,6 +4159,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "BrowserSavedSearch",
       "value": {
         "id": "",
@@ -4174,6 +4178,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "BrowserSavedSearchTypeFilters",
       "value": {
         "image": true,
@@ -4184,6 +4189,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "BrushStroke",
       "value": {
         "strokeStyle": "",
@@ -4194,6 +4200,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "BrushStrokeArtifact",
       "value": {
         "type": "BrushStroke",
@@ -4208,6 +4215,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ChartDataArtifact",
       "value": {
         "type": "ChartData",
@@ -4216,6 +4224,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ChatWindowBounds",
       "value": {
         "x": 120,
@@ -4225,32 +4234,38 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ChatWindowDockMetrics",
       "value": {}
     },
     {
+      "profile": "frontend",
       "type": "ClipboardProjectStateCore",
       "value": {}
     },
     {
+      "profile": "frontend",
       "type": "ClipboardProjectStateCoreWithSectionVariantMap",
       "value": {
         "core": {}
       }
     },
     {
+      "profile": "frontend",
       "type": "CodeObjTypeValuePolicy",
       "value": {
         "representation": "expression"
       }
     },
     {
+      "profile": "frontend",
       "type": "CodeObjValueOverride",
       "value": {
         "representation": "expression"
       }
     },
     {
+      "profile": "frontend",
       "type": "CodeObjValuePolicy",
       "value": {
         "typePolicies": {
@@ -4304,6 +4319,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "CodeParamCodeObjImpl",
       "value": {
         "type": "CodeParam",
@@ -4320,6 +4336,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "Connection",
       "value": {
         "id": "",
@@ -4327,6 +4344,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "Core",
       "value": {
         "id": "",
@@ -4339,6 +4357,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "CurrentAddressUpdateMessage",
       "value": {
         "messageType": "CurrentAddressUpdate",
@@ -4346,6 +4365,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "DrawAreaLayer",
       "value": {
         "name": "",
@@ -4355,6 +4375,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "DrawAreaLayerItem",
       "value": {
         "type": "BrushStroke",
@@ -4363,6 +4384,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "DrawAreaLayerItemTransform",
       "value": {
         "transform": [
@@ -4377,6 +4399,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "DrawAreaLayerItemTransformArtifact",
       "value": {
         "type": "DrawAreaLayerItemTransform",
@@ -4395,6 +4418,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "EngineConfig",
       "value": {
         "id": "",
@@ -4404,16 +4428,19 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "EngineConfigDefaults",
       "value": {}
     },
     {
+      "profile": "frontend",
       "type": "EngineRuntimeSupport",
       "value": {
         "thinking": false
       }
     },
     {
+      "profile": "frontend",
       "type": "FileArtifact",
       "value": {
         "type": "File",
@@ -4425,6 +4452,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ImageArtifact",
       "value": {
         "type": "Image",
@@ -4436,6 +4464,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "LineChartSettings",
       "value": {
         "type": "line",
@@ -4446,6 +4475,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "MessageTextContent",
       "value": {
         "type": "text",
@@ -4453,6 +4483,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "MessageThinkingContent",
       "value": {
         "type": "thinking",
@@ -4462,6 +4493,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "MetaControlSizingPolicyByType",
       "value": {
         "CodeCallable": {
@@ -4557,6 +4589,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "NormalizedFloatingWindowBounds",
       "value": {
         "x": 0,
@@ -4566,6 +4599,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ProjectChatWindowInstance",
       "value": {
         "instanceId": "",
@@ -4581,6 +4615,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ProjectChatWindowingState",
       "value": {
         "instancesById": {},
@@ -4589,6 +4624,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ProjectCodegenPluginTarget",
       "value": {
         "language": "",
@@ -4596,6 +4632,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ProjectCodegenPythonTarget",
       "value": {
         "language": "python",
@@ -4788,6 +4825,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ProjectConfig",
       "value": {
         "id": "",
@@ -4826,6 +4864,241 @@
       }
     },
     {
+      "profile": "python_shared",
+      "type": "ProjectConfig",
+      "value": {
+        "id": "",
+        "name": "",
+        "showParamDisplayNames": false,
+        "allowJsonSourceKeyEdits": true,
+        "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
+        "viewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 1
+        },
+        "viewportInitialized": false,
+        "viewModes": {},
+        "activeViewModeId": null,
+        "isEditingViewMode": false,
+        "hasPythonCodegenTarget": false,
+        "runCapabilities": {
+          "canRunFromMain": false,
+          "mainRunDisabledReason": null,
+          "effectiveEntrySectionId": null
+        },
+        "codegenTargets": [
+          {
+            "language": "python",
+            "genCodePrefix": "",
+            "genCodeSuffix": "state = SettaState()",
+            "generateMetadata": false,
+            "sectionPolicy": {
+              "allowlist": [
+                "Callable",
+                "Dict",
+                "ListRoot",
+                "Group",
+                "GlobalVariables",
+                "TextBlock",
+                "Draw",
+                "MetaControl",
+                "TaskBoard",
+                "Spreadsheet"
+              ],
+              "metaControlAllowlist": [
+                "CodeParam",
+                "TextParam",
+                "DateParam",
+                "TimeParam",
+                "TextAreaParam",
+                "SliderParam",
+                "RotaryParam",
+                "SwitchParam",
+                "ColorPickerParam",
+                "DropdownParam",
+                "PasswordParam",
+                "ButtonParam",
+                "DropzoneParam"
+              ],
+              "exclude": [],
+              "typePolicies": {
+                "Browser": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Callable": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Chart": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Chat": {
+                  "mode": "inherit",
+                  "representation": "file_read"
+                },
+                "Code": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Dict": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Draw": {
+                  "mode": "inherit",
+                  "representation": "file_read"
+                },
+                "GenPythonCode": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "GenPythonMetadata": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "GlobalVariables": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Group": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "IFrame": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Image": {
+                  "mode": "inherit",
+                  "representation": "file_read"
+                },
+                "ListRoot": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "MetaControl": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Plugin": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Prompt": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Social": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Spreadsheet": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "StateMachineEnd": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "StateMachineGate": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "StateMachineStart": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "TaskBoard": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "Terminal": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                },
+                "TextBlock": {
+                  "mode": "inherit",
+                  "representation": "expression"
+                }
+              },
+              "sectionOverrides": {}
+            },
+            "codeObjValuePolicy": {
+              "typePolicies": {
+                "ButtonParam": {
+                  "representation": "expression"
+                },
+                "CodeCallable": {
+                  "representation": "expression"
+                },
+                "CodeParam": {
+                  "representation": "expression"
+                },
+                "ColorPickerParam": {
+                  "representation": "string"
+                },
+                "DateParam": {
+                  "representation": "string"
+                },
+                "DropdownParam": {
+                  "representation": "expression"
+                },
+                "DropzoneParam": {
+                  "representation": "file_path"
+                },
+                "NestedParam": {
+                  "representation": "expression"
+                },
+                "PasswordParam": {
+                  "representation": "string"
+                },
+                "RotaryParam": {
+                  "representation": "expression"
+                },
+                "SliderParam": {
+                  "representation": "expression"
+                },
+                "SwitchParam": {
+                  "representation": "expression"
+                },
+                "TextAreaParam": {
+                  "representation": "string"
+                },
+                "TextParam": {
+                  "representation": "string"
+                },
+                "TimeParam": {
+                  "representation": "string"
+                }
+              },
+              "codeObjOverrides": {}
+            }
+          }
+        ],
+        "watchCodeEnabled": false,
+        "watchCodeFolders": [],
+        "watchCodeFiles": [],
+        "watchCodeRegistry": {},
+        "watchCodeBaselineByPath": {},
+        "entryCodeBlockId": null,
+        "sectionPathSlugsById": {},
+        "sectionIdsByPathSlug": {},
+        "topLevelSections": {},
+        "windowSpaceSlugsById": {},
+        "windowSpaceIdsBySlug": {},
+        "windowSpaces": {},
+        "sectionVariantMap": {},
+        "activeIds": [],
+        "edges": [],
+        "agenticEdges": [],
+        "stateMachineEdges": []
+      }
+    },
+    {
+      "profile": "frontend",
       "type": "ProjectRunCapabilities",
       "value": {
         "canRunFromMain": false,
@@ -4834,6 +5107,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "RunEvent",
       "value": {
         "id": "",
@@ -4842,6 +5116,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ScatterChartSettings",
       "value": {
         "type": "scatter",
@@ -4850,6 +5125,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionCapabilities",
       "value": {
         "canRun": false,
@@ -4860,6 +5136,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionCodegenOverride",
       "value": {
         "mode": "inherit",
@@ -4867,6 +5144,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionCodegenPolicy",
       "value": {
         "allowlist": [
@@ -5003,6 +5281,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionSize",
       "value": {
         "width": "auto",
@@ -5010,6 +5289,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionSizingPolicy",
       "value": {
         "byType": {
@@ -5269,6 +5549,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionSizingPolicyByType",
       "value": {
         "Callable": {
@@ -5426,6 +5707,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionSizingPolicyGlobals",
       "value": {
         "pinnedParamsAreaMinHeight": 64,
@@ -5437,6 +5719,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionTypeCodegenPolicy",
       "value": {
         "mode": "inherit",
@@ -5444,6 +5727,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SectionsClipboardData",
       "value": {
         "type": "Sections",
@@ -5453,6 +5737,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SettingsBackend",
       "value": {
         "showDefaultConfigOnLoad": true,
@@ -5471,6 +5756,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SettingsGUI",
       "value": {
         "snapGrid": [
@@ -5534,6 +5820,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SettingsShortcuts",
       "value": {
         "newCardShortcut": "N",
@@ -5601,6 +5888,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SettingsState",
       "value": {
         "shortcuts": {
@@ -6013,6 +6301,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ShownParamIDDetails",
       "value": {
         "requiredParamIdsToPaths": {},
@@ -6020,6 +6309,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ShownParamIDs",
       "value": {
         "pinned": {
@@ -6033,6 +6323,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SingleConfig",
       "value": {
         "sections": {},
@@ -6094,6 +6385,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SingletonSections",
       "value": {
         "GlobalVariables": null,
@@ -6102,6 +6394,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "StateMachineEdge",
       "value": {
         "id": "",
@@ -6113,12 +6406,14 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "StateMachineGateUIState",
       "value": {
         "showDetails": false
       }
     },
     {
+      "profile": "frontend",
       "type": "StateMachineSourceActivationCountCondition",
       "value": {
         "operator": "eq",
@@ -6126,12 +6421,14 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "StateMachineSourceFilter",
       "value": {
         "type": "run_completed"
       }
     },
     {
+      "profile": "frontend",
       "type": "StateMachineTargetAction",
       "value": {
         "type": "send_prompt",
@@ -6139,6 +6436,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "SystemChatMessage",
       "value": {
         "id": "",
@@ -6149,6 +6447,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "TaskBoardColumn",
       "value": {
         "id": "",
@@ -6158,6 +6457,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "TaskBoardTask",
       "value": {
         "id": "",
@@ -6174,6 +6474,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ToolCall",
       "value": {
         "id": "",
@@ -6185,6 +6486,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ToolCallFunction",
       "value": {
         "name": "",
@@ -6192,6 +6494,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ToolChatMessage",
       "value": {
         "id": "",
@@ -6206,6 +6509,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "TopLevelSectionLayout",
       "value": {
         "x": 0,
@@ -6213,6 +6517,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "TypeErrorIgnoreState",
       "value": {
         "callable": false,
@@ -6220,6 +6525,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "UserChatMessage",
       "value": {
         "id": "",
@@ -6230,6 +6536,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "Variant",
       "value": {
         "id": "",
@@ -6241,6 +6548,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "ViewMode",
       "value": {
         "id": "",
@@ -6249,6 +6557,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "Viewport",
       "value": {
         "x": 0,
@@ -6257,6 +6566,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "WindowSpaceConfig",
       "value": {
         "windowsById": {},
@@ -6264,6 +6574,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "WindowSpaceState",
       "value": {
         "windowsById": {},
@@ -6271,6 +6582,7 @@
       }
     },
     {
+      "profile": "frontend",
       "type": "WindowSpaceWindow",
       "value": {
         "surfaceKind": "project_chat",

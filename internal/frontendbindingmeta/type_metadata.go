@@ -8,6 +8,10 @@ type TypeScriptExprProvider interface{ FrontendBindingTypeScriptExpr() string }
 
 type UnionTypesProvider interface{ FrontendBindingUnionTypes() []reflect.Type }
 
+type SemanticValueProvider interface {
+	FrontendBindingSemanticValue() (any, bool, error)
+}
+
 type DiscriminatedObjectFamilyProvider interface {
 	FrontendBindingDiscriminatedObjectFamily() DiscriminatedObjectFamily
 }

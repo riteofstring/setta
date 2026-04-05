@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"setta/internal/frontendbindingmeta"
 )
 
 func mustPythonValueExprFromGoValue(context string, value any) string {
@@ -33,6 +35,17 @@ func pythonValueExpr(value reflect.Value) (string, error) {
 	}
 
 	valueType := value.Type()
+	if value.CanInterface() {
+		if provider, ok := value.Interface().(frontendbindingmeta.SemanticValueProvider); ok {
+			semanticValue, resolved, err := provider.FrontendBindingSemanticValue()
+			if err != nil {
+				return "", err
+			}
+			if resolved {
+				return pythonValueExpr(reflect.ValueOf(semanticValue))
+			}
+		}
+	}
 	if valueType.Kind() == reflect.String && valueType.Name() != "" {
 		enumExpr, ok, err := pythonEnumValueExpr(valueType, value.String())
 		if err != nil {

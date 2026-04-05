@@ -38,3 +38,31 @@ func TestRenderRegistryDoesNotEmitTypeOverrideFunction(t *testing.T) {
 		t.Fatalf("rendered registry missing root function:\n%s", rendered)
 	}
 }
+
+func TestRenderSharedDefaultProviderRegistryProfilesProvidersByName(t *testing.T) {
+	t.Parallel()
+
+	rendered := renderSharedDefaultProviderRegistry(map[string][]defaultProviderEntry{
+		"python_shared": {{
+			Target: registryEntry{
+				PkgPath: "setta/internal/projectview",
+				Type: gotypediscovery.DiscoveredType{
+					Name: "ProjectConfig",
+					Kind: gotypediscovery.TypeKindStruct,
+				},
+			},
+			ProviderPackagePath: "setta/internal/projectview",
+			ProviderFuncName:    "PythonSharedDefaultProjectConfig",
+		}},
+	})
+
+	if !strings.Contains(rendered, "package sharedtypes") {
+		t.Fatalf("rendered shared default registry missing sharedtypes package:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "\"python_shared\": {") {
+		t.Fatalf("rendered shared default registry missing python_shared profile bucket:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "PythonSharedDefaultProjectConfig()") {
+		t.Fatalf("rendered shared default registry missing provider call:\n%s", rendered)
+	}
+}

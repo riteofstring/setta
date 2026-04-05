@@ -1,8 +1,12 @@
 package projectview
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 
+	"setta/internal/frontendbindingmeta"
 	"setta/internal/projectstate"
 )
 
@@ -104,3 +108,34 @@ func (ProjectCodegenTarget) FrontendBindingUnionTypes() []reflect.Type {
 		reflect.TypeOf(ProjectCodegenPluginTarget{}),
 	}
 }
+
+func (target ProjectCodegenTarget) FrontendBindingSemanticValue() (any, bool, error) {
+	if len(target) == 0 {
+		return nil, false, nil
+	}
+
+	var header struct {
+		Language string `json:"language"`
+	}
+	if err := json.Unmarshal(target, &header); err != nil {
+		return nil, false, fmt.Errorf("decode project codegen target semantic value: %w", err)
+	}
+
+	if strings.TrimSpace(header.Language) == string(ProjectCodegenLanguagePython) {
+		var value ProjectCodegenPythonTarget
+		if err := json.Unmarshal(target, &value); err != nil {
+			return nil, false, fmt.Errorf("decode project python codegen target semantic value: %w", err)
+		}
+		initializeNilCollections(&value)
+		return value, true, nil
+	}
+
+	var value ProjectCodegenPluginTarget
+	if err := json.Unmarshal(target, &value); err != nil {
+		return nil, false, fmt.Errorf("decode project plugin codegen target semantic value: %w", err)
+	}
+	initializeNilCollections(&value)
+	return value, true, nil
+}
+
+var _ frontendbindingmeta.SemanticValueProvider = ProjectCodegenTarget(nil)

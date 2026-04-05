@@ -6,6 +6,7 @@ import (
 
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/stringenumvalues"
 	"setta/internal/wsapi"
 )
@@ -84,13 +85,26 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	}
 
 	foundViewportDefault := false
+	foundPythonSharedProjectConfigDefault := false
 	for _, entry := range sidecar.Defaults {
-		if entry.Type != "Viewport" {
-			continue
+		if entry.Type == "Viewport" && entry.Profile == DefaultProfileFrontend {
+			foundViewportDefault = true
 		}
-		foundViewportDefault = true
+		if entry.Type == "ProjectConfig" && entry.Profile == DefaultProfilePythonShared {
+			config, ok := entry.Value.(projectview.ProjectConfig)
+			if !ok {
+				t.Fatalf("ProjectConfig default value type = %T, want projectview.ProjectConfig", entry.Value)
+			}
+			if config.PreviewImgColor != projectview.PythonSharedDefaultProjectConfig().PreviewImgColor {
+				t.Fatalf("python shared ProjectConfig preview color = %q, want %q", config.PreviewImgColor, projectview.PythonSharedDefaultProjectConfig().PreviewImgColor)
+			}
+			foundPythonSharedProjectConfigDefault = true
+		}
 	}
 	if !foundViewportDefault {
 		t.Fatalf("expected shared sidecar to include Viewport default entry")
+	}
+	if !foundPythonSharedProjectConfigDefault {
+		t.Fatalf("expected shared sidecar to include python_shared ProjectConfig default entry")
 	}
 }

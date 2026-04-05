@@ -8,6 +8,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/sharedtypes"
 )
 
 func TestEnumContractSpecIfConvertibleNormalizesOwnerFrontendNames(t *testing.T) {
@@ -82,6 +83,20 @@ func TestPythonValueExprFromGoValueRendersDefaultProjectCodegenTarget(t *testing
 	}
 }
 
+func TestPythonValueExprFromGoValueRendersRawProjectCodegenTargetSemantically(t *testing.T) {
+	t.Parallel()
+
+	expr, err := pythonValueExprFromGoValue(
+		projectview.PythonSharedDefaultProjectConfig().CodegenTargets,
+	)
+	if err != nil {
+		t.Fatalf("pythonValueExprFromGoValue() error = %v", err)
+	}
+	if !strings.HasPrefix(expr, "[ProjectCodegenPythonTarget(") {
+		t.Fatalf("expected semantic project codegen target constructor, got %q", expr)
+	}
+}
+
 func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 	spec := contractSpec{
 		Name: reflect.TypeOf(projectview.ProjectConfig{}).Name(),
@@ -128,6 +143,36 @@ func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 		if got := defaultExprForField(t, model, fieldName); got != "Field(default_factory=dict)" {
 			t.Fatalf("%s default = %q, want %q", fieldName, got, "Field(default_factory=dict)")
 		}
+	}
+}
+
+func TestDefaultSourcesFromSidecarPrefersPythonSharedProfile(t *testing.T) {
+	t.Parallel()
+
+	sidecar, err := sharedtypes.BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+
+	defaultSources, err := defaultSourcesFromSidecar(
+		sidecar,
+		sharedtypes.DefaultProfilePythonShared,
+		sharedtypes.DefaultProfileFrontend,
+	)
+	if err != nil {
+		t.Fatalf("defaultSourcesFromSidecar() error = %v", err)
+	}
+
+	source := defaultSources[reflect.TypeOf(projectview.ProjectConfig{})]
+	if !source.IsValid() {
+		t.Fatalf("expected ProjectConfig default source")
+	}
+	config, ok := source.Interface().(projectview.ProjectConfig)
+	if !ok {
+		t.Fatalf("ProjectConfig default source type = %T", source.Interface())
+	}
+	if config.PreviewImgColor != projectview.PythonSharedDefaultProjectConfig().PreviewImgColor {
+		t.Fatalf("ProjectConfig preview color = %q, want %q", config.PreviewImgColor, projectview.PythonSharedDefaultProjectConfig().PreviewImgColor)
 	}
 }
 
