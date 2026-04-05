@@ -11239,6 +11239,7 @@ LOOP_TERMINAL_MARKER: none
   - LOOP_TERMINAL_MARKER: none
 
 - 2026-04-08 03:59 EDT, Ralph item `294`
+
   - Summary: retried the bounded CDP smoke-check on the fresh loop lifecycle, confirmed Chrome DevTools MCP transport is healthy again on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes, and closed the stale smoke-gate blocker without reopening parity or gesture work.
   - Files:
     - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
@@ -11345,4 +11346,58 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - start the next fresh iteration by re-establishing one bounded chrome-devtools smoke-check on the restarted `3075/8075` worktree before another transform-consumer/shared-store mirror product slice
   - after CDP is healthy again, return to a different remaining transform-subscriber / shared-store mirror hotspot on `rotaryParamCodeObjDefault`
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 05:49 EDT - Progress review checkpoint
+
+- Decision: `replan_and_continue`
+- Scope reviewed:
+  - durable plan and handoff
+  - recent append-only history
+  - run outputs `run-005` through `run-014`
+- What still counts as meaningful forward progress:
+  - item `291` landed the DOM shell presentation gate and produced the first focused-lane fan-out win on `rotaryParamCodeObjDefault`
+  - item `293` landed wheel interaction-state dedupe and improved the normalized motion lane from `20.54ms` average / `100ms` max to `18.99ms` average / `66.7ms` max
+- Why the current direction needs a sharper pivot:
+  - items `295`, `296`, and `297` each closed a bounded hypothesis without improving the lane, so blind transform-consumer / shared-store mirror toggles are now a diminishing-returns pattern
+  - runs `006`, `009`, and `013` were model-capacity failures rather than product evidence and should not steer the frontier
+  - standalone CDP smoke recovery already consumed one full pass after item `293`; do not spend another full default pass on smoke-only recovery while the deterministic Playwright lane remains healthy
+- Durable replan:
+  - the next pass must be attribution-led on the canonical `rotaryParamCodeObjDefault` lane: add one bounded seam that names the dominant remaining motion consumer after item `293` and record it in `perf/reports/frontend/` before another product toggle
+  - allow at most one bounded fresh-lifecycle Chrome DevTools MCP smoke retry inside that slice; if browser tools still fail, keep the visual blocker explicit instead of converting the whole pass into tooling triage
+- LOOP_TERMINAL_MARKER: none
+
+## 2026-04-08 06:48 EDT - Ralph item 298
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked the attribution-led subtask from the `05:49 EDT` progress review: instrument the remaining transform / shared-store consumers on the canonical motion lane and name the dominant owner before another product toggle.
+- Landed motion-attribution instrumentation in the canary snapshot, viewport runtime, React Flow transform subscription path, and viewport persistence path; extended the parity probe so the canonical cross-worktree motion test records and asserts the dominant owner.
+- Added the baseline report `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-motion-attribution-baseline.md`.
+- Focused verification passed:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts` (`1 file`, `4 tests`)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/state/subscriptions.ts src/state/actions/sectionInfos.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- The first rerun of the canonical Playwright probe stalled after entering the spec body, so the verifier-only cleanup path was narrowed: this perf test now restores backend state without forcing a last `applyProjectStateUpdate(...)` sync before teardown.
+- The same canonical cross-worktree motion probe then passed on the landed branch:
+  - command: `cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line --max-failures=1 --timeout=180000`
+  - result: `1 passed`, `24.2s`
+  - normalized motion-perf output:
+    - legacy `main`: average `16.62ms`, max `34.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+    - worktree canary: average `17.02ms`, max `33.4ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+  - landed worktree attribution on the measured burst:
+    - `reactFlowViewportPublish`: `20` calls, `1.6ms` total, `0.2ms` max
+    - `reactFlowTransformSubscriptionCallback`: `20` calls, `0ms` total
+    - `reactFlowTransformFollowerCallback`: `20` calls, `0ms` total
+    - `interactionReactFlowStateSync`: `1` call, `0.1ms` total
+    - `interactionMiscStateSync`: `1` call, `0ms` total
+    - `viewportPersistenceDispatch`: `0` calls
+- Result:
+  - the attribution lane is complete and the next concrete product hotspot is now explicitly `reactFlowViewportPublish`
+  - no further report-only or blind transform-consumer toggles are justified on this lane until a product change targets that owner
+- CDP visual gate:
+  - first fresh-context sub-agent reached both `/settings` pages without bootstrap and only saw the connected-shell spinner on both sides
+  - second fresh-context sub-agent was retried with fresh worktree/main bootstrap URLs but did not return a trustworthy graph-surface result before shutdown
+  - `CDP visual check: not run (fresh-context sub-agent retries did not reach a trustworthy rendered Settings graph surface on either the worktree or main reference runtime)`
+- Next frontier:
+  - keep `rotaryParamCodeObjDefault` as the canonical lane and land one bounded product reduction on the `reactFlowViewportPublish` path
+  - keep the CDP blocker explicit and retry it only inside that next product slice instead of spending a standalone browser-only pass
 - LOOP_TERMINAL_MARKER: none

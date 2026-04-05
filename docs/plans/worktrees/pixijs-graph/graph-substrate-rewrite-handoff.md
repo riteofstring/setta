@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 05:41 EDT
+Last updated: 2026-04-08 06:48 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -63,6 +63,29 @@ This section overrides older "next frontier" notes below when choosing the next 
 
 - Current live verification state:
   - item `293` remains landed on the canonical `rotaryParamCodeObjDefault` lane, and the deterministic cross-worktree motion probe remains the trusted oracle for the normalized `All Settings` canary
+  - item `298` completed the attribution-led pass that the `05:49 EDT` progress review handed off:
+    - landed one bounded motion-attribution seam across the remaining transform / shared-store consumers on the canonical lane
+    - instrumented owners: `reactFlowViewportPublish`, `reactFlowTransformSubscriptionCallback`, `reactFlowTransformFollowerCallback`, `interactionReactFlowStateSync`, `interactionMiscStateSync`, and `viewportPersistenceDispatch`
+    - focused unit coverage passed and the canonical cross-worktree motion probe passed on the live `3076/8076` worktree and `3087/8087` read-only `main` runtimes
+    - normalized motion-perf output on the landed branch:
+      - legacy `main`: average `16.62ms`, max `34.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.02ms`, max `33.4ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - the landed attribution report now names one concrete remaining owner on the measured sequence:
+      - `reactFlowViewportPublish`: `20` calls, `1.6ms` total, `0.2ms` max
+      - `reactFlowTransformSubscriptionCallback`: `20` calls, `0ms` total
+      - `reactFlowTransformFollowerCallback`: `20` calls, `0ms` total
+      - `interactionReactFlowStateSync`: `1` call, `0.1ms` total
+      - `interactionMiscStateSync`: `1` call, `0ms` total
+      - `viewportPersistenceDispatch`: `0` calls
+    - the canonical motion probe initially stalled after entering the spec body; a narrow verifier-only cleanup fix now lets this specific perf probe restore backend state without forcing a last `applyProjectStateUpdate(...)` sync before teardown, and the same command completed in `24.2s`
+  - the required CDP visual check for item `298` is still pending:
+    - first fresh-context sub-agent read the quickstart and reached both `/settings` pages, but both stayed on the connected-shell spinner rather than rendering the expected Settings graph surfaces
+    - second fresh-context sub-agent was retried with fresh worktree and main bootstrap URLs, but it did not return a trustworthy graph-surface result before shutdown
+    - treat this as a deferred visual gate for the instrumentation slice, not as renderer evidence
+  - progress review checkpoint after ten successful loop iterations:
+    - item `291` and item `293` were the last clear measured wins on this canonical lane
+    - items `295`, `296`, and `297` each closed a bounded hypothesis without improving the lane
+    - that pattern now counts as diminishing returns for blind transform-consumer / shared-store mirror toggles without stronger attribution
   - item `297` tested and closed one additional transform-subscriber / shared-store mirror hypothesis on the same lane:
     - temporary product experiment: extend the existing pointer-event suppression hook so `viewportInteractionActive` also disables inner section pointer events during active canary motion
     - the same cross-worktree motion-perf probe on the live worktree/reference runtimes moved in the wrong direction:
@@ -109,11 +132,12 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, but the canary is still slower than legacy:
+  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, but the canary still retains one concrete per-step publish owner after the attribution pass:
     - visible section count stayed `1`
     - root DOM stayed `135`
-    - average frame duration improved `20.54ms -> 18.99ms`, but legacy still measured `17.80ms`
-  - this means repeated interaction-state store writes were one real piece of the remaining motion cost, but not the last one
+    - average frame duration is now `17.02ms` on the worktree canary versus `16.62ms` on legacy `main`
+    - `reactFlowViewportPublish` is the dominant measured owner on the normalized motion burst: `20` publishes, `1.6ms` total
+  - this means repeated interaction-state store writes were one real piece of the remaining motion cost, but the next remaining reduction is now specifically the resolved-viewport publish path
   - item `296` narrows that further:
     - deferring the viewport-persistence debounce during active interaction bursts was not a measured win on the canonical lane
     - the remaining hotspot is therefore deeper than the persistence-debounce path and more likely lives in other transform-subscriber / shared-store mirror consumers
@@ -128,27 +152,28 @@ This section overrides older "next frontier" notes below when choosing the next 
   - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
   - the viewport-interaction pointer-suppression hypothesis is now closed unless a future trace explicitly shows hover/focus pointer churn dominating the lane
-  - the next true product hotspot is still the remaining focused viewport-sync / shared-store mirror work that runs after presentation gating, interaction-state dedupe, and the failed persistence-debounce experiment
-  - CDP transport has regressed again after the in-pass recovery, so the next iteration must begin by re-establishing a trustworthy chrome-devtools MCP smoke check on the fresh outer lifecycle before taking another product slice
+  - the attribution lane is now complete: the next true product hotspot on the canonical motion burst is `reactFlowViewportPublish`, not the broader lane in the abstract
+  - the next pass should target why the canary still mirrors the resolved viewport into the React Flow store on every measured motion step, rather than reopening already-closed host-size, persistence, or pointer-suppression hypotheses
+  - the CDP visual gate for this slice remains deferred because the sub-agent checks never reached a trustworthy rendered Settings graph surface; keep one bounded retry inside the next product slice rather than converting the next iteration into another browser-only pass
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- first clear the renewed chrome-devtools MCP blocker on the restarted worktree lifecycle, then return to one bounded production reduction in the remaining focused transform-subscriber / shared-store mirror path for item `293` on the canonical `rotaryParamCodeObjDefault` lane
+- land one bounded product reduction on the now-named `reactFlowViewportPublish` path on `rotaryParamCodeObjDefault`
 
 Recommended next target:
 
-- because item `297` already used the one allowed in-pass recovery and CDP still remained inaccessible, start the next fresh outer iteration by retrying one bounded chrome-devtools MCP smoke check on the restarted `3075/8075` worktree plus read-only `3088/8088` `main` runtime
-- once CDP transport is trustworthy again, stay on the same normalized motion lane and choose a different transform-consumer reduction
-- prefer a different focused transform-consumer reduction over another viewport-persistence debounce experiment, Pixi host-size experiment, viewport-interaction pointer-suppression experiment, presentation-boundary hop, support-only oracle pass, or baseline-only report
+- inspect the `reactFlowViewportPublish` path and remove or narrow the per-step resolved-viewport publish work that still fires on every measured motion step
+- keep the existing attribution seam and perf report as the decision oracle; do not open another report-only iteration on the same lane
+- perform at most one bounded fresh-context Chrome DevTools MCP retry as part of verification for that next product slice; do not spend a full iteration on smoke-only recovery unless the deterministic Playwright lane also goes unhealthy
 
 Recommended deliverables for the next iteration:
 
-- one bounded CDP smoke retry on the fresh loop-managed runtime
-- then one bounded production change on `rotaryParamCodeObjDefault` only if the browser tools are available again
-- focused automated verification on the exact hot path that changed
-- required CDP confirmation for that slice
+- one bounded production change on the `reactFlowViewportPublish` path
+- focused automated verification on the same canonical lane
+- the existing normalized cross-worktree motion probe rerun on the same lane
+- required CDP confirmation for that slice if browser tools reach a trustworthy Settings graph surface; otherwise keep the blocker explicit instead of converting the pass into smoke-only triage
 
 Recommended canonical target:
 
@@ -158,18 +183,53 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
-- another smoke-only retry unless Chrome DevTools MCP transport regresses again
+- another blind transform-consumer / shared-store mirror toggle without fresh attribution that names the next consumer
+- another standalone smoke-only retry unless the deterministic Playwright lane also becomes unhealthy
 - another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
 - another Pixi host-size cache experiment unless a new trace shows that path dominating the lane
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
-- another baseline-only report unless the next product slice changes the measured motion lane
+- another report-only pass after the attribution lane has already named the next hotspot
 - more runtime-log hygiene unless a fresh loop-managed lifecycle shows the session-aware helper is still insufficient
 - another section-specific parity lane unless the recovered canary shows a concrete renderer bug on that lane
 
 ## Current status
 
 - Ralph item `297` tested one bounded viewport-interaction pointer-suppression hypothesis on `rotaryParamCodeObjDefault`, found that the canonical motion lane regressed, reverted the temporary code, and then hit a renewed CDP transport blocker even after the one allowed headless `./aireset.sh` recovery.
+
+- Ralph item `298` completed the attribution-led pass on `rotaryParamCodeObjDefault`, landed the motion-attribution seam plus one perf baseline report, and named `reactFlowViewportPublish` as the dominant remaining owner on the normalized motion burst.
+
+  - Why this pass completed:
+    - the `05:49 EDT` progress review explicitly closed the blind-toggle pattern and handed the next iteration to one attribution seam before any further product hypothesis
+    - the landed slice stayed on the same canonical motion lane and produced the missing durable decision signal for the next product change
+    - the verifier-only cleanup change directly unblocked the canonical Playwright probe instead of opening a new support-only lane
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and focused fit-view target
+    - this pass reused the same normalized motion lane and did not open a new section-specific parity lane
+  - Product/test change:
+    - landed motion-attribution instrumentation in [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts), [`settingsGraphSubstrateCanaryViewportRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts), [`subscriptions.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/subscriptions.ts), and [`sectionInfos.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/state/actions/sectionInfos.ts)
+    - extended the parity probe and canonical reference spec so the cross-worktree lane now records and asserts the dominant owner
+    - added [`2026-04-08_settings-graph-substrate-canary-motion-attribution-baseline.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-motion-attribution-baseline.md)
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts` -> passed (`1 file`, `4 tests`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts src/state/subscriptions.ts src/state/actions/sectionInfos.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+    - `cd frontend && SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `24.2s`)
+    - normalized motion-perf output on the landed branch:
+      - legacy `main`: average `16.62ms`, max `34.6ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `17.02ms`, max `33.4ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - landed canary motion attribution on the measured worktree burst:
+      - dominant owner `reactFlowViewportPublish` with `20` calls and `1.6ms` total
+      - transform subscription and follower callbacks also fired `20` times each but did not accumulate measurable duration on this runtime
+      - `viewportPersistenceDispatch` stayed at `0` calls
+    - required CDP retry -> deferred:
+      - first fresh-context sub-agent reached both `/settings` pages but both stayed on the connected-shell spinner instead of rendering the expected graph surfaces
+      - second fresh-context sub-agent retried with fresh worktree/main bootstrap URLs but did not return a trustworthy graph-surface result before shutdown
+      - `CDP visual check: not run (fresh-context sub-agent retries did not reach a trustworthy rendered Settings graph surface on either the worktree or main reference runtime)`
+  - Lane status:
+    - the attribution seam is complete and should not be extended with another report-only pass on the same lane
+    - the next product hotspot is now explicitly `reactFlowViewportPublish`
+    - the visual gate for this slice is deferred, not satisfied
+  - LOOP_TERMINAL_MARKER: none
 
   - Why this pass completed:
     - item `296` already closed the viewport-persistence debounce hypothesis and explicitly handed the next iteration to a different remaining transform-subscriber / shared-store mirror hotspot

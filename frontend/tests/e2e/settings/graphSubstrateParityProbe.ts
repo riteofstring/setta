@@ -1,5 +1,9 @@
 import { expect, type Page } from "@playwright/test";
-import type { SettingsGraphSubstrateCanaryInstrumentationSnapshot } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
+import type {
+  SettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  SettingsGraphSubstrateCanaryMotionAttribution,
+  SettingsGraphSubstrateCanaryMotionAttributionOwner,
+} from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { postBackend } from "../helpers";
 
 export type SettingsGraphLocalPaneState = {
@@ -90,12 +94,14 @@ export type SettingsGraphMotionPerfSequenceStep = {
 
 export type SettingsGraphMotionPerfCapture = {
   averageFrameDurationMs: number;
+  dominantCanaryMotionAttributionOwner: SettingsGraphSubstrateCanaryMotionAttributionOwner | null;
   editableControlCount: number;
   longTaskCount: number;
   longTaskMaxDurationMs: number;
   longTaskTotalDurationMs: number;
   maxFrameDurationMs: number;
   measurementWindowMs: number;
+  motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution | null;
   rootDomNodeCount: number;
   sampleCount: number;
   sectionDomNodeCount: number | null;
@@ -139,6 +145,7 @@ const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
 
 type SettingsGraphMotionPerfCaptureState = {
+  canaryMotionAttributionBaseline: SettingsGraphSubstrateCanaryMotionAttribution | null;
   frameDurations: Array<number>;
   lastFrameTimestamp: number | null;
   longTaskDurations: Array<number>;
@@ -163,6 +170,12 @@ export async function readSettingsGraphCanaryInstrumentationSnapshot(
     }
     return {
       ...snapshot,
+      motionAttribution: Object.fromEntries(
+        Object.entries(snapshot.motionAttribution).map(([owner, entry]) => [
+          owner,
+          { ...entry },
+        ]),
+      ) as SettingsGraphSubstrateCanaryMotionAttribution,
       visibleViewportSize: snapshot.visibleViewportSize
         ? { ...snapshot.visibleViewportSize }
         : null,
@@ -764,16 +777,33 @@ export async function startSettingsGraphMotionPerfCapture(
   await page.evaluate(() => {
     type SettingsGraphMotionPerfWindow = Window & {
       __settaSettingsGraphMotionPerfCapture?: SettingsGraphMotionPerfCaptureState;
+      __settaSettingsGraphSubstrateCanaryInstrumentation?: SettingsGraphCanaryInstrumentationSnapshot;
     };
 
     const windowRef = window as SettingsGraphMotionPerfWindow;
     const existingCapture = windowRef.__settaSettingsGraphMotionPerfCapture;
+    const existingSnapshot =
+      windowRef.__settaSettingsGraphSubstrateCanaryInstrumentation;
     if (existingCapture) {
       cancelAnimationFrame(existingCapture.rafHandle);
       existingCapture.observer?.disconnect();
     }
 
+    const cloneMotionAttribution = (
+      motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
+    ): SettingsGraphSubstrateCanaryMotionAttribution => {
+      return Object.fromEntries(
+        Object.entries(motionAttribution).map(([owner, entry]) => [
+          owner,
+          { ...entry },
+        ]),
+      ) as SettingsGraphSubstrateCanaryMotionAttribution;
+    };
+
     const capture: SettingsGraphMotionPerfCaptureState = {
+      canaryMotionAttributionBaseline: existingSnapshot?.motionAttribution
+        ? cloneMotionAttribution(existingSnapshot.motionAttribution)
+        : null,
       frameDurations: [],
       lastFrameTimestamp: null,
       longTaskDurations: [],
@@ -781,6 +811,9 @@ export async function startSettingsGraphMotionPerfCapture(
       rafHandle: 0,
       startTimestamp: performance.now(),
     };
+    if (existingSnapshot) {
+      existingSnapshot.motionAttributionActive = true;
+    }
 
     const onFrame = (timestamp: number) => {
       if (capture.lastFrameTimestamp !== null) {
@@ -900,6 +933,7 @@ export async function stopSettingsGraphMotionPerfCapture(
     }) => {
       type SettingsGraphMotionPerfWindow = Window & {
         __settaSettingsGraphMotionPerfCapture?: SettingsGraphMotionPerfCaptureState;
+        __settaSettingsGraphSubstrateCanaryInstrumentation?: SettingsGraphCanaryInstrumentationSnapshot;
       };
 
       const windowRef = window as SettingsGraphMotionPerfWindow;
@@ -911,6 +945,68 @@ export async function stopSettingsGraphMotionPerfCapture(
       cancelAnimationFrame(capture.rafHandle);
       capture.observer?.disconnect();
       delete windowRef.__settaSettingsGraphMotionPerfCapture;
+
+      const canaryInstrumentation =
+        windowRef.__settaSettingsGraphSubstrateCanaryInstrumentation;
+      if (canaryInstrumentation) {
+        canaryInstrumentation.motionAttributionActive = false;
+      }
+
+      const cloneMotionAttribution = (
+        motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
+      ): SettingsGraphSubstrateCanaryMotionAttribution => {
+        return Object.fromEntries(
+          Object.entries(motionAttribution).map(([owner, entry]) => [
+            owner,
+            { ...entry },
+          ]),
+        ) as SettingsGraphSubstrateCanaryMotionAttribution;
+      };
+      const diffMotionAttribution = (
+        after: SettingsGraphSubstrateCanaryMotionAttribution,
+        before: SettingsGraphSubstrateCanaryMotionAttribution,
+      ): SettingsGraphSubstrateCanaryMotionAttribution => {
+        return Object.fromEntries(
+          Object.entries(after).map(([owner, entry]) => [
+            owner,
+            {
+              count:
+                entry.count -
+                before[
+                  owner as SettingsGraphSubstrateCanaryMotionAttributionOwner
+                ].count,
+              maxDurationMs: Math.max(entry.maxDurationMs, 0),
+              totalDurationMs:
+                entry.totalDurationMs -
+                before[
+                  owner as SettingsGraphSubstrateCanaryMotionAttributionOwner
+                ].totalDurationMs,
+            },
+          ]),
+        ) as SettingsGraphSubstrateCanaryMotionAttribution;
+      };
+      const resolveDominantMotionAttributionOwner = (
+        motionAttribution: SettingsGraphSubstrateCanaryMotionAttribution,
+      ): SettingsGraphSubstrateCanaryMotionAttributionOwner | null => {
+        let dominantOwner: SettingsGraphSubstrateCanaryMotionAttributionOwner | null =
+          null;
+        let dominantTotalDurationMs = 0;
+
+        for (const [owner, entry] of Object.entries(motionAttribution) as Array<
+          [
+            SettingsGraphSubstrateCanaryMotionAttributionOwner,
+            SettingsGraphSubstrateCanaryMotionAttribution[keyof SettingsGraphSubstrateCanaryMotionAttribution],
+          ]
+        >) {
+          if (entry.totalDurationMs <= dominantTotalDurationMs) {
+            continue;
+          }
+          dominantOwner = owner;
+          dominantTotalDurationMs = entry.totalDurationMs;
+        }
+
+        return dominantOwner;
+      };
 
       const surfaceKind = document.querySelector(canaryRootSelector)
         ? "canary"
@@ -963,6 +1059,19 @@ export async function stopSettingsGraphMotionPerfCapture(
       );
       const longTaskMaxDurationMs =
         longTaskDurations.length > 0 ? Math.max(...longTaskDurations) : 0;
+      const motionAttribution =
+        canaryInstrumentation?.motionAttribution &&
+        capture.canaryMotionAttributionBaseline
+          ? diffMotionAttribution(
+              canaryInstrumentation.motionAttribution,
+              capture.canaryMotionAttributionBaseline,
+            )
+          : canaryInstrumentation?.motionAttribution
+            ? cloneMotionAttribution(canaryInstrumentation.motionAttribution)
+            : null;
+      const dominantCanaryMotionAttributionOwner = motionAttribution
+        ? resolveDominantMotionAttributionOwner(motionAttribution)
+        : null;
       const transform = !viewport
         ? null
         : (() => {
@@ -985,6 +1094,7 @@ export async function stopSettingsGraphMotionPerfCapture(
           frameDurations.length > 0
             ? frameDurationTotal / frameDurations.length
             : 0,
+        dominantCanaryMotionAttributionOwner,
         editableControlCount: root
           ? root.querySelectorAll(
               'input, textarea, select, [contenteditable="true"]',
@@ -996,6 +1106,7 @@ export async function stopSettingsGraphMotionPerfCapture(
         maxFrameDurationMs:
           frameDurations.length > 0 ? Math.max(...frameDurations) : 0,
         measurementWindowMs: performance.now() - capture.startTimestamp,
+        motionAttribution,
         rootDomNodeCount: root ? root.querySelectorAll("*").length + 1 : 0,
         sampleCount: frameDurations.length,
         sectionDomNodeCount: section

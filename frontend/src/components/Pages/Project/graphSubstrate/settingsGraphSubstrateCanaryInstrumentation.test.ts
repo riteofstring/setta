@@ -1,8 +1,9 @@
 /* @vitest-environment jsdom */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
   readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
@@ -34,6 +35,10 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
       mounted: true,
       mountedSceneSectionCount: 6,
       mountedSectionBodyCount: 0,
+      motionAttribution:
+        createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot()
+          .motionAttribution,
+      motionAttributionActive: false,
       pixiDrawableCount: 18,
       pixiSyncCount: 0,
       sceneSyncCount: 0,
@@ -55,5 +60,37 @@ describe("settingsGraphSubstrateCanaryInstrumentation", () => {
     expect(readSettingsGraphSubstrateCanaryInstrumentationSnapshot()).toEqual(
       createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot(),
     );
+  });
+
+  it("records motion attribution only while attribution capture is active", () => {
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "reactFlowViewportPublish",
+      () => {},
+    );
+
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    const performanceNowSpy = vi
+      .spyOn(globalThis.performance, "now")
+      .mockReturnValueOnce(12)
+      .mockReturnValueOnce(15.5);
+
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "reactFlowViewportPublish",
+      () => {},
+    );
+
+    performanceNowSpy.mockRestore();
+
+    expect(
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.reactFlowViewportPublish,
+    ).toEqual({
+      count: 1,
+      maxDurationMs: 3.5,
+      totalDurationMs: 3.5,
+    });
   });
 });

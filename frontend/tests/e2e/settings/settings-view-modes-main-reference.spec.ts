@@ -12608,6 +12608,19 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     expect(worktreeResult.perf.surfaceKind).toBe("canary");
     expect(referenceResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
     expect(worktreeResult.perf.sampleCount).toBeGreaterThanOrEqual(20);
+    expect(referenceResult.perf.motionAttribution).toBeNull();
+    expect(worktreeResult.perf.motionAttribution).not.toBeNull();
+    expect(
+      worktreeResult.perf.motionAttribution?.reactFlowViewportPublish.count ??
+        0,
+    ).toBeGreaterThan(0);
+    expect(
+      worktreeResult.perf.motionAttribution
+        ?.reactFlowTransformSubscriptionCallback.count ?? 0,
+    ).toBeGreaterThan(0);
+    expect(worktreeResult.perf.dominantCanaryMotionAttributionOwner).toBe(
+      "reactFlowViewportPublish",
+    );
     expect(referenceResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(worktreeResult.perf.rootDomNodeCount).toBeGreaterThan(0);
     expect(referenceResult.perf.sectionDomNodeCount).toBeGreaterThan(0);
@@ -12642,25 +12655,43 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
       ).toBeLessThan(0.08);
     }
   } finally {
-    await restoreCurrentPageState({
-      backendOrigin: WORKTREE_BACKEND_ORIGIN,
-      frontendOrigin: WORKTREE_BASE_URL,
-      initialPaneState: initialWorktreePaneState,
-      initialState: worktreeInitialState,
-      page,
-      projectConfigId: worktreeProjectConfigId,
-    }).catch(() => {});
-    await restoreCurrentPageState({
-      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
-      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
-      initialPaneState: initialReferencePaneState,
-      initialState: referenceInitialState,
-      page: referencePage,
-      projectConfigId: referenceProjectConfigId,
-    }).catch(() => {});
-    await referencePage.close().catch(() => {});
+    await settleWithoutBlocking(
+      restoreCurrentPageState({
+        backendOrigin: WORKTREE_BACKEND_ORIGIN,
+        frontendOrigin: WORKTREE_BASE_URL,
+        initialPaneState: initialWorktreePaneState,
+        initialState: worktreeInitialState,
+        page,
+        projectConfigId: worktreeProjectConfigId,
+        syncPageAfterRestore: false,
+      }),
+    );
+    await settleWithoutBlocking(
+      restoreCurrentPageState({
+        backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+        frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+        initialPaneState: initialReferencePaneState,
+        initialState: referenceInitialState,
+        page: referencePage,
+        projectConfigId: referenceProjectConfigId,
+        syncPageAfterRestore: false,
+      }),
+    );
+    await settleWithoutBlocking(referencePage.close());
   }
 });
+
+async function settleWithoutBlocking(
+  promise: Promise<unknown>,
+  timeoutMs = 5000,
+): Promise<void> {
+  await Promise.race([
+    promise.then(() => {}).catch(() => {}),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, timeoutMs);
+    }),
+  ]);
+}
 
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   await page.goto(MAIN_REFERENCE_BOOTSTRAP_URL, {
@@ -12991,6 +13022,7 @@ async function restoreCurrentPageState(args: {
   initialState: ProjectStateSingleConfigWithCompletedOpIds;
   page: Page;
   projectConfigId: string;
+  syncPageAfterRestore?: boolean;
 }): Promise<void> {
   await setLocalPaneState(args.page, args.initialPaneState);
   await setDurableActiveSectionIds(
@@ -13052,6 +13084,10 @@ async function restoreCurrentPageState(args: {
         },
       );
     }
+  }
+
+  if (args.syncPageAfterRestore === false) {
+    return;
   }
 
   const restoredState = await getLatestProjectStateFromBackendOrigin(

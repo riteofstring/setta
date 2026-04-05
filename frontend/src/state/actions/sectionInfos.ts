@@ -1,3 +1,4 @@
+import { measureSettingsGraphSubstrateCanaryMotionAttribution } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -2118,18 +2119,23 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
   if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
     return;
   }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      state.projectConfig.viewport = viewport;
-      state.projectConfig.viewportInitialized = viewport !== null;
+  measureSettingsGraphSubstrateCanaryMotionAttribution(
+    "viewportPersistenceDispatch",
+    () => {
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          state.projectConfig.viewport = viewport;
+          state.projectConfig.viewportInitialized = viewport !== null;
+        },
+        send: (frontendOpId) =>
+          route_set_viewport({
+            projectConfigId,
+            viewport,
+            frontendOpId,
+          }),
+      });
     },
-    send: (frontendOpId) =>
-      route_set_viewport({
-        projectConfigId,
-        viewport,
-        frontendOpId,
-      }),
-  });
+  );
 }
 
 export const debouncedDispatchViewportUpdate = _.debounce(

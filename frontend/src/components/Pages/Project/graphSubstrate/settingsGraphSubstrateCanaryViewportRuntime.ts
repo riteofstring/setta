@@ -8,7 +8,10 @@ import {
   type RefObject,
 } from "react";
 import { useLocalStorage, useMisc, useSettings } from "state/definitions";
-import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
+import {
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
 import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
@@ -200,19 +203,24 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
         return { x, y, zoom };
       },
       (nextViewport) => {
-        sharedReactFlowViewportRef.current = nextViewport;
-        if (
-          sharedProjectViewport !== null ||
-          viewportOwnershipRef.current === "local"
-        ) {
-          return;
-        }
-        setSharedReactFlowViewport((current) => {
-          if (areGraphViewportsEqual(current, nextViewport)) {
-            return current;
-          }
-          return nextViewport;
-        });
+        measureSettingsGraphSubstrateCanaryMotionAttribution(
+          "reactFlowTransformFollowerCallback",
+          () => {
+            sharedReactFlowViewportRef.current = nextViewport;
+            if (
+              sharedProjectViewport !== null ||
+              viewportOwnershipRef.current === "local"
+            ) {
+              return;
+            }
+            setSharedReactFlowViewport((current) => {
+              if (areGraphViewportsEqual(current, nextViewport)) {
+                return current;
+              }
+              return nextViewport;
+            });
+          },
+        );
       },
       {
         equalityFn: areGraphViewportsEqual,
@@ -350,12 +358,24 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     isPanScrolling: boolean;
     isWheelZooming: boolean;
   }) {
-    useMisc.setState({ isPanScrolling: isViewportPanning || isPanScrolling });
-    useReactFlow.setState({
-      paneDragging: isViewportPanning,
-      viewportInteractionActive:
-        isViewportPanning || isPanScrolling || isWheelZooming,
-    });
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "interactionMiscStateSync",
+      () => {
+        useMisc.setState({
+          isPanScrolling: isViewportPanning || isPanScrolling,
+        });
+      },
+    );
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "interactionReactFlowStateSync",
+      () => {
+        useReactFlow.setState({
+          paneDragging: isViewportPanning,
+          viewportInteractionActive:
+            isViewportPanning || isPanScrolling || isWheelZooming,
+        });
+      },
+    );
   }
 
   useEffect(() => {
@@ -389,19 +409,24 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
       return;
     }
 
-    useReactFlow.setState({
-      domNode: rootRef.current,
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      height: wrapperDimensions.height,
-      transform: [
-        resolvedViewport.x,
-        resolvedViewport.y,
-        resolvedViewport.zoom,
-      ],
-      viewportPersistenceEnabled: shouldPersistResolvedViewport,
-      width: visibleViewportSize.width,
-    });
+    measureSettingsGraphSubstrateCanaryMotionAttribution(
+      "reactFlowViewportPublish",
+      () => {
+        useReactFlow.setState({
+          domNode: rootRef.current,
+          fitViewOnInit: false,
+          fitViewOnInitDone: true,
+          height: wrapperDimensions.height,
+          transform: [
+            resolvedViewport.x,
+            resolvedViewport.y,
+            resolvedViewport.zoom,
+          ],
+          viewportPersistenceEnabled: shouldPersistResolvedViewport,
+          width: visibleViewportSize.width,
+        });
+      },
+    );
   }, [
     resolvedViewport,
     shouldPersistResolvedViewport,

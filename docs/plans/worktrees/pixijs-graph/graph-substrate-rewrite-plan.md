@@ -1,7 +1,7 @@
 # Graph Substrate Rewrite Plan
 
 Date: 2026-04-02
-Updated: 2026-04-07
+Updated: 2026-04-08
 Worktree: `pixijs-graph`
 Current branch: `pixijs-graph`
 Execution base: `main`
@@ -33,6 +33,28 @@ This plan is satisfied only when:
 - DOM-backed editing and interaction remain faithful where still required
 - the checked canary is not obviously slower than the DOM/`xyflow` baseline
 - later Pixi ownership can be added without reintroducing DOM-sync drift
+
+## Strategic reset: stay with Pixi, but narrow the question
+
+The current decision for this worktree is:
+
+- keep Pixi as the rendering experiment in this branch
+- do not spend iterations evaluating `tldraw` or other renderer-stack swaps
+- treat the existing Pixi shell layer as a valid seam, not as proof that Pixi-by-itself solved the hot path
+
+The active question is no longer "should this worktree switch away from Pixi?"
+
+The active question is:
+
+- where does one shared scene-owned Pixi surface remove real cost
+- which remaining cost is still dominated by DOM section bodies, full-scene invalidation, or legacy store ownership
+- what is the smallest next product slice that makes those costs measurable and then reducible
+
+From this point:
+
+- do not spend iterations on alternative renderer evaluation
+- do not keep peeling shell affordances one by one unless that same slice also clarifies the remaining cost model
+- do not claim a meaningful Pixi win without explicit profiling/counters that show what changed
 
 ## Core architecture decision
 
@@ -99,6 +121,12 @@ Exit criteria:
 - the visual owner changes without reintroducing drift
 - DOM remains overlay-only for active editors and complex controls
 
+Note:
+
+- this phase has partially started already through the shell-owned Pixi layer
+- that does not change the sequencing rule that Pixi ownership should only expand where it replaces batched static visuals or otherwise removes proven cost
+- do not treat "more Pixi" as the default next slice without profiling evidence
+
 ### Phase 3: Tighten parity and performance
 
 Once ownership is correct, chase the remaining visual and performance work:
@@ -152,6 +180,51 @@ Priority tests for the first phase:
 - camera inverse transform coverage
 - drag updates on the custom substrate
 - a Playwright canary showing one section stays attached while dragging/panning/zooming
+
+## Current execution priority
+
+The next Ralph passes should follow this priority order:
+
+1. Add explicit performance instrumentation on the canary surface.
+2. Record a baseline performance report for the checked `All Settings` canary path.
+3. Use that evidence to choose the next real product frontier.
+
+The first post-replan frontier is not another renderer-library decision and not another shell-only ownership cleanup pass.
+
+The first post-replan frontier is:
+
+- make the canary report what it is doing during pan/zoom/drag
+- make the bad state obvious when it happens
+- then use that evidence to decide whether the next product slice is body culling / LOD, redraw invalidation narrowing, or further `xyflow` ownership removal
+
+Useful counters include:
+
+- mounted section count
+- mounted section-body count
+- Pixi drawable count
+- Pixi redraw count / full-scene sync count
+- current viewport zoom and visible viewport size
+- any existing unresolved-size / seed-cache fallback count that still affects visible geometry
+
+Attribution guardrail for the current canary lane:
+
+- once a measured win lands on the canonical lane, do not spend more than two successive non-winning product hypotheses on the remaining hotspot without first adding attribution that names the next dominant consumer
+- closed hypotheses stay closed until fresh trace/counter evidence points back to them
+- the next attribution slice should resolve cost into concrete owners such as transform-subscriber fan-out, shared-store writes/selectors, section presentation/body mount decisions, or Pixi present/sync work
+- do not spend a full default iteration on standalone CDP smoke recovery when the deterministic Playwright lane is still green; do one bounded smoke retry inside the next product slice and keep the tooling debt explicit if it still blocks the visual gate
+
+Avoid unbounded instrumentation work. One iteration should land:
+
+- one bounded read-only instrumentation seam
+- focused automated coverage
+- one baseline report under `perf/reports/frontend/`
+
+Current note after the 2026-04-08 attribution baseline:
+
+- the attribution seam and baseline report are now landed on the canonical
+  `rotaryParamCodeObjDefault` lane
+- the next product frontier is no longer a generic transform-consumer lane;
+  the measured dominant owner is `reactFlowViewportPublish`
 
 ## Dynamic oracle strategy
 
@@ -257,6 +330,12 @@ From this point:
 - do not stack new geometry-authority code on top of the unverified stale-seed-pruning slice
 
 Fresh outer-loop run `001` on 2026-04-07 restored the worktree DevTools sidecar and cleared that commit-or-stop lane in item `267`, so the stale-seed-pruning slice is no longer the blocker. The next passes should go back to the product frontier: remove the remaining measured-DOM authority paths under the now-verified shell baseline instead of reopening tooling-only recovery work on the completed slice.
+
+Additional reset on 2026-04-07:
+
+- the next bounded frontier should start with explicit instrumentation and a baseline performance report rather than another abstract "remaining authority path" cleanup
+- use the existing shell-owned Pixi baseline as the measured subject
+- if the resulting counters show that section bodies or full-scene redraws dominate, pivot the next product slice there instead of continuing ownership cleanup for its own sake
 
 ## Branching decision
 
