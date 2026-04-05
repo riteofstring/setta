@@ -30,7 +30,6 @@ import {
 } from "utils/generatedEndpoints";
 import {
   type AllProjectMetadata,
-  type CreateProjectConfigResponse,
   type LSPDiagnosticsPayload,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -50,8 +49,7 @@ type LatestLspDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
 type LoadAllProjectMetadataRouteResponse =
   ResponseDataAndStatus<AllProjectMetadata>;
-type CreateProjectConfigRouteResponse =
-  ResponseDataAndStatus<CreateProjectConfigResponse>;
+type CreateProjectConfigRouteResponse = ResponseDataAndStatus<string>;
 type LoadProjectStateInput = SingleConfig | Partial<SingleConfig>;
 
 export async function loadProjectConfig({ projectConfigName }) {

@@ -21,18 +21,14 @@ import {
   route_set_text_block_master_font_size,
   route_set_text_block_meta_control_style,
 } from "utils/generatedEndpoints";
-import {
-  TextBlockFormatEnum,
-  type DocstringToMarkdownResponse,
-} from "utils/generatedTypes";
+import { TextBlockFormatEnum } from "utils/generatedTypes";
 import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 
 type TextBlockSettingsProps = {
   sectionId: string;
 };
 
-type DocstringToMarkdownRouteResponse =
-  ResponseDataAndStatus<DocstringToMarkdownResponse>;
+type DocstringToMarkdownRouteResponse = ResponseDataAndStatus<string>;
 
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const {

@@ -140,10 +140,10 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectstate.SectionsClipboardData{}): func() any {
 			return projectstate.FrontendDefaultSectionsClipboardData()
 		},
-		reflect.TypeOf((*ShownParamIdDetails)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.ShownParamIDDetails{}): func() any {
 			return projectview.FrontendDefaultShownParamIDDetails()
 		},
-		reflect.TypeOf((*ShownParamIds)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectview.ShownParamIDs{}): func() any {
 			return projectview.FrontendDefaultShownParamIDs()
 		},
 		reflect.TypeOf(projectview.SingleConfig{}): func() any {
