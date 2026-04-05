@@ -1,10 +1,22 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrateCanaryBackground";
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
 import {
   createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
 } from "./settingsGraphSubstrateCanaryInstrumentation";
+import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
+import {
+  areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
+} from "./settingsGraphSubstrateCanarySectionPresentation";
 import { SettingsGraphSubstrateCanarySectionShellPixiLayer } from "./settingsGraphSubstrateCanarySectionShellPixiLayer";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
 
@@ -19,11 +31,38 @@ const ROOT_STYLE: CSSProperties = {
 export function SettingsGraphSubstrateCanary() {
   const controller = useSettingsGraphSubstrateCanaryController();
   const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
+  const stablePresentedSceneSectionsRef = useRef<
+    Array<SettingsGraphSubstrateCanarySceneSection>
+  >([]);
   const handleHoveredSectionChange = useCallback((sectionId: string | null) => {
     setHoveredSectionId((currentSectionId) => {
       return currentSectionId === sectionId ? currentSectionId : sectionId;
     });
   }, []);
+  const presentedSceneSections = useMemo(() => {
+    const nextPresentedSceneSections =
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
+        draggingSectionId: controller.draggingSectionId,
+        sceneSections: controller.sceneSections,
+        viewport: controller.resolvedViewport,
+        visibleViewportRect: controller.visibleViewportRect,
+      });
+    if (
+      areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+        stablePresentedSceneSectionsRef.current,
+        nextPresentedSceneSections,
+      )
+    ) {
+      return stablePresentedSceneSectionsRef.current;
+    }
+    stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
+    return nextPresentedSceneSections;
+  }, [
+    controller.draggingSectionId,
+    controller.sceneSections,
+    controller.resolvedViewport,
+    controller.visibleViewportRect,
+  ]);
 
   useEffect(() => {
     updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
@@ -62,6 +101,7 @@ export function SettingsGraphSubstrateCanary() {
         <SettingsGraphSubstrateCanarySectionShellPixiLayer
           draggingSectionId={controller.draggingSectionId}
           hoveredSectionId={hoveredSectionId}
+          presentedSceneSections={presentedSceneSections}
           sceneSections={controller.sceneSections}
           visibleViewportRect={controller.visibleViewportRect}
           viewport={controller.resolvedViewport}
@@ -84,6 +124,7 @@ export function SettingsGraphSubstrateCanary() {
             draggingSectionId={controller.draggingSectionId}
             hoveredSectionId={hoveredSectionId}
             onHoveredSectionChange={handleHoveredSectionChange}
+            presentedSceneSections={presentedSceneSections}
             sceneSections={controller.sceneSections}
             sectionDragController={controller.sectionDragController}
             viewport={controller.resolvedViewport}

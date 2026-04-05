@@ -15,8 +15,9 @@ import {
 } from "./settingsGraphSubstrateCanarySectionBodyAdapter";
 import type { SettingsGraphSubstrateCanarySectionDragController } from "./settingsGraphSubstrateCanarySectionDragController";
 import {
+  areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
   shouldMountSettingsGraphSubstrateCanarySectionBody,
-  shouldPresentSettingsGraphSubstrateCanarySectionShell,
 } from "./settingsGraphSubstrateCanarySectionPresentation";
 import { SettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionShell";
 import type { GraphRect, GraphViewport } from "./viewportTransform";
@@ -25,6 +26,7 @@ type SettingsGraphSubstrateCanarySectionsLayerProps = {
   draggingSectionId: string | null;
   hoveredSectionId: string | null;
   onHoveredSectionChange: (sectionId: string | null) => void;
+  presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   sectionDragController: SettingsGraphSubstrateCanarySectionDragController;
   viewport: GraphViewport | null;
@@ -84,6 +86,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   draggingSectionId,
   hoveredSectionId,
   onHoveredSectionChange,
+  presentedSceneSections,
   sceneSections,
   sectionDragController,
   viewport,
@@ -92,15 +95,18 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   const stablePresentedSceneSectionsRef = useRef<
     Array<SettingsGraphSubstrateCanarySceneSection>
   >([]);
-  const presentedSceneSections = useMemo(() => {
-    const nextPresentedSceneSections = sceneSections.filter((section) =>
-      shouldPresentSettingsGraphSubstrateCanarySectionShell({
+  const resolvedPresentedSceneSections = useMemo(() => {
+    if (presentedSceneSections) {
+      return presentedSceneSections;
+    }
+
+    const nextPresentedSceneSections =
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
         draggingSectionId,
-        section,
+        sceneSections,
         viewport,
         visibleViewportRect,
-      }),
-    );
+      });
     if (
       areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
         stablePresentedSceneSectionsRef.current,
@@ -111,10 +117,18 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     }
     stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
     return nextPresentedSceneSections;
-  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
+  }, [
+    draggingSectionId,
+    presentedSceneSections,
+    sceneSections,
+    viewport,
+    visibleViewportRect,
+  ]);
   const presentedSectionIds = useMemo(() => {
-    return new Set(presentedSceneSections.map((section) => section.sectionId));
-  }, [presentedSceneSections]);
+    return new Set(
+      resolvedPresentedSceneSections.map((section) => section.sectionId),
+    );
+  }, [resolvedPresentedSceneSections]);
 
   useEffect(() => {
     if (
@@ -127,7 +141,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   const mountedSectionBodyIds = useMemo(() => {
     return new Set(
-      presentedSceneSections
+      resolvedPresentedSceneSections
         .filter((section) =>
           shouldMountSettingsGraphSubstrateCanarySectionBody({
             draggingSectionId,
@@ -140,7 +154,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
     );
   }, [
     draggingSectionId,
-    presentedSceneSections,
+    resolvedPresentedSceneSections,
     viewport,
     visibleViewportRect,
   ]);
@@ -153,7 +167,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   const sectionBodiesById = useMemo(() => {
     return new Map(
-      presentedSceneSections.map((section) => [
+      resolvedPresentedSceneSections.map((section) => [
         section.sectionId,
         resolveSettingsGraphSubstrateCanarySectionBody({
           positionAndSizeLocked: section.positionAndSizeLocked,
@@ -165,7 +179,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
         }),
       ]),
     );
-  }, [presentedSceneSections]);
+  }, [resolvedPresentedSceneSections]);
 
   const handleSectionPointerDown = useCallback(
     (
@@ -226,7 +240,7 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
 
   return (
     <>
-      {presentedSceneSections.map((section) => {
+      {resolvedPresentedSceneSections.map((section) => {
         const shouldMountBody = mountedSectionBodyIds.has(section.sectionId);
         const sectionBody = sectionBodiesById.get(section.sectionId);
         if (!sectionBody) {
@@ -250,24 +264,6 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
       })}
     </>
   );
-}
-
-function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
-  left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
-  right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
-) {
-  if (left === right) {
-    return true;
-  }
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 export const SettingsGraphSubstrateCanarySectionsLayer = React.memo(

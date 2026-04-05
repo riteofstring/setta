@@ -8,6 +8,27 @@ import {
 const MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH = 120;
 const MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT = 24;
 
+export function resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
+  draggingSectionId,
+  sceneSections,
+  viewport,
+  visibleViewportRect,
+}: {
+  draggingSectionId: string | null;
+  sceneSections: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>;
+  viewport: GraphViewport | null;
+  visibleViewportRect: GraphRect | null;
+}): Array<SettingsGraphSubstrateCanarySceneSection> {
+  return sceneSections.filter((section) =>
+    shouldPresentSettingsGraphSubstrateCanarySectionShell({
+      draggingSectionId,
+      section,
+      viewport,
+      visibleViewportRect,
+    }),
+  );
+}
+
 export function shouldPresentSettingsGraphSubstrateCanarySectionShell({
   draggingSectionId,
   section,
@@ -78,6 +99,24 @@ export function shouldMountSettingsGraphSubstrateCanarySectionBody({
     visibleSectionScreenRect.width >= MIN_SECTION_BODY_VISIBLE_SCREEN_WIDTH &&
     visibleSectionScreenRect.height >= MIN_SECTION_BODY_VISIBLE_SCREEN_HEIGHT
   );
+}
+
+export function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
+  left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+  right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function getVisibleSettingsGraphSubstrateCanarySectionScreenRect({

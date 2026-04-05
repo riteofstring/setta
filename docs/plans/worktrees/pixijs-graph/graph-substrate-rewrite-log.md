@@ -11150,3 +11150,45 @@ LOOP_TERMINAL_MARKER: none
     - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded Pixi shell presentation reduction on the focused lane
     - reuse the same instrumentation/perf probes and keep the new visible-section-count guard in place while measuring the next Pixi-facing slice
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-08 03:31 EDT, Ralph item `292`
+  - Summary: moved the canary presented-section decision to the composition boundary so the DOM shell layer and Pixi shell layer share the same stable presented subset on the canonical `rotaryParamCodeObjDefault` lane, then remeasured the same normalized motion probe and found only a small improvement rather than a real win.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-shared-presented-scene-sections.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass reused the same normalized motion lane and did not open a new section-specific lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx ../perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-shared-presented-scene-sections.md` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionPresentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayerFanout.test.tsx` -> passed (`5 files`, `27 tests`)
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` -> passed; minted fresh worktree bootstrap tokens for repeat Playwright runs on `3076/8076`
+    - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN='<fresh token minted from setta status>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<loop main bootstrap url>' BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g "settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary" --reporter=line --max-failures=1 --timeout=180000` -> passed (`1 passed`, `1.3m`)
+    - normalized motion-perf output:
+      - legacy `main`: average `17.79ms`, max `81.5ms`, `44` samples, root DOM `7628`, target section DOM `132`, editable controls `99`, visible section count `46`
+      - worktree canary: average `20.54ms`, max `100ms`, `43` samples, root DOM `135`, target section DOM `132`, editable controls `2`, visible section count `1`
+    - first worktree-only instrumentation attempt failed because the bootstrap token had gone stale and the bootstrap route returned `401 Unauthorized`
+    - retrying the same spec with a fresh worktree token passed on the live `3076/8076` runtime:
+      - auto-fit: mounted scene sections `46`, mounted section bodies `0`, `pixiDrawableCount` `42`, `pixiSyncCount` `1`
+      - focused fit-view baseline: mounted section bodies `1`, `pixiDrawableCount` `1`, `pixiSyncCount` `1`
+      - after normalized blank-pane pan: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+      - after one toolbar zoom-in: mounted section bodies `1`, `pixiDrawableCount` `2`, `pixiSyncCount` `1`
+    - fresh-context Chrome DevTools MCP sub-agent -> bounded smoke only:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - confirmed both `http://127.0.0.1:3076/settings` and `http://127.0.0.1:3087/settings` loaded live Settings workspaces rather than blank/crashed pages
+      - note: the reference side reported one snapshot/viewport mismatch, so this is "live and rendering" confirmation, not a focused parity proof
+  - Result:
+    - the shared presented-scene-section boundary is landed and should not be reopened unless focused visible-section or drawable counts regress again
+    - the canonical motion sample improved only slightly (`20.93ms -> 20.54ms`), so this closes another presentation-boundary hypothesis rather than proving a real win
+    - the remaining hotspot is still deeper focused Pixi/scene or viewport-sync work on the same canonical lane
+  - Next:
+    - keep `rotaryParamCodeObjDefault` as the same normalized target and land one bounded production reduction in deeper focused Pixi/scene or viewport-sync work
+    - reuse the same instrumentation guards and cross-worktree motion probe; do not spend the next default pass on another presentation-boundary hop
+  - LOOP_TERMINAL_MARKER: none

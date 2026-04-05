@@ -26,6 +26,7 @@ const hoisted = vi.hoisted(() => ({
       handleSectionPointerMove: vi.fn(),
     },
     shouldShowGridLines: true,
+    visibleViewportRect: { x: 0, y: 0, width: 720, height: 480 },
     viewportTransform: "translate(120px, -80px) scale(1.25)",
   },
 }));
@@ -47,10 +48,16 @@ vi.mock("./settingsGraphSubstrateCanaryBackground", () => ({
 
 vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
   SettingsGraphSubstrateCanarySectionsLayer: vi.fn(
-    ({ sceneSections }: { sceneSections: Array<{ sectionId: string }> }) => (
+    ({
+      presentedSceneSections,
+      sceneSections,
+    }: {
+      presentedSceneSections?: Array<{ sectionId: string }>;
+      sceneSections: Array<{ sectionId: string }>;
+    }) => (
       <div
         data-testid="graph-substrate-canary-sections-layer"
-        data-count={String(sceneSections.length)}
+        data-count={String((presentedSceneSections ?? sceneSections).length)}
       />
     ),
   ),
@@ -59,15 +66,17 @@ vi.mock("./settingsGraphSubstrateCanarySectionsLayer", () => ({
 vi.mock("./settingsGraphSubstrateCanarySectionShellPixiLayer", () => ({
   SettingsGraphSubstrateCanarySectionShellPixiLayer: vi.fn(
     ({
+      presentedSceneSections,
       sceneSections,
       viewport,
     }: {
+      presentedSceneSections?: Array<{ sectionId: string }>;
       sceneSections: Array<{ sectionId: string }>;
       viewport: unknown;
     }) => (
       <div
         data-testid="graph-substrate-canary-section-pixi-layer"
-        data-count={String(sceneSections.length)}
+        data-count={String((presentedSceneSections ?? sceneSections).length)}
         data-viewport={JSON.stringify(viewport)}
       />
     ),
@@ -82,6 +91,12 @@ describe("SettingsGraphSubstrateCanary", () => {
     hoisted.controller.resolvedViewport = { x: 120, y: -80, zoom: 1.25 };
     hoisted.controller.sceneSections = [{ sectionId: "section-a" }];
     hoisted.controller.shouldShowGridLines = true;
+    hoisted.controller.visibleViewportRect = {
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 480,
+    };
     hoisted.controller.viewportTransform =
       "translate(120px, -80px) scale(1.25)";
 
@@ -160,5 +175,39 @@ describe("SettingsGraphSubstrateCanary", () => {
     expect(host.textContent).toContain(
       "No visible settings sections available for the graph substrate canary.",
     );
+  });
+
+  it("shares one presented section subset across the DOM and Pixi renderer layers", async () => {
+    hoisted.controller.resolvedViewport = { x: 0, y: 0, zoom: 1 };
+    hoisted.controller.sceneSections = [
+      {
+        renderedPosition: { x: 24, y: 32 },
+        sceneBoundsSize: { height: 120, width: 240 },
+        sectionId: "visible-section",
+      },
+      {
+        renderedPosition: { x: 1440, y: 32 },
+        sceneBoundsSize: { height: 120, width: 240 },
+        sectionId: "offscreen-section",
+      },
+    ];
+    hoisted.controller.viewportTransform = "translate(0px, 0px) scale(1)";
+
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    expect(
+      host
+        .querySelector("[data-testid='graph-substrate-canary-sections-layer']")
+        ?.getAttribute("data-count"),
+    ).toBe("1");
+    expect(
+      host
+        .querySelector(
+          "[data-testid='graph-substrate-canary-section-pixi-layer']",
+        )
+        ?.getAttribute("data-count"),
+    ).toBe("1");
   });
 });

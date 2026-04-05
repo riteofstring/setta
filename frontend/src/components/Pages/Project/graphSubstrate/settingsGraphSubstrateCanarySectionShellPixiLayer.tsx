@@ -13,7 +13,10 @@ import { getSectionStylePreviewColorKey } from "utils/constants";
 import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
-import { shouldPresentSettingsGraphSubstrateCanarySectionShell } from "./settingsGraphSubstrateCanarySectionPresentation";
+import {
+  areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual,
+  resolveSettingsGraphSubstrateCanaryPresentedSceneSections,
+} from "./settingsGraphSubstrateCanarySectionPresentation";
 import {
   areSettingsGraphSubstrateCanarySectionShellPixiDrawablesEqual,
   resolveSettingsGraphSubstrateCanarySectionShellPixiDrawables,
@@ -24,6 +27,7 @@ import type { GraphRect, GraphViewport } from "./viewportTransform";
 type SettingsGraphSubstrateCanarySectionShellPixiLayerProps = {
   draggingSectionId: string | null;
   hoveredSectionId: string | null;
+  presentedSceneSections?: Array<SettingsGraphSubstrateCanarySceneSection>;
   sceneSections: Array<SettingsGraphSubstrateCanarySceneSection>;
   visibleViewportRect: GraphRect | null;
   viewport: GraphViewport | null;
@@ -32,6 +36,7 @@ type SettingsGraphSubstrateCanarySectionShellPixiLayerProps = {
 export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   draggingSectionId,
   hoveredSectionId,
+  presentedSceneSections,
   sceneSections,
   visibleViewportRect,
   viewport,
@@ -50,15 +55,18 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
   const pixiSyncCountRef = useRef(0);
-  const presentedSceneSections = useMemo(() => {
-    const nextPresentedSceneSections = sceneSections.filter((section) =>
-      shouldPresentSettingsGraphSubstrateCanarySectionShell({
+  const resolvedPresentedSceneSections = useMemo(() => {
+    if (presentedSceneSections) {
+      return presentedSceneSections;
+    }
+
+    const nextPresentedSceneSections =
+      resolveSettingsGraphSubstrateCanaryPresentedSceneSections({
         draggingSectionId,
-        section,
+        sceneSections,
         viewport,
         visibleViewportRect,
-      }),
-    );
+      });
     if (
       areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
         stablePresentedSceneSectionsRef.current,
@@ -69,7 +77,13 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     }
     stablePresentedSceneSectionsRef.current = nextPresentedSceneSections;
     return nextPresentedSceneSections;
-  }, [draggingSectionId, sceneSections, viewport, visibleViewportRect]);
+  }, [
+    draggingSectionId,
+    presentedSceneSections,
+    sceneSections,
+    viewport,
+    visibleViewportRect,
+  ]);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const activeSectionIds = useActiveSectionUI(
     (state) => state.activeIds,
@@ -81,7 +95,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   );
   const previewStyleColors = useTemporaryMiscState((state) => {
     const next: Record<string, string | null | undefined> = {};
-    for (const section of presentedSceneSections) {
+    for (const section of resolvedPresentedSceneSections) {
       next[section.sectionId] = state[
         getSectionStylePreviewColorKey(section.sectionId)
       ] as string | null | undefined;
@@ -95,7 +109,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       draggingSectionId,
       hoveredSectionId,
       previewStyleColors,
-      sceneSections: presentedSceneSections,
+      sceneSections: resolvedPresentedSceneSections,
       sectionSeedNodes,
     });
   }, [
@@ -104,7 +118,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     draggingSectionId,
     hoveredSectionId,
     previewStyleColors,
-    presentedSceneSections,
+    resolvedPresentedSceneSections,
     sectionSeedNodes,
   ]);
   const stableDrawables = useMemo(() => {
@@ -306,24 +320,6 @@ function areSettingsGraphSubstrateCanarySectionShellPixiViewportsEqual(
     return false;
   }
   return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
-}
-
-function areSettingsGraphSubstrateCanaryPresentedSceneSectionsEqual(
-  left: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
-  right: ReadonlyArray<SettingsGraphSubstrateCanarySceneSection>,
-) {
-  if (left === right) {
-    return true;
-  }
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function redrawSettingsGraphSubstrateCanarySectionShellPixiCanvas({
