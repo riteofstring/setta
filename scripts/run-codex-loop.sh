@@ -3,6 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+VISIBLE_LAUNCH_HEARTBEAT_SECONDS="${RALPH_VISIBLE_LAUNCH_HEARTBEAT_SECONDS:-15}"
+RALPH_ITERATION_CLEANUP="${RALPH_ITERATION_CLEANUP:-1}"
+RALPH_KILL_ALL_CHROME_ON_ITERATION_CLEANUP="${RALPH_KILL_ALL_CHROME_ON_ITERATION_CLEANUP:-1}"
 
 usage() {
   local program_name
@@ -18,13 +21,14 @@ Defaults:
 - --new-session-every defaults to 1 so each iteration starts fresh
 
 The loop expects the agent to end each iteration with:
-  LOOP_STATUS: SUBTASK_DONE|TASK_DONE|BLOCKED
+  LOOP_STATUS: SUBTASK_DONE|TASK_DONE|BLOCKED|REPLAN_REQUIRED
   LOOP_SUMMARY: ...
   LOOP_NEXT_ACTION: ...
   LOOP_VERIFY_COMMAND: ...
   LOOP_VERIFY_RESULT: pass|fail|not_run|blocked|deferred_visual_gate
   LOOP_RECOVERY: none|restart_worktree_lifecycle|retry_next_iteration
   LOOP_COMMIT: ...
+  LOOP_TERMINAL_MARKER: none|task_done|replan_required
 
 Options:
   --config-file PATH         Loop config markdown file. Default: ./RALPH.md
@@ -33,15 +37,18 @@ Options:
                              Prompt template for resumed sessions.
                              Defaults to --prompt-file.
   --plan-file PATH           Override the plan file from the config.
-  --log-file PATH            Override the log file from the config.
+  --handoff-file PATH        Override the handoff file from the config.
+  --history-file PATH        Override the append-only history file from the config.
+  --log-file PATH            Deprecated alias for --history-file.
   --verify-command CMD       Verification guidance injected into the prompt.
   --pre-session-command CMD  Shell command to run before each fresh session
                              batch starts. Runs in --workdir.
   --stop-on-pre-session-exit-code N
                              Stop the loop cleanly if the pre-session command
                              exits with code N.
-  --iterations N|until_done  Total loop iterations, or run until TASK_DONE or
-                             a non-recoverable BLOCKED state.
+  --iterations N|until_done  Total loop iterations, or run until TASK_DONE,
+                             REPLAN_REQUIRED, or a non-recoverable BLOCKED
+                             state.
                              Default: config or until_done
   --new-session-every N      Start a fresh Codex session every N iterations.
                              Default: config or 1
@@ -55,11 +62,14 @@ Options:
                              Default: config or repo root
   --worktree-lifecycle MODE  Per-iteration lifecycle for this worktree:
                              none|kill|ai|aireset|restart-ai|restart-aireset
-  --main-lifecycle MODE      One-time read-only reference lifecycle for main:
+  --main-lifecycle MODE      Read-only reference lifecycle for main:
                              none|kill|ai|aireset|restart-ai|restart-aireset
   --terminal-mode MODE       Visible launch mode for Ralph and lifecycle:
                              auto|background|tmux|cmux|terminal
   --model NAME               Optional model override passed to `codex exec`
+  --headed-browser           Opt into headed browser instances for CDP and
+                             Playwright launched inside the loop.
+                             Default: headless
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
   --no-yolo                  Disable the default/configured yolo mode
   --stop-on-error            Exit immediately after a failed iteration
@@ -73,6 +83,7 @@ Examples:
   ./__PROGRAM_NAME__ --terminal-mode cmux --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --terminal-mode terminal --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --main-lifecycle restart-ai
+  ./__PROGRAM_NAME__ --headed-browser --main-lifecycle restart-ai
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
 }
@@ -100,6 +111,18 @@ parse_bool() {
     *)
       echo "Invalid boolean value: ${raw_value}" >&2
       exit 1
+      ;;
+  esac
+}
+
+flag_enabled() {
+  local raw_value="${1:-}"
+  case "$(printf '%s' "${raw_value}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
       ;;
   esac
 }
@@ -181,6 +204,17 @@ sanitize_single_line() {
   value="${value//$'\r'/ }"
   value="${value//$'\n'/ }"
   printf '%s\n' "${value}"
+}
+
+file_contains_exact_line() {
+  local file_path="$1"
+  local expected_line="$2"
+
+  if [[ ! -f "${file_path}" ]]; then
+    return 1
+  fi
+
+  grep -Fx -- "${expected_line}" "${file_path}" >/dev/null 2>&1
 }
 
 file_mtime_seconds() {
@@ -348,6 +382,167 @@ shell_join_args() {
   printf '%s\n' "${joined}"
 }
 
+resolve_target_relative_path() {
+  local target_root="$1"
+  local raw_path="$2"
+
+  python - "${target_root}" "${raw_path}" <<'PY'
+import os
+import sys
+
+target_root = sys.argv[1]
+raw_path = sys.argv[2]
+expanded = os.path.expandvars(os.path.expanduser(raw_path))
+if os.path.isabs(expanded):
+    print(os.path.realpath(expanded))
+else:
+    print(os.path.realpath(os.path.join(target_root, expanded)))
+PY
+}
+
+workspace_setta_status_env_args=()
+
+build_workspace_setta_status_env_args() {
+  local target_root="$1"
+  local target_root_real=""
+  local default_setta_home=""
+
+  workspace_setta_status_env_args=()
+  target_root_real="$(cd "${target_root}" && pwd -P 2>/dev/null || printf '%s' "${target_root}")"
+
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]] && [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
+    return 1
+  fi
+
+  if [[ -n "${SETTA_HOME:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_HOME=$(resolve_target_relative_path "${target_root_real}" "${SETTA_HOME}")"
+    )
+  elif [[ -n "${SETTA_FILES_LOCATION:-}" || -n "${SETTA_PROFILE:-}" ]]; then
+    if [[ -n "${HOME:-}" ]]; then
+      default_setta_home="${HOME}/.setta-development"
+      workspace_setta_status_env_args+=(
+        "SETTA_HOME=$(resolve_target_relative_path "${target_root_real}" "${default_setta_home}")"
+      )
+    fi
+  fi
+
+  if [[ -n "${SETTA_PROFILE:-}" ]]; then
+    workspace_setta_status_env_args+=("SETTA_PROFILE=${SETTA_PROFILE}")
+  fi
+
+  if [[ -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_RUNTIME_ROOT=$(resolve_target_relative_path "${target_root_real}" "${SETTA_RUNTIME_ROOT}")"
+    )
+  fi
+
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_FILES_ROOT=$(resolve_target_relative_path "${target_root_real}" "${SETTA_FILES_ROOT}")"
+    )
+    return 0
+  fi
+
+  if [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
+    workspace_setta_status_env_args+=("SETTA_FILES_LOCATION=${SETTA_FILES_LOCATION}")
+    return 0
+  fi
+
+  workspace_setta_status_env_args+=(
+    "SETTA_FILES_ROOT=${target_root_real}/setta_files_dev"
+  )
+}
+
+workspace_setta_status_command() {
+  local target_root="$1"
+  shift
+  local command_parts=()
+
+  build_workspace_setta_status_env_args "${target_root}" || return 1
+
+  if [[ ${#workspace_setta_status_env_args[@]} -gt 0 ]]; then
+    command_parts+=(env "${workspace_setta_status_env_args[@]}")
+  fi
+  command_parts+=(setta status "$@")
+  shell_join_args "${command_parts[@]}"
+}
+
+ai_script_supports_browser_mode_flag() {
+  local ai_script="$1"
+  local ai_dir=""
+  local nested_ai_script=""
+
+  [[ -f "${ai_script}" ]] || return 1
+  if grep -Fq -- "--browser-mode" "${ai_script}"; then
+    return 0
+  fi
+
+  ai_dir="$(cd "$(dirname "${ai_script}")" && pwd)"
+  nested_ai_script="${ai_dir}/scripts/ai.sh"
+  [[ -f "${nested_ai_script}" ]] || return 1
+  grep -Fq -- "--browser-mode" "${nested_ai_script}"
+}
+
+ensure_ralph_headless_chrome_wrapper() {
+  local run_dir="$1"
+  local wrapper_path="${run_dir}/ralph-headless-chrome.sh"
+
+  if [[ -x "${wrapper_path}" ]]; then
+    printf '%s\n' "${wrapper_path}"
+    return 0
+  fi
+
+  cat > "${wrapper_path}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+resolve_ralph_real_chrome_bin() {
+  local candidate="${RALPH_REAL_CHROME_BIN:-}"
+  if [[ -n "${candidate}" ]] && [[ -x "${candidate}" ]] && [[ "${candidate}" != "$0" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  candidate="${CHROME_BIN:-}"
+  if [[ -n "${candidate}" ]] && [[ -x "${candidate}" ]] && [[ "${candidate}" != "$0" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+      printf '%s\n' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      return 0
+    fi
+    if [[ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]]; then
+      printf '%s\n' "/Applications/Chromium.app/Contents/MacOS/Chromium"
+      return 0
+    fi
+  fi
+
+  candidate="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+  if [[ -n "${candidate}" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  return 1
+}
+
+REAL_CHROME_BIN="$(resolve_ralph_real_chrome_bin || true)"
+if [[ -z "${REAL_CHROME_BIN}" ]]; then
+  echo "Could not resolve a Chrome/Chromium binary for Ralph headless lifecycle launches." >&2
+  exit 1
+fi
+
+exec "${REAL_CHROME_BIN}" "$@" --headless
+EOF
+
+  chmod +x "${wrapper_path}"
+  printf '%s\n' "${wrapper_path}"
+}
+
 extract_cmux_ref() {
   local payload="$1"
   local ref_prefix="$2"
@@ -356,7 +551,7 @@ extract_cmux_ref() {
   ref="$(printf '%s\n' "${payload}" | sed -nE "s/.*(${ref_prefix}:[0-9]+).*/\\1/p" | head -n1)"
   if [[ -z "${ref}" ]]; then
     echo "Unable to parse ${ref_prefix} ref from cmux output: ${payload}" >&2
-    exit 1
+    return 1
   fi
 
   printf '%s\n' "${ref}"
@@ -370,9 +565,41 @@ discover_main_worktree_root() {
   '
 }
 
+repo_looks_like_setta() {
+  [[ -d "${ROOT_DIR}/backend/setta" ]] && [[ -f "${ROOT_DIR}/ai.sh" ]] && [[ -f "${ROOT_DIR}/kill.sh" ]]
+}
+
+resolve_repo_adapter() {
+  local requested_adapter="$1"
+
+  case "${requested_adapter}" in
+    auto|'')
+      if repo_looks_like_setta; then
+        printf 'setta\n'
+      else
+        printf 'generic\n'
+      fi
+      ;;
+    setta|generic)
+      printf '%s\n' "${requested_adapter}"
+      ;;
+    *)
+      echo "Unsupported repo_adapter value: ${requested_adapter}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+repo_uses_setta_adapter() {
+  [[ "${repo_adapter:-generic}" == "setta" ]]
+}
+
 workspace_setta_status_payload() {
   local target_root="$1"
   local status_payload=""
+  local status_command=()
+
+  repo_uses_setta_adapter || return 1
 
   if [[ -f "${target_root}/activate.sh" ]]; then
     # shellcheck disable=SC1090
@@ -383,8 +610,14 @@ workspace_setta_status_payload() {
     return 1
   fi
 
+  build_workspace_setta_status_env_args "${target_root}" || return 1
+  status_command=(setta status --list-sessions --json --workspace "${target_root}" --server-mode ide)
+  if [[ ${#workspace_setta_status_env_args[@]} -gt 0 ]]; then
+    status_command=(env "${workspace_setta_status_env_args[@]}" "${status_command[@]}")
+  fi
+
   status_payload="$(
-    setta status --connect-info --latest --json --workspace "${target_root}" 2>/dev/null || true
+    "${status_command[@]}" 2>/dev/null || true
   )"
   if [[ "${status_payload}" != __SETTA_JSON_B64__* ]]; then
     return 1
@@ -397,16 +630,39 @@ workspace_has_live_setta_session() {
   local target_root="$1"
   local status_payload=""
 
-  if status_payload="$(workspace_setta_status_payload "${target_root}")"; then
-    [[ -n "${status_payload}" ]]
-    return 0
+  repo_uses_setta_adapter || return 1
+
+  if ! status_payload="$(workspace_setta_status_payload "${target_root}")"; then
+    return 1
   fi
 
-  return 1
+  python - "${status_payload}" <<'PY'
+import base64
+import json
+import sys
+
+prefix = "__SETTA_JSON_B64__"
+raw_payload = sys.argv[1]
+if not raw_payload.startswith(prefix):
+    raise SystemExit(1)
+
+try:
+    payload = json.loads(base64.b64decode(raw_payload[len(prefix) :]).decode("utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+sessions = payload.get("sessions")
+if not isinstance(sessions, list) or not sessions:
+    raise SystemExit(1)
+PY
 }
 
 workspace_session_state() {
   local target_root="$1"
+  if ! repo_uses_setta_adapter; then
+    printf 'unknown\n'
+    return 0
+  fi
   if workspace_has_live_setta_session "${target_root}"; then
     printf 'running\n'
   else
@@ -605,7 +861,7 @@ start_command_in_tmux_window() {
 
   if ! command -v tmux >/dev/null 2>&1 || [[ -z "${TMUX:-}" ]]; then
     echo "tmux window launch requested, but tmux is unavailable in this shell." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -633,7 +889,7 @@ start_command_in_cmux_surface() {
 
   if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
     echo "cmux launch requested, but this shell is not running inside cmux." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -641,16 +897,25 @@ start_command_in_cmux_surface() {
   launch_script="$(build_logged_shell_script "${target_root}" "${session_name}" "${command_body}" "${log_path}" "${run_dir}/${target_name}-${label}-launch.sh" "${status_file}" "${close_on_exit}")"
 
   echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
-  surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
-  surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"
-  if [[ -n "${surface_ref}" ]]; then
-    cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
-    sleep 1
-    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1
-    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1
-  else
+  if ! surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"; then
     echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
-    exit 1
+    return 1
+  fi
+
+  if ! surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"; then
+    echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
+    return 1
+  fi
+
+  cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
+  sleep 1
+  if ! cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "$(shell_join_args "${launch_script}")" >/dev/null 2>&1; then
+    echo "Failed to send launch command to cmux tab ${session_name}" >&2
+    return 1
+  fi
+  if ! cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1; then
+    echo "Failed to send Enter to cmux tab ${session_name}" >&2
+    return 1
   fi
 }
 
@@ -669,7 +934,7 @@ start_command_in_terminal_window() {
 
   if [[ "${OSTYPE:-}" != darwin* ]] || ! command -v osascript >/dev/null 2>&1; then
     echo "macOS Terminal launch requested, but AppleScript automation is unavailable." >&2
-    exit 1
+    return 1
   fi
 
   session_name="$(launch_session_name "${target_name}" "${target_root}" "${label}")"
@@ -682,9 +947,63 @@ on run argv
 tell application "Terminal"
   activate
   do script (item 1 of argv)
-end tell
+  end tell
 end run
 EOF
+}
+
+wait_for_launch_heartbeat() {
+  local log_path="$1"
+  local status_file="$2"
+  local timeout_seconds="$3"
+  local start_ts=""
+  local elapsed=""
+
+  start_ts="$(date +%s)"
+  while true; do
+    if [[ -f "${log_path}" ]]; then
+      return 0
+    fi
+    if [[ -n "${status_file}" ]] && [[ -f "${status_file}" ]]; then
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+start_command_in_background() {
+  local target_name="$1"
+  local target_root="$2"
+  local label="$3"
+  local command_display="$4"
+  local command_body="$5"
+  local run_dir="$6"
+  local log_path="${run_dir}/${target_name}-${label}.log"
+  local pid_path="${run_dir}/${target_name}-${label}.pid"
+  local pid=""
+
+  echo "[bootstrap] ${target_name}: starting ${command_display} in background"
+  pid="$(
+    cd "${target_root}"
+    nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
+    echo $!
+  )"
+  printf '%s\n' "${pid}" > "${pid_path}"
+  sleep 3
+  if ! kill -0 "${pid}" 2>/dev/null; then
+    echo "Background startup failed for ${target_name} via ${command_display}" >&2
+    if [[ -f "${log_path}" ]]; then
+      echo "Last log lines from ${log_path}:" >&2
+      tail -n 40 "${log_path}" >&2 || true
+    fi
+    return 1
+  fi
 }
 
 start_command_in_visible_terminal() {
@@ -710,7 +1029,7 @@ start_command_in_visible_terminal() {
       ;;
     *)
       echo "Unsupported visible terminal mode: ${resolved_mode}" >&2
-      exit 1
+      return 1
       ;;
   esac
 }
@@ -730,6 +1049,10 @@ wait_for_workspace_session_state() {
   start_ts="$(date +%s)"
   while true; do
     current_state="$(workspace_session_state "${target_root}")"
+    if [[ "${current_state}" == "unknown" ]]; then
+      echo "[bootstrap] ${target_name}: no session-state probe configured; continuing without waiting for ${expected_state}"
+      return 0
+    fi
     if [[ "${current_state}" == "${expected_state}" ]]; then
       echo "[bootstrap] ${target_name}: session state ${expected_state}"
       return 0
@@ -838,6 +1161,82 @@ extract_bootstrap_url_from_log() {
   ' "${log_path}"
 }
 
+runtime_info_shell_assignments() {
+  local target_root="$1"
+  local runtime_log_path="${2:-}"
+  local helper_path="${ROOT_DIR}/scripts/dev-runtime-info.sh"
+  local helper_json=""
+  local restore_errexit="0"
+
+  repo_uses_setta_adapter || return 1
+  [[ -x "${helper_path}" ]] || return 1
+
+  if [[ $- == *e* ]]; then
+    restore_errexit="1"
+    set +e
+  fi
+  if [[ -n "${runtime_log_path}" ]]; then
+    helper_json="$("${helper_path}" --workspace "${target_root}" --runtime-log "${runtime_log_path}" 2>/dev/null)"
+  else
+    helper_json="$("${helper_path}" --workspace "${target_root}" 2>/dev/null)"
+  fi
+  local helper_exit_code="$?"
+  if [[ "${restore_errexit}" == "1" ]]; then
+    set -e
+  fi
+
+  if [[ "${helper_exit_code}" -ne 0 || -z "${helper_json}" ]]; then
+    return 1
+  fi
+
+  RUNTIME_INFO_JSON="${helper_json}" python - <<'PY'
+import json
+import os
+import shlex
+
+data = json.loads(os.environ["RUNTIME_INFO_JSON"])
+mapping = {
+    "frontend_url": data.get("frontendUrl") or "",
+    "backend_url": data.get("backendUrl") or "",
+    "bootstrap_url": data.get("bootstrapUrl") or "",
+    "debug_port": str(data.get("debugPort") or ""),
+    "runtime_log_path": data.get("runtimeLogPath") or "",
+}
+for key, value in mapping.items():
+    print(f"{key}={shlex.quote(value)}")
+PY
+}
+
+connect_info_command_for_root() {
+  local target_root="$1"
+  local fallback_command=""
+
+  if ! repo_uses_setta_adapter; then
+    return 1
+  fi
+
+  fallback_command="setta status --connect-info --latest --json --workspace ${target_root}"
+  workspace_setta_status_command "${target_root}" --connect-info --latest --json --workspace "${target_root}" \
+    || printf '%s\n' "${fallback_command}"
+}
+
+runtime_info_command_for_root() {
+  local target_root="$1"
+  local runtime_log_path="${2:-}"
+  local helper_path="${ROOT_DIR}/scripts/dev-runtime-info.sh"
+
+  if ! repo_uses_setta_adapter; then
+    return 1
+  fi
+  [[ -x "${helper_path}" ]] || return 1
+
+  if [[ -n "${runtime_log_path}" ]]; then
+    printf './scripts/dev-runtime-info.sh --workspace %s --runtime-log %s\n' "${target_root}" "${runtime_log_path}"
+  else
+    printf './scripts/dev-runtime-info.sh --workspace %s\n' "${target_root}"
+  fi
+}
+
 lifecycle_log_label() {
   local lifecycle_mode="$1"
 
@@ -854,6 +1253,140 @@ lifecycle_log_label() {
   esac
 }
 
+url_responds() {
+  local url="$1"
+
+  if [[ -z "${url}" ]]; then
+    return 1
+  fi
+
+  curl -fsS -o /dev/null --max-time 5 "${url}"
+}
+
+wait_for_frontend_url_serving() {
+  local target_name="$1"
+  local log_path="$2"
+  local timeout_seconds="$3"
+  local start_ts=""
+  local elapsed=""
+  local frontend_url=""
+
+  start_ts="$(date +%s)"
+  while true; do
+    frontend_url="$(extract_frontend_url_from_log "${log_path}" || true)"
+    if [[ -n "${frontend_url}" ]] && url_responds "${frontend_url}"; then
+      echo "[bootstrap] ${target_name}: frontend serving at ${frontend_url}"
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      echo "Timed out waiting for ${target_name} frontend to serve." >&2
+      if [[ -n "${frontend_url}" ]]; then
+        echo "Last observed ${target_name} frontend url: ${frontend_url}" >&2
+      fi
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 60 "${log_path}" >&2 || true
+      fi
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
+refresh_main_runtime_values() {
+  local runtime_dir="${1:-${output_dir}}"
+  local lifecycle_mode="${2:-${main_effective_lifecycle:-${main_lifecycle:-}}}"
+  local main_log_label=""
+
+  main_frontend_url=""
+  main_backend_url=""
+  main_bootstrap_url=""
+  main_debug_port=""
+  main_runtime_log_path=""
+
+  if [[ -z "${main_worktree_root:-}" ]]; then
+    return 0
+  fi
+
+  if main_log_label="$(lifecycle_log_label "${lifecycle_mode}")"; then
+    main_runtime_log_path="${runtime_dir}/main-${main_log_label}.log"
+    main_frontend_url="$(extract_frontend_url_from_log "${main_runtime_log_path}" || true)"
+    main_backend_url="$(extract_backend_url_from_log "${main_runtime_log_path}" || true)"
+    main_bootstrap_url="$(extract_bootstrap_url_from_log "${main_runtime_log_path}" || true)"
+    main_debug_port="$(extract_debug_port_from_log "${main_runtime_log_path}" || true)"
+  fi
+
+  if runtime_info_assignments="$(runtime_info_shell_assignments "${main_worktree_root}" "${main_runtime_log_path}" 2>/dev/null || true)"; then
+    if [[ -n "${runtime_info_assignments}" ]]; then
+      eval "${runtime_info_assignments}"
+      if [[ -n "${frontend_url:-}" ]]; then
+        main_frontend_url="${frontend_url}"
+      fi
+      if [[ -n "${backend_url:-}" ]]; then
+        main_backend_url="${backend_url}"
+      fi
+      if [[ -n "${bootstrap_url:-}" ]]; then
+        main_bootstrap_url="${bootstrap_url}"
+      fi
+      if [[ -n "${debug_port:-}" ]]; then
+        main_debug_port="${debug_port}"
+      fi
+      if [[ -n "${runtime_log_path:-}" ]]; then
+        main_runtime_log_path="${runtime_log_path}"
+      fi
+    fi
+  fi
+}
+
+bootstrap_main_reference() {
+  local target_root="$1"
+  local lifecycle_mode="$2"
+  local run_dir="$3"
+  local resolved_terminal_mode="$4"
+  local iteration_label="$5"
+  local frontend_health_timeout="${RALPH_MAIN_FRONTEND_HEALTH_TIMEOUT_SECONDS:-30}"
+  local attempted_lifecycle="${lifecycle_mode}"
+  local attempted_reset_retry="0"
+  local main_lifecycle_exit_code="0"
+  local main_log_label=""
+  local main_log_path=""
+
+  while true; do
+    echo "[${iteration_label}] Bootstrapping main (${attempted_lifecycle})"
+    set +e
+    run_lifecycle_mode "main" "${target_root}" "${attempted_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "0"
+    main_lifecycle_exit_code="$?"
+    set -e
+
+    main_effective_lifecycle="${attempted_lifecycle}"
+    refresh_main_runtime_values "${run_dir}" "${main_effective_lifecycle}"
+
+    if [[ "${main_lifecycle_exit_code}" -eq 0 ]] \
+      && main_log_label="$(lifecycle_log_label "${attempted_lifecycle}")"; then
+      main_log_path="${run_dir}/main-${main_log_label}.log"
+      if ! wait_for_frontend_url_serving "main" "${main_log_path}" "${frontend_health_timeout}"; then
+        main_lifecycle_exit_code="1"
+      fi
+    fi
+
+    if [[ "${main_lifecycle_exit_code}" -eq 0 ]]; then
+      return 0
+    fi
+
+    if [[ "${attempted_reset_retry}" == "0" ]] && [[ "${attempted_lifecycle}" =~ ^(ai|restart-ai)$ ]]; then
+      echo "[${iteration_label}] Main bootstrap via ${attempted_lifecycle} did not yield a healthy frontend; retrying once with restart-aireset." >&2
+      attempted_lifecycle="restart-aireset"
+      attempted_reset_retry="1"
+      continue
+    fi
+
+    return "${main_lifecycle_exit_code}"
+  done
+}
+
 run_lifecycle_mode() {
   local target_name="$1"
   local target_root="$2"
@@ -861,12 +1394,17 @@ run_lifecycle_mode() {
   local run_dir="$4"
   local resolved_terminal_mode="$5"
   local wait_for_running="${6:-1}"
+  local quiet_browser_env="${ralph_browser_env_prefix}"
+  local lifecycle_browser_env="${quiet_browser_env}"
   local label=""
   local launcher_path=""
   local command_display=""
   local command_body=""
+  local launcher_args=()
+  local browser_args_string=""
   local should_restart="0"
   local session_state="not_running"
+  local log_path=""
 
   if [[ -z "${lifecycle_mode}" ]] || [[ "${lifecycle_mode}" == "none" ]]; then
     return 0
@@ -880,6 +1418,21 @@ run_lifecycle_mode() {
   local kill_script="${target_root}/kill.sh"
   local ai_script="${target_root}/ai.sh"
   local aireset_script="${target_root}/aireset.sh"
+  local headless_wrapper_path=""
+
+  if ai_script_supports_browser_mode_flag "${ai_script}"; then
+    launcher_args=(--browser-mode "${ralph_browser_mode}")
+  elif [[ "${ralph_browser_mode}" == "headless" ]]; then
+    headless_wrapper_path="$(ensure_ralph_headless_chrome_wrapper "${run_dir}")"
+    if [[ -n "${CHROME_BIN:-}" ]]; then
+      lifecycle_browser_env+=" RALPH_REAL_CHROME_BIN=$(printf '%q' "${CHROME_BIN}")"
+    fi
+    lifecycle_browser_env+=" CHROME_BIN=$(printf '%q' "${headless_wrapper_path}")"
+  fi
+
+  if [[ ${#launcher_args[@]} -gt 0 ]]; then
+    browser_args_string="$(shell_join_args "${launcher_args[@]}")"
+  fi
 
   case "${lifecycle_mode}" in
     kill)
@@ -895,26 +1448,46 @@ run_lifecycle_mode() {
       label="ai"
       launcher_path="${ai_script}"
       command_display="./ai.sh"
-      command_body="\"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       ;;
     aireset)
       label="aireset"
       launcher_path="${aireset_script}"
       command_display="./aireset.sh (fallback ./ai.sh)"
-      command_body="\"${aireset_script}\" || \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${aireset_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
+      command_body+=" || ${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       ;;
     restart-ai)
       label="ai"
       launcher_path="${ai_script}"
       command_display="./ai.sh"
-      command_body="\"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       should_restart="1"
       ;;
     restart-aireset)
       label="aireset"
       launcher_path="${aireset_script}"
       command_display="./aireset.sh (fallback ./ai.sh)"
-      command_body="\"${aireset_script}\" || \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${aireset_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
+      command_body+=" || ${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       should_restart="1"
       ;;
     *)
@@ -938,7 +1511,7 @@ run_lifecycle_mode() {
       ) 2>&1 | tee "${kill_log_path}"
       wait_for_workspace_session_state "${target_name}" "${target_root}" "not_running" "60" "${run_dir}" "kill"
     elif [[ "${session_state}" == "running" ]]; then
-      echo "[bootstrap] ${target_name}: skipping ${label}; a Setta session already exists for ${target_root}"
+      echo "[bootstrap] ${target_name}: skipping ${label}; an existing live session already exists for ${target_root}"
       return 0
     fi
 
@@ -947,7 +1520,7 @@ run_lifecycle_mode() {
       exit 1
     fi
 
-    local log_path="${run_dir}/${target_name}-${label}.log"
+    log_path="${run_dir}/${target_name}-${label}.log"
     if [[ "${resolved_terminal_mode}" == "background" ]]; then
       start_command_in_background "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
     else
@@ -980,6 +1553,36 @@ render_prompt() {
   local prompt_template="$1"
   local destination="$2"
   local mode_label="$3"
+  local worktree_connect_info_command=""
+  local main_connect_info_command=""
+  local worktree_runtime_info_command=""
+  local main_runtime_info_command=""
+  local has_runtime_context="0"
+
+  worktree_connect_info_command="$(connect_info_command_for_root "${workdir}" 2>/dev/null || true)"
+  worktree_runtime_info_command="$(runtime_info_command_for_root "${workdir}" "${worktree_runtime_log_path:-}" 2>/dev/null || true)"
+
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    main_connect_info_command="$(connect_info_command_for_root "${main_worktree_root}" 2>/dev/null || true)"
+    main_runtime_info_command="$(runtime_info_command_for_root "${main_worktree_root}" "${main_runtime_log_path:-}" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "${worktree_frontend_url:-}" ]] \
+    || [[ -n "${worktree_backend_url:-}" ]] \
+    || [[ -n "${worktree_bootstrap_url:-}" ]] \
+    || [[ -n "${worktree_debug_port:-}" ]] \
+    || [[ -n "${worktree_runtime_log_path:-}" ]] \
+    || [[ -n "${worktree_connect_info_command}" ]] \
+    || [[ -n "${worktree_runtime_info_command}" ]] \
+    || [[ -n "${main_frontend_url:-}" ]] \
+    || [[ -n "${main_backend_url:-}" ]] \
+    || [[ -n "${main_bootstrap_url:-}" ]] \
+    || [[ -n "${main_debug_port:-}" ]] \
+    || [[ -n "${main_runtime_log_path:-}" ]] \
+    || [[ -n "${main_connect_info_command}" ]] \
+    || [[ -n "${main_runtime_info_command}" ]]; then
+    has_runtime_context="1"
+  fi
 
   cat > "${destination}" <<EOF
 You are running inside an automated Codex loop iteration for this repository.
@@ -987,7 +1590,10 @@ You are running inside an automated Codex loop iteration for this repository.
 Read these files first:
 - ${config_file}
 - ${plan_file}
-- ${log_file}
+- ${handoff_file}
+
+Only open the append-only history file if the handoff points you there for older detail:
+- ${history_file}
 
 Loop context:
 - mode: ${mode_label}
@@ -995,17 +1601,78 @@ Loop context:
 - working directory: ${workdir}
 - verification guidance: ${verify_command}
 - follow the repository's AGENTS.md instructions as the highest-priority repo policy
-- use the plan and log files as the durable handoff instead of relying on prior chat context
+- use the plan and handoff files as the durable handoff instead of relying on prior chat context
+- refresh the handoff file every iteration and append the history file every iteration
 - current worktree lifecycle mode: ${worktree_lifecycle:-none}
+- browser automation mode for this loop: ${ralph_browser_mode}
+- browser env prefix for loop-driven restarts/tests: \`${ralph_browser_env_prefix}\`
+- only use headed browser sessions when browser automation mode is headed
+EOF
+
+  if [[ "${has_runtime_context}" == "1" ]]; then
+    cat >> "${destination}" <<EOF
 - current worktree frontend url: ${worktree_frontend_url:-unknown}
 - current worktree backend url: ${worktree_backend_url:-unknown}
 - current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
 - current worktree debug port: ${worktree_debug_port:-unknown}
 - current worktree runtime log: ${worktree_runtime_log_path:-unknown}
+EOF
+  fi
+
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    cat >> "${destination}" <<EOF
+- current main reference worktree: ${main_worktree_root}
+EOF
+    if [[ "${has_runtime_context}" == "1" ]]; then
+      cat >> "${destination}" <<EOF
+- current main reference frontend url: ${main_frontend_url:-unknown}
+- current main reference backend url: ${main_backend_url:-unknown}
+- current main reference bootstrap url: ${main_bootstrap_url:-unknown}
+- current main reference debug port: ${main_debug_port:-unknown}
+- current main reference runtime log: ${main_runtime_log_path:-unknown}
+EOF
+    fi
+  fi
+
+  if [[ -n "${worktree_runtime_info_command}" ]] || [[ -n "${worktree_connect_info_command}" ]] \
+    || [[ -n "${main_runtime_info_command}" ]] || [[ -n "${main_connect_info_command}" ]]; then
+    cat >> "${destination}" <<EOF
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
+EOF
+    if [[ -n "${worktree_runtime_info_command}" ]] || [[ -n "${worktree_connect_info_command}" ]]; then
+      cat >> "${destination}" <<EOF
 - if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
-  - connect info: `setta status --connect-info --latest --json --workspace ${workdir}`
-  - debug port: `pnpm -C frontend cdp-port`
+EOF
+      if [[ -n "${worktree_runtime_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
+  - canonical runtime info: \`${worktree_runtime_info_command}\`
+EOF
+      fi
+      if [[ -n "${worktree_connect_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
+  - connect info fallback: \`${worktree_connect_info_command}\`
+EOF
+      fi
+    fi
+    if [[ -n "${main_worktree_root:-}" ]] \
+      && ([[ -n "${main_runtime_info_command}" ]] || [[ -n "${main_connect_info_command}" ]]); then
+      cat >> "${destination}" <<EOF
+- if you need to refresh the current main reference runtime values before a side-by-side check:
+EOF
+      if [[ -n "${main_runtime_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
+  - canonical runtime info: \`${main_runtime_info_command}\`
+EOF
+      fi
+      if [[ -n "${main_connect_info_command}" ]]; then
+        cat >> "${destination}" <<EOF
+  - connect info fallback: \`${main_connect_info_command}\`
+EOF
+      fi
+    fi
+  fi
+
+  cat >> "${destination}" <<EOF
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -1014,13 +1681,14 @@ EOF
   cat >> "${destination}" <<'EOF'
 
 End your response with these exact lines:
-LOOP_STATUS: SUBTASK_DONE|TASK_DONE|BLOCKED
+LOOP_STATUS: SUBTASK_DONE|TASK_DONE|BLOCKED|REPLAN_REQUIRED
 LOOP_SUMMARY: <one sentence>
 LOOP_NEXT_ACTION: <one sentence>
 LOOP_VERIFY_COMMAND: <command or none>
 LOOP_VERIFY_RESULT: <pass|fail|not_run|blocked|deferred_visual_gate>
 LOOP_RECOVERY: <none|restart_worktree_lifecycle|retry_next_iteration>
 LOOP_COMMIT: <full sha|none>
+LOOP_TERMINAL_MARKER: <none|task_done|replan_required>
 EOF
 }
 
@@ -1069,6 +1737,16 @@ extract_loop_field() {
   sed -n "s/^${field_name}: //p" "${file_path}" | tail -n1
 }
 
+file_cksum_value() {
+  local file_path="$1"
+  cksum "${file_path}" | awk '{print $1 ":" $2}'
+}
+
+file_size_bytes() {
+  local file_path="$1"
+  wc -c < "${file_path}" | tr -d '[:space:]'
+}
+
 write_status_file() {
   local status_path="$1"
   shift
@@ -1087,7 +1765,8 @@ build_self_exec_args() {
     --prompt-file "${prompt_file}"
     --followup-prompt-file "${followup_prompt_file}"
     --plan-file "${plan_file}"
-    --log-file "${log_file}"
+    --handoff-file "${handoff_file}"
+    --history-file "${history_file}"
     --verify-command "${verify_command}"
     --iterations "${iterations}"
     --new-session-every "${new_session_every}"
@@ -1109,6 +1788,10 @@ build_self_exec_args() {
 
   if [[ -n "${model}" ]]; then
     SELF_EXEC_ARGS+=(--model "${model}")
+  fi
+
+  if [[ "${headed_browser}" == "1" ]]; then
+    SELF_EXEC_ARGS+=(--headed-browser)
   fi
 
   if [[ "${yolo_mode}" == "1" ]]; then
@@ -1133,10 +1816,12 @@ launch_self_in_visible_terminal() {
   local program_name=""
   local command_body=""
   local status_file=""
+  local log_path=""
 
   program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
   build_self_exec_args
   status_file="${run_dir}/codex-loop.exit"
+  log_path="${run_dir}/codex-loop.log"
   command_body="$(
     shell_join_args \
       env \
@@ -1146,7 +1831,15 @@ launch_self_in_visible_terminal() {
       "${SELF_EXEC_ARGS[@]}"
   )"
 
-  start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"
+  if ! start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}" "${status_file}"; then
+    echo "[bootstrap] codex: ${resolved_mode} launch failed; continuing in the current shell" >&2
+    return 2
+  fi
+
+  if ! wait_for_launch_heartbeat "${log_path}" "${status_file}" "${VISIBLE_LAUNCH_HEARTBEAT_SECONDS}"; then
+    echo "[bootstrap] codex: no visible-launch heartbeat after ${VISIBLE_LAUNCH_HEARTBEAT_SECONDS}s; continuing in the current shell" >&2
+    return 2
+  fi
 }
 
 follow_visible_launch_output() {
@@ -1182,11 +1875,70 @@ follow_visible_launch_output() {
   return "${exit_code}"
 }
 
+cleanup_iteration_target() {
+  local target_root="$1"
+  local target_name="$2"
+  local kill_all_chrome="${3:-0}"
+  local kill_script=""
+
+  if [[ -z "${target_root}" ]] || [[ ! -d "${target_root}" ]]; then
+    return 1
+  fi
+
+  kill_script="${target_root}/kill.sh"
+  if [[ ! -x "${kill_script}" ]]; then
+    return 1
+  fi
+
+  if [[ "${kill_all_chrome}" == "1" ]]; then
+    echo "[cleanup] ${target_name}: stopping runtime and all Chrome instances"
+    (
+      cd "${target_root}"
+      SETTA_KILL_ALL_CHROME=1 "${kill_script}"
+    ) >/dev/null 2>&1 || true
+  else
+    echo "[cleanup] ${target_name}: stopping runtime"
+    (
+      cd "${target_root}"
+      "${kill_script}"
+    ) >/dev/null 2>&1 || true
+  fi
+
+  return 0
+}
+
+cleanup_completed_iteration() {
+  local chrome_cleanup_pending="0"
+  local main_root_real=""
+  local worktree_root_real=""
+
+  if ! flag_enabled "${RALPH_ITERATION_CLEANUP}"; then
+    return 0
+  fi
+
+  if flag_enabled "${RALPH_KILL_ALL_CHROME_ON_ITERATION_CLEANUP}"; then
+    chrome_cleanup_pending="1"
+  fi
+
+  worktree_root_real="$(cd "${workdir}" && pwd -P 2>/dev/null || printf '%s' "${workdir}")"
+  if cleanup_iteration_target "${workdir}" "worktree" "${chrome_cleanup_pending}"; then
+    chrome_cleanup_pending="0"
+  fi
+
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    main_root_real="$(cd "${main_worktree_root}" && pwd -P 2>/dev/null || printf '%s' "${main_worktree_root}")"
+    if [[ "${main_root_real}" != "${worktree_root_real}" ]]; then
+      cleanup_iteration_target "${main_worktree_root}" "main" "${chrome_cleanup_pending}" || true
+    fi
+  fi
+}
+
 config_file="${ROOT_DIR}/RALPH.md"
 prompt_file=""
 followup_prompt_file=""
 plan_file=""
-log_file=""
+handoff_file=""
+history_file=""
 verify_command=""
 pre_session_command=""
 iterations=""
@@ -1197,6 +1949,8 @@ worktree_lifecycle=""
 main_lifecycle=""
 terminal_mode=""
 model=""
+repo_adapter=""
+headed_browser="0"
 yolo_mode=""
 stop_on_error="0"
 print_prompt_only="0"
@@ -1226,9 +1980,19 @@ while [[ $# -gt 0 ]]; do
       plan_file="$2"
       shift 2
       ;;
+    --handoff-file)
+      require_value "$1" "${2:-}"
+      handoff_file="$2"
+      shift 2
+      ;;
+    --history-file)
+      require_value "$1" "${2:-}"
+      history_file="$2"
+      shift 2
+      ;;
     --log-file)
       require_value "$1" "${2:-}"
-      log_file="$2"
+      history_file="$2"
       shift 2
       ;;
     --verify-command)
@@ -1291,6 +2055,10 @@ while [[ $# -gt 0 ]]; do
       model="$2"
       shift 2
       ;;
+    --headed-browser)
+      headed_browser="1"
+      shift
+      ;;
     --yolo)
       yolo_mode="1"
       shift
@@ -1335,7 +2103,9 @@ config_dir="$(cd "$(dirname "${config_file}")" && pwd)"
 config_prompt_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "prompt_file")")")"
 config_followup_prompt_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "followup_prompt_file")")")"
 config_plan_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "plan_path")")")"
-config_log_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "log_path")")")"
+config_handoff_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "handoff_path")")")"
+config_history_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "history_path")")")"
+config_legacy_log_file="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "log_path")")")"
 config_verify_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "verify_command")")")"
 config_pre_session_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "pre_session_command")")")"
 config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "iterations")")")"
@@ -1346,6 +2116,7 @@ config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_
 config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
 config_terminal_mode="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "terminal_mode")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
+config_repo_adapter="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "repo_adapter")")")"
 config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
 config_stop_on_pre_session_exit_code="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "stop_on_pre_session_exit_code")")")"
 
@@ -1369,8 +2140,16 @@ if [[ -z "${plan_file}" ]]; then
   plan_file="${config_plan_file}"
 fi
 
-if [[ -z "${log_file}" ]]; then
-  log_file="${config_log_file}"
+if [[ -z "${handoff_file}" ]]; then
+  handoff_file="${config_handoff_file}"
+fi
+
+if [[ -z "${history_file}" ]]; then
+  if [[ -n "${config_history_file}" ]]; then
+    history_file="${config_history_file}"
+  else
+    history_file="${config_legacy_log_file}"
+  fi
 fi
 
 if [[ -z "${verify_command}" ]]; then
@@ -1431,6 +2210,14 @@ if [[ -z "${model}" ]]; then
   model="${config_model}"
 fi
 
+if [[ -z "${repo_adapter}" ]]; then
+  if [[ -n "${config_repo_adapter}" ]]; then
+    repo_adapter="${config_repo_adapter}"
+  else
+    repo_adapter="auto"
+  fi
+fi
+
 if [[ -z "${yolo_mode}" ]]; then
   yolo_mode="$(parse_bool "${config_yolo}")"
 fi
@@ -1442,7 +2229,8 @@ fi
 prompt_file="$(resolve_path "${config_dir}" "${prompt_file}")"
 followup_prompt_file="$(resolve_path "${config_dir}" "${followup_prompt_file}")"
 plan_file="$(resolve_path "${config_dir}" "${plan_file}")"
-log_file="$(resolve_path "${config_dir}" "${log_file}")"
+handoff_file="$(resolve_path "${config_dir}" "${handoff_file}")"
+history_file="$(resolve_path "${config_dir}" "${history_file}")"
 workdir="$(resolve_path "${config_dir}" "${workdir}")"
 if [[ -n "${output_dir}" ]]; then
   output_dir="$(resolve_path "${ROOT_DIR}" "${output_dir}")"
@@ -1453,8 +2241,13 @@ if [[ -z "${plan_file}" ]]; then
   exit 1
 fi
 
-if [[ -z "${log_file}" ]]; then
-  echo "No log file configured. Set log_path in ${config_file} or pass --log-file." >&2
+if [[ -z "${handoff_file}" ]]; then
+  echo "No handoff file configured. Set handoff_path in ${config_file} or pass --handoff-file." >&2
+  exit 1
+fi
+
+if [[ -z "${history_file}" ]]; then
+  echo "No history file configured. Set history_path in ${config_file} or pass --history-file." >&2
   exit 1
 fi
 
@@ -1487,8 +2280,13 @@ if [[ ! -f "${plan_file}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${log_file}" ]]; then
-  echo "Log file not found: ${log_file}" >&2
+if [[ ! -f "${handoff_file}" ]]; then
+  echo "Handoff file not found: ${handoff_file}" >&2
+  exit 1
+fi
+
+if [[ ! -f "${history_file}" ]]; then
+  echo "History file not found: ${history_file}" >&2
   exit 1
 fi
 
@@ -1523,6 +2321,23 @@ if [[ ! -d "${workdir}" ]]; then
   echo "Working directory not found: ${workdir}" >&2
   exit 1
 fi
+
+if [[ "${headed_browser}" == "1" ]]; then
+  ralph_browser_mode="headed"
+  ralph_devtools_headless="0"
+  ralph_playwright_headless="0"
+else
+  ralph_browser_mode="headless"
+  ralph_devtools_headless="1"
+  ralph_playwright_headless="1"
+fi
+
+ralph_browser_env_prefix="BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=${ralph_devtools_headless} PLAYWRIGHT_HEADLESS=${ralph_playwright_headless}"
+
+export BOOTSTRAP_ENABLED="0"
+export DEVTOOLS_OPEN_WITH_CHROME="0"
+export DEVTOOLS_HEADLESS="${ralph_devtools_headless}"
+export PLAYWRIGHT_HEADLESS="${ralph_playwright_headless}"
 
 if [[ -n "${worktree_lifecycle}" ]]; then
   case "${worktree_lifecycle}" in
@@ -1562,6 +2377,15 @@ worktree_backend_url=""
 worktree_bootstrap_url=""
 worktree_debug_port=""
 worktree_runtime_log_path=""
+repo_adapter="$(resolve_repo_adapter "${repo_adapter}")"
+main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
+main_effective_lifecycle=""
+main_frontend_url=""
+main_backend_url=""
+main_bootstrap_url=""
+main_debug_port=""
+main_runtime_log_path=""
+refresh_main_runtime_values
 
 start_prompt_file="${output_dir}/rendered-start-prompt.txt"
 followup_rendered_prompt_file="${output_dir}/rendered-followup-prompt.txt"
@@ -1581,13 +2405,15 @@ echo "Codex inactivity timeout seconds: ${codex_inactivity_timeout_seconds}"
 echo "Workdir: ${workdir}"
 echo "Config file: ${config_file}"
 echo "Plan file: ${plan_file}"
-echo "Log file: ${log_file}"
+echo "Handoff file: ${handoff_file}"
+echo "History file: ${history_file}"
 echo "Yolo mode: ${yolo_mode}"
+echo "Repo adapter: ${repo_adapter}"
 echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
 echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
+echo "Browser automation mode: ${ralph_browser_mode}"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
-main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
 if [[ -n "${main_worktree_root}" ]]; then
   echo "Main worktree root: ${main_worktree_root}"
   if [[ "$(cd "${workdir}" && pwd -P)" == "$(cd "${main_worktree_root}" && pwd -P)" ]]; then
@@ -1602,24 +2428,27 @@ if [[ "${print_prompt_only}" == "1" ]]; then
 fi
 
 if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
+  set +e
   launch_self_in_visible_terminal "${resolved_terminal_mode}" "${output_dir}"
-  echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
-  follow_visible_launch_output "${output_dir}"
-  exit $?
+  launch_self_exit_code="$?"
+  set -e
+
+  if [[ "${launch_self_exit_code}" -eq 0 ]]; then
+    echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
+    follow_visible_launch_output "${output_dir}"
+    exit $?
+  fi
+
+  if [[ "${launch_self_exit_code}" -ne 2 ]]; then
+    exit "${launch_self_exit_code}"
+  fi
+
+  echo "[bootstrap] codex: visible launch fallback engaged; continuing in the current shell"
 fi
 
 echo "Worktree session: $(workspace_session_state "${workdir}")"
 if [[ -n "${main_worktree_root}" ]]; then
   echo "Main session: $(workspace_session_state "${main_worktree_root}")"
-fi
-
-if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
-  if [[ -z "${main_worktree_root}" ]]; then
-    echo "Cannot run main lifecycle; main worktree root could not be discovered." >&2
-    exit 1
-  fi
-  echo "[reference] Bootstrapping main (${main_lifecycle})"
-  run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}" "0"
 fi
 
 for ((iteration = 1; ; iteration += 1)); do
@@ -1637,7 +2466,8 @@ for ((iteration = 1; ; iteration += 1)); do
   prompt_for_iteration="${start_prompt_file}"
   mode="start"
   session_id=""
-  before_log_cksum="$(cksum "${log_file}" | awk '{print $1 ":" $2}')"
+  before_handoff_cksum="$(file_cksum_value "${handoff_file}")"
+  before_history_size="$(file_size_bytes "${history_file}")"
   before_head="$(git -C "${workdir}" rev-parse HEAD 2>/dev/null || true)"
 
   if [[ "${batch_iteration_index}" -gt 1 ]] && [[ -s "${session_id_file}" ]]; then
@@ -1647,9 +2477,49 @@ for ((iteration = 1; ; iteration += 1)); do
   fi
 
   mkdir -p "${run_dir}"
+  if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
+    if [[ -z "${main_worktree_root}" ]]; then
+      echo "Cannot run main lifecycle; main worktree root could not be discovered." >&2
+      exit 1
+    fi
+    main_effective_lifecycle="${main_lifecycle}"
+    set +e
+    bootstrap_main_reference "${main_worktree_root}" "${main_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "${iteration}/${iterations}"
+    main_lifecycle_exit_code="$?"
+    set -e
+    if [[ "${main_lifecycle_exit_code}" -ne 0 ]]; then
+      write_status_file "${status_file}" \
+        "status=bootstrap-failure" \
+        "mode=bootstrap" \
+        "exit_code=${main_lifecycle_exit_code}" \
+        "lifecycle_mode=${main_effective_lifecycle:-${main_lifecycle}}"
+      echo "[$iteration/$iterations] Main bootstrap failed with exit code ${main_lifecycle_exit_code}; retrying next iteration." >&2
+      if [[ "${stop_on_error}" == "1" ]]; then
+        exit "${main_lifecycle_exit_code}"
+      fi
+      sleep 5
+      continue
+    fi
+  fi
   if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
     echo "[$iteration/$iterations] Bootstrapping worktree (${worktree_lifecycle})"
+    set +e
     run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${run_dir}" "${resolved_terminal_mode}"
+    lifecycle_exit_code="$?"
+    set -e
+    if [[ "${lifecycle_exit_code}" -ne 0 ]]; then
+      write_status_file "${status_file}" \
+        "status=bootstrap-failure" \
+        "mode=bootstrap" \
+        "exit_code=${lifecycle_exit_code}" \
+        "lifecycle_mode=${worktree_lifecycle}"
+      echo "[$iteration/$iterations] Worktree bootstrap failed with exit code ${lifecycle_exit_code}; retrying next iteration." >&2
+      if [[ "${stop_on_error}" == "1" ]]; then
+        exit "${lifecycle_exit_code}"
+      fi
+      sleep 5
+      continue
+    fi
   fi
 
   worktree_frontend_url=""
@@ -1664,6 +2534,27 @@ for ((iteration = 1; ; iteration += 1)); do
     worktree_bootstrap_url="$(extract_bootstrap_url_from_log "${worktree_runtime_log_path}" || true)"
     worktree_debug_port="$(extract_debug_port_from_log "${worktree_runtime_log_path}" || true)"
   fi
+  if runtime_info_assignments="$(runtime_info_shell_assignments "${workdir}" "${worktree_runtime_log_path}" 2>/dev/null || true)"; then
+    if [[ -n "${runtime_info_assignments}" ]]; then
+      eval "${runtime_info_assignments}"
+      if [[ -n "${frontend_url:-}" ]]; then
+        worktree_frontend_url="${frontend_url}"
+      fi
+      if [[ -n "${backend_url:-}" ]]; then
+        worktree_backend_url="${backend_url}"
+      fi
+      if [[ -n "${bootstrap_url:-}" ]]; then
+        worktree_bootstrap_url="${bootstrap_url}"
+      fi
+      if [[ -n "${debug_port:-}" ]]; then
+        worktree_debug_port="${debug_port}"
+      fi
+      if [[ -n "${runtime_log_path:-}" ]]; then
+        worktree_runtime_log_path="${runtime_log_path}"
+      fi
+    fi
+  fi
+  refresh_main_runtime_values "${run_dir}"
 
   if [[ "${mode}" == "resume" ]]; then
     prompt_for_iteration="${run_dir}/rendered-resume-prompt.txt"
@@ -1783,6 +2674,7 @@ for ((iteration = 1; ; iteration += 1)); do
   loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_VERIFY_RESULT")")"
   loop_recovery="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_RECOVERY")")"
   loop_commit="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_COMMIT")")"
+  loop_terminal_marker="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_TERMINAL_MARKER")")"
 
   if [[ -z "${loop_status}" ]] && [[ -f "${transcript_file}" ]]; then
     loop_status="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_STATUS")")"
@@ -1792,13 +2684,17 @@ for ((iteration = 1; ; iteration += 1)); do
     loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_VERIFY_RESULT")")"
     loop_recovery="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_RECOVERY")")"
     loop_commit="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_COMMIT")")"
+    loop_terminal_marker="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_TERMINAL_MARKER")")"
   fi
 
   if [[ -z "${loop_recovery}" ]]; then
     loop_recovery="none"
   fi
+  if [[ -z "${loop_terminal_marker}" ]]; then
+    loop_terminal_marker="none"
+  fi
 
-  if [[ "${loop_status}" != "SUBTASK_DONE" ]] && [[ "${loop_status}" != "TASK_DONE" ]] && [[ "${loop_status}" != "BLOCKED" ]]; then
+  if [[ "${loop_status}" != "SUBTASK_DONE" ]] && [[ "${loop_status}" != "TASK_DONE" ]] && [[ "${loop_status}" != "BLOCKED" ]] && [[ "${loop_status}" != "REPLAN_REQUIRED" ]]; then
     write_status_file "${status_file}" \
       "status=invalid-output" \
       "mode=${mode}" \
@@ -1842,16 +2738,110 @@ for ((iteration = 1; ; iteration += 1)); do
     continue
   fi
 
-  after_log_cksum="$(cksum "${log_file}" | awk '{print $1 ":" $2}')"
+  if [[ "${loop_terminal_marker}" != "none" ]] \
+    && [[ "${loop_terminal_marker}" != "task_done" ]] \
+    && [[ "${loop_terminal_marker}" != "replan_required" ]]; then
+    write_status_file "${status_file}" \
+      "status=invalid-output" \
+      "mode=${mode}" \
+      "loop_status=${loop_status}" \
+      "loop_terminal_marker=${loop_terminal_marker}"
+    echo "[$iteration/$iterations] Missing or invalid LOOP_TERMINAL_MARKER in the agent output" >&2
+    if [[ "${stop_on_error}" == "1" ]]; then
+      exit 1
+    fi
+    continue
+  fi
+
+  if [[ "${loop_status}" == "TASK_DONE" ]]; then
+    if [[ "${loop_verify_result}" != "pass" ]]; then
+      write_status_file "${status_file}" \
+        "status=invalid-terminal-status" \
+        "mode=${mode}" \
+        "loop_status=${loop_status}" \
+        "loop_verify_result=${loop_verify_result}"
+      echo "[$iteration/$iterations] Refusing TASK_DONE without LOOP_VERIFY_RESULT: pass" >&2
+      exit 1
+    fi
+    if [[ "${loop_recovery}" != "none" ]]; then
+      write_status_file "${status_file}" \
+        "status=invalid-terminal-status" \
+        "mode=${mode}" \
+        "loop_status=${loop_status}" \
+        "loop_recovery=${loop_recovery}"
+      echo "[$iteration/$iterations] Refusing TASK_DONE with non-none LOOP_RECOVERY" >&2
+      exit 1
+    fi
+    if [[ "${loop_terminal_marker}" != "task_done" ]]; then
+      write_status_file "${status_file}" \
+        "status=invalid-terminal-status" \
+        "mode=${mode}" \
+        "loop_status=${loop_status}" \
+        "loop_terminal_marker=${loop_terminal_marker}"
+      echo "[$iteration/$iterations] Refusing TASK_DONE without LOOP_TERMINAL_MARKER: task_done" >&2
+      exit 1
+    fi
+  elif [[ "${loop_status}" == "REPLAN_REQUIRED" ]]; then
+    if [[ "${loop_recovery}" != "none" ]]; then
+      write_status_file "${status_file}" \
+        "status=invalid-terminal-status" \
+        "mode=${mode}" \
+        "loop_status=${loop_status}" \
+        "loop_recovery=${loop_recovery}"
+      echo "[$iteration/$iterations] Refusing REPLAN_REQUIRED with non-none LOOP_RECOVERY" >&2
+      exit 1
+    fi
+    if [[ "${loop_terminal_marker}" != "replan_required" ]]; then
+      write_status_file "${status_file}" \
+        "status=invalid-terminal-status" \
+        "mode=${mode}" \
+        "loop_status=${loop_status}" \
+        "loop_terminal_marker=${loop_terminal_marker}"
+      echo "[$iteration/$iterations] Refusing REPLAN_REQUIRED without LOOP_TERMINAL_MARKER: replan_required" >&2
+      exit 1
+    fi
+  elif [[ "${loop_terminal_marker}" != "none" ]]; then
+    write_status_file "${status_file}" \
+      "status=invalid-terminal-status" \
+      "mode=${mode}" \
+      "loop_status=${loop_status}" \
+      "loop_terminal_marker=${loop_terminal_marker}"
+    echo "[$iteration/$iterations] Refusing non-terminal status with LOOP_TERMINAL_MARKER: ${loop_terminal_marker}" >&2
+    exit 1
+  fi
+
+  after_handoff_cksum="$(file_cksum_value "${handoff_file}")"
+  after_history_size="$(file_size_bytes "${history_file}")"
   after_head="$(git -C "${workdir}" rev-parse HEAD 2>/dev/null || true)"
 
-  if [[ "${loop_status}" != "BLOCKED" ]] && [[ "${before_log_cksum}" == "${after_log_cksum}" ]]; then
+  if [[ "${before_handoff_cksum}" == "${after_handoff_cksum}" ]]; then
     write_status_file "${status_file}" \
-      "status=missing-log-update" \
+      "status=missing-handoff-update" \
       "mode=${mode}" \
       "loop_status=${loop_status}" \
       "loop_summary=${loop_summary}"
-    echo "[$iteration/$iterations] Log file did not change; refusing to continue blindly" >&2
+    echo "[$iteration/$iterations] Handoff file did not change; refusing to continue blindly" >&2
+    exit 1
+  fi
+
+  if [[ "${after_history_size}" -le "${before_history_size}" ]]; then
+    write_status_file "${status_file}" \
+      "status=missing-history-append" \
+      "mode=${mode}" \
+      "loop_status=${loop_status}" \
+      "loop_summary=${loop_summary}"
+    echo "[$iteration/$iterations] History file did not grow; refusing to continue blindly" >&2
+    exit 1
+  fi
+
+  if [[ "${loop_terminal_marker}" != "none" ]] \
+    && ! file_contains_exact_line "${history_file}" "LOOP_TERMINAL_MARKER: ${loop_terminal_marker}"; then
+    write_status_file "${status_file}" \
+      "status=missing-terminal-marker" \
+      "mode=${mode}" \
+      "loop_status=${loop_status}" \
+      "loop_terminal_marker=${loop_terminal_marker}"
+    echo "[$iteration/$iterations] Updated history is missing terminal marker LOOP_TERMINAL_MARKER: ${loop_terminal_marker}" >&2
     exit 1
   fi
 
@@ -1865,6 +2855,7 @@ for ((iteration = 1; ; iteration += 1)); do
     "loop_verify_result=${loop_verify_result}" \
     "loop_recovery=${loop_recovery}" \
     "loop_commit=${loop_commit}" \
+    "loop_terminal_marker=${loop_terminal_marker}" \
     "before_head=${before_head}" \
     "after_head=${after_head}"
 
@@ -1874,8 +2865,15 @@ for ((iteration = 1; ; iteration += 1)); do
     echo "[$iteration/$iterations] Warning: reported commit ${loop_commit} does not match HEAD ${after_head}" >&2
   fi
 
+  cleanup_completed_iteration
+
   if [[ "${loop_status}" == "TASK_DONE" ]]; then
     echo "[$iteration/$iterations] Task complete. Stop here and start the next fresh conversation from the updated docs."
+    break
+  fi
+
+  if [[ "${loop_status}" == "REPLAN_REQUIRED" ]]; then
+    echo "[$iteration/$iterations] Replan required. Stop here and inspect the updated docs before starting another conversation."
     break
   fi
 
