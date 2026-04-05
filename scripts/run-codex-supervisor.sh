@@ -299,6 +299,7 @@ start_loop() {
   loop_launch_count="$((loop_launch_count + 1))"
   current_loop_dir="$(printf '%s/loop-%03d' "${output_dir}" "${loop_launch_count}")"
   current_loop_log="${current_loop_dir}/supervisor-loop.log"
+  current_loop_pipe="${current_loop_dir}/supervisor-loop.pipe"
   mkdir -p "${current_loop_dir}"
   ln -snf "${current_loop_dir}" "${output_dir}/latest-loop"
 
@@ -307,7 +308,11 @@ start_loop() {
   cmd+=("--output-dir" "${current_loop_dir}")
 
   printf '%s\n' "[supervisor] starting loop launch ${loop_launch_count} in ${current_loop_dir}" | tee -a "${supervisor_log_file}"
-  "${cmd[@]}" >> "${current_loop_log}" 2>&1 &
+  rm -f "${current_loop_pipe}"
+  mkfifo "${current_loop_pipe}"
+  tee -a "${current_loop_log}" < "${current_loop_pipe}" &
+  current_loop_relay_pid="$!"
+  "${cmd[@]}" > "${current_loop_pipe}" 2>&1 &
   current_loop_pid="$!"
   current_loop_started_epoch="$(date +%s)"
   current_loop_exit_code=""
@@ -317,10 +322,22 @@ start_loop() {
 
 stop_loop() {
   if [[ -z "${current_loop_pid:-}" ]]; then
+    if [[ -n "${current_loop_relay_pid:-}" ]]; then
+      kill "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+      wait "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+      current_loop_relay_pid=""
+    fi
+    rm -f "${current_loop_pipe:-}" >/dev/null 2>&1 || true
     return 0
   fi
   if ! kill -0 "${current_loop_pid}" >/dev/null 2>&1; then
     current_loop_pid=""
+    if [[ -n "${current_loop_relay_pid:-}" ]]; then
+      kill "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+      wait "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+      current_loop_relay_pid=""
+    fi
+    rm -f "${current_loop_pipe:-}" >/dev/null 2>&1 || true
     return 0
   fi
 
@@ -339,6 +356,12 @@ stop_loop() {
 
   wait "${current_loop_pid}" >/dev/null 2>&1 || true
   current_loop_pid=""
+  if [[ -n "${current_loop_relay_pid:-}" ]]; then
+    kill "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+    wait "${current_loop_relay_pid}" >/dev/null 2>&1 || true
+    current_loop_relay_pid=""
+  fi
+  rm -f "${current_loop_pipe:-}" >/dev/null 2>&1 || true
 }
 
 run_deterministic_repair() {
@@ -807,6 +830,8 @@ cleanup_ran="0"
 current_loop_pid=""
 current_loop_dir=""
 current_loop_log=""
+current_loop_pipe=""
+current_loop_relay_pid=""
 current_loop_started_epoch=""
 current_loop_exit_code=""
 loop_launch_count="0"
