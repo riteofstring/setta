@@ -1,18 +1,52 @@
 import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
-import { route_get_folder_contents } from "utils/generatedEndpoints";
+import {
+  getFolderContents,
+  type FilebrowserFolderContentItem,
+} from "openapi/http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDynamicFolderPathCompletionSource } from "./folderPathCompletions";
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_folder_contents: vi.fn(),
+vi.mock("openapi/http", () => ({
+  getFolderContents: vi.fn(),
 }));
 
-const mockedGetFolderContents = vi.mocked(route_get_folder_contents);
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
+
+const mockedGetFolderContents = vi.mocked(getFolderContents);
 
 function buildContext(text: string, explicit = false) {
   const state = EditorState.create({ doc: text });
   return new CompletionContext(state, text.length, explicit);
+}
+
+function buildFolderContentsResponse(
+  folderPath: string,
+  items: FilebrowserFolderContentItem[],
+) {
+  return {
+    data: {
+      folderPath,
+      items,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
+
+function createFolderContentItem(
+  options: Partial<FilebrowserFolderContentItem> = {},
+): FilebrowserFolderContentItem {
+  return {
+    fullPath: "",
+    name: "",
+    type: "file",
+    ...options,
+  };
 }
 
 describe("folder path completions integration", () => {
@@ -22,18 +56,24 @@ describe("folder path completions integration", () => {
 
   it("refreshes completion cache across mode toggles and supports Windows absolute outside-root paths", async () => {
     mockedGetFolderContents
-      .mockResolvedValueOnce({
-        data: [{ name: "alpha", type: "folder", fullPath: "/root/alpha" }],
-        status: 200,
-        hasResponse: true,
-      })
-      .mockResolvedValueOnce({
-        data: [
-          { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
-        ],
-        status: 200,
-        hasResponse: true,
-      });
+      .mockResolvedValueOnce(
+        buildFolderContentsResponse("/root", [
+          createFolderContentItem({
+            name: "alpha",
+            type: "folder",
+            fullPath: "/root/alpha",
+          }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        buildFolderContentsResponse("C:/Users", [
+          createFolderContentItem({
+            name: "projects",
+            type: "folder",
+            fullPath: "C:/Users/projects",
+          }),
+        ]),
+      );
 
     const options = {
       rootPath: "/root",
@@ -55,18 +95,24 @@ describe("folder path completions integration", () => {
     expect(outsideRoot?.options[0].apply).toBe("projects\\");
 
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(1, {
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "/root",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: false,
+        missingFolderBehavior: "empty",
+      },
     });
     expect(mockedGetFolderContents).toHaveBeenNthCalledWith(2, {
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
+      body: {
+        baseFolderPath: null,
+        folderPath: "C:/Users",
+        ignorePatterns: null,
+        maxEntries: null,
+        allowOutsideWorkspaceRoot: true,
+        missingFolderBehavior: "empty",
+      },
     });
   });
 });
